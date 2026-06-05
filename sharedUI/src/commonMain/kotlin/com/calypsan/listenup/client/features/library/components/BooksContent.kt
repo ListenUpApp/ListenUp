@@ -15,37 +15,36 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
+import com.calypsan.listenup.client.design.components.contributorAvatarShape
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -62,7 +61,6 @@ import listenup.composeapp.generated.resources.library_failed_to_load_library
 import listenup.composeapp.generated.resources.library_loading_your_library
 import listenup.composeapp.generated.resources.common_no_items_yet
 import listenup.composeapp.generated.resources.library_summary
-import listenup.composeapp.generated.resources.library_title_sort
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
@@ -144,56 +142,46 @@ private fun groupBooksWithHeaders(
 }
 
 /**
- * Section header displaying a letter divider in the book grid.
+ * Section header: an Expressive coral "cookie" badge carrying the section [letter], trailed by a
+ * rounded divider line (matches the design's scalloped section letters).
  */
 @Composable
 private fun SectionHeader(
     letter: Char,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 4.dp),
+                .padding(top = 10.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = letter.toString(),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 4.dp),
-        )
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            thickness = 1.dp,
-            modifier = Modifier.padding(top = 4.dp),
+        Box(
+            modifier =
+                Modifier
+                    .size(46.dp)
+                    .clip(contributorAvatarShape())
+                    .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = letter.toString(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+        Box(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(99.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         )
     }
-}
-
-/**
- * Toggle chip for article-aware title sorting.
- *
- * When enabled, leading articles (A, An, The) are ignored when sorting by title.
- * "The Alchemist" sorts under "A", not "T".
- */
-@Composable
-private fun ArticleToggleChip(
-    enabled: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    FilterChip(
-        selected = enabled,
-        onClick = onToggle,
-        label = {
-            Text(
-                text = stringResource(Res.string.library_title_sort),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        },
-        modifier = modifier,
-    )
 }
 
 /**
@@ -209,9 +197,7 @@ private fun ArticleToggleChip(
  * @param bookIsFinished Map of bookId to isFinished flag (authoritative completion status from server)
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of currently selected book IDs
- * @param onCategorySelected Called when user selects a new category
- * @param onDirectionToggle Called when user toggles sort direction
- * @param onToggleIgnoreArticles Called when user toggles article handling
+ * @param onToggleIgnoreArticles Called when the "Title sort" toggle is tapped (article-aware sorting)
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
  * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
  * @param onRetry Callback when retry is clicked in error state
@@ -231,8 +217,6 @@ fun BooksContent(
     bookIsFinished: Map<BookId, Boolean> = emptyMap(),
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
-    onCategorySelected: (SortCategory) -> Unit,
-    onDirectionToggle: () -> Unit,
     onToggleIgnoreArticles: () -> Unit,
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)? = null,
@@ -275,6 +259,13 @@ fun BooksContent(
                     if (isServerScanning && scanProgress != null) {
                         ScanProgressBanner(scanProgress = scanProgress)
                     }
+                    LibrarySortBar(
+                        count = books.size,
+                        unit = "titles",
+                        ignoreArticles = ignoreTitleArticles,
+                        onToggleArticles = onToggleIgnoreArticles,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                    )
                     BookGrid(
                         books = books,
                         sortState = sortState,
@@ -283,9 +274,6 @@ fun BooksContent(
                         bookIsFinished = bookIsFinished,
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
-                        onCategorySelected = onCategorySelected,
-                        onDirectionToggle = onDirectionToggle,
-                        onToggleIgnoreArticles = onToggleIgnoreArticles,
                         onBookClick = onBookClick,
                         onBookLongPress = onBookLongPress,
                         modifier = Modifier.weight(1f),
@@ -309,9 +297,6 @@ private fun BookGrid(
     bookIsFinished: Map<BookId, Boolean>,
     isInSelectionMode: Boolean,
     selectedBookIds: Set<String>,
-    onCategorySelected: (SortCategory) -> Unit,
-    onDirectionToggle: () -> Unit,
-    onToggleIgnoreArticles: () -> Unit,
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
@@ -358,19 +343,6 @@ private fun BookGrid(
         derivedStateOf { gridState.isScrollInProgress }
     }
 
-    // Track scroll for sort button visibility
-    var previousScrollOffset by remember { mutableIntStateOf(0) }
-    val showSortButton by remember {
-        derivedStateOf {
-            val firstVisible = gridState.firstVisibleItemIndex
-            val currentOffset = gridState.firstVisibleItemScrollOffset
-            val isAtTop = firstVisible == 0 && currentOffset < 50
-            val isScrollingUp = currentOffset < previousScrollOffset
-            previousScrollOffset = currentOffset
-            isAtTop || isScrollingUp || !gridState.isScrollInProgress
-        }
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
             state = gridState,
@@ -379,7 +351,7 @@ private fun BookGrid(
                 PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
-                    top = 48.dp,
+                    top = 12.dp,
                     bottom = 16.dp,
                 ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -431,35 +403,7 @@ private fun BookGrid(
             }
         }
 
-        // Sort controls row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = 8.dp),
-        ) {
-            SortSplitButton(
-                state = sortState,
-                categories = SortCategory.booksCategories,
-                onCategorySelected = onCategorySelected,
-                onDirectionToggle = onDirectionToggle,
-                visible = showSortButton,
-            )
-
-            // Article toggle chip - only visible when sorting by Title
-            if (sortState.category == SortCategory.TITLE && showSortButton) {
-                Spacer(modifier = Modifier.width(8.dp))
-                ArticleToggleChip(
-                    enabled = ignoreTitleArticles,
-                    onToggle = onToggleIgnoreArticles,
-                )
-            }
-        }
-
-        // Alphabet scrollbar (only for text-based sorts)
-        // Anchored to TopEnd so it stays fixed relative to content start,
-        // regardless of header collapse state
+        // Alphabet scrollbar (only for text-based sorts), anchored to the content's top-end.
         if (alphabetIndex != null) {
             AlphabetScrollbar(
                 alphabetIndex = alphabetIndex,
@@ -473,7 +417,7 @@ private fun BookGrid(
                 modifier =
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 56.dp, end = 4.dp, bottom = 0.dp),
+                        .padding(top = 12.dp, end = 4.dp, bottom = 0.dp),
             )
         }
     }

@@ -5,23 +5,15 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,11 +21,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -41,7 +37,7 @@ import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BooksContent
-import com.calypsan.listenup.client.features.library.components.LibraryTabRow
+import com.calypsan.listenup.client.features.library.components.LibraryFilterChips
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SelectionToolbar
 import com.calypsan.listenup.client.features.library.components.SeriesContent
@@ -54,10 +50,6 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.library.SelectionMode
 import kotlinx.coroutines.launch
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.library_browse_by_genre
-import listenup.composeapp.generated.resources.library_more_options
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -77,8 +69,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onSeriesClick Callback when a series is clicked
  * @param onAuthorClick Callback when an author is clicked
  * @param onNarratorClick Callback when a narrator is clicked
- * @param onBrowseGenresClick Callback to open the browse-by-genre screen
- * @param appHeader The shell header slot, rendered above the tab row
+ * @param appHeader The shell header slot, rendered above the filter chips
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
  */
@@ -88,7 +79,6 @@ fun LibraryScreen(
     onSeriesClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
-    onBrowseGenresClick: () -> Unit,
     appHeader: AppHeaderSlot,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
@@ -122,7 +112,6 @@ fun LibraryScreen(
                 onSeriesClick = onSeriesClick,
                 onAuthorClick = onAuthorClick,
                 onNarratorClick = onNarratorClick,
-                onBrowseGenresClick = onBrowseGenresClick,
                 appHeader = appHeader,
                 onEvent = viewModel::onEvent,
                 onEnterSelectionMode = viewModel::enterSelectionMode,
@@ -187,7 +176,6 @@ private fun LibraryLoadedContent(
     onSeriesClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
-    onBrowseGenresClick: () -> Unit,
     appHeader: AppHeaderSlot,
     onEvent: (LibraryUiEvent) -> Unit,
     onEnterSelectionMode: (String) -> Unit,
@@ -195,9 +183,6 @@ private fun LibraryLoadedContent(
     onExitSelectionMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val snackbarHostState = LocalSnackbarHostState.current
-    val scope = rememberCoroutineScope()
-
     val selectionMode = state.selectionMode
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds ?: emptySet()
@@ -212,7 +197,6 @@ private fun LibraryLoadedContent(
     // Collection and shelf picker sheet state
     var showCollectionPicker by remember { mutableStateOf(false) }
     var showShelfPicker by remember { mutableStateOf(false) }
-    var showLibraryMenu by remember { mutableStateOf(false) }
 
     // Handle back press to exit selection mode
     PlatformBackHandler(enabled = isInSelectionMode) {
@@ -226,202 +210,105 @@ private fun LibraryLoadedContent(
         }
     }
 
-    // Handle action events (snackbar feedback)
-    LaunchedEffect(Unit) {
-        actionsViewModel.events.collect { event ->
-            when (event) {
-                is LibraryActionEvent.BooksAddedToCollection -> {
-                    showCollectionPicker = false
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            if (event.count == 1) {
-                                "1 book added to collection"
-                            } else {
-                                "${event.count} books added to collection"
-                            },
-                        )
-                    }
-                }
+    // Snackbar feedback for collection/shelf actions; dismisses the relevant picker on success.
+    LibraryActionFeedback(
+        actionsViewModel = actionsViewModel,
+        onCollectionActionHandled = { showCollectionPicker = false },
+        onShelfActionHandled = { showShelfPicker = false },
+    )
 
-                is LibraryActionEvent.AddToCollectionFailed -> {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Failed to add: ${event.message}")
-                    }
-                }
-
-                is LibraryActionEvent.BooksAddedToShelf -> {
-                    showShelfPicker = false
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            if (event.count == 1) {
-                                "1 book added to shelf"
-                            } else {
-                                "${event.count} books added to shelf"
-                            },
-                        )
-                    }
-                }
-
-                is LibraryActionEvent.ShelfCreatedAndBooksAdded -> {
-                    showShelfPicker = false
-                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Created \"${event.shelfName}\" with $bookText")
-                    }
-                }
-
-                is LibraryActionEvent.AddToShelfFailed -> {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Failed to add: ${event.message}")
-                    }
-                }
+    // "In progress" view: titles with partial (started-but-unfinished) playback.
+    val booksInProgress =
+        remember(state.books, state.bookProgress, state.bookIsFinished) {
+            state.books.filter { book ->
+                val progress = state.bookProgress[book.id]
+                progress != null && progress > 0f && progress < 1f && state.bookIsFinished[book.id] != true
             }
         }
-    }
 
-    // Pager state for tab switching
-    val pagerState = rememberPagerState(pageCount = { LibraryTab.entries.size })
+    var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.Books) }
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+
+    // The Books grid is reused for both the Books filter (all titles) and In progress (partial).
+    val booksGrid: @Composable (List<BookListItem>) -> Unit = { books ->
+        BooksContent(
+            books = books,
+            hasLoadedBooks = true,
+            syncState = state.syncState,
+            isServerScanning = state.isServerScanning,
+            scanProgress = state.scanProgress,
+            sortState = state.booksSortState,
+            ignoreTitleArticles = state.ignoreTitleArticles,
+            bookProgress = state.bookProgress,
+            bookIsFinished = state.bookIsFinished,
+            isInSelectionMode = isInSelectionMode,
+            selectedBookIds = selectedBookIds,
+            onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
+            onBookClick = { bookId ->
+                if (isInSelectionMode) onToggleBookSelection(bookId) else onBookClick(bookId)
+            },
+            onBookLongPress = { bookId -> onEnterSelectionMode(bookId) },
+            onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Custom shell header above the tabs (search/sync/avatar live here, not a Material bar).
+            // Custom shell header (search/sync/avatar). The Library title is a big Expressive hero.
             appHeader {
                 Text(
                     text = ShellDestination.Library.title,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
 
-            // Tab row + overflow menu
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LibraryTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    onTabSelected = { index ->
-                        scope.launch {
-                            pagerState.animateScrollToPage(index)
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                )
+            // Filter chips replace the old tab row. Wider chrome gets more air below the big header.
+            LibraryFilterChips(
+                selected = selectedFilter,
+                onSelect = { selectedFilter = it },
+                modifier = Modifier.padding(top = if (isWide) 20.dp else 8.dp, bottom = 6.dp),
+            )
 
-                Box {
-                    IconButton(onClick = { showLibraryMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(Res.string.library_more_options),
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showLibraryMenu,
-                        onDismissRequest = { showLibraryMenu = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.library_browse_by_genre)) },
-                            onClick = {
-                                showLibraryMenu = false
-                                onBrowseGenresClick()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Outlined.Category, contentDescription = null)
-                            },
-                        )
-                    }
-                }
-            }
-
-            // Pull-to-refresh wraps entire pager (syncs all data)
+            // Pull-to-refresh wraps the active filter's content (syncs all data).
             PullToRefreshBox(
                 isRefreshing = state.syncState is SyncState.Syncing,
                 onRefresh = { onEvent(LibraryUiEvent.RefreshRequested) },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                ) { page ->
-                    when (LibraryTab.entries[page]) {
-                        LibraryTab.Books -> {
-                            BooksContent(
-                                books = state.books,
-                                hasLoadedBooks = true,
-                                syncState = state.syncState,
-                                isServerScanning = state.isServerScanning,
-                                scanProgress = state.scanProgress,
-                                sortState = state.booksSortState,
-                                ignoreTitleArticles = state.ignoreTitleArticles,
-                                bookProgress = state.bookProgress,
-                                bookIsFinished = state.bookIsFinished,
-                                isInSelectionMode = isInSelectionMode,
-                                selectedBookIds = selectedBookIds,
-                                onCategorySelected = { category ->
-                                    onEvent(LibraryUiEvent.BooksCategoryChanged(category))
-                                },
-                                onDirectionToggle = {
-                                    onEvent(LibraryUiEvent.BooksDirectionToggled)
-                                },
-                                onToggleIgnoreArticles = {
-                                    onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles)
-                                },
-                                onBookClick = { bookId ->
-                                    if (isInSelectionMode) {
-                                        onToggleBookSelection(bookId)
-                                    } else {
-                                        onBookClick(bookId)
-                                    }
-                                },
-                                onBookLongPress = { bookId ->
-                                    onEnterSelectionMode(bookId)
-                                },
-                                onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
-                            )
-                        }
+                when (selectedFilter) {
+                    LibraryFilter.Books -> booksGrid(state.books)
+                    LibraryFilter.InProgress -> booksGrid(booksInProgress)
+                    LibraryFilter.Series ->
+                        SeriesContent(
+                            series = state.series,
+                            sortState = state.seriesSortState,
+                            onCategorySelected = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
+                            onDirectionToggle = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
+                            onSeriesClick = onSeriesClick,
+                        )
 
-                        LibraryTab.Series -> {
-                            SeriesContent(
-                                series = state.series,
-                                sortState = state.seriesSortState,
-                                onCategorySelected = { category ->
-                                    onEvent(LibraryUiEvent.SeriesCategoryChanged(category))
-                                },
-                                onDirectionToggle = {
-                                    onEvent(LibraryUiEvent.SeriesDirectionToggled)
-                                },
-                                onSeriesClick = onSeriesClick,
-                            )
-                        }
+                    LibraryFilter.Authors ->
+                        AuthorsContent(
+                            authors = state.authors,
+                            sortState = state.authorsSortState,
+                            onCategorySelected = { onEvent(LibraryUiEvent.AuthorsCategoryChanged(it)) },
+                            onDirectionToggle = { onEvent(LibraryUiEvent.AuthorsDirectionToggled) },
+                            onAuthorClick = onAuthorClick,
+                        )
 
-                        LibraryTab.Authors -> {
-                            AuthorsContent(
-                                authors = state.authors,
-                                sortState = state.authorsSortState,
-                                onCategorySelected = { category ->
-                                    onEvent(LibraryUiEvent.AuthorsCategoryChanged(category))
-                                },
-                                onDirectionToggle = {
-                                    onEvent(LibraryUiEvent.AuthorsDirectionToggled)
-                                },
-                                onAuthorClick = onAuthorClick,
-                            )
-                        }
-
-                        LibraryTab.Narrators -> {
-                            NarratorsContent(
-                                narrators = state.narrators,
-                                sortState = state.narratorsSortState,
-                                onCategorySelected = { category ->
-                                    onEvent(LibraryUiEvent.NarratorsCategoryChanged(category))
-                                },
-                                onDirectionToggle = {
-                                    onEvent(LibraryUiEvent.NarratorsDirectionToggled)
-                                },
-                                onNarratorClick = onNarratorClick,
-                            )
-                        }
-                    }
+                    LibraryFilter.Narrators ->
+                        NarratorsContent(
+                            narrators = state.narrators,
+                            sortState = state.narratorsSortState,
+                            onCategorySelected = { onEvent(LibraryUiEvent.NarratorsCategoryChanged(it)) },
+                            onDirectionToggle = { onEvent(LibraryUiEvent.NarratorsDirectionToggled) },
+                            onNarratorClick = onNarratorClick,
+                        )
                 }
             }
         }
@@ -474,5 +361,58 @@ private fun LibraryLoadedContent(
             onDismiss = { showShelfPicker = false },
             isLoading = isAddingToShelf,
         )
+    }
+}
+
+/**
+ * Collects [LibraryActionsViewModel.events] and surfaces snackbar feedback for collection/shelf
+ * actions. On a successful add it dismisses the matching picker via [onCollectionActionHandled] /
+ * [onShelfActionHandled]. Snackbars are launched on a dedicated scope so they outlive the collect.
+ */
+@Composable
+private fun LibraryActionFeedback(
+    actionsViewModel: LibraryActionsViewModel,
+    onCollectionActionHandled: () -> Unit,
+    onShelfActionHandled: () -> Unit,
+) {
+    val snackbarHostState = LocalSnackbarHostState.current
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        actionsViewModel.events.collect { event ->
+            when (event) {
+                is LibraryActionEvent.BooksAddedToCollection -> {
+                    onCollectionActionHandled()
+                    val message =
+                        if (event.count == 1) {
+                            "1 book added to collection"
+                        } else {
+                            "${event.count} books added to collection"
+                        }
+                    scope.launch { snackbarHostState.showSnackbar(message) }
+                }
+
+                is LibraryActionEvent.AddToCollectionFailed -> {
+                    scope.launch { snackbarHostState.showSnackbar("Failed to add: ${event.message}") }
+                }
+
+                is LibraryActionEvent.BooksAddedToShelf -> {
+                    onShelfActionHandled()
+                    val message =
+                        if (event.count == 1) "1 book added to shelf" else "${event.count} books added to shelf"
+                    scope.launch { snackbarHostState.showSnackbar(message) }
+                }
+
+                is LibraryActionEvent.ShelfCreatedAndBooksAdded -> {
+                    onShelfActionHandled()
+                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
+                    scope.launch { snackbarHostState.showSnackbar("Created \"${event.shelfName}\" with $bookText") }
+                }
+
+                is LibraryActionEvent.AddToShelfFailed -> {
+                    scope.launch { snackbarHostState.showSnackbar("Failed to add: ${event.message}") }
+                }
+            }
+        }
     }
 }
