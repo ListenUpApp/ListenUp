@@ -13,6 +13,8 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -68,6 +70,8 @@ fun playbackModule(): Module =
         }
         single { UserRoleLookup(db = get()) }
         single(createdAtStart = true) { ActiveSessionRepository(db = get(), bus = get()) }
+        single { ActivityRepository(db = get()) }
+        single { ActivityRecorder(repo = get(), bus = get()) }
         single(createdAtStart = true) {
             PlaybackPositionRepository(
                 db = get(),
