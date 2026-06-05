@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
@@ -73,6 +74,7 @@ val clientSyncRenovationModule =
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
         single { PresenceRefreshSignal() }
+        single { ActivityRefreshSignal() }
         single<ServerReachability> { SseServerReachability(get(), get(qualifier = named(APP_SCOPE))) }
         single { SyncCursorStore(dao = get()) }
 
@@ -163,6 +165,9 @@ val clientSyncRenovationModule =
                 // The server's content-free presence nudge pings the shared signal so the social
                 // repos (currently-listening, book-readers) re-fetch their ACL-filtered RPCs.
                 onActiveSessionsChanged = { get<PresenceRefreshSignal>().ping() },
+                // The server's content-free activity nudge pings the shared signal so the activity
+                // feed re-fetches its ACL-filtered RPC page.
+                onActivityChanged = { get<ActivityRefreshSignal>().ping() },
             )
         }
 
@@ -311,6 +316,7 @@ val clientSyncRenovationModule =
                 reconciler = get(),
                 dispatcher = get(),
                 presenceRefreshSignal = get(),
+                activityRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
             )
         }

@@ -41,9 +41,11 @@ import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
+import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
+import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
@@ -769,6 +771,11 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
+        single<ActivityRpcFactory> {
+            KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // FtsPopulator for rebuilding FTS tables after sync
