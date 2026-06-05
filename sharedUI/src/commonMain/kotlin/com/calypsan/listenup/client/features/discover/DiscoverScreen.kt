@@ -77,6 +77,7 @@ fun DiscoverScreen(
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
@@ -99,6 +100,7 @@ fun DiscoverScreen(
             users = shelvesReady?.users.orEmpty(),
             isEmpty = shelvesReady?.isEmpty ?: false,
             appHeader = appHeader,
+            contentPadding = contentPadding,
             onShelfClick = onShelfClick,
             onBookClick = onBookClick,
             onUserProfileClick = onUserProfileClick,
@@ -154,6 +156,7 @@ private fun DiscoverContent(
     users: List<DiscoverUserShelves>,
     isEmpty: Boolean,
     appHeader: AppHeaderSlot,
+    contentPadding: PaddingValues,
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
@@ -164,7 +167,13 @@ private fun DiscoverContent(
         )
 
     LazyColumn(
-        contentPadding = PaddingValues(vertical = 16.dp),
+        // Shell system-bar/nav insets fold into the feed's own 16dp so content scrolls under the
+        // bars and rests clear of them — no outer pad that would clip the first/last item.
+        contentPadding =
+            PaddingValues(
+                top = contentPadding.calculateTopPadding() + 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(24.dp),
         modifier = Modifier.fillMaxSize(),
     ) {

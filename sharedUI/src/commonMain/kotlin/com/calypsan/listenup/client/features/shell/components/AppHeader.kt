@@ -8,7 +8,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -21,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -33,6 +37,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.UserAvatarMenu
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -117,14 +122,20 @@ fun AppHeader(
     showAvatarLabel: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
     AnimatedContent(
-        targetState = isSearchExpanded,
+        // On wide windows search is a persistent inline field (below); never run the compact
+        // full-width takeover even when [isSearchExpanded] flips true from typing into it.
+        targetState = isSearchExpanded && !isWide,
         transitionSpec = { fadeIn() togetherWith fadeOut() },
         label = "header_search_animation",
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(start = Spacing.screenMargin, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = Spacing.screenMargin, end = 8.dp, top = 8.dp, bottom = 0.dp),
     ) { expanded ->
         if (expanded) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -147,11 +158,21 @@ fun AppHeader(
                     leadingContent()
                 }
 
-                IconButton(onClick = { onSearchExpandedChange(true) }) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = stringResource(Res.string.common_search),
+                if (isWide) {
+                    // Wide chrome: a persistent search box, not a tap-to-expand icon (matches design).
+                    HeaderSearchField(
+                        query = searchQuery,
+                        onQueryChange = onSearchQueryChange,
+                        onExpandedChange = onSearchExpandedChange,
+                        modifier = Modifier.width(320.dp).height(52.dp).padding(end = 8.dp),
                     )
+                } else {
+                    IconButton(onClick = { onSearchExpandedChange(true) }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = stringResource(Res.string.common_search),
+                        )
+                    }
                 }
 
                 SyncIndicator(
@@ -220,6 +241,45 @@ private fun SearchField(
             modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester),
+    )
+}
+
+/**
+ * Persistent inline search box shown in wide chrome — typing drives the query and opens the
+ * results overlay (via [onExpandedChange]); clearing the text closes it. Compact chrome uses the
+ * tap-to-expand [SearchField] takeover instead.
+ */
+@Composable
+private fun HeaderSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextField(
+        value = query,
+        onValueChange = {
+            onQueryChange(it)
+            onExpandedChange(it.isNotBlank())
+        },
+        placeholder = { Text(stringResource(Res.string.common_search)) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(Res.string.common_search),
+            )
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        colors =
+            TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+            ),
+        modifier = modifier,
     )
 }
 

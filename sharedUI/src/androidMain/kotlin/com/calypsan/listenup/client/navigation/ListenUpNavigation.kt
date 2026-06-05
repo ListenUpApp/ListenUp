@@ -754,7 +754,7 @@ private fun AuthenticatedNavigation(
                                         onNavigateToLibrary = onNavigateToLibrary,
                                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                                         onSeeAllShelves = onNavigateToLibrary,
-                                        modifier = Modifier.padding(padding),
+                                        contentPadding = padding,
                                     )
                                 },
                                 libraryContent = { padding, appHeader ->
@@ -776,7 +776,7 @@ private fun AuthenticatedNavigation(
                                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                                         onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
-                                        modifier = Modifier.padding(padding),
+                                        contentPadding = padding,
                                     )
                                 },
                             )

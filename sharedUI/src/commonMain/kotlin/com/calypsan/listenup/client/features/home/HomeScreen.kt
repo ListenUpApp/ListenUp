@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -65,6 +67,7 @@ fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
@@ -88,6 +91,9 @@ fun HomeScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent,
+        // The shell owns the system-bar/nav insets and passes them in as [contentPadding]; this
+        // inner Scaffold must not re-add them, or the top/bottom would be inset twice.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
     ) { paddingValues ->
         when (val s = state) {
@@ -129,7 +135,7 @@ fun HomeScreen(
                     onNavigateToLibrary = onNavigateToLibrary,
                     onShelfClick = onShelfClick,
                     onSeeAllShelves = onSeeAllShelves,
-                    modifier = Modifier.padding(paddingValues),
+                    contentPadding = contentPadding,
                 )
             }
         }
@@ -148,6 +154,7 @@ private fun HomeContent(
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {
     PullToRefreshBox(
@@ -155,11 +162,14 @@ private fun HomeContent(
         onRefresh = onRefresh,
         modifier = modifier.fillMaxSize(),
     ) {
+        // The shell's system-bar/nav insets are applied *inside* the scroll so content scrolls
+        // edge-to-edge under the bars and rests clear of them — not clipped by an outer pad.
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
+                    .padding(contentPadding),
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
             // The shell header scrolls away with the page; the greeting is its leading hero.
@@ -231,7 +241,8 @@ private fun HomeContentCompact(
     )
 
     if (state.hasMyShelves) {
-        Spacer(modifier = Modifier.height(Spacing.sectionGap))
+        // The parent Column already spaces siblings by sectionGap; an extra Spacer here would
+        // triple the stats→shelves gap.
         MyShelvesRow(
             shelves = state.myShelves,
             isWide = false,
