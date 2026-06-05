@@ -82,26 +82,28 @@ fun DailyListeningChart(
         val totalSpacing = barSpacing * (barCount - 1)
         val barWidth = ((size.width - totalSpacing) / barCount).coerceAtLeast(12.dp.toPx())
 
-        val emptyStub = 4.dp.toPx()
+        val emptyStub = barWidth // a circular nub so empty days read as dots, not bars
         chartData.forEachIndexed { index, bar ->
             val x = index * (barWidth + barSpacing)
             val isToday = index == chartData.lastIndex
             val isEmpty = bar.minutes <= 0f
-            // Empty days draw a small stub so the baseline reads as a row of days, not gaps.
+            // Empty days draw a small nub so the baseline reads as a row of days, not gaps.
             val barHeight = if (isEmpty) emptyStub else bar.minutes / maxMinutes * chartHeight
             val barTop = chartHeight - barHeight
+            // Today always reads as the coral accent (even at zero), emphasizing the current day.
             val color =
                 when {
-                    isEmpty -> emptyColor
                     isToday -> todayColor
+                    isEmpty -> emptyColor
                     else -> barColor
                 }
 
+            // Fully-rounded "pill" bars for a more expressive chart.
             drawRoundRect(
                 color = color,
                 topLeft = Offset(x, barTop),
                 size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(8.dp.toPx()),
+                cornerRadius = CornerRadius(barWidth / 2f),
             )
 
             // Draw day label centered below bar

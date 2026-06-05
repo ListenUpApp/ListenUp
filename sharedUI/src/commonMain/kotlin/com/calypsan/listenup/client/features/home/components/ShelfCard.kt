@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.LibraryBooks
@@ -36,6 +35,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.domain.model.Shelf
 
 private val ShelfCardWidth = 180.dp
@@ -86,7 +86,7 @@ fun ShelfCard(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.clip(RoundedCornerShape(20.dp))
+                }.clip(ContentShapes.card)
                 .background(containerColor)
                 .clickable(
                     interactionSource = interactionSource,

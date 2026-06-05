@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 
 /**
@@ -34,12 +35,14 @@ fun HomeHeader(
             Text(
                 text = userName,
                 style =
-                    (if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall)
+                    (if (isWide) MaterialTheme.typography.displayLarge else MaterialTheme.typography.displayMedium)
                         .copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-1.5).sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-2).sp,
                         ),
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

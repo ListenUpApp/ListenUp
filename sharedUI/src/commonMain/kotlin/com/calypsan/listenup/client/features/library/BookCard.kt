@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -57,6 +56,7 @@ import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.contributorAvatarShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.theme.ContentShapes
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -338,7 +338,7 @@ private fun BookCardCover(
     borderColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = ContentShapes.card
 
     // Outer Box allows avatar to overflow the clipped cover area
     Box(modifier = modifier) {
