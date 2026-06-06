@@ -5,6 +5,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
+import com.calypsan.listenup.server.scanner.pipeline.GenreSplitter
 
 /**
  * Reads ID3v2.3 / ID3v2.4 tags out of an in-memory MP3 byte slice.
@@ -161,7 +162,7 @@ internal object Id3v2Reader {
 
             "TALB" -> builder.custom["album"] = text
 
-            "TCON" -> builder.genres += text
+            "TCON" -> builder.genres += GenreSplitter.split(text)
 
             "TYER" -> parseYear(text)?.let { builder.publishedYear = it }
 
