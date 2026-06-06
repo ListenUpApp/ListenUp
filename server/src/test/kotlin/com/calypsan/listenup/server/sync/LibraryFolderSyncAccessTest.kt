@@ -37,7 +37,8 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import java.util.UUID
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import org.koin.ktor.ext.inject
 
@@ -87,28 +88,19 @@ class LibraryFolderSyncAccessTest :
             withFolderSyncApp { client, admin, _ ->
                 seedTestLibraryAndFolder()
                 val folders by application.inject<LibraryFolderRepository>()
-                val books by application.inject<BookRepository>()
 
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(admin) }) {
-                    // Single collection of the cold, single-consumption `incoming` stream: the predicate
-                    // publishes the asserted event only after a unique public warm-up book proves the
-                    // server-side subscription is live — closing the subscribe-before-publish race without
-                    // a relay coroutine (which would outlive the test and trip runTest's leak check).
-                    // Dash-stripped UUID = 32 chars: the id flows into `af-$id`/`ch-$id` child rows and
-                    // all three columns are varchar(36), so the bare UUID (no prefix) keeps children ≤ 35.
-                    val warmupId = UUID.randomUUID().toString().replace("-", "")
-                    books.upsert(publicBookFixture(warmupId))
-
-                    val event =
-                        incoming.first { frame ->
-                            if (frame.data?.contains(warmupId) == true) {
-                                folders.upsert(folderFixture("live-folder"))
-                                false
-                            } else {
-                                frame.event == "library_folders"
-                            }
-                        }
-                    event.event shouldBe "library_folders"
+                    // Canonical firehose pattern (see SeamLeakE2ETest / BooksSyncFirehoseTest): collect in an
+                    // `async` that `coroutineScope` joins to completion, and publish OUTSIDE the collector.
+                    // This keeps the in-flight tail minimal at block exit so the server's async SSE teardown
+                    // finishes before runTest's end-of-body coroutine-leak check samples — publishing inside
+                    // a single `incoming.first { }` predicate widened that race and tripped
+                    // UncompletedCoroutinesError on the CI runner.
+                    coroutineScope {
+                        val deferred = async { incoming.first { it.event == "library_folders" } }
+                        folders.upsert(folderFixture("live-folder"))
+                        deferred.await().event shouldBe "library_folders"
+                    }
                 }
             }
         }
@@ -120,26 +112,19 @@ class LibraryFolderSyncAccessTest :
                 val books by application.inject<BookRepository>()
 
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(member) }) {
-                    // Single collection (see the admin test). Once the warm-up frame proves the stream is
-                    // live, the predicate publishes a hidden folder + a public sentinel book; the first
-                    // folder-or-book frame the member then sees must be the sentinel `books` — the hidden
-                    // folder event is withheld for members and never reaches the stream.
-                    // Dash-stripped UUID = 32 chars: the id flows into `af-$id`/`ch-$id` child rows and
-                    // all three columns are varchar(36), so the bare UUID (no prefix) keeps children ≤ 35.
-                    val warmupId = UUID.randomUUID().toString().replace("-", "")
-                    books.upsert(publicBookFixture(warmupId))
-
-                    val event =
-                        incoming.first { frame ->
-                            if (frame.data?.contains(warmupId) == true) {
-                                folders.upsert(folderFixture("hidden-folder"))
-                                books.upsert(publicBookFixture("sentinel-book"))
-                                false
-                            } else {
-                                frame.event == "library_folders" || frame.event == "books"
-                            }
-                        }
-                    event.event shouldBe "books"
+                    // Canonical firehose pattern (see SeamLeakE2ETest SEAM-6, the exact analogue): the
+                    // member's first folder-or-book frame must be the public sentinel book — the hidden
+                    // folder event is withheld for members and never reaches the stream. Collect in an
+                    // `async` joined by `coroutineScope`; publish OUTSIDE the collector so the teardown
+                    // tail stays minimal (a side-effecting predicate caused a CI-only
+                    // UncompletedCoroutinesError; ChangeBus replay=256 covers a slightly-late subscriber,
+                    // so no readiness handshake is needed).
+                    coroutineScope {
+                        val deferred = async { incoming.first { it.event == "library_folders" || it.event == "books" } }
+                        folders.upsert(folderFixture("hidden-folder"))
+                        books.upsert(publicBookFixture("sentinel-book"))
+                        deferred.await().event shouldBe "books"
+                    }
                 }
             }
         }
