@@ -212,6 +212,10 @@ internal object Id3v2Reader {
         val encoding = data[0]
         val (description, value) = splitNullTerminated(data.copyOfRange(1, data.size), encoding) ?: return
         when (description.lowercase()) {
+            "subtitle" -> {
+                builder.subtitle = builder.subtitle ?: value
+            }
+
             "narrator" -> {
                 builder.narrators += value
             }
