@@ -66,6 +66,19 @@ interface MetadataRepository {
     ): AppResult<Unit>
 
     /**
+     * Applies Audible chapter names (by ordinal, start-time order) to the book
+     * at [bookId]. Only the chapters whose ordinal is in [ordinals] are renamed;
+     * local chapter timings are never changed. The server re-validates that the
+     * Audible chapter count matches the book's and emits an SSE event on success.
+     */
+    suspend fun applyChapterNames(
+        bookId: BookId,
+        asin: String,
+        region: AudibleRegion,
+        ordinals: Set<Int>,
+    ): AppResult<Unit>
+
+    /**
      * Applies the canonical Audible contributor metadata for [asin] to the
      * contributor at [contributorId].
      *

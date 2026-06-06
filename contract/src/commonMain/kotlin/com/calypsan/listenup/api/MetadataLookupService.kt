@@ -130,6 +130,29 @@ interface MetadataLookupService {
     ): AppResult<Unit>
 
     /**
+     * Applies Audible chapter *names* to the book at [bookId], by ordinal.
+     *
+     * Each ordinal in [ordinals] is the index of a chapter in the book's
+     * start-time-ordered chapter list; that chapter takes the title of the
+     * Audible chapter at the same ordinal. Local chapter start times and
+     * durations are never modified — only titles. Ordinals not listed keep
+     * their current title.
+     *
+     * The server re-fetches the Audible chapter list for [asin]/[region] and
+     * re-validates that its size equals the book's chapter count. On a mismatch
+     * it returns [com.calypsan.listenup.api.error.MetadataError.ChapterCountMismatch]
+     * and writes nothing — guarding against a different-edition match. An empty
+     * [ordinals] is a no-op success. The caller should confirm the match and let
+     * the user review the names in a preview UI before calling this method.
+     */
+    suspend fun applyChapterNames(
+        bookId: BookId,
+        asin: String,
+        region: AudibleRegion,
+        ordinals: Set<Int>,
+    ): AppResult<Unit>
+
+    /**
      * Applies the canonical Audible contributor metadata for [asin] to the
      * contributor at [contributorId].
      *

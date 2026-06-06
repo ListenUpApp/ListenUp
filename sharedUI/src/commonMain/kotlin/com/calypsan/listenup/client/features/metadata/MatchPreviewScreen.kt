@@ -41,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -57,6 +58,7 @@ import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
@@ -103,6 +105,9 @@ fun MatchPreviewScreen(
     isLoadingCovers: Boolean,
     selectedCoverUrl: String?,
     onSelectCover: (String?) -> Unit,
+    // Chapter names
+    chapterSuggestion: ChapterSuggestion,
+    onReviewChapters: () -> Unit,
     // Callbacks
     onRegionSelected: (AudibleRegion) -> Unit,
     onToggleField: (MetadataField) -> Unit,
@@ -199,6 +204,8 @@ fun MatchPreviewScreen(
                     isLoadingCovers = isLoadingCovers,
                     selectedCoverUrl = selectedCoverUrl,
                     onSelectCover = onSelectCover,
+                    chapterSuggestion = chapterSuggestion,
+                    onReviewChapters = onReviewChapters,
                     onToggleField = onToggleField,
                     onToggleAuthor = onToggleAuthor,
                     onToggleNarrator = onToggleNarrator,
@@ -261,6 +268,8 @@ private fun LazyListScope.metadataFieldsSection(
     isLoadingCovers: Boolean,
     selectedCoverUrl: String?,
     onSelectCover: (String?) -> Unit,
+    chapterSuggestion: ChapterSuggestion,
+    onReviewChapters: () -> Unit,
     onToggleField: (MetadataField) -> Unit,
     onToggleAuthor: (String) -> Unit,
     onToggleNarrator: (String) -> Unit,
@@ -401,6 +410,88 @@ private fun LazyListScope.metadataFieldsSection(
                 isSelected = selections.language,
                 onToggle = { onToggleField(MetadataField.LANGUAGE) },
             )
+        }
+    }
+
+    // Chapter names (count-gated; renders nothing when unavailable)
+    chapterNamesSection(chapterSuggestion, onReviewChapters)
+}
+
+/**
+ * Emits the count-gated chapter-names row, if any.
+ *
+ * Renders nothing for [ChapterSuggestion.Unavailable], a disabled reason for
+ * [ChapterSuggestion.CountMismatch], and a Review action for
+ * [ChapterSuggestion.Available] that opens the per-chapter review sheet.
+ */
+private fun LazyListScope.chapterNamesSection(
+    suggestion: ChapterSuggestion,
+    onReviewChapters: () -> Unit,
+) {
+    if (suggestion is ChapterSuggestion.Unavailable) return
+    item {
+        ChapterNamesItem(suggestion = suggestion, onReview = onReviewChapters)
+    }
+}
+
+/**
+ * Count-gated chapter-name suggestion row body. Only [ChapterSuggestion.CountMismatch]
+ * and [ChapterSuggestion.Available] reach here; [ChapterSuggestion.Unavailable] is
+ * filtered out by [chapterNamesSection].
+ */
+@Composable
+private fun ChapterNamesItem(
+    suggestion: ChapterSuggestion,
+    onReview: () -> Unit,
+) {
+    when (suggestion) {
+        is ChapterSuggestion.Unavailable -> {
+            return
+        }
+
+        is ChapterSuggestion.CountMismatch -> {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+            ) {
+                Text(
+                    text = "Chapter names",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text =
+                        "${suggestion.audibleCount} Audible chapters → your ${suggestion.localCount} — " +
+                            "different edition, unavailable.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        is ChapterSuggestion.Available -> {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Chapter names",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "${suggestion.rows.size} Audible chapters match — review and apply.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                TextButton(onClick = onReview) { Text("Review") }
+            }
         }
     }
 }

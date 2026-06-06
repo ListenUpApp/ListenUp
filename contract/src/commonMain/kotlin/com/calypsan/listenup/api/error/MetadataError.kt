@@ -82,4 +82,22 @@ sealed interface MetadataError : AppError {
         override val code: String = "METADATA_MALFORMED"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * The Audible edition's chapter count differs from the book's local chapter
+     * count, so chapter names cannot be aligned by ordinal. A different edition,
+     * abridgement, or disc layout was matched; applying would mislabel chapters.
+     * The user must pick a matching edition or rename chapters manually.
+     */
+    @Serializable
+    @SerialName("MetadataError.ChapterCountMismatch")
+    data class ChapterCountMismatch(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : MetadataError {
+        override val message: String =
+            "This edition's chapter count doesn't match your audiobook, so chapter names can't be applied."
+        override val code: String = "METADATA_CHAPTER_COUNT_MISMATCH"
+        override val isRetryable: Boolean = false
+    }
 }

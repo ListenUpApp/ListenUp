@@ -421,6 +421,7 @@ private fun MetadataError.toHttpStatus(): HttpStatusCode =
         is MetadataError.ExternalUnavailable -> HttpStatusCode.ServiceUnavailable
         is MetadataError.NotFound -> HttpStatusCode.NotFound
         is MetadataError.Malformed -> HttpStatusCode.BadGateway
+        is MetadataError.ChapterCountMismatch -> HttpStatusCode.UnprocessableEntity
     }
 
 private fun MetadataError.withCorrelationId(id: String?): MetadataError =
@@ -429,6 +430,7 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
         is MetadataError.ExternalUnavailable -> copy(correlationId = id)
         is MetadataError.NotFound -> copy(correlationId = id)
         is MetadataError.Malformed -> copy(correlationId = id)
+        is MetadataError.ChapterCountMismatch -> copy(correlationId = id)
     }
 
 private fun LibraryError.toHttpStatus(): HttpStatusCode =
