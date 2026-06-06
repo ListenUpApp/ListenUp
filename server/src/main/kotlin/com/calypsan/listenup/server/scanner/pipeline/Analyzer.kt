@@ -337,7 +337,9 @@ internal class Analyzer(
                         ?: sidecar?.description
                 )?.let { HtmlToMarkdown.convert(it) },
             publisher = metadata?.publisher ?: embedded?.tags?.publisher ?: sidecar?.publisher,
-            language = metadata?.language ?: embedded?.tags?.language ?: sidecar?.language,
+            language =
+                (metadata?.language ?: embedded?.tags?.language ?: sidecar?.language)
+                    ?.let { LanguageNormalizer.normalize(it) },
             genres = pickGenres(embedded, metadata),
             tags = metadata?.tags.orEmpty(),
             abridged = metadata?.abridged ?: titleAbridged,
