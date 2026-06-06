@@ -367,6 +367,7 @@ fun BookDetailContent(
             playEnabled = canPlay,
             downloadEnabled = canDownload,
             showServerWarning = showServerWarning,
+            onRetryConnection = onRetryConnection,
             onPlayDisabledClick = onPlayDisabledClick,
             onSeriesClick = onSeriesClick,
             onContributorClick = onContributorClick,
