@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
 import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.sidecar.OpfParser
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -551,6 +552,54 @@ class AnalyzerTest :
 
                     book.cover.shouldNotBeNull()
                     book.cover shouldBe CoverSource.Filesystem(cover)
+                }
+            }
+        }
+
+        test("Calibre .opf sidecar series flows through to AnalyzedBook.series") {
+            val opfContent =
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+                    <metadata>
+                        <dc:title>Words of Radiance</dc:title>
+                        <meta name="calibre:series" content="The Stormlight Archive"/>
+                        <meta name="calibre:series_index" content="2"/>
+                    </metadata>
+                </package>
+                """.trimIndent()
+            audioLibrary {
+                book("Author/Words of Radiance") {
+                    tracks(count = 1)
+                    text("metadata.opf", opfContent)
+                }
+            }.use { fixture ->
+                runTest {
+                    val analyzer =
+                        Analyzer(
+                            fixture.root,
+                            metadataReader,
+                            embeddedParser,
+                            sidecarParsers = listOf(OpfParser()),
+                        )
+                    val rel = "Author/Words of Radiance"
+                    val candidate =
+                        candidateOf(
+                            rel,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01 - Track.mp3", FileType.AUDIO),
+                                    fileEntry("$rel/metadata.opf", FileType.METADATA),
+                                ),
+                        )
+                    val book =
+                        analyzer
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.series shouldBe listOf(SeriesEntry(name = "The Stormlight Archive", sequence = "2"))
                 }
             }
         }

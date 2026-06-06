@@ -357,7 +357,7 @@ internal class Analyzer(
             subtitle = subtitle,
             authors = pickAuthors(shape, embedded, metadata, sidecar),
             narrators = pickNarrators(parsed, embedded, metadata, sidecar),
-            series = pickSeries(shape, parsed, embedded, metadata),
+            series = pickSeries(shape, parsed, embedded, metadata, sidecar),
             publishedYear =
                 metadata?.publishedYear
                     ?: embedded?.tags?.publishedYear
@@ -514,6 +514,7 @@ internal class Analyzer(
         parsed: ParsedTitle,
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
     ): List<SeriesEntry> =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
@@ -531,7 +532,7 @@ internal class Analyzer(
                 }
 
                 MetadataPrecedenceSource.SIDECAR -> {
-                    null
+                    sidecar?.series?.takeIf { it.isNotEmpty() }
                 }
 
                 MetadataPrecedenceSource.FILENAME -> {
@@ -598,6 +599,7 @@ private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata 
         publishYear = publishYear ?: other.publishYear,
         publisher = publisher ?: other.publisher,
         language = language ?: other.language,
+        series = series.ifEmpty { other.series },
         contributors = contributors + other.contributors,
     )
 

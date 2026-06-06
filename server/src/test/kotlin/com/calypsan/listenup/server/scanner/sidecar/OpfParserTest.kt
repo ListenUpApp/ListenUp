@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
@@ -112,6 +113,26 @@ class OpfParserTest :
                 parser.parse(opfPath)?.subtitle.shouldBeNull()
             }
         }
+
+        test("reads Calibre series + series_index into SidecarMetadata.series") {
+            runTest {
+                val opfPath =
+                    inlineOpfWithCalibreSeries(
+                        title = "Words of Radiance",
+                        seriesName = "The Stormlight Archive",
+                        seriesIndex = "2",
+                    )
+                parser.parse(opfPath)?.series shouldBe
+                    listOf(SeriesEntry(name = "The Stormlight Archive", sequence = "2"))
+            }
+        }
+
+        test("absent Calibre series yields empty series") {
+            runTest {
+                val opfPath = inlineOpfNoSubtitle(title = "Mistborn")
+                parser.parse(opfPath)?.series shouldBe emptyList()
+            }
+        }
     })
 
 private fun inlineOpf(date: String): Path {
@@ -159,6 +180,28 @@ private fun inlineOpfNoSubtitle(title: String): Path {
         <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
             <metadata>
                 <dc:title>$title</dc:title>
+            </metadata>
+        </package>
+        """.trimIndent(),
+    )
+    temp.toFile().deleteOnExit()
+    return temp
+}
+
+private fun inlineOpfWithCalibreSeries(
+    title: String,
+    seriesName: String,
+    seriesIndex: String,
+): Path {
+    val temp = kotlin.io.path.createTempFile(suffix = ".opf")
+    temp.toFile().writeText(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+            <metadata>
+                <dc:title>$title</dc:title>
+                <meta name="calibre:series" content="$seriesName"/>
+                <meta name="calibre:series_index" content="$seriesIndex"/>
             </metadata>
         </package>
         """.trimIndent(),
