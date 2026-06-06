@@ -105,7 +105,9 @@ class AnalyzedBookMapper(
     /**
      * Builds the unresolved (blank-id) contributor payloads for [analyzed]. Each raw
      * author/narrator string is split into individual people with roles by
-     * [ContributorParser]; identical `(name, role)` pairs are de-duplicated. The caller
+     * [ContributorParser]; identical payloads are de-duplicated by struct equality. Because
+     * `sortName` is derived deterministically from `(name, embeddedSort)`, identical
+     * `(name, role)` inputs still collapse to a single entry in practice. The caller
      * resolves each name to a real id via [ContributorRepository.resolveOrCreate] before
      * the aggregate write.
      *
