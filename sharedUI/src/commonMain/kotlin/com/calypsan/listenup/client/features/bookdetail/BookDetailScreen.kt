@@ -50,10 +50,10 @@ import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTop
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
-import com.calypsan.listenup.client.features.bookdetail.components.CastRole
+import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
-import com.calypsan.listenup.client.features.bookdetail.components.FullCastSheetFor
+import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection

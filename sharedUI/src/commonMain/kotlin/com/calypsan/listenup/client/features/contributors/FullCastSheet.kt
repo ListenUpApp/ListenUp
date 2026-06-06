@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.features.bookdetail.components
+package com.calypsan.listenup.client.features.contributors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

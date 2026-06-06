@@ -31,11 +31,11 @@ import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersContent
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
-import com.calypsan.listenup.client.features.bookdetail.components.CastRole
+import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
 import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
-import com.calypsan.listenup.client.features.bookdetail.components.FullCastSheetFor
+import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 import com.calypsan.listenup.client.features.bookdetail.components.ReaderRowUi

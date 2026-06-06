@@ -30,6 +30,8 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
 import com.calypsan.listenup.client.features.bookdetail.bookDetailOverline
+import com.calypsan.listenup.client.features.contributors.CastRole
+import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 
