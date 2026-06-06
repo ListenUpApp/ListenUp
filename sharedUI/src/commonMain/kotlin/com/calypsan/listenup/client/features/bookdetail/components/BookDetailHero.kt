@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -191,12 +190,13 @@ private fun ClickableContributorLine(
     nameColor: Color,
     separatorColor: Color,
     modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
     leadingIcon: (@Composable () -> Unit)? = null,
     prefix: String? = null,
 ) {
     FlowRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = horizontalArrangement,
         verticalArrangement = Arrangement.Center,
     ) {
         if (leadingIcon != null) {
@@ -384,9 +384,10 @@ private fun WideContributorRow(
     onContributorClick: (contributorId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    // Stacked vertically (author over narrator) so long names never overflow a single row and
+    // collapse character-by-character; each line is full-width and left-aligned.
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier,
     ) {
         if (authors.isNotEmpty()) {
@@ -396,25 +397,20 @@ private fun WideContributorRow(
                 style = MaterialTheme.typography.titleMedium,
                 nameColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
-                modifier = Modifier.wrapContentWidth(),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
             )
         }
 
         if (narrators.isNotEmpty()) {
-            // Dot separator
-            Surface(
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier.size(4.dp),
-            ) {}
-
             ClickableContributorLine(
                 contributors = narrators,
                 onContributorClick = onContributorClick,
                 style = MaterialTheme.typography.titleMedium,
                 nameColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
                 separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
-                modifier = Modifier.wrapContentWidth(),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.RecordVoiceOver,
