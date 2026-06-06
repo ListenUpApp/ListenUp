@@ -56,7 +56,6 @@ object DatabaseFactory {
                 password = config.password
                 maximumPoolSize = config.maxPoolSize
                 isAutoCommit = false
-                isAllowPoolSuspension = true
                 transactionIsolation = "TRANSACTION_SERIALIZABLE"
                 // SQLite has FK enforcement off per-connection by default. The property
                 // key must be the pragma name (`foreign_keys`), not the SQLiteConfig
