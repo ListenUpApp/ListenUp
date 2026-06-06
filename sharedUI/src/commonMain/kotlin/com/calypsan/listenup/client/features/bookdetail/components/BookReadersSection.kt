@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.bookdetail.components
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,7 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
@@ -51,13 +55,17 @@ import org.koin.core.parameter.parametersOf
  * progress bar nor a "Finished {when}" line is rendered. When those fields are added to
  * [Reader], this composable should be updated accordingly.
  *
- * Note: no Surface/card wrapper is applied here. The wrapping card Surface is the
- * responsibility of the layout-assembly task so this section mirrors the frameless shape of
- * [ChaptersSection].
+ * On wide layouts ([isCard] = true) the rendered content is wrapped in a `surfaceContainerLow`
+ * card with [ContentShapes.card] shape and [Spacing.screenMargin] inner padding — mirroring
+ * [AboutSection]'s treatment. The card is applied *after* the empty/Loading/Error guards, so no
+ * hollow card is drawn when the section has nothing to show. On compact layouts ([isCard] = false)
+ * the content renders frameless, mirroring [ChaptersSection].
  *
  * @param bookId The book ID to load readers for.
  * @param onUserClick Callback when a reader row is clicked (navigates to user profile).
  * @param modifier Optional modifier.
+ * @param isCard When true, wraps the rendered content in a [surfaceContainerLow] card; otherwise
+ *   renders frameless.
  * @param viewModel The ViewModel for loading readers data; scoped to [bookId].
  */
 @Composable
@@ -65,6 +73,7 @@ fun BookReadersSection(
     bookId: String,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    isCard: Boolean = false,
     viewModel: BookReadersViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -76,57 +85,73 @@ fun BookReadersSection(
     if (allReaders.isEmpty()) return
 
     val displayedReaders = allReaders.take(3)
+    val innerPadding = if (isCard) Spacing.screenMargin else 0.dp
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        // Header row: title + CountBadge + spacer + "See all"
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(Res.string.book_detail_readers),
-                style =
-                    MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+    val content: @Composable () -> Unit = {
+        Column(modifier = Modifier.fillMaxWidth().padding(innerPadding)) {
+            // Header row: title + CountBadge + spacer + "See all"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(Res.string.book_detail_readers),
+                    style =
+                        MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = DisplayFontFamily,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
 
-            Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-            CountBadge(count = allReaders.size)
+                CountBadge(count = allReaders.size)
 
-            Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.weight(1f))
 
-            if (allReaders.size > 3) {
-                TextButton(onClick = { /* TODO: Navigate to full readers list */ }) {
-                    Text(
-                        text = stringResource(Res.string.common_see_all),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
+                if (allReaders.size > 3) {
+                    TextButton(onClick = { /* TODO: Navigate to full readers list */ }) {
+                        Text(
+                            text = stringResource(Res.string.common_see_all),
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
-        }
 
-        // Sub-line: "N listening now"
-        // note: the design shows "N friends listening now" but the Reader model carries no
-        // social-graph/friendship information — we degrade to a plain count sub-line.
-        Text(
-            text = stringResource(Res.string.book_detail_readers_listening_now, allReaders.size),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-
-        displayedReaders.forEach { reader ->
-            ReaderRow(
-                reader = reader,
-                onUserClick = onUserClick,
-                modifier = Modifier.fillMaxWidth(),
+            // Sub-line: "N listening now"
+            // note: the design shows "N friends listening now" but the Reader model carries no
+            // social-graph/friendship information — we degrade to a plain count sub-line.
+            Text(
+                text = stringResource(Res.string.book_detail_readers_listening_now, allReaders.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 6.dp),
             )
+
+            displayedReaders.forEach { reader ->
+                ReaderRow(
+                    reader = reader,
+                    onUserClick = onUserClick,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+
+    if (isCard) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = ContentShapes.card,
+            modifier = modifier.fillMaxWidth(),
+            content = content,
+        )
+    } else {
+        Box(modifier = modifier) {
+            content()
         }
     }
 }

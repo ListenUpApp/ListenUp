@@ -307,14 +307,14 @@ private fun WideRightColumn(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // Readers card — social reading activity. Renders nothing when there are no readers.
-        WideSectionCard {
-            BookReadersSection(
-                bookId = bookId,
-                onUserClick = onUserProfileClick,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        // Readers card — social reading activity. Self-cards only when populated, so no
+        // hollow surface is drawn on the common no-readers / Loading / Error paths.
+        BookReadersSection(
+            bookId = bookId,
+            onUserClick = onUserProfileClick,
+            isCard = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         // Chapters card — header + (optionally collapsed) chapter rows + "show all" affordance.
         WideSectionCard {
