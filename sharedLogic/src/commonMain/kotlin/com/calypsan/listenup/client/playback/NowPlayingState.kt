@@ -4,6 +4,13 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
+/** One chapter for the Now Playing "Up next" queue. */
+data class NowPlayingChapter(
+    val index: Int,
+    val title: String,
+    val durationMs: Long,
+)
+
 /**
  * UI state for now-playing surfaces (mini-player + full-screen player).
  *
@@ -37,6 +44,7 @@ sealed interface NowPlayingState {
         val chapterTitle: String?,
         val chapterIndex: Int,
         val totalChapters: Int,
+        val chapters: List<NowPlayingChapter>,
         val isPlaying: Boolean,
         val isBuffering: Boolean,
         val playbackSpeed: Float,

@@ -89,7 +89,6 @@ fun NowPlayingHost(
             if (activeState != null) {
                 NowPlayingScreen(
                     state = activeState,
-                    sleepTimerState = screenState.sleepTimerState,
                     onCollapse = viewModel::collapse,
                     onPlayPause = viewModel::playPause,
                     onSeek = viewModel::seekWithinChapter,
@@ -97,6 +96,7 @@ fun NowPlayingHost(
                     onSkipForward = { viewModel.skipForward() },
                     onPreviousChapter = viewModel::previousChapter,
                     onNextChapter = viewModel::nextChapter,
+                    onSeekToChapter = viewModel::seekToChapter,
                     onSpeedClick = viewModel::showSpeedPicker,
                     onChaptersClick = viewModel::showChapterPicker,
                     onSleepTimerClick = viewModel::showSleepTimer,

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.Chapter
 
 /**
  * Pure mapping: combines book identity + playback dynamics + surface metadata into
@@ -80,6 +81,10 @@ fun mapToNowPlayingState(
         chapterTitle = chapter?.title,
         chapterIndex = chapter?.index ?: 0,
         totalChapters = chapter?.totalChapters ?: 0,
+        chapters =
+            metadata.chapters.mapIndexed { index, c ->
+                NowPlayingChapter(index = index, title = c.title, durationMs = c.duration)
+            },
         isPlaying = dynamics.isPlaying,
         isBuffering = dynamics.isBuffering,
         playbackSpeed = dynamics.playbackSpeed,
@@ -109,6 +114,7 @@ data class PlaybackDynamics(
  */
 data class SurfaceMetadata(
     val currentChapter: PlaybackManager.ChapterInfo?,
+    val chapters: List<Chapter> = emptyList(),
     val error: PlaybackManager.PlaybackErrorUiState?,
     val defaultPlaybackSpeed: Float,
 )

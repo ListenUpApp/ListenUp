@@ -7,15 +7,17 @@ import androidx.activity.enableEdgeToEdge
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPreviewGallery
 import com.calypsan.listenup.client.features.home.HomePreviewGallery
+import com.calypsan.listenup.client.features.nowplaying.NowPlayingPreviewGallery
 
 /**
  * Debug-only on-device gallery of a feature's components rendered with mock data, with dynamic
  * color off so the designed fallback palette shows. Not in the launcher.
  *
- * Defaults to the Home gallery; pass `--es gallery bookdetail` to render the Book Detail gallery:
+ * Defaults to the Home gallery; pass `--es gallery <name>` to render a specific feature:
  * ```
  * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity
  * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity --es gallery bookdetail
+ * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity --es gallery nowplaying
  * ```
  */
 class PreviewGalleryActivity : ComponentActivity() {
@@ -25,10 +27,10 @@ class PreviewGalleryActivity : ComponentActivity() {
         val gallery = intent.getStringExtra("gallery")
         setContent {
             ListenUpTheme(dynamicColor = false) {
-                if (gallery == "bookdetail") {
-                    BookDetailPreviewGallery()
-                } else {
-                    HomePreviewGallery()
+                when (gallery) {
+                    "bookdetail" -> BookDetailPreviewGallery()
+                    "nowplaying" -> NowPlayingPreviewGallery()
+                    else -> HomePreviewGallery()
                 }
             }
         }
