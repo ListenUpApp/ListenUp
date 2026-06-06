@@ -19,13 +19,14 @@ import com.calypsan.listenup.client.design.components.ElevatedCoverCard
  * Artwork component for the Now Playing screen.
  *
  * Renders the book cover via [ElevatedCoverCard] with a soft ambient glow behind it.
- * The glow is a blurred circle filled with [primaryContainer] at reduced opacity,
- * offset slightly upward to create a natural light-source impression.
+ * The glow is a wider-than-tall ellipse (wider than the cover, shorter than the cover) filled
+ * with [primaryContainer] at reduced opacity, nudged slightly upward so the bulk of it hides
+ * behind the cover and only a warm halo bleeds out the left/right edges.
  *
  * @param coverPath Local file path to the cover image, or null.
  * @param bookId Book identifier used for server-URL fallback image loading.
  * @param coverBlurHash Optional BlurHash placeholder string.
- * @param size Side length of the square cover (glow is proportionally larger).
+ * @param size Side length of the square cover (glow is proportionally sized).
  */
 @Composable
 fun PlayerArtwork(
@@ -35,22 +36,27 @@ fun PlayerArtwork(
     size: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val glowSize = size * 1.2f
+    // Wider than the cover, shorter than the cover — bulk hides behind; halo bleeds left/right.
+    val glowWidth = size * 1.18f
+    val glowHeight = size * 0.82f
+    // Outer container matches the cover size so nothing clips the cover itself.
+    val containerSize = size * 1.18f
 
     Box(
-        modifier = modifier.size(glowSize),
+        modifier = modifier.size(containerSize),
         contentAlignment = Alignment.Center,
     ) {
-        // Ambient glow — blurred primaryContainer circle behind the cover.
+        // Ambient glow — blurred primaryContainer ellipse behind the cover.
+        // CircleShape on a non-square Box produces a stadium/ellipse; blur softens it to a halo.
         Box(
             modifier =
                 Modifier
-                    .size(glowSize)
-                    .offset(y = -size * 0.05f)
+                    .size(width = glowWidth, height = glowHeight)
+                    .offset(y = -(size * 0.03f))
                     .clip(CircleShape)
                     .background(
                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                    ).blur(40.dp),
+                    ).blur(32.dp),
         )
 
         ElevatedCoverCard(
