@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,14 +73,16 @@ fun StatsRow(
     horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
 ) {
     FlowRow(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = horizontalArrangement,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        rating?.takeIf { it > 0 }?.let { r ->
+        // Order per the design: Added (accent) → Duration → Year, with Rating last when present.
+        addedAt?.let { timestamp ->
             StatChip(
-                icon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) },
-                text = ((r * 10).toInt() / 10.0).toString(),
+                icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
+                text = formatAddedDate(timestamp),
+                tone = StatChipTone.Tertiary,
             )
         }
 
@@ -95,11 +98,10 @@ fun StatsRow(
             )
         }
 
-        addedAt?.let { timestamp ->
+        rating?.takeIf { it > 0 }?.let { r ->
             StatChip(
-                icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
-                text = formatAddedDate(timestamp),
-                tone = StatChipTone.Tertiary,
+                icon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) },
+                text = ((r * 10).toInt() / 10.0).toString(),
             )
         }
     }

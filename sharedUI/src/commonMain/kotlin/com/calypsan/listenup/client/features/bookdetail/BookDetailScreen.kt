@@ -67,8 +67,9 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_narrated_by
+import listenup.composeapp.generated.resources.book_detail_abridged
 import listenup.composeapp.generated.resources.book_detail_scan_warning
+import listenup.composeapp.generated.resources.book_detail_unabridged
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -461,10 +462,10 @@ private fun ImmersiveBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
-    val narratorLine =
-        state.narrators.takeIf { it.isNotBlank() }?.let { names ->
-            "${stringResource(Res.string.book_detail_narrated_by)} $names"
-        }
+    // Overline: parent genre + abridged/unabridged classification.
+    // note: there's no parent-genre field yet — using the first genre. Server data needed for the
+    // true parent-genre rollup the gallery mocks (e.g. "Epic Fantasy" for a "High Fantasy" book).
+    val heroOverline = bookDetailOverline(book.genres.firstOrNull()?.name, book.abridged)
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
@@ -512,10 +513,11 @@ private fun ImmersiveBookDetail(
                     coverPath = book.coverPath,
                     bookId = bookId,
                     title = book.title,
-                    overline = null,
+                    overline = heroOverline,
                     subtitle = state.subtitle,
-                    authorLine = book.authorNames,
-                    narratorLine = narratorLine,
+                    authors = book.authors,
+                    narrators = book.narrators,
+                    onContributorClick = onContributorClick,
                     progress = state.progress,
                     timeRemaining = state.timeRemainingFormatted,
                     modifier = Modifier.padding(top = 8.dp),
@@ -653,6 +655,23 @@ private fun ImmersiveBookDetail(
             }
         }
     }
+}
+
+/**
+ * Builds the hero overline — parent genre and abridged/unabridged classification, joined with
+ * a middle dot (e.g. "Epic Fantasy · Unabridged"). Returns just the classification when [genre]
+ * is null, or just the genre when there's no meaningful classification to add; never blank.
+ */
+@Composable
+fun bookDetailOverline(
+    genre: String?,
+    abridged: Boolean,
+): String {
+    val classification =
+        stringResource(
+            if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged,
+        )
+    return if (genre.isNullOrBlank()) classification else "$genre · $classification"
 }
 
 /** Returns the best available byte count to display in the delete dialog. */

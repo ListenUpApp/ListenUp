@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.bookdetail
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.WideHeroBand
 
@@ -23,6 +24,9 @@ private fun PreviewTheme(
     ListenUpTheme(darkTheme = dark, dynamicColor = false, content = content)
 }
 
+private val previewAuthors = listOf(BookContributor(id = "author-1", name = "George R.R. Martin"))
+private val previewNarrators = listOf(BookContributor(id = "narrator-1", name = "Roy Dotrice"))
+
 @Composable
 private fun CompactHeroPreviewBody() {
     CompactHero(
@@ -31,8 +35,9 @@ private fun CompactHeroPreviewBody() {
         title = "Game of Thrones",
         overline = "Epic Fantasy · Unabridged",
         subtitle = "A Song of Ice and Fire · Book One",
-        authorLine = "George R.R. Martin",
-        narratorLine = "Narrated by Roy Dotrice",
+        authors = previewAuthors,
+        narrators = previewNarrators,
+        onContributorClick = {},
         progress = 0.4f,
         timeRemaining = "21h 30m left",
     )
@@ -58,8 +63,9 @@ private fun WideHeroBandPreviewBody() {
         title = "Game of Thrones",
         overline = "Epic Fantasy · Unabridged",
         subtitle = "A Song of Ice and Fire · Book One",
-        authorLine = "George R.R. Martin",
-        narratorLine = "Narrated by Roy Dotrice",
+        authors = previewAuthors,
+        narrators = previewNarrators,
+        onContributorClick = {},
         progress = 0.4f,
         timeRemaining = "21h 30m left",
     )

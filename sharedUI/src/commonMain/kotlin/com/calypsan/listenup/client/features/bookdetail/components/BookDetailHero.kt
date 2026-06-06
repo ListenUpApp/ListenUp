@@ -1,14 +1,21 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -16,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +34,10 @@ import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.BookContributor
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_narrated_by
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Centered "compact" hero for the Book Detail screen (phone layout).
@@ -40,8 +53,9 @@ import com.calypsan.listenup.client.design.theme.Spacing
  * @param overline Short descriptor shown above the title in the primary brand colour (e.g. genre
  *   and classification); null hides the row
  * @param subtitle Series + sequence string (e.g. "A Song of Ice and Fire · Book One"); null hides
- * @param authorLine Primary author line (e.g. "George R.R. Martin")
- * @param narratorLine Narrator credit string; null hides the row
+ * @param authors Author contributors — each name is individually tappable
+ * @param narrators Narrator contributors — each name is individually tappable; empty hides the row
+ * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
  * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
  * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
  * @param modifier Optional layout modifier
@@ -53,8 +67,9 @@ fun CompactHero(
     title: String,
     overline: String?,
     subtitle: String?,
-    authorLine: String,
-    narratorLine: String?,
+    authors: List<BookContributor>,
+    narrators: List<BookContributor>,
+    onContributorClick: (contributorId: String) -> Unit,
     progress: Float?,
     timeRemaining: String?,
     modifier: Modifier = Modifier,
@@ -119,22 +134,96 @@ fun CompactHero(
             )
         }
 
-        // Author
-        Text(
-            text = authorLine,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        )
-
-        // Narrator — hidden when null
-        if (narratorLine != null) {
-            Text(
-                text = narratorLine,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+        // Author — each name individually tappable
+        if (authors.isNotEmpty()) {
+            ClickableContributorLine(
+                contributors = authors,
+                onContributorClick = onContributorClick,
+                style = MaterialTheme.typography.titleSmall,
+                nameColor = MaterialTheme.colorScheme.onSurface,
+                separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
+        }
+
+        // Narrator — record_voice_over icon + tappable names; hidden when empty
+        if (narrators.isNotEmpty()) {
+            ClickableContributorLine(
+                contributors = narrators,
+                onContributorClick = onContributorClick,
+                style = MaterialTheme.typography.bodyMedium,
+                nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.RecordVoiceOver,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                prefix = "${stringResource(Res.string.book_detail_narrated_by)} ",
+            )
+        }
+    }
+}
+
+/**
+ * A centered line of contributor names where each name is individually tappable, joined by
+ * ", " / " & " separators — optionally preceded by a [leadingIcon] and a [prefix] string
+ * (e.g. the narrator line's microphone icon and "Narrated by ").
+ *
+ * @param contributors Names to render; the caller guarantees a non-empty list
+ * @param onContributorClick Invoked with the tapped contributor's id
+ * @param style Text style applied to names, separators, and prefix
+ * @param nameColor Colour for the tappable names
+ * @param separatorColor Colour for separators, the prefix, and the leading icon's neighbours
+ * @param leadingIcon Optional icon rendered before the prefix
+ * @param prefix Optional non-tappable text rendered before the first name
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ClickableContributorLine(
+    contributors: List<BookContributor>,
+    onContributorClick: (contributorId: String) -> Unit,
+    style: TextStyle,
+    nameColor: Color,
+    separatorColor: Color,
+    modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    prefix: String? = null,
+) {
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (leadingIcon != null) {
+            Box(
+                modifier = Modifier.padding(end = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                leadingIcon()
+            }
+        }
+
+        if (prefix != null) {
+            Text(text = prefix, style = style, color = separatorColor)
+        }
+
+        contributors.forEachIndexed { index, contributor ->
+            Text(
+                text = contributor.name,
+                style = style,
+                color = nameColor,
+                modifier = Modifier.clickable { onContributorClick(contributor.id) },
+            )
+
+            if (index < contributors.lastIndex) {
+                val separator = if (index == contributors.size - 2) " & " else ", "
+                Text(text = separator, style = style, color = separatorColor)
+            }
         }
     }
 }
@@ -155,8 +244,9 @@ fun CompactHero(
  * @param title Book title (max 2 lines, ellipsised)
  * @param overline Short descriptor shown above the title (e.g. genre / classification); null hides
  * @param subtitle Series + sequence string (e.g. "A Song of Ice and Fire · Book One"); null hides
- * @param authorLine Primary author line (e.g. "George R.R. Martin")
- * @param narratorLine Narrator credit string; null hides the row
+ * @param authors Author contributors — each name is individually tappable
+ * @param narrators Narrator contributors — each name is individually tappable; empty hides the row
+ * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
  * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
  * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
  * @param modifier Optional layout modifier
@@ -168,8 +258,9 @@ fun WideHeroBand(
     title: String,
     overline: String?,
     subtitle: String?,
-    authorLine: String,
-    narratorLine: String?,
+    authors: List<BookContributor>,
+    narrators: List<BookContributor>,
+    onContributorClick: (contributorId: String) -> Unit,
     progress: Float?,
     timeRemaining: String?,
     modifier: Modifier = Modifier,
@@ -269,34 +360,71 @@ fun WideHeroBand(
                     }
 
                     // Author · narrator row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    WideContributorRow(
+                        authors = authors,
+                        narrators = narrators,
+                        onContributorClick = onContributorClick,
                         modifier = Modifier.padding(top = 14.dp),
-                    ) {
-                        Text(
-                            text = authorLine,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-
-                        if (narratorLine != null) {
-                            // Dot separator
-                            Surface(
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.size(4.dp),
-                            ) {}
-
-                            Text(
-                                text = narratorLine,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
-                            )
-                        }
-                    }
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * The author · narrator credit row for [WideHeroBand]: tappable author names, a dot separator, then
+ * a [Icons.Default.RecordVoiceOver] icon, the "Narrated by" prefix, and tappable narrator names —
+ * all in [MaterialTheme.colorScheme.onPrimaryContainer] tones to read against the colour band.
+ */
+@Composable
+private fun WideContributorRow(
+    authors: List<BookContributor>,
+    narrators: List<BookContributor>,
+    onContributorClick: (contributorId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
+        if (authors.isNotEmpty()) {
+            ClickableContributorLine(
+                contributors = authors,
+                onContributorClick = onContributorClick,
+                style = MaterialTheme.typography.titleMedium,
+                nameColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                modifier = Modifier.wrapContentWidth(),
+            )
+        }
+
+        if (narrators.isNotEmpty()) {
+            // Dot separator
+            Surface(
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.size(4.dp),
+            ) {}
+
+            ClickableContributorLine(
+                contributors = narrators,
+                onContributorClick = onContributorClick,
+                style = MaterialTheme.typography.titleMedium,
+                nameColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                modifier = Modifier.wrapContentWidth(),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.RecordVoiceOver,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                    )
+                },
+                prefix = "${stringResource(Res.string.book_detail_narrated_by)} ",
+            )
         }
     }
 }

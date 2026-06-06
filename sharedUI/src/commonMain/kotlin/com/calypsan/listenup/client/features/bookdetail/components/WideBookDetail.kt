@@ -28,11 +28,9 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
+import com.calypsan.listenup.client.features.bookdetail.bookDetailOverline
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_narrated_by
-import org.jetbrains.compose.resources.stringResource
 
 private const val CHAPTER_PREVIEW_LIMIT = 10
 
@@ -90,10 +88,9 @@ fun WideBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
-    val narratorLine =
-        state.narrators.takeIf { it.isNotBlank() }?.let { names ->
-            "${stringResource(Res.string.book_detail_narrated_by)} $names"
-        }
+    // Overline: parent genre + abridged/unabridged classification (mirrors the compact hero).
+    // note: no parent-genre field yet — using the first genre; server data needed for the rollup.
+    val heroOverline = bookDetailOverline(book.genres.firstOrNull()?.name, book.abridged)
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
@@ -139,10 +136,11 @@ fun WideBookDetail(
                 coverPath = book.coverPath,
                 bookId = bookId,
                 title = book.title,
-                overline = null,
+                overline = heroOverline,
                 subtitle = state.subtitle,
-                authorLine = book.authorNames,
-                narratorLine = narratorLine,
+                authors = book.authors,
+                narrators = book.narrators,
+                onContributorClick = onContributorClick,
                 progress = state.progress,
                 timeRemaining = state.timeRemainingFormatted,
                 modifier = screenPadding.padding(top = 8.dp),

@@ -135,6 +135,7 @@
     <string name="auth_youll_be_automatically_signed_in">You\'ll be automatically signed in once approved.</string>
     <string name="auth_your_registration_request_has_been">Your registration request has been submitted and is awaiting admin approval.</string>
     <string name="book_delete_download">Delete Download</string>
+    <string name="book_detail_abridged">Abridged</string>
     <string name="book_detail_add_to_collection">Add to Collection</string>
     <string name="book_detail_add_to_shelf">Add to Shelf</string>
     <string name="book_detail_cancel_download">Cancel download</string>
@@ -168,6 +169,7 @@
     <string name="book_detail_synopsis">Synopsis</string>
     <string name="book_detail_tags">Tags</string>
     <string name="book_detail_title">Book details</string>
+    <string name="book_detail_unabridged">Unabridged</string>
     <string name="book_detail_unavailable_offline">Unavailable offline</string>
     <string name="book_detail_waiting_for_wifi">Waiting for WiFi</string>
     <string name="book_detail_written_by">Written by</string>
