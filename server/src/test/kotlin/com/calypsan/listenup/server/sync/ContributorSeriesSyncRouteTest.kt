@@ -92,7 +92,7 @@ class ContributorSeriesSyncRouteTest :
                     val token = client.mintAccessToken()
 
                     val contributors by application.inject<ContributorRepository>()
-                    contributors.resolveOrCreate("Some Author")
+                    contributors.resolveOrCreate("Some Author", sortName = null)
 
                     val response =
                         client.get("/api/v1/sync/contributors?since=0") {

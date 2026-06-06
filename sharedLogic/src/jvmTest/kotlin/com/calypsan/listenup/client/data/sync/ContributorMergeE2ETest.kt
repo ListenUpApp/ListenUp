@@ -61,8 +61,8 @@ class ContributorMergeE2ETest :
             withClientSyncEngineAgainstServer {
                 // Seed source + target contributors. resolveOrCreate publishes a
                 // contributor.Created SSE event per call that the engine catches up on.
-                val sourceId = serverContributorRepository.resolveOrCreate(SOURCE_NAME)
-                val targetId = serverContributorRepository.resolveOrCreate(TARGET_NAME)
+                val sourceId = serverContributorRepository.resolveOrCreate(SOURCE_NAME, sortName = null)
+                val targetId = serverContributorRepository.resolveOrCreate(TARGET_NAME, sortName = null)
                 val sourcePayload =
                     BookContributorPayload(
                         id = sourceId.value,

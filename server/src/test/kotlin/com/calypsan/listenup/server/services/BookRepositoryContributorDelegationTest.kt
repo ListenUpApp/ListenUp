@@ -55,7 +55,7 @@ class BookRepositoryContributorDelegationTest :
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
 
                     contributors
-                        .findById(contributors.resolveOrCreate("Brandon Sanderson").value)
+                        .findById(contributors.resolveOrCreate("Brandon Sanderson", sortName = null).value)
                         .shouldNotBeNull()
                 }
             }

@@ -34,7 +34,7 @@ class ContributorSeriesEndToEndTest :
                 engine.start(currentUserId = "u1")
 
                 val contributorId =
-                    serverContributorRepository.resolveOrCreate("Brandon Sanderson")
+                    serverContributorRepository.resolveOrCreate("Brandon Sanderson", sortName = null)
 
                 val contributor =
                     withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {

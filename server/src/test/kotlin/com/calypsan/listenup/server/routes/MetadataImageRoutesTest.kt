@@ -63,7 +63,7 @@ class MetadataImageRoutesTest :
                     val token = client.mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
-                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     val imgFile = libraryRoot.resolve("brandon.jpg").toFile()
                     imgFile.writeBytes(byteArrayOf(1, 2, 3, 4))
                     contributorRepo.upsert(
@@ -124,7 +124,7 @@ class MetadataImageRoutesTest :
                     val token = client.mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
-                    val id = contributorRepo.resolveOrCreate("No Photo Author")
+                    val id = contributorRepo.resolveOrCreate("No Photo Author", sortName = null)
                     // imagePath stays null (not set)
 
                     val response =
@@ -149,7 +149,7 @@ class MetadataImageRoutesTest :
                     val token = client.mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
-                    val id = contributorRepo.resolveOrCreate("Missing File Author")
+                    val id = contributorRepo.resolveOrCreate("Missing File Author", sortName = null)
                     contributorRepo.upsert(
                         ContributorSyncPayload(
                             id = id.value,
@@ -186,7 +186,7 @@ class MetadataImageRoutesTest :
                     val token = client.mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
-                    val id = contributorRepo.resolveOrCreate("Traversal Author")
+                    val id = contributorRepo.resolveOrCreate("Traversal Author", sortName = null)
                     contributorRepo.upsert(
                         ContributorSyncPayload(
                             id = id.value,
@@ -240,7 +240,7 @@ class MetadataImageRoutesTest :
                     val token = client.mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
-                    val id = contributorRepo.resolveOrCreate("Range Author")
+                    val id = contributorRepo.resolveOrCreate("Range Author", sortName = null)
                     val imgBytes = ByteArray(200) { it.toByte() }
                     libraryRoot.resolve("range.jpg").toFile().writeBytes(imgBytes)
                     contributorRepo.upsert(

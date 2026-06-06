@@ -108,7 +108,7 @@ internal class BookMetadataApplier(
 
     private suspend fun List<AudibleContributor>.resolveContributors(role: String): List<BookContributorPayload> =
         map { contributor ->
-            val id = contributorRepository.resolveOrCreate(contributor.name)
+            val id = contributorRepository.resolveOrCreate(contributor.name, sortName = null)
             BookContributorPayload(
                 id = id.value,
                 name = contributor.name,

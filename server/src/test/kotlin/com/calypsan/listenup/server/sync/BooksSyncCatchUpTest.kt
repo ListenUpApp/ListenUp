@@ -147,7 +147,7 @@ class BooksSyncCatchUpTest :
                     val contributors by application.inject<ContributorRepository>()
                     val series by application.inject<SeriesRepository>()
                     // Resolve real catalogue ids — junction-row FKs require them.
-                    val contributorId = contributors.resolveOrCreate("Brandon Sanderson").value
+                    val contributorId = contributors.resolveOrCreate("Brandon Sanderson", sortName = null).value
                     val seriesId = series.resolveOrCreate("Stormlight Archive").value
                     repo.upsert(
                         bookSyncFixture(

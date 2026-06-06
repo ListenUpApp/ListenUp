@@ -87,10 +87,10 @@ class ContributorRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        val normalized = normalizeForDedup(value.name)
         if (existed) {
+            // normalizedName is the dedup key established at INSERT — do not update it.
+            // Changing it post-creation could violate the unique index and break in-flight lookups.
             ContributorTable.update({ ContributorTable.id eq value.id }) { stmt ->
-                stmt[ContributorTable.normalizedName] = normalized
                 stmt[ContributorTable.name] = value.name
                 stmt[ContributorTable.sortName] = value.sortName
                 stmt[ContributorTable.asin] = value.asin
@@ -106,6 +106,7 @@ class ContributorRepository(
                 stmt[ContributorTable.clientOpId] = clientOpId
             }
         } else {
+            val normalized = normalizeForDedup(value.sortName ?: value.name)
             ContributorTable.insert { stmt ->
                 stmt[ContributorTable.id] = value.id
                 stmt[ContributorTable.normalizedName] = normalized
@@ -129,20 +130,30 @@ class ContributorRepository(
     }
 
     /**
-     * Finds the contributor whose name shares [name]'s normalized form, or
-     * creates one through the substrate's `upsert` (which bumps the domain
-     * revision and publishes `SyncEvent.Created`). Returns the stable
-     * [ContributorId] either way.
+     * Finds the contributor whose sort name shares [sortName]'s (or [name]'s) normalized form,
+     * or creates one through the substrate's `upsert` (which bumps the domain revision and
+     * publishes `SyncEvent.Created`). Returns the stable [ContributorId] either way.
      *
-     * Idempotent: a rescan of unchanged books re-resolves existing contributors
-     * with no event and no revision bump. The display name preserves the first
-     * writer's casing.
+     * The dedup key is `normalizeForDedup(sortName ?: name)`. Display-order variants of the same
+     * person (e.g. "Brandon Sanderson" vs "Sanderson, Brandon") both produce the same sort name,
+     * so they collapse to a single contributor row. When [sortName] is null, the display name is
+     * used as the key — preserving the previous name-based dedup for callers that have no sort
+     * name available.
      *
-     * The find-miss → create window is a benign race only under SQLite's
-     * single-writer model; the single-threaded scan never triggers it.
+     * First display name wins on collision: a subsequent call with a different [name] but the same
+     * resolved key finds the existing row and returns its id without updating the stored name.
+     *
+     * Idempotent: a rescan of unchanged books re-resolves existing contributors with no event and
+     * no revision bump.
+     *
+     * The find-miss → create window is a benign race only under SQLite's single-writer model; the
+     * single-threaded scan never triggers it.
      */
-    suspend fun resolveOrCreate(name: String): ContributorId {
-        val normalized = normalizeForDedup(name)
+    suspend fun resolveOrCreate(
+        name: String,
+        sortName: String?,
+    ): ContributorId {
+        val normalized = normalizeForDedup(sortName ?: name)
         val existing =
             suspendTransaction(db) {
                 ContributorTable
@@ -158,7 +169,7 @@ class ContributorRepository(
             ContributorSyncPayload(
                 id = id.value,
                 name = name,
-                sortName = null,
+                sortName = sortName,
                 revision = 0L,
                 updatedAt = 0L,
                 createdAt = 0L,

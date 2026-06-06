@@ -83,7 +83,7 @@ class ContributorServiceImplUnmergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     val targetPayload = contributorRepo.findById(targetId.value)!!
                     contributorRepo
                         .upsert(targetPayload.copy(aliases = listOf("Richard Bachman")))
@@ -108,7 +108,7 @@ class ContributorServiceImplUnmergeTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     val targetPayload = contributorRepo.findById(targetId.value)!!
                     contributorRepo
                         .upsert(targetPayload.copy(aliases = listOf("Richard Bachman")))
@@ -189,7 +189,7 @@ class ContributorServiceImplUnmergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     val targetPayload = contributorRepo.findById(targetId.value)!!
                     contributorRepo
                         .upsert(targetPayload.copy(aliases = listOf("Pseudo Bachman", "Other Alias")))
@@ -223,7 +223,7 @@ class ContributorServiceImplUnmergeTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     val targetPayload = contributorRepo.findById(targetId.value)!!
                     contributorRepo
                         .upsert(targetPayload.copy(aliases = listOf("Richard Bachman")))
@@ -251,7 +251,7 @@ class ContributorServiceImplUnmergeTest :
                 val contributorRepo = deps.contributorRepo
                 val reindexer = deps.reindexer
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     val targetPayload = contributorRepo.findById(targetId.value)!!
                     contributorRepo
                         .upsert(targetPayload.copy(aliases = listOf("Richard Bachman")))
