@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.InstanceService
@@ -317,15 +318,28 @@ fun Application.module() {
 
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
+    installJwtAuth(jwt, sessions)
+
+    installAppRoutes(homeDir)
+
+    startBackgroundTasks(applicationScope, resolvedLibraryPath)
+}
+
+/**
+ * Mounts every HTTP + RPC route on the application. Re-injects its own service dependencies (the
+ * same idiom as [installDependencies] / [backfillPublicProfiles]) so [module] stays a high-level
+ * lifecycle script rather than a flat wall of `by inject` declarations.
+ *
+ * @param homeDir the resolved ListenUp home dir, passed through from [module] for the metadata-image
+ *   route (it is resolved once at boot and not held in Koin).
+ */
+private fun Application.installAppRoutes(homeDir: Path) {
     val authService by inject<AuthServiceImpl>()
     val adminUserService by inject<AdminUserServiceImpl>()
     val adminSettingsService by inject<AdminSettingsServiceImpl>()
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
     val registrationBroadcaster by inject<RegistrationBroadcaster>()
-
-    installJwtAuth(jwt, sessions)
-
     val scannerService by inject<ScannerService>()
     val eventBus by inject<SharedFlow<ScanEvent>>()
     val bookService by inject<BookService>()
@@ -349,6 +363,7 @@ fun Application.module() {
     val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
     val socialService by inject<SocialService>()
+    val activityService by inject<ActivityService>()
     val profileService by inject<ProfileService>()
     val backupService by inject<BackupService>()
     val importService by inject<ImportService>()
@@ -383,6 +398,7 @@ fun Application.module() {
             collectionService,
             shelfService,
             socialService,
+            activityService,
             adminUserService,
             adminSettingsService,
             inviteService,
@@ -415,8 +431,6 @@ fun Application.module() {
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
-
-    startBackgroundTasks(applicationScope, resolvedLibraryPath)
 }
 
 /**

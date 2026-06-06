@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.server.api.ActivityServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
@@ -13,6 +15,8 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -68,6 +72,8 @@ fun playbackModule(): Module =
         }
         single { UserRoleLookup(db = get()) }
         single(createdAtStart = true) { ActiveSessionRepository(db = get(), bus = get()) }
+        single { ActivityRepository(db = get()) }
+        single { ActivityRecorder(repo = get(), bus = get()) }
         single(createdAtStart = true) {
             PlaybackPositionRepository(
                 db = get(),
@@ -75,6 +81,7 @@ fun playbackModule(): Module =
                 registry = get(),
                 userStatsUpdater = get(),
                 activeSessionRepo = get(),
+                activityRecorder = get(),
             )
         }
         // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
@@ -95,10 +102,17 @@ fun playbackModule(): Module =
                 db = get(),
                 userStatsRepo = get(),
                 publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
+                activityRecorder = get(),
             )
         }
         single(createdAtStart = true) {
-            ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())
+            ListeningEventRepository(
+                db = get(),
+                bus = get(),
+                registry = get(),
+                userStatsUpdater = get(),
+                activityRecorder = get(),
+            )
         }
         single { UserStatsBackfillService(db = get(), userStatsRepo = get()) }
         single { ActiveSessionCleanupTask(db = get(), bus = get()) }
@@ -139,6 +153,15 @@ fun playbackModule(): Module =
             )
         }
         single<SocialService> { get<SocialServiceImpl>() }
+        single {
+            ActivityServiceImpl(
+                activities = get(),
+                bookAccessPolicy = get(),
+                publicProfiles = get(),
+                principal = unscopedActivityPlaceholder(),
+            )
+        }
+        single<ActivityService> { get<ActivityServiceImpl>() }
     }
 
 /**
@@ -149,3 +172,12 @@ fun playbackModule(): Module =
  */
 private fun unscopedSocialPlaceholder(): PrincipalProvider =
     PrincipalProvider { error("Unscoped SocialService — call copyWith(PrincipalProvider) at the route") }
+
+/**
+ * The unscoped-caller placeholder the [ActivityServiceImpl] binding carries: a
+ * [PrincipalProvider] that throws if invoked. The RPC route always `copyWith`s the
+ * authenticated principal before calling, so reaching this placeholder signals a wiring
+ * bug — fail loud rather than silently serving an unscoped (ACL-bypassing) feed.
+ */
+private fun unscopedActivityPlaceholder(): PrincipalProvider =
+    PrincipalProvider { error("Unscoped ActivityService — call copyWith(PrincipalProvider) at the route") }

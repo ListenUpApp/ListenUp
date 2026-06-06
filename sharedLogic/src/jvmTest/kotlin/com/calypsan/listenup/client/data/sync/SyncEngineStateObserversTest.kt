@@ -157,6 +157,7 @@ private fun buildEngine(
         reconciler = noopSyncReconciler(registry, store, NoopStateCatchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
+        activityRefreshSignal = ActivityRefreshSignal(),
         scope = scope,
     )
 }

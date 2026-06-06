@@ -64,4 +64,9 @@ sealed interface SyncControl {
     @Serializable
     @SerialName("SyncControl.ActiveSessionsChanged")
     data object ActiveSessionsChanged : SyncControl
+
+    /** Content-free broadcast nudge: a new activity was recorded; re-fetch via ActivityService. */
+    @Serializable
+    @SerialName("SyncControl.ActivityChanged")
+    data object ActivityChanged : SyncControl
 }

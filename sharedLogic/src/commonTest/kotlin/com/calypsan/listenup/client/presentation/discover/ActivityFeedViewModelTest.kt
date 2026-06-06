@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.discover
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
@@ -51,12 +52,14 @@ class ActivityFeedViewModelTest {
     private class TestFixture {
         val activityRepository: ActivityRepository = mock()
         val fetchActivitiesUseCase: FetchActivitiesUseCase = mock()
+        val refreshSignal = ActivityRefreshSignal()
         val activitiesFlow = MutableStateFlow<List<Activity>>(emptyList())
 
         fun build(): ActivityFeedViewModel =
             ActivityFeedViewModel(
                 activityRepository = activityRepository,
                 fetchActivitiesUseCase = fetchActivitiesUseCase,
+                refreshSignal = refreshSignal,
             )
     }
 
@@ -238,6 +241,24 @@ class ActivityFeedViewModelTest {
 
             // Then - refresh invokes the use case exactly once with the expected limit
             verifySuspend { fixture.fetchActivitiesUseCase(INITIAL_FETCH_SIZE) }
+        }
+
+    // ========== Refresh-Signal Tests ==========
+
+    @Test
+    fun `refresh signal ping re-fetches the feed head`() =
+        runTest {
+            // Given - Room already populated (suppress the init fetch so the ping is isolated)
+            val fixture = createFixture(existingCount = 5)
+            fixture.build()
+            advanceUntilIdle()
+
+            // When - the server signals the feed may have changed
+            fixture.refreshSignal.ping()
+            advanceUntilIdle()
+
+            // Then - the feed head is re-fetched into Room (Room observation repaints the UI)
+            verifySuspend(VerifyMode.exactly(1)) { fixture.fetchActivitiesUseCase(INITIAL_FETCH_SIZE) }
         }
 }
 

@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -28,6 +29,8 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
@@ -36,6 +39,7 @@ import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -74,6 +78,7 @@ class AdminUserServiceImplTest :
             db: Database,
             broadcaster: RegistrationBroadcaster = RegistrationBroadcaster(),
             bus: ChangeBus = ChangeBus(),
+            activityRecorder: ActivityRecorder? = null,
         ): AdminUserServiceImpl {
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
@@ -85,6 +90,7 @@ class AdminUserServiceImplTest :
                 registrationBroadcaster = broadcaster,
                 bus = bus,
                 publicProfileMaintainer = db.noOpPublicProfileMaintainer(),
+                activityRecorder = activityRecorder,
             )
         }
 
@@ -380,6 +386,45 @@ class AdminUserServiceImplTest :
                     approved.status shouldBe UserStatus.ACTIVE
                     approved.approvedBy shouldBe "root1"
                     approved.approvedAt shouldBe fixedClock.now().toEpochMilliseconds()
+                }
+            }
+        }
+
+        test("decidePendingRegistration(approve) records one user_joined for the approved user") {
+            withInMemoryDatabase {
+                val db = this
+                val activities = ActivityRepository(db = db)
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
+                runTest {
+                    val svc =
+                        makeAdminUserService(db, activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()))
+                            .actAs("root1", UserRole.ROOT)
+                    svc.decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = true)).shouldSucceed()
+
+                    val joined = activities.page(before = null, limit = 50).filter { it.type == ActivityType.USER_JOINED }
+                    joined shouldHaveSize 1
+                    joined.single().userId shouldBe "p1"
+                }
+            }
+        }
+
+        test("decidePendingRegistration(deny) records no user_joined") {
+            withInMemoryDatabase {
+                val db = this
+                val activities = ActivityRepository(db = db)
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
+                runTest {
+                    val svc =
+                        makeAdminUserService(db, activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()))
+                            .actAs("root1", UserRole.ROOT)
+                    svc.decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = false)).shouldSucceed()
+
+                    activities
+                        .page(before = null, limit = 50)
+                        .filter { it.type == ActivityType.USER_JOINED }
+                        .shouldHaveSize(0)
                 }
             }
         }

@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -11,6 +12,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -116,6 +118,53 @@ class ListeningEventRepositoryTest :
                     val stats = statsRepo.getForUser("u-wire").shouldNotBeNull()
                     // startedAt = 1_730_000_000_000L, endedAt = 1_730_000_060_000L → 60 s
                     stats.totalSecondsAllTime shouldBe 60L
+                }
+            }
+        }
+        test("a completed listening event records one listening_session with durationMs == endedAt - startedAt") {
+            withInMemoryDatabase {
+                val activities = ActivityRepository(db = this)
+                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val repo =
+                    ListeningEventRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activityRecorder = recorder,
+                    )
+                runTest {
+                    // 60-second span: endedAt - startedAt = 60_000 ms
+                    repo.upsert(listeningEventPayload("evt-act-1", "book-act-1"), clientOpId = null, userId = "u-act")
+
+                    val sessions =
+                        activities.page(before = null, limit = 50).filter { it.type == ActivityType.LISTENING_SESSION }
+                    sessions shouldHaveSize 1
+                    sessions.single().bookId shouldBe "book-act-1"
+                    sessions.single().durationMs shouldBe 60_000L
+                }
+            }
+        }
+
+        test("re-firing an already-committed listening event records NO duplicate listening_session") {
+            withInMemoryDatabase {
+                val activities = ActivityRepository(db = this)
+                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val repo =
+                    ListeningEventRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activityRecorder = recorder,
+                    )
+                runTest {
+                    val payload = listeningEventPayload("evt-act-dup", "book-act-dup")
+                    repo.upsert(payload, clientOpId = null, userId = "u-act")
+                    // Ack-lost re-fire of the SAME id
+                    repo.upsert(payload.copy(startPositionMs = 9_999L), clientOpId = "retry", userId = "u-act")
+
+                    val sessions =
+                        activities.page(before = null, limit = 50).filter { it.type == ActivityType.LISTENING_SESSION }
+                    sessions shouldHaveSize 1
                 }
             }
         }

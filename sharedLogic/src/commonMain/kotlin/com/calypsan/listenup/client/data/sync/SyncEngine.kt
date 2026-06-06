@@ -50,6 +50,7 @@ class SyncEngine(
     private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
+    private val activityRefreshSignal: ActivityRefreshSignal,
     private val scope: CoroutineScope,
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
 ) {
@@ -321,6 +322,9 @@ class SyncEngine(
         // disconnected. Ping presence so the social repos re-fetch their ACL-filtered RPCs — the
         // Never-Stranded fallback for presence across a reconnect.
         presenceRefreshSignal.ping()
+        // Same reconnect gap applies to the activity feed: a missed ActivityChanged nudge while
+        // disconnected would leave the feed stale, so ping it too.
+        activityRefreshSignal.ping()
     }
 
     /**

@@ -1,0 +1,341 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
+
+package com.calypsan.listenup.server.api
+
+import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.SocialError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.PublicProfilesTable
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.PublicProfileRepository
+import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+
+/**
+ * Contract and ACL tests for [ActivityServiceImpl] — the activity-feed read surface.
+ *
+ * Proves that:
+ * 1. `feed()` returns activities most-recent-first with identity joined from `public_profiles`.
+ * 2. (CROWN JEWEL) A viewer never learns about activity on a book they cannot access: a
+ *    `finished_book` on a private-collection book is omitted while one on a globally-accessible
+ *    book is returned.
+ * 3. Non-book activity (`shelf_created`, `user_joined`) always passes the ACL filter.
+ * 4. The `before` cursor returns only older rows, DESC.
+ * 5. Overfetch: a `limit=N` page still returns N visible rows when many inaccessible rows are
+ *    interleaved and ≥N accessible rows exist.
+ * 6. An unauthenticated caller receives `AppResult.Failure(SocialError.NotFound)`.
+ *
+ * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks. A
+ * [MutableClock] gives each recorded activity a distinct, advancing `created_at` so ordering and
+ * cursor assertions are deterministic.
+ */
+class ActivityServiceTest :
+    FunSpec({
+
+        fun principalFor(
+            userId: String,
+            role: UserRole = UserRole.MEMBER,
+        ): PrincipalProvider = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("session-$userId"), role) }
+
+        fun noPrincipal(): PrincipalProvider = PrincipalProvider { null }
+
+        fun makeService(
+            db: Database,
+            activities: ActivityRepository,
+            principal: PrincipalProvider,
+        ): ActivityServiceImpl {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            return ActivityServiceImpl(
+                activities = activities,
+                bookAccessPolicy = BookAccessPolicy(db),
+                publicProfiles = PublicProfileRepository(db = db, bus = bus, registry = registry),
+                principal = principal,
+            )
+        }
+
+        fun <T> AppResult<T>.value(): T {
+            this.shouldBeInstanceOf<AppResult.Success<T>>()
+            return data
+        }
+
+        /** Inserts a `public_profiles` identity row directly (clients normally maintain it). */
+        fun Database.seedPublicProfile(
+            userId: String,
+            displayName: String = "Display $userId",
+            avatarType: String = "auto",
+        ) {
+            transaction(this) {
+                PublicProfilesTable.insert {
+                    it[id] = userId
+                    it[PublicProfilesTable.displayName] = displayName
+                    it[PublicProfilesTable.avatarType] = avatarType
+                    it[revision] = 0L
+                    it[createdAt] = 1L
+                    it[updatedAt] = 1L
+                    it[deletedAt] = null
+                }
+            }
+        }
+
+        /**
+         * Gates [bookId] into a private collection owned by [collectionOwner] so it is
+         * inaccessible to any non-admin user without an explicit share.
+         */
+        suspend fun makeBookInaccessible(
+            db: Database,
+            bookId: String,
+            collectionId: String,
+            collectionOwner: String = "stranger",
+        ) {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+            collectionRepo.upsert(
+                CollectionSyncPayload(
+                    id = collectionId,
+                    libraryId = "test-library",
+                    ownerId = collectionOwner,
+                    name = collectionId,
+                    isInbox = false,
+                    isGlobalAccess = false,
+                    revision = 0L,
+                    updatedAt = 0L,
+                ),
+            )
+            collectionBookRepo.upsert(
+                CollectionBookSyncPayload(
+                    collectionId = collectionId,
+                    bookId = bookId,
+                    createdAt = 0L,
+                    revision = 0L,
+                ),
+            )
+        }
+
+        // ── 1: feed returns most-recent-first, identity from public_profiles ──────────
+
+        test("feed returns activities most-recent-first with identity from public_profiles") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("alice")
+                seedTestBook("book-a")
+                seedTestBook("book-b")
+                seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
+                runTest {
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a")
+                    clock.set(Instant.fromEpochMilliseconds(2_000L))
+                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-b")
+
+                    val result =
+                        makeService(db, activities, principalFor("alice"))
+                            .feed(before = null, limit = 20)
+                            .value()
+
+                    result shouldHaveSize 2
+                    // Most-recent-first: book-b (2_000) before book-a (1_000).
+                    result[0].bookId shouldBe "book-b"
+                    result[0].type shouldBe ActivityType.FINISHED_BOOK
+                    result[0].createdAtMs shouldBe 2_000L
+                    result[0].displayName shouldBe "Alice"
+                    result[0].avatarType shouldBe "image"
+                    result[1].bookId shouldBe "book-a"
+                    result[1].createdAtMs shouldBe 1_000L
+                }
+            }
+        }
+
+        // ── 2 (CROWN JEWEL ACL): inaccessible-book activity is never returned ─────────
+
+        test("feed returns the globally-accessible book activity, never the private one") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("alice")
+                seedTestUser("viewer")
+                seedTestBook("public-book")
+                seedTestBook("private-book")
+                seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    // "private-book" is gated into alice's private collection; viewer can't see it.
+                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                    clock.set(Instant.fromEpochMilliseconds(2_000L))
+                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "public-book")
+
+                    val result =
+                        makeService(db, activities, principalFor("viewer"))
+                            .feed(before = null, limit = 20)
+                            .value()
+
+                    // Crown jewel: the private-book activity must be omitted, the public one present.
+                    result shouldHaveSize 1
+                    result.first().bookId shouldBe "public-book"
+                    result.none { it.bookId == "private-book" } shouldBe true
+                }
+            }
+        }
+
+        // ── 3: non-book activity always passes the ACL filter ────────────────────────
+
+        test("feed always returns non-book activity regardless of book access") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("alice")
+                seedTestUser("viewer")
+                seedTestBook("private-book")
+                seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    // A book activity the viewer can't see, plus two non-book activities.
+                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                    clock.set(Instant.fromEpochMilliseconds(2_000L))
+                    activities.record(
+                        userId = "alice",
+                        type = ActivityType.SHELF_CREATED,
+                        shelfId = "shelf-1",
+                        shelfName = "Favorites",
+                    )
+                    clock.set(Instant.fromEpochMilliseconds(3_000L))
+                    activities.record(userId = "alice", type = ActivityType.USER_JOINED)
+
+                    val result =
+                        makeService(db, activities, principalFor("viewer"))
+                            .feed(before = null, limit = 20)
+                            .value()
+
+                    // Only the two non-book activities survive; the private book activity is dropped.
+                    result shouldHaveSize 2
+                    result.map { it.type } shouldBe listOf(ActivityType.USER_JOINED, ActivityType.SHELF_CREATED)
+                    result.none { it.bookId == "private-book" } shouldBe true
+                    result.first { it.type == ActivityType.SHELF_CREATED }.shelfName shouldBe "Favorites"
+                }
+            }
+        }
+
+        // ── 4: before cursor returns only older rows, DESC ───────────────────────────
+
+        test("feed before cursor returns only rows older than the cursor, DESC") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("alice")
+                seedTestBook("book-a")
+                seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    activities.record(userId = "alice", type = ActivityType.USER_JOINED) // 1_000
+                    clock.set(Instant.fromEpochMilliseconds(2_000L))
+                    activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a") // 2_000
+                    clock.set(Instant.fromEpochMilliseconds(3_000L))
+                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-a") // 3_000
+
+                    val result =
+                        makeService(db, activities, principalFor("alice"))
+                            .feed(before = 3_000L, limit = 20)
+                            .value()
+
+                    // Only rows with created_at < 3_000, most-recent-first.
+                    result shouldHaveSize 2
+                    result.map { it.createdAtMs } shouldBe listOf(2_000L, 1_000L)
+                }
+            }
+        }
+
+        // ── 5: overfetch fills a full page despite interleaved inaccessible rows ──────
+
+        test("feed returns a full page of visible rows when inaccessible rows are interleaved") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("alice")
+                seedTestUser("viewer")
+                seedTestBook("private-book")
+                seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(0L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    // 20 accessible (non-book) rows interleaved with 20 inaccessible book rows.
+                    var t = 1L
+                    repeat(20) {
+                        clock.set(Instant.fromEpochMilliseconds(t++))
+                        activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                        clock.set(Instant.fromEpochMilliseconds(t++))
+                        activities.record(userId = "alice", type = ActivityType.USER_JOINED)
+                    }
+
+                    val result =
+                        makeService(db, activities, principalFor("viewer"))
+                            .feed(before = null, limit = 5)
+                            .value()
+
+                    // A full page of 5 visible rows, all non-book, despite the inaccessible interleave.
+                    result shouldHaveSize 5
+                    result.all { it.type == ActivityType.USER_JOINED } shouldBe true
+                }
+            }
+        }
+
+        // ── 6: unauthenticated caller → NotFound ─────────────────────────────────────
+
+        test("feed returns Failure(SocialError.NotFound) when caller is unauthenticated") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                runTest {
+                    val activities = ActivityRepository(db = db)
+                    val result = makeService(db, activities, noPrincipal()).feed(before = null, limit = 20)
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<SocialError.NotFound>()
+                }
+            }
+        }
+    })
+
+/** A mutable [Clock] for tests that need to advance time deterministically. */
+private class MutableClock(
+    private var time: Instant,
+) : Clock {
+    override fun now(): Instant = time
+
+    fun set(newTime: Instant) {
+        time = newTime
+    }
+}

@@ -97,6 +97,8 @@ fun authModule(config: ApplicationConfig): Module =
                 shelfRepository = getOrNull<ShelfRepository>(),
                 // Nullable — publicProfileModule may not be loaded in minimal test containers.
                 publicProfileMaintainer = getOrNull(),
+                // Nullable — playbackModule (which binds ActivityRecorder) may not be loaded.
+                activityRecorder = getOrNull(),
             )
         }
 
@@ -109,6 +111,7 @@ fun authModule(config: ApplicationConfig): Module =
                 bus = get(),
                 clock = get(),
                 publicProfileMaintainer = getOrNull(),
+                activityRecorder = getOrNull(),
             )
         }
 

@@ -1,0 +1,226 @@
+package com.calypsan.listenup.server.api
+
+import com.calypsan.listenup.api.ActivityService
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.activity.ActivityEvent
+import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.server.module
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.useIsolatedTestConfig
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.testing.testApplication
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.serialization.json.json
+import kotlinx.rpc.withService
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.koin.ktor.ext.inject
+import java.nio.file.Files
+
+/**
+ * The crown-jewel ACL proof for the activity feed, wired full-stack in a single process: two real
+ * users driven over the authed kotlinx.rpc [ActivityService] surface, asserting that the book-access
+ * boundary holds end to end — through `module()`, JWT auth, the per-request principal binding, and
+ * `BookAccessPolicy`.
+ *
+ * Where [ActivityServiceTest] proves the service contract + ACL filter against in-memory
+ * repositories, this proves the *wiring*: that the principal a JWT carries reaches
+ * [ActivityServiceImpl] via the `registerScoped<ActivityService>` block, and that the same ACL
+ * filter omits a private-book activity over the real wire — not just in a hand-built service
+ * instance.
+ *
+ * Two users:
+ *  - **A** (ROOT, via `/auth/setup`) records a `finished_book` on a globally-accessible (uncollected)
+ *    book, a `finished_book` on a book gated into A's own private collection, and a non-book
+ *    `shelf_created`.
+ *  - **B** (MEMBER, via `/auth/register` under OPEN policy) is the viewer. B has no relationship to
+ *    A's private collection, so `BookAccessPolicy` denies B the private book.
+ *
+ * Driving the read as B over RPC, the test asserts `feed()`:
+ *  - contains the `public-book` `finished_book`,
+ *  - omits the `private-book` activity entirely (`none { bookId == "private-book" }`),
+ *  - contains the non-book `shelf_created` (always shown — non-book activity is ACL-exempt).
+ *
+ * Activities are recorded through the real [ActivityRepository.record] write-path resolved from the
+ * running application's Koin — the same path the seven recording hooks drive — and A is given a live
+ * `public_profiles` identity via [PublicProfileMaintainer.refresh], else her activity has no identity
+ * to join and the service drops it.
+ */
+class ActivityAclE2ETest :
+    FunSpec({
+
+        /** Runs first-user setup; returns A's ROOT user id and bearer token. */
+        suspend fun HttpClient.setupRoot(): ActivityAuthIdentity {
+            val session =
+                post("/api/v1/auth/setup") {
+                    contentType(ContentType.Application.Json)
+                    setBody(RegisterRequest("alice@activity-e2e.example", "x".repeat(8), "Alice"))
+                }.body<AppResult<AuthSession>>()
+                    .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                    .data
+            return ActivityAuthIdentity(userId = session.user.id.value, token = session.accessToken.value)
+        }
+
+        /** Registers a second user (MEMBER under OPEN policy); returns B's id and bearer token. */
+        suspend fun HttpClient.registerMember(): ActivityAuthIdentity {
+            val registered =
+                post("/api/v1/auth/register") {
+                    contentType(ContentType.Application.Json)
+                    setBody(RegisterRequest("bob@activity-e2e.example", "y".repeat(8), "Bob"))
+                }.body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                    .data
+                    .shouldBeInstanceOf<RegisterResult.Authenticated>()
+            // Re-login so the bearer token is independent of the register-issued one.
+            val session =
+                post("/api/v1/auth/login") {
+                    contentType(ContentType.Application.Json)
+                    setBody(LoginRequest("bob@activity-e2e.example", "y".repeat(8)))
+                }.body<AppResult<AuthSession>>()
+                    .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                    .data
+            return ActivityAuthIdentity(userId = registered.session.user.id.value, token = session.accessToken.value)
+        }
+
+        /** Opens an authed [ActivityService] proxy bound to [token]'s principal. */
+        suspend fun HttpClient.activityServiceFor(token: String): ActivityService =
+            rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { json(contractJson) } }
+                bearerAuth(token)
+            }.withService<ActivityService>()
+
+        /**
+         * Gates [bookId] into a private collection owned by [ownerId] so it is invisible to any
+         * non-admin member without an explicit relationship — the same gating approach as
+         * [ActivityServiceTest]'s `makeBookInaccessible`, driven through the real collection
+         * repositories resolved from the application's Koin.
+         */
+        suspend fun gatePrivate(
+            collections: CollectionRepository,
+            collectionBooks: CollectionBookRepository,
+            bookId: String,
+            collectionId: String,
+            ownerId: String,
+            isGlobalAccess: Boolean = false,
+        ) {
+            collections.upsert(
+                CollectionSyncPayload(
+                    id = collectionId,
+                    libraryId = "test-library",
+                    ownerId = ownerId,
+                    name = collectionId,
+                    isInbox = false,
+                    isGlobalAccess = isGlobalAccess,
+                    revision = 0L,
+                    updatedAt = 0L,
+                ),
+            )
+            collectionBooks.upsert(
+                CollectionBookSyncPayload(
+                    collectionId = collectionId,
+                    bookId = bookId,
+                    createdAt = 0L,
+                    revision = 0L,
+                ),
+            )
+        }
+
+        test("crown jewel: viewer sees the accessible-book activity over RPC, never the private one, always the non-book one") {
+            val libraryRoot = Files.createTempDirectory("listenup-activity-acl-e2e-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+
+                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val alice = restClient.setupRoot()
+                    val bob = restClient.registerMember()
+
+                    // ── Seed library + two books: one uncollected (public), one gated private ──
+                    seedTestLibraryAndFolder()
+                    val db by application.inject<Database>()
+                    db.seedTestBook("public-book")
+                    db.seedTestBook("private-book")
+
+                    val collections by application.inject<CollectionRepository>()
+                    val collectionBooks by application.inject<CollectionBookRepository>()
+                    gatePrivate(
+                        collections = collections,
+                        collectionBooks = collectionBooks,
+                        bookId = "private-book",
+                        collectionId = "alice-private",
+                        ownerId = alice.userId,
+                    )
+
+                    // ── A needs a live public_profiles identity, else her activity is dropped. ──
+                    val profiles by application.inject<PublicProfileMaintainer>()
+                    profiles.refresh(alice.userId)
+
+                    // ── A records activity through the real ActivityRepository write-path. ──────
+                    val activities by application.inject<ActivityRepository>()
+                    activities.record(userId = alice.userId, type = ActivityType.FINISHED_BOOK, bookId = "public-book")
+                    activities.record(userId = alice.userId, type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                    activities.record(
+                        userId = alice.userId,
+                        type = ActivityType.SHELF_CREATED,
+                        shelfId = "alice-shelf",
+                        shelfName = "Alice's Picks",
+                    )
+
+                    // ── Drive the read as B over the real authed RPC surface. ──────────────────
+                    val rpcClient =
+                        createClient {
+                            install(WebSockets)
+                            installKrpc()
+                        }
+                    val activityService = rpcClient.activityServiceFor(bob.token)
+
+                    val feed =
+                        activityService
+                            .feed()
+                            .shouldBeInstanceOf<AppResult.Success<List<ActivityEvent>>>()
+                            .data
+
+                    // The accessible-book activity is present.
+                    feed.any { it.bookId == "public-book" && it.type == ActivityType.FINISHED_BOOK } shouldBe true
+                    // Crown jewel: the private-book activity is omitted entirely.
+                    feed.none { it.bookId == "private-book" } shouldBe true
+                    // The non-book activity is always shown (ACL-exempt).
+                    feed.any { it.type == ActivityType.SHELF_CREATED && it.shelfId == "alice-shelf" } shouldBe true
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+    })
+
+/** A registered user's server-issued id and a bearer token for the authed surfaces. */
+private data class ActivityAuthIdentity(
+    val userId: String,
+    val token: String,
+)

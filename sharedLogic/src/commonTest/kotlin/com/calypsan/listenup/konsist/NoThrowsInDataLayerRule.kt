@@ -81,14 +81,12 @@ class NoThrowsInDataLayerRule :
 private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
     setOf(
         // APIs (each typically pairs with a repo-impl below):
-        "/data/remote/ActivityFeedApi.kt",
         "/data/remote/SearchApi.kt",
         "/data/remote/StatsApi.kt",
         // Auth / refresh / SSE infrastructure with throwing patterns that pre-date 27d:
         "/data/remote/ApiClientFactory.kt",
         "/data/remote/ABSImportApi.kt",
         // Repo impls still in throwing style:
-        "/data/repository/ActivityRepositoryImpl.kt",
         "/data/repository/AuthRepositoryImpl.kt",
         "/data/repository/AvatarDownloadRepositoryImpl.kt",
         "/data/repository/ContributorRepositoryImpl.kt",

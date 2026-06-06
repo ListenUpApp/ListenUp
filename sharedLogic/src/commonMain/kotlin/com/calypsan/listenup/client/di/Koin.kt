@@ -6,8 +6,6 @@ import com.calypsan.listenup.client.device.DeviceContextProvider
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
-import com.calypsan.listenup.client.data.remote.ActivityFeedApi
-import com.calypsan.listenup.client.data.remote.ActivityFeedApiContract
 import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminApi
@@ -41,9 +39,11 @@ import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
+import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
+import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
@@ -609,11 +609,6 @@ val syncModule =
             StatsApi(clientFactory = get())
         } bind StatsApiContract::class
 
-        // ActivityFeedApi for social activity feed
-        single {
-            ActivityFeedApi(clientFactory = get())
-        } bind ActivityFeedApiContract::class
-
         // SessionApi for reading session operations
         single {
             com.calypsan.listenup.client.data.remote
@@ -769,6 +764,11 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
+        single<ActivityRpcFactory> {
+            KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // FtsPopulator for rebuilding FTS tables after sync
@@ -1058,7 +1058,7 @@ val syncModule =
 
         // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
         single<ActivityRepository> {
-            ActivityRepositoryImpl(dao = get(), activityFeedApi = get())
+            ActivityRepositoryImpl(dao = get(), activityRpc = get(), bookDao = get())
         }
 
         // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,

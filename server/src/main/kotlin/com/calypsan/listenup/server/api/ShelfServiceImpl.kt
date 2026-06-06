@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ShelfService
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
@@ -12,6 +13,7 @@ import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.OwnedShelf
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -54,6 +56,7 @@ internal class ShelfServiceImpl(
     private val readAssembler: ShelfReadAssembler,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider,
+    private val activityRecorder: ActivityRecorder? = null,
 ) : ShelfService {
     // ── Own-shelf mutation ────────────────────────────────────────────────────
 
@@ -78,8 +81,21 @@ internal class ShelfServiceImpl(
                 deletedAt = null,
             )
         return when (val result = shelfRepo.upsert(payload, userId = caller.userId)) {
-            is AppResult.Success -> AppResult.Success(result.data.toSummary(bookCount = 0))
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Success -> {
+                if (!isPrivate) {
+                    activityRecorder?.record(
+                        caller.userId,
+                        ActivityType.SHELF_CREATED,
+                        shelfId = payload.id,
+                        shelfName = trimmed,
+                    )
+                }
+                AppResult.Success(result.data.toSummary(bookCount = 0))
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
         }
     }
 
@@ -250,6 +266,7 @@ internal class ShelfServiceImpl(
             readAssembler = readAssembler,
             clock = clock,
             principal = principal,
+            activityRecorder = activityRecorder,
         )
 
     // ── Private helpers ───────────────────────────────────────────────────────

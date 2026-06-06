@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.auth
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
@@ -17,9 +18,13 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
@@ -52,6 +57,68 @@ class AuthServiceImplTest :
                 clock = clock,
                 settings = settings,
             )
+        }
+
+        // Builds a service wired to a real ActivityRecorder over the same DB, returning the
+        // ActivityRepository so the test can read the recorded activities back.
+        fun newSvcWithRecorder(
+            policy: RegistrationPolicy = RegistrationPolicy.OPEN,
+        ): Pair<AuthServiceImpl, ActivityRepository> {
+            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val hasher = PasswordHasher()
+            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
+            val settings = ServerSettingsRepository(db, default = policy)
+            val activities = ActivityRepository(db = db)
+            val svc =
+                AuthServiceImpl(
+                    db = db,
+                    sessions = sessions,
+                    hasher = hasher,
+                    jwt = jwt,
+                    sessionIssuer = SessionIssuer(sessions, jwt, clock),
+                    clock = clock,
+                    settings = settings,
+                    activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()),
+                )
+            return svc to activities
+        }
+
+        test("setupRoot records one user_joined for the new root") {
+            val (svc, activities) = newSvcWithRecorder()
+            runTest {
+                val s = svc.setupRoot(RegisterRequest("alice@example.com", "x".repeat(8), "Alice")).shouldSucceed()
+
+                val joined = activities.page(before = null, limit = 50).filter { it.type == ActivityType.USER_JOINED }
+                joined shouldHaveSize 1
+                joined.single().userId shouldBe s.user.id.value
+            }
+        }
+
+        test("register on an OPEN instance records one user_joined for the new member") {
+            val (svc, activities) = newSvcWithRecorder()
+            runTest {
+                val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                val out = svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice")).shouldSucceed()
+                val authed = out.shouldBeInstanceOf<RegisterResult.Authenticated>()
+
+                val joined = activities.page(before = null, limit = 50).filter { it.type == ActivityType.USER_JOINED }
+                // One for the root, one for the registered member.
+                joined shouldHaveSize 2
+                joined.map { it.userId }.toSet() shouldBe setOf(root.user.id.value, authed.session.user.id.value)
+            }
+        }
+
+        test("register on an APPROVAL_QUEUE instance records no user_joined for the pending applicant") {
+            val (svc, activities) = newSvcWithRecorder(policy = RegistrationPolicy.APPROVAL_QUEUE)
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice")).shouldSucceed()
+
+                // Only the root joined; the pending applicant gets their user_joined at approval time.
+                activities.page(before = null, limit = 50).filter { it.type == ActivityType.USER_JOINED } shouldHaveSize 1
+            }
         }
 
         test("setupRoot creates the root user when no users exist") {
