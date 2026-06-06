@@ -105,9 +105,11 @@ struct SleepTimerFiringTests {
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
         )
+        // `.zero` fade delay: exercise the fade logic without its ~3 s of real wall-clock
+        // sleeps, which otherwise flake against the awaitUntil deadline under CI load.
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine, coverProvider: FakeBookCoverProviding(), fadeStepDelay: .zero)
         coordinator.play(bookId: "book1")
         await awaitUntil { await engine.didPlay }
 
@@ -249,7 +251,7 @@ struct StopDeactivatesSessionTests {
             preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(),
             sleep: FakeSleepTiming(), engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.stop()
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { await engine.didDeactivateSession }
         #expect(await engine.didDeactivateSession)
     }
 }

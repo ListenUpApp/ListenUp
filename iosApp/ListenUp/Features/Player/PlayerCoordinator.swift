@@ -136,6 +136,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let progress: PlaybackProgressReporting
     private let sleep: SleepTiming
     private let coverProvider: BookCoverProviding
+    /// Per-step delay of the sleep-timer fade-out. Injected so tests run the fade instantly
+    /// (`.zero`) instead of depending on ~3 s of real wall-clock time, which flakes under CI load.
+    private let fadeStepDelay: Duration
     private let bridge = FlowBridge()
 
     private var currentBookId: String?
@@ -151,13 +154,15 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progress: PlaybackProgressReporting,
         sleep: SleepTiming,
         engine: PlaybackEngine,
-        coverProvider: BookCoverProviding
+        coverProvider: BookCoverProviding,
+        fadeStepDelay: Duration = .milliseconds(250)
     ) {
         self.preparer = preparer
         self.progress = progress
         self.sleep = sleep
         self.engine = engine
         self.coverProvider = coverProvider
+        self.fadeStepDelay = fadeStepDelay
         system.attach(handler: self)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
         observeSleep()
@@ -230,7 +235,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         let steps = 12
         for step in stride(from: steps - 1, through: 0, by: -1) {
             await engine.setVolume(Float(step) / Float(steps))
-            try? await Task.sleep(for: .milliseconds(250))
+            try? await Task.sleep(for: fadeStepDelay)
         }
         await engine.pause()
         await engine.setVolume(1.0) // restore for next play
