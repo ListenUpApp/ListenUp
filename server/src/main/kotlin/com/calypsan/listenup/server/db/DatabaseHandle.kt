@@ -6,13 +6,15 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import java.nio.file.Path
 
 /**
- * Owns the live [Database] plus the underlying Hikari pool and the on-disk db file, so the
- * restore orchestrator can freeze the pool, swap the file in place, and migrate forward while
- * keeping the [Database] object identity stable (repositories captured it at construction).
+ * Owns the live [Database] plus the underlying [SwappableDataSource] and the on-disk db file,
+ * so the restore orchestrator can close the pool, swap the file in place, reopen the pool,
+ * and migrate forward while keeping the [Database] object identity stable (repositories
+ * captured it at construction).
  */
 class DatabaseHandle(
     val database: Database,
-    private val dataSource: HikariDataSource,
+    private val dataSource: SwappableDataSource,
+    private val poolFactory: () -> HikariDataSource,
     val dbFilePath: Path,
 ) {
     /**
@@ -36,11 +38,21 @@ class DatabaseHandle(
         }
     }
 
-    fun suspendPool() = dataSource.hikariPoolMXBean.suspendPool()
+    /**
+     * Hard-closes the live Hikari pool, deterministically releasing every SQLite file
+     * handle before the db file is swapped. MUST be paired with [reopenPool] on every
+     * control-flow path or the app is left with a closed pool.
+     */
+    fun closePool() = dataSource.closeCurrent()
 
-    fun resumePool() = dataSource.hikariPoolMXBean.resumePool()
+    /** Builds a fresh pool on the (possibly just-swapped) db file and makes it live. */
+    fun reopenPool() = dataSource.install(poolFactory())
 
-    fun evictConnections() = dataSource.hikariPoolMXBean.softEvictConnections()
+    fun suspendPool() = dataSource.current().hikariPoolMXBean.suspendPool()
+
+    fun resumePool() = dataSource.current().hikariPoolMXBean.resumePool()
+
+    fun evictConnections() = dataSource.current().hikariPoolMXBean.softEvictConnections()
 
     /**
      * Blocks until the pool reports zero physical connections, or [timeoutMs] elapses.
@@ -54,7 +66,7 @@ class DatabaseHandle(
      * proceeds, and any genuine lock surfaces as a normal rollback rather than a hang.
      */
     fun awaitPoolDrained(timeoutMs: Long = DRAIN_TIMEOUT_MS): Boolean {
-        val pool = dataSource.hikariPoolMXBean
+        val pool = dataSource.current().hikariPoolMXBean
         val deadline = System.currentTimeMillis() + timeoutMs
         while (pool.totalConnections > 0) {
             if (System.currentTimeMillis() >= deadline) return false

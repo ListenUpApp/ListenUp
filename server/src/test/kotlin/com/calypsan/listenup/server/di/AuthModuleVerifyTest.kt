@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.db.SwappableDataSource
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.FunSpec
@@ -34,8 +35,9 @@ class AuthModuleVerifyTest :
             // same way. ChangeBus whitelisted: AdminUserServiceImpl resolves it from
             // syncModule, a separate module not loaded here. Verify can't introspect
             // closure bodies, so it sees the constructor param's type and asks for a binding.
-            // HikariDataSource, Path, Database: DatabaseHandle's constructor takes these directly;
-            // they are constructed inside the factory closure, not injected from the Koin graph.
+            // HikariDataSource, SwappableDataSource, Path, Database, Function0: DatabaseHandle's
+            // constructor takes these directly; they are all constructed inside the factory
+            // closure, not injected from the Koin graph.
             authModule(config).verify(
                 extraTypes =
                     listOf(
@@ -43,6 +45,8 @@ class AuthModuleVerifyTest :
                         RegistrationPolicy::class,
                         ChangeBus::class,
                         HikariDataSource::class,
+                        SwappableDataSource::class,
+                        Function0::class,
                         Path::class,
                         Database::class,
                     ),
