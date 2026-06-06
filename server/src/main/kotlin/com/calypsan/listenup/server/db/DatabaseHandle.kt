@@ -42,6 +42,28 @@ class DatabaseHandle(
 
     fun evictConnections() = dataSource.hikariPoolMXBean.softEvictConnections()
 
+    /**
+     * Blocks until the pool reports zero physical connections, or [timeoutMs] elapses.
+     * Returns true if fully drained, false on timeout.
+     *
+     * After [suspendPool] (no new acquisitions), the db file must not be swapped until every
+     * SQLite handle is released — otherwise the swap/migrate races a lingering connection and
+     * hits `SQLITE_BUSY`. `softEvictConnections` only *requests* eviction; this polls
+     * `totalConnections` (re-nudging eviction each pass) until the pool is physically drained.
+     * Bounded so a stuck connection can't freeze restore forever — on timeout the caller
+     * proceeds, and any genuine lock surfaces as a normal rollback rather than a hang.
+     */
+    fun awaitPoolDrained(timeoutMs: Long = DRAIN_TIMEOUT_MS): Boolean {
+        val pool = dataSource.hikariPoolMXBean
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (pool.totalConnections > 0) {
+            if (System.currentTimeMillis() >= deadline) return false
+            pool.softEvictConnections()
+            Thread.sleep(DRAIN_POLL_MS)
+        }
+        return true
+    }
+
     /** Runs Flyway forward against the current (possibly just-swapped) db file. Returns the post-migration version. */
     fun migrate(): String? =
         Flyway
@@ -66,4 +88,9 @@ class DatabaseHandle(
             ?.version
 
     fun close() = dataSource.close()
+
+    private companion object {
+        const val DRAIN_TIMEOUT_MS = 5_000L
+        const val DRAIN_POLL_MS = 20L
+    }
 }

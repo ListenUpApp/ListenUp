@@ -39,7 +39,6 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import org.koin.ktor.ext.inject
 
@@ -91,11 +90,16 @@ class LibraryFolderSyncAccessTest :
                 val folders by application.inject<LibraryFolderRepository>()
 
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(admin) }) {
+                    // Canonical firehose pattern (see SeamLeakE2ETest / BooksSyncFirehoseTest): collect in an
+                    // `async` that `coroutineScope` joins to completion, and publish OUTSIDE the collector.
+                    // This keeps the in-flight tail minimal at block exit so the server's async SSE teardown
+                    // finishes before runTest's end-of-body coroutine-leak check samples — publishing inside
+                    // a single `incoming.first { }` predicate widened that race and tripped
+                    // UncompletedCoroutinesError on the CI runner.
                     coroutineScope {
                         val deferred = async { incoming.first { it.event == "library_folders" } }
                         folders.upsert(folderFixture("live-folder"))
-                        val event = deferred.await()
-                        event.event shouldBe "library_folders"
+                        deferred.await().event shouldBe "library_folders"
                     }
                 }
             }
@@ -108,18 +112,18 @@ class LibraryFolderSyncAccessTest :
                 val books by application.inject<BookRepository>()
 
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(member) }) {
+                    // Canonical firehose pattern (see SeamLeakE2ETest SEAM-6, the exact analogue): the
+                    // member's first folder-or-book frame must be the public sentinel book — the hidden
+                    // folder event is withheld for members and never reaches the stream. Collect in an
+                    // `async` joined by `coroutineScope`; publish OUTSIDE the collector so the teardown
+                    // tail stays minimal (a side-effecting predicate caused a CI-only
+                    // UncompletedCoroutinesError; ChangeBus replay=256 covers a slightly-late subscriber,
+                    // so no readiness handshake is needed).
                     coroutineScope {
-                        // First match on either domain. The folder event is emitted first; if the
-                        // gate works it is dropped and the member's first frame is the public book
-                        // sentinel (proving the stream is live and the folder event was skipped).
-                        val deferred =
-                            async {
-                                incoming.filter { it.event == "library_folders" || it.event == "books" }.first()
-                            }
+                        val deferred = async { incoming.first { it.event == "library_folders" || it.event == "books" } }
                         folders.upsert(folderFixture("hidden-folder"))
                         books.upsert(publicBookFixture("sentinel-book"))
-                        val event = deferred.await()
-                        event.event shouldBe "books"
+                        deferred.await().event shouldBe "books"
                     }
                 }
             }
