@@ -28,6 +28,7 @@ enum class ContributorRole(
 
     companion object {
         /** Resolves a stored/wire [value] (case-insensitive) to a role, or null if unrecognized. */
-        fun fromApiValue(value: String): ContributorRole? = entries.find { it.apiValue.equals(value, ignoreCase = true) }
+        fun fromApiValue(value: String): ContributorRole? =
+            entries.find { it.apiValue.equals(value, ignoreCase = true) }
     }
 }
