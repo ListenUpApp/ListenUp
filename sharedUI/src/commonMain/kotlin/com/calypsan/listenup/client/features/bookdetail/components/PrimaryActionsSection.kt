@@ -76,8 +76,8 @@ fun PrimaryActionsSection(
                     .then(if (requestFocus) Modifier.focusRequester(focusRequester) else Modifier),
             shape =
                 RoundedCornerShape(
-                    topStart = 24.dp,
-                    bottomStart = 24.dp,
+                    topStart = 32.dp,
+                    bottomStart = 32.dp,
                     topEnd = 6.dp,
                     bottomEnd = 6.dp,
                 ),
