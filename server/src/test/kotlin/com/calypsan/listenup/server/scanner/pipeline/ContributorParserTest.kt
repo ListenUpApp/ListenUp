@@ -86,6 +86,11 @@ class ContributorParserTest :
             ContributorParser.parse("东野, 圭吾", ContributorRole.AUTHOR) shouldBe listOf(row("东野, 圭吾", ContributorRole.AUTHOR))
         }
 
+        test("odd-count bare-surname comma list drops the trailing unpaired chunk") {
+            ContributorParser.parse("King, Stephen, Straub", ContributorRole.AUTHOR) shouldBe
+                listOf(row("Stephen King", ContributorRole.AUTHOR))
+        }
+
         test("blank input yields no contributors") {
             ContributorParser.parse("", ContributorRole.AUTHOR).shouldBeEmpty()
             ContributorParser.parse("   ", ContributorRole.AUTHOR).shouldBeEmpty()

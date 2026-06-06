@@ -62,6 +62,8 @@ object ContributorParser {
         val (segments, explicitSplit) = splitPersons(trimmed)
         val result = mutableListOf<ParsedContributor>()
         for (segment in segments) {
+            // Peel the role suffix before resolving the name so a "Last, First - Role" entry
+            // keeps its role while the name still normalizes correctly.
             val (namePart, role) = peelRole(segment, defaultRole)
             val names =
                 if (explicitSplit) {
