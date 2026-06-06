@@ -64,7 +64,7 @@ class AnalyzedBookMapperTest :
             payload.libraryId shouldBe LibraryId("lib-1")
             payload.folderId shouldBe FolderId("folder-1")
             payload.title shouldBe "Minimal Book"
-            payload.sortTitle shouldBe null
+            payload.sortTitle shouldBe "Minimal Book"
             payload.subtitle shouldBe null
             payload.description shouldBe null
             payload.publishYear shouldBe null
@@ -291,6 +291,68 @@ class AnalyzedBookMapperTest :
             chapters[1].duration shouldBe 120_000L
         }
 
+        test("sortTitle strips a leading article when no embedded sort tag") {
+            val analyzed =
+                AnalyzedBook(
+                    candidate =
+                        CandidateBook(
+                            rootRelPath = "books/hobbit",
+                            isFile = false,
+                            files = emptyList(),
+                        ),
+                    title = "The Hobbit",
+                )
+
+            val payload =
+                mapper.toBookSyncPayload(
+                    bookId = BookId("b-hobbit"),
+                    libraryId = LibraryId("lib-1"),
+                    folderId = FolderId("folder-1"),
+                    analyzed = analyzed,
+                    resolvedContributors = emptyList(),
+                    resolvedSeries = emptyList(),
+                )
+
+            payload.sortTitle shouldBe "Hobbit"
+        }
+
+        test("embedded titleSort tag wins over article stripping") {
+            val file =
+                FileEntry(
+                    relPath = "books/hobbit/01.m4b",
+                    name = "01.m4b",
+                    ext = "m4b",
+                    size = 1024L,
+                    mtimeMs = 0L,
+                    inode = 1L,
+                    fileType = FileType.AUDIO,
+                )
+            val analyzed =
+                AnalyzedBook(
+                    candidate =
+                        CandidateBook(
+                            rootRelPath = "books/hobbit",
+                            isFile = false,
+                            files = listOf(file),
+                        ),
+                    title = "The Hobbit",
+                    tracks = listOf(TrackEntry(file = file)),
+                    embedded = embeddedMeta(durationMs = 1_000L, titleSort = "Hobbit, The"),
+                )
+
+            val payload =
+                mapper.toBookSyncPayload(
+                    bookId = BookId("b-hobbit"),
+                    libraryId = LibraryId("lib-1"),
+                    folderId = FolderId("folder-1"),
+                    analyzed = analyzed,
+                    resolvedContributors = emptyList(),
+                    resolvedSeries = emptyList(),
+                )
+
+            payload.sortTitle shouldBe "Hobbit, The"
+        }
+
         test("should carry inode from the first track file") {
             val file =
                 FileEntry(
@@ -348,7 +410,10 @@ private fun analyzedBook(
         narrators = narrators,
     )
 
-private fun embeddedMeta(durationMs: Long): EmbeddedAudioMetadata =
+private fun embeddedMeta(
+    durationMs: Long,
+    titleSort: String? = null,
+): EmbeddedAudioMetadata =
     EmbeddedAudioMetadata(
         format = AudioFormat.Mp3,
         durationMs = durationMs,
@@ -369,6 +434,7 @@ private fun embeddedMeta(durationMs: Long): EmbeddedAudioMetadata =
                 trackNumber = null,
                 discNumber = null,
                 custom = emptyMap(),
+                titleSort = titleSort,
             ),
         chapters = emptyList(),
         chaptersSource = ChapterSource.None,

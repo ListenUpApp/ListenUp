@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.scanner.pipeline.ContributorParser
+import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import kotlin.time.Clock
 
 /**
@@ -74,7 +75,7 @@ class AnalyzedBookMapper(
             libraryId = libraryId,
             folderId = folderId,
             title = analyzed.title,
-            sortTitle = null,
+            sortTitle = SortKeys.titleSort(analyzed.title, analyzed.embedded?.tags?.titleSort),
             subtitle = analyzed.subtitle,
             description = analyzed.description,
             publishYear = analyzed.publishedYear,
