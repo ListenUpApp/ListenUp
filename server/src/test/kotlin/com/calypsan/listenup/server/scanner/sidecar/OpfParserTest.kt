@@ -98,6 +98,20 @@ class OpfParserTest :
                 parser.parse(inlineOpf("Reprinted 1999, first published 2014"))?.publishYear.shouldBeNull()
             }
         }
+
+        test("reads dc:subtitle into SidecarMetadata.subtitle") {
+            runTest {
+                val opfPath = inlineOpfWithSubtitle(title = "Mistborn", subtitle = "The Final Empire")
+                parser.parse(opfPath)?.subtitle shouldBe "The Final Empire"
+            }
+        }
+
+        test("absent dc:subtitle yields null subtitle") {
+            runTest {
+                val opfPath = inlineOpfNoSubtitle(title = "Mistborn")
+                parser.parse(opfPath)?.subtitle.shouldBeNull()
+            }
+        }
     })
 
 private fun inlineOpf(date: String): Path {
@@ -109,6 +123,42 @@ private fun inlineOpf(date: String): Path {
             <metadata>
                 <dc:title>Date Test</dc:title>
                 <dc:date>$date</dc:date>
+            </metadata>
+        </package>
+        """.trimIndent(),
+    )
+    temp.toFile().deleteOnExit()
+    return temp
+}
+
+private fun inlineOpfWithSubtitle(
+    title: String,
+    subtitle: String,
+): Path {
+    val temp = kotlin.io.path.createTempFile(suffix = ".opf")
+    temp.toFile().writeText(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+            <metadata>
+                <dc:title>$title</dc:title>
+                <dc:subtitle>$subtitle</dc:subtitle>
+            </metadata>
+        </package>
+        """.trimIndent(),
+    )
+    temp.toFile().deleteOnExit()
+    return temp
+}
+
+private fun inlineOpfNoSubtitle(title: String): Path {
+    val temp = kotlin.io.path.createTempFile(suffix = ".opf")
+    temp.toFile().writeText(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+            <metadata>
+                <dc:title>$title</dc:title>
             </metadata>
         </package>
         """.trimIndent(),

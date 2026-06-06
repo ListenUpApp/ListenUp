@@ -333,13 +333,28 @@ internal class Analyzer(
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
         val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
-        val (title, titleAbridged) = parseAbridgedFromTitle(rawTitle)
+        val (strippedTitle, titleAbridged) = parseAbridgedFromTitle(rawTitle)
+
+        // An explicit subtitle (metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the
+        // gated folder " - " split) always wins; only when none exists do we derive one from the
+        // title string. Applied uniformly to whatever source pickTitle chose.
+        val explicitSubtitle =
+            metadata?.subtitle
+                ?: embedded?.tags?.subtitle
+                ?: sidecar?.subtitle
+                ?: parsed.subtitle
+        val (title, subtitle) =
+            if (explicitSubtitle != null) {
+                strippedTitle to explicitSubtitle
+            } else {
+                TitleSubtitleSplitter.split(strippedTitle)
+            }
+
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
         return AnalyzedBook(
             candidate = candidate,
             title = title,
-            // SidecarMetadata carries no subtitle field — the chain is unchanged.
-            subtitle = metadata?.subtitle ?: embedded?.tags?.subtitle ?: parsed.subtitle,
+            subtitle = subtitle,
             authors = pickAuthors(shape, embedded, metadata, sidecar),
             narrators = pickNarrators(parsed, embedded, metadata, sidecar),
             series = pickSeries(shape, parsed, embedded, metadata),
@@ -578,6 +593,7 @@ internal class Analyzer(
 private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata =
     SidecarMetadata(
         title = title ?: other.title,
+        subtitle = subtitle ?: other.subtitle,
         description = description ?: other.description,
         publishYear = publishYear ?: other.publishYear,
         publisher = publisher ?: other.publisher,
