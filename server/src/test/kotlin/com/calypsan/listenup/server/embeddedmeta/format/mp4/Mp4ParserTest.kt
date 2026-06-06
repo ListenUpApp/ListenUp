@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
+import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.NeroChapter
 import com.calypsan.listenup.server.embeddedmeta.fixtures.TextTrackChapter
@@ -368,6 +369,47 @@ class Mp4ParserTest :
             val result = runBlocking { parser.parse(source) }
             require(result is AppResult.Failure)
             (result.error is com.calypsan.listenup.api.error.AudioMetadataError.IoError) shouldBe true
+        }
+
+        test("semicolon ©mvn and ©mvi tags zip into multiple series") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Words of Radiance")
+                                tag("©mvn", "Cosmere;Stormlight")
+                                tag("©mvi", "3;4")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Cosmere", "3"), SeriesEntry("Stormlight", "4"))
+        }
+
+        test("©grp grouping is used as series when no dedicated series tag") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                tag("©grp", "Wheel of Time #3")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Wheel of Time", "3"))
         }
     })
 

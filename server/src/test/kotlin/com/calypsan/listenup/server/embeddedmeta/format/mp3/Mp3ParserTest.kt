@@ -5,6 +5,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
+import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import io.kotest.core.spec.style.FunSpec
@@ -232,6 +233,51 @@ class Mp3ParserTest :
             val result = parser.parse(source)
             require(result is AppResult.Failure)
             (result.error is com.calypsan.listenup.api.error.AudioMetadataError.IoError) shouldBe true
+        }
+
+        test("semicolon series and series-part tags zip into multiple series") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Words of Radiance")
+                        textFrame("MVNM", "Cosmere;Stormlight")
+                        textFrame("MVIN", "3;4")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Cosmere", "3"), SeriesEntry("Stormlight", "4"))
+        }
+
+        test("GRP1 grouping is used as series when no dedicated series tag") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Book")
+                        textFrame("GRP1", "Wheel of Time #3")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Wheel of Time", "3"))
+        }
+
+        test("a dedicated series tag wins over GRP1 grouping") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Book")
+                        textFrame("MVNM", "Real Series")
+                        textFrame("MVIN", "2")
+                        textFrame("GRP1", "Grouping Series #9")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Real Series", "2"))
         }
     })
 

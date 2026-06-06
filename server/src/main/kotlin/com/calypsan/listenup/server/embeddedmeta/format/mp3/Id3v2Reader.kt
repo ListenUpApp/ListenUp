@@ -108,7 +108,7 @@ internal object Id3v2Reader {
                     handleTxxx(frameData, builder)
                 }
 
-                frameId.startsWith("T") -> {
+                frameId.startsWith("T") || frameId == "MVNM" || frameId == "MVIN" || frameId == "GRP1" -> {
                     handleTextFrame(frameId, frameData, builder)
                 }
 
@@ -182,6 +182,10 @@ internal object Id3v2Reader {
             "MVNM" -> builder.seriesName = builder.seriesName ?: text
 
             "MVIN" -> builder.seriesPart = builder.seriesPart ?: text
+
+            "GRP1" -> builder.grouping = builder.grouping ?: text
+
+            "TIT1" -> builder.grouping = builder.grouping ?: text
 
             "TDES" -> builder.description = builder.description ?: text
 
