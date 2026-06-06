@@ -335,10 +335,12 @@ fun BookDetailContent(
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
-    // Use two-pane layout for medium+ width devices (tablets, foldables, desktop)
+    // Two-pane only at EXPANDED width (~840dp+): the wide hero band + About/Credits + Readers/Chapters
+    // columns need real room. At medium width (portrait tablets, unfolded-foldable portrait) the
+    // single fluid [ImmersiveBookDetail] column reads better than a cramped two-pane.
     val useTwoPane =
         windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
     if (useTwoPane) {
