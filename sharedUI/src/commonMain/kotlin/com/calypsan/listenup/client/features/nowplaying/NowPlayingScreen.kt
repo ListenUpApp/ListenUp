@@ -1,7 +1,5 @@
-
 package com.calypsan.listenup.client.features.nowplaying
 
-import android.graphics.Bitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode
@@ -13,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -46,12 +45,12 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -60,55 +59,32 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.State
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.palette.graphics.Palette
-import androidx.compose.runtime.produceState
-import coil3.Image
-import coil3.compose.SubcomposeAsyncImage
-import coil3.compose.SubcomposeAsyncImageContent
-import coil3.network.NetworkHeaders
-import coil3.network.httpHeaders
-import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ServerConfig
-import org.koin.core.context.GlobalContext
-import coil3.request.ImageRequest
-import coil3.request.allowHardware
-import coil3.toBitmap
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.design.components.AuroraBackground
+import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
+import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import com.calypsan.listenup.client.foldable.LocalPosture
 import com.calypsan.listenup.client.foldable.Posture
+import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.time.Duration
-
-private val logger = KotlinLogging.logger {}
 
 // Predictive back gesture animation: scale shrinks 10%, alpha fades 50% at full progress
 private const val PREDICTIVE_BACK_SCALE_REDUCTION = 0.1f
@@ -117,11 +93,16 @@ private const val PREDICTIVE_BACK_ALPHA_REDUCTION = 0.5f
 // Tabletop posture splits Now Playing into two equal halves above/below the hinge.
 private const val TABLETOP_HALF_WEIGHT = 0.5f
 
+// Drag-to-dismiss: release past a third of the screen height collapses the player.
+private const val DRAG_DISMISS_FRACTION = 0.33f
+
+// TV ambient mode: fade controls out after this idle period.
+private const val TV_AMBIENT_DELAY_MS = 15_000L
+
 /**
  * Full screen Now Playing view.
  *
  * M3 Expressive styling:
- * - Dynamic color glow from cover art behind the book
  * - Diverse button shapes (large play, medium skip, small chapter)
  * - Chapter-scoped seek bar
  */
@@ -170,9 +151,6 @@ fun NowPlayingScreen(
         }
     }
 
-    // Extract dominant color from cover
-    var dominantColor by remember { mutableStateOf(Color.Transparent) }
-
     // Breathing animation for cover art
     val breathTransition = rememberInfiniteTransition(label = "breath")
     val breathScale by breathTransition.animateFloat(
@@ -186,12 +164,13 @@ fun NowPlayingScreen(
         label = "breathScale",
     )
 
-    // TV ambient mode: fade out controls after inactivity
+    // TV ambient mode: fade out controls after inactivity. Each interaction bumps a tick that
+    // re-keys the inactivity timer — a monotonically increasing counter is all the key needs.
     var isAmbientMode by remember { mutableStateOf(false) }
-    var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    var interactionTick by remember { mutableIntStateOf(0) }
 
     fun resetAmbient() {
-        lastInteractionTime = System.currentTimeMillis()
+        interactionTick++
         isAmbientMode = false
     }
 
@@ -203,8 +182,8 @@ fun NowPlayingScreen(
 
     // Inactivity timer for TV
     if (isTv) {
-        LaunchedEffect(lastInteractionTime) {
-            kotlinx.coroutines.delay(15_000L)
+        LaunchedEffect(interactionTick) {
+            kotlinx.coroutines.delay(TV_AMBIENT_DELAY_MS)
             isAmbientMode = true
         }
     }
@@ -217,10 +196,10 @@ fun NowPlayingScreen(
 
     // Drag-to-dismiss state
     val scope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val dismissThreshold = screenHeightPx * 0.33f
+    val screenHeightPx =
+        LocalWindowInfo.current.containerSize.height
+            .toFloat()
+    val dismissThreshold = screenHeightPx * DRAG_DISMISS_FRACTION
 
     val dragOffset = remember { Animatable(0f) }
 
@@ -287,11 +266,6 @@ fun NowPlayingScreen(
             val isWideLayout = constraintsWidth > constraintsHeight
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // Aurora mesh gradient background
-                AuroraBackground(
-                    dominantColor = dominantColor,
-                )
-
                 if (isWideLayout) {
                     // Wide layout: cover on left, controls on right
                     WideNowPlayingLayout(
@@ -299,7 +273,6 @@ fun NowPlayingScreen(
                         sleepTimerState = sleepTimerState,
                         breathScale = breathScale,
                         ambientAlpha = ambientAlpha,
-                        onColorExtracted = { dominantColor = it },
                         onCollapse = {
                             resetAmbient()
                             onCollapse()
@@ -372,7 +345,6 @@ fun NowPlayingScreen(
                         sleepTimerState = sleepTimerState,
                         breathScale = breathScale,
                         ambientAlpha = ambientAlpha,
-                        onColorExtracted = { dominantColor = it },
                         onCollapse = {
                             resetAmbient()
                             onCollapse()
@@ -415,7 +387,6 @@ private fun TallNowPlayingLayout(
     sleepTimerState: SleepTimerState,
     breathScale: Float,
     ambientAlpha: Float,
-    onColorExtracted: (Color) -> Unit,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -442,7 +413,6 @@ private fun TallNowPlayingLayout(
                 sleepTimerState = sleepTimerState,
                 breathScale = breathScale,
                 ambientAlpha = ambientAlpha,
-                onColorExtracted = onColorExtracted,
                 onCollapse = onCollapse,
                 onPlayPause = onPlayPause,
                 onSeek = onSeek,
@@ -497,9 +467,10 @@ private fun TallNowPlayingLayout(
                 ) {
                     CoverArt(
                         bookId = state.bookId,
-                        coverUrl = state.coverPath,
+                        coverPath = state.coverPath,
+                        coverBlurHash = state.coverBlurHash,
+                        title = state.title,
                         breathScale = breathScale,
-                        onColorExtracted = onColorExtracted,
                     )
                 }
 
@@ -575,7 +546,6 @@ private fun TabletopNowPlayingLayout(
     sleepTimerState: SleepTimerState,
     breathScale: Float,
     ambientAlpha: Float,
-    onColorExtracted: (Color) -> Unit,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -610,9 +580,10 @@ private fun TabletopNowPlayingLayout(
         ) {
             CoverArt(
                 bookId = state.bookId,
-                coverUrl = state.coverPath,
+                coverPath = state.coverPath,
+                coverBlurHash = state.coverBlurHash,
+                title = state.title,
                 breathScale = breathScale,
-                onColorExtracted = onColorExtracted,
             )
         }
 
@@ -692,7 +663,6 @@ private fun WideNowPlayingLayout(
     sleepTimerState: SleepTimerState,
     breathScale: Float,
     ambientAlpha: Float,
-    onColorExtracted: (Color) -> Unit,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -729,9 +699,10 @@ private fun WideNowPlayingLayout(
         ) {
             CoverArt(
                 bookId = state.bookId,
-                coverUrl = state.coverPath,
+                coverPath = state.coverPath,
+                coverBlurHash = state.coverBlurHash,
+                title = state.title,
                 breathScale = breathScale,
-                onColorExtracted = onColorExtracted,
             )
         }
 
@@ -977,20 +948,27 @@ private fun NowPlayingTopBar(
     }
 }
 
+/**
+ * Square cover art with shadow and a gentle breathing animation.
+ *
+ * Loads via the shared [ElevatedCoverCard] (local-file fast path with authenticated server-URL
+ * fallback and a BlurHash placeholder), the same mechanism Book Detail uses.
+ */
 @Composable
 private fun CoverArt(
     bookId: String,
-    coverUrl: String?,
+    coverPath: String?,
+    coverBlurHash: String?,
+    title: String,
     breathScale: Float = 1f,
-    onColorExtracted: (Color) -> Unit,
 ) {
-    // Track if color has been extracted for this cover to prevent repeated extraction
-    val colorExtracted = remember(bookId, coverUrl) { mutableStateOf(false) }
-
-    val imageRequest by rememberCoverImageRequest(bookId = bookId, coverUrl = coverUrl)
-
-    // Cover art with shadow and breathing animation
-    Surface(
+    ElevatedCoverCard(
+        path = coverPath,
+        bookId = bookId,
+        blurHash = coverBlurHash,
+        contentDescription = title,
+        cornerRadius = 16.dp,
+        elevation = 24.dp,
         modifier =
             Modifier
                 .fillMaxHeight()
@@ -999,128 +977,8 @@ private fun CoverArt(
                     scaleX = breathScale
                     scaleY = breathScale
                 },
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 24.dp,
-        tonalElevation = 0.dp,
-    ) {
-        SubcomposeAsyncImage(
-            model = imageRequest,
-            contentDescription = "Book cover",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            success = { state ->
-                CoverColorExtractor(
-                    image = state.result.image,
-                    colorExtracted = colorExtracted,
-                    onColorExtracted = onColorExtracted,
-                )
-                SubcomposeAsyncImageContent()
-            },
-        )
-    }
+    )
 }
-
-/**
- * Resolves the cover [ImageRequest]: local file fast path, or server URL fallback with auth.
- *
- * Covers are never blank when online even if the local download hasn't completed yet.
- */
-@Composable
-private fun rememberCoverImageRequest(
-    bookId: String,
-    coverUrl: String?,
-): State<ImageRequest> {
-    val context = LocalContext.current
-    return produceState<ImageRequest>(
-        initialValue =
-            ImageRequest
-                .Builder(context)
-                .data(coverUrl)
-                .allowHardware(false)
-                .build(),
-        key1 = bookId,
-        key2 = coverUrl,
-    ) {
-        if (coverUrl != null) {
-            // Local file available — use it directly, no network needed
-            value =
-                ImageRequest
-                    .Builder(context)
-                    .data(coverUrl)
-                    .allowHardware(false)
-                    .build()
-            return@produceState
-        }
-
-        if (bookId.isBlank()) return@produceState
-
-        // No local cover yet — fetch from server with auth header
-        withContext(Dispatchers.IO) {
-            val serverConfig = GlobalContext.get().get<ServerConfig>()
-            val authSession = GlobalContext.get().get<AuthSession>()
-            val baseUrl = serverConfig.getActiveUrl()?.value
-            val token = authSession.getAccessToken()?.value
-            if (baseUrl != null) {
-                value =
-                    ImageRequest
-                        .Builder(context)
-                        .data("$baseUrl/api/v1/covers/$bookId")
-                        .apply {
-                            if (token != null) {
-                                httpHeaders(
-                                    NetworkHeaders.Builder().set("Authorization", "Bearer $token").build(),
-                                )
-                            }
-                        }.allowHardware(false)
-                        .build()
-            }
-        }
-    }
-}
-
-/**
- * Extracts the dominant color once per image load, flipping [colorExtracted] so the
- * extraction never repeats for the same cover. Errors are swallowed to a debug log —
- * a missing accent color degrades gracefully to the default surface.
- */
-@Composable
-private fun CoverColorExtractor(
-    image: Image,
-    colorExtracted: MutableState<Boolean>,
-    onColorExtracted: (Color) -> Unit,
-) {
-    LaunchedEffect(image) {
-        if (!colorExtracted.value) {
-            colorExtracted.value = true
-            withContext(Dispatchers.IO) {
-                try {
-                    val bitmap = image.toBitmap()
-                    val color = extractDominantColor(bitmap)
-                    if (color != null) {
-                        withContext(Dispatchers.Main) {
-                            onColorExtracted(color)
-                        }
-                    }
-                } catch (e: Exception) {
-                    logger.debug(e) { "Color extraction from cover art failed" }
-                }
-            }
-        }
-    }
-}
-
-private fun extractDominantColor(bitmap: Bitmap): Color? =
-    try {
-        val palette = Palette.from(bitmap).generate()
-        val swatch =
-            palette.vibrantSwatch
-                ?: palette.mutedSwatch
-                ?: palette.dominantSwatch
-        swatch?.rgb?.let { Color(it) }
-    } catch (e: Exception) {
-        logger.debug(e) { "Failed to extract dominant color from bitmap" }
-        null
-    }
 
 @Composable
 private fun TitleSection(
