@@ -411,6 +411,28 @@ class Mp4ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.tags.series shouldBe listOf(SeriesEntry("Wheel of Time", "3"))
         }
+
+        test("a dedicated ©mvn series tag wins over ©grp grouping") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                tag("©mvn", "Real Series")
+                                tag("©mvi", "2")
+                                tag("©grp", "Grouping Series #9")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Real Series", "2"))
+        }
     })
 
 internal fun byteSource(bytes: ByteArray): SeekableAudioSource =

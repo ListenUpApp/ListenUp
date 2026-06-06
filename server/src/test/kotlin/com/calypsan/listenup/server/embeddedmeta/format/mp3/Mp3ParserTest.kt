@@ -279,6 +279,20 @@ class Mp3ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.tags.series shouldBe listOf(SeriesEntry("Real Series", "2"))
         }
+
+        test("TIT1 grouping is used as series when no dedicated series tag") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Book")
+                        textFrame("TIT1", "Wheel of Time #3")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Wheel of Time", "3"))
+        }
     })
 
 internal fun byteSource(bytes: ByteArray): SeekableAudioSource =

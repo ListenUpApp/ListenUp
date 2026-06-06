@@ -30,10 +30,10 @@ internal class AudioTagsBuilder {
 
     fun build(): AudioTags {
         val series =
-            when {
-                seriesName != null -> SeriesTagParser.zipSeries(seriesName, seriesPart)
-                grouping != null -> SeriesTagParser.parsePacked(grouping!!)
-                else -> emptyList()
+            if (seriesName != null) {
+                SeriesTagParser.zipSeries(seriesName, seriesPart)
+            } else {
+                grouping?.let { SeriesTagParser.parsePacked(it) } ?: emptyList()
             }
         return AudioTags(
             title = title,
