@@ -243,6 +243,19 @@ class SyncEngine(
     }
 
     /**
+     * Manually drop and re-establish the SSE firehose. Backs the offline-banner
+     * "Retry" action: the automatic backoff loop may be mid-sleep when the user
+     * regains connectivity, so we tear the connection down and immediately
+     * re-open it. [SseClient.connect] resumes from the stored `Last-Event-Id`,
+     * so no events are missed; the connection-state transition flows back through
+     * [SyncEngineState] and drives the reachability indicator.
+     */
+    suspend fun reconnect() {
+        sseClient.disconnect()
+        sseClient.connect()
+    }
+
+    /**
      * Recover from a server-issued `SyncControl.CursorStale`. The dispatcher
      * invokes this when the SSE firehose announces that the client's
      * `Last-Event-Id` precedes the bus's live-tail replay floor.

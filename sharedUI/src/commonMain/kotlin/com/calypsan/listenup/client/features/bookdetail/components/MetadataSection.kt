@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -23,59 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.GenreChipRow
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-
-/**
- * Context metadata section showing series, stats, and genres.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun ContextMetadataSection(
-    seriesId: String?,
-    seriesName: String?,
-    rating: Double?,
-    duration: Long,
-    year: Int?,
-    addedAt: Long?,
-    genres: List<String>,
-    onSeriesClick: (seriesId: String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // Series Badge
-        seriesId?.let { id ->
-            seriesName?.let { name ->
-                SeriesBadge(
-                    seriesName = name,
-                    onClick = { onSeriesClick(id) },
-                )
-            }
-        }
-
-        // Stats Row
-        StatsRow(
-            rating = rating,
-            duration = duration,
-            year = year,
-            addedAt = addedAt,
-        )
-
-        // Genres
-        if (genres.isNotEmpty()) {
-            GenreChipRow(
-                genres = genres,
-                onGenreClick = null,
-            )
-        }
-    }
-}
 
 /**
  * Clickable series badge.
@@ -101,6 +50,15 @@ fun SeriesBadge(
     }
 }
 
+/** Tone variants for [StatChip]. */
+enum class StatChipTone {
+    /** Neutral surface — default for most chips. */
+    Surface,
+
+    /** Tertiary container — for the lead/accent chip. */
+    Tertiary,
+}
+
 /**
  * Row of stat chips showing rating, duration, year, and date added.
  */
@@ -115,14 +73,16 @@ fun StatsRow(
     horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
 ) {
     FlowRow(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = horizontalArrangement,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        rating?.takeIf { it > 0 }?.let { r ->
+        // Order per the design: Added (accent) → Duration → Year, with Rating last when present.
+        addedAt?.let { timestamp ->
             StatChip(
-                icon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) },
-                text = ((r * 10).toInt() / 10.0).toString(),
+                icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
+                text = formatAddedDate(timestamp),
+                tone = StatChipTone.Tertiary,
             )
         }
 
@@ -138,10 +98,10 @@ fun StatsRow(
             )
         }
 
-        addedAt?.let { timestamp ->
+        rating?.takeIf { it > 0 }?.let { r ->
             StatChip(
-                icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
-                text = formatAddedDate(timestamp),
+                icon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) },
+                text = ((r * 10).toInt() / 10.0).toString(),
             )
         }
     }
@@ -154,10 +114,22 @@ fun StatsRow(
 fun StatChip(
     icon: @Composable () -> Unit,
     text: String,
+    tone: StatChipTone = StatChipTone.Surface,
 ) {
+    val containerColor =
+        when (tone) {
+            StatChipTone.Surface -> MaterialTheme.colorScheme.surfaceContainerHigh
+            StatChipTone.Tertiary -> MaterialTheme.colorScheme.tertiaryContainer
+        }
+    val contentColor =
+        when (tone) {
+            StatChipTone.Surface -> MaterialTheme.colorScheme.onSurface
+            StatChipTone.Tertiary -> MaterialTheme.colorScheme.onTertiaryContainer
+        }
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = containerColor,
+        contentColor = contentColor,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

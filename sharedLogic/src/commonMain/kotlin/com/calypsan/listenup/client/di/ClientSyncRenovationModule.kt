@@ -75,7 +75,16 @@ val clientSyncRenovationModule =
         single { SyncEngineState() }
         single { PresenceRefreshSignal() }
         single { ActivityRefreshSignal() }
-        single<ServerReachability> { SseServerReachability(get(), get(qualifier = named(APP_SCOPE))) }
+        single<ServerReachability> {
+            SseServerReachability(
+                engineState = get(),
+                scope = get(qualifier = named(APP_SCOPE)),
+                // Lazy SyncEngine resolution mirrors onCursorStale/onAccessChanged: the
+                // engine is only needed at retry time, not at construction, so this avoids
+                // pulling SyncEngine into SseServerReachability's construction graph.
+                reconnect = { get<SyncEngine>().reconnect() },
+            )
+        }
         single { SyncCursorStore(dao = get()) }
 
         single<PlaybackRpcFactory> {

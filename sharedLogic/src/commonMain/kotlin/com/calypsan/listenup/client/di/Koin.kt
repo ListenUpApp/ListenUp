@@ -1100,21 +1100,15 @@ val syncModule =
             )
         }
 
-        // BookReadersRepository for Book Detail Readers section — SocialService RPC, ACL-filtered
-        // and caller-excluded server-side, re-fetched on every PresenceRefreshSignal ping.
+        // BookReadersRepository for Book Detail Readers section — combines the current user's local
+        // reading state with other live listeners (SocialService RPC, ACL-filtered, caller-excluded,
+        // re-fetched on every PresenceRefreshSignal ping).
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
                 socialRpc = get(),
                 presence = get(),
-            )
-        }
-
-        // BookListeningHistoryRepository for Book Detail listening-history section.
-        // Pure Room observation from listening_events, day-bucketed per the viewer's local TZ.
-        single<com.calypsan.listenup.client.domain.repository.BookListeningHistoryRepository> {
-            com.calypsan.listenup.client.data.repository.BookListeningHistoryRepositoryImpl(
-                listeningEventDao = get(),
-                authSession = get(),
+                playbackPositionRepository = get(),
+                userRepository = get(),
             )
         }
 

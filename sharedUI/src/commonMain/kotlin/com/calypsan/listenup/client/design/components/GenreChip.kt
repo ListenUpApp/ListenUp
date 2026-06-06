@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,7 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * A single genre chip using Material theme colors.
+ * A single genre chip rendered as an outlined pill — transparent background with an
+ * `outlineVariant` border and `onSurfaceVariant` text — visually distinct from the filled
+ * `secondaryContainer` tag chips used elsewhere on Book Detail.
  *
  * @param genre The genre name to display
  * @param onClick Optional click handler for browsing by genre
@@ -32,20 +34,20 @@ fun GenreChip(
 ) {
     Text(
         text = genre,
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Medium,
-        color = MaterialTheme.colorScheme.onSecondaryContainer,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier =
             modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .clip(RoundedCornerShape(50))
+                .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
                 .then(
                     if (onClick != null) {
                         Modifier.clickable(onClick = onClick)
                     } else {
                         Modifier
                     },
-                ).padding(horizontal = 12.dp, vertical = 6.dp),
+                ).padding(horizontal = 16.dp, vertical = 8.dp),
     )
 }
 

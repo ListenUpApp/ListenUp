@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -56,6 +57,7 @@ class BookDetailViewModel(
     private val createShelfUseCase: CreateShelfUseCase,
     private val errorBus: ErrorBus,
     private val bookAvailability: BookAvailability,
+    private val serverReachability: ServerReachability,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -214,10 +216,11 @@ class BookDetailViewModel(
         chapters: List<ChapterUiModel>,
         position: PlaybackPosition?,
     ): BookDetailUiState.Ready {
-        // Filter out subtitles that are just series name + book number
+        // Filter out subtitles that just restate a series the book belongs to (name, or name + book
+        // number) — checked against every membership now that a book can be in several series.
         val displaySubtitle =
-            detail.subtitle?.let { subtitle ->
-                if (isSubtitleRedundant(subtitle, detail.seriesName, detail.seriesSequence)) null else subtitle
+            detail.subtitle?.takeUnless { subtitle ->
+                detail.series.any { isSubtitleRedundant(subtitle, it.seriesName, it.sequence) }
             }
 
         val progress =
@@ -425,6 +428,17 @@ class BookDetailViewModel(
     }
 
     /**
+     * Force a fresh server-reachability check, backing the offline banner's "Retry"
+     * action. Tears down and re-opens the SSE firehose so the reachability indicator
+     * recovers without waiting on the automatic backoff loop.
+     */
+    fun retryConnection() {
+        viewModelScope.launch {
+            serverReachability.retry()
+        }
+    }
+
+    /**
      * Add the current book to an existing shelf.
      */
     fun addBookToShelf(shelfId: String) {
@@ -511,6 +525,9 @@ sealed interface BookDetailUiState {
         val isDiscardingProgress: Boolean = false,
         val isRestarting: Boolean = false,
         val subtitle: String? = null,
+        // Single formatted "Series #N" string (first membership). The Compose UI renders series as
+        // chips from book.series, but the iOS SwiftUI Book Detail (BookDetailObserver/BookDetailView)
+        // still consumes this string — keep it so iOS compiles and reads series as before.
         val series: String? = null,
         val description: String = "",
         val narrators: String = "",

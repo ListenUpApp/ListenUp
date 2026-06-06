@@ -13,7 +13,7 @@ class SseServerReachabilityTest :
         test("Connected maps to Reachable") {
             runTest {
                 val engineState = SyncEngineState()
-                val reachability = SseServerReachability(engineState, backgroundScope)
+                val reachability = SseServerReachability(engineState, backgroundScope, reconnect = {})
                 engineState.setConnection(ConnectionState.Connected(lastEventId = 1L))
                 reachability.state.test {
                     var item = awaitItem()
@@ -26,7 +26,7 @@ class SseServerReachabilityTest :
         test("Disconnected maps to Unreachable; Connecting maps to Unknown") {
             runTest {
                 val engineState = SyncEngineState()
-                val reachability = SseServerReachability(engineState, backgroundScope)
+                val reachability = SseServerReachability(engineState, backgroundScope, reconnect = {})
                 engineState.setConnection(ConnectionState.Connecting)
                 reachability.state.test {
                     var item = awaitItem()
@@ -39,6 +39,19 @@ class SseServerReachabilityTest :
                     while (item != Reachability.Unreachable) item = awaitItem()
                     item shouldBe Reachability.Unreachable
                 }
+            }
+        }
+
+        test("retry forces a reconnect") {
+            runTest {
+                val engineState = SyncEngineState()
+                var reconnectCalls = 0
+                val reachability =
+                    SseServerReachability(engineState, backgroundScope, reconnect = { reconnectCalls++ })
+
+                reachability.retry()
+
+                reconnectCalls shouldBe 1
             }
         }
     })

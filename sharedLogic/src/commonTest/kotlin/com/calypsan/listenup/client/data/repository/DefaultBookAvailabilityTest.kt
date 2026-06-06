@@ -40,6 +40,8 @@ class DefaultBookAvailabilityTest :
             val serverReachability =
                 object : ServerReachability {
                     override val state: StateFlow<Reachability> = MutableStateFlow(reachability)
+
+                    override suspend fun retry() = Unit
                 }
             val networkMonitor =
                 object : NetworkMonitor {

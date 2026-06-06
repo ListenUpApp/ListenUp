@@ -6,9 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,9 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.model.Tag
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_tags
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Section displaying tags for a book.
@@ -37,22 +42,25 @@ fun TagsSection(
     isLoading: Boolean,
     onTagClick: (Tag) -> Unit,
     modifier: Modifier = Modifier,
+    showHeader: Boolean = true,
 ) {
     if (tags.isEmpty() && !isLoading) return
 
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
-        // Header - matches "About" and "Chapters" heading style
-        Text(
-            text = stringResource(Res.string.book_detail_tags),
-            style =
-                MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
+        if (showHeader) {
+            // Header - matches "About" and "Chapters" heading style
+            Text(
+                text = stringResource(Res.string.book_detail_tags),
+                style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
 
         // Tags (left-aligned via Arrangement.Start)
         if (tags.isNotEmpty()) {
@@ -72,9 +80,10 @@ fun TagsSection(
 }
 
 /**
- * A clickable tag chip styled consistently with GenreChip.
+ * A clickable tag chip — filled secondaryContainer pill with a leading Tag glyph.
  *
- * Uses secondaryContainer background to match genre pills.
+ * Visually distinct from the outlined genre chips: filled vs. outlined signals
+ * that tags and genres are different classification systems.
  */
 @Composable
 private fun TagChip(
@@ -82,16 +91,27 @@ private fun TagChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Text(
-        text = tag.displayName(),
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Medium,
-        color = MaterialTheme.colorScheme.onSecondaryContainer,
+    Row(
         modifier =
             modifier
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(50))
                 .background(MaterialTheme.colorScheme.secondaryContainer)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Tag,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        Text(
+            text = tag.displayName(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
 }

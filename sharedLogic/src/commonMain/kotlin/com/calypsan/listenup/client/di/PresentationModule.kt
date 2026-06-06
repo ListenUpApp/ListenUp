@@ -277,16 +277,11 @@ val bookPresentationModule =
                 createShelfUseCase = get(),
                 errorBus = get(),
                 bookAvailability = get(),
+                serverReachability = get(),
             )
         }
         factory { params ->
             com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel(
-                repo = get(),
-                bookId = params.get(),
-            )
-        }
-        factory { params ->
-            com.calypsan.listenup.client.presentation.bookdetail.BookListeningHistoryViewModel(
                 repo = get(),
                 bookId = params.get(),
             )

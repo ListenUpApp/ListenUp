@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -41,22 +40,24 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
-import com.calypsan.listenup.client.design.components.rememberCoverColors
-import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
-import com.calypsan.listenup.client.features.bookdetail.components.BookListeningHistorySection
+import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
+import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
-import com.calypsan.listenup.client.features.bookdetail.components.ContextMetadataSection
-import com.calypsan.listenup.client.features.bookdetail.components.DescriptionSection
-import com.calypsan.listenup.client.features.bookdetail.components.HeroSection
+import com.calypsan.listenup.client.features.bookdetail.components.CastRole
+import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
+import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
+import com.calypsan.listenup.client.features.bookdetail.components.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
+import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
-import com.calypsan.listenup.client.features.bookdetail.components.TalentSectionWithRoles
+import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
@@ -66,8 +67,9 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_abridged
 import listenup.composeapp.generated.resources.book_detail_scan_warning
-import listenup.composeapp.generated.resources.book_detail_server_is_unreachable_connect_to
+import listenup.composeapp.generated.resources.book_detail_unabridged
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -222,6 +224,7 @@ private fun BookDetailReadyContent(
         canPlay = state.canPlay,
         canDownload = state.canDownload,
         showServerWarning = state.showServerWarning,
+        onRetryConnection = { viewModel.retryConnection() },
         onPlayDisabledClick = {
             scope.launch {
                 snackbarHostState.showSnackbar(
@@ -321,6 +324,7 @@ fun BookDetailContent(
     canPlay: Boolean,
     canDownload: Boolean,
     showServerWarning: Boolean,
+    onRetryConnection: () -> Unit,
     onPlayDisabledClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onCancelClick: () -> Unit,
@@ -332,10 +336,12 @@ fun BookDetailContent(
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
-    // Use two-pane layout for medium+ width devices (tablets, foldables, desktop)
+    // Two-pane only at EXPANDED width (~840dp+): the wide hero band + About/Credits + Readers/Chapters
+    // columns need real room. At medium width (portrait tablets, unfolded-foldable portrait) the
+    // single fluid [ImmersiveBookDetail] column reads better than a cramped two-pane.
     val useTwoPane =
         windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
     if (useTwoPane) {
@@ -364,6 +370,7 @@ fun BookDetailContent(
             playEnabled = canPlay,
             downloadEnabled = canDownload,
             showServerWarning = showServerWarning,
+            onRetryConnection = onRetryConnection,
             onPlayDisabledClick = onPlayDisabledClick,
             onSeriesClick = onSeriesClick,
             onContributorClick = onContributorClick,
@@ -393,6 +400,7 @@ fun BookDetailContent(
             canPlay = canPlay,
             canDownload = canDownload,
             showServerWarning = showServerWarning,
+            onRetryConnection = onRetryConnection,
             onPlayDisabledClick = onPlayDisabledClick,
             onDownloadClick = onDownloadClick,
             onCancelClick = onCancelClick,
@@ -410,8 +418,12 @@ fun BookDetailContent(
 // =============================================================================
 
 /**
- * Immersive book detail following audiobook user psychology.
- * Uses color extraction for dynamic, personalized theming.
+ * Compact (phone) Book Detail column on the Material 3 Expressive "Color Block" design.
+ *
+ * A plain [BookDetailTopBar] is hoisted above the scroll; the [LazyColumn] then carries, in order:
+ * offline + scan advisories, the centered [CompactHero], a centered [StatsRow], the grouped
+ * frameless [AboutSection] (description + Genres + Tags), the connected [PrimaryActionsSection],
+ * the frameless [CreditsSection], readers, and chapters.
  */
 @Suppress("LongParameterList", "LongMethod")
 @Composable
@@ -437,6 +449,7 @@ private fun ImmersiveBookDetail(
     canPlay: Boolean,
     canDownload: Boolean,
     showServerWarning: Boolean,
+    onRetryConnection: () -> Unit,
     onPlayDisabledClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onCancelClick: () -> Unit,
@@ -448,194 +461,213 @@ private fun ImmersiveBookDetail(
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
+    // Full-cast overlay target — set by a folded hero author/narrator line, cleared on dismiss.
+    var castRole by remember { mutableStateOf<CastRole?>(null) }
 
     val book = state.book
+    val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
+    // Overline: parent genre + abridged/unabridged classification.
+    // note: there's no parent-genre field yet — using the first genre. Server data needed for the
+    // true parent-genre rollup the gallery mocks (e.g. "Epic Fantasy" for a "High Fantasy" book).
+    val heroOverline = bookDetailOverline(book.genres.firstOrNull()?.name, book.abridged)
 
-    // Use cached colors for instant rendering, fall back to runtime extraction
-    val coverColors =
-        rememberCoverColors(
-            imagePath = book.coverPath,
-            cachedDominantColor = book.dominantColor,
-            cachedDarkMutedColor = book.darkMutedColor,
-            cachedVibrantColor = book.vibrantColor,
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        BookDetailTopBar(
+            title = book.title,
+            isComplete = isComplete,
+            hasProgress = hasProgress,
+            isAdmin = isAdmin,
+            onBackClick = onBackClick,
+            onEditClick = onEditClick,
+            onFindMetadataClick = onFindMetadataClick,
+            onMarkCompleteClick = onMarkCompleteClick,
+            onDiscardProgressClick = onDiscardProgressClick,
+            onAddToShelfClick = onAddToShelfClick,
+            onAddToCollectionClick = onAddToCollectionClick,
+            onShareClick = onShareClick,
+            onDeleteClick = onDeleteBookClick,
         )
 
-    val listState = rememberLazyListState()
-    val collapseFraction by rememberHeroCollapseFraction(listState)
-
-    LazyColumn(
-        state = listState,
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-        contentPadding = PaddingValues(bottom = 32.dp),
-    ) {
-        // 1. HERO SECTION - Identity with color-extracted gradient
-        item {
-            HeroSection(
-                coverPath = book.coverPath,
-                bookId = bookId,
-                title = book.title,
-                subtitle = state.subtitle,
-                progress = state.progress,
-                timeRemaining = state.timeRemainingFormatted,
-                coverColors = coverColors,
-                isComplete = state.isComplete,
-                hasProgress = hasProgress,
-                isAdmin = state.isAdmin,
-                collapseFraction = { collapseFraction },
-                collapsing = true,
-                onBackClick = onBackClick,
-                onEditClick = onEditClick,
-                onFindMetadataClick = onFindMetadataClick,
-                onMarkCompleteClick = onMarkCompleteClick,
-                onDiscardProgressClick = onDiscardProgressClick,
-                onAddToShelfClick = onAddToShelfClick,
-                onAddToCollectionClick = onAddToCollectionClick,
-                onShareClick = onShareClick,
-                onDeleteClick = onDeleteBookClick,
-            )
-        }
-
-        // Scan-warning advisory — heads-up when the scanner flagged this book's files.
-        item {
-            BookDetailScanWarning(
-                hasScanWarning = state.hasScanWarning,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-        }
-
-        // 2. THE TALENT - Who made this
-        item {
-            TalentSectionWithRoles(
-                authors = book.authors,
-                narrators = book.narrators,
-                allContributors = book.allContributors,
-                onContributorClick = onContributorClick,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-        }
-
-        // 3. PRIMARY ACTIONS - What can I do (Thumb zone)
-        if (showPlaybackActions) {
-            item {
-                PrimaryActionsSection(
-                    downloadStatus = downloadStatus,
-                    onPlayClick = onPlayClick,
-                    onDownloadClick = onDownloadClick,
-                    onCancelClick = onCancelClick,
-                    onDeleteClick = onDeleteClick,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    isWaitingForWifi = isWaitingForWifi,
-                    playEnabled = canPlay,
-                    downloadEnabled = canDownload,
-                    onPlayDisabledClick = onPlayDisabledClick,
-                )
-            }
-
-            // Server unreachable warning — informational only, does not disable buttons
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp),
+        ) {
+            // Offline advisory — streaming unavailable, downloads still play.
             if (showServerWarning) {
                 item {
-                    ServerUnreachableBanner(
-                        modifier = Modifier.padding(horizontal = 24.dp),
+                    OfflineBanner(
+                        onRetryClick = onRetryConnection,
+                        compact = true,
+                        modifier = screenPadding.padding(vertical = 8.dp),
                     )
                 }
             }
-        }
 
-        // 4. CONTEXT METADATA - Series, Stats, Genres
-        item {
-            ContextMetadataSection(
-                seriesId = book.seriesId,
-                seriesName = state.series ?: book.seriesName,
-                rating = state.rating,
-                duration = book.duration,
-                year = state.year,
-                addedAt = state.addedAt,
-                genres = state.genresList,
-                onSeriesClick = onSeriesClick,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-        }
-
-        // 5. THE HOOK - What's it about (Description)
-        state.description.takeIf { it.isNotBlank() }?.let { description ->
+            // Scan-warning advisory — heads-up when the scanner flagged this book's files.
             item {
-                DescriptionSection(
-                    description = description,
-                    isExpanded = isDescriptionExpanded,
-                    onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                BookDetailScanWarning(
+                    hasScanWarning = state.hasScanWarning,
+                    modifier = screenPadding.padding(vertical = 8.dp),
                 )
             }
-        }
 
-        // 6. TAGS - User categorization
-        if (state.tags.isNotEmpty()) {
+            // Identity — centered cover, title, subtitle, series chips, author, narrator.
             item {
-                TagsSection(
+                CompactHero(
+                    coverPath = book.coverPath,
+                    bookId = bookId,
+                    title = book.title,
+                    overline = heroOverline,
+                    subtitle = state.subtitle,
+                    series = book.series,
+                    authors = book.authors,
+                    narrators = book.narrators,
+                    onContributorClick = onContributorClick,
+                    onSeriesClick = onSeriesClick,
+                    onShowCast = { castRole = it },
+                    progress = state.progress,
+                    timeRemaining = state.timeRemainingFormatted,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            // Stats — rating, duration, year, date added (centered).
+            item {
+                StatsRow(
+                    rating = state.rating,
+                    duration = book.duration,
+                    year = state.year,
+                    addedAt = state.addedAt,
+                    modifier = screenPadding.padding(top = 16.dp),
+                )
+            }
+
+            // About — description + Genres + Tags, frameless.
+            item {
+                AboutSection(
+                    description = state.description,
+                    genres = state.genresList,
                     tags = state.tags,
-                    isLoading = state.isLoadingTags,
+                    isLoadingTags = state.isLoadingTags,
+                    isCard = false,
+                    isDescriptionExpanded = isDescriptionExpanded,
+                    onToggleDescriptionExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
+                    onGenreClick = null,
                     onTagClick = { tag -> onTagClick(tag.id) },
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    creditsSlot = null,
+                    modifier = screenPadding.padding(top = 24.dp),
                 )
             }
-        }
 
-        // 7. READERS - Social reading activity
-        item {
-            BookReadersSection(
-                bookId = bookId,
-                onUserClick = onUserProfileClick,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-        }
+            // Primary actions — connected Play + Download group.
+            if (showPlaybackActions) {
+                item {
+                    PrimaryActionsSection(
+                        downloadStatus = downloadStatus,
+                        onPlayClick = onPlayClick,
+                        onDownloadClick = onDownloadClick,
+                        onCancelClick = onCancelClick,
+                        onDeleteClick = onDeleteClick,
+                        modifier = screenPadding.padding(vertical = 16.dp),
+                        isWaitingForWifi = isWaitingForWifi,
+                        playEnabled = canPlay,
+                        downloadEnabled = canDownload,
+                        onPlayDisabledClick = onPlayDisabledClick,
+                        showServerWarning = showServerWarning,
+                    )
+                }
+            }
 
-        // 8. LISTENING HISTORY - Per-book session timeline (collapsible)
-        item {
-            BookListeningHistorySection(
-                bookId = bookId,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-        }
-
-        // 9. CHAPTERS - Deep dive
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            ChaptersHeader(
-                chapterCount = state.chapters.size,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-        }
-
-        val displayedChapters = if (isChaptersExpanded) state.chapters else state.chapters.take(5)
-        itemsIndexed(
-            items = displayedChapters,
-            key = { _, chapter -> chapter.id },
-        ) { index, chapter ->
-            ChapterListItem(chapter = chapter, chapterNumber = index + 1)
-        }
-
-        if (state.chapters.size > 5 && !isChaptersExpanded) {
+            // Readers — social reading activity.
             item {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    OutlinedButton(
-                        onClick = { isChaptersExpanded = true },
-                        shape = RoundedCornerShape(24.dp),
+                BookReadersSection(
+                    bookId = bookId,
+                    onUserClick = onUserProfileClick,
+                    modifier = screenPadding.padding(vertical = 8.dp),
+                )
+            }
+
+            // Chapters — deep dive.
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                ChaptersHeader(
+                    chapterCount = state.chapters.size,
+                    modifier = screenPadding.padding(vertical = 8.dp),
+                )
+            }
+
+            val displayedChapters = if (isChaptersExpanded) state.chapters else state.chapters.take(5)
+            itemsIndexed(
+                items = displayedChapters,
+                key = { _, chapter -> chapter.id },
+            ) { index, chapter ->
+                ChapterListItem(
+                    chapter = chapter,
+                    chapterNumber = index + 1,
+                    modifier = screenPadding,
+                    // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
+                    isCurrent = false,
+                    showDivider = index < displayedChapters.lastIndex,
+                )
+            }
+
+            if (state.chapters.size > 5 && !isChaptersExpanded) {
+                item {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text("Show all ${state.chapters.size} chapters")
+                        OutlinedButton(
+                            onClick = { isChaptersExpanded = true },
+                            shape = RoundedCornerShape(24.dp),
+                        ) {
+                            Text("Show all ${state.chapters.size} chapters")
+                        }
                     }
                 }
             }
+
+            // Credits — every contributor role grouped by role; anchored at the bottom of the page.
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                CreditsSection(
+                    credits = book.allContributors,
+                    onContributorClick = onContributorClick,
+                    modifier = screenPadding.padding(top = 8.dp),
+                )
+            }
+        }
+
+        castRole?.let { role ->
+            FullCastSheetFor(
+                role = role,
+                authors = book.authors,
+                narrators = book.narrators,
+                onContributorClick = onContributorClick,
+                onDismiss = { castRole = null },
+            )
         }
     }
+}
+
+/**
+ * Builds the hero overline — parent genre and abridged/unabridged classification, joined with
+ * a middle dot (e.g. "Epic Fantasy · Unabridged"). Returns just the classification when [genre]
+ * is null, or just the genre when there's no meaningful classification to add; never blank.
+ */
+@Composable
+fun bookDetailOverline(
+    genre: String?,
+    abridged: Boolean,
+): String {
+    val classification =
+        stringResource(
+            if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged,
+        )
+    return if (genre.isNullOrBlank()) classification else "$genre · $classification"
 }
 
 /** Returns the best available byte count to display in the delete dialog. */
@@ -678,34 +710,6 @@ fun BookDetailScanWarning(
             )
             Text(
                 text = stringResource(Res.string.book_detail_scan_warning),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ServerUnreachableBanner(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.errorContainer,
-        tonalElevation = 1.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Text(
-                text = stringResource(Res.string.book_detail_server_is_unreachable_connect_to),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )

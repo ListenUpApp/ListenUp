@@ -20,7 +20,7 @@ sealed interface BookReadersUiState {
     /** Initial state while the first Room emission is in flight. */
     data object Loading : BookReadersUiState
 
-    /** No active listeners and no completions for this book. */
+    /** Neither the current user nor anyone else is reading or has finished this book. */
     data object NoReaders : BookReadersUiState
 
     /** At least one listener or completion is present. */
@@ -42,11 +42,11 @@ sealed interface BookReadersUiState {
  * Backs the Book Detail "Readers" section.
  *
  * Observes [BookReadersRepository.observeReadersFor] for the given [bookId] and maps each
- * emission to a sealed [BookReadersUiState]. The repository is RPC-backed by
- * [com.calypsan.listenup.api.SocialService.bookReaders] (the server gates book access and
- * excludes the caller), re-fetched on every presence ping — no debounce or manual refresh action.
+ * emission to a sealed [BookReadersUiState]. The repository combines the current user's own reading
+ * state (local, offline-capable) with other live listeners from the server, so the section shows
+ * whenever the current user — or anyone else — is reading or has finished the book.
  *
- * @param repo The readers repository, RPC-backed and refreshed on presence pings.
+ * @param repo The readers repository (current user + live others), refreshed on presence pings.
  * @param bookId The book whose readers this ViewModel tracks.
  */
 class BookReadersViewModel(
@@ -58,7 +58,7 @@ class BookReadersViewModel(
         repo
             .observeReadersFor(bookId)
             .map { readers ->
-                if (readers.currentlyListening.isEmpty()) {
+                if (readers.readers.isEmpty()) {
                     BookReadersUiState.NoReaders
                 } else {
                     BookReadersUiState.Data(readers)
