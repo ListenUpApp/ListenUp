@@ -250,6 +250,7 @@ class BookDetailViewModel(
             isComplete = isComplete,
             startedAtMs = position?.startedAtMs,
             subtitle = displaySubtitle,
+            series = detail.fullSeriesTitle,
             description = detail.description ?: "",
             narrators = detail.narratorNames,
             year = detail.publishYear,
@@ -524,6 +525,10 @@ sealed interface BookDetailUiState {
         val isDiscardingProgress: Boolean = false,
         val isRestarting: Boolean = false,
         val subtitle: String? = null,
+        // Single formatted "Series #N" string (first membership). The Compose UI renders series as
+        // chips from book.series, but the iOS SwiftUI Book Detail (BookDetailObserver/BookDetailView)
+        // still consumes this string — keep it so iOS compiles and reads series as before.
+        val series: String? = null,
         val description: String = "",
         val narrators: String = "",
         val year: Int? = null,
