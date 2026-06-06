@@ -72,8 +72,7 @@ class MetadataRepositoryImpl(
         asin: String,
         region: AudibleRegion,
         ordinals: Set<Int>,
-    ): AppResult<Unit> =
-        wrap { rpcFactory.metadataLookupService().applyChapterNames(bookId, asin, region, ordinals) }
+    ): AppResult<Unit> = wrap { rpcFactory.metadataLookupService().applyChapterNames(bookId, asin, region, ordinals) }
 
     override suspend fun applyContributorMetadata(
         contributorId: ContributorId,

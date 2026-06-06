@@ -129,7 +129,7 @@ class ChapterNameApplyE2ETest :
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-private class Ctx(
+private data class Ctx(
     val bookRepo: BookRepository,
     val service: MetadataLookupServiceImpl,
 )
@@ -165,9 +165,15 @@ private fun wire(
     return Ctx(bookRepo, service)
 }
 
-private fun audible(vararg titles: String): List<AudibleChapter> = titles.mapIndexed { i, t -> AudibleChapter(title = t, startMs = i * 1000L, durationMs = 1000L) }
+private fun audible(vararg titles: String): List<AudibleChapter> =
+    titles.mapIndexed { i, t ->
+        AudibleChapter(title = t, startMs = i * 1000L, durationMs = 1000L)
+    }
 
-private fun local(vararg titles: String): List<BookChapterPayload> = titles.mapIndexed { i, t -> BookChapterPayload(id = "ch-$i", title = t, duration = 1000L, startTime = i * 1000L) }
+private fun local(vararg titles: String): List<BookChapterPayload> =
+    titles.mapIndexed { i, t ->
+        BookChapterPayload(id = "ch-$i", title = t, duration = 1000L, startTime = i * 1000L)
+    }
 
 private fun bookWith(
     id: String,
