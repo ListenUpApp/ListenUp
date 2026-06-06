@@ -165,6 +165,38 @@ class AnalyzedBookMapperTest :
                 )
         }
 
+        test("buildContributors splits multi-person strings and extracts roles") {
+            val analyzed =
+                analyzedBook(
+                    authors = listOf("Stephen King; Joe Hill - Introduction"),
+                    narrators = listOf("Michael Kramer; Kate Reading"),
+                )
+
+            val contributors = mapper.buildContributors(analyzed)
+
+            contributors.map { it.name to it.role } shouldBe
+                listOf(
+                    "Stephen King" to "author",
+                    "Joe Hill" to "introduction",
+                    "Michael Kramer" to "narrator",
+                    "Kate Reading" to "narrator",
+                )
+        }
+
+        test("buildContributors keeps a person credited as both author and narrator as two rows") {
+            val analyzed = analyzedBook(authors = listOf("Brandon Sanderson"), narrators = listOf("Brandon Sanderson"))
+
+            mapper.buildContributors(analyzed).map { it.name to it.role } shouldBe
+                listOf("Brandon Sanderson" to "author", "Brandon Sanderson" to "narrator")
+        }
+
+        test("buildContributors de-dupes an identical name and role") {
+            val analyzed = analyzedBook(authors = listOf("Stephen King, Stephen King"))
+
+            mapper.buildContributors(analyzed).map { it.name to it.role } shouldBe
+                listOf("Stephen King" to "author")
+        }
+
         test("should map series entries to payloads with blank ids") {
             val analyzed =
                 AnalyzedBook(
@@ -299,6 +331,22 @@ class AnalyzedBookMapperTest :
             payload.hasScanWarning shouldBe true
         }
     })
+
+private fun analyzedBook(
+    authors: List<String> = emptyList(),
+    narrators: List<String> = emptyList(),
+): AnalyzedBook =
+    AnalyzedBook(
+        candidate =
+            CandidateBook(
+                rootRelPath = "books/x",
+                isFile = false,
+                files = emptyList(),
+            ),
+        title = "X",
+        authors = authors,
+        narrators = narrators,
+    )
 
 private fun embeddedMeta(durationMs: Long): EmbeddedAudioMetadata =
     EmbeddedAudioMetadata(
