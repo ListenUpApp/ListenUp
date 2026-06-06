@@ -5,7 +5,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
-import com.calypsan.listenup.server.scanner.pipeline.GenreSplitter
+import com.calypsan.listenup.server.embeddedmeta.GenreSplitter
 
 /**
  * Reads ID3v2.3 / ID3v2.4 tags out of an in-memory MP3 byte slice.

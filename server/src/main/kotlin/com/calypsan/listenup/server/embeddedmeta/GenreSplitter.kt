@@ -1,7 +1,7 @@
-package com.calypsan.listenup.server.scanner.pipeline
+package com.calypsan.listenup.server.embeddedmeta
 
 /**
- * Splits a single raw genre tag value (`TCON`, `©gen`) into individual genres.
+ * Splits a single raw genre tag value (`TCON`, `©gen`, `gnre`) into individual genres.
  *
  * Audiobook taggers pack multiple genres into one field separated by `;`, `/`,
  * or `,` (matching Audiobookshelf's genre handling). Hyphens are preserved so

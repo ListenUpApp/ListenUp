@@ -91,8 +91,8 @@ class Mp3ParserPropertyTest :
         }
 
         test("genre (TCON) appears in tags.genres") {
-            // Exclude separator characters and leading/trailing whitespace so a single genre
-            // survives GenreSplitter unchanged (trim + filter-blank + dedupe are identity on these).
+            // Exclude separator chars (;/,) so a single genre survives GenreSplitter unchanged,
+            // and leading/trailing whitespace so trim is identity.
             val singleGenre = asciiText.filter { s -> s.none { it in ";/," } && s == s.trim() }
             runBlocking {
                 checkAll(PropTestConfig(iterations = 30), singleGenre) { genre ->

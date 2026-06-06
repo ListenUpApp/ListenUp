@@ -1,4 +1,4 @@
-package com.calypsan.listenup.server.scanner.pipeline
+package com.calypsan.listenup.server.embeddedmeta
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -21,5 +21,9 @@ class GenreSplitterTest :
         }
         test("hyphenated genre is not split (hyphen is not a separator)") {
             GenreSplitter.split("Sci-Fi") shouldBe listOf("Sci-Fi")
+        }
+        test("handles mixed separator types in one value") {
+            GenreSplitter.split("Fantasy; Sci-Fi / Horror, Epic") shouldBe
+                listOf("Fantasy", "Sci-Fi", "Horror", "Epic")
         }
     })
