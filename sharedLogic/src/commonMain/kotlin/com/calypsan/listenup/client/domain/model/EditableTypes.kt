@@ -1,31 +1,11 @@
 package com.calypsan.listenup.client.domain.model
 
 /**
- * Role types for contributors.
- *
- * Mirrors the server's contributor role set. This is a domain concept representing
- * the different roles a contributor can have in creating an audiobook.
+ * Role types for contributors. The shared vocabulary now lives in `:contract`
+ * ([com.calypsan.listenup.api.dto.ContributorRole]); this alias preserves the
+ * `domain.model.ContributorRole` import path used across the client.
  */
-enum class ContributorRole(
-    val apiValue: String,
-) {
-    AUTHOR("author"),
-    NARRATOR("narrator"),
-    EDITOR("editor"),
-    TRANSLATOR("translator"),
-    FOREWORD("foreword"),
-    INTRODUCTION("introduction"),
-    AFTERWORD("afterword"),
-    PRODUCER("producer"),
-    ADAPTER("adapter"),
-    ILLUSTRATOR("illustrator"),
-    ;
-
-    companion object {
-        fun fromApiValue(value: String): ContributorRole? =
-            entries.find { it.apiValue.equals(value, ignoreCase = true) }
-    }
-}
+typealias ContributorRole = com.calypsan.listenup.api.dto.ContributorRole
 
 /**
  * Contributor with roles for editing.
