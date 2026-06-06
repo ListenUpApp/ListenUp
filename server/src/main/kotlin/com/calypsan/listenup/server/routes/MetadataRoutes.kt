@@ -81,6 +81,21 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
+
+    post<MetadataResources.ApplyChapters> { resource ->
+        val region = call.resolveRegion(resource.region) ?: return@post
+        val result =
+            call.scoped(service).applyChapterNames(
+                BookId(resource.bookId),
+                resource.asin,
+                region,
+                resource.ordinals.toSet(),
+            )
+        when (result) {
+            is AppResult.Success -> call.respond(HttpStatusCode.OK)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
 }
 
 private fun Route.contributorMetadataRoutes(service: MetadataLookupService) {
