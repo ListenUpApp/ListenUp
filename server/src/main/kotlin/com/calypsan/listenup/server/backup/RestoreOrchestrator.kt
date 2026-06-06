@@ -113,9 +113,10 @@ class RestoreOrchestrator(
                                 schemaMigratedTo = migratedTo,
                             ),
                         )
-                    } catch (e: CancellationException) {
-                        throw e
                     } catch (e: Exception) {
+                        // Inside NonCancellable there is no cooperative cancellation to preserve;
+                        // any throwable (incl. an explicit CancellationException) must trigger
+                        // rollback so the pool is always reopened.
                         logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
                         rollback(rollbackDb, rollbackCovers, rollbackAvatars)
                         deleteRecursively(paths.stagingDir)
