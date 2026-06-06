@@ -87,6 +87,11 @@ class RestoreOrchestrator(
                     eventBus.tryEmit(BackupEvent.Swapping)
                     dbHandle.suspendPool()
                     dbHandle.evictConnections()
+                    if (!dbHandle.awaitPoolDrained()) {
+                        logger.warn {
+                            "pool did not fully drain before restore swap; proceeding (a lingering handle may surface as rollback)"
+                        }
+                    }
                     try {
                         val dbFileName = paths.dbFile.fileName.toString()
                         swapFile(paths.stagingDir.resolve("listenup.db"), paths.dbFile)
