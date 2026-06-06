@@ -33,6 +33,10 @@ data class AudioTags(
     val trackNumber: Int?,
     val discNumber: Int?,
     val custom: Map<String, String>,
+    /** Embedded sort title (ID3 `TSOT`, MP4 `sonm`); the authoritative sort form when present. */
+    val titleSort: String? = null,
+    /** Embedded sort form of the artist/author field (ID3 `TSOP`, MP4 `soar`); drives contributor identity. */
+    val authorsSort: String? = null,
 ) {
     companion object {
         /** The [custom] map key under which every format reader stores the file's
