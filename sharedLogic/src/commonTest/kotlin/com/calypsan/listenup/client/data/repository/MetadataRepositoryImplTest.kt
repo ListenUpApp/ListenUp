@@ -27,12 +27,12 @@ import kotlin.test.assertFailsWith
 /**
  * Unit tests for [MetadataRepositoryImpl].
  *
- * Each of the 8 methods gets a success-path test confirming delegation to the
+ * Each of the 9 methods gets a success-path test confirming delegation to the
  * underlying RPC service. In addition, one method ("wrapper canary" = searchBooks)
  * gets the full trio: success, CancellationException rethrow, and arbitrary
  * Throwable → AppResult.Failure(TransportError).
  *
- * The wrapper logic is identical for all 8 methods — exhaustive duplication
+ * The wrapper logic is identical for all 9 methods — exhaustive duplication
  * would triple the test count without adding coverage.
  *
  * Wire [WireAppResult] is the return type of [MetadataLookupService] methods.
@@ -134,5 +134,15 @@ class MetadataRepositoryImplTest :
 
             buildRepo(service)
                 .applyContributorMetadata(ContributorId("c1"), "A001", AudibleRegion.US) shouldBe AppResult.Success(Unit)
+        }
+
+        test("applyChapterNames delegates to service and returns Success") {
+            val service = mock<MetadataLookupService>()
+            everySuspend {
+                service.applyChapterNames(BookId("b1"), "B001", AudibleRegion.US, setOf(0, 2))
+            } returns WireAppResult.Success(Unit)
+
+            buildRepo(service).applyChapterNames(BookId("b1"), "B001", AudibleRegion.US, setOf(0, 2)) shouldBe
+                AppResult.Success(Unit)
         }
     })
