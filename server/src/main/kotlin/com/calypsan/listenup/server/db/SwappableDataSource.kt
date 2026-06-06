@@ -26,7 +26,10 @@ class SwappableDataSource(
     /** Returns the currently active pool. */
     fun current(): HikariDataSource = delegate
 
-    /** Hard-closes the live pool (aborts in-use, closes idle), releasing every fd. */
+    /**
+     * Hard-closes the live pool ahead of an [install] — the recoverable pre-swap close.
+     * Releases every fd. Expect a new pool to be installed immediately after.
+     */
     fun closeCurrent() = delegate.close()
 
     /** Installs a freshly-built pool as the live delegate. */
@@ -34,7 +37,9 @@ class SwappableDataSource(
         delegate = new
     }
 
-    /** Closes the current delegate pool. */
+    /**
+     * Terminal shutdown of the data source (no [install] follows) — e.g. app/test teardown.
+     */
     fun close() = delegate.close()
 
     override fun getConnection(): Connection = delegate.connection

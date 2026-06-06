@@ -24,7 +24,7 @@ data class DatabaseConfig(
 /**
  * Initializes the Hikari pool, runs Flyway migrations, and returns a [DatabaseHandle] that
  * exposes the connected Exposed `Database` alongside pool-control operations needed by the
- * restore orchestrator (suspend/resume/vacuum). Idempotent for migrations — Flyway tracks
+ * restore orchestrator (close/reopen pool, vacuum). Idempotent for migrations — Flyway tracks
  * applied versions in its `flyway_schema_history` table.
  */
 object DatabaseFactory {

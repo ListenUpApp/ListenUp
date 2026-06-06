@@ -42,10 +42,19 @@ class DatabaseHandle(
      * Hard-closes the live Hikari pool, deterministically releasing every SQLite file
      * handle before the db file is swapped. MUST be paired with [reopenPool] on every
      * control-flow path or the app is left with a closed pool.
+     *
+     * Conversely, [reopenPool] must only be called after [closePool] — installing a new
+     * pool over a still-open one orphans the old pool's connections (file-handle leak).
      */
     fun closePool() = dataSource.closeCurrent()
 
-    /** Builds a fresh pool on the (possibly just-swapped) db file and makes it live. */
+    /**
+     * Builds a fresh pool on the (possibly just-swapped) db file and makes it live.
+     *
+     * The fresh pool is built from the original [poolFactory] (i.e. the original
+     * jdbcUrl/path); this is correct only because restore swaps the replacement db file
+     * into that same path in place.
+     */
     fun reopenPool() = dataSource.install(poolFactory())
 
     fun suspendPool() = dataSource.current().hikariPoolMXBean.suspendPool()
