@@ -1,11 +1,9 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,59 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.GenreChipRow
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-
-/**
- * Context metadata section showing series, stats, and genres.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun ContextMetadataSection(
-    seriesId: String?,
-    seriesName: String?,
-    rating: Double?,
-    duration: Long,
-    year: Int?,
-    addedAt: Long?,
-    genres: List<String>,
-    onSeriesClick: (seriesId: String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // Series Badge
-        seriesId?.let { id ->
-            seriesName?.let { name ->
-                SeriesBadge(
-                    seriesName = name,
-                    onClick = { onSeriesClick(id) },
-                )
-            }
-        }
-
-        // Stats Row
-        StatsRow(
-            rating = rating,
-            duration = duration,
-            year = year,
-            addedAt = addedAt,
-        )
-
-        // Genres
-        if (genres.isNotEmpty()) {
-            GenreChipRow(
-                genres = genres,
-                onGenreClick = null,
-            )
-        }
-    }
-}
 
 /**
  * Clickable series badge.

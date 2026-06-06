@@ -224,7 +224,6 @@
     "detail_retry_download": "Retry download",
     "detail_scan_warning": "This book had a scanning error — double-check the files aren’t corrupted.",
     "detail_see_all_chapters": "See All %1$d Chapters",
-    "detail_server_is_unreachable_connect_to": "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
     "detail_show_less": "Show Less",
     "detail_synopsis": "Synopsis",
     "detail_credits": "Credits",

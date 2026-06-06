@@ -422,7 +422,6 @@ fun BookDetailContent(
  * frameless [AboutSection] (description + Genres + Tags), the connected [PrimaryActionsSection],
  * the frameless [CreditsSection], readers, chapters, and per-book listening history.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongParameterList", "LongMethod")
 @Composable
 private fun ImmersiveBookDetail(
