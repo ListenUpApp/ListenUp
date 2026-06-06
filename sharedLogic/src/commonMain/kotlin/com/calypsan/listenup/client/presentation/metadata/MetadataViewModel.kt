@@ -3,12 +3,16 @@ package com.calypsan.listenup.client.presentation.metadata
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +74,45 @@ data class CoverEntry(
     val label: String,
     val resolution: String?,
 )
+
+/**
+ * One chapter's current name and the name suggested by the matched Audible
+ * edition. [ordinal] is the chapter's index in start-time order — the key the
+ * server uses to apply names. The local timestamp is intentionally absent: only
+ * the name is ever changed.
+ */
+data class ChapterNameRow(
+    val ordinal: Int,
+    val currentName: String,
+    val suggestedName: String,
+)
+
+/**
+ * Chapter-name suggestion state for a [PreviewLoadState.Ready] preview.
+ *
+ * Computed once the preview is ready by comparing the book's local chapters to
+ * the matched edition's Audible chapters. Names can only be applied when the two
+ * counts match — a different count signals a different edition and is surfaced as
+ * [CountMismatch], never force-aligned.
+ */
+sealed interface ChapterSuggestion {
+    /** No suggestion offered — the book has no chapters, or Audible returned none. The row is hidden. */
+    data object Unavailable : ChapterSuggestion
+
+    /** The Audible chapter count differs from the book's; the row is shown disabled with the reason. */
+    data class CountMismatch(
+        val localCount: Int,
+        val audibleCount: Int,
+    ) : ChapterSuggestion
+
+    /** Counts match; [rows] back the review sheet and [selectedOrdinals] are applied on confirm. */
+    data class Available(
+        val rows: List<ChapterNameRow>,
+        val selectedOrdinals: Set<Int>,
+        val isApplying: Boolean,
+        val applyError: String?,
+    ) : ChapterSuggestion
+}
 
 /**
  * UI state for the metadata match wizard.
@@ -147,6 +190,7 @@ sealed interface PreviewLoadState {
         val isApplying: Boolean,
         val applyError: String?,
         val previewNotFound: Boolean,
+        val chapterSuggestion: ChapterSuggestion,
     ) : PreviewLoadState
 
     /** Preview fetch failed; [message] is shown in-line. */
@@ -159,6 +203,9 @@ sealed interface PreviewLoadState {
 sealed interface MetadataEvent {
     /** Apply succeeded; the route should navigate away. */
     data object MatchApplied : MetadataEvent
+
+    /** Chapter names were applied; the review sheet should close (no navigation). */
+    data object ChapterNamesApplied : MetadataEvent
 }
 
 /**
@@ -178,6 +225,7 @@ sealed interface MetadataEvent {
  */
 class MetadataViewModel(
     private val metadataRepository: MetadataRepository,
+    private val bookRepository: BookRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
@@ -319,7 +367,7 @@ class MetadataViewModel(
                 loadState = PreviewLoadState.Loading,
             )
 
-        loadPreview(result, region)
+        loadPreview(result, region, context.bookId)
     }
 
     /** Clear the current match selection and return to the search phase. */
@@ -405,6 +453,162 @@ class MetadataViewModel(
         }
     }
 
+    /** Toggle whether the chapter at [ordinal] receives the suggested name. */
+    fun toggleChapter(ordinal: Int) {
+        updateAvailable { it.copy(selectedOrdinals = it.selectedOrdinals.toggle(ordinal)) }
+    }
+
+    /**
+     * Apply the selected chapter names via [MetadataRepository.applyChapterNames].
+     * On success emits [MetadataEvent.ChapterNamesApplied]; on failure surfaces the
+     * error in the review sheet and via the global error bus. Local timestamps are
+     * never sent — only the ordinals to rename.
+     */
+    fun applyChapterNames() {
+        val preview = _state.value as? MetadataUiState.Preview ?: return
+        val ready = preview.loadState as? PreviewLoadState.Ready ?: return
+        val available = ready.chapterSuggestion as? ChapterSuggestion.Available ?: return
+        if (available.isApplying) return
+
+        updateAvailable { it.copy(isApplying = true, applyError = null) }
+
+        viewModelScope.launch {
+            when (
+                val result =
+                    metadataRepository.applyChapterNames(
+                        bookId = BookId(preview.context.bookId),
+                        asin = preview.match.asin,
+                        region = preview.region,
+                        ordinals = available.selectedOrdinals,
+                    )
+            ) {
+                is AppResult.Success -> {
+                    updateAvailable { it.copy(isApplying = false, applyError = null) }
+                    eventChannel.trySend(MetadataEvent.ChapterNamesApplied)
+                }
+
+                is AppResult.Failure -> {
+                    logger.error { "Failed to apply chapter names: ${result.error.message}" }
+                    errorBus.emit(result.error)
+                    updateAvailable { it.copy(isApplying = false, applyError = result.error.message) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads the book's local chapters and the matched edition's Audible chapters,
+     * then derives the [ChapterSuggestion] for the current Ready preview. Both
+     * lists are sorted by start time so ordinals align 1:1. Runs after the preview
+     * is Ready; guards on the still-current match so a fast match-switch can't
+     * apply a stale result.
+     */
+    private fun loadChapterSuggestion(
+        bookId: String,
+        asin: String,
+        region: AudibleRegion,
+    ) {
+        viewModelScope.launch {
+            val localChapters =
+                try {
+                    bookRepository.getChapters(bookId).sortedBy { it.startTime }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Failed to read local chapters for book $bookId" }
+                    updateChapterSuggestion(asin, region) { ChapterSuggestion.Unavailable }
+                    return@launch
+                }
+            if (localChapters.isEmpty()) {
+                updateChapterSuggestion(asin, region) { ChapterSuggestion.Unavailable }
+                return@launch
+            }
+            val audibleChapters =
+                when (val result = metadataRepository.getBookChapters(asin, region)) {
+                    is AppResult.Success -> {
+                        result.data
+                            ?.chapters
+                            ?.sortedBy { it.startMs }
+                            .orEmpty()
+                    }
+
+                    is AppResult.Failure -> {
+                        emptyList()
+                    }
+                }
+            val suggestion =
+                when {
+                    audibleChapters.isEmpty() -> {
+                        ChapterSuggestion.Unavailable
+                    }
+
+                    audibleChapters.size != localChapters.size -> {
+                        ChapterSuggestion.CountMismatch(
+                            localCount = localChapters.size,
+                            audibleCount = audibleChapters.size,
+                        )
+                    }
+
+                    else -> {
+                        buildAvailableSuggestion(localChapters, audibleChapters)
+                    }
+                }
+            updateChapterSuggestion(asin, region) { suggestion }
+        }
+    }
+
+    private fun updateChapterSuggestion(
+        asin: String,
+        region: AudibleRegion,
+        transform: (ChapterSuggestion) -> ChapterSuggestion,
+    ) {
+        _state.update { latest ->
+            val preview = latest.readyPreviewFor(asin, region) ?: return@update latest
+            val ready = preview.loadState as PreviewLoadState.Ready
+            preview.copy(loadState = ready.copy(chapterSuggestion = transform(ready.chapterSuggestion)))
+        }
+    }
+
+    /**
+     * Returns this state as a [MetadataUiState.Preview] only when it is still the
+     * Ready preview for the given [asin] and [region] — the stale-suggestion guard
+     * that prevents an in-flight chapter load from landing on a switched match or
+     * region. Returns null otherwise.
+     */
+    private fun MetadataUiState.readyPreviewFor(
+        asin: String,
+        region: AudibleRegion,
+    ): MetadataUiState.Preview? =
+        (this as? MetadataUiState.Preview)
+            ?.takeIf { it.match.asin == asin && it.region == region && it.loadState is PreviewLoadState.Ready }
+
+    private fun updateAvailable(transform: (ChapterSuggestion.Available) -> ChapterSuggestion.Available) {
+        updateReady { ready ->
+            val cs = ready.chapterSuggestion
+            if (cs is ChapterSuggestion.Available) ready.copy(chapterSuggestion = transform(cs)) else ready
+        }
+    }
+
+    private fun buildAvailableSuggestion(
+        localChapters: List<Chapter>,
+        audibleChapters: List<MetadataChapter>,
+    ): ChapterSuggestion.Available {
+        val rows =
+            localChapters.mapIndexed { ordinal, chapter ->
+                ChapterNameRow(
+                    ordinal = ordinal,
+                    currentName = chapter.title,
+                    suggestedName = audibleChapters[ordinal].title,
+                )
+            }
+        return ChapterSuggestion.Available(
+            rows = rows,
+            selectedOrdinals = rows.map { it.ordinal }.toSet(),
+            isApplying = false,
+            applyError = null,
+        )
+    }
+
     /** Reset back to [MetadataUiState.Idle]. Call when dismissing the flow. */
     fun reset() {
         _state.value = MetadataUiState.Idle(region = _state.value.region)
@@ -413,6 +617,7 @@ class MetadataViewModel(
     private fun loadPreview(
         match: MetadataBook,
         region: AudibleRegion,
+        bookId: String,
     ) {
         viewModelScope.launch {
             when (val result = metadataRepository.getBookMetadata(match.asin, region)) {
@@ -425,10 +630,10 @@ class MetadataViewModel(
                                 preview.series.isEmpty() &&
                                 preview.coverUrl == null &&
                                 preview.description == null
-                        transitionToReady(match, preview, previewNotFound = hasNoData)
+                        transitionToReady(match, preview, previewNotFound = hasNoData, bookId = bookId, region = region)
                     } else {
                         // Server returned null — book not found in region
-                        transitionToReady(match, match, previewNotFound = true)
+                        transitionToReady(match, match, previewNotFound = true, bookId = bookId, region = region)
                     }
                 }
 
@@ -437,7 +642,7 @@ class MetadataViewModel(
                     logger.error { "Failed to load metadata preview: ${result.error.message}" }
                     if (match.title.isNotBlank()) {
                         logger.info { "Using search result data as preview fallback" }
-                        transitionToReady(match, match, previewNotFound = false)
+                        transitionToReady(match, match, previewNotFound = false, bookId = bookId, region = region)
                     } else {
                         _state.update { latest ->
                             if (latest is MetadataUiState.Preview && latest.match.asin == match.asin) {
@@ -458,6 +663,8 @@ class MetadataViewModel(
         match: MetadataBook,
         preview: MetadataBook,
         previewNotFound: Boolean,
+        bookId: String,
+        region: AudibleRegion,
     ) {
         _state.update { latest ->
             if (latest !is MetadataUiState.Preview || latest.match.asin != match.asin) return@update latest
@@ -470,9 +677,11 @@ class MetadataViewModel(
                     isApplying = false,
                     applyError = null,
                     previewNotFound = previewNotFound,
+                    chapterSuggestion = ChapterSuggestion.Unavailable,
                 )
             latest.copy(loadState = ready)
         }
+        loadChapterSuggestion(bookId, match.asin, region)
     }
 
     private fun updateReady(transform: (PreviewLoadState.Ready) -> PreviewLoadState.Ready) {

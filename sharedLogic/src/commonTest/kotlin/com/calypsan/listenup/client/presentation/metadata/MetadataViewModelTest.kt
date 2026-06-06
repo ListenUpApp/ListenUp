@@ -2,23 +2,31 @@ package com.calypsan.listenup.client.presentation.metadata
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataChapter
+import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSearchResults
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -54,7 +62,31 @@ class MetadataViewModelTest :
                 coverUrlMaxSize = "https://example.com/cover-max.jpg",
             )
 
-        fun buildVm(repo: MetadataRepository): MetadataViewModel = MetadataViewModel(metadataRepository = repo, errorBus = ErrorBus())
+        fun buildVm(
+            repo: MetadataRepository,
+            bookRepo: BookRepository = mock { everySuspend { getChapters(any()) } returns emptyList() },
+        ): MetadataViewModel = MetadataViewModel(metadataRepository = repo, bookRepository = bookRepo, errorBus = ErrorBus())
+
+        suspend fun TestScope.readyVmWithTwoChapters(): MetadataViewModel {
+            val book = makeBook(asin = "B001", title = "Dune")
+            val repo = mock<MetadataRepository>()
+            everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+            everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+            everySuspend { repo.getBookChapters(any(), any()) } returns
+                AppResult.Success(MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))))
+            val bookRepo =
+                mock<BookRepository> {
+                    everySuspend { getChapters("b1") } returns
+                        listOf(Chapter("c0", "Track 1", 1000L, 0L), Chapter("c1", "Track 2", 1000L, 1000L))
+                }
+            val vm = buildVm(repo, bookRepo)
+            vm.initForBook("b1", "Dune", "Frank Herbert")
+            vm.search()
+            advanceUntilIdle()
+            vm.selectMatch(book)
+            advanceUntilIdle()
+            return vm
+        }
 
         // ── Initial state ──────────────────────────────────────────────────────
 
@@ -342,6 +374,195 @@ class MetadataViewModelTest :
                         .shouldBeInstanceOf<PreviewLoadState.Ready>()
                 ready.isApplying shouldBe false
                 ready.applyError shouldBe error.message
+            }
+        }
+
+        // ── chapter-name suggestion ───────────────────────────────────────────
+
+        test("matching chapter counts produce ChapterSuggestion.Available with current→suggested rows") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns
+                    AppResult.Success(
+                        MetadataChapters(
+                            listOf(
+                                MetadataChapter(title = "Prologue", startMs = 0L, lengthMs = 1000L),
+                                MetadataChapter(title = "Chapter One", startMs = 1000L, lengthMs = 1000L),
+                            ),
+                        ),
+                    )
+                val bookRepo =
+                    mock<BookRepository> {
+                        everySuspend { getChapters("b1") } returns
+                            listOf(
+                                Chapter(id = "c0", title = "Track 1", duration = 1000L, startTime = 0L),
+                                Chapter(id = "c1", title = "Track 2", duration = 1000L, startTime = 1000L),
+                            )
+                    }
+                val vm = buildVm(repo, bookRepo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready =
+                    (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
+                val available = ready.chapterSuggestion.shouldBeInstanceOf<ChapterSuggestion.Available>()
+                available.rows.map { it.currentName } shouldBe listOf("Track 1", "Track 2")
+                available.rows.map { it.suggestedName } shouldBe listOf("Prologue", "Chapter One")
+                available.selectedOrdinals shouldBe setOf(0, 1)
+            }
+        }
+
+        test("differing chapter counts produce ChapterSuggestion.CountMismatch") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns
+                    AppResult.Success(MetadataChapters((0 until 5).map { MetadataChapter("C$it", it * 1000L, 1000L) }))
+                val bookRepo =
+                    mock<BookRepository> {
+                        everySuspend { getChapters("b1") } returns
+                            listOf(Chapter("c0", "Track 1", 1000L, 0L), Chapter("c1", "Track 2", 1000L, 1000L))
+                    }
+                val vm = buildVm(repo, bookRepo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready = (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
+                val mismatch = ready.chapterSuggestion.shouldBeInstanceOf<ChapterSuggestion.CountMismatch>()
+                mismatch.localCount shouldBe 2
+                mismatch.audibleCount shouldBe 5
+            }
+        }
+
+        test("no local chapters produce ChapterSuggestion.Unavailable") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns
+                    AppResult.Success(MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L))))
+                val bookRepo = mock<BookRepository> { everySuspend { getChapters("b1") } returns emptyList() }
+                val vm = buildVm(repo, bookRepo)
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+                val ready = (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
+                ready.chapterSuggestion shouldBe ChapterSuggestion.Unavailable
+            }
+        }
+
+        test("Audible chapter fetch failure produces ChapterSuggestion.Unavailable") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns AppResult.Failure(MetadataError.ExternalUnavailable())
+                val bookRepo =
+                    mock<BookRepository> {
+                        everySuspend { getChapters("b1") } returns listOf(Chapter("c0", "Track 1", 1000L, 0L))
+                    }
+                val vm = buildVm(repo, bookRepo)
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+                val ready = (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
+                ready.chapterSuggestion shouldBe ChapterSuggestion.Unavailable
+            }
+        }
+
+        test("applyChapterNames failure sets applyError and clears isApplying") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns
+                    AppResult.Success(MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))))
+                everySuspend { repo.applyChapterNames(any(), any(), any(), any()) } returns AppResult.Failure(MetadataError.ChapterCountMismatch())
+                val bookRepo =
+                    mock<BookRepository> {
+                        everySuspend { getChapters("b1") } returns listOf(Chapter("c0", "Track 1", 1000L, 0L), Chapter("c1", "Track 2", 1000L, 1000L))
+                    }
+                val vm = buildVm(repo, bookRepo)
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+                vm.applyChapterNames()
+                advanceUntilIdle()
+                val available =
+                    ((vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready)
+                        .chapterSuggestion
+                        .shouldBeInstanceOf<ChapterSuggestion.Available>()
+                available.isApplying shouldBe false
+                available.applyError shouldBe MetadataError.ChapterCountMismatch().message
+            }
+        }
+
+        test("toggleChapter removes then re-adds an ordinal from the selection") {
+            runTest {
+                val vm = readyVmWithTwoChapters()
+                vm.toggleChapter(1)
+                ((vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready)
+                    .chapterSuggestion
+                    .shouldBeInstanceOf<ChapterSuggestion.Available>()
+                    .selectedOrdinals shouldBe setOf(0)
+                vm.toggleChapter(1)
+                ((vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready)
+                    .chapterSuggestion
+                    .shouldBeInstanceOf<ChapterSuggestion.Available>()
+                    .selectedOrdinals shouldBe setOf(0, 1)
+            }
+        }
+
+        test("applyChapterNames success emits ChapterNamesApplied and calls repo with selected ordinals") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns
+                    AppResult.Success(MetadataChapters(listOf(MetadataChapter("Prologue", 0L, 1000L), MetadataChapter("Chapter One", 1000L, 1000L))))
+                everySuspend { repo.applyChapterNames(any(), any(), any(), any()) } returns AppResult.Success(Unit)
+                val bookRepo =
+                    mock<BookRepository> {
+                        everySuspend { getChapters("b1") } returns
+                            listOf(Chapter("c0", "Track 1", 1000L, 0L), Chapter("c1", "Track 2", 1000L, 1000L))
+                    }
+                val vm = buildVm(repo, bookRepo)
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+                vm.toggleChapter(1)
+
+                vm.events.test {
+                    vm.applyChapterNames()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe MetadataEvent.ChapterNamesApplied
+                }
+                verifySuspend { repo.applyChapterNames(BookId("b1"), "B001", AudibleRegion.US, setOf(0)) }
             }
         }
 
