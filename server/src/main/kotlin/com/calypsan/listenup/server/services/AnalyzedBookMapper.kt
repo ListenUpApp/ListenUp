@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -11,6 +12,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.scanner.pipeline.ContributorParser
 import kotlin.time.Clock
 
 /**
@@ -18,10 +20,12 @@ import kotlin.time.Clock
  * [BookSyncPayload] persisted by [BookRepository.upsertFromAnalyzed].
  *
  * The mapping flattens the scanner's resolved view onto the wire shape:
- *  - `authors` + `narrators` become contributor rows (`role = "author"` /
- *    `"narrator"`) via [buildContributors]. The caller resolves each name
- *    through [ContributorRepository] before passing the result to
- *    [toBookSyncPayload]; this class never touches the database.
+ *  - `authors` + `narrators` become contributor rows via [buildContributors],
+ *    which splits each raw string into individual people and parses their roles
+ *    through [ContributorParser] (an explicit ` - Role` suffix overrides the
+ *    author/narrator default). The caller resolves each name through
+ *    [ContributorRepository] before passing the result to [toBookSyncPayload];
+ *    this class never touches the database.
  *  - `series` entries map one-to-one to series memberships via [buildSeries];
  *    the caller similarly resolves names through [SeriesRepository].
  *  - `tracks` map to audio files; `filename` / `format` / `size` come from the
@@ -98,14 +102,18 @@ class AnalyzedBookMapper(
     }
 
     /**
-     * Builds the unresolved (blank-id) contributor payloads for [analyzed] —
-     * authors first, then narrators, each tagged with the corresponding role.
-     * The caller resolves each name to a real id via
-     * [ContributorRepository.resolveOrCreate] before the aggregate write.
+     * Builds the unresolved (blank-id) contributor payloads for [analyzed]. Each raw
+     * author/narrator string is split into individual people with roles by
+     * [ContributorParser]; identical `(name, role)` pairs are de-duplicated. The caller
+     * resolves each name to a real id via [ContributorRepository.resolveOrCreate] before
+     * the aggregate write.
      */
-    fun buildContributors(analyzed: AnalyzedBook): List<BookContributorPayload> =
-        analyzed.authors.map { contributorPayload(it, role = "author") } +
-            analyzed.narrators.map { contributorPayload(it, role = "narrator") }
+    fun buildContributors(analyzed: AnalyzedBook): List<BookContributorPayload> {
+        val parsed =
+            analyzed.authors.flatMap { ContributorParser.parse(it, ContributorRole.AUTHOR) } +
+                analyzed.narrators.flatMap { ContributorParser.parse(it, ContributorRole.NARRATOR) }
+        return parsed.distinct().map { contributorPayload(it.name, it.role.apiValue) }
+    }
 
     /**
      * Builds the unresolved (blank-id) series payloads for [analyzed]. The

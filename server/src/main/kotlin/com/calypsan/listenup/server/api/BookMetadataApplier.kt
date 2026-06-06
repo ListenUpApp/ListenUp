@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
@@ -74,8 +75,8 @@ internal class BookMetadataApplier(
                 )
             }
 
-            val resolvedAuthors = audibleBook.authors.resolveContributors(role = "author")
-            val resolvedNarrators = audibleBook.narrators.resolveContributors(role = "narrator")
+            val resolvedAuthors = audibleBook.authors.resolveContributors(role = ContributorRole.AUTHOR.apiValue)
+            val resolvedNarrators = audibleBook.narrators.resolveContributors(role = ContributorRole.NARRATOR.apiValue)
             val resolvedSeries = audibleBook.series.resolveSeries()
 
             val updated =
