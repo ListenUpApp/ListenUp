@@ -21,7 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +34,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
@@ -61,6 +65,7 @@ fun MatchPreviewRoute(
 ) {
     val bookRepository: BookRepository = koinInject()
     val state by metadataViewModel.state.collectAsStateWithLifecycle()
+    var showChapterReview by remember { mutableStateOf(false) }
 
     LaunchedEffect(bookId, asin) {
         val current = state
@@ -93,6 +98,7 @@ fun MatchPreviewRoute(
         metadataViewModel.events.collect { event ->
             when (event) {
                 MetadataEvent.MatchApplied -> onApplySuccess()
+                MetadataEvent.ChapterNamesApplied -> showChapterReview = false
             }
         }
     }
@@ -131,6 +137,8 @@ fun MatchPreviewRoute(
                 isLoadingCovers = false,
                 selectedCoverUrl = ready.selectedCoverUrl,
                 onSelectCover = metadataViewModel::selectCover,
+                chapterSuggestion = ready.chapterSuggestion,
+                onReviewChapters = { showChapterReview = true },
                 onRegionSelected = metadataViewModel::changeRegion,
                 onToggleField = metadataViewModel::toggleField,
                 onToggleAuthor = metadataViewModel::toggleAuthor,
@@ -140,6 +148,16 @@ fun MatchPreviewRoute(
                 onApply = metadataViewModel::applyMatch,
                 onBack = onBack,
             )
+
+            val suggestion = ready.chapterSuggestion
+            if (showChapterReview && suggestion is ChapterSuggestion.Available) {
+                ChapterNameReviewSheet(
+                    available = suggestion,
+                    onToggle = metadataViewModel::toggleChapter,
+                    onApply = metadataViewModel::applyChapterNames,
+                    onDismiss = { showChapterReview = false },
+                )
+            }
         }
     }
 }
