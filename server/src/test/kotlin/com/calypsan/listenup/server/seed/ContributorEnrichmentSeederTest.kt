@@ -95,8 +95,10 @@ class ContributorEnrichmentSeederTest :
     })
 
 /**
- * Resolves the contributor by [displayName] — returns the existing row if one
- * exists, or creates a new (unenriched) one. The returned payload reflects the
- * current DB state, including any enrichment applied by the seeder.
+ * Resolves the contributor by [displayName] via the same path the scanner uses
+ * ([resolveOrCreate] with a null sort name, which derives the sort form internally).
+ * Returns the existing row if one exists, or creates a new (unenriched) one. The
+ * returned payload reflects the current DB state, including any enrichment applied
+ * by the seeder.
  */
 private suspend fun ContributorRepository.findByName(displayName: String) = findById(resolveOrCreate(displayName, sortName = null).value)

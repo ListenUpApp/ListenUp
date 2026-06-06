@@ -91,13 +91,26 @@ class ContributorRepositoryTest :
             }
         }
 
-        test("null sortName falls back to the display name as the key") {
+        test("null sortName derives the sort form as the key — same person found on second call") {
             withInMemoryDatabase {
                 val repo = ContributorRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     val a = repo.resolveOrCreate("Unique Person", sortName = null)
                     val b = repo.resolveOrCreate("Unique Person", sortName = null)
                     b shouldBe a
+                }
+            }
+        }
+
+        test("manual (null sortName) and scanner (derived sortName) paths converge to one row") {
+            withInMemoryDatabase {
+                val repo = ContributorRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    // Simulates BookServiceImpl / BookMetadataApplier (null sortName — repo derives)
+                    val manual = repo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    // Simulates the scanner (explicit derived sort name)
+                    val scanner = repo.resolveOrCreate("Brandon Sanderson", sortName = "Sanderson, Brandon")
+                    scanner shouldBe manual
                 }
             }
         }

@@ -108,10 +108,10 @@ internal class BookMetadataApplier(
 
     private suspend fun List<AudibleContributor>.resolveContributors(role: String): List<BookContributorPayload> =
         map { contributor ->
-            // AudibleContributor carries only `asin` and `name` — no sort-name field. Pass null
-            // so the dedup key falls back to the display name. Deriving a sort name here would
-            // produce a different key than the enrichment upsert later writes, risking a duplicate
-            // row or a unique-index collision.
+            // AudibleContributor carries only `asin` and `name` — no sort-name field. Passing
+            // null is correct: resolveOrCreate derives the sort name internally ("Name" →
+            // "Surname, Given"), so the lookup key matches any row the scanner created for the
+            // same person. All creation paths converge on the same dedup bucket.
             val id = contributorRepository.resolveOrCreate(contributor.name, sortName = null)
             BookContributorPayload(
                 id = id.value,
