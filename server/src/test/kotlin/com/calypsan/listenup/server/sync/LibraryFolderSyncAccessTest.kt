@@ -36,16 +36,9 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import io.ktor.sse.ServerSentEvent
 import java.nio.file.Files
 import java.util.UUID
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 
 /**
@@ -97,22 +90,25 @@ class LibraryFolderSyncAccessTest :
                 val books by application.inject<BookRepository>()
 
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(admin) }) {
-                    coroutineScope {
-                        // `incoming` is cold and reads a non-replayable channel that closes on first
-                        // termination, so relay it once into a replaying SharedFlow that both the
-                        // readiness warm-up and the assertion observe. The relay is cancelled at the
-                        // end so this `coroutineScope` can complete.
-                        val frames = MutableSharedFlow<ServerSentEvent>(replay = Int.MAX_VALUE)
-                        val relay = launch { incoming.collect { frames.emit(it) } }
+                    // Single collection of the cold, single-consumption `incoming` stream: the predicate
+                    // publishes the asserted event only after a unique public warm-up book proves the
+                    // server-side subscription is live — closing the subscribe-before-publish race without
+                    // a relay coroutine (which would outlive the test and trip runTest's leak check).
+                    // Dash-stripped UUID = 32 chars: the id flows into `af-$id`/`ch-$id` child rows and
+                    // all three columns are varchar(36), so the bare UUID (no prefix) keeps children ≤ 35.
+                    val warmupId = UUID.randomUUID().toString().replace("-", "")
+                    books.upsert(publicBookFixture(warmupId))
 
-                        val deferred = async { frames.first { it.event == "library_folders" } }
-                        awaitFirehoseLive(frames, books)
-                        folders.upsert(folderFixture("live-folder"))
-                        val event = deferred.await()
-                        event.event shouldBe "library_folders"
-
-                        relay.cancel()
-                    }
+                    val event =
+                        incoming.first { frame ->
+                            if (frame.data?.contains(warmupId) == true) {
+                                folders.upsert(folderFixture("live-folder"))
+                                false
+                            } else {
+                                frame.event == "library_folders"
+                            }
+                        }
+                    event.event shouldBe "library_folders"
                 }
             }
         }
@@ -124,31 +120,26 @@ class LibraryFolderSyncAccessTest :
                 val books by application.inject<BookRepository>()
 
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(member) }) {
-                    coroutineScope {
-                        // `incoming` is cold and reads a non-replayable channel that closes on first
-                        // termination, so relay it once into a replaying SharedFlow that both the
-                        // readiness warm-up and the assertion observe. The relay is cancelled at the
-                        // end so this `coroutineScope` can complete.
-                        val frames = MutableSharedFlow<ServerSentEvent>(replay = Int.MAX_VALUE)
-                        val relay = launch { incoming.collect { frames.emit(it) } }
+                    // Single collection (see the admin test). Once the warm-up frame proves the stream is
+                    // live, the predicate publishes a hidden folder + a public sentinel book; the first
+                    // folder-or-book frame the member then sees must be the sentinel `books` — the hidden
+                    // folder event is withheld for members and never reaches the stream.
+                    // Dash-stripped UUID = 32 chars: the id flows into `af-$id`/`ch-$id` child rows and
+                    // all three columns are varchar(36), so the bare UUID (no prefix) keeps children ≤ 35.
+                    val warmupId = UUID.randomUUID().toString().replace("-", "")
+                    books.upsert(publicBookFixture(warmupId))
 
-                        val warmupId = awaitFirehoseLive(frames, books)
-                        // After the warm-up frame proves the stream is live, the next folder-or-book
-                        // frame must be the public sentinel: if the gate works, the intervening hidden
-                        // folder event is dropped for the member and never appears on the stream.
-                        val deferred =
-                            async {
-                                frames
-                                    .filter { it.event == "library_folders" || it.event == "books" }
-                                    .first { it.data?.contains(warmupId) != true }
+                    val event =
+                        incoming.first { frame ->
+                            if (frame.data?.contains(warmupId) == true) {
+                                folders.upsert(folderFixture("hidden-folder"))
+                                books.upsert(publicBookFixture("sentinel-book"))
+                                false
+                            } else {
+                                frame.event == "library_folders" || frame.event == "books"
                             }
-                        folders.upsert(folderFixture("hidden-folder"))
-                        books.upsert(publicBookFixture("sentinel-book"))
-                        val event = deferred.await()
-                        event.event shouldBe "books"
-
-                        relay.cancel()
-                    }
+                        }
+                    event.event shouldBe "books"
                 }
             }
         }
@@ -254,22 +245,3 @@ private fun publicBookFixture(id: String): BookSyncPayload =
         createdAt = 0L,
         deletedAt = null,
     )
-
-/**
- * Returns the warm-up book's id once the live firehose subscription backing this SSE stream is
- * proven live: publishes a unique public warm-up book and waits until its `books` frame is observed
- * on [frames]. Call this before publishing the events a test asserts on, to close the
- * subscribe-before-publish race. The returned id lets the caller skip the warm-up frame when
- * asserting on the next event.
- */
-private suspend fun awaitFirehoseLive(
-    frames: Flow<ServerSentEvent>,
-    books: BookRepository,
-): String {
-    // The id propagates into `af-$id` / `ch-$id` child rows; all three columns are varchar(36),
-    // so strip the UUID dashes (32 chars) to keep the prefixed children inside the limit.
-    val warmupId = UUID.randomUUID().toString().replace("-", "")
-    books.upsert(publicBookFixture(warmupId))
-    frames.first { it.event == "books" && it.data?.contains(warmupId) == true }
-    return warmupId
-}
