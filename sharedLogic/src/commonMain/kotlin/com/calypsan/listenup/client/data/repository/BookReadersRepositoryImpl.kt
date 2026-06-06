@@ -6,14 +6,20 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
+import com.calypsan.listenup.client.domain.readers.ReaderState
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onStart
@@ -21,40 +27,75 @@ import kotlinx.coroutines.flow.onStart
 private val logger = KotlinLogging.logger {}
 
 /**
- * Book-readers repository backed by the [com.calypsan.listenup.api.SocialService] RPC.
+ * Book-readers repository combining the current user's own reading state with other live listeners.
  *
- * The server's `bookReaders` result is already ACL-filtered and excludes the caller, so this
- * repository maps the wire list straight to [Reader] — no Room, no auth lookup. It fetches on
- * first subscribe and re-fetches on every [PresenceRefreshSignal] ping (the server's presence
- * nudge or a firehose reconnect).
+ * The current user's row comes from the local playback position ([PlaybackPositionRepository]) and
+ * profile ([UserRepository]) — so it shows whether *you* are reading or have finished the book even
+ * when the server is unreachable. Other listeners come from the [com.calypsan.listenup.api.SocialService]
+ * `bookReaders` RPC, which is ACL-filtered and excludes the caller server-side; that list is fetched
+ * on first subscribe and re-fetched on every [PresenceRefreshSignal] ping. The current user, when
+ * applicable, is listed first.
  *
- * On any RPC failure the flow emits empty [BookReaders] — Never-Stranded: the section renders
- * empty rather than hanging, and the next ping recovers.
+ * On any RPC failure the *other-listeners* list is empty — Never-Stranded: the section still shows
+ * the current user's own row, and the next ping recovers the others.
  *
  * @property socialRpc Supplies the [com.calypsan.listenup.api.SocialService] RPC proxy.
- * @property presence Pings whenever presence may have changed, driving a re-fetch.
+ * @property presence Pings whenever presence may have changed, driving a re-fetch of other listeners.
+ * @property playbackPositionRepository Source of the current user's local reading state per book.
+ * @property userRepository Source of the current user's identity (id + display name).
  */
 class BookReadersRepositoryImpl(
     private val socialRpc: SocialRpcFactory,
     private val presence: PresenceRefreshSignal,
+    private val playbackPositionRepository: PlaybackPositionRepository,
+    private val userRepository: UserRepository,
 ) : BookReadersRepository {
     override fun observeReadersFor(bookId: String): Flow<BookReaders> =
+        combine(
+            otherListeners(bookId),
+            playbackPositionRepository.observeAll(),
+            userRepository.observeCurrentUser(),
+        ) { others, positions, currentUser ->
+            val self = currentUser?.let { user -> selfReader(user, positions[BookId(bookId)]) }
+            BookReaders(readers = listOfNotNull(self) + others)
+        }
+
+    /** Other users currently listening — ACL-filtered and caller-excluded server-side. */
+    private fun otherListeners(bookId: String): Flow<List<Reader>> =
         presence.signal
             .onStart { emit(Unit) }
-            .flatMapLatest { flow { emit(fetchReaders(bookId)) } }
+            .flatMapLatest { flow { emit(fetchOthers(bookId)) } }
 
-    private suspend fun fetchReaders(bookId: String): BookReaders =
+    private suspend fun fetchOthers(bookId: String): List<Reader> =
         when (val result = bookReaders(bookId)) {
             is AppResult.Success -> {
-                BookReaders(
-                    currentlyListening = result.data.map { Reader(userId = it.userId, displayName = it.displayName) },
-                )
+                result.data.map {
+                    Reader(userId = it.userId, displayName = it.displayName, state = ReaderState.Listening)
+                }
             }
 
             is AppResult.Failure -> {
-                BookReaders(currentlyListening = emptyList())
+                emptyList()
             }
         }
+
+    /**
+     * The current user as a reader of this book, derived from their local [position] — or null when
+     * they haven't started it (no position, or a zeroed position that isn't finished).
+     */
+    private fun selfReader(
+        user: User,
+        position: PlaybackPosition?,
+    ): Reader? {
+        if (position == null) return null
+        val state =
+            when {
+                position.isFinished -> ReaderState.Finished(position.finishedAtMs)
+                position.positionMs > 0 -> ReaderState.Listening
+                else -> return null
+            }
+        return Reader(userId = user.id.value, displayName = user.displayName, state = state)
+    }
 
     private suspend fun bookReaders(bookId: String) =
         try {

@@ -2,11 +2,17 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.social.BookReader
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.readers.ReaderState
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
@@ -18,18 +24,22 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Tests for [BookReadersRepositoryImpl] over the [SocialService] RPC seam.
+ * Tests for [BookReadersRepositoryImpl].
  *
- * The server already excludes the caller and filters by access, so the repository simply maps
- * the ACL-filtered [BookReader] list to [com.calypsan.listenup.client.domain.readers.Reader],
- * re-fetching on every [PresenceRefreshSignal] ping. A failed RPC yields empty readers
- * (Never-Stranded); [CancellationException] always propagates.
+ * The repository combines the current user's own reading state (from the local playback position +
+ * profile) with other live listeners from the [SocialService] RPC (ACL-filtered, caller-excluded),
+ * re-fetching the others on every [PresenceRefreshSignal] ping. The current user, when reading or
+ * finished, is listed first and survives an RPC failure (Never-Stranded); a cancelled fetch always
+ * propagates rather than collapsing into an empty emission.
  */
 class BookReadersRepositoryImplTest :
     FunSpec({
@@ -38,6 +48,35 @@ class BookReadersRepositoryImplTest :
             userId: String,
             displayName: String,
         ) = BookReader(userId = userId, displayName = displayName, avatarType = "auto", startedAtMs = 1_000L)
+
+        fun user(
+            id: String = "me",
+            displayName: String = "Me",
+        ) = User(
+            id = UserId(id),
+            email = "$id@example.com",
+            displayName = displayName,
+            isAdmin = false,
+            createdAtMs = 0L,
+            updatedAtMs = 0L,
+        )
+
+        fun position(
+            bookId: String = "bookA",
+            positionMs: Long = 0L,
+            isFinished: Boolean = false,
+            finishedAtMs: Long? = null,
+        ) = PlaybackPosition(
+            bookId = bookId,
+            positionMs = positionMs,
+            playbackSpeed = 1.0f,
+            hasCustomSpeed = false,
+            updatedAtMs = 0L,
+            syncedAtMs = null,
+            lastPlayedAtMs = 0L,
+            isFinished = isFinished,
+            finishedAtMs = finishedAtMs,
+        )
 
         fun fakeRpc(service: SocialService): SocialRpcFactory =
             object : SocialRpcFactory {
@@ -53,14 +92,36 @@ class BookReadersRepositoryImplTest :
                 override suspend fun invalidate() = Unit
             }
 
+        fun fakeUsers(current: User?): UserRepository =
+            object : UserRepository {
+                override fun observeCurrentUser(): Flow<User?> = flowOf(current)
+
+                override fun observeIsAdmin(): Flow<Boolean> = flowOf(current?.isAdmin ?: false)
+
+                override suspend fun getCurrentUser(): User? = current
+
+                override suspend fun saveUser(user: User) = Unit
+
+                override suspend fun clearUsers() = Unit
+
+                override suspend fun refreshCurrentUser(): User? = current
+            }
+
         fun repo(
             rpc: SocialRpcFactory,
-            presence: PresenceRefreshSignal,
-        ) = BookReadersRepositoryImpl(socialRpc = rpc, presence = presence)
+            presence: PresenceRefreshSignal = PresenceRefreshSignal(),
+            positions: Map<String, PlaybackPosition> = emptyMap(),
+            currentUser: User? = user(),
+        ) = BookReadersRepositoryImpl(
+            socialRpc = rpc,
+            presence = presence,
+            playbackPositionRepository = FakePlaybackPositionRepository(initialPositions = positions),
+            userRepository = fakeUsers(currentUser),
+        )
 
-        // ── Maps BookReader → Reader ──────────────────────────────────────────
+        // ── Other listeners (server) ──────────────────────────────────────────
 
-        test("maps book readers to domain Readers") {
+        test("maps other live listeners to readers when the current user has not started") {
             runTest {
                 val service =
                     mock<SocialService> {
@@ -68,11 +129,71 @@ class BookReadersRepositoryImplTest :
                             AppResult.Success(listOf(reader("u2", "Bob"), reader("u3", "Carol")))
                     }
 
-                repo(fakeRpc(service), PresenceRefreshSignal()).observeReadersFor("bookA").test {
-                    val readers = awaitItem()
-                    readers.currentlyListening shouldHaveSize 2
-                    readers.currentlyListening.map { it.userId } shouldContainExactly listOf("u2", "u3")
-                    readers.currentlyListening.map { it.displayName } shouldContainExactly listOf("Bob", "Carol")
+                repo(fakeRpc(service)).observeReadersFor("bookA").test {
+                    val readers = awaitItem().readers
+                    readers.map { it.userId } shouldContainExactly listOf("u2", "u3")
+                    readers.all { it.state is ReaderState.Listening } shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // ── Current user inclusion ────────────────────────────────────────────
+
+        test("current user reading is listed first, ahead of other listeners") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReaders(BookId("bookA")) } returns
+                            AppResult.Success(listOf(reader("u2", "Bob")))
+                    }
+
+                repo(
+                    fakeRpc(service),
+                    positions = mapOf("bookA" to position(positionMs = 5_000L)),
+                    currentUser = user(id = "me", displayName = "Me"),
+                ).observeReadersFor("bookA").test {
+                    val readers = awaitItem().readers
+                    readers.map { it.userId } shouldContainExactly listOf("me", "u2")
+                    readers.first().state.shouldBeInstanceOf<ReaderState.Listening>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("current user who finished the book shows a Finished reader with the finish date") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                    }
+
+                repo(
+                    fakeRpc(service),
+                    positions = mapOf("bookA" to position(isFinished = true, finishedAtMs = 1_700_000_000_000L)),
+                ).observeReadersFor("bookA").test {
+                    val readers = awaitItem().readers
+                    readers shouldHaveSize 1
+                    val state = readers.single().state
+                    state.shouldBeInstanceOf<ReaderState.Finished>()
+                    state.finishedAtMs shouldBe 1_700_000_000_000L
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("current user with a zeroed, unfinished position is not a reader") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                    }
+
+                repo(
+                    fakeRpc(service),
+                    positions = mapOf("bookA" to position(positionMs = 0L)),
+                ).observeReadersFor("bookA").test {
+                    awaitItem().readers.shouldBeEmpty()
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -80,7 +201,7 @@ class BookReadersRepositoryImplTest :
 
         // ── Re-fetches on presence ping ───────────────────────────────────────
 
-        test("re-fetches when the presence signal pings") {
+        test("re-fetches other listeners when the presence signal pings") {
             runTest {
                 val service =
                     mock<SocialService> {
@@ -92,18 +213,20 @@ class BookReadersRepositoryImplTest :
                     }
                 val presence = PresenceRefreshSignal()
 
-                repo(fakeRpc(service), presence).observeReadersFor("bookA").test {
-                    awaitItem().currentlyListening shouldHaveSize 1
-                    presence.ping()
-                    awaitItem().currentlyListening shouldHaveSize 2
-                    cancelAndIgnoreRemainingEvents()
-                }
+                repo(fakeRpc(service), presence = presence, currentUser = null)
+                    .observeReadersFor("bookA")
+                    .test {
+                        awaitItem().readers shouldHaveSize 1
+                        presence.ping()
+                        awaitItem().readers shouldHaveSize 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
             }
         }
 
-        // ── RPC failure → empty readers ───────────────────────────────────────
+        // ── RPC failure → only the current user's own row survives ─────────────
 
-        test("RPC failure result yields empty readers") {
+        test("RPC failure still shows the current user's own row") {
             runTest {
                 val service =
                     mock<SocialService> {
@@ -111,30 +234,48 @@ class BookReadersRepositoryImplTest :
                             AppResult.Failure(TransportError.NetworkUnavailable())
                     }
 
-                repo(fakeRpc(service), PresenceRefreshSignal()).observeReadersFor("bookA").test {
-                    awaitItem().currentlyListening.shouldBeEmpty()
+                repo(
+                    fakeRpc(service),
+                    positions = mapOf("bookA" to position(positionMs = 5_000L)),
+                ).observeReadersFor("bookA").test {
+                    awaitItem().readers.map { it.userId } shouldContainExactly listOf("me")
                     cancelAndIgnoreRemainingEvents()
                 }
             }
         }
 
-        test("thrown RPC error yields empty readers") {
+        test("RPC failure with no current-user reading yields empty readers") {
             runTest {
-                repo(throwingRpc(RuntimeException("boom")), PresenceRefreshSignal())
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReaders(any()) } returns
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                    }
+
+                repo(fakeRpc(service), currentUser = null).observeReadersFor("bookA").test {
+                    awaitItem().readers.shouldBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("thrown RPC error with no current-user reading yields empty readers") {
+            runTest {
+                repo(throwingRpc(RuntimeException("boom")), currentUser = null)
                     .observeReadersFor("bookA")
                     .test {
-                        awaitItem().currentlyListening.shouldBeEmpty()
+                        awaitItem().readers.shouldBeEmpty()
                         cancelAndIgnoreRemainingEvents()
                     }
             }
         }
 
-        // A swallowed CancellationException would surface as an emitted empty BookReaders;
+        // A swallowed CancellationException would surface as an emitted (empty) readers list;
         // re-throwing cancels the in-flight fetch instead, so no item is emitted in the window.
-        test("CancellationException from the RPC is not swallowed into an empty emission") {
+        test("CancellationException from the RPC is not swallowed into an emission") {
             runTest {
                 val flow =
-                    repo(throwingRpc(CancellationException("cancel")), PresenceRefreshSignal())
+                    repo(throwingRpc(CancellationException("cancel")), currentUser = null)
                         .observeReadersFor("bookA")
 
                 val emitted = withTimeoutOrNull(100) { flow.first() }

@@ -38,9 +38,10 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.domain.readers.Reader
+import com.calypsan.listenup.client.domain.readers.ReaderState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
+import com.calypsan.listenup.client.util.formatDate
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_readers
 import listenup.composeapp.generated.resources.book_detail_readers_finished
@@ -78,15 +79,14 @@ data class ReaderRowUi(
 /**
  * VM-bound entry point for the Readers section on the Book Detail screen.
  *
- * Collects [BookReadersViewModel] state and, on [BookReadersUiState.Data], maps the sparse real
- * [Reader] model onto [ReaderRowUi] before delegating to the stateless [BookReadersContent].
- * Loading and Error states render nothing — the Readers section is non-critical.
+ * Collects [BookReadersViewModel] state and, on [BookReadersUiState.Data], maps each reader's
+ * state onto [ReaderRowUi] before delegating to the stateless [BookReadersContent]. Loading and
+ * Error states render nothing — the Readers section is non-critical.
  *
- * note: the real [Reader] model only carries `userId` + `displayName`, and every reader in
- * `currentlyListening` is by definition active. The production path therefore degrades — no
- * progress bar (percentage unknown) and no "Finished {when}" rows. Full read-history (past
- * readers, the signed-in user, per-reader progress %, completion dates) needs richer server data
- * before the finished/progress treatments can render against live data.
+ * note: per-reader progress % is not yet shown. The current user's own row reflects whether they
+ * are reading or have finished (with a completion date); other readers come from live presence so
+ * they always read as actively listening. Past other-readers and per-reader progress % need richer
+ * server data.
  *
  * @param bookId The book ID to load readers for.
  * @param onUserClick Callback when a reader row is clicked (navigates to user profile).
@@ -109,19 +109,33 @@ fun BookReadersSection(
     val data = state as? BookReadersUiState.Data ?: return
 
     val readers =
-        data.readers.currentlyListening.map { reader ->
-            ReaderRowUi(
-                userId = reader.userId,
-                name = reader.displayName,
-                isReading = true,
-                progressPct = null,
-                finishedWhen = null,
-            )
+        data.readers.readers.map { reader ->
+            when (val readerState = reader.state) {
+                is ReaderState.Listening -> {
+                    ReaderRowUi(
+                        userId = reader.userId,
+                        name = reader.displayName,
+                        isReading = true,
+                        progressPct = null,
+                        finishedWhen = null,
+                    )
+                }
+
+                is ReaderState.Finished -> {
+                    ReaderRowUi(
+                        userId = reader.userId,
+                        name = reader.displayName,
+                        isReading = false,
+                        progressPct = null,
+                        finishedWhen = readerState.finishedAtMs?.let { formatDate(it, "MMM d") },
+                    )
+                }
+            }
         }
 
     BookReadersContent(
         readers = readers,
-        listeningNowCount = readers.size,
+        listeningNowCount = readers.count { it.isReading },
         totalCount = readers.size,
         isCard = isCard,
         onUserClick = onUserClick,
@@ -198,13 +212,15 @@ fun BookReadersContent(
                 }
             }
 
-            // Sub-line: "N listening now"
-            Text(
-                text = stringResource(Res.string.book_detail_readers_listening_now, listeningNowCount),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
+            // Sub-line: "N listening now" — only when someone is actively listening
+            if (listeningNowCount > 0) {
+                Text(
+                    text = stringResource(Res.string.book_detail_readers_listening_now, listeningNowCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
 
             readers.forEach { reader ->
                 ReaderRow(

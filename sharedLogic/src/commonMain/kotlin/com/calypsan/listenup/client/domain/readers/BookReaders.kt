@@ -3,27 +3,46 @@ package com.calypsan.listenup.client.domain.readers
 /**
  * Readers state for one book.
  *
- * [currentlyListening] is populated from the `SocialService.bookReaders` RPC, which is
- * ACL-filtered and already excludes the current user server-side. The list refreshes on
- * subscribe and on every presence ping (see
- * [com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl]).
+ * Assembled by [com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl] from two
+ * sources: the current user's own reading state (from the local playback position — works offline)
+ * and the other users currently listening (from the ACL-filtered, caller-excluded
+ * `SocialService.bookReaders` RPC, refreshed on every presence ping). The current user, when they
+ * are reading or have finished the book, is listed first.
  *
- * @property currentlyListening Users currently listening to this book (others only).
+ * @property readers Everyone reading or who has finished this book that we can show — the current
+ *   user (when applicable) followed by other live listeners.
  */
 data class BookReaders(
-    val currentlyListening: List<Reader>,
+    val readers: List<Reader>,
 )
 
 /**
- * A minimal reader identity for display in the Readers section.
+ * A reader of a book, for display in the Readers section.
  *
- * Avatar resolution is intentionally omitted — the [UserAvatar] composable
- * resolves avatars internally from [userId], keeping this type dependency-free.
+ * Avatar resolution is intentionally omitted — the [UserAvatar] composable resolves avatars
+ * internally from [userId], keeping this type dependency-free.
  *
  * @property userId Server-issued user identifier (used by [UserAvatar] for avatar lookup).
- * @property displayName Human-readable name shown beneath the avatar.
+ * @property displayName Human-readable name shown beside the avatar.
+ * @property state Whether the reader is actively listening or has finished the book.
  */
 data class Reader(
     val userId: String,
     val displayName: String,
+    val state: ReaderState,
 )
+
+/** A reader's relationship to the book — actively listening, or finished. */
+sealed interface ReaderState {
+    /** Actively listening to the book. */
+    data object Listening : ReaderState
+
+    /**
+     * Finished the book.
+     *
+     * @property finishedAtMs When the book was finished (epoch ms), or null if unknown.
+     */
+    data class Finished(
+        val finishedAtMs: Long?,
+    ) : ReaderState
+}
