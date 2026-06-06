@@ -91,9 +91,9 @@ private fun CreditsSectionHeader(modifier: Modifier = Modifier) {
     Text(
         text = stringResource(Res.string.book_detail_credits),
         style =
-            MaterialTheme.typography.titleMedium.copy(
+            MaterialTheme.typography.titleLarge.copy(
                 fontFamily = DisplayFontFamily,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
             ),
         color = MaterialTheme.colorScheme.onSurface,
         modifier = modifier.padding(bottom = 12.dp),
@@ -157,7 +157,7 @@ private fun CreditGridCell(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(
-            text = role,
+            text = role.replaceFirstChar { it.uppercase() },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -224,7 +224,7 @@ private fun CreditListRow(
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = role,
+            text = role.replaceFirstChar { it.uppercase() },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

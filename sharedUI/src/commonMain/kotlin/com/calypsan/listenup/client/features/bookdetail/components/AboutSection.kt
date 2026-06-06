@@ -29,9 +29,9 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.TagsSection
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_about_this_book
 import listenup.composeapp.generated.resources.book_detail_credits
 import listenup.composeapp.generated.resources.book_detail_tags
-import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_genres
 import org.jetbrains.compose.resources.stringResource
 
@@ -90,11 +90,11 @@ fun AboutSection(
                     .padding(innerPadding),
         ) {
             Text(
-                text = stringResource(Res.string.common_about),
+                text = stringResource(Res.string.book_detail_about_this_book),
                 style =
-                    MaterialTheme.typography.titleMedium.copy(
+                    MaterialTheme.typography.titleLarge.copy(
                         fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                     ),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 12.dp),

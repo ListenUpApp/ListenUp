@@ -55,7 +55,6 @@ import com.calypsan.listenup.client.features.bookdetail.components.CreditsSectio
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
-import com.calypsan.listenup.client.features.bookdetail.components.SeriesBadge
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
@@ -508,20 +507,23 @@ private fun ImmersiveBookDetail(
                 )
             }
 
-            // Identity — centered cover, title, series, author, narrator.
+            // Identity — centered cover, title, series-or-subtitle, author, narrator.
+            // Series wins over the book's own subtitle when the book is part of a series.
             item {
+                val seriesId = book.seriesId
                 CompactHero(
                     coverPath = book.coverPath,
                     bookId = bookId,
                     title = book.title,
                     overline = heroOverline,
-                    subtitle = state.subtitle,
+                    subtitle = state.series ?: state.subtitle,
                     authors = book.authors,
                     narrators = book.narrators,
                     onContributorClick = onContributorClick,
                     progress = state.progress,
                     timeRemaining = state.timeRemainingFormatted,
                     modifier = Modifier.padding(top = 8.dp),
+                    onSubtitleClick = seriesId?.let { { onSeriesClick(it) } },
                 )
             }
 
@@ -534,19 +536,6 @@ private fun ImmersiveBookDetail(
                     addedAt = state.addedAt,
                     modifier = screenPadding.padding(top = 16.dp),
                 )
-            }
-
-            // Series badge — series also appears in the hero subtitle; this is the tappable jump-off.
-            val seriesId = book.seriesId
-            val seriesName = state.series ?: book.seriesName
-            if (seriesId != null && seriesName != null) {
-                item {
-                    SeriesBadge(
-                        seriesName = seriesName,
-                        onClick = { onSeriesClick(seriesId) },
-                        modifier = screenPadding.padding(top = 16.dp),
-                    )
-                }
             }
 
             // About — description + Genres + Tags, frameless.
@@ -621,6 +610,7 @@ private fun ImmersiveBookDetail(
                 ChapterListItem(
                     chapter = chapter,
                     chapterNumber = index + 1,
+                    modifier = screenPadding,
                     // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
                     isCurrent = false,
                     showDivider = index < displayedChapters.lastIndex,

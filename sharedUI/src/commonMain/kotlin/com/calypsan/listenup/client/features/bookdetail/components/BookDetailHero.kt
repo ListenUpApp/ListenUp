@@ -57,6 +57,8 @@ import org.jetbrains.compose.resources.stringResource
  * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
  * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
  * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
+ * @param onSubtitleClick Invoked when the subtitle is tapped; null renders the subtitle as plain
+ *   text. Wired to series navigation when the book belongs to a series.
  * @param modifier Optional layout modifier
  */
 @Composable
@@ -72,6 +74,7 @@ fun CompactHero(
     progress: Float?,
     timeRemaining: String?,
     modifier: Modifier = Modifier,
+    onSubtitleClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier =
@@ -123,13 +126,19 @@ fun CompactHero(
             overflow = TextOverflow.Ellipsis,
         )
 
-        // Subtitle — series · book number; hidden when null
+        // Subtitle — series · book number (tappable when the book is in a series); hidden when null
         if (subtitle != null) {
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
+                modifier =
+                    if (onSubtitleClick != null) {
+                        Modifier.clickable(onClick = onSubtitleClick)
+                    } else {
+                        Modifier
+                    },
             )
         }
 
@@ -249,6 +258,8 @@ private fun ClickableContributorLine(
  * @param onContributorClick Invoked with a contributor id when an author or narrator name is tapped
  * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
  * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
+ * @param onSubtitleClick Invoked when the subtitle is tapped; null renders the subtitle as plain
+ *   text. Wired to series navigation when the book belongs to a series.
  * @param modifier Optional layout modifier
  */
 @Composable
@@ -264,6 +275,7 @@ fun WideHeroBand(
     progress: Float?,
     timeRemaining: String?,
     modifier: Modifier = Modifier,
+    onSubtitleClick: (() -> Unit)? = null,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -347,7 +359,7 @@ fun WideHeroBand(
                         modifier = Modifier.padding(top = 2.dp),
                     )
 
-                    // Subtitle — series · book number; hidden when null
+                    // Subtitle — series · book number (tappable in a series); hidden when null
                     if (subtitle != null) {
                         Text(
                             text = subtitle,
@@ -356,6 +368,12 @@ fun WideHeroBand(
                                     fontWeight = FontWeight.Medium,
                                 ),
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                            modifier =
+                                if (onSubtitleClick != null) {
+                                    Modifier.clickable(onClick = onSubtitleClick)
+                                } else {
+                                    Modifier
+                                },
                         )
                     }
 

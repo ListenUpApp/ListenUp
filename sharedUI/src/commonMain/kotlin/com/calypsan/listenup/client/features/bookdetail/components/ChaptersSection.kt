@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,9 +53,9 @@ fun ChaptersHeader(
         Text(
             text = stringResource(Res.string.book_detail_chapters),
             style =
-                MaterialTheme.typography.titleMedium.copy(
+                MaterialTheme.typography.titleLarge.copy(
                     fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                 ),
         )
 
@@ -85,6 +86,7 @@ fun ChaptersHeader(
 fun ChapterListItem(
     chapter: ChapterUiModel,
     chapterNumber: Int,
+    modifier: Modifier = Modifier,
     // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
     isCurrent: Boolean = false,
     showDivider: Boolean = true,
@@ -94,58 +96,61 @@ fun ChapterListItem(
     val numberColor =
         if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = chapterNumber.toString(),
-            style =
-                MaterialTheme.typography.titleMedium.copy(
-                    fontFeatureSettings = "tnum",
-                ),
-            color = numberColor,
-            modifier = Modifier.widthIn(min = 28.dp),
-        )
+    // [modifier] carries the row's horizontal inset so chapter rows align flush with the other
+    // sections (the caller passes the screen margin on compact / the card's intra-card inset on wide).
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = chapterNumber.toString(),
+                style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontFeatureSettings = "tnum",
+                    ),
+                color = numberColor,
+                modifier = Modifier.widthIn(min = 28.dp),
+            )
 
-        Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-        Text(
-            text = chapter.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = contentColor,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+            Text(
+                text = chapter.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = contentColor,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
 
-        if (isCurrent) {
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Default.GraphicEq,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
+            if (isCurrent) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.GraphicEq,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = chapter.duration,
+                style = tabularNumsStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Text(
-            text = chapter.duration,
-            style = tabularNumsStyle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-
-    if (showDivider) {
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
+        if (showDivider) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
     }
 }

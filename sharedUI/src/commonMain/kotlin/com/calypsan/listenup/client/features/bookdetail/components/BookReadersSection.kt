@@ -173,9 +173,9 @@ fun BookReadersContent(
                 Text(
                     text = stringResource(Res.string.book_detail_readers),
                     style =
-                        MaterialTheme.typography.titleMedium.copy(
+                        MaterialTheme.typography.titleLarge.copy(
                             fontFamily = DisplayFontFamily,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                         ),
                     color = MaterialTheme.colorScheme.onSurface,
                 )

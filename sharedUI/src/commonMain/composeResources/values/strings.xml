@@ -135,6 +135,7 @@
     <string name="auth_youll_be_automatically_signed_in">You\'ll be automatically signed in once approved.</string>
     <string name="auth_your_registration_request_has_been">Your registration request has been submitted and is awaiting admin approval.</string>
     <string name="book_delete_download">Delete Download</string>
+    <string name="book_detail_about_this_book">About this book</string>
     <string name="book_detail_abridged">Abridged</string>
     <string name="book_detail_add_to_collection">Add to Collection</string>
     <string name="book_detail_add_to_shelf">Add to Shelf</string>

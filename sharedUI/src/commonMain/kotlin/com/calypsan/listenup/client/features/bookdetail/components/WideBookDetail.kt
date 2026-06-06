@@ -130,19 +130,22 @@ fun WideBookDetail(
                 modifier = screenPadding.padding(vertical = 8.dp),
             )
 
-            // Identity — full-width color band.
+            // Identity — full-width color band. Series wins over the book's own subtitle when the
+            // book is part of a series; the subtitle is tappable to jump to the series.
+            val seriesId = book.seriesId
             WideHeroBand(
                 coverPath = book.coverPath,
                 bookId = bookId,
                 title = book.title,
                 overline = heroOverline,
-                subtitle = state.subtitle,
+                subtitle = state.series ?: state.subtitle,
                 authors = book.authors,
                 narrators = book.narrators,
                 onContributorClick = onContributorClick,
                 progress = state.progress,
                 timeRemaining = state.timeRemainingFormatted,
                 modifier = screenPadding.padding(top = 8.dp),
+                onSubtitleClick = seriesId?.let { { onSeriesClick(it) } },
             )
 
             // Stats — rating, duration, year, date added.
@@ -157,17 +160,6 @@ fun WideBookDetail(
                         .padding(top = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
             )
-
-            // Series badge — series also appears in the hero subtitle; this is the tappable jump-off.
-            val seriesId = book.seriesId
-            val seriesName = state.series ?: book.seriesName
-            if (seriesId != null && seriesName != null) {
-                SeriesBadge(
-                    seriesName = seriesName,
-                    onClick = { onSeriesClick(seriesId) },
-                    modifier = screenPadding.padding(top = 16.dp),
-                )
-            }
 
             // Two-column body.
             Row(
@@ -356,6 +348,7 @@ private fun WideChaptersContent(
             ChapterListItem(
                 chapter = chapter,
                 chapterNumber = index + 1,
+                modifier = Modifier.padding(horizontal = 8.dp),
                 // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
                 isCurrent = false,
                 showDivider = index < displayedChapters.lastIndex,
