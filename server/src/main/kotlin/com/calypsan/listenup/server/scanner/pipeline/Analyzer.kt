@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.api.external.abs.AbsMetadata
@@ -128,9 +129,10 @@ internal class Analyzer(
             )
         }
 
-    private fun buildTracks(candidate: CandidateBook): List<TrackEntry> =
-        candidate.files
-            .filter { it.fileType == FileType.AUDIO }
+    private suspend fun buildTracks(candidate: CandidateBook): List<TrackEntry> {
+        val audioFiles = candidate.files.filter { it.fileType == FileType.AUDIO }
+        val multiTrack = audioFiles.size > 1
+        return audioFiles
             .map { file ->
                 val parentFolder =
                     file.relPath
@@ -138,14 +140,20 @@ internal class Analyzer(
                         .dropLast(1)
                         .lastOrNull()
                 val info = TrackInference.infer(file.name, parentFolder)
+                // Embedded track/disc numbers are stronger than a filename guess (ABS parity).
+                // Parse per-track only for multi-track books — a lone file needs no ordering.
+                val embedded = if (multiTrack) parseTrackForDuration(file)?.tags else null
+                val embTrack = embedded?.trackNumber
+                val embDisc = embedded?.discNumber
                 TrackEntry(
                     file = file,
-                    trackNumber = info.trackNumber,
-                    discNumber = info.discNumber,
-                    trackSource = info.trackSource,
-                    discSource = info.discSource,
+                    trackNumber = embTrack ?: info.trackNumber,
+                    discNumber = embDisc ?: info.discNumber,
+                    trackSource = if (embTrack != null) TrackNumberSource.METADATA else info.trackSource,
+                    discSource = if (embDisc != null) TrackNumberSource.METADATA else info.discSource,
                 )
             }.sortedWith(NATURAL_TRACK_ORDER)
+    }
 
     /**
      * Cover precedence: filesystem `cover.*` → first sibling image →
