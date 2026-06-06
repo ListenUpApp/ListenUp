@@ -144,21 +144,21 @@ class AnalyzedBookMapperTest :
                     BookContributorPayload(
                         id = "",
                         name = "Author One",
-                        sortName = null,
+                        sortName = "One, Author",
                         role = "author",
                         creditedAs = null,
                     ),
                     BookContributorPayload(
                         id = "",
                         name = "Author Two",
-                        sortName = null,
+                        sortName = "Two, Author",
                         role = "author",
                         creditedAs = null,
                     ),
                     BookContributorPayload(
                         id = "",
                         name = "Narrator One",
-                        sortName = null,
+                        sortName = "One, Narrator",
                         role = "narrator",
                         creditedAs = null,
                     ),
@@ -195,6 +195,35 @@ class AnalyzedBookMapperTest :
 
             mapper.buildContributors(analyzed).map { it.name to it.role } shouldBe
                 listOf("Stephen King" to "author")
+        }
+
+        test("contributor sortName uses embedded authorsSort zipped by index") {
+            val a = analyzedBook(authors = listOf("Brandon Sanderson"), authorsSort = "Sanderson, Brandon")
+            val c = mapper.buildContributors(a).single()
+            c.name shouldBe "Brandon Sanderson"
+            c.sortName shouldBe "Sanderson, Brandon"
+        }
+
+        test("contributor sortName falls back to derivation when no tag") {
+            val c = mapper.buildContributors(analyzedBook(authors = listOf("Brandon Sanderson"))).single()
+            c.sortName shouldBe "Sanderson, Brandon"
+        }
+
+        test("count mismatch between authors and authorsSort falls back to derivation for all") {
+            val a =
+                analyzedBook(
+                    authors = listOf("Brandon Sanderson", "Stephen King"),
+                    authorsSort = "Sanderson, Brandon",
+                )
+            mapper.buildContributors(a).map { it.sortName } shouldBe listOf("Sanderson, Brandon", "King, Stephen")
+        }
+
+        test("narrators get derived sortName") {
+            val c =
+                mapper
+                    .buildContributors(analyzedBook(narrators = listOf("Kate Reading")))
+                    .single { it.role == "narrator" }
+            c.sortName shouldBe "Reading, Kate"
         }
 
         test("should map series entries to payloads with blank ids") {
@@ -397,6 +426,7 @@ class AnalyzedBookMapperTest :
 private fun analyzedBook(
     authors: List<String> = emptyList(),
     narrators: List<String> = emptyList(),
+    authorsSort: String? = null,
 ): AnalyzedBook =
     AnalyzedBook(
         candidate =
@@ -408,11 +438,13 @@ private fun analyzedBook(
         title = "X",
         authors = authors,
         narrators = narrators,
+        embedded = authorsSort?.let { embeddedMeta(durationMs = 0L, authorsSort = it) },
     )
 
 private fun embeddedMeta(
     durationMs: Long,
     titleSort: String? = null,
+    authorsSort: String? = null,
 ): EmbeddedAudioMetadata =
     EmbeddedAudioMetadata(
         format = AudioFormat.Mp3,
@@ -435,6 +467,7 @@ private fun embeddedMeta(
                 discNumber = null,
                 custom = emptyMap(),
                 titleSort = titleSort,
+                authorsSort = authorsSort,
             ),
         chapters = emptyList(),
         chaptersSource = ChapterSource.None,

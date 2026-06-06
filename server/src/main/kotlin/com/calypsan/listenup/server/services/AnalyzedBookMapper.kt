@@ -108,12 +108,34 @@ class AnalyzedBookMapper(
      * [ContributorParser]; identical `(name, role)` pairs are de-duplicated. The caller
      * resolves each name to a real id via [ContributorRepository.resolveOrCreate] before
      * the aggregate write.
+     *
+     * `sortName` is populated from the embedded `authorsSort` tag (TSOP/soar) when its
+     * per-person count matches the parsed author count; otherwise [SortKeys.sortName]
+     * derives `"Surname, Given"` from the display name. Narrators always use derivation
+     * (there is no narrator-sort tag in common audio formats).
      */
     fun buildContributors(analyzed: AnalyzedBook): List<BookContributorPayload> {
-        val parsed =
-            analyzed.authors.flatMap { ContributorParser.parse(it, ContributorRole.AUTHOR) } +
-                analyzed.narrators.flatMap { ContributorParser.parse(it, ContributorRole.NARRATOR) }
-        return parsed.distinct().map { contributorPayload(it.name, it.role.apiValue) }
+        val authors = analyzed.authors.flatMap { ContributorParser.parse(it, ContributorRole.AUTHOR) }
+        val narrators = analyzed.narrators.flatMap { ContributorParser.parse(it, ContributorRole.NARRATOR) }
+
+        // The embedded authors-sort string (TSOP/soar) sorts the same author field; use it as the
+        // authoritative sort form only when its person count matches the parsed authors, else
+        // derive "Surname, Given" from the display name.
+        val authorSorts =
+            analyzed.embedded
+                ?.tags
+                ?.authorsSort
+                ?.let { ContributorParser.personNames(it) }
+                ?.takeIf { it.size == authors.size }
+
+        val authorPayloads =
+            authors.mapIndexed { i, parsed ->
+                contributorPayload(parsed.name, parsed.role, authorSorts?.get(i))
+            }
+        val narratorPayloads =
+            narrators.map { parsed -> contributorPayload(parsed.name, parsed.role, embeddedSort = null) }
+
+        return (authorPayloads + narratorPayloads).distinct()
     }
 
     /**
@@ -159,13 +181,14 @@ class AnalyzedBookMapper(
 
     private fun contributorPayload(
         name: String,
-        role: String,
+        role: ContributorRole,
+        embeddedSort: String?,
     ): BookContributorPayload =
         BookContributorPayload(
             id = "",
             name = name,
-            sortName = null,
-            role = role,
+            sortName = SortKeys.sortName(name, embeddedSort),
+            role = role.apiValue,
             creditedAs = null,
         )
 }
