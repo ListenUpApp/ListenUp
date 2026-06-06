@@ -43,8 +43,7 @@ private val RIGHT_COLUMN_MAX_WIDTH = 420.dp
  * A plain [BookDetailTopBar] is hoisted above the scroll; the scrolling [Column] then carries, in
  * order: an optional [OfflineBanner] and [BookDetailScanWarning] advisory, the full-width
  * [WideHeroBand], a [StatsRow], a two-column [Row] (left: About card + connected
- * [PrimaryActionsSection]; right: Readers card + Chapters card), and the full-width per-book
- * [BookListeningHistorySection] beneath.
+ * [PrimaryActionsSection]; right: Readers card + Chapters card).
  *
  * The left column flexes with `weight(1f)`; the right column caps at [RIGHT_COLUMN_MAX_WIDTH] so it
  * stays readable on very wide displays while still flexing on smaller medium-width screens.
@@ -207,13 +206,6 @@ fun WideBookDetail(
                     modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
                 )
             }
-
-            // Listening history — full-width per-book session timeline.
-            BookListeningHistorySection(
-                bookId = bookId,
-                isCard = true,
-                modifier = screenPadding.padding(top = 24.dp),
-            )
         }
     }
 }

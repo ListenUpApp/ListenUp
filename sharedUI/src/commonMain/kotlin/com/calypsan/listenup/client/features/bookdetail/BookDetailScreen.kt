@@ -47,7 +47,6 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
-import com.calypsan.listenup.client.features.bookdetail.components.BookListeningHistorySection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
@@ -421,7 +420,7 @@ fun BookDetailContent(
  * A plain [BookDetailTopBar] is hoisted above the scroll; the [LazyColumn] then carries, in order:
  * offline + scan advisories, the centered [CompactHero], a centered [StatsRow], the grouped
  * frameless [AboutSection] (description + Genres + Tags), the connected [PrimaryActionsSection],
- * the frameless [CreditsSection], readers, chapters, and per-book listening history.
+ * the frameless [CreditsSection], readers, and chapters.
  */
 @Suppress("LongParameterList", "LongMethod")
 @Composable
@@ -643,15 +642,6 @@ private fun ImmersiveBookDetail(
                         }
                     }
                 }
-            }
-
-            // Listening history — per-book session timeline, frameless and collapsible.
-            item {
-                BookListeningHistorySection(
-                    bookId = bookId,
-                    isCard = false,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
             }
         }
     }
