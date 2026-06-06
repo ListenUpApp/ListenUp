@@ -1,24 +1,21 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.GenreChipRow
@@ -31,12 +28,29 @@ import com.calypsan.listenup.client.features.bookdetail.TagsSection
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_about_this_book
 import listenup.composeapp.generated.resources.book_detail_credits
+import listenup.composeapp.generated.resources.book_detail_read_less
+import listenup.composeapp.generated.resources.book_detail_read_more
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.common_genres
 import org.jetbrains.compose.resources.stringResource
 
-private const val DESCRIPTION_PREVIEW_MAX_HEIGHT_DP = 120
+private const val DESCRIPTION_PREVIEW_MAX_LINES = 4
 private const val DESCRIPTION_EXPAND_THRESHOLD = 200
+
+private val MARKUP_TAG_REGEX = Regex("<[^>]+>")
+private val WHITESPACE_RUN_REGEX = Regex("\\s+")
+private val SPACE_BEFORE_PUNCTUATION_REGEX = Regex(" ([,.;:!?])")
+
+/**
+ * Strips HTML/markdown tags (e.g. `<em>`, `<p>`), collapses whitespace runs, and removes spaces
+ * left before punctuation, so the collapsed description teaser reads as clean plain text. The
+ * expanded view renders full markdown via [MarkdownText].
+ */
+private fun String.toPlainPreview(): String =
+    replace(MARKUP_TAG_REGEX, " ")
+        .replace(WHITESPACE_RUN_REGEX, " ")
+        .replace(SPACE_BEFORE_PUNCTUATION_REGEX, "$1")
+        .trim()
 
 /**
  * Grouped "About" section combining description, optional credits, genres, and tags.
@@ -97,7 +111,7 @@ fun AboutSection(
                         fontWeight = FontWeight.SemiBold,
                     ),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
             )
 
             AboutDescriptionBlock(
@@ -138,30 +152,38 @@ private fun AboutDescriptionBlock(
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
 ) {
-    Box(
-        modifier =
-            if (isExpanded) {
-                Modifier
-            } else {
-                Modifier
-                    .heightIn(max = DESCRIPTION_PREVIEW_MAX_HEIGHT_DP.dp)
-                    .clip(RoundedCornerShape(0.dp))
-            },
-    ) {
+    if (isExpanded) {
         MarkdownText(
             markdown = description,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else {
+        // Collapsed preview: a clean maxLines clamp with ellipsis (no mid-line height crop) —
+        // the markdown renderer can't clamp by line, so the teaser renders as plain text with
+        // HTML/markdown markup stripped.
+        Text(
+            text = description.toPlainPreview(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = DESCRIPTION_PREVIEW_MAX_LINES,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 
     if (description.length > DESCRIPTION_EXPAND_THRESHOLD) {
-        TextButton(
-            onClick = onToggleExpanded,
-            contentPadding = PaddingValues(0.dp),
-        ) {
-            Text(if (isExpanded) "Read less" else "Read more")
-        }
+        Text(
+            text =
+                stringResource(
+                    if (isExpanded) Res.string.book_detail_read_less else Res.string.book_detail_read_more,
+                ),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary,
+            modifier =
+                Modifier
+                    .padding(top = 4.dp)
+                    .clickable(onClick = onToggleExpanded),
+        )
     }
 }
 

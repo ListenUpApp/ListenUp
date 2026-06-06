@@ -81,7 +81,9 @@ fun DownloadButton(
         }
 
     Surface(
-        modifier = modifier.size(56.dp),
+        // Size comes from the caller (the connected action group passes 64.dp to match the Play
+        // button); filling the slot keeps the download glyph centered in the full square.
+        modifier = modifier,
         shape = shape,
         color = containerColor,
     ) {
