@@ -11,12 +11,12 @@ import com.calypsan.listenup.client.features.bookdetail.components.CreditsSectio
 
 private val PREVIEW_CREDITS =
     listOf(
-        BookContributor(id = "c1", name = "Brandon Sanderson", roles = listOf("Author")),
-        BookContributor(id = "c2", name = "Michael Kramer", roles = listOf("Narrator")),
-        BookContributor(id = "c3", name = "Kate Reading", roles = listOf("Narrator")),
-        BookContributor(id = "c4", name = "Natalia Sylvester", roles = listOf("Translator")),
-        BookContributor(id = "c5", name = "Peter Ahlstrom", roles = listOf("Editor")),
-        BookContributor(id = "c6", name = "Bryce Moore", roles = listOf("Foreword")),
+        BookContributor(id = "c1", name = "Brandon Sanderson", roles = listOf("author")),
+        BookContributor(id = "c2", name = "Michael Kramer", roles = listOf("narrator")),
+        BookContributor(id = "c3", name = "Kate Reading", roles = listOf("narrator")),
+        BookContributor(id = "c4", name = "Natalia Sylvester", roles = listOf("translator")),
+        BookContributor(id = "c5", name = "Peter Ahlstrom", roles = listOf("editor")),
+        BookContributor(id = "c6", name = "Bryce Moore", roles = listOf("foreword by")),
     )
 
 @Composable
@@ -27,15 +27,14 @@ private fun PreviewTheme(
     ListenUpTheme(darkTheme = dark, dynamicColor = false, content = content)
 }
 
-// ── Grid layout (desktop) ─────────────────────────────────────────────────────
+// Same-role contributors group into one row (the two narrators share a "Narrators" row).
 
-@Preview(name = "CreditsSection · grid · light", widthDp = 600, heightDp = 400)
+@Preview(name = "CreditsSection · light", widthDp = 412, heightDp = 500)
 @Composable
-private fun CreditsSectionGridLight() {
+private fun CreditsSectionLight() {
     PreviewTheme(dark = false) {
         CreditsSection(
             credits = PREVIEW_CREDITS,
-            grid = true,
             onContributorClick = {},
             showHeader = true,
             modifier = Modifier.padding(16.dp),
@@ -43,43 +42,12 @@ private fun CreditsSectionGridLight() {
     }
 }
 
-@Preview(name = "CreditsSection · grid · dark", widthDp = 600, heightDp = 400)
+@Preview(name = "CreditsSection · dark", widthDp = 412, heightDp = 500)
 @Composable
-private fun CreditsSectionGridDark() {
+private fun CreditsSectionDark() {
     PreviewTheme(dark = true) {
         CreditsSection(
             credits = PREVIEW_CREDITS,
-            grid = true,
-            onContributorClick = {},
-            showHeader = true,
-            modifier = Modifier.padding(16.dp),
-        )
-    }
-}
-
-// ── List layout (mobile) ──────────────────────────────────────────────────────
-
-@Preview(name = "CreditsSection · list · light", widthDp = 412, heightDp = 500)
-@Composable
-private fun CreditsSectionListLight() {
-    PreviewTheme(dark = false) {
-        CreditsSection(
-            credits = PREVIEW_CREDITS,
-            grid = false,
-            onContributorClick = {},
-            showHeader = true,
-            modifier = Modifier.padding(16.dp),
-        )
-    }
-}
-
-@Preview(name = "CreditsSection · list · dark", widthDp = 412, heightDp = 500)
-@Composable
-private fun CreditsSectionListDark() {
-    PreviewTheme(dark = true) {
-        CreditsSection(
-            credits = PREVIEW_CREDITS,
-            grid = false,
             onContributorClick = {},
             showHeader = true,
             modifier = Modifier.padding(16.dp),

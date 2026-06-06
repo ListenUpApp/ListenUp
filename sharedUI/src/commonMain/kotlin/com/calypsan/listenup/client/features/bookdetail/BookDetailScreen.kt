@@ -50,8 +50,10 @@ import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTop
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
+import com.calypsan.listenup.client.features.bookdetail.components.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
+import com.calypsan.listenup.client.features.bookdetail.components.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
@@ -459,6 +461,8 @@ private fun ImmersiveBookDetail(
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
+    // Full-cast overlay target — set by a folded hero author/narrator line, cleared on dismiss.
+    var castRole by remember { mutableStateOf<CastRole?>(null) }
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
@@ -507,23 +511,23 @@ private fun ImmersiveBookDetail(
                 )
             }
 
-            // Identity — centered cover, title, series-or-subtitle, author, narrator.
-            // Series wins over the book's own subtitle when the book is part of a series.
+            // Identity — centered cover, title, subtitle, series chips, author, narrator.
             item {
-                val seriesId = book.seriesId
                 CompactHero(
                     coverPath = book.coverPath,
                     bookId = bookId,
                     title = book.title,
                     overline = heroOverline,
-                    subtitle = state.series ?: state.subtitle,
+                    subtitle = state.subtitle,
+                    series = book.series,
                     authors = book.authors,
                     narrators = book.narrators,
                     onContributorClick = onContributorClick,
+                    onSeriesClick = onSeriesClick,
+                    onShowCast = { castRole = it },
                     progress = state.progress,
                     timeRemaining = state.timeRemainingFormatted,
                     modifier = Modifier.padding(top = 8.dp),
-                    onSubtitleClick = seriesId?.let { { onSeriesClick(it) } },
                 )
             }
 
@@ -572,16 +576,6 @@ private fun ImmersiveBookDetail(
                         showServerWarning = showServerWarning,
                     )
                 }
-            }
-
-            // Credits — every contributor role, frameless divided list.
-            item {
-                CreditsSection(
-                    credits = book.allContributors,
-                    grid = false,
-                    onContributorClick = onContributorClick,
-                    modifier = screenPadding.padding(top = 8.dp),
-                )
             }
 
             // Readers — social reading activity.
@@ -635,6 +629,26 @@ private fun ImmersiveBookDetail(
                     }
                 }
             }
+
+            // Credits — every contributor role grouped by role; anchored at the bottom of the page.
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                CreditsSection(
+                    credits = book.allContributors,
+                    onContributorClick = onContributorClick,
+                    modifier = screenPadding.padding(top = 8.dp),
+                )
+            }
+        }
+
+        castRole?.let { role ->
+            FullCastSheetFor(
+                role = role,
+                authors = book.authors,
+                narrators = book.narrators,
+                onContributorClick = onContributorClick,
+                onDismiss = { castRole = null },
+            )
         }
     }
 }

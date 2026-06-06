@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +85,8 @@ fun WideBookDetail(
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
+    // Full-cast overlay target — set by a folded hero author/narrator line, cleared on dismiss.
+    var castRole by remember { mutableStateOf<CastRole?>(null) }
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
@@ -130,22 +133,22 @@ fun WideBookDetail(
                 modifier = screenPadding.padding(vertical = 8.dp),
             )
 
-            // Identity — full-width color band. Series wins over the book's own subtitle when the
-            // book is part of a series; the subtitle is tappable to jump to the series.
-            val seriesId = book.seriesId
+            // Identity — full-width color band: title, independent subtitle, series chips, talent.
             WideHeroBand(
                 coverPath = book.coverPath,
                 bookId = bookId,
                 title = book.title,
                 overline = heroOverline,
-                subtitle = state.series ?: state.subtitle,
+                subtitle = state.subtitle,
+                series = book.series,
                 authors = book.authors,
                 narrators = book.narrators,
                 onContributorClick = onContributorClick,
+                onSeriesClick = onSeriesClick,
+                onShowCast = { castRole = it },
                 progress = state.progress,
                 timeRemaining = state.timeRemainingFormatted,
                 modifier = screenPadding.padding(top = 8.dp),
-                onSubtitleClick = seriesId?.let { { onSeriesClick(it) } },
             )
 
             // Stats — rating, duration, year, date added.
@@ -199,6 +202,16 @@ fun WideBookDetail(
                 )
             }
         }
+
+        castRole?.let { role ->
+            FullCastSheetFor(
+                role = role,
+                authors = book.authors,
+                narrators = book.narrators,
+                onContributorClick = onContributorClick,
+                onDismiss = { castRole = null },
+            )
+        }
     }
 }
 
@@ -245,7 +258,6 @@ private fun WideLeftColumn(
             creditsSlot = {
                 CreditsSection(
                     credits = book.allContributors,
-                    grid = true,
                     onContributorClick = onContributorClick,
                     showHeader = false,
                 )

@@ -16,19 +16,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.GenreChipRow
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersContent
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
+import com.calypsan.listenup.client.features.bookdetail.components.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
 import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
+import com.calypsan.listenup.client.features.bookdetail.components.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 import com.calypsan.listenup.client.features.bookdetail.components.ReaderRowUi
@@ -42,7 +49,10 @@ private val WIDE_PREVIEW_WIDTH = 1000.dp
 
 private const val MOCK_BOOK_ID = "the-way-of-kings"
 private const val MOCK_TITLE = "The Way of Kings"
-private const val MOCK_SUBTITLE = "The Stormlight Archive · Book One"
+
+// An independent subtitle (not just the series name) plus multi-series membership — the case the
+// subtitle + series-chip treatment exists for.
+private const val MOCK_SUBTITLE = "A Novel"
 private const val MOCK_OVERLINE = "Epic Fantasy · Unabridged"
 private const val MOCK_PROGRESS = 0.62f
 private const val MOCK_TIME_REMAINING = "17h 12m left"
@@ -57,20 +67,29 @@ private const val ROLE_NARRATOR = "Narrator"
 private val mockAuthors =
     listOf(BookContributor(id = "auth-sanderson", name = "Brandon Sanderson", roles = listOf(ROLE_AUTHOR)))
 
+private val mockSeries =
+    listOf(
+        BookSeries(seriesId = "ser-stormlight", seriesName = "The Stormlight Archive", sequence = "1"),
+        BookSeries(seriesId = "ser-cosmere", seriesName = "The Cosmere", sequence = "1"),
+    )
+
+// A full narrator cast (4) so the gallery shows the hero fold ("{lead}, N other narrators"),
+// the grouped "Narrators" credit row, and the full-cast overlay.
 private val mockNarrators =
     listOf(
         BookContributor(id = "narr-kramer", name = "Michael Kramer", roles = listOf(ROLE_NARRATOR)),
         BookContributor(id = "narr-reading", name = "Kate Reading", roles = listOf(ROLE_NARRATOR)),
+        BookContributor(id = "narr-vance", name = "Simon Vance", roles = listOf(ROLE_NARRATOR)),
+        BookContributor(id = "narr-maarleveld", name = "Saskia Maarleveld", roles = listOf(ROLE_NARRATOR)),
     )
 
 private val mockCredits =
-    listOf(
-        BookContributor(id = "auth-sanderson", name = "Brandon Sanderson", roles = listOf(ROLE_AUTHOR)),
-        BookContributor(id = "narr-kramer", name = "Michael Kramer", roles = listOf(ROLE_NARRATOR)),
-        BookContributor(id = "narr-reading", name = "Kate Reading", roles = listOf(ROLE_NARRATOR)),
-        BookContributor(id = "trans-vega", name = "Isabel Vega", roles = listOf("Translator")),
-        BookContributor(id = "ed-okafor", name = "Daniel Okafor", roles = listOf("Editor", "Foreword")),
-    )
+    listOf(BookContributor(id = "auth-sanderson", name = "Brandon Sanderson", roles = listOf(ROLE_AUTHOR))) +
+        mockNarrators +
+        listOf(
+            BookContributor(id = "trans-vega", name = "Isabel Vega", roles = listOf("Translator")),
+            BookContributor(id = "ed-okafor", name = "Daniel Okafor", roles = listOf("Editor", "Foreword")),
+        )
 
 private val mockGenres = listOf("Fantasy", "Epic Fantasy", "Adventure", "Fiction")
 
@@ -157,6 +176,9 @@ fun BookDetailPreviewGallery() {
 
 @Composable
 private fun HeroSection() {
+    // Tapping a folded contributor line opens the full-cast overlay, same as the real screen.
+    var castRole by remember { mutableStateOf<CastRole?>(null) }
+
     GalleryLabel("Hero — compact (phone)")
     CompactHero(
         coverPath = null,
@@ -164,9 +186,12 @@ private fun HeroSection() {
         title = MOCK_TITLE,
         overline = MOCK_OVERLINE,
         subtitle = MOCK_SUBTITLE,
+        series = mockSeries,
         authors = mockAuthors,
         narrators = mockNarrators,
         onContributorClick = {},
+        onSeriesClick = {},
+        onShowCast = { castRole = it },
         progress = MOCK_PROGRESS,
         timeRemaining = MOCK_TIME_REMAINING,
     )
@@ -179,12 +204,25 @@ private fun HeroSection() {
             title = MOCK_TITLE,
             overline = MOCK_OVERLINE,
             subtitle = MOCK_SUBTITLE,
+            series = mockSeries,
             authors = mockAuthors,
             narrators = mockNarrators,
             onContributorClick = {},
+            onSeriesClick = {},
+            onShowCast = { castRole = it },
             progress = MOCK_PROGRESS,
             timeRemaining = MOCK_TIME_REMAINING,
             modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+
+    castRole?.let { role ->
+        FullCastSheetFor(
+            role = role,
+            authors = mockAuthors,
+            narrators = mockNarrators,
+            onContributorClick = {},
+            onDismiss = { castRole = null },
         )
     }
 }
@@ -253,7 +291,7 @@ private fun AboutSectionGallery() {
         modifier = horizontalGutter(),
     )
 
-    GalleryLabel("About — card with credits grid (wide)")
+    GalleryLabel("About — card with credits (wide)")
     AboutSection(
         description = MOCK_DESCRIPTION,
         genres = mockGenres,
@@ -266,25 +304,16 @@ private fun AboutSectionGallery() {
         onTagClick = {},
         modifier = horizontalGutter(),
         creditsSlot = {
-            CreditsSection(credits = mockCredits, grid = true, onContributorClick = {}, showHeader = false)
+            CreditsSection(credits = mockCredits, onContributorClick = {}, showHeader = false)
         },
     )
 }
 
 @Composable
 private fun CreditsSectionGallery() {
-    GalleryLabel("Credits — divided list (compact)")
+    GalleryLabel("Credits — same-role contributors grouped into one row")
     CreditsSection(
         credits = mockCredits,
-        grid = false,
-        onContributorClick = {},
-        modifier = horizontalGutter(),
-    )
-
-    GalleryLabel("Credits — 2-column grid (wide)")
-    CreditsSection(
-        credits = mockCredits,
-        grid = true,
         onContributorClick = {},
         modifier = horizontalGutter(),
     )

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.WideHeroBand
 
@@ -16,6 +17,13 @@ private const val PHONE_HEIGHT = 800
 private const val WIDE_WIDTH = 1000
 private const val WIDE_HEIGHT = 400
 
+private const val PREVIEW_TITLE = "Mistborn"
+private const val PREVIEW_OVERLINE = "Epic Fantasy · Unabridged"
+private const val PREVIEW_SUBTITLE = "The Final Empire"
+private const val PREVIEW_BOOK_ID = "preview-book"
+private const val PREVIEW_TIME_REMAINING = "21h 30m left"
+private const val PREVIEW_PROGRESS = 0.4f
+
 @Composable
 private fun PreviewTheme(
     dark: Boolean,
@@ -24,22 +32,36 @@ private fun PreviewTheme(
     ListenUpTheme(darkTheme = dark, dynamicColor = false, content = content)
 }
 
-private val previewAuthors = listOf(BookContributor(id = "author-1", name = "George R.R. Martin"))
-private val previewNarrators = listOf(BookContributor(id = "narrator-1", name = "Roy Dotrice"))
+private val previewAuthors = listOf(BookContributor(id = "author-1", name = "Brandon Sanderson"))
+private val previewNarrators =
+    listOf(
+        BookContributor(id = "narrator-1", name = "Michael Kramer"),
+        BookContributor(id = "narrator-2", name = "Kate Reading"),
+    )
+
+// Multiple series + an independent subtitle (the Mistborn case the design demos).
+private val previewSeries =
+    listOf(
+        BookSeries(seriesId = "s1", seriesName = "Mistborn", sequence = "1"),
+        BookSeries(seriesId = "s2", seriesName = "The Cosmere", sequence = "3"),
+    )
 
 @Composable
 private fun CompactHeroPreviewBody() {
     CompactHero(
         coverPath = null,
-        bookId = "preview-book",
-        title = "Game of Thrones",
-        overline = "Epic Fantasy · Unabridged",
-        subtitle = "A Song of Ice and Fire · Book One",
+        bookId = PREVIEW_BOOK_ID,
+        title = PREVIEW_TITLE,
+        overline = PREVIEW_OVERLINE,
+        subtitle = PREVIEW_SUBTITLE,
+        series = previewSeries,
         authors = previewAuthors,
         narrators = previewNarrators,
         onContributorClick = {},
-        progress = 0.4f,
-        timeRemaining = "21h 30m left",
+        onSeriesClick = {},
+        onShowCast = {},
+        progress = PREVIEW_PROGRESS,
+        timeRemaining = PREVIEW_TIME_REMAINING,
     )
 }
 
@@ -59,15 +81,18 @@ private fun CompactHeroDark() {
 private fun WideHeroBandPreviewBody() {
     WideHeroBand(
         coverPath = null,
-        bookId = "preview-book",
-        title = "Game of Thrones",
-        overline = "Epic Fantasy · Unabridged",
-        subtitle = "A Song of Ice and Fire · Book One",
+        bookId = PREVIEW_BOOK_ID,
+        title = PREVIEW_TITLE,
+        overline = PREVIEW_OVERLINE,
+        subtitle = PREVIEW_SUBTITLE,
+        series = previewSeries,
         authors = previewAuthors,
         narrators = previewNarrators,
         onContributorClick = {},
-        progress = 0.4f,
-        timeRemaining = "21h 30m left",
+        onSeriesClick = {},
+        onShowCast = {},
+        progress = PREVIEW_PROGRESS,
+        timeRemaining = PREVIEW_TIME_REMAINING,
     )
 }
 

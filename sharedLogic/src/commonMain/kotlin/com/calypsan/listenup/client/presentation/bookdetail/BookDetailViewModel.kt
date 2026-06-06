@@ -216,10 +216,11 @@ class BookDetailViewModel(
         chapters: List<ChapterUiModel>,
         position: PlaybackPosition?,
     ): BookDetailUiState.Ready {
-        // Filter out subtitles that are just series name + book number
+        // Filter out subtitles that just restate a series the book belongs to (name, or name + book
+        // number) — checked against every membership now that a book can be in several series.
         val displaySubtitle =
-            detail.subtitle?.let { subtitle ->
-                if (isSubtitleRedundant(subtitle, detail.seriesName, detail.seriesSequence)) null else subtitle
+            detail.subtitle?.takeUnless { subtitle ->
+                detail.series.any { isSubtitleRedundant(subtitle, it.seriesName, it.sequence) }
             }
 
         val progress =
@@ -249,7 +250,6 @@ class BookDetailViewModel(
             isComplete = isComplete,
             startedAtMs = position?.startedAtMs,
             subtitle = displaySubtitle,
-            series = detail.fullSeriesTitle,
             description = detail.description ?: "",
             narrators = detail.narratorNames,
             year = detail.publishYear,
@@ -524,7 +524,6 @@ sealed interface BookDetailUiState {
         val isDiscardingProgress: Boolean = false,
         val isRestarting: Boolean = false,
         val subtitle: String? = null,
-        val series: String? = null,
         val description: String = "",
         val narrators: String = "",
         val year: Int? = null,
