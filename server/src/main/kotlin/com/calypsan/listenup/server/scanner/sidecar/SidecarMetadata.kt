@@ -8,6 +8,7 @@ package com.calypsan.listenup.server.scanner.sidecar
  */
 internal data class SidecarMetadata(
     val title: String? = null,
+    val subtitle: String? = null,
     val description: String? = null,
     val publishYear: Int? = null,
     val publisher: String? = null,

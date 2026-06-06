@@ -317,8 +317,7 @@ internal class Analyzer(
         return AnalyzedBook(
             candidate = candidate,
             title = title,
-            // SidecarMetadata carries no subtitle field — the chain is unchanged.
-            subtitle = metadata?.subtitle ?: embedded?.tags?.subtitle ?: parsed.subtitle,
+            subtitle = metadata?.subtitle ?: embedded?.tags?.subtitle ?: sidecar?.subtitle ?: parsed.subtitle,
             authors = pickAuthors(shape, embedded, metadata, sidecar),
             narrators = pickNarrators(parsed, embedded, metadata, sidecar),
             series = pickSeries(shape, parsed, embedded, metadata),
@@ -541,6 +540,7 @@ internal class Analyzer(
 private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata =
     SidecarMetadata(
         title = title ?: other.title,
+        subtitle = subtitle ?: other.subtitle,
         description = description ?: other.description,
         publishYear = publishYear ?: other.publishYear,
         publisher = publisher ?: other.publisher,

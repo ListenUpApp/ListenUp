@@ -28,6 +28,7 @@ private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
  *
  * Element mapping:
  *  - `<dc:title>`       → [SidecarMetadata.title]
+ *  - `<dc:subtitle>`    → [SidecarMetadata.subtitle]
  *  - `<dc:description>` → [SidecarMetadata.description]
  *  - `<dc:date>`        → [SidecarMetadata.publishYear] (leading four-digit
  *    year only; free-text prose yields no year rather than a guess)
@@ -59,6 +60,7 @@ internal class OpfParser : SidecarParser {
             val root = doc.documentElement ?: return null
             SidecarMetadata(
                 title = root.firstText("dc:title"),
+                subtitle = root.firstText("dc:subtitle"),
                 description = root.firstText("dc:description"),
                 publishYear =
                     root
