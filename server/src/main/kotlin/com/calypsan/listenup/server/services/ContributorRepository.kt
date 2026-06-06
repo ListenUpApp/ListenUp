@@ -106,6 +106,9 @@ class ContributorRepository(
                 stmt[ContributorTable.clientOpId] = clientOpId
             }
         } else {
+            // This expression must stay in sync with resolveOrCreate's lookup key: both use
+            // normalizeForDedup(sortName ?: name), so a row written via a direct upsert gets the
+            // same dedup key that resolveOrCreate would compute.
             val normalized = normalizeForDedup(value.sortName ?: value.name)
             ContributorTable.insert { stmt ->
                 stmt[ContributorTable.id] = value.id
