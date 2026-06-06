@@ -130,4 +130,24 @@ class MetadataResources(
         /** Region code (e.g. `"us"`). Required. */
         val region: String,
     )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.applyChapterNames] —
+     * `POST /api/v1/metadata/apply/chapters/{bookId}?asin=…&region=us&ordinals=0&ordinals=2`
+     * applies Audible chapter names (by ordinal, start-time order) to the book at
+     * [bookId]. Responds 200 on success, or a typed error — including
+     * [com.calypsan.listenup.api.error.MetadataError.ChapterCountMismatch] when the
+     * edition's chapter count differs — on failure.
+     */
+    @Resource("/api/v1/metadata/apply/chapters/{bookId}")
+    class ApplyChapters(
+        /** Our internal book identifier. */
+        val bookId: String,
+        /** Audible ASIN of the metadata to apply. */
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+        /** Chapter ordinals (start-time order) whose names to apply; empty = no-op. */
+        val ordinals: List<Int> = emptyList(),
+    )
 }
