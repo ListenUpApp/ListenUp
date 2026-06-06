@@ -183,7 +183,7 @@ internal class BookServiceImpl(
                     .map { input ->
                         val resolvedId =
                             input.id?.value
-                                ?: contributorRepo.resolveOrCreate(input.name).value
+                                ?: contributorRepo.resolveOrCreate(input.name, sortName = null).value
                         BookContributorPayload(
                             id = resolvedId,
                             name = input.name,

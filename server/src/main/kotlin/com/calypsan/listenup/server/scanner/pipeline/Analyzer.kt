@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.api.external.abs.AbsMetadata
@@ -96,7 +97,8 @@ internal class Analyzer(
                     hasSeriesFolder = shape.seriesFolder != null,
                     parseSubtitle = parseSubtitle,
                 )
-            val tracks = buildTracks(candidate)
+            val builtTracks = buildTracks(candidate)
+            val tracks = builtTracks.tracks
             // Tiered book rule: a candidate that yields no playable track is not a
             // book — it's skipped, not ingested. Surfaces as a Result.failure so the
             // caller records it in ScanResult.errors and never in ScanResult.books.
@@ -108,9 +110,13 @@ internal class Analyzer(
             val cover = resolveCover(candidate.files, embedded)
             val metadata = readMetadata(candidate)
             val sidecar = parseSidecars(candidate)
+            // Reuse the per-track parses already done in buildTracks for ordering.
+            // Multi-track books are already parsed once there; synthesis reuses that
+            // map instead of re-parsing every file. Single-track books and books
+            // where no synthesis is needed pay nothing.
             val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?> =
                 if (shouldSynthesizeChapters(metadata, embedded, tracks)) {
-                    parseAllTrackDurations(tracks)
+                    builtTracks.perTrackMetadata.ifEmpty { parseAllTrackDurations(tracks) }
                 } else {
                     emptyMap()
                 }
@@ -128,24 +134,39 @@ internal class Analyzer(
             )
         }
 
-    private fun buildTracks(candidate: CandidateBook): List<TrackEntry> =
-        candidate.files
-            .filter { it.fileType == FileType.AUDIO }
-            .map { file ->
-                val parentFolder =
-                    file.relPath
-                        .split('/')
-                        .dropLast(1)
-                        .lastOrNull()
-                val info = TrackInference.infer(file.name, parentFolder)
-                TrackEntry(
-                    file = file,
-                    trackNumber = info.trackNumber,
-                    discNumber = info.discNumber,
-                    trackSource = info.trackSource,
-                    discSource = info.discSource,
-                )
-            }.sortedWith(NATURAL_TRACK_ORDER)
+    private suspend fun buildTracks(candidate: CandidateBook): BuiltTracks {
+        val audioFiles = candidate.files.filter { it.fileType == FileType.AUDIO }
+        val multiTrack = audioFiles.size > 1
+        val perTrackMetadata = LinkedHashMap<TrackEntry, EmbeddedAudioMetadata?>(audioFiles.size)
+        val tracks =
+            audioFiles
+                .map { file ->
+                    val parentFolder =
+                        file.relPath
+                            .split('/')
+                            .dropLast(1)
+                            .lastOrNull()
+                    val info = TrackInference.infer(file.name, parentFolder)
+                    // Embedded track/disc numbers are stronger than a filename guess (ABS parity).
+                    // Parse per-track only for multi-track books — a lone file needs no ordering.
+                    val parsed = if (multiTrack) parseTrackForDuration(file) else null
+                    val embTags = parsed?.tags
+                    val embTrack = embTags?.trackNumber
+                    val embDisc = embTags?.discNumber
+                    val entry =
+                        TrackEntry(
+                            file = file,
+                            trackNumber = embTrack ?: info.trackNumber,
+                            discNumber = embDisc ?: info.discNumber,
+                            trackSource = if (embTrack != null) TrackNumberSource.METADATA else info.trackSource,
+                            discSource = if (embDisc != null) TrackNumberSource.METADATA else info.discSource,
+                        )
+                    // Capture the full parse result so synthesis can reuse it without re-parsing.
+                    if (multiTrack) perTrackMetadata[entry] = parsed
+                    entry
+                }.sortedWith(NATURAL_TRACK_ORDER)
+        return BuiltTracks(tracks = tracks, perTrackMetadata = perTrackMetadata)
+    }
 
     /**
      * Cover precedence: filesystem `cover.*` → first sibling image →
@@ -337,7 +358,9 @@ internal class Analyzer(
                         ?: sidecar?.description
                 )?.let { HtmlToMarkdown.convert(it) },
             publisher = metadata?.publisher ?: embedded?.tags?.publisher ?: sidecar?.publisher,
-            language = metadata?.language ?: embedded?.tags?.language ?: sidecar?.language,
+            language =
+                (metadata?.language ?: embedded?.tags?.language ?: sidecar?.language)
+                    ?.let { LanguageNormalizer.normalize(it) },
             genres = pickGenres(embedded, metadata),
             tags = metadata?.tags.orEmpty(),
             abridged = metadata?.abridged ?: titleAbridged,
@@ -535,6 +558,20 @@ internal class Analyzer(
         if (metadata != null) sources += MetadataSource.ABS_METADATA
         return sources
     }
+
+    /**
+     * The output of [buildTracks]: the ordered track list together with the
+     * per-track parse results already captured for multi-track books.
+     *
+     * [perTrackMetadata] is non-empty only for multi-track books (>1 audio
+     * file); synthesis reuses it to avoid a second parse round. Single-track
+     * books produce an empty map — they never need ordering parses and their
+     * primary metadata comes from [parseEmbedded].
+     */
+    private data class BuiltTracks(
+        val tracks: List<TrackEntry>,
+        val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
+    )
 }
 
 /** Field-by-field merge: the receiver's non-null values win; [other] fills the gaps. */

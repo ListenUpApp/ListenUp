@@ -58,7 +58,7 @@ class ContributorDeleteCascadeE2ETest :
                 // Seed the contributor first — resolveOrCreate publishes a contributor.Created
                 // event the engine will catch up on once started. Then build two books that
                 // link to this contributor through the junction.
-                val contributorId = serverContributorRepository.resolveOrCreate(CONTRIBUTOR_NAME)
+                val contributorId = serverContributorRepository.resolveOrCreate(CONTRIBUTOR_NAME, sortName = null)
                 val linkedContributor =
                     BookContributorPayload(
                         id = contributorId.value,

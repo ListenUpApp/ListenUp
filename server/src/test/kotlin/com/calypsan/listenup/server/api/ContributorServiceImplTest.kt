@@ -50,7 +50,7 @@ class ContributorServiceImplTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
 
                     val result = service.getContributor(id)
 
@@ -85,7 +85,7 @@ class ContributorServiceImplTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     bookRepo.upsert(bookFixtureWithContributor("b1", "The Way of Kings", contributorId))
                     bookRepo.upsert(bookFixtureWithContributor("b2", "Words of Radiance", contributorId, rootRelPath = "WoR"))
 
@@ -105,7 +105,7 @@ class ContributorServiceImplTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Unknown Author")
+                    val contributorId = contributorRepo.resolveOrCreate("Unknown Author", sortName = null)
 
                     val result = service.listBooksByContributor(contributorId)
 
@@ -125,7 +125,7 @@ class ContributorServiceImplTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
 
                     val result = service.updateContributor(id, ContributorUpdate(name = "B. Sanderson"))
 
@@ -146,7 +146,7 @@ class ContributorServiceImplTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     bookRepo.upsert(bookFixtureWithContributor("b1", "The Way of Kings", contributorId))
                     bookRepo.upsert(bookFixtureWithContributor("b2", "Words of Radiance", contributorId, rootRelPath = "WoR"))
                     val rowidB1 = lookupFtsRowid(db, "b1")
@@ -175,7 +175,7 @@ class ContributorServiceImplTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     bookRepo.upsert(bookFixtureWithContributor("b1", "The Way of Kings", contributorId))
                     val rowidB1 = lookupFtsRowid(db, "b1")
                     // Tripwire: if the implementation reindexes when it shouldn't, the
@@ -226,8 +226,8 @@ class ContributorServiceImplTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Brandon Sanderson")
-                    val coauthorId = contributorRepo.resolveOrCreate("Janci Patterson")
+                    val targetId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    val coauthorId = contributorRepo.resolveOrCreate("Janci Patterson", sortName = null)
                     // b1 has both contributors; b2 has only the target.
                     bookRepo.upsert(bookFixtureWithTwoContributors("b1", "The Way of Kings", targetId, coauthorId))
                     bookRepo.upsert(bookFixtureWithContributor("b2", "Words of Radiance", targetId, rootRelPath = "WoR"))
@@ -285,7 +285,7 @@ class ContributorServiceImplTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Lone Wolf")
+                    val targetId = contributorRepo.resolveOrCreate("Lone Wolf", sortName = null)
 
                     val result = service.deleteContributor(targetId)
 

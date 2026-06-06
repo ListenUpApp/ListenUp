@@ -110,7 +110,7 @@ class ContributorRoutesTest :
             withContributorTestApp {
                 db.seedTestLibraryAndFolder()
                 db.seedTestUser("member", UserRoleColumn.MEMBER)
-                val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                 bookRepo.upsert(bookWithContributor("accessible", contributorId))
                 bookRepo.upsert(bookWithContributor("private", contributorId))
                 // accessible: in a collection the member owns. private: locked to a stranger.
@@ -130,7 +130,7 @@ class ContributorRoutesTest :
             withContributorTestApp {
                 db.seedTestLibraryAndFolder()
                 db.seedTestUser("admin", UserRoleColumn.ADMIN)
-                val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                 bookRepo.upsert(bookWithContributor("accessible", contributorId))
                 bookRepo.upsert(bookWithContributor("private", contributorId))
                 collectionRepo.upsert(privateCollection("stranger-col", owner = "stranger"))

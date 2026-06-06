@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.contributorDedupKey
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
@@ -17,8 +18,10 @@ private val logger = KotlinLogging.logger {}
  * created by the scanner when it processes the synthetic seed library.
  *
  * Demo contributor IDs are not fixed (the scanner generates UUIDs at scan time),
- * so enrichment is keyed by normalised display name — the same deduplication
- * key the scanner uses via [ContributorRepository.resolveOrCreate].
+ * so enrichment is keyed by [contributorDedupKey] — the same deduplication key
+ * that [ContributorRepository.resolveOrCreate] writes at INSERT time. This means
+ * the seeder finds scanner-created rows regardless of whether the scanner supplied
+ * an explicit sort name or derived one internally.
  *
  * Idempotency: a contributor whose `description` is already non-blank is
  * skipped. Runs after the initial scanner pass (order 30 — well above the
@@ -80,10 +83,12 @@ internal class ContributorEnrichmentSeeder(
 
     private suspend fun findByName(displayName: String) =
         suspendTransaction(db) {
-            val normalized = displayName.lowercase().trim().replace(Regex("\\s+"), " ")
+            // contributorDedupKey derives the sort form (e.g. "Wren Halloway" → "halloway, wren"),
+            // matching the key the scanner writes at INSERT time via resolveOrCreate.
+            val key = contributorDedupKey(displayName, null)
             ContributorTable
                 .selectAll()
-                .where { ContributorTable.normalizedName eq normalized }
+                .where { ContributorTable.normalizedName eq key }
                 .firstOrNull()
                 ?.let { row -> contributorRepository.findById(row[ContributorTable.id]) }
         }

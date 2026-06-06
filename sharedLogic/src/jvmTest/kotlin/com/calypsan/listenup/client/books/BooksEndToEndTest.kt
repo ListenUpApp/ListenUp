@@ -57,7 +57,7 @@ class BooksEndToEndTest :
                 // Resolve the contributor on the server so its row exists in the
                 // contributors table before we insert the book_contributors FK row.
                 val contributorId =
-                    serverContributorRepository.resolveOrCreate("Brandon Sanderson")
+                    serverContributorRepository.resolveOrCreate("Brandon Sanderson", sortName = null)
 
                 serverBookRepository.upsert(
                     bookPayload(

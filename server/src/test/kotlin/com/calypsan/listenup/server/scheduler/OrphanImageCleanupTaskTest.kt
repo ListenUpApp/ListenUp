@@ -47,8 +47,8 @@ class OrphanImageCleanupTaskTest :
 
                 runTest {
                     // Seed a live contributor and a tombstoned contributor via the substrate
-                    val liveId = contributorRepo.resolveOrCreate("Brandon Sanderson").value
-                    val tombstonedId = contributorRepo.resolveOrCreate("Deleted Author").value
+                    val liveId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null).value
+                    val tombstonedId = contributorRepo.resolveOrCreate("Deleted Author", sortName = null).value
                     contributorRepo.softDelete(
                         com.calypsan.listenup.core
                             .ContributorId(tombstonedId),

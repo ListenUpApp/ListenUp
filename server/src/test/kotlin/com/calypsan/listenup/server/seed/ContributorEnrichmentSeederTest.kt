@@ -21,8 +21,8 @@ class ContributorEnrichmentSeederTest :
                 val repo = makeRepo(db)
                 runTest {
                     // Resolve "Wren Halloway" and "Marlowe Finch" — two of the demo contributors
-                    repo.resolveOrCreate("Wren Halloway")
-                    repo.resolveOrCreate("Marlowe Finch")
+                    repo.resolveOrCreate("Wren Halloway", sortName = null)
+                    repo.resolveOrCreate("Marlowe Finch", sortName = null)
 
                     val seeder = ContributorEnrichmentSeeder(db, repo)
                     seeder.isAlreadySeeded() shouldBe false
@@ -48,7 +48,7 @@ class ContributorEnrichmentSeederTest :
                 val repo = makeRepo(db)
                 runTest {
                     // Pre-populate with a description already set
-                    val id = repo.resolveOrCreate("Wren Halloway")
+                    val id = repo.resolveOrCreate("Wren Halloway", sortName = null)
                     val existing = repo.findById(id.value)!!
                     repo.upsert(existing.copy(description = "Pre-existing bio."), clientOpId = null)
 
@@ -85,7 +85,7 @@ class ContributorEnrichmentSeederTest :
                 val db = this
                 val repo = makeRepo(db)
                 runTest {
-                    repo.resolveOrCreate("Unknown Author")
+                    repo.resolveOrCreate("Unknown Author", sortName = null)
                     // description is null by default from resolveOrCreate
                     val seeder = ContributorEnrichmentSeeder(db, repo)
                     seeder.isAlreadySeeded() shouldBe false
@@ -95,8 +95,10 @@ class ContributorEnrichmentSeederTest :
     })
 
 /**
- * Resolves the contributor by [displayName] — returns the existing row if one
- * exists, or creates a new (unenriched) one. The returned payload reflects the
- * current DB state, including any enrichment applied by the seeder.
+ * Resolves the contributor by [displayName] via the same path the scanner uses
+ * ([resolveOrCreate] with a null sort name, which derives the sort form internally).
+ * Returns the existing row if one exists, or creates a new (unenriched) one. The
+ * returned payload reflects the current DB state, including any enrichment applied
+ * by the seeder.
  */
-private suspend fun ContributorRepository.findByName(displayName: String) = findById(resolveOrCreate(displayName).value)
+private suspend fun ContributorRepository.findByName(displayName: String) = findById(resolveOrCreate(displayName, sortName = null).value)

@@ -68,8 +68,8 @@ class BookServiceImplSetContributorsTest :
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
-                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
-                    val c2 = contributorRepo.resolveOrCreate("Michael Kramer")
+                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    val c2 = contributorRepo.resolveOrCreate("Michael Kramer", sortName = null)
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
 
                     val result =
@@ -122,7 +122,7 @@ class BookServiceImplSetContributorsTest :
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
-                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
                     val preCount = contributorRepo.listLiveIds().size
 
@@ -176,8 +176,8 @@ class BookServiceImplSetContributorsTest :
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
-                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
-                    val c2 = contributorRepo.resolveOrCreate("Michael Kramer")
+                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    val c2 = contributorRepo.resolveOrCreate("Michael Kramer", sortName = null)
                     repo.upsert(
                         bookFixture(id = "b1", title = "The Way of Kings").copy(
                             contributors =

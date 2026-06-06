@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.scanner.pipeline.ContributorParser
+import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import kotlin.time.Clock
 
 /**
@@ -74,7 +75,7 @@ class AnalyzedBookMapper(
             libraryId = libraryId,
             folderId = folderId,
             title = analyzed.title,
-            sortTitle = null,
+            sortTitle = SortKeys.titleSort(analyzed.title, analyzed.embedded?.tags?.titleSort),
             subtitle = analyzed.subtitle,
             description = analyzed.description,
             publishYear = analyzed.publishedYear,
@@ -104,15 +105,39 @@ class AnalyzedBookMapper(
     /**
      * Builds the unresolved (blank-id) contributor payloads for [analyzed]. Each raw
      * author/narrator string is split into individual people with roles by
-     * [ContributorParser]; identical `(name, role)` pairs are de-duplicated. The caller
+     * [ContributorParser]; identical payloads are de-duplicated by struct equality. Because
+     * `sortName` is derived deterministically from `(name, embeddedSort)`, identical
+     * `(name, role)` inputs still collapse to a single entry in practice. The caller
      * resolves each name to a real id via [ContributorRepository.resolveOrCreate] before
      * the aggregate write.
+     *
+     * `sortName` is populated from the embedded `authorsSort` tag (TSOP/soar) when its
+     * per-person count matches the parsed author count; otherwise [SortKeys.sortName]
+     * derives `"Surname, Given"` from the display name. Narrators always use derivation
+     * (there is no narrator-sort tag in common audio formats).
      */
     fun buildContributors(analyzed: AnalyzedBook): List<BookContributorPayload> {
-        val parsed =
-            analyzed.authors.flatMap { ContributorParser.parse(it, ContributorRole.AUTHOR) } +
-                analyzed.narrators.flatMap { ContributorParser.parse(it, ContributorRole.NARRATOR) }
-        return parsed.distinct().map { contributorPayload(it.name, it.role.apiValue) }
+        val authors = analyzed.authors.flatMap { ContributorParser.parse(it, ContributorRole.AUTHOR) }
+        val narrators = analyzed.narrators.flatMap { ContributorParser.parse(it, ContributorRole.NARRATOR) }
+
+        // The embedded authors-sort string (TSOP/soar) sorts the same author field; use it as the
+        // authoritative sort form only when its person count matches the parsed authors, else
+        // derive "Surname, Given" from the display name.
+        val authorSorts =
+            analyzed.embedded
+                ?.tags
+                ?.authorsSort
+                ?.let { ContributorParser.personNames(it) }
+                ?.takeIf { it.size == authors.size }
+
+        val authorPayloads =
+            authors.mapIndexed { i, parsed ->
+                contributorPayload(parsed.name, parsed.role, authorSorts?.get(i))
+            }
+        val narratorPayloads =
+            narrators.map { parsed -> contributorPayload(parsed.name, parsed.role, embeddedSort = null) }
+
+        return (authorPayloads + narratorPayloads).distinct()
     }
 
     /**
@@ -158,13 +183,14 @@ class AnalyzedBookMapper(
 
     private fun contributorPayload(
         name: String,
-        role: String,
+        role: ContributorRole,
+        embeddedSort: String?,
     ): BookContributorPayload =
         BookContributorPayload(
             id = "",
             name = name,
-            sortName = null,
-            role = role,
+            sortName = SortKeys.sortName(name, embeddedSort),
+            role = role.apiValue,
             creditedAs = null,
         )
 }

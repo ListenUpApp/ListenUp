@@ -325,6 +325,28 @@ class Mp4ParserTest :
             result.data.tags.description shouldBe "The blurb."
         }
 
+        test("sonm and soar atoms populate sort fields") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "The Way of Kings")
+                                tag("sonm", "Way of Kings, The")
+                                tag("soar", "Sanderson, Brandon")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.titleSort shouldBe "Way of Kings, The"
+            result.data.tags.authorsSort shouldBe "Sanderson, Brandon"
+        }
+
         test("parse maps IO failure to AudioMetadataError.IoError") {
             val source =
                 object : SeekableAudioSource {

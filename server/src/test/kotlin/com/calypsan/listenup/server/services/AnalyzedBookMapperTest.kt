@@ -64,7 +64,7 @@ class AnalyzedBookMapperTest :
             payload.libraryId shouldBe LibraryId("lib-1")
             payload.folderId shouldBe FolderId("folder-1")
             payload.title shouldBe "Minimal Book"
-            payload.sortTitle shouldBe null
+            payload.sortTitle shouldBe "Minimal Book"
             payload.subtitle shouldBe null
             payload.description shouldBe null
             payload.publishYear shouldBe null
@@ -144,21 +144,21 @@ class AnalyzedBookMapperTest :
                     BookContributorPayload(
                         id = "",
                         name = "Author One",
-                        sortName = null,
+                        sortName = "One, Author",
                         role = "author",
                         creditedAs = null,
                     ),
                     BookContributorPayload(
                         id = "",
                         name = "Author Two",
-                        sortName = null,
+                        sortName = "Two, Author",
                         role = "author",
                         creditedAs = null,
                     ),
                     BookContributorPayload(
                         id = "",
                         name = "Narrator One",
-                        sortName = null,
+                        sortName = "One, Narrator",
                         role = "narrator",
                         creditedAs = null,
                     ),
@@ -195,6 +195,35 @@ class AnalyzedBookMapperTest :
 
             mapper.buildContributors(analyzed).map { it.name to it.role } shouldBe
                 listOf("Stephen King" to "author")
+        }
+
+        test("contributor sortName uses embedded authorsSort zipped by index") {
+            val a = analyzedBook(authors = listOf("Brandon Sanderson"), authorsSort = "Sanderson, Brandon")
+            val c = mapper.buildContributors(a).single()
+            c.name shouldBe "Brandon Sanderson"
+            c.sortName shouldBe "Sanderson, Brandon"
+        }
+
+        test("contributor sortName falls back to derivation when no tag") {
+            val c = mapper.buildContributors(analyzedBook(authors = listOf("Brandon Sanderson"))).single()
+            c.sortName shouldBe "Sanderson, Brandon"
+        }
+
+        test("count mismatch between authors and authorsSort falls back to derivation for all") {
+            val a =
+                analyzedBook(
+                    authors = listOf("Brandon Sanderson", "Stephen King"),
+                    authorsSort = "Sanderson, Brandon",
+                )
+            mapper.buildContributors(a).map { it.sortName } shouldBe listOf("Sanderson, Brandon", "King, Stephen")
+        }
+
+        test("narrators get derived sortName") {
+            val c =
+                mapper
+                    .buildContributors(analyzedBook(narrators = listOf("Kate Reading")))
+                    .single { it.role == "narrator" }
+            c.sortName shouldBe "Reading, Kate"
         }
 
         test("should map series entries to payloads with blank ids") {
@@ -291,6 +320,68 @@ class AnalyzedBookMapperTest :
             chapters[1].duration shouldBe 120_000L
         }
 
+        test("sortTitle strips a leading article when no embedded sort tag") {
+            val analyzed =
+                AnalyzedBook(
+                    candidate =
+                        CandidateBook(
+                            rootRelPath = "books/hobbit",
+                            isFile = false,
+                            files = emptyList(),
+                        ),
+                    title = "The Hobbit",
+                )
+
+            val payload =
+                mapper.toBookSyncPayload(
+                    bookId = BookId("b-hobbit"),
+                    libraryId = LibraryId("lib-1"),
+                    folderId = FolderId("folder-1"),
+                    analyzed = analyzed,
+                    resolvedContributors = emptyList(),
+                    resolvedSeries = emptyList(),
+                )
+
+            payload.sortTitle shouldBe "Hobbit"
+        }
+
+        test("embedded titleSort tag wins over article stripping") {
+            val file =
+                FileEntry(
+                    relPath = "books/hobbit/01.m4b",
+                    name = "01.m4b",
+                    ext = "m4b",
+                    size = 1024L,
+                    mtimeMs = 0L,
+                    inode = 1L,
+                    fileType = FileType.AUDIO,
+                )
+            val analyzed =
+                AnalyzedBook(
+                    candidate =
+                        CandidateBook(
+                            rootRelPath = "books/hobbit",
+                            isFile = false,
+                            files = listOf(file),
+                        ),
+                    title = "The Hobbit",
+                    tracks = listOf(TrackEntry(file = file)),
+                    embedded = embeddedMeta(durationMs = 1_000L, titleSort = "Hobbit, The"),
+                )
+
+            val payload =
+                mapper.toBookSyncPayload(
+                    bookId = BookId("b-hobbit"),
+                    libraryId = LibraryId("lib-1"),
+                    folderId = FolderId("folder-1"),
+                    analyzed = analyzed,
+                    resolvedContributors = emptyList(),
+                    resolvedSeries = emptyList(),
+                )
+
+            payload.sortTitle shouldBe "Hobbit, The"
+        }
+
         test("should carry inode from the first track file") {
             val file =
                 FileEntry(
@@ -335,6 +426,7 @@ class AnalyzedBookMapperTest :
 private fun analyzedBook(
     authors: List<String> = emptyList(),
     narrators: List<String> = emptyList(),
+    authorsSort: String? = null,
 ): AnalyzedBook =
     AnalyzedBook(
         candidate =
@@ -346,9 +438,14 @@ private fun analyzedBook(
         title = "X",
         authors = authors,
         narrators = narrators,
+        embedded = authorsSort?.let { embeddedMeta(durationMs = 0L, authorsSort = it) },
     )
 
-private fun embeddedMeta(durationMs: Long): EmbeddedAudioMetadata =
+private fun embeddedMeta(
+    durationMs: Long,
+    titleSort: String? = null,
+    authorsSort: String? = null,
+): EmbeddedAudioMetadata =
     EmbeddedAudioMetadata(
         format = AudioFormat.Mp3,
         durationMs = durationMs,
@@ -369,6 +466,8 @@ private fun embeddedMeta(durationMs: Long): EmbeddedAudioMetadata =
                 trackNumber = null,
                 discNumber = null,
                 custom = emptyMap(),
+                titleSort = titleSort,
+                authorsSort = authorsSort,
             ),
         chapters = emptyList(),
         chaptersSource = ChapterSource.None,

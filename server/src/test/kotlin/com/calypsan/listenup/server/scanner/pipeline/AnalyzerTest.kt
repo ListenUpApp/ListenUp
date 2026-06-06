@@ -156,7 +156,7 @@ class AnalyzerTest :
                     book.isbn shouldBe "9780765326355"
                     book.description shouldBe "Epic fantasy."
                     book.publisher shouldBe "Tor Books"
-                    book.language shouldBe "English"
+                    book.language shouldBe "en"
                     book.genres shouldContainExactly listOf("Fantasy")
                     book.tags shouldContainExactly listOf("epic")
                     book.abridged shouldBe false

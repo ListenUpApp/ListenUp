@@ -166,6 +166,51 @@ class Mp3ParserTest :
             (result.data.durationMs in 4_000..6_000) shouldBe true
         }
 
+        test("TXXX:Subtitle populates subtitle when no TIT3 is present") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "The Eye of the World")
+                        txxxFrame("subtitle", "A Tale of Two Tags")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.subtitle shouldBe "A Tale of Two Tags"
+        }
+
+        test("explicit TIT3 subtitle is not clobbered by a later TXXX:Subtitle") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "The Eye of the World")
+                        textFrame("TIT3", "Primary")
+                        txxxFrame("subtitle", "Secondary")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.subtitle shouldBe "Primary"
+        }
+
+        test("TSOT and TSOP populate sort fields") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "The Way of Kings")
+                        textFrame("TSOT", "Way of Kings, The")
+                        textFrame("TSOP", "Sanderson, Brandon")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.titleSort shouldBe "Way of Kings, The"
+            result.data.tags.authorsSort shouldBe "Sanderson, Brandon"
+        }
+
         test("parse maps IO failure to AudioMetadataError.IoError") {
             val source =
                 object : SeekableAudioSource {

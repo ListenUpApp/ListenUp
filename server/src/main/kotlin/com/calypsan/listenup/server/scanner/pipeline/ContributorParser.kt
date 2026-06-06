@@ -52,6 +52,20 @@ object ContributorParser {
     // CJK Unified Ideographs + Hiragana + Katakana phonetic extensions — skip name-splitting for these scripts (matches ABS).
     private val cjkRegex = Regex("""[一-鿿぀-ヿㇰ-ㇿ]""")
 
+    /**
+     * Splits a raw string on the explicit person separators (`&`, ` and `, `;`) without any
+     * role-suffix or Last-First comma logic. Used to align an embedded sort string (e.g.
+     * `authorsSort`) with the parsed contributor list by index.
+     */
+    fun personNames(raw: String): List<String> =
+        raw
+            .trim()
+            .takeIf { it.isNotEmpty() }
+            ?.split(personSeparator)
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+
     fun parse(
         raw: String,
         defaultRole: ContributorRole,

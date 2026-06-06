@@ -502,7 +502,7 @@ class BookRepository(
     ): AppResult<BookSyncPayload> {
         val resolvedContributors =
             analyzedBookMapper.buildContributors(analyzed).map { c ->
-                c.copy(id = contributorRepository.resolveOrCreate(c.name).value)
+                c.copy(id = contributorRepository.resolveOrCreate(c.name, c.sortName).value)
             }
         val resolvedSeries =
             analyzedBookMapper.buildSeries(analyzed).map { s ->

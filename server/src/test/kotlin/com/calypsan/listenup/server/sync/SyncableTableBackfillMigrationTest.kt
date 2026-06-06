@@ -164,7 +164,7 @@ class SyncableTableBackfillMigrationTest :
             val db = Database.connect(ds)
             val repo = ContributorRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
             runTest {
-                val newId = repo.resolveOrCreate("Post Migration Author")
+                val newId = repo.resolveOrCreate("Post Migration Author", sortName = null)
                 val page = repo.pullSince(userId = null, cursor = maxBackfilledRevision, limit = 100)
 
                 page.items.map { it.id } shouldContain newId.value

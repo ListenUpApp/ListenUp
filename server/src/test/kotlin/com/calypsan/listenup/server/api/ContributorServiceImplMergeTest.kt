@@ -64,7 +64,7 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val id = contributorRepo.resolveOrCreate("Stephen King")
+                    val id = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
 
                     val result = service.mergeContributors(id, id)
 
@@ -82,7 +82,7 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
 
                     val result = service.mergeContributors(ContributorId("missing"), targetId)
 
@@ -100,7 +100,7 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman")
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
 
                     val result = service.mergeContributors(sourceId, ContributorId("missing"))
 
@@ -118,8 +118,8 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Source Person")
-                    val targetId = contributorRepo.resolveOrCreate("Target Person")
+                    val sourceId = contributorRepo.resolveOrCreate("Source Person", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Target Person", sortName = null)
                     contributorRepo.softDelete(sourceId).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val result = service.mergeContributors(sourceId, targetId)
@@ -141,8 +141,8 @@ class ContributorServiceImplMergeTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman")
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
 
                     // b1, b2: source contributor, no explicit credited_as
                     bookRepo.upsert(bookFixtureForMerge("b1", "The Long Walk", sourceId, "Richard Bachman"))
@@ -202,8 +202,8 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman")
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     // Pre-seed target with a lowercased alias that should collide with source.name
                     val targetPayload = contributorRepo.findById(targetId.value)!!
                     contributorRepo
@@ -229,10 +229,10 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     // Source's aliases include "Stephen King" (matches target.name case-insensitively).
                     // After merge, target must NOT gain itself as an alias.
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman")
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
                     val sourcePayload = contributorRepo.findById(sourceId.value)!!
                     contributorRepo
                         .upsert(
@@ -257,12 +257,12 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Source Person")
+                    val sourceId = contributorRepo.resolveOrCreate("Source Person", sortName = null)
                     val sourcePayload = contributorRepo.findById(sourceId.value)!!
                     contributorRepo
                         .upsert(sourcePayload.copy(aliases = listOf("Source Alias 1", "Source Alias 2")))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    val targetId = contributorRepo.resolveOrCreate("Target Person")
+                    val targetId = contributorRepo.resolveOrCreate("Target Person", sortName = null)
 
                     val result = service.mergeContributors(sourceId, targetId)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -285,8 +285,8 @@ class ContributorServiceImplMergeTest :
                 val contributorRepo = deps.contributorRepo
                 val bookRepo = deps.bookRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman")
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
                     bookRepo.upsert(bookFixtureForMerge("b1", "The Long Walk", sourceId, "Richard Bachman"))
 
                     service
@@ -307,8 +307,8 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman")
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King")
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
 
                     service
                         .mergeContributors(sourceId, targetId)

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.db.ContributorAliasTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
@@ -87,10 +88,10 @@ class ContributorRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        val normalized = normalizeForDedup(value.name)
         if (existed) {
+            // normalizedName is the dedup key established at INSERT — do not update it.
+            // Changing it post-creation could violate the unique index and break in-flight lookups.
             ContributorTable.update({ ContributorTable.id eq value.id }) { stmt ->
-                stmt[ContributorTable.normalizedName] = normalized
                 stmt[ContributorTable.name] = value.name
                 stmt[ContributorTable.sortName] = value.sortName
                 stmt[ContributorTable.asin] = value.asin
@@ -106,6 +107,11 @@ class ContributorRepository(
                 stmt[ContributorTable.clientOpId] = clientOpId
             }
         } else {
+            // Must stay in sync with resolveOrCreate's lookup key: both use contributorDedupKey,
+            // so a row written via a direct upsert gets the same dedup bucket that resolveOrCreate
+            // would compute. value.sortName is always non-null here because resolveOrCreate stores
+            // the derived sort name before calling upsert.
+            val normalized = contributorDedupKey(value.name, value.sortName)
             ContributorTable.insert { stmt ->
                 stmt[ContributorTable.id] = value.id
                 stmt[ContributorTable.normalizedName] = normalized
@@ -129,20 +135,34 @@ class ContributorRepository(
     }
 
     /**
-     * Finds the contributor whose name shares [name]'s normalized form, or
-     * creates one through the substrate's `upsert` (which bumps the domain
-     * revision and publishes `SyncEvent.Created`). Returns the stable
-     * [ContributorId] either way.
+     * Finds the contributor whose dedup key matches [contributorDedupKey]`(name, sortName)`,
+     * or creates one through the substrate's `upsert` (which bumps the domain revision and
+     * publishes `SyncEvent.Created`). Returns the stable [ContributorId] either way.
      *
-     * Idempotent: a rescan of unchanged books re-resolves existing contributors
-     * with no event and no revision bump. The display name preserves the first
-     * writer's casing.
+     * The dedup key is always `contributorDedupKey(name, sortName)` — the normalized sort name,
+     * derived as `"Surname, Given"` when [sortName] is null. This means every creation path
+     * (scanner with an explicit sort name, manual edit with null sort name, Audible enrichment
+     * with null sort name) buckets the same person identically. "Brandon Sanderson" and
+     * "Sanderson, Brandon" both resolve to `"sanderson, brandon"` and share one row.
      *
-     * The find-miss → create window is a benign race only under SQLite's
-     * single-writer model; the single-threaded scan never triggers it.
+     * When [sortName] is null, the derived form is stored on the row so that the normalizedName
+     * column and the sortName column are consistent regardless of which path creates the row.
+     *
+     * First display name wins on collision: a subsequent call with a different [name] but the same
+     * resolved key finds the existing row and returns its id without updating the stored name.
+     *
+     * Idempotent: a rescan of unchanged books re-resolves existing contributors with no event and
+     * no revision bump.
+     *
+     * The find-miss → create window is a benign race only under SQLite's single-writer model; the
+     * single-threaded scan never triggers it.
      */
-    suspend fun resolveOrCreate(name: String): ContributorId {
-        val normalized = normalizeForDedup(name)
+    suspend fun resolveOrCreate(
+        name: String,
+        sortName: String?,
+    ): ContributorId {
+        val derivedSortName = sortName ?: SortKeys.sortName(name, null)
+        val normalized = contributorDedupKey(name, derivedSortName)
         val existing =
             suspendTransaction(db) {
                 ContributorTable
@@ -158,7 +178,7 @@ class ContributorRepository(
             ContributorSyncPayload(
                 id = id.value,
                 name = name,
-                sortName = null,
+                sortName = derivedSortName,
                 revision = 0L,
                 updatedAt = 0L,
                 createdAt = 0L,

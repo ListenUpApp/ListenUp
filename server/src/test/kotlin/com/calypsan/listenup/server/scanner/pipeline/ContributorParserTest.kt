@@ -95,4 +95,15 @@ class ContributorParserTest :
             ContributorParser.parse("", ContributorRole.AUTHOR).shouldBeEmpty()
             ContributorParser.parse("   ", ContributorRole.AUTHOR).shouldBeEmpty()
         }
+
+        test("personNames splits on explicit separators without role logic") {
+            ContributorParser.personNames("Sanderson, Brandon; King, Stephen") shouldBe
+                listOf("Sanderson, Brandon", "King, Stephen")
+            ContributorParser.personNames("Solo Author") shouldBe listOf("Solo Author")
+            ContributorParser.personNames("  ") shouldBe emptyList()
+            ContributorParser.personNames("Tolkien, J.R.R. & Le Guin, Ursula K.") shouldBe
+                listOf("Tolkien, J.R.R.", "Le Guin, Ursula K.")
+            ContributorParser.personNames("Tolkien, J.R.R. and Le Guin, Ursula K.") shouldBe
+                listOf("Tolkien, J.R.R.", "Le Guin, Ursula K.")
+        }
     })

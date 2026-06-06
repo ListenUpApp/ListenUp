@@ -4,7 +4,8 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp3
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
-import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
+import com.calypsan.listenup.server.embeddedmeta.AudioTagsBuilder
+import com.calypsan.listenup.server.embeddedmeta.GenreSplitter
 
 /**
  * Reads ID3v2.3 / ID3v2.4 tags out of an in-memory MP3 byte slice.
@@ -161,7 +162,7 @@ internal object Id3v2Reader {
 
             "TALB" -> builder.custom["album"] = text
 
-            "TCON" -> builder.genres += text
+            "TCON" -> builder.genres += GenreSplitter.split(text)
 
             "TYER" -> parseYear(text)?.let { builder.publishedYear = it }
 
@@ -183,6 +184,10 @@ internal object Id3v2Reader {
             "MVIN" -> builder.seriesPart = builder.seriesPart ?: text
 
             "TDES" -> builder.description = builder.description ?: text
+
+            "TSOT" -> builder.titleSort = text
+
+            "TSOP" -> builder.authorsSort = text
 
             else -> builder.custom[frameId] = text
         }
@@ -211,6 +216,10 @@ internal object Id3v2Reader {
         val encoding = data[0]
         val (description, value) = splitNullTerminated(data.copyOfRange(1, data.size), encoding) ?: return
         when (description.lowercase()) {
+            "subtitle" -> {
+                builder.subtitle = builder.subtitle ?: value
+            }
+
             "narrator" -> {
                 builder.narrators += value
             }
@@ -457,49 +466,4 @@ internal object Id3v2Reader {
     private const val ID3V2_HEADER_SIZE = 10
     private const val ID3V2_FRAME_HEADER_SIZE = 10
     private const val APIC_FRONT_COVER = 3
-}
-
-internal class AudioTagsBuilder {
-    var title: String? = null
-    var subtitle: String? = null
-    val authors: MutableList<String> = mutableListOf()
-    val narrators: MutableList<String> = mutableListOf()
-    var seriesName: String? = null
-    var seriesPart: String? = null
-    val genres: MutableList<String> = mutableListOf()
-    var description: String? = null
-    var publisher: String? = null
-    var publishedYear: Int? = null
-    var asin: String? = null
-    var isbn: String? = null
-    var language: String? = null
-    var trackNumber: Int? = null
-    var discNumber: Int? = null
-    val custom: MutableMap<String, String> = linkedMapOf()
-
-    fun build(): AudioTags {
-        val series =
-            if (seriesName != null) {
-                listOf(SeriesEntry(name = seriesName!!, sequence = seriesPart))
-            } else {
-                emptyList()
-            }
-        return AudioTags(
-            title = title,
-            subtitle = subtitle,
-            authors = authors.toList(),
-            narrators = narrators.toList(),
-            series = series,
-            genres = genres.toList(),
-            description = description,
-            publisher = publisher,
-            publishedYear = publishedYear,
-            asin = asin,
-            isbn = isbn,
-            language = language,
-            trackNumber = trackNumber,
-            discNumber = discNumber,
-            custom = custom.toMap(),
-        )
-    }
 }

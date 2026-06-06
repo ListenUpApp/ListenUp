@@ -11,6 +11,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
+import com.calypsan.listenup.domain.embeddedmeta.AudioTags
+import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -26,6 +30,11 @@ import kotlinx.coroutines.test.runTest
  * path: [BookRepository.upsertFromAnalyzed] → `buildContributors` →
  * [ContributorRepository.resolveOrCreate] → junction rows → [BookRepository.findById]
  * returns two distinct contributor rows with the right name + role.
+ *
+ * Also proves the crown-jewel dedup invariant: two books whose author names differ only
+ * in display order ("Brandon Sanderson" vs "Sanderson, Brandon") collapse to a single
+ * contributor row through derivation alone, and that an embedded `authorsSort` tag
+ * can bridge a divergent display name ("B. Sanderson") to the same canonical row.
  */
 class ContributorParsingIngestE2ETest :
     FunSpec({
@@ -66,15 +75,122 @@ class ContributorParsingIngestE2ETest :
                 }
             }
         }
+
+        // Crown-jewel test 1: derivation-only convergence.
+        //
+        // "Sanderson, Brandon" normalises to display "Brandon Sanderson" via
+        // ContributorParser.normalizeLastFirst, then SortKeys.sortName derives "Sanderson, Brandon"
+        // for both books. normalizeForDedup produces "sanderson, brandon" in each case → one row.
+        test("two books with cross-order author names share one contributor") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val bookRepo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = registry,
+                        contributorRepository = contributors,
+                        seriesRepository = series,
+                    )
+                runTest {
+                    // Book A: display-order name, sortName derived as "Sanderson, Brandon".
+                    bookRepo.upsertFromAnalyzed(
+                        BookId("cross-order-a"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzedWith(
+                            authors = listOf("Brandon Sanderson"),
+                            rootRelPath = "Sanderson/Way of Kings",
+                        ),
+                    )
+                    // Book B: surname-first form; parser normalises display to "Brandon Sanderson",
+                    // derivation produces the same "Sanderson, Brandon" sort key → same dedup bucket.
+                    bookRepo.upsertFromAnalyzed(
+                        BookId("cross-order-b"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzedWith(
+                            authors = listOf("Sanderson, Brandon"),
+                            rootRelPath = "Sanderson/Words of Radiance",
+                        ),
+                    )
+
+                    contributors.listLiveIds().size shouldBe 1
+                }
+            }
+        }
+
+        // Crown-jewel test 2: embedded-tag path.
+        //
+        // "B. Sanderson" would derive sortName "Sanderson, B." (not "Sanderson, Brandon"),
+        // so derivation alone would create two rows. The embedded authorsSort = "Sanderson, Brandon"
+        // overrides derivation and bridges it to the same dedup key as Book A.
+        test("embedded authorsSort converges a divergent display name to one contributor") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val bookRepo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = registry,
+                        contributorRepository = contributors,
+                        seriesRepository = series,
+                    )
+                runTest {
+                    // Book A: canonical name, derives sortName "Sanderson, Brandon".
+                    bookRepo.upsertFromAnalyzed(
+                        BookId("embedded-sort-a"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzedWith(
+                            authors = listOf("Brandon Sanderson"),
+                            rootRelPath = "Sanderson/Mistborn",
+                        ),
+                    )
+                    // Book B: abbreviated display "B. Sanderson" would resolve to sortName
+                    // "Sanderson, B." by derivation alone — wrong bucket. The embedded tag
+                    // "Sanderson, Brandon" overrides derivation → same dedup key as Book A.
+                    bookRepo.upsertFromAnalyzed(
+                        BookId("embedded-sort-b"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzedWith(
+                            authors = listOf("B. Sanderson"),
+                            authorsSort = "Sanderson, Brandon",
+                            rootRelPath = "Sanderson/Elantris",
+                        ),
+                    )
+
+                    contributors.listLiveIds().size shouldBe 1
+                }
+            }
+        }
     })
 
 /**
  * Builds a minimal [AnalyzedBook] with one audio file carrying the supplied raw
  * [authors] strings — left unsplit so the ingest path's `buildContributors` does
- * the splitting.
+ * the splitting. When [authorsSort] is provided it is threaded into the embedded
+ * metadata to exercise the sort-tag override path.
+ *
+ * [rootRelPath] must be unique per book within a library to avoid the
+ * `(library_id, root_rel_path)` unique constraint on the books table.
  */
-private fun analyzedWith(authors: List<String>): AnalyzedBook {
-    val rootRelPath = "King/Contributor Split"
+private fun analyzedWith(
+    authors: List<String>,
+    authorsSort: String? = null,
+    rootRelPath: String = "King/Contributor Split",
+): AnalyzedBook {
     val file =
         FileEntry(
             relPath = "$rootRelPath/01.m4b",
@@ -95,5 +211,35 @@ private fun analyzedWith(authors: List<String>): AnalyzedBook {
         title = rootRelPath.substringAfterLast('/'),
         authors = authors,
         tracks = listOf(TrackEntry(file = file)),
+        embedded =
+            authorsSort?.let {
+                EmbeddedAudioMetadata(
+                    format = AudioFormat.Mp3,
+                    durationMs = 0L,
+                    tags =
+                        AudioTags(
+                            title = null,
+                            subtitle = null,
+                            authors = emptyList(),
+                            narrators = emptyList(),
+                            series = emptyList(),
+                            genres = emptyList(),
+                            description = null,
+                            publisher = null,
+                            publishedYear = null,
+                            asin = null,
+                            isbn = null,
+                            language = null,
+                            trackNumber = null,
+                            discNumber = null,
+                            custom = emptyMap(),
+                            titleSort = null,
+                            authorsSort = it,
+                        ),
+                    chapters = emptyList(),
+                    chaptersSource = ChapterSource.None,
+                    artwork = null,
+                )
+            },
     )
 }

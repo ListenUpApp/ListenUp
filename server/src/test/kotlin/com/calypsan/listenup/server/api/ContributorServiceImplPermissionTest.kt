@@ -43,7 +43,7 @@ class ContributorServiceImplPermissionTest :
                 db.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
                 val deps = makeContributorPermService(db)
                 runTest {
-                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     val service = deps.service.copyWith(memberPrincipal("member"))
 
                     val result = service.updateContributor(id, ContributorUpdate(name = "Renamed"))
@@ -61,7 +61,7 @@ class ContributorServiceImplPermissionTest :
                 db.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
                 val deps = makeContributorPermService(db)
                 runTest {
-                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     val service = deps.service.copyWith(memberPrincipal("editor"))
 
                     val result = service.updateContributor(id, ContributorUpdate(name = "Renamed"))
@@ -77,7 +77,7 @@ class ContributorServiceImplPermissionTest :
                 seedTestLibraryAndFolder()
                 val deps = makeContributorPermService(db)
                 runTest {
-                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val id = deps.contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     val service = deps.service.copyWith(rootPrincipal())
 
                     val result = service.updateContributor(id, ContributorUpdate(name = "Renamed"))
