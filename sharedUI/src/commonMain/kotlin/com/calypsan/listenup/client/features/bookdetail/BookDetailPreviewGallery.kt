@@ -1,11 +1,14 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +37,8 @@ import com.calypsan.listenup.client.features.bookdetail.components.WideHeroBand
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
+
+private val WIDE_PREVIEW_WIDTH = 1000.dp
 
 private const val MOCK_BOOK_ID = "the-way-of-kings"
 private const val MOCK_TITLE = "The Way of Kings"
@@ -166,20 +171,33 @@ private fun HeroSection() {
         timeRemaining = MOCK_TIME_REMAINING,
     )
 
-    GalleryLabel("Hero — wide band (tablet / desktop)")
-    WideHeroBand(
-        coverPath = null,
-        bookId = MOCK_BOOK_ID,
-        title = MOCK_TITLE,
-        overline = MOCK_OVERLINE,
-        subtitle = MOCK_SUBTITLE,
-        authors = mockAuthors,
-        narrators = mockNarrators,
-        onContributorClick = {},
-        progress = MOCK_PROGRESS,
-        timeRemaining = MOCK_TIME_REMAINING,
-        modifier = horizontalGutter(),
-    )
+    GalleryLabel("Hero — wide band (tablet / desktop) — scroll horizontally →")
+    WidePreview {
+        WideHeroBand(
+            coverPath = null,
+            bookId = MOCK_BOOK_ID,
+            title = MOCK_TITLE,
+            overline = MOCK_OVERLINE,
+            subtitle = MOCK_SUBTITLE,
+            authors = mockAuthors,
+            narrators = mockNarrators,
+            onContributorClick = {},
+            progress = MOCK_PROGRESS,
+            timeRemaining = MOCK_TIME_REMAINING,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+}
+
+/**
+ * Renders a width-constrained (tablet/desktop) component at its intended width inside a horizontal
+ * scroller, so wide-only layouts don't collapse when the gallery is viewed on a narrow phone.
+ */
+@Composable
+private fun WidePreview(content: @Composable () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        Box(modifier = Modifier.width(WIDE_PREVIEW_WIDTH)) { content() }
+    }
 }
 
 @Composable
