@@ -221,6 +221,7 @@
     "detail_progresspercent": "%1$s%",
     "detail_queued": "Queued...",
     "detail_readers": "Readers",
+    "detail_readers_finished": "Finished %1$s",
     "detail_readers_listening_now": "%1$d listening now",
     "detail_remove_the_downloaded_files_for": "Remove the downloaded files for “%1$s”? ",
     "detail_retry_download": "Retry download",
