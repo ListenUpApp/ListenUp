@@ -119,8 +119,8 @@ fun PrimaryActionsSection(
                     RoundedCornerShape(
                         topStart = 6.dp,
                         bottomStart = 6.dp,
-                        topEnd = 24.dp,
-                        bottomEnd = 24.dp,
+                        topEnd = 32.dp,
+                        bottomEnd = 32.dp,
                     ),
             )
         }
