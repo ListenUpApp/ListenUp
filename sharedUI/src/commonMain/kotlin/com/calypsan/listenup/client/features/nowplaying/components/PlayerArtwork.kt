@@ -21,10 +21,14 @@ import com.calypsan.listenup.client.design.components.ElevatedCoverCard
  * as diffuse light emanating from behind the cover rather than a defined shape. Its bright centre
  * sits behind the cover; only the gentle outer falloff is visible around the cover's edges.
  *
+ * The component's layout footprint is the cover [size]; the larger glow is drawn as a centred
+ * overlay that overflows those bounds without reserving extra space, so the artwork doesn't waste
+ * vertical room on its (mostly transparent) glow margin.
+ *
  * @param coverPath Local file path to the cover image, or null.
  * @param bookId Book identifier used for server-URL fallback image loading.
  * @param coverBlurHash Optional BlurHash placeholder string.
- * @param size Side length of the square cover (the glow is sized proportionally around it).
+ * @param size Side length of the square cover, and the component's layout footprint.
  */
 @Composable
 fun PlayerArtwork(
@@ -34,11 +38,12 @@ fun PlayerArtwork(
     size: Dp,
     modifier: Modifier = Modifier,
 ) {
-    // The glow extends well beyond the cover so the gradient has room to fade to nothing.
+    // The glow extends beyond the cover so the gradient has room to fade to nothing. It is an overlay
+    // only — the Box footprint stays at [size], so the glow overflows without reserving layout space.
     val glowSize = size * 1.5f
 
     Box(
-        modifier = modifier.size(glowSize),
+        modifier = modifier.size(size),
         contentAlignment = Alignment.Center,
     ) {
         // Ambient glow — a radial gradient fading to transparent reads as light, not a shape.

@@ -21,6 +21,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_now_playing
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * A single row in the Now Playing chapter list.
@@ -101,7 +104,7 @@ fun PlayerChapterRow(
         )
 
         Text(
-            text = "$durationLabel min",
+            text = durationLabel,
             style = MaterialTheme.typography.bodyMedium,
             color = subtitleColor,
         )
@@ -111,7 +114,7 @@ fun PlayerChapterRow(
         // Playing indicator or play arrow.
         Icon(
             imageVector = if (isCurrent) Icons.Default.GraphicEq else Icons.Default.PlayArrow,
-            contentDescription = if (isCurrent) "Now playing" else null,
+            contentDescription = if (isCurrent) stringResource(Res.string.player_now_playing) else null,
             modifier = Modifier.size(24.dp),
             tint = trailingColor,
         )

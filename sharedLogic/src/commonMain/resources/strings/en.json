@@ -601,11 +601,20 @@
     "skip_backward": "Skip backward %1$s seconds",
     "speed": "Speed",
     "chapters": "Chapters",
-    "sleep_timer": "Sleep Timer",
+    "sleep_timer": "Sleep timer",
     "bookmark": "Bookmark",
     "timer_active": "Timer Active",
     "duration": "Duration",
-    "end_of_chapter": "End of Chapter",
-    "playback_speed": "Playback Speed"
+    "end_of_chapter": "End of chapter",
+    "playback_speed": "Playback speed",
+    "close": "Close",
+    "reset_to_default": "Reset to default (%1$s)",
+    "end_of_chapter_subtitle": "Pause when the current chapter ends",
+    "add_more_time": "Add more time",
+    "extend_minutes": "+%1$d min",
+    "cancel_timer": "Cancel timer",
+    "until_end_of_chapter": "Until end of chapter",
+    "until_end_of_chapter_detail": "Playback will pause when this chapter ends",
+    "fading_out": "Fading out…"
   }
 }

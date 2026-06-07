@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
@@ -45,16 +47,20 @@ private val MAX_COVER_SIZE = 320.dp
 // Horizontal screen margin, matching the rest of the player surfaces.
 private val SCREEN_MARGIN = 24.dp
 
+// Below this available height the fixed controls can't all fit, so the layout scrolls rather than
+// clipping the transport off screen (e.g. compact landscape phones). Above it, the layout fits and
+// stays scroll-free.
+private val COMPACT_FIT_MIN_HEIGHT = 640.dp
+
 /**
  * Compact (phone portrait) full-screen Now Playing layout.
  *
- * Assembles the M3 Expressive player from the Task-5 primitives in a responsive centered [Column].
- * [BoxWithConstraints] is used so the cover and scrubber widths scale fluidly rather than being
- * hardcoded, keeping the layout honest on small phones and large compact tablets alike.
- *
- * The layout is intentionally not yet wired into [NowPlayingScreen] — Task 8 does the adaptive
- * dispatch. This composable just needs to compile cleanly and be public so the Task-8 branch can
- * reference it without import errors.
+ * Assembles the M3 Expressive player from the player primitives in a responsive centered [Column].
+ * [BoxWithConstraints] is used so the cover scales fluidly by both width and available height, and
+ * weighted spacers distribute slack so the transport and secondary actions always stay on screen —
+ * the layout fits without scrolling on small phones and tall foldable inner displays alike. A
+ * non-scrolling layout also leaves the parent's swipe-down-to-collapse gesture (in [NowPlayingScreen])
+ * free to fire, instead of being consumed by an inner scroll container.
  *
  * @param state Current [NowPlayingState.Active] snapshot.
  * @param onCollapse Called when the collapse button (or back gesture) fires.
@@ -104,17 +110,22 @@ fun CompactNowPlaying(
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {
-        // Responsive cover size: 80 % of available width, capped at 320 dp.
-        val coverSize = min(maxWidth * 0.80f, MAX_COVER_SIZE)
+        // On tall screens (phone portrait, foldable inner displays) the layout fits without
+        // scrolling, which also leaves the parent swipe-to-collapse gesture unobstructed. On short
+        // screens (compact landscape) it scrolls so the transport is never clipped off — never stranded.
+        val fits = maxHeight >= COMPACT_FIT_MIN_HEIGHT
+
+        // Cover is capped by available height as well as width, so on tall screens the controls below
+        // fit without scrolling (width alone would let the cover grow tall enough to push them off).
+        val coverSize = min(min(maxWidth * 0.82f, MAX_COVER_SIZE), maxHeight * 0.40f)
 
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(horizontal = SCREEN_MARGIN)
-                    .verticalScroll(rememberScrollState()),
+                    .then(if (fits) Modifier else Modifier.verticalScroll(rememberScrollState())),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
         ) {
             // Top bar: collapse chevron · "NOW PLAYING" · overflow menu.
             PlayerTopBar(
@@ -130,7 +141,9 @@ fun CompactNowPlaying(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(16.dp))
+            // Flexible gap: absorbs slack above the cover so the metadata cluster sits in the upper
+            // half on tall screens while the controls anchor near the bottom.
+            FlexibleGap(weight = 1f, fallback = 16.dp, fits = fits)
 
             // Cover art with ambient glow — responsive size.
             PlayerArtwork(
@@ -200,7 +213,9 @@ fun CompactNowPlaying(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            // Flexible gap below the metadata — slightly larger than the top gap so the cluster
+            // reads as upper-middle and the transport group anchors toward the bottom edge.
+            FlexibleGap(weight = 1.4f, fallback = 24.dp, fits = fits)
 
             // Scrubber + time labels — fills column width (horizontal padding from the column).
             PlayerScrubber(
@@ -241,5 +256,23 @@ fun CompactNowPlaying(
 
             Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+/**
+ * A vertical gap that expands to fill slack when the layout [fits] (weighted), or collapses to a
+ * [fallback] fixed height in the scrolling fallback — where `weight` modifiers aren't valid because
+ * a `verticalScroll` parent measures children with unbounded height.
+ */
+@Composable
+private fun ColumnScope.FlexibleGap(
+    weight: Float,
+    fallback: Dp,
+    fits: Boolean,
+) {
+    if (fits) {
+        Spacer(Modifier.weight(weight))
+    } else {
+        Spacer(Modifier.height(fallback))
     }
 }

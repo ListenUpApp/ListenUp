@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
  * skip forward 30s, next chapter.
  *
  * The play/pause FAB is a squircle-shaped [RoundedCornerShape](20.dp) button with
- * [MaterialTheme.colorScheme.primary] background and a [CircularProgressIndicator]
+ * [MaterialTheme.colorScheme.primary] background and a wavy circular progress indicator
  * while [isBuffering] is true. Chapter-skip controls use [onSurfaceVariant] tint to
  * visually de-emphasise them relative to the skip-10/30 controls.
  *

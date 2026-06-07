@@ -175,12 +175,13 @@ private fun MiniPlayerContent(
                 tint = MaterialTheme.colorScheme.onSurface,
             )
 
-            // Play/pause squircle FAB
+            // Play/pause squircle FAB. No drop shadow — the bar's rounded Surface would clip it.
             PlayPauseFab(
                 isPlaying = state.isPlaying,
                 isBuffering = state.isBuffering,
                 onClick = onPlayPause,
                 size = 48.dp,
+                shadowElevation = 0.dp,
             )
         }
 

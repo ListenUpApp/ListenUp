@@ -9,41 +9,60 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Squircle play/pause FAB with primary background; shows a spinner while buffering. */
+/**
+ * Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while
+ * buffering.
+ *
+ * @param shadowElevation Drop-shadow depth. Defaults to 8.dp for the full-screen player; pass 0.dp
+ * inside a clipping container (the mini-player bars) where the shadow would be cut off by the card.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PlayPauseFab(
     isPlaying: Boolean,
     isBuffering: Boolean,
     onClick: () -> Unit,
     size: Dp,
+    shadowElevation: Dp = 8.dp,
 ) {
     Surface(
         onClick = onClick,
         modifier = Modifier.size(size),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primary,
-        shadowElevation = 8.dp,
+        shadowElevation = shadowElevation,
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isBuffering) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(size * 0.4f),
-                    strokeWidth = 2.5.dp,
+                // Thinner than the default wavy stroke so it reads as a light indicator, not a chunky ring.
+                val density = LocalDensity.current
+                val wavyStroke =
+                    remember(density) { with(density) { Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round) } }
+                CircularWavyProgressIndicator(
+                    modifier = Modifier.size(size * 0.5f),
                     color = MaterialTheme.colorScheme.onPrimary,
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.24f),
+                    stroke = wavyStroke,
+                    trackStroke = wavyStroke,
                 )
             } else {
                 Icon(

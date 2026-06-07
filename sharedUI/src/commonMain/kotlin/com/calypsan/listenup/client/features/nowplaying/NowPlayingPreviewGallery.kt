@@ -4,6 +4,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,16 +12,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.playback.NowPlayingChapter
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.SleepTimerState
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +62,17 @@ private val mockChapters =
         NowPlayingChapter(index = 4, title = "Bridge Four", durationMs = 3_775_000L),
         NowPlayingChapter(index = 5, title = "Assassin's Mark", durationMs = 1_980_000L),
     )
+
+// Domain chapters for the Chapters panel preview (the panel consumes List<Chapter>, not NowPlayingChapter).
+private val mockDomainChapters =
+    mockChapters.map { chapter ->
+        Chapter(
+            id = "chapter-${chapter.index}",
+            title = chapter.title,
+            duration = chapter.durationMs,
+            startTime = 0L,
+        )
+    }
 
 // Primary fixture — playing, chapter 2, 4 narrators.
 private val mockActiveState =
@@ -151,6 +170,10 @@ fun NowPlayingPreviewGallery() {
             HorizontalDivider()
 
             MiniPlayerDesktopSection()
+
+            HorizontalDivider()
+
+            PanelsSection()
 
             HorizontalDivider()
         }
@@ -258,6 +281,50 @@ private fun MiniPlayerDesktopSection() {
 private fun WidePreview(content: @Composable () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         Box(modifier = Modifier.width(WIDE_PREVIEW_WIDTH).height(820.dp)) { content() }
+    }
+}
+
+@Composable
+private fun PanelsSection() {
+    var open by remember { mutableStateOf<String?>(null) }
+    GalleryLabel("Panels — tap to open (adaptive: bottom sheet on phone, dialog on a wide window)")
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Button(onClick = { open = "speed" }) { Text("Speed") }
+        Button(onClick = { open = "chapters" }) { Text("Chapters") }
+        Button(onClick = { open = "sleep" }) { Text("Sleep") }
+    }
+    when (open) {
+        "speed" -> {
+            PlaybackSpeedSheet(
+                currentSpeed = 1.25f,
+                defaultSpeed = 1.0f,
+                onSpeedChange = {},
+                onResetToDefault = {},
+                onDismiss = { open = null },
+            )
+        }
+
+        "chapters" -> {
+            ChapterPickerSheet(
+                chapters = mockDomainChapters,
+                currentChapterIndex = 2,
+                onChapterSelected = {},
+                onDismiss = { open = null },
+            )
+        }
+
+        "sleep" -> {
+            SleepTimerSheet(
+                currentState = SleepTimerState.Inactive,
+                onSetTimer = {},
+                onCancelTimer = {},
+                onExtendTimer = {},
+                onDismiss = { open = null },
+            )
+        }
     }
 }
 
