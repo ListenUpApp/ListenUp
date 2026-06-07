@@ -152,6 +152,15 @@ interface ServerConfig {
      */
     suspend fun setActiveUrl(url: ServerUrl)
 
+    /** Persist the stable mDNS instance id of the connected server (null clears it). Used to follow LAN IP changes. */
+    suspend fun setConnectedServerId(id: String?)
+
+    /** The stable mDNS instance id of the connected server, or null if none/manual. */
+    suspend fun getConnectedServerId(): String?
+
+    /** Refresh only the stored local (LAN) URL and publish [activeUrl] — no auth side effects. Used by IP-follow. */
+    suspend fun updateLocalUrl(url: ServerUrl)
+
     /** Disconnect from current server (clears URL and auth data). */
     suspend fun disconnectFromServer()
 

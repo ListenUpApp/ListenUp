@@ -105,6 +105,12 @@ private class FakeServerConfig(
 
     override suspend fun setActiveUrl(url: ServerUrl) = Unit
 
+    override suspend fun setConnectedServerId(id: String?) = Unit
+
+    override suspend fun getConnectedServerId(): String? = null
+
+    override suspend fun updateLocalUrl(url: ServerUrl) = Unit
+
     override suspend fun disconnectFromServer() = Unit
 
     override suspend fun clearAll() = Unit

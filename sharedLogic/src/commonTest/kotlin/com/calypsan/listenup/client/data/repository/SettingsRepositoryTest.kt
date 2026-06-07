@@ -178,6 +178,51 @@ class SettingsRepositoryTest {
             }
         }
 
+    // ========== Connected mDNS server id + local URL follow ==========
+
+    @Test
+    fun `setConnectedServerId persists and getConnectedServerId reads it back`() =
+        runTest {
+            val storage = createMockStorage()
+            val repository = createRepository(storage = storage)
+            everySuspend { storage.save("connected_server_id", "abc-123") } returns Unit
+            everySuspend { storage.read("connected_server_id") } returns "abc-123"
+
+            repository.setConnectedServerId("abc-123")
+
+            assertEquals("abc-123", repository.getConnectedServerId())
+        }
+
+    @Test
+    fun `setConnectedServerId null clears it`() =
+        runTest {
+            val storage = createMockStorage()
+            val repository = createRepository(storage = storage)
+            everySuspend { storage.delete("connected_server_id") } returns Unit
+
+            repository.setConnectedServerId(null)
+
+            verifySuspend { storage.delete("connected_server_id") }
+        }
+
+    @Test
+    fun `updateLocalUrl saves the local URL and publishes activeUrl`() =
+        runTest {
+            val storage = createMockStorage()
+            everySuspend { storage.save("server_url", "http://192.168.1.20:8080") } returns Unit
+            everySuspend { storage.read("active_url") } returns null
+            everySuspend { storage.read("server_url") } returns "http://192.168.1.20:8080"
+            everySuspend { storage.read("server_remote_url") } returns null
+            val repository = createRepository(storage = storage)
+
+            repository.activeUrl.test {
+                awaitItem() // current value (null initial)
+                repository.updateLocalUrl(ServerUrl("http://192.168.1.20:8080"))
+                assertEquals("http://192.168.1.20:8080", awaitItem()?.value)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     // ========== Spatial playback ==========
 
     @Test

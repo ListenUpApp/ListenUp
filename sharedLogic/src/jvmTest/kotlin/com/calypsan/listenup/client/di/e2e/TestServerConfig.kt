@@ -31,6 +31,16 @@ internal class TestServerConfig(
 
     override suspend fun setActiveUrl(url: ServerUrl) = Unit
 
+    private var connectedId: String? = null
+
+    override suspend fun setConnectedServerId(id: String?) {
+        connectedId = id
+    }
+
+    override suspend fun getConnectedServerId(): String? = connectedId
+
+    override suspend fun updateLocalUrl(url: ServerUrl) = Unit
+
     override suspend fun disconnectFromServer() = Unit
 
     override suspend fun clearAll() = Unit
