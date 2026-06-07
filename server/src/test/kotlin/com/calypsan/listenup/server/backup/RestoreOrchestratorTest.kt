@@ -234,6 +234,61 @@ class RestoreOrchestratorTest :
                 }
             }
         }
+
+        test("repeated restores are deterministic: pre-backup row present every time") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    transaction(fixture.handle.database) {
+                        exec("CREATE TABLE IF NOT EXISTS loop_test(v TEXT)")
+                        exec("INSERT INTO loop_test(v) VALUES ('row-A')")
+                    }
+                    fixture.archive.create("loop1", includeImages = false, onEvent = {})
+                    val orchestrator = buildOrchestrator(fixture)
+
+                    repeat(10) { i ->
+                        transaction(fixture.handle.database) {
+                            exec("DELETE FROM loop_test")
+                            exec("INSERT INTO loop_test(v) VALUES ('row-B-$i')")
+                        }
+                        val result = orchestrator.restore(BackupId("loop1"))
+                        result.shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+                        val v =
+                            transaction(fixture.handle.database) {
+                                exec("SELECT v FROM loop_test") { rs -> if (rs.next()) rs.getString(1) else null }
+                            }
+                        v shouldBe "row-A"
+                    }
+                }
+            }
+        }
+
+        test("a connection used before restore does not leak stale data afterward") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    transaction(fixture.handle.database) {
+                        exec("CREATE TABLE IF NOT EXISTS stale_test(v TEXT)")
+                        exec("INSERT INTO stale_test(v) VALUES ('row-A')")
+                    }
+                    fixture.archive.create("stale1", includeImages = false, onEvent = {})
+                    transaction(fixture.handle.database) {
+                        exec("DELETE FROM stale_test")
+                        exec("INSERT INTO stale_test(v) VALUES ('row-B')")
+                    }
+                    // Touch the pool right before restore so a physical connection exists in it.
+                    transaction(fixture.handle.database) { exec("SELECT 1") }
+
+                    buildOrchestrator(fixture)
+                        .restore(BackupId("stale1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    val v =
+                        transaction(fixture.handle.database) {
+                            exec("SELECT v FROM stale_test") { rs -> if (rs.next()) rs.getString(1) else null }
+                        }
+                    v shouldBe "row-A"
+                }
+            }
+        }
     })
 
 /** SHA-256 hex of raw [bytes] — used by the malicious-archive test. */

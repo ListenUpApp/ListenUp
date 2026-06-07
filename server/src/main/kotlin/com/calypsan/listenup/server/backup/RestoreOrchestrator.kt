@@ -19,9 +19,9 @@ import java.nio.file.StandardCopyOption
 private val logger = KotlinLogging.logger {}
 
 /**
- * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → suspend pool
- * → swap db file in place → resume pool → Flyway migrate → done. On any failure in the swap/migrate
- * window, rolls back to the safety copy and leaves the pool resumed on the original db.
+ * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → close pool
+ * → swap db file in place → reopen pool → Flyway migrate → done. On any failure in the swap/migrate
+ * window, rolls back to the safety copy and reopens the pool on the original db.
  *
  * The [maintenance] gate is single-flight: only one restore can run at a time.
  * The [DatabaseHandle.database] object identity is preserved across the swap so repositories
@@ -80,18 +80,12 @@ class RestoreOrchestrator(
                 archive.extractTo(archivePath, paths.stagingDir)
 
                 // 5. Swap — NonCancellable so a cancellation mid-swap cannot leave the
-                // Hikari pool suspended forever. Once suspendPool() is called the swap MUST
-                // run to a consistent end (pool resumed on either success or rollback path)
-                // before cancellation can propagate.
+                // pool closed forever. Once closePool() is called the swap MUST run to a
+                // consistent end (pool reopened on either success or rollback path) before
+                // cancellation can propagate.
                 withContext(NonCancellable) {
                     eventBus.tryEmit(BackupEvent.Swapping)
-                    dbHandle.suspendPool()
-                    dbHandle.evictConnections()
-                    if (!dbHandle.awaitPoolDrained()) {
-                        logger.warn {
-                            "pool did not fully drain before restore swap; proceeding (a lingering handle may surface as rollback)"
-                        }
-                    }
+                    dbHandle.closePool()
                     try {
                         val dbFileName = paths.dbFile.fileName.toString()
                         swapFile(paths.stagingDir.resolve("listenup.db"), paths.dbFile)
@@ -101,7 +95,7 @@ class RestoreOrchestrator(
                             swapDir(paths.stagingDir.resolve("covers"), paths.coversDir)
                             swapDir(paths.stagingDir.resolve("avatars"), paths.avatarsDir)
                         }
-                        dbHandle.resumePool()
+                        dbHandle.reopenPool()
 
                         // 6. Flyway migrate
                         eventBus.tryEmit(BackupEvent.Migrating)
@@ -120,6 +114,9 @@ class RestoreOrchestrator(
                             ),
                         )
                     } catch (e: Exception) {
+                        // Inside NonCancellable there is no cooperative cancellation to preserve;
+                        // any throwable (incl. an explicit CancellationException) must trigger
+                        // rollback so the pool is always reopened.
                         logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
                         rollback(rollbackDb, rollbackCovers, rollbackAvatars)
                         deleteRecursively(paths.stagingDir)
@@ -187,8 +184,9 @@ class RestoreOrchestrator(
     /**
      * Rolls back to the safety copy after a failed swap/migrate.
      *
-     * Ensures the pool is resumed on the original db regardless of whether the pool was suspended.
-     * The pool is explicitly resumed here because the swap may have suspended it before failing.
+     * The pool is already hard-closed by [restore] before the swap begins. This function swaps
+     * the safety copy back in place and then reopens the pool in a [finally] block so the server
+     * is never left with a closed pool regardless of whether the file swap itself succeeds.
      */
     private fun rollback(
         rollbackDb: Path,
@@ -196,40 +194,24 @@ class RestoreOrchestrator(
         rollbackAvatars: Path?,
     ) {
         try {
-            // Ensure pool is suspended so we can safely swap files
-            // (it may already be suspended if swap failed after suspendPool)
-            try {
-                dbHandle.suspendPool()
-                dbHandle.evictConnections()
-            } catch (_: Exception) {
-                // pool may not support double-suspend; carry on
-            }
-
-            // Restore db
             if (Files.exists(rollbackDb)) {
                 swapFile(rollbackDb, paths.dbFile)
                 val dbFileName = paths.dbFile.fileName.toString()
                 Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-wal"))
                 Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-shm"))
             }
-
-            // Restore images
-            if (rollbackCovers != null && Files.exists(rollbackCovers)) {
-                swapDir(rollbackCovers, paths.coversDir)
-            }
-            if (rollbackAvatars != null && Files.exists(rollbackAvatars)) {
-                swapDir(rollbackAvatars, paths.avatarsDir)
-            }
+            if (rollbackCovers != null && Files.exists(rollbackCovers)) swapDir(rollbackCovers, paths.coversDir)
+            if (rollbackAvatars != null && Files.exists(rollbackAvatars)) swapDir(rollbackAvatars, paths.avatarsDir)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.error(e) { "rollback failed — server may be in an inconsistent state" }
         } finally {
-            // Always resume pool so the server isn't left frozen
+            // Always reopen so the server isn't left with a closed pool.
             try {
-                dbHandle.resumePool()
+                dbHandle.reopenPool()
             } catch (e: Exception) {
-                logger.error(e) { "failed to resume pool after rollback — server may be deadlocked" }
+                logger.error(e) { "failed to reopen pool after rollback — server may be unavailable" }
             }
         }
     }

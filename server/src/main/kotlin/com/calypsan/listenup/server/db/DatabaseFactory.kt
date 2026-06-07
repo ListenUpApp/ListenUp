@@ -24,46 +24,53 @@ data class DatabaseConfig(
 /**
  * Initializes the Hikari pool, runs Flyway migrations, and returns a [DatabaseHandle] that
  * exposes the connected Exposed `Database` alongside pool-control operations needed by the
- * restore orchestrator (suspend/resume/vacuum). Idempotent for migrations — Flyway tracks
+ * restore orchestrator (close/reopen pool, vacuum). Idempotent for migrations — Flyway tracks
  * applied versions in its `flyway_schema_history` table.
  */
 object DatabaseFactory {
     fun init(config: DatabaseConfig): DatabaseHandle {
-        val hikari =
-            HikariDataSource(
-                HikariConfig().apply {
-                    jdbcUrl = config.jdbcUrl
-                    username = config.username
-                    password = config.password
-                    maximumPoolSize = config.maxPoolSize
-                    isAutoCommit = false
-                    isAllowPoolSuspension = true
-                    transactionIsolation = "TRANSACTION_SERIALIZABLE"
-                    // SQLite has FK enforcement off per-connection by default. The property
-                    // key must be the pragma name (`foreign_keys`), not the SQLiteConfig
-                    // setter name (`enforceForeignKeys`) — sqlite-jdbc's `SQLiteConfig` reads
-                    // pragma-keyed properties at connection init, which runs before Hikari
-                    // calls `setAutoCommit(false)`. `connectionInitSql` is the wrong tool here
-                    // because SQLite ignores `PRAGMA foreign_keys` inside an active transaction,
-                    // and `isAutoCommit = false` opens one before that SQL would run.
-                    addDataSourceProperty("foreign_keys", "true")
-                    // WAL mode allows concurrent readers alongside a writer, eliminating the
-                    // SQLITE_BUSY contention that arises when :server:test runs multiple
-                    // testApplication instances in parallel. The pragma key is accepted by
-                    // sqlite-jdbc's SQLiteConfig and applied at connection-open time.
-                    addDataSourceProperty("journal_mode", "wal")
-                    validate()
-                },
-            )
+        val pool = buildPool(config)
 
         Flyway
             .configure()
-            .dataSource(hikari)
+            .dataSource(pool)
             .locations("classpath:db/migration")
             .load()
             .migrate()
 
+        val swappable = SwappableDataSource(pool)
         val dbFile = Path.of(config.jdbcUrl.removePrefix("jdbc:sqlite:"))
-        return DatabaseHandle(Database.connect(hikari), hikari, dbFile)
+        return DatabaseHandle(
+            database = Database.connect(swappable),
+            dataSource = swappable,
+            poolFactory = { buildPool(config) },
+            dbFilePath = dbFile,
+        )
     }
+
+    private fun buildPool(config: DatabaseConfig): HikariDataSource =
+        HikariDataSource(
+            HikariConfig().apply {
+                jdbcUrl = config.jdbcUrl
+                username = config.username
+                password = config.password
+                maximumPoolSize = config.maxPoolSize
+                isAutoCommit = false
+                transactionIsolation = "TRANSACTION_SERIALIZABLE"
+                // SQLite has FK enforcement off per-connection by default. The property
+                // key must be the pragma name (`foreign_keys`), not the SQLiteConfig
+                // setter name (`enforceForeignKeys`) — sqlite-jdbc's `SQLiteConfig` reads
+                // pragma-keyed properties at connection init, which runs before Hikari
+                // calls `setAutoCommit(false)`. `connectionInitSql` is the wrong tool here
+                // because SQLite ignores `PRAGMA foreign_keys` inside an active transaction,
+                // and `isAutoCommit = false` opens one before that SQL would run.
+                addDataSourceProperty("foreign_keys", "true")
+                // WAL mode allows concurrent readers alongside a writer, eliminating the
+                // SQLITE_BUSY contention that arises when :server:test runs multiple
+                // testApplication instances in parallel. The pragma key is accepted by
+                // sqlite-jdbc's SQLiteConfig and applied at connection-open time.
+                addDataSourceProperty("journal_mode", "wal")
+                validate()
+            },
+        )
 }
