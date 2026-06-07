@@ -8,11 +8,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Shape
 
 /**
- * The signature M3 Expressive avatar shape — a 9-sided "cookie" scallop — used for the
- * contributor hero avatar in place of a plain circle.
- *
- * Backed by [MaterialShapes.Cookie9Sided]; the returned [Shape] is remembered across
- * compositions by [toShape].
+ * The signature M3 Expressive "cookie" scallop — a 9-sided rounded star. Backed by
+ * [MaterialShapes.Cookie9Sided]; [toShape] remembers the result across compositions.
+ * Reuse this anywhere the app needs the scallop (avatars, celebratory badges).
  */
 @Composable
-fun contributorAvatarShape(): Shape = MaterialShapes.Cookie9Sided.toShape()
+fun cookieScallopShape(): Shape = MaterialShapes.Cookie9Sided.toShape()
+
+/**
+ * The contributor hero-avatar shape — the [cookieScallopShape] used in place of a plain circle.
+ */
+@Composable
+fun contributorAvatarShape(): Shape = cookieScallopShape()
