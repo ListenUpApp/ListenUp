@@ -125,6 +125,7 @@ fun booksModule(
                 get(),
                 get(),
                 clock = get(),
+                collectionBookRepository = get(),
                 bookTagRepository = getOrNull(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),

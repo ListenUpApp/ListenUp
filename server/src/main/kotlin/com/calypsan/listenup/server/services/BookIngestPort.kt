@@ -26,12 +26,19 @@ interface BookIngestPort {
      * stable [BookId], so the file is always named after the book it belongs to.
      * Null means the scanned book has no cover to store (or cover storage is not
      * configured).
+     *
+     * [inboxCollectionId], when non-null, is the library's inbox collection id resolved
+     * once per scan by the orchestrator. Only when this call genuinely INSERTS a new book
+     * is its book→inbox membership written inside the same transaction as the book row, so
+     * the firehose (which evaluates access at delivery) never exposes the book to members.
+     * Re-scans/updates of an existing book never add membership. Null disables quarantine.
      */
     suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
+        inboxCollectionId: String? = null,
     ): AppResult<IngestOutcome>
 
     /** Soft-delete library books absent from [seenIds]; see [BookRepository.softDeleteAbsent]. */
