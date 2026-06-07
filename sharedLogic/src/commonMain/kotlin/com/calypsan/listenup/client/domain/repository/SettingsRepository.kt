@@ -151,6 +151,12 @@ interface ServerConfig {
      */
     suspend fun preferLocalUrl()
 
+    /**
+     * Set the active URL explicitly (e.g. after a reachability probe picks the live address).
+     * Persists it and publishes [activeUrl]. Pass the resolved local or remote URL.
+     */
+    suspend fun setActiveUrl(url: ServerUrl)
+
     /** Disconnect from current server (clears URL and auth data). */
     suspend fun disconnectFromServer()
 

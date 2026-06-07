@@ -179,6 +179,22 @@ class SettingsRepositoryTest {
             }
         }
 
+    @Test
+    fun `setActiveUrl persists the active URL and publishes it`() =
+        runTest {
+            val storage = createMockStorage()
+            everySuspend { storage.save("active_url", "http://192.168.1.10:8080") } returns Unit
+            everySuspend { storage.read("active_url") } returns "http://192.168.1.10:8080"
+            val repository = createRepository(storage = storage)
+
+            repository.activeUrl.test {
+                awaitItem() // current value (null initial)
+                repository.setActiveUrl(ServerUrl("http://192.168.1.10:8080"))
+                assertEquals("http://192.168.1.10:8080", awaitItem()?.value)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     // ========== Spatial playback ==========
 
     @Test

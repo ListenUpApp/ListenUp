@@ -105,6 +105,8 @@ private class FakeServerConfig(
 
     override suspend fun preferLocalUrl() = Unit
 
+    override suspend fun setActiveUrl(url: ServerUrl) = Unit
+
     override suspend fun disconnectFromServer() = Unit
 
     override suspend fun clearAll() = Unit

@@ -188,6 +188,11 @@ class SettingsRepositoryImpl(
         publishActiveUrl()
     }
 
+    override suspend fun setActiveUrl(url: ServerUrl) {
+        secureStorage.save(KEY_ACTIVE_URL, url.value)
+        publishActiveUrl()
+    }
+
     override suspend fun hasServerConfigured(): Boolean = getServerUrl() != null
 
     /**
