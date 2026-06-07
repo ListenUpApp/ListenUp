@@ -133,6 +133,13 @@ class OpfParserTest :
                 parser.parse(opfPath)?.series shouldBe emptyList()
             }
         }
+
+        test("Calibre series present but series_index absent yields null sequence") {
+            runTest {
+                val opfPath = inlineOpfWithSeriesOnly(seriesName = "The Wheel of Time")
+                parser.parse(opfPath)?.series shouldBe listOf(SeriesEntry(name = "The Wheel of Time", sequence = null))
+            }
+        }
     })
 
 private fun inlineOpf(date: String): Path {
@@ -202,6 +209,23 @@ private fun inlineOpfWithCalibreSeries(
                 <dc:title>$title</dc:title>
                 <meta name="calibre:series" content="$seriesName"/>
                 <meta name="calibre:series_index" content="$seriesIndex"/>
+            </metadata>
+        </package>
+        """.trimIndent(),
+    )
+    temp.toFile().deleteOnExit()
+    return temp
+}
+
+private fun inlineOpfWithSeriesOnly(seriesName: String): Path {
+    val temp = kotlin.io.path.createTempFile(suffix = ".opf")
+    temp.toFile().writeText(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+            <metadata>
+                <dc:title>Series Only Test</dc:title>
+                <meta name="calibre:series" content="$seriesName"/>
             </metadata>
         </package>
         """.trimIndent(),

@@ -81,10 +81,11 @@ internal class OpfParser : SidecarParser {
                 series =
                     root
                         .metaContent("calibre:series")
-                        ?.let {
+                        ?.let { seriesName ->
+                            // calibre:series_index is optional; absent → null sequence (valid)
                             listOf(
                                 SeriesEntry(
-                                    name = it,
+                                    name = seriesName,
                                     sequence = root.metaContent("calibre:series_index"),
                                 ),
                             )
