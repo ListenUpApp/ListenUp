@@ -42,6 +42,7 @@
     <string name="admin_genre_name">Genre name</string>
     <string name="admin_in_this_collection">in this collection</string>
     <string name="admin_inbox_empty">Inbox Empty</string>
+    <string name="admin_inbox_new_books">Inbox new books</string>
     <string name="admin_inbox_settings">Inbox Settings</string>
     <string name="admin_inbox_workflow">Inbox Workflow</string>
     <string name="admin_invite_created">Invite Created!</string>
@@ -51,7 +52,7 @@
     <string name="admin_link_copied">Link copied!</string>
     <string name="admin_listening_history">Listening history</string>
     <string name="admin_map_scanned_genre_strings_to_your_taxonomy">Map scanned genre strings to your taxonomy</string>
-    <string name="admin_new_books_in_this_library">New books in this library bypass inbox review and appear immediately</string>
+    <string name="admin_new_books_in_this_library">New books are held for review before members can see them.</string>
     <string name="admin_newly_scanned_books_will_appear">Newly scanned books will appear here for review</string>
     <string name="admin_no_books_in_this_collection">No books in this collection</string>
     <string name="admin_no_pending_registrations">No pending registrations</string>
@@ -83,7 +84,6 @@
     <string name="admin_share_this_link_with_invitename">Share this link with %1$s:</string>
     <string name="admin_share_your_audiobook_library_with">Share your audiobook library with others</string>
     <string name="admin_significantly_increases_backup_size">Significantly increases backup size</string>
-    <string name="admin_skip_inbox">Skip Inbox</string>
     <string name="admin_tap_to_create_your_first">Tap + to create your first genre</string>
     <string name="admin_the_book_will_not_be">The book will not be deleted from your library.</string>
     <string name="admin_the_display_name_for_this">The display name for this collection</string>

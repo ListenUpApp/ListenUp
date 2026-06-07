@@ -11,7 +11,10 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
+import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
@@ -19,6 +22,7 @@ import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.CollectionRef
 import com.calypsan.listenup.client.data.remote.InboxBookResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
 import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
@@ -50,6 +54,7 @@ private val logger = KotlinLogging.logger {}
  * @property adminUserRpc RPC factory for user-management operations
  * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
+ * @property libraryAdminRpc RPC factory for library-admin operations (e.g. inbox toggle)
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
@@ -57,6 +62,7 @@ class AdminRepositoryImpl(
     private val adminUserRpc: AdminUserRpcFactory,
     private val adminSettingsRpc: AdminSettingsRpcFactory,
     private val inviteRpc: InviteRpcFactory,
+    private val libraryAdminRpc: LibraryAdminRpcFactory,
     private val serverConfig: ServerConfig,
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
@@ -264,6 +270,14 @@ class AdminRepositoryImpl(
         return adminApi.updateLibrary(libraryId, request).map { it.toDomain() }
     }
 
+    override suspend fun setInboxEnabled(
+        libraryId: String,
+        enabled: Boolean,
+    ): AppResult<Library> =
+        catching("setInboxEnabled") {
+            libraryAdminRpc.get().setInboxEnabled(LibraryId(libraryId), enabled).map { it.toDomain() }
+        }
+
     override suspend fun addScanPath(
         libraryId: String,
         path: String,
@@ -306,6 +320,30 @@ private fun CollectionRef.toDomain(): StagedCollection =
     StagedCollection(
         id = id,
         name = name,
+    )
+
+/**
+ * Convert the contract [ContractLibrary] (returned by [com.calypsan.listenup.api.LibraryAdminService])
+ * to the [Library] domain model.
+ *
+ * The contract DTO carries no `revision` (that lives on the member-synced
+ * projection, not the admin aggregate), so it defaults to 0L — matching the
+ * Go-REST [LibraryResponse.toDomain] mapping until the full admin RPC rewire lands.
+ */
+private fun ContractLibrary.toDomain(): Library =
+    Library(
+        id = id.value,
+        name = name,
+        metadataPrecedence = metadataPrecedence,
+        accessMode =
+            when (accessMode) {
+                ContractAccessMode.SHARED -> AccessMode.OPEN
+                ContractAccessMode.RESTRICTED, ContractAccessMode.PRIVATE -> AccessMode.RESTRICTED
+            },
+        createdByUserId = createdByUserId?.value,
+        createdAt = createdAt,
+        revision = 0L,
+        inboxEnabled = inboxEnabled,
     )
 
 /**

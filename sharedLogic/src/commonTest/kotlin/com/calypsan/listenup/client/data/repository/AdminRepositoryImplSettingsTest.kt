@@ -38,6 +38,7 @@ class AdminRepositoryImplSettingsTest :
                 adminUserRpc = mock(),
                 adminSettingsRpc = FakeAdminSettingsRpcFactory(svc),
                 inviteRpc = mock(),
+                libraryAdminRpc = mock(),
                 serverConfig = mock(),
             )
 
@@ -61,7 +62,7 @@ class AdminRepositoryImplSettingsTest :
 
                     override suspend fun invalidate() = Unit
                 }
-            val r = AdminRepositoryImpl(mock(), mock(), throwing, mock(), mock()).getServerSettings()
+            val r = AdminRepositoryImpl(mock(), mock(), throwing, mock(), mock(), mock()).getServerSettings()
             (r is AppResult.Failure) shouldBe true
         }
     })
