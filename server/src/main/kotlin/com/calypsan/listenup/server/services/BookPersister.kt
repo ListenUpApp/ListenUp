@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.CoverSource as SyncCoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.scanner.toSummary
@@ -47,34 +48,35 @@ private val log = KotlinLogging.logger {}
  * result only re-walked one book-root — absence there is not authoritative, so
  * no sweep runs.
  *
- * No inbox auto-add: scan-time inbox auto-populate was deliberately reverted. It
- * carried a TOCTOU content leak — `BookRepository.upsert` commits the book row
- * and publishes `book.Created` to the firehose inside one transaction, at which
- * instant the book is in no collection (uncollected → public by
- * [com.calypsan.listenup.server.api.BookAccessPolicy]). The firehose subscriber
- * collects the event, sees committed-public state, and delivers the full payload
- * to every connected member *before* the separate `addToInbox` transaction can
- * quarantine it. Closing that window atomically would require the membership to
- * land in the same transaction as the book insert with the `book.Created`
- * publish deferred until after commit — a change to the shared
- * [com.calypsan.listenup.server.sync.SyncableRepository.upsert] publish-inside-
- * transaction contract that every domain depends on. Rather than risk that
- * cross-domain contract, the auto-add hook is removed; scanned books stay
- * uncollected (their existing behaviour). The inbox remains usable via the
- * deliberate admin path
- * ([com.calypsan.listenup.server.api.CollectionServiceImpl.addToInbox] /
- * `releaseBooks` / `listInbox`). Scan-auto-populate is a future phase with
- * atomic ingest designed in from the start.
+ * Inbox auto-quarantine: when the current library is `inboxEnabled`, the persister
+ * resolves the library's inbox collection ONCE per scan (via
+ * [com.calypsan.listenup.server.api.CollectionServiceImpl.getOrCreateInbox]) and
+ * threads its id into every per-book ingest. [BookIngestPort.resolveOrInsert]
+ * commits the book→inbox membership inside the very same transaction as a genuinely
+ * NEW book row, so the firehose — which evaluates
+ * [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery — never
+ * exposes the book to members (it is already in the admin-only inbox before the
+ * `book.Created` publish is observable). This closes the TOCTOU leak that the old
+ * separate-transaction `addToInbox` hook carried. Re-scans/updates of an existing
+ * book never re-inbox it. Resolving the inbox must never fail the scan: a
+ * [getOrCreateInbox] failure logs a warning and falls back to null, leaving the
+ * scanned books uncollected (offline-safe ingest).
  *
  * [coverImageStore] is optional: when non-null, the persister extracts cover
  * bytes from each [AnalyzedBook] (filesystem or embedded) and passes a
  * [PendingCover] to [BookIngestPort.resolveOrInsert] so the repository can
  * write the managed cover file after the book id is known. When null (e.g. in
  * pure orchestration tests), cover extraction is skipped.
+ *
+ * [libraryRepository] reads the per-library `inboxEnabled` gate; [collectionService]
+ * resolves (or creates) the library's inbox collection when that gate is on. Both
+ * back the inbox auto-quarantine described above.
  */
-class BookPersister(
+class BookPersister internal constructor(
     private val ingest: BookIngestPort,
     private val libraryRegistry: LibraryRegistry,
+    private val libraryRepository: LibraryRepository,
+    private val collectionService: CollectionServiceImpl,
     private val db: Database,
     private val scanResultBus: SharedFlow<ScanResult>,
     private val eventBus: MutableSharedFlow<ScanEvent>,
@@ -129,9 +131,13 @@ class BookPersister(
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
         val scanRoot = JPath.of(result.rootPath)
+        // Resolve the library's inbox ONCE per scan when the gate is on, so every
+        // newly-inserted book quarantines into it atomically (see class KDoc). A
+        // resolution failure must never fail the scan — fall back to null (uncollected).
+        val inboxCollectionId = resolveInboxCollectionId(libraryId)
         var anyFailed = false
         for (analyzed in result.books) {
-            val bookId = persistOne(analyzed, libraryId, folderId, scanRoot)
+            val bookId = persistOne(analyzed, libraryId, folderId, scanRoot, inboxCollectionId)
             if (bookId != null) seenIds += bookId else anyFailed = true
         }
         if (result.scope is ScanScope.Full) {
@@ -153,6 +159,28 @@ class BookPersister(
     }
 
     /**
+     * Resolves the library's inbox collection id when [libraryId] is `inboxEnabled`,
+     * or null when the gate is off or the inbox cannot be resolved.
+     *
+     * A [CollectionServiceImpl.getOrCreateInbox] failure (e.g. no admin to own the
+     * inbox yet) must not fail the scan — it logs a warning and returns null, so the
+     * scanned books land uncollected rather than stranding a half-ingested library.
+     */
+    private suspend fun resolveInboxCollectionId(libraryId: LibraryId): String? {
+        if (!libraryRepository.readInboxEnabled(libraryId)) return null
+        return when (val result = collectionService.getOrCreateInbox(libraryId.value)) {
+            is AppResult.Success -> {
+                result.data.id.value
+            }
+
+            is AppResult.Failure -> {
+                log.warn { "Inbox quarantine skipped for library ${libraryId.value}: ${result.error.code}" }
+                null
+            }
+        }
+    }
+
+    /**
      * Persists one scanned book, contained against its own failure: a typed
      * failure or an escaped exception is logged and counted, never aborting the
      * rest of the scan. Returns the resolved [BookId] when the aggregate landed
@@ -168,10 +196,11 @@ class BookPersister(
         libraryId: LibraryId,
         folderId: FolderId,
         scanRoot: JPath,
+        inboxCollectionId: String?,
     ): BookId? =
         try {
             val pending = extractPendingCover(analyzed, scanRoot)
-            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed, pending)) {
+            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed, pending, inboxCollectionId)) {
                 is AppResult.Success -> {
                     r.data.bookId
                 }

@@ -245,6 +245,8 @@ private fun Module.coverAndPersisterBindings(
         BookPersister(
             ingest = get(),
             libraryRegistry = get(),
+            libraryRepository = get(),
+            collectionService = get<CollectionServiceImpl>(),
             db = get(),
             scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
             eventBus = get<MutableSharedFlow<ScanEvent>>(),
