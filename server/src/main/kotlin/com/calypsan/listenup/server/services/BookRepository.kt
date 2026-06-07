@@ -91,6 +91,7 @@ class BookRepository(
     private val seriesRepository: SeriesRepository,
     private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),
     clock: Clock = Clock.System,
+    private val collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
@@ -128,6 +129,14 @@ class BookRepository(
      * and cannot clobber each other's pending cover.
      */
     private val pendingManagedCovers = java.util.concurrent.ConcurrentHashMap<String, StoredCoverInfo>()
+
+    /**
+     * Per-book inbox collection ids (book-id → inbox id) pending an atomic membership write in
+     * [writePayload]'s INSERT branch — stashed by [upsertFromAnalyzed] only for a NEW book and
+     * cleared in a `finally`, mirroring [pendingManagedCovers]. Same-transaction membership
+     * closes the TOCTOU firehose leak (a member's delivery-time `canAccess` sees it quarantined).
+     */
+    private val pendingInboxIds = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /**
      * Reads the book aggregate by id — joins child tables for contributors,
@@ -328,6 +337,16 @@ class BookRepository(
                 stmt[BookTable.deletedAt] = null
                 stmt[BookTable.clientOpId] = clientOpId
             }
+            // Atomic inbox quarantine: insertInboxMembership's upsert joins THIS transaction.
+            // A stashed inbox id without a wired repo is a misconfiguration — fail loudly rather
+            // than silently drop the quarantine (which would re-open the firehose leak).
+            pendingInboxIds[value.id]?.let { inboxId ->
+                val repo =
+                    requireNotNull(collectionBookRepository) {
+                        "inbox quarantine requested but CollectionBookRepository is not wired"
+                    }
+                insertInboxMembership(repo, inboxId, value.id, now)
+            }
         }
 
         replaceContributors(value.id, value.contributors)
@@ -374,11 +393,12 @@ class BookRepository(
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
+        inboxCollectionId: String?,
     ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover)
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
                 .map { IngestOutcome(existing, wasNew = false) }
         }
 
@@ -389,13 +409,13 @@ class BookRepository(
                 findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover)
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
                         .map { IngestOutcome(existing, wasNew = false) }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover)
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
             .map { IngestOutcome(newId, wasNew = true) }
     }
 
@@ -499,6 +519,7 @@ class BookRepository(
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
+        inboxCollectionId: String? = null,
     ): AppResult<BookSyncPayload> {
         val resolvedContributors =
             analyzedBookMapper.buildContributors(analyzed).map { c ->
@@ -517,10 +538,11 @@ class BookRepository(
                 resolvedContributors = resolvedContributors,
                 resolvedSeries = resolvedSeries,
             )
-        // Read the existing cover source BEFORE the upsert to decide:
-        //  (a) whether to skip file I/O (UPLOADED-locked → don't write an orphan), AND
-        //  (b) whether to include the managed cover in the upsert (atomic single write).
-        val existingCoverSource = findById(bookId)?.cover?.source
+        // Read the existing aggregate ONCE — derives the existing cover source (sticky-UPLOADED
+        // skip) and isNew (the only-on-create gate for atomic inbox quarantine).
+        val existing = findById(bookId)
+        val existingCoverSource = existing?.cover?.source
+        val isNew = existing == null
         // File I/O must stay OUTSIDE the DB transaction — store the cover first, then upsert.
         val storedCover =
             if (existingCoverSource == CoverSource.UPLOADED) {
@@ -528,9 +550,14 @@ class BookRepository(
             } else {
                 managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
             }
-        // Single write: storedCover (if any) lands in the same transaction as the book row,
-        // producing exactly one revision bump and one SyncEvent per scanned book.
-        val result = upsertWithManagedCover(payload, managedCover = storedCover)
+        // Stash the inbox id ONLY for a new book; writePayload commits the membership atomically.
+        if (isNew && inboxCollectionId != null) pendingInboxIds[bookId.value] = inboxCollectionId
+        val result =
+            try {
+                upsertWithManagedCover(payload, managedCover = storedCover)
+            } finally {
+                pendingInboxIds.remove(bookId.value)
+            }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
             suspendTransaction(db) { processGenreStrings(bookId, analyzed.genres, now) }
@@ -934,64 +961,6 @@ class BookRepository(
     }
 
     /**
-     * Replaces the FTS row for [payload] in `book_search`, allocating or reusing
-     * the integer rowid via [BookSearchMapTable].
-     *
-     * `book_search` is a `contentless_delete=1` FTS5 table (V9 migration), which
-     * lets the inverted index drop a row's tokens via plain `DELETE FROM book_search
-     * WHERE rowid = ?`. Without that flag, contentless FTS5 requires the special
-     * `INSERT INTO ft(ft, rowid, ...) VALUES('delete', rowid, ...old values...)`
-     * command — a workable but heavier path that this table deliberately avoids.
-     *
-     * The rowid is interpolated into the SQL string because it's an Int we just
-     * computed (no injection surface). Text columns are parameterised through
-     * Exposed's `exec(args = ...)` form.
-     */
-    private fun upsertFtsRow(payload: BookSyncPayload) {
-        val rowid = resolveOrAllocateFtsRowid(payload.id)
-        val contributorNames = payload.contributors.joinToString(", ") { it.name }
-        val seriesNames = payload.series.joinToString(", ") { it.name }
-        val tx = TransactionManager.current()
-        tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
-        tx.exec(
-            stmt =
-                "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names) " +
-                    "VALUES ($rowid, ?, ?, ?, ?, ?)",
-            args =
-                listOf(
-                    TextColumnType() to payload.title,
-                    TextColumnType() to (payload.subtitle ?: ""),
-                    TextColumnType() to (payload.description ?: ""),
-                    TextColumnType() to contributorNames,
-                    TextColumnType() to seriesNames,
-                ),
-        )
-    }
-
-    private fun resolveOrAllocateFtsRowid(bookId: String): Int {
-        val existing =
-            BookSearchMapTable
-                .selectAll()
-                .where { BookSearchMapTable.bookId eq bookId }
-                .firstOrNull()
-        if (existing != null) return existing[BookSearchMapTable.rowid]
-        val maxExpr = BookSearchMapTable.rowid.max()
-        val nextRowid =
-            (
-                BookSearchMapTable
-                    .select(maxExpr)
-                    .firstOrNull()
-                    ?.get(maxExpr)
-                    ?: 0
-            ) + 1
-        BookSearchMapTable.insert {
-            it[BookSearchMapTable.bookId] = bookId
-            it[BookSearchMapTable.rowid] = nextRowid
-        }
-        return nextRowid
-    }
-
-    /**
      * Returns the full book aggregates for every book that has a junction row for
      * [contributorId] in [BookContributorTable]. Results are ordered by book
      * [BookTable.createdAt] ascending (stable, scan-insertion order).
@@ -1040,6 +1009,89 @@ class BookRepository(
      * outside the substrate's `upsert` / `pullSince` orchestration.
      */
     internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? = readPayload(idStr)
+}
+
+/**
+ * Replaces the FTS row for [payload] in `book_search`, allocating or reusing
+ * the integer rowid via [BookSearchMapTable].
+ *
+ * `book_search` is a `contentless_delete=1` FTS5 table (V9 migration), which
+ * lets the inverted index drop a row's tokens via plain `DELETE FROM book_search
+ * WHERE rowid = ?`. Without that flag, contentless FTS5 requires the special
+ * `INSERT INTO ft(ft, rowid, ...) VALUES('delete', rowid, ...old values...)`
+ * command — a workable but heavier path that this table deliberately avoids.
+ *
+ * The rowid is interpolated into the SQL string because it's an Int we just
+ * computed (no injection surface). Text columns are parameterised through
+ * Exposed's `exec(args = ...)` form. Must run inside an open transaction.
+ */
+private fun upsertFtsRow(payload: BookSyncPayload) {
+    val rowid = resolveOrAllocateFtsRowid(payload.id)
+    val contributorNames = payload.contributors.joinToString(", ") { it.name }
+    val seriesNames = payload.series.joinToString(", ") { it.name }
+    val tx = TransactionManager.current()
+    tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
+    tx.exec(
+        stmt =
+            "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names) " +
+                "VALUES ($rowid, ?, ?, ?, ?, ?)",
+        args =
+            listOf(
+                TextColumnType() to payload.title,
+                TextColumnType() to (payload.subtitle ?: ""),
+                TextColumnType() to (payload.description ?: ""),
+                TextColumnType() to contributorNames,
+                TextColumnType() to seriesNames,
+            ),
+    )
+}
+
+private fun resolveOrAllocateFtsRowid(bookId: String): Int {
+    val existing =
+        BookSearchMapTable
+            .selectAll()
+            .where { BookSearchMapTable.bookId eq bookId }
+            .firstOrNull()
+    if (existing != null) return existing[BookSearchMapTable.rowid]
+    val maxExpr = BookSearchMapTable.rowid.max()
+    val nextRowid =
+        (
+            BookSearchMapTable
+                .select(maxExpr)
+                .firstOrNull()
+                ?.get(maxExpr)
+                ?: 0
+        ) + 1
+    BookSearchMapTable.insert {
+        it[BookSearchMapTable.bookId] = bookId
+        it[BookSearchMapTable.rowid] = nextRowid
+    }
+    return nextRowid
+}
+
+/**
+ * Commits the `(inboxCollectionId, bookId)` membership for a newly-inserted book.
+ *
+ * Called from inside [BookRepository.writePayload]'s INSERT branch — already within the
+ * book-insert transaction. [CollectionBookRepository.upsert] opens a `suspendTransaction`
+ * that JOINS that transaction (Exposed coroutine txn reuse), so the membership lands
+ * atomically with the book row; it is never a separate transaction.
+ */
+private suspend fun insertInboxMembership(
+    collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository,
+    inboxCollectionId: String,
+    bookId: String,
+    now: Long,
+) {
+    collectionBookRepository.upsert(
+        com.calypsan.listenup.api.sync.CollectionBookSyncPayload(
+            collectionId = inboxCollectionId,
+            bookId = bookId,
+            createdAt = now,
+            revision = 0L,
+            deletedAt = null,
+        ),
+    )
 }
 
 /**

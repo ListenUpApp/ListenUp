@@ -6,22 +6,18 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
-import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.services.BookPersister
-import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -33,102 +29,115 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldHaveSize
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.test.TestScope
+import io.kotest.matchers.collections.shouldContainExactly
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Verifies the scanner ingest path NEVER auto-adds scanned books to the
- * library's inbox — the Task-10 scan-auto-populate hook was reverted to close
- * the TOCTOU firehose leak (a new book's `book.Created` event became firehose-
- * visible while uncollected → public → leaked to every member, before the
- * separate `addToInbox` transaction could quarantine it).
+ * Verifies the atomic inbox-membership seam in the book-insert transaction.
  *
- * Auto-populate is genuinely separable: the inbox feature remains usable via the
- * admin path ([CollectionServiceImpl.addToInbox] / `releaseBooks` / `listInbox`),
- * which an admin invokes deliberately. Scan-auto-populate becomes a future phase
- * with atomic ingest (membership committed in the same transaction as the book
- * insert, before the `book.Created` publish) designed in from the start.
+ * When a library is inbox-enabled and the scan ingest resolves the inbox collection,
+ * [BookRepository.resolveOrInsert] threads its id down so that — only for a genuinely
+ * NEW book — the book→inbox `collection_books` membership is written inside the very
+ * same transaction as the book row. The firehose evaluates [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess]
+ * at delivery, so committing membership atomically with the insert means a member
+ * never sees the book (it is already in the admin-only inbox before the `book.Created`
+ * publish is visible). This closes the TOCTOU leak the old scan-hook revert guarded.
  *
- * Drives a real [BookPersister] wired to a real [BookRepository] (the ingest
- * port) and a real [CollectionServiceImpl] (the inbox port), against a
- * Flyway-migrated in-memory database — no mocks. The inbox membership is read
- * back through the admin-only [CollectionServiceImpl.listInbox].
+ * Re-running `resolveOrInsert` for the SAME book is an UPDATE — it must NOT add a
+ * second membership (only-on-create, idempotent re-scan).
+ *
+ * Drives a real [BookRepository] (the ingest port) and a real [CollectionServiceImpl]
+ * (the inbox resolver) against a Flyway-migrated in-memory database — no mocks.
+ * Membership is read back through [CollectionBookRepository.findBookIdsForCollection].
  */
 class ScannerInboxIngestTest :
     FunSpec({
 
-        test("inbox_enabled=true: a newly-scanned book is NOT auto-added to the inbox (hook reverted)") {
+        test("inbox_enabled + inbox id: a NEW book is committed into the inbox") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
                 setInboxEnabled(db, "test-library", enabled = true)
                 seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val (persister, collections) = fixture(db, this)
+                    val fx = fixture(db)
+                    val inboxId = fx.resolveInboxId()
 
-                    persister.persist(scanResultFor(book("Sanderson/Way of Kings", inode = 1L)))
+                    val outcome =
+                        fx.bookRepo.resolveOrInsert(
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            analyzed = book("Sanderson/Way of Kings", inode = 1L),
+                            inboxCollectionId = inboxId,
+                        )
+                    require(outcome is AppResult.Success)
 
-                    // Even with inbox_enabled, the scan leaves the book uncollected — no
-                    // automatic inbox add, so the firehose-while-public leak cannot arise.
-                    val inbox = collections.actingAsAdmin().listInbox("test-library")
-                    require(inbox is AppResult.Success)
-                    inbox.data.shouldBeEmpty()
+                    fx.collectionBookRepo.findBookIdsForCollection(inboxId) shouldContainExactly
+                        listOf(outcome.data.bookId.value)
                 }
             }
         }
 
-        test("inbox_enabled=false: a newly-scanned book is uncollected (public)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                // inbox_enabled defaults to false; do not flip it.
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                runTest {
-                    val (persister, collections) = fixture(db, this)
-
-                    persister.persist(scanResultFor(book("Sanderson/Mistborn", inode = 2L)))
-
-                    val inbox = collections.actingAsAdmin().listInbox("test-library")
-                    require(inbox is AppResult.Success)
-                    inbox.data.shouldBeEmpty()
-                }
-            }
-        }
-
-        test("admin can still inbox a scanned book deliberately, then release it") {
+        test("re-resolving the SAME book (update) does not add a second membership") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
                 setInboxEnabled(db, "test-library", enabled = true)
                 seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val (persister, collections) = fixture(db, this)
-                    val admin = collections.actingAsAdmin()
+                    val fx = fixture(db)
+                    val inboxId = fx.resolveInboxId()
+                    val analyzed = book("Sanderson/Way of Kings", inode = 1L)
 
-                    // Scan a book — lands uncollected (no auto-inbox).
-                    persister.persist(scanResultFor(book("Sanderson/Way of Kings", inode = 1L)))
-                    val bookId = db.singleBookId()
+                    val first =
+                        fx.bookRepo.resolveOrInsert(
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            analyzed = analyzed,
+                            inboxCollectionId = inboxId,
+                        )
+                    require(first is AppResult.Success)
 
-                    // Admin deliberately inboxes it via the admin path (still supported).
-                    require(collections.addToInbox(bookId, "test-library") is AppResult.Success)
-                    val afterInbox = admin.listInbox("test-library")
-                    require(afterInbox is AppResult.Success)
-                    afterInbox.data shouldHaveSize 1
+                    // Same book, same path → resolve-or-insert takes the UPDATE branch.
+                    val second =
+                        fx.bookRepo.resolveOrInsert(
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            analyzed = analyzed,
+                            inboxCollectionId = inboxId,
+                        )
+                    require(second is AppResult.Success)
 
-                    // Admin releases it back out to uncollected.
-                    val release = admin.releaseBooks("test-library", mapOf(bookId to emptyList()))
-                    require(release is AppResult.Success)
-                    val afterRelease = admin.listInbox("test-library")
-                    require(afterRelease is AppResult.Success)
-                    afterRelease.data.shouldBeEmpty()
+                    // Still exactly one membership — the update path must not re-inbox.
+                    fx.collectionBookRepo.findBookIdsForCollection(inboxId) shouldContainExactly
+                        listOf(first.data.bookId.value)
+                }
+            }
+        }
+
+        test("no inbox id supplied: a NEW book is uncollected (public)") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                runTest {
+                    val fx = fixture(db)
+                    val inboxId = fx.resolveInboxId()
+
+                    val outcome =
+                        fx.bookRepo.resolveOrInsert(
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            analyzed = book("Sanderson/Mistborn", inode = 2L),
+                            inboxCollectionId = null,
+                        )
+                    require(outcome is AppResult.Success)
+
+                    fx.collectionBookRepo.findBookIdsForCollection(inboxId).shouldBeEmpty()
                 }
             }
         }
@@ -136,31 +145,23 @@ class ScannerInboxIngestTest :
 
 // --- Fixtures ---------------------------------------------------------------
 
-private data class InboxFixture(
-    val persister: BookPersister,
+private class InboxFixture(
+    val bookRepo: BookRepository,
+    val collectionBookRepo: CollectionBookRepository,
     val collections: CollectionServiceImpl,
-)
-
-/** A [CollectionServiceImpl] bound to an ADMIN principal, for the admin-only inbox reads. */
-private fun CollectionServiceImpl.actingAsAdmin(): CollectionServiceImpl = copyWith(adminPrincipal())
-
-private fun adminPrincipal(): PrincipalProvider =
-    PrincipalProvider {
-        com.calypsan.listenup.server.auth.UserPrincipal(
-            com.calypsan.listenup.api.dto.auth
-                .UserId("admin"),
-            com.calypsan.listenup.api.dto.auth
-                .SessionId("session-admin"),
-            com.calypsan.listenup.api.dto.auth.UserRole.ADMIN,
-        )
+) {
+    /** Resolves (creating if needed) the library's inbox collection id, as the scan path will. */
+    suspend fun resolveInboxId(): String {
+        val inbox = collections.getOrCreateInbox("test-library")
+        require(inbox is AppResult.Success)
+        return inbox.data.id.value
     }
+}
 
-private fun fixture(
-    db: Database,
-    scope: TestScope,
-): InboxFixture {
+private fun fixture(db: Database): InboxFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
+    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = syncRegistry)
     val bookRepo =
         BookRepository(
             db = db,
@@ -168,9 +169,9 @@ private fun fixture(
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
+            collectionBookRepository = collectionBookRepo,
         )
     val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)
-    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = syncRegistry)
     val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = syncRegistry)
     val collections =
         CollectionServiceImpl(
@@ -183,17 +184,7 @@ private fun fixture(
             db = db,
             principal = PrincipalProvider { null },
         )
-    val persister =
-        BookPersister(
-            ingest = bookRepo,
-            libraryRegistry = LibraryRegistry(db, env = mapOf("LISTENUP_LIBRARY_PATH" to "/tmp/test-library")),
-            db = db,
-            scanResultBus = MutableSharedFlow(),
-            eventBus = MutableSharedFlow(),
-            scope = scope,
-            metrics = BookPersisterMetrics(SimpleMeterRegistry()),
-        )
-    return InboxFixture(persister, collections)
+    return InboxFixture(bookRepo, collectionBookRepo, collections)
 }
 
 private fun setInboxEnabled(
@@ -205,27 +196,6 @@ private fun setInboxEnabled(
         LibraryTable.update({ LibraryTable.id eq libraryId }) { it[inboxEnabled] = enabled }
     }
 }
-
-/** Reads back the id of the single book the test scanned in. */
-private fun Database.singleBookId(): String =
-    transaction(this) {
-        BookTable
-            .selectAll()
-            .single()[BookTable.id]
-    }
-
-private fun scanResultFor(vararg books: AnalyzedBook): ScanResult =
-    ScanResult(
-        correlationId = "test",
-        rootPath = "/tmp/test-library",
-        books = books.toList(),
-        changes = emptyList(),
-        errors = emptyList(),
-        durationMs = 0L,
-        filesWalked = books.size,
-        filesSkipped = 0,
-        scope = ScanScope.Full,
-    )
 
 private fun book(
     rootRelPath: String,

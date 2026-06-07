@@ -71,7 +71,7 @@ import listenup.composeapp.generated.resources.admin_scan_all_paths_for_new
 import listenup.composeapp.generated.resources.admin_scan_paths
 import listenup.composeapp.generated.resources.admin_scanning
 import listenup.composeapp.generated.resources.admin_select_folder
-import listenup.composeapp.generated.resources.admin_skip_inbox
+import listenup.composeapp.generated.resources.admin_inbox_new_books
 import listenup.composeapp.generated.resources.admin_uncollected_books_are_visible_to
 import listenup.composeapp.generated.resources.admin_users_only_see_books_in
 import listenup.composeapp.generated.resources.common_cancel
@@ -87,7 +87,7 @@ import org.jetbrains.compose.resources.stringResource
  * Features:
  * - View library information (name, scan paths)
  * - Toggle access mode (open vs restricted)
- * - Toggle skip inbox setting
+ * - Toggle inbox quarantine for new books
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,7 +158,7 @@ private fun LibrarySettingsBody(
             LibrarySettingsContent(
                 state = state,
                 onAccessModeChange = viewModel::setAccessMode,
-                onToggleSkipInbox = viewModel::toggleSkipInbox,
+                onInboxEnabledChange = viewModel::setInboxEnabled,
                 onRemoveScanPath = viewModel::removeScanPath,
                 onAddFolder = { viewModel.setShowFolderBrowser(true) },
                 onTriggerScan = viewModel::triggerScan,
@@ -183,7 +183,7 @@ private fun LibrarySettingsBody(
 private fun LibrarySettingsContent(
     state: LibrarySettingsUiState.Ready,
     onAccessModeChange: (AccessMode) -> Unit,
-    onToggleSkipInbox: () -> Unit,
+    onInboxEnabledChange: (Boolean) -> Unit,
     onRemoveScanPath: (String) -> Unit,
     onAddFolder: () -> Unit,
     onTriggerScan: () -> Unit,
@@ -281,11 +281,10 @@ private fun LibrarySettingsContent(
         }
 
         item {
-            // skipInbox not carried by the new Library domain; toggle is a no-op pending Task 25 schema work.
             InboxSettingsCard(
-                skipInbox = false,
+                inboxEnabled = state.inboxEnabled,
                 isSaving = state.isSaving,
-                onToggleSkipInbox = onToggleSkipInbox,
+                onInboxEnabledChange = onInboxEnabledChange,
             )
         }
 
@@ -459,9 +458,9 @@ private fun AccessModeRow(
 
 @Composable
 private fun InboxSettingsCard(
-    skipInbox: Boolean,
+    inboxEnabled: Boolean,
     isSaving: Boolean,
-    onToggleSkipInbox: () -> Unit,
+    onInboxEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ElevatedCard(
@@ -487,7 +486,7 @@ private fun InboxSettingsCard(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(Res.string.admin_skip_inbox),
+                    text = stringResource(Res.string.admin_inbox_new_books),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -501,8 +500,8 @@ private fun InboxSettingsCard(
                 ListenUpLoadingIndicatorSmall()
             } else {
                 Switch(
-                    checked = skipInbox,
-                    onCheckedChange = { onToggleSkipInbox() },
+                    checked = inboxEnabled,
+                    onCheckedChange = onInboxEnabledChange,
                 )
             }
         }

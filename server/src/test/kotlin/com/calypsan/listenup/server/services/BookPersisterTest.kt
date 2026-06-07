@@ -14,7 +14,16 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.CollectionAccessPolicy
+import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -221,6 +230,7 @@ private class FakeBookIngest(
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
+        inboxCollectionId: String?,
     ): AppResult<IngestOutcome> {
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
@@ -255,12 +265,35 @@ private fun persister(
     BookPersister(
         ingest = ingest,
         libraryRegistry = LibraryRegistry(db, env = mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+        libraryRepository = LibraryRepository(db, ChangeBus(), SyncRegistry()),
+        collectionService = inertCollectionService(db),
         db = db,
         scanResultBus = MutableSharedFlow(),
         eventBus = eventBus,
         scope = scope,
         metrics = metrics,
     )
+
+/**
+ * A real [CollectionServiceImpl] over [db]. These orchestration tests never enable a
+ * library's inbox, so the persister never calls it — it satisfies the constructor only.
+ */
+private fun inertCollectionService(db: Database): CollectionServiceImpl {
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+    val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+    return CollectionServiceImpl(
+        collectionRepo = collectionRepo,
+        collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
+        shareRepo = shareRepo,
+        accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+        permissionPolicy = UserPermissionPolicy(db),
+        bus = bus,
+        db = db,
+        principal = PrincipalProvider { null },
+    )
+}
 
 private fun scanResult(
     books: List<AnalyzedBook>,

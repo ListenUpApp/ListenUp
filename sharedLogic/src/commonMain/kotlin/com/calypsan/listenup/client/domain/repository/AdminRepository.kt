@@ -3,8 +3,6 @@ package com.calypsan.listenup.client.domain.repository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
-import com.calypsan.listenup.client.domain.model.InboxBook
-import com.calypsan.listenup.client.domain.model.InboxReleaseResult
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.domain.model.Library
@@ -161,54 +159,6 @@ interface AdminRepository {
     ): AppResult<ServerSettings>
 
     // ═══════════════════════════════════════════════════════════════════════
-    // INBOX MANAGEMENT
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Get all books in the inbox.
-     *
-     * @return [AppResult] carrying list of inbox books awaiting review, or a failure.
-     */
-    suspend fun getInboxBooks(): AppResult<List<InboxBook>>
-
-    /**
-     * Release books from inbox.
-     *
-     * Released books become visible to users (either publicly or
-     * in their staged collections).
-     *
-     * @param bookIds List of book IDs to release
-     * @return [AppResult] carrying release result with counts, or a failure.
-     */
-    suspend fun releaseBooks(bookIds: List<String>): AppResult<InboxReleaseResult>
-
-    /**
-     * Stage a collection for an inbox book.
-     *
-     * When the book is released, it will be added to this collection.
-     *
-     * @param bookId The inbox book ID
-     * @param collectionId The collection to stage
-     * @return [AppResult] carrying [Unit] on success, or a failure.
-     */
-    suspend fun stageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit>
-
-    /**
-     * Remove a staged collection from an inbox book.
-     *
-     * @param bookId The inbox book ID
-     * @param collectionId The collection to unstage
-     * @return [AppResult] carrying [Unit] on success, or a failure.
-     */
-    suspend fun unstageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit>
-
-    // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -241,6 +191,21 @@ interface AdminRepository {
         name: String? = null,
         skipInbox: Boolean? = null,
         accessMode: AccessMode? = null,
+    ): AppResult<Library>
+
+    /**
+     * Enable or disable inbox quarantine for a library.
+     *
+     * When enabled, newly-scanned books in this library are quarantined in its
+     * inbox (admin-only) until released, rather than becoming visible to members.
+     *
+     * @param libraryId The library ID
+     * @param enabled True to enable inbox quarantine
+     * @return [AppResult] carrying the updated library, or a failure.
+     */
+    suspend fun setInboxEnabled(
+        libraryId: String,
+        enabled: Boolean,
     ): AppResult<Library>
 
     /**

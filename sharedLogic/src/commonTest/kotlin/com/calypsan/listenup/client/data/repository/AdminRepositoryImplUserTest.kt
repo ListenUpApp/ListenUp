@@ -130,6 +130,7 @@ class AdminRepositoryImplUserTest :
                 adminUserRpc = FakeAdminUserRpcFactory(service),
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                libraryAdminRpc = mock(),
                 serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
             )
         }
@@ -266,6 +267,7 @@ class AdminRepositoryImplUserTest :
                     adminUserRpc = throwingFactory,
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                    libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 )
 
@@ -301,6 +303,7 @@ class AdminRepositoryImplUserTest :
                     adminUserRpc = throwingFactory,
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                    libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 )
             val result = repo.setOpenRegistration(true)

@@ -143,11 +143,15 @@ class LibrarySettingsViewModelTest {
         }
 
     @Test
-    fun `toggleSkipInbox is a no-op until LibraryAdminService rewire`() =
+    fun `setInboxEnabled calls repository and reflects inboxEnabled in state`() =
         runTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary()
+            val updatedLibrary = library.copy(inboxEnabled = true)
             everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
+            everySuspend {
+                adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
+            } returns AppResult.Success(updatedLibrary)
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -157,11 +161,40 @@ class LibrarySettingsViewModelTest {
                 )
             advanceUntilIdle()
 
-            // Should not throw or change state — no-op until Task 25 rewire.
-            viewModel.toggleSkipInbox()
+            viewModel.setInboxEnabled(true)
             advanceUntilIdle()
 
-            assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
+            val ready = assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
+            assertTrue(ready.inboxEnabled)
+            verifySuspend(VerifyMode.atLeast(1)) {
+                adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
+            }
+        }
+
+    @Test
+    fun `setInboxEnabled failure reverts state and surfaces error`() =
+        runTest {
+            val adminRepository: AdminRepository = mock()
+            val library = createLibrary()
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
+            everySuspend {
+                adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
+            } returns networkFailure()
+
+            val viewModel =
+                LibrarySettingsViewModel(
+                    libraryId = "lib-1",
+                    adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
+                )
+            advanceUntilIdle()
+
+            viewModel.setInboxEnabled(true)
+            advanceUntilIdle()
+
+            val ready = assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
+            assertFalse(ready.inboxEnabled)
+            assertTrue(ready.error != null)
         }
 
     @Test

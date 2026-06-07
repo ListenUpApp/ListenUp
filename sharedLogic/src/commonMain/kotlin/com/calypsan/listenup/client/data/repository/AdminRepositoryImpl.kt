@@ -11,24 +11,23 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
+import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
-import com.calypsan.listenup.client.data.remote.CollectionRef
-import com.calypsan.listenup.client.data.remote.InboxBookResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
 import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
-import com.calypsan.listenup.client.domain.model.InboxBook
-import com.calypsan.listenup.client.domain.model.InboxReleaseResult
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ServerSettings
-import com.calypsan.listenup.client.domain.model.StagedCollection
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -50,6 +49,7 @@ private val logger = KotlinLogging.logger {}
  * @property adminUserRpc RPC factory for user-management operations
  * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
+ * @property libraryAdminRpc RPC factory for library-admin operations (e.g. inbox toggle)
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
@@ -57,6 +57,7 @@ class AdminRepositoryImpl(
     private val adminUserRpc: AdminUserRpcFactory,
     private val adminSettingsRpc: AdminSettingsRpcFactory,
     private val inviteRpc: InviteRpcFactory,
+    private val libraryAdminRpc: LibraryAdminRpcFactory,
     private val serverConfig: ServerConfig,
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
@@ -214,40 +215,21 @@ class AdminRepositoryImpl(
         }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // INBOX MANAGEMENT
-    // ═══════════════════════════════════════════════════════════════════════
-
-    override suspend fun getInboxBooks(): AppResult<List<InboxBook>> =
-        adminApi.listInboxBooks().map { it.books.map { book -> book.toDomain() } }
-
-    override suspend fun releaseBooks(bookIds: List<String>): AppResult<InboxReleaseResult> =
-        adminApi.releaseBooks(bookIds).map { response ->
-            InboxReleaseResult(
-                released = response.released,
-                publicCount = response.public,
-                toCollections = response.toCollections,
-            )
-        }
-
-    override suspend fun stageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit> = adminApi.stageCollection(bookId, collectionId)
-
-    override suspend fun unstageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit> = adminApi.unstageCollection(bookId, collectionId)
-
-    // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getLibraries(): AppResult<List<Library>> =
         adminApi.getLibraries().map { libraries -> libraries.map { it.toDomain() } }
 
+    // Load via the LibraryAdminService RPC (not the Go-era REST path) so the returned Library
+    // carries the live inboxEnabled flag — the settings toggle would otherwise display stale-false
+    // on open until interacted with. The RPC Library maps to the same domain shape (no folders on
+    // the domain model), so this is field-equivalent plus the inbox flag.
     override suspend fun getLibrary(libraryId: String): AppResult<Library> =
-        adminApi.getLibrary(libraryId).map { it.toDomain() }
+        libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
+            library?.let { AppResult.Success(it.toDomain()) }
+                ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
+        }
 
     override suspend fun updateLibrary(
         libraryId: String,
@@ -263,6 +245,14 @@ class AdminRepositoryImpl(
             )
         return adminApi.updateLibrary(libraryId, request).map { it.toDomain() }
     }
+
+    override suspend fun setInboxEnabled(
+        libraryId: String,
+        enabled: Boolean,
+    ): AppResult<Library> =
+        catching("setInboxEnabled") {
+            libraryAdminRpc.get().setInboxEnabled(LibraryId(libraryId), enabled).map { it.toDomain() }
+        }
 
     override suspend fun addScanPath(
         libraryId: String,
@@ -285,27 +275,27 @@ class AdminRepositoryImpl(
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Convert InboxBookResponse API model to InboxBook domain model.
+ * Convert the contract [ContractLibrary] (returned by [com.calypsan.listenup.api.LibraryAdminService])
+ * to the [Library] domain model.
+ *
+ * The contract DTO carries no `revision` (that lives on the member-synced
+ * projection, not the admin aggregate), so it defaults to 0L — matching the
+ * Go-REST [LibraryResponse.toDomain] mapping until the full admin RPC rewire lands.
  */
-private fun InboxBookResponse.toDomain(): InboxBook =
-    InboxBook(
-        id = id,
-        title = title,
-        author = author,
-        coverUrl = coverUrl,
-        duration = duration,
-        stagedCollectionIds = stagedCollectionIds,
-        stagedCollections = stagedCollections.map { it.toDomain() },
-        scannedAt = scannedAt,
-    )
-
-/**
- * Convert CollectionRef API model to StagedCollection domain model.
- */
-private fun CollectionRef.toDomain(): StagedCollection =
-    StagedCollection(
-        id = id,
+private fun ContractLibrary.toDomain(): Library =
+    Library(
+        id = id.value,
         name = name,
+        metadataPrecedence = metadataPrecedence,
+        accessMode =
+            when (accessMode) {
+                ContractAccessMode.SHARED -> AccessMode.OPEN
+                ContractAccessMode.RESTRICTED, ContractAccessMode.PRIVATE -> AccessMode.RESTRICTED
+            },
+        createdByUserId = createdByUserId?.value,
+        createdAt = createdAt,
+        revision = 0L,
+        inboxEnabled = inboxEnabled,
     )
 
 /**

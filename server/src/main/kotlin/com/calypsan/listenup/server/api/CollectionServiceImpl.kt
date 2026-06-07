@@ -431,18 +431,14 @@ internal class CollectionServiceImpl(
      * A deliberate admin/system action — used by the admin REST routes to quarantine a
      * book for triage. It is unconditional: callers decide when to invoke it.
      *
-     * **Not a scan hook.** Scan-time inbox auto-populate was reverted (see
-     * [com.calypsan.listenup.server.services.BookPersister]) because publishing a new
-     * book's `book.Created` event to the firehose before the membership commits leaked
-     * the payload to members while the book was momentarily uncollected → public. The
-     * admin path carries a far smaller, admin-controlled window: when an admin inboxes an
-     * *already-public* book, the `collection_books` membership commits and publishes a
-     * `collection_books.Created` event; only between that commit and a member's next
-     * firehose-driven re-derive does the book remain visible. That window is bounded, not
-     * per-new-book-automatic, and the book was already public to begin with — the inbox
-     * action *reduces* its reach rather than exposing previously-hidden content. A future
-     * scan-auto-populate phase must instead land the membership atomically with the book
-     * insert, before the `book.Created` publish.
+     * **Distinct from the scan hook.** Scan-time auto-quarantine now lands inbox membership
+     * *atomically* in the book-insert transaction (see
+     * [com.calypsan.listenup.server.services.BookPersister] +
+     * [com.calypsan.listenup.server.services.BookRepository], gated on `library.inboxEnabled`),
+     * so a new book never has a momentarily-public window. This `addToInbox` is the separate
+     * *deliberate admin action* for an already-public book: the firehose evaluates
+     * `BookAccessPolicy.canAccess` at delivery, so the book is hidden from members as soon as
+     * the membership commits — the action *reduces* its reach rather than exposing hidden content.
      *
      * A system operation (no caller principal); the book must exist
      * ([CollectionError.BookNotFound]).

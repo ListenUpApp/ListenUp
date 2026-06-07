@@ -192,6 +192,7 @@ internal class LibraryAdminServiceImpl(
                 accessMode = AccessMode.SHARED,
                 createdByUserId = null,
                 createdAt = now,
+                inboxEnabled = false,
             )
 
         // Register with orchestrator AFTER DB commit
@@ -214,6 +215,26 @@ internal class LibraryAdminServiceImpl(
         return when (val result = libraryRepository.upsert(updated)) {
             is AppResult.Failure -> AppResult.Failure(result.error)
             is AppResult.Success -> AppResult.Success(result.data.toLibraryWithFolders())
+        }
+    }
+
+    override suspend fun setInboxEnabled(
+        libraryId: LibraryId,
+        enabled: Boolean,
+    ): AppResult<Library> {
+        requireAdmin()?.let { return AppResult.Failure(it) }
+        return when (val result = libraryRepository.setInboxEnabled(libraryId, enabled)) {
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
+
+            is AppResult.Success -> {
+                val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
+                val payload =
+                    page.items.firstOrNull { it.id == libraryId.value && it.deletedAt == null }
+                        ?: return AppResult.Failure(LibraryError.NotFound())
+                AppResult.Success(payload.toLibraryWithFolders())
+            }
         }
     }
 
@@ -419,6 +440,7 @@ internal class LibraryAdminServiceImpl(
                         .UserId(it)
                 },
             createdAt = this.createdAt,
+            inboxEnabled = libraryRepository.readInboxEnabled(LibraryId(this.id)),
         )
     }
 }

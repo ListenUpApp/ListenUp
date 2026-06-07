@@ -22,7 +22,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Manages viewing and editing a single library's settings:
  * - Access mode (open vs restricted)
- * - Skip inbox setting
+ * - Inbox quarantine setting
  */
 class LibrarySettingsViewModel(
     private val libraryId: String,
@@ -54,12 +54,14 @@ class LibrarySettingsViewModel(
                             current.copy(
                                 library = library,
                                 accessMode = library.accessMode,
+                                inboxEnabled = library.inboxEnabled,
                                 error = null,
                             )
                         } else {
                             LibrarySettingsUiState.Ready(
                                 library = library,
                                 accessMode = library.accessMode,
+                                inboxEnabled = library.inboxEnabled,
                             )
                         }
                     }
@@ -127,13 +129,48 @@ class LibrarySettingsViewModel(
     }
 
     /**
-     * Toggle the skip inbox setting.
+     * Enable or disable inbox quarantine for the library.
      *
-     * No-op until LibraryAdminService RPC rewire lands in Task 25.
-     * `skipInbox` was a Go-era concept not carried by the new schema.
+     * Optimistically updates the UI state, then persists via the
+     * `LibraryAdminService.setInboxEnabled` RPC. Reverts on failure.
      */
-    fun toggleSkipInbox() {
-        // TODO: rewire to LibraryAdminService RPC when Task 25 lands
+    fun setInboxEnabled(enabled: Boolean) {
+        val ready = state.value as? LibrarySettingsUiState.Ready ?: return
+        val previousValue = ready.inboxEnabled
+
+        if (enabled == previousValue) return
+
+        // Optimistic update
+        updateReady { it.copy(inboxEnabled = enabled, isSaving = true) }
+
+        viewModelScope.launch {
+            when (val result = adminRepository.setInboxEnabled(libraryId = libraryId, enabled = enabled)) {
+                is AppResult.Success -> {
+                    val updatedLibrary = result.data
+                    logger.info { "Set inbox enabled for library $libraryId to ${updatedLibrary.inboxEnabled}" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            library = updatedLibrary,
+                            inboxEnabled = updatedLibrary.inboxEnabled,
+                        )
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to set inbox enabled for library: $libraryId — ${result.error}" }
+                    // Revert to previous value
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            inboxEnabled = previousValue,
+                            error = userMessageFor(result.error),
+                        )
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -321,7 +358,7 @@ class LibrarySettingsViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `adminRepository.getLibrary` response.
  * - [Ready] once the library has loaded; carries the canonical library,
- *   the edit-buffer fields (`accessMode`, `skipInbox`) that mirror the
+ *   the edit-buffer fields (`accessMode`, `inboxEnabled`) that mirror the
  *   server state after optimistic updates, action overlays
  *   (`isSaving`, `isScanning`, `isBrowserLoading`), the folder-browser
  *   overlay fields, and a transient `error` surfaced via snackbar.
@@ -339,6 +376,7 @@ sealed interface LibrarySettingsUiState {
     data class Ready(
         val library: Library,
         val accessMode: AccessMode,
+        val inboxEnabled: Boolean = false,
         val isSaving: Boolean = false,
         val isScanning: Boolean = false,
         val error: String? = null,

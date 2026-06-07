@@ -132,6 +132,7 @@ class AdminRepositoryImplInviteTest :
                 adminUserRpc = unusedUserRpc,
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = FakeInviteRpcFactory(service),
+                libraryAdminRpc = mock(),
                 serverConfig = FakeServerConfig(serverUrl),
             )
         }
@@ -222,6 +223,7 @@ class AdminRepositoryImplInviteTest :
                     adminUserRpc = mock<AdminUserRpcFactory>(),
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = throwingFactory,
+                    libraryAdminRpc = mock(),
                     serverConfig = FakeServerConfig(),
                 )
 

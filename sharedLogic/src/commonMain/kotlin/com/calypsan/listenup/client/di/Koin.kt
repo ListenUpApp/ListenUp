@@ -1077,6 +1077,7 @@ val syncModule =
                 adminUserRpc = get(),
                 adminSettingsRpc = get(),
                 inviteRpc = get(),
+                libraryAdminRpc = get(),
                 serverConfig = get(),
             )
         }

@@ -49,21 +49,6 @@ interface AdminApiContract {
 
     suspend fun deleteInvite(inviteId: String): AppResult<Unit>
 
-    // Inbox management
-    suspend fun listInboxBooks(): AppResult<InboxBooksResponse>
-
-    suspend fun releaseBooks(bookIds: List<String>): AppResult<ReleaseInboxBooksResponse>
-
-    suspend fun stageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit>
-
-    suspend fun unstageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit>
-
     // Library management
     suspend fun getLibraries(): AppResult<List<LibraryResponse>>
 
@@ -177,46 +162,6 @@ class AdminApi(
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
         apiCallUnit {
             clientFactory.getClient().delete("/api/v1/admin/invites/$inviteId").body<ApiResponse<Unit>>()
-        }
-
-    // Inbox Management
-
-    override suspend fun listInboxBooks(): AppResult<InboxBooksResponse> =
-        apiCall(errorMessage = "Inbox books response missing data") {
-            clientFactory.getClient().get("/api/v1/admin/inbox").body<ApiResponse<InboxBooksApiResponse>>()
-        }.map { it.toDomain() }
-
-    override suspend fun releaseBooks(bookIds: List<String>): AppResult<ReleaseInboxBooksResponse> =
-        apiCall(errorMessage = "Release inbox books response missing data") {
-            clientFactory
-                .getClient()
-                .post("/api/v1/admin/inbox/release") {
-                    setBody(ReleaseInboxBooksApiRequest(bookIds))
-                }.body<ApiResponse<ReleaseInboxBooksApiResponse>>()
-        }.map { it.toDomain() }
-
-    override suspend fun stageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit> =
-        apiCallUnit {
-            clientFactory
-                .getClient()
-                .post("/api/v1/admin/inbox/$bookId/stage") {
-                    setBody(StageCollectionApiRequest(collectionId))
-                }.body<ApiResponse<Unit>>()
-        }
-
-    override suspend fun unstageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit> =
-        apiCallUnit {
-            clientFactory
-                .getClient()
-                .delete(
-                    "/api/v1/admin/inbox/$bookId/stage/$collectionId",
-                ).body<ApiResponse<Unit>>()
         }
 
     // Library Management
@@ -341,96 +286,6 @@ data class CreateInviteRequest(
     @SerialName("email") val email: String,
     @SerialName("role") val role: String = "member",
     @SerialName("expires_in_days") val expiresInDays: Int = 7,
-)
-
-// =============================================================================
-// Inbox API Models
-// =============================================================================
-
-/**
- * API response for listing inbox books.
- */
-@Serializable
-private data class InboxBooksApiResponse(
-    @SerialName("books") val books: List<InboxBookApiResponse>,
-    @SerialName("total") val total: Int,
-) {
-    fun toDomain(): InboxBooksResponse =
-        InboxBooksResponse(
-            books = books.map { it.toDomain() },
-            total = total,
-        )
-}
-
-/**
- * API response for a single inbox book.
- */
-@Serializable
-private data class InboxBookApiResponse(
-    @SerialName("id") val id: String,
-    @SerialName("title") val title: String,
-    @SerialName("author") val author: String? = null,
-    @SerialName("cover_url") val coverUrl: String? = null,
-    @SerialName("duration") val duration: Long,
-    @SerialName("staged_collection_ids") val stagedCollectionIds: List<String>,
-    @SerialName("staged_collections") val stagedCollections: List<CollectionRefApiResponse>,
-    @SerialName("scanned_at") val scannedAt: String,
-) {
-    fun toDomain(): InboxBookResponse =
-        InboxBookResponse(
-            id = id,
-            title = title,
-            author = author,
-            coverUrl = coverUrl,
-            duration = duration,
-            stagedCollectionIds = stagedCollectionIds,
-            stagedCollections = stagedCollections.map { it.toDomain() },
-            scannedAt = scannedAt,
-        )
-}
-
-/**
- * API response for collection reference.
- */
-@Serializable
-private data class CollectionRefApiResponse(
-    @SerialName("id") val id: String,
-    @SerialName("name") val name: String,
-) {
-    fun toDomain(): CollectionRef = CollectionRef(id = id, name = name)
-}
-
-/**
- * API request for releasing inbox books.
- */
-@Serializable
-private data class ReleaseInboxBooksApiRequest(
-    @SerialName("book_ids") val bookIds: List<String>,
-)
-
-/**
- * API response for releasing inbox books.
- */
-@Serializable
-private data class ReleaseInboxBooksApiResponse(
-    @SerialName("released") val released: Int,
-    @SerialName("public") val public: Int,
-    @SerialName("to_collections") val toCollections: Int,
-) {
-    fun toDomain(): ReleaseInboxBooksResponse =
-        ReleaseInboxBooksResponse(
-            released = released,
-            public = public,
-            toCollections = toCollections,
-        )
-}
-
-/**
- * API request for staging a collection.
- */
-@Serializable
-private data class StageCollectionApiRequest(
-    @SerialName("collection_id") val collectionId: String,
 )
 
 // =============================================================================
