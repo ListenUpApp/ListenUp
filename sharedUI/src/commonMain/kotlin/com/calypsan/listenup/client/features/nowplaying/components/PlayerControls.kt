@@ -9,7 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +24,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Squircle play/pause FAB with primary background; shows a spinner while buffering. */
+/** Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while buffering. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PlayPauseFab(
     isPlaying: Boolean,
@@ -40,10 +42,10 @@ fun PlayPauseFab(
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isBuffering) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(size * 0.4f),
-                    strokeWidth = 2.5.dp,
+                CircularWavyProgressIndicator(
+                    modifier = Modifier.size(size * 0.5f),
                     color = MaterialTheme.colorScheme.onPrimary,
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.24f),
                 )
             } else {
                 Icon(
