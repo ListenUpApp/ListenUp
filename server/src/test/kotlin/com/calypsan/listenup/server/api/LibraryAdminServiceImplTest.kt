@@ -690,6 +690,8 @@ private fun fakeWatcher(): WatcherSupervisorPort =
         override suspend fun unmount(folderId: FolderId) = Unit
 
         override suspend fun unmountAllForLibrary(libraryId: LibraryId) = Unit
+
+        override suspend fun unmountAll() = Unit
     }
 
 private fun fakeBundle(

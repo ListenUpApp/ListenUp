@@ -219,6 +219,8 @@ private fun noOpWatcher(): WatcherSupervisorPort =
         override suspend fun unmount(folderId: FolderId) = Unit
 
         override suspend fun unmountAllForLibrary(libraryId: LibraryId) = Unit
+
+        override suspend fun unmountAll() = Unit
     }
 
 @OptIn(DelicateCoroutinesApi::class)
