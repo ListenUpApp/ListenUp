@@ -163,23 +163,6 @@ class SettingsRepositoryTest {
     // ========== Active URL change-signal ==========
 
     @Test
-    fun `activeUrl emits the active URL after preferLocalUrl`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("server_url") } returns "http://192.168.1.10:8080"
-            everySuspend { storage.save("active_url", "http://192.168.1.10:8080") } returns Unit
-            everySuspend { storage.read("active_url") } returns "http://192.168.1.10:8080"
-            val repository = createRepository(storage = storage)
-
-            repository.activeUrl.test {
-                awaitItem() // current value (null initial)
-                repository.preferLocalUrl()
-                assertEquals("http://192.168.1.10:8080", awaitItem()?.value)
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
     fun `setActiveUrl persists the active URL and publishes it`() =
         runTest {
             val storage = createMockStorage()

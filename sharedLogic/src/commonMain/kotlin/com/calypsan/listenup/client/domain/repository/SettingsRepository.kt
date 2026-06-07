@@ -147,11 +147,6 @@ interface ServerConfig {
     suspend fun switchToFallbackUrl(): ServerUrl?
 
     /**
-     * Reset active URL to prefer local (called on app foreground/resume).
-     */
-    suspend fun preferLocalUrl()
-
-    /**
      * Set the active URL explicitly (e.g. after a reachability probe picks the live address).
      * Persists it and publishes [activeUrl]. Pass the resolved local or remote URL.
      */

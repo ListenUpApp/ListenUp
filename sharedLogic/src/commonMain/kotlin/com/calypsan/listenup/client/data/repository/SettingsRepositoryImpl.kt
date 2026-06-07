@@ -180,14 +180,6 @@ class SettingsRepositoryImpl(
         return ServerUrl(fallback)
     }
 
-    override suspend fun preferLocalUrl() {
-        val localUrl = secureStorage.read(KEY_SERVER_URL)
-        if (localUrl != null) {
-            secureStorage.save(KEY_ACTIVE_URL, localUrl)
-        }
-        publishActiveUrl()
-    }
-
     override suspend fun setActiveUrl(url: ServerUrl) {
         secureStorage.save(KEY_ACTIVE_URL, url.value)
         publishActiveUrl()

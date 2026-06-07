@@ -103,8 +103,6 @@ private class FakeServerConfig(
 
     override suspend fun switchToFallbackUrl(): ServerUrl? = null
 
-    override suspend fun preferLocalUrl() = Unit
-
     override suspend fun setActiveUrl(url: ServerUrl) = Unit
 
     override suspend fun disconnectFromServer() = Unit
