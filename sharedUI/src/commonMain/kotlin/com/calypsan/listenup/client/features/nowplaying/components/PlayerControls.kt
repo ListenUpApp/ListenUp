@@ -20,7 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -42,10 +45,14 @@ fun PlayPauseFab(
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isBuffering) {
+                // Thinner than the default wavy stroke so it reads as a light indicator, not a chunky ring.
+                val wavyStroke = with(LocalDensity.current) { Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round) }
                 CircularWavyProgressIndicator(
                     modifier = Modifier.size(size * 0.5f),
                     color = MaterialTheme.colorScheme.onPrimary,
                     trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.24f),
+                    stroke = wavyStroke,
+                    trackStroke = wavyStroke,
                 )
             } else {
                 Icon(
