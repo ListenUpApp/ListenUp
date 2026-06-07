@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -184,10 +184,10 @@ private fun MiniPlayerContent(
             )
         }
 
-        // Non-interactive wavy chapter progress strip — no handle, no touch
-        // WavySeekBar always renders a drag handle, so we use LinearWavyProgressIndicator
-        // directly here for a clean read-only strip.
-        LinearWavyProgressIndicator(
+        // Thin, non-interactive chapter progress strip. A plain bar (not the wavy indicator) reads
+        // cleaner at the mini-player's small height — the expressive wave is reserved for the
+        // full-screen player and the desktop bar, where it has the vertical room to register.
+        LinearProgressIndicator(
             progress = { state.chapterProgress },
             modifier =
                 Modifier
@@ -195,7 +195,7 @@ private fun MiniPlayerContent(
                     .height(4.dp),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            amplitude = { if (state.isPlaying) 1f else 0f },
+            drawStopIndicator = {},
         )
     }
 }
