@@ -160,7 +160,6 @@ fun NowPlayingHost(
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,
                 onSkipBack = { viewModel.skipBack() },
-                onSkipForward = { viewModel.skipForward() },
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)

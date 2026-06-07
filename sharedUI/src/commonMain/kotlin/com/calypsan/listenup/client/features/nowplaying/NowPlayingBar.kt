@@ -20,15 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forward30
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,19 +36,22 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.playback.NowPlayingState
 
 /**
- * Floating mini player that appears above bottom navigation.
+ * Floating mini-player card docked above the bottom navigation.
  *
- * M3 Expressive styling:
- * - Full pill shape (28dp corners)
- * - Diverse button sizes (play larger than skips)
- * - Pill-shaped skip buttons (horizontally elongated)
- * - Tonal elevation for depth
+ * M3 Expressive styling per the MiniPlayerMobile design:
+ * - [surfaceContainerHigh] card with large rounded corners
+ * - Cover thumbnail · title + chapter line · skip-back · play/pause squircle
+ * - Non-interactive wavy progress strip along the bottom (chapter progress)
  *
- * Renders for [NowPlayingState.Active] only; hidden on Idle/Error.
+ * Visible only when [state] is [NowPlayingState.Active] and [isExpanded] is false.
+ * Tapping anywhere expands to the full-screen player via [onTap].
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NowPlayingBar(
     state: NowPlayingState,
@@ -62,7 +59,6 @@ fun NowPlayingBar(
     onTap: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
-    onSkipForward: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isVisible = state is NowPlayingState.Active && !isExpanded
@@ -79,7 +75,6 @@ fun NowPlayingBar(
             targetValue = if (isFocused) 1.05f else 1f,
             label = "mini_player_focus_scale",
         )
-        val focusBorderColor = MaterialTheme.colorScheme.primary
         val focusBorderShape = MaterialTheme.shapes.large
 
         Surface(
@@ -89,7 +84,6 @@ fun NowPlayingBar(
                 Modifier
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                     .fillMaxWidth()
-                    .height(80.dp)
                     .graphicsLayer {
                         scaleX = focusScale
                         scaleY = focusScale
@@ -97,7 +91,7 @@ fun NowPlayingBar(
                         if (isFocused) {
                             Modifier.border(
                                 width = 2.dp,
-                                color = focusBorderColor,
+                                color = MaterialTheme.colorScheme.primary,
                                 shape = focusBorderShape,
                             )
                         } else {
@@ -105,38 +99,37 @@ fun NowPlayingBar(
                         },
                     ),
             shape = MaterialTheme.shapes.large,
-            tonalElevation = 6.dp,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 2.dp,
             shadowElevation = 4.dp,
         ) {
             if (state is NowPlayingState.Active) {
-                ActiveContent(
+                MiniPlayerContent(
                     state = state,
-                    focusBorderColor = focusBorderColor,
                     onPlayPause = onPlayPause,
                     onSkipBack = onSkipBack,
-                    onSkipForward = onSkipForward,
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ActiveContent(
+private fun MiniPlayerContent(
     state: NowPlayingState.Active,
-    focusBorderColor: androidx.compose.ui.graphics.Color,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
-    onSkipForward: () -> Unit,
 ) {
     Column {
         Row(
             modifier =
                 Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp, end = 8.dp),
+                    .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // Cover thumbnail — 48dp, rounded 12dp corners
             BookCoverImage(
                 bookId = state.bookId,
                 coverPath = state.coverPath,
@@ -144,12 +137,13 @@ private fun ActiveContent(
                 contentDescription = "Book cover",
                 modifier =
                     Modifier
-                        .size(56.dp)
+                        .size(48.dp)
                         .clip(RoundedCornerShape(12.dp)),
             )
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(4.dp))
 
+            // Title + chapter info column — grows to fill available space
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = state.title,
@@ -157,103 +151,51 @@ private fun ActiveContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val chapterLine =
+                    if (state.chapterTitle != null) {
+                        "Ch. ${state.chapterIndex + 1} · ${state.chapterTitle}"
+                    } else {
+                        "Ch. ${state.chapterIndex + 1}"
+                    }
                 Text(
-                    text = state.author,
+                    text = chapterLine,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                state.chapterTitle?.let { chapter ->
-                    Text(
-                        text = chapter,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = focusBorderColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
 
-            NowPlayingBarControls(
+            // Skip-back control (single skip on the phone mini-player)
+            Ctrl(
+                icon = Icons.Default.Replay10,
+                contentDescription = "Skip back 10 seconds",
+                onClick = onSkipBack,
+                size = 40.dp,
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+
+            // Play/pause squircle FAB
+            PlayPauseFab(
                 isPlaying = state.isPlaying,
                 isBuffering = state.isBuffering,
-                onPlayPause = onPlayPause,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
+                onClick = onPlayPause,
+                size = 48.dp,
             )
         }
 
-        LinearProgressIndicator(
-            progress = { state.bookProgress },
+        // Non-interactive wavy chapter progress strip — no handle, no touch
+        // WavySeekBar always renders a drag handle, so we use LinearWavyProgressIndicator
+        // directly here for a clean read-only strip.
+        LinearWavyProgressIndicator(
+            progress = { state.chapterProgress },
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(3.dp),
+                    .height(4.dp),
+            color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            drawStopIndicator = {},
+            amplitude = { if (state.isPlaying) 1f else 0f },
         )
-    }
-}
-
-@Composable
-private fun NowPlayingBarControls(
-    isPlaying: Boolean,
-    isBuffering: Boolean,
-    onPlayPause: () -> Unit,
-    onSkipBack: () -> Unit,
-    onSkipForward: () -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Skip back - rounded square, tonal
-        FilledTonalIconButton(
-            onClick = onSkipBack,
-            modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Icon(
-                Icons.Default.Replay10,
-                contentDescription = "Skip back 10 seconds",
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
-        // Play/Pause - larger, filled, rounded square (hero button)
-        // Shows a spinner during mid-playback buffering.
-        FilledIconButton(
-            onClick = onPlayPause,
-            enabled = !isBuffering,
-            modifier = Modifier.size(48.dp),
-            shape = RoundedCornerShape(14.dp),
-        ) {
-            if (isBuffering) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Icon(
-                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(28.dp),
-                )
-            }
-        }
-
-        // Skip forward - rounded square, tonal
-        FilledTonalIconButton(
-            onClick = onSkipForward,
-            modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Icon(
-                Icons.Default.Forward30,
-                contentDescription = "Skip forward 30 seconds",
-                modifier = Modifier.size(20.dp),
-            )
-        }
     }
 }
