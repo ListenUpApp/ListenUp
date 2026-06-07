@@ -44,7 +44,8 @@ import org.jetbrains.compose.resources.stringResource
  *
  * The scaffold intentionally does **not** wrap [content] in a scroll container: panels that need
  * scrolling (Chapters) supply their own bounded `LazyColumn`, and a `LazyColumn` nested in a
- * scrolling parent would be measured with infinite height and crash.
+ * scrolling parent would be measured with infinite height and crash. Expanded-width (dialog) content
+ * is therefore assumed to fit the viewport; only the Chapters panel scrolls.
  *
  * @param title Panel heading, rendered in the display font.
  * @param onDismiss Invoked when the sheet/dialog is dismissed (scrim tap, back, drag-down, close).

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,9 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -99,7 +98,7 @@ private fun SleepTimerOptions(onSetTimer: (SleepTimerMode) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         DURATION_OPTIONS.forEach { minutes ->
-            DurationChip(
+            PillChip(
                 label = SleepTimerMode.Duration(minutes).label,
                 onClick = { onSetTimer(SleepTimerMode.Duration(minutes)) },
             )
@@ -107,27 +106,6 @@ private fun SleepTimerOptions(onSetTimer: (SleepTimerMode) -> Unit) {
     }
     Spacer(Modifier.height(18.dp))
     EndOfChapterCard(onClick = { onSetTimer(SleepTimerMode.EndOfChapter) })
-}
-
-@Composable
-private fun DurationChip(
-    label: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(percent = 50),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
 }
 
 @Composable
@@ -224,7 +202,7 @@ private fun DurationCountdown(
     Spacer(Modifier.height(12.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         EXTEND_OPTIONS.forEach { minutes ->
-            DurationChip(
+            PillChip(
                 label = stringResource(Res.string.player_extend_minutes, minutes),
                 onClick = { onExtend(minutes) },
             )
