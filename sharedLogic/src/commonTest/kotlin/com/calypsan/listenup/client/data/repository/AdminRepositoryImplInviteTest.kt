@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 // ─── Fakes ────────────────────────────────────────────────────────────────────
 
@@ -85,6 +87,8 @@ private class FakeInviteRpcFactory(
 private class FakeServerConfig(
     private val url: String = "https://srv.example",
 ) : ServerConfig {
+    override val activeUrl: StateFlow<ServerUrl?> = MutableStateFlow(ServerUrl(url))
+
     override suspend fun setServerUrl(url: ServerUrl) = Unit
 
     override suspend fun getServerUrl(): ServerUrl? = ServerUrl(url)
