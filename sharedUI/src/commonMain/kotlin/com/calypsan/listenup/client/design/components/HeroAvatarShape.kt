@@ -14,9 +14,3 @@ import androidx.compose.ui.graphics.Shape
  */
 @Composable
 fun cookieScallopShape(): Shape = MaterialShapes.Cookie9Sided.toShape()
-
-/**
- * The contributor hero-avatar shape — the [cookieScallopShape] used in place of a plain circle.
- */
-@Composable
-fun contributorAvatarShape(): Shape = cookieScallopShape()

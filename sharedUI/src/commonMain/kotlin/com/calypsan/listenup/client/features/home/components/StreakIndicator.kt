@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.contributorAvatarShape
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 
 /**
  * Streak indicator \u2014 a scallop badge with a flame, the current streak, and the longest as a subtitle.
@@ -47,7 +47,7 @@ fun StreakIndicator(
             modifier =
                 Modifier
                     .size(48.dp)
-                    .clip(contributorAvatarShape())
+                    .clip(cookieScallopShape())
                     .background(MaterialTheme.colorScheme.tertiaryContainer),
             contentAlignment = Alignment.Center,
         ) {

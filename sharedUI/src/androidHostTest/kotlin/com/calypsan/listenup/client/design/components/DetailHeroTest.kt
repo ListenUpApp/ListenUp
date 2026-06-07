@@ -81,10 +81,10 @@ class DetailHeroTest {
     }
 
     @Test
-    fun contributorAvatarShapeIsUsable() {
+    fun cookieScallopShapeIsUsable() {
         composeRule.setContent {
             MaterialTheme {
-                val shape = contributorAvatarShape()
+                val shape = cookieScallopShape()
                 Text(if (shape.toString().isNotEmpty()) "SHAPE_OK" else "SHAPE_BAD")
             }
         }

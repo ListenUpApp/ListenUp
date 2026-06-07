@@ -67,7 +67,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.DetailHero
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.contributorAvatarShape
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -374,7 +374,7 @@ private fun WideHeroHeader(
                     imagePath = imagePath,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
-                    shape = contributorAvatarShape(),
+                    shape = cookieScallopShape(),
                 )
 
                 // Name, aliases, metadata, bio
@@ -578,7 +578,7 @@ private fun NarrowContributorPortfolio(
                         imagePath = state.contributor.imagePath,
                         contributorId = contributorId,
                         colorScheme = colorScheme,
-                        shape = contributorAvatarShape(),
+                        shape = cookieScallopShape(),
                     )
                 },
                 subtitle =

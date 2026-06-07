@@ -318,8 +318,8 @@ fun AlphabetScrollbar(
                                     y = (selectedLetterY - 36.dp.toPx()).toInt(),
                                 )
                             }.size(72.dp)
-                            .shadow(elevation = 12.dp, shape = contributorAvatarShape())
-                            .clip(contributorAvatarShape())
+                            .shadow(elevation = 12.dp, shape = cookieScallopShape())
+                            .clip(cookieScallopShape())
                             .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,
                 ) {

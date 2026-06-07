@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.components.contributorAvatarShape
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
@@ -293,7 +293,7 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .size(28.dp)
-                .clip(contributorAvatarShape())
+                .clip(cookieScallopShape())
                 .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center,
     ) {
@@ -461,11 +461,11 @@ private fun SelectionIndicator(
 
 /**
  * Completion badge shown when a book is marked as finished — the Material 3 Expressive scallop
- * ([contributorAvatarShape], `MaterialShapes.Cookie9Sided`), matching every other badge in the app.
+ * ([cookieScallopShape], `MaterialShapes.Cookie9Sided`), matching every other badge in the app.
  */
 @Composable
 private fun CompletionBadge(modifier: Modifier = Modifier) {
-    val shape = contributorAvatarShape()
+    val shape = cookieScallopShape()
 
     Box(
         modifier =
