@@ -80,5 +80,13 @@ class DatabaseHandle(
             ?.version
             ?.version
 
+    /**
+     * Terminal shutdown of the connection pool — releases every Hikari thread and SQLite
+     * file handle. Unlike [closePool] (the restore-flow close that expects a [reopenPool]),
+     * nothing reopens after this. Idempotent: HikariCP's close tolerates repeat calls.
+     */
     fun close() = dataSource.close()
+
+    /** True once the live pool is closed. Test-observability for graceful shutdown. */
+    fun isPoolClosed(): Boolean = dataSource.current().isClosed
 }
