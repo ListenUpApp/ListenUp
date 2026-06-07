@@ -140,6 +140,13 @@ class SyncModuleVerifyTest :
                         // Coroutine scope — named "appScope" is self-produced; unqualified class
                         // must appear here for verify to accept the named qualifier resolution.
                         CoroutineScope::class,
+                        // ConnectionCoordinator constructor params it builds by hand from
+                        // ServerConfig (verify sees the param types, not the wiring): the
+                        // active-URL StateFlow and the initial-URL supplier lambda.
+                        kotlinx.coroutines.flow.StateFlow::class,
+                        // The supplier is `suspend () -> ServerUrl?`, which compiles to
+                        // Function1 (the hidden Continuation parameter).
+                        Function1::class,
                     ),
             )
         }

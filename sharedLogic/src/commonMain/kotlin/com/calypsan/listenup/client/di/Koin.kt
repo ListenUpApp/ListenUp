@@ -934,6 +934,27 @@ val syncModule =
             )
         }
 
+        // ConnectionCoordinator — drops all cached connections whenever the active
+        // server URL's host:port changes, so every transport follows the new URL on
+        // its next reconnect. Started at app launch.
+        single(createdAtStart = true) {
+            val serverConfig: ServerConfig = get()
+            val coordinator =
+                com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
+                    activeUrl = serverConfig.activeUrl,
+                    initialUrl = { serverConfig.getActiveUrl() },
+                    invalidator = get(),
+                    scope =
+                        get(
+                            qualifier =
+                                org.koin.core.qualifier
+                                    .named(APP_SCOPE),
+                        ),
+                )
+            coordinator.start()
+            coordinator
+        }
+
         // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
         single<com.calypsan.listenup.client.domain.repository.ProfileEditRepository> {
             ProfileEditRepositoryImpl(
