@@ -938,11 +938,11 @@ val syncModule =
         // server URL's host:port changes, so every transport follows the new URL on
         // its next reconnect. Started at app launch.
         single(createdAtStart = true) {
-            val serverConfig: ServerConfig = get()
             val coordinator =
                 com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
-                    activeUrl = serverConfig.activeUrl,
-                    initialUrl = { serverConfig.getActiveUrl() },
+                    serverConfig = get(),
+                    instanceRepository = get(),
+                    networkMonitor = get(),
                     invalidator = get(),
                     scope =
                         get(
