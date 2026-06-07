@@ -219,6 +219,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.startDiscovery() } returns Unit
             everySuspend { instanceRepository.findReachableUrl(any()) } returns server.localUrl
             everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+            everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
@@ -230,6 +231,7 @@ class ServerSelectViewModelTest {
                 advanceUntilIdle()
 
                 verifySuspend { serverConfig.setServerUrl(ServerUrl(server.localUrl!!)) }
+                verifySuspend { serverConfig.setConnectedServerId(server.id) }
                 assertEquals(ServerSelectViewModel.NavigationEvent.ServerActivated, awaitItem())
             }
 

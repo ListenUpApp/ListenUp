@@ -193,6 +193,7 @@ class ServerSelectViewModel(
 
                 if (reachableUrl != null) {
                     serverConfig.setServerUrl(ServerUrl(reachableUrl))
+                    serverConfig.setConnectedServerId(server.id)
                     logger.info { "Server activated: ${server.id} at $reachableUrl" }
                     overlay.value = Overlay.None
                     _navigationEvents.trySend(NavigationEvent.ServerActivated)
