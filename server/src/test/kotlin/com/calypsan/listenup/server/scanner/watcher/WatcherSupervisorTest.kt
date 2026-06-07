@@ -89,6 +89,25 @@ class WatcherSupervisorTest :
             }
         }
 
+        test("unmountAll removes every watcher across all libraries") {
+            runTest {
+                val factory = FakeFolderWatcherFactory()
+                val supervisor = WatcherSupervisor(factory::create)
+
+                supervisor.mount(LibraryId("lib-1"), folderRef("f-1", "/a")) { _, _ -> }
+                supervisor.mount(LibraryId("lib-1"), folderRef("f-2", "/b")) { _, _ -> }
+                supervisor.mount(LibraryId("lib-2"), folderRef("f-3", "/c")) { _, _ -> }
+
+                supervisor.unmountAll()
+
+                factory.watchers.isEmpty() shouldBe true
+                factory.closedCount shouldBe 3
+                // A second call is a harmless no-op.
+                supervisor.unmountAll()
+                factory.closedCount shouldBe 3
+            }
+        }
+
         test("concurrent mount + unmount is safe") {
             runTest {
                 val factory = FakeFolderWatcherFactory()

@@ -250,6 +250,8 @@ private class FakeWatcherSupervisor : WatcherSupervisorPort {
     override suspend fun unmountAllForLibrary(libraryId: LibraryId) {
         unmountAllLibraryCalls++
     }
+
+    override suspend fun unmountAll() = Unit
 }
 
 private fun emptyResult(): ScanResult =

@@ -244,6 +244,8 @@ internal interface WatcherSupervisorPort {
     suspend fun unmount(folderId: FolderId)
 
     suspend fun unmountAllForLibrary(libraryId: LibraryId)
+
+    suspend fun unmountAll()
 }
 
 /** Adapts the concrete [WatcherSupervisor] to [WatcherSupervisorPort]. */
@@ -258,4 +260,6 @@ internal fun WatcherSupervisor.asPort(): WatcherSupervisorPort =
         override suspend fun unmount(folderId: FolderId) = this@asPort.unmount(folderId)
 
         override suspend fun unmountAllForLibrary(libraryId: LibraryId) = this@asPort.unmountAllForLibrary(libraryId)
+
+        override suspend fun unmountAll() = this@asPort.unmountAll()
     }

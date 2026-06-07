@@ -102,8 +102,10 @@ import com.calypsan.listenup.server.sync.syncRoutes
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
+import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
+import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -127,6 +129,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -323,6 +326,31 @@ fun Application.module() {
     installAppRoutes(homeDir)
 
     startBackgroundTasks(applicationScope, resolvedLibraryPath)
+    installGracefulShutdown(applicationScope)
+}
+
+/**
+ * Releases every background resource when the application stops — real shutdown and each
+ * `testApplication` teardown. Order: unmount watchers (close native FS handles), cancel the
+ * background-task [applicationScope] (cleanup loops, the BookPersister scan-result collector,
+ * bootstrap), then close the Hikari pool. Each step is best-effort and CANCELS rather than
+ * joins: joining the kfswatch native read would time out Ktor's application disposal. Ktor
+ * drains in-flight requests before firing [ApplicationStopped], so nothing is using the pool.
+ */
+private fun Application.installGracefulShutdown(applicationScope: CoroutineScope) {
+    // Resolve eagerly while Koin is still open — by ApplicationStopped the Koin scope is
+    // already closed, so a lazy `by inject` access inside the handler would throw
+    // ClosedScopeException. Capture the live references in the closure instead.
+    val watcherSupervisor = koinGet<WatcherSupervisorPort>()
+    val databaseHandle = koinGet<DatabaseHandle>()
+    monitor.subscribe(ApplicationStopped) {
+        runCatching { runBlocking { watcherSupervisor.unmountAll() } }
+            .onFailure { logger.warn(it) { "watcher unmount on shutdown failed" } }
+        runCatching { applicationScope.cancel("application stopped") }
+            .onFailure { logger.warn(it) { "background-scope cancel on shutdown failed" } }
+        runCatching { databaseHandle.close() }
+            .onFailure { logger.warn(it) { "db pool close on shutdown failed" } }
+    }
 }
 
 /**

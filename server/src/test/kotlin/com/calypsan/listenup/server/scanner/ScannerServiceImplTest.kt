@@ -165,4 +165,6 @@ private object NoOpWatcherSupervisor : WatcherSupervisorPort {
     override suspend fun unmount(folderId: com.calypsan.listenup.core.FolderId) = Unit
 
     override suspend fun unmountAllForLibrary(libraryId: com.calypsan.listenup.core.LibraryId) = Unit
+
+    override suspend fun unmountAll() = Unit
 }

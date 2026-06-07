@@ -97,6 +97,24 @@ internal class WatcherSupervisor(
             }
             logger.info { "Unmounted ${folderIds.size} watcher(s) for library=${libraryId.value}" }
         }
+
+    /**
+     * Stops and removes EVERY active watcher across all libraries. Called on server
+     * shutdown so native kfswatch handles are released deterministically — it *closes*
+     * each handle (releasing the native FS handle) rather than joining its event loop,
+     * which would block disposal. Idempotent: a second call is a no-op.
+     */
+    suspend fun unmountAll() =
+        mutex.withLock {
+            if (watchersByFolder.isEmpty()) return@withLock
+            val count = watchersByFolder.size
+            for ((_, handle) in watchersByFolder) {
+                handle.close()
+            }
+            watchersByFolder.clear()
+            foldersByLibrary.clear()
+            logger.info { "Unmounted $count watcher(s) on shutdown" }
+        }
 }
 
 /**
