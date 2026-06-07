@@ -207,6 +207,7 @@ private fun ActiveDockedContent(
                     isBuffering = state.isBuffering,
                     onClick = onPlayPause,
                     size = 52.dp,
+                    shadowElevation = 0.dp,
                 )
                 Ctrl(
                     icon = Icons.Default.Forward30,

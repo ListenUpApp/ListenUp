@@ -28,7 +28,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while buffering. */
+/**
+ * Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while
+ * buffering.
+ *
+ * @param shadowElevation Drop-shadow depth. Defaults to 8.dp for the full-screen player; pass 0.dp
+ * inside a clipping container (the mini-player bars) where the shadow would be cut off by the card.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PlayPauseFab(
@@ -36,13 +42,14 @@ fun PlayPauseFab(
     isBuffering: Boolean,
     onClick: () -> Unit,
     size: Dp,
+    shadowElevation: Dp = 8.dp,
 ) {
     Surface(
         onClick = onClick,
         modifier = Modifier.size(size),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primary,
-        shadowElevation = 8.dp,
+        shadowElevation = shadowElevation,
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (isBuffering) {
