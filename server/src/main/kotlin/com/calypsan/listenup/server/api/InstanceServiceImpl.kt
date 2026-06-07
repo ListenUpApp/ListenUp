@@ -30,6 +30,7 @@ class InstanceServiceImpl(
                 apiVersion = ServerIdentity.API_VERSION,
                 setupRequired = setupRequired,
                 registrationPolicy = settings.registrationPolicy(),
+                remoteUrl = settings.remoteUrl(),
             ),
         )
     }

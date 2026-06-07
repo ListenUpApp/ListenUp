@@ -316,6 +316,13 @@ val repositoryModule =
                     secureStorage.read("server_url")?.let { ServerUrl(it) }
                 },
                 instanceRpcFactory = get(),
+                persistRemoteUrl = { url ->
+                    if (url != null) {
+                        secureStorage.save("server_remote_url", url)
+                    } else {
+                        secureStorage.delete("server_remote_url")
+                    }
+                },
             )
         }
 
@@ -925,6 +932,28 @@ val syncModule =
             com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator(
                 caches = getAll(),
             )
+        }
+
+        // ConnectionCoordinator — drops all cached connections whenever the active
+        // server URL's host:port changes, so every transport follows the new URL on
+        // its next reconnect. Started at app launch.
+        single(createdAtStart = true) {
+            val coordinator =
+                com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
+                    serverConfig = get(),
+                    instanceRepository = get(),
+                    discoveryService = get(),
+                    networkMonitor = get(),
+                    invalidator = get(),
+                    scope =
+                        get(
+                            qualifier =
+                                org.koin.core.qualifier
+                                    .named(APP_SCOPE),
+                        ),
+                )
+            coordinator.start()
+            coordinator
         }
 
         // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).

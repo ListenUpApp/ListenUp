@@ -55,6 +55,10 @@ class SettingsRepositoryImpl(
     private val _preferenceChanges = MutableSharedFlow<DomainPreferenceChangeEvent>(extraBufferCapacity = 1)
     override val preferenceChanges: SharedFlow<DomainPreferenceChangeEvent> = _preferenceChanges.asSharedFlow()
 
+    // Reactive change-signal for the active URL; authoritative read remains getActiveUrl().
+    private val _activeUrl = MutableStateFlow<ServerUrl?>(null)
+    override val activeUrl: StateFlow<ServerUrl?> = _activeUrl.asStateFlow()
+
     // Local preferences StateFlows (device-specific, NOT synced)
     private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
     override val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
@@ -81,6 +85,9 @@ class SettingsRepositoryImpl(
 
         // Library identity (for detecting server reinstalls/resets)
         private const val KEY_CONNECTED_LIBRARY_ID = "connected_library_id"
+
+        // Stable mDNS instance id of the connected server (for LAN IP-follow)
+        private const val KEY_CONNECTED_SERVER_ID = "connected_server_id"
 
         // Library sort preferences (per-tab)
         private const val KEY_SORT_BOOKS = "sort_books"
@@ -112,6 +119,11 @@ class SettingsRepositoryImpl(
 
     // Server configuration
 
+    /** Recompute and publish the active URL after a mutation. Authoritative source is [getActiveUrl]. */
+    private suspend fun publishActiveUrl() {
+        _activeUrl.value = getActiveUrl()
+    }
+
     /**
      * Persist a new server URL and refresh the auth state to match. If the
      * device already has tokens for this URL we trust them (offline-first);
@@ -131,6 +143,7 @@ class SettingsRepositoryImpl(
             authSession.checkServerStatus()
             logger.info { "setServerUrl: checkServerStatus completed (${startMark.elapsedNow()})" }
         }
+        publishActiveUrl()
     }
 
     override suspend fun getServerUrl(): ServerUrl? = secureStorage.read(KEY_SERVER_URL)?.let { ServerUrl(it) }
@@ -141,6 +154,7 @@ class SettingsRepositoryImpl(
         } else {
             secureStorage.delete(KEY_REMOTE_URL)
         }
+        publishActiveUrl()
     }
 
     override suspend fun getRemoteUrl(): ServerUrl? = secureStorage.read(KEY_REMOTE_URL)?.let { ServerUrl(it) }
@@ -165,14 +179,28 @@ class SettingsRepositoryImpl(
 
         secureStorage.save(KEY_ACTIVE_URL, fallback)
         logger.info { "Switched active URL to: $fallback" }
+        publishActiveUrl()
         return ServerUrl(fallback)
     }
 
-    override suspend fun preferLocalUrl() {
-        val localUrl = secureStorage.read(KEY_SERVER_URL)
-        if (localUrl != null) {
-            secureStorage.save(KEY_ACTIVE_URL, localUrl)
+    override suspend fun setActiveUrl(url: ServerUrl) {
+        secureStorage.save(KEY_ACTIVE_URL, url.value)
+        publishActiveUrl()
+    }
+
+    override suspend fun setConnectedServerId(id: String?) {
+        if (id != null) {
+            secureStorage.save(KEY_CONNECTED_SERVER_ID, id)
+        } else {
+            secureStorage.delete(KEY_CONNECTED_SERVER_ID)
         }
+    }
+
+    override suspend fun getConnectedServerId(): String? = secureStorage.read(KEY_CONNECTED_SERVER_ID)
+
+    override suspend fun updateLocalUrl(url: ServerUrl) {
+        secureStorage.save(KEY_SERVER_URL, url.value)
+        publishActiveUrl()
     }
 
     override suspend fun hasServerConfigured(): Boolean = getServerUrl() != null
@@ -185,6 +213,7 @@ class SettingsRepositoryImpl(
     override suspend fun clearAll() {
         secureStorage.clear()
         authSession.initializeAuthState()
+        publishActiveUrl()
     }
 
     /**
@@ -200,7 +229,9 @@ class SettingsRepositoryImpl(
         secureStorage.delete(KEY_REMOTE_URL)
         secureStorage.delete(KEY_ACTIVE_URL)
         secureStorage.delete(KEY_CONNECTED_LIBRARY_ID)
+        secureStorage.delete(KEY_CONNECTED_SERVER_ID)
         authSession.initializeAuthState()
+        publishActiveUrl()
     }
 
     // Library sync identity

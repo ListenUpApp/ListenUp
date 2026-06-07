@@ -18,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
@@ -25,7 +26,6 @@ import com.calypsan.listenup.client.deeplink.DeepLinkParser
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     private val syncRepository: SyncRepository by inject()
     private val syncEngine: SyncEngine by inject()
     private val localPreferences: LocalPreferences by inject()
-    private val serverConfig: ServerConfig by inject()
+    private val connectionCoordinator: ConnectionCoordinator by inject()
     private val deepLinkManager: DeepLinkManager by inject()
     private val shortcutActionManager: ShortcutActionManager by inject()
     private val appStartupViewModel: AppStartupViewModel by viewModel()
@@ -191,9 +191,9 @@ class MainActivity : ComponentActivity() {
         // long background periods trigger a fresh check.
         appStartupViewModel.onAppForegrounded()
 
-        // Prefer local URL when app comes to foreground
+        // Re-evaluate the reachable server URL (prefer LAN) when foregrounding.
         lifecycleScope.launch {
-            serverConfig.preferLocalUrl()
+            connectionCoordinator.reevaluate()
         }
 
         // Connect realtime sync when app comes to foreground (if authenticated)

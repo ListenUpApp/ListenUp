@@ -52,6 +52,7 @@ class InstanceRepositoryImplTest :
                 InstanceRepositoryImpl(
                     getServerUrl = { null },
                     instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
                 )
 
             val result = repository.verifyServer("https://library.example.com")
@@ -70,6 +71,7 @@ class InstanceRepositoryImplTest :
                 InstanceRepositoryImpl(
                     getServerUrl = { null },
                     instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
                 )
 
             val result = repository.getServerInfo()
@@ -84,6 +86,7 @@ class InstanceRepositoryImplTest :
                 InstanceRepositoryImpl(
                     getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
                     instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
                 )
 
             val result = repository.getServerInfo()
@@ -93,12 +96,44 @@ class InstanceRepositoryImplTest :
             factory.lastWsUrl shouldBe "ws://192.168.1.10:8080"
         }
 
+        test("getServerInfo persists the remote URL from the fetched ServerInfo") {
+            val infoWithRemote = serverInfo.copy(remoteUrl = "https://library.example.com")
+            val factory = FakeInstanceRpcFactory(RpcResult.Success(infoWithRemote))
+            var persisted: String? = "UNSET"
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { url -> persisted = url },
+                )
+
+            repository.getServerInfo(forceRefresh = true)
+
+            persisted shouldBe "https://library.example.com"
+        }
+
+        test("getServerInfo persists a null remote URL when the server has none") {
+            val factory = FakeInstanceRpcFactory(RpcResult.Success(serverInfo.copy(remoteUrl = null)))
+            var persisted: String? = "UNSET"
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { url -> persisted = url },
+                )
+
+            repository.getServerInfo(forceRefresh = true)
+
+            persisted shouldBe null
+        }
+
         test("getServerInfo bridges a contract Failure to core.Failure") {
             val factory = FakeInstanceRpcFactory(RpcResult.Failure(InternalError()))
             val repository =
                 InstanceRepositoryImpl(
                     getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
                     instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
                 )
 
             val result = repository.getServerInfo()

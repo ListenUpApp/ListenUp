@@ -2,6 +2,9 @@ package com.calypsan.listenup.server.e2e
 
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Test-only [ServerConfig] that returns a single fixed URL — the embedded
@@ -26,9 +29,17 @@ internal class TestServerConfig(
 
     override suspend fun getActiveUrl(): ServerUrl = ServerUrl(baseUrl)
 
+    override val activeUrl: StateFlow<ServerUrl?> = MutableStateFlow(ServerUrl(baseUrl)).asStateFlow()
+
+    override suspend fun setActiveUrl(url: ServerUrl) = Unit
+
     override suspend fun switchToFallbackUrl(): ServerUrl? = null
 
-    override suspend fun preferLocalUrl() = Unit
+    override suspend fun setConnectedServerId(id: String?) = Unit
+
+    override suspend fun getConnectedServerId(): String? = null
+
+    override suspend fun updateLocalUrl(url: ServerUrl) = Unit
 
     override suspend fun disconnectFromServer() = Unit
 

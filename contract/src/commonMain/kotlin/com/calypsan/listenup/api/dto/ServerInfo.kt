@@ -30,4 +30,7 @@ data class ServerInfo(
     /** Live self-registration policy; gates the "Create Account" affordance (shown when not [RegistrationPolicy.CLOSED]). */
     @SerialName("registrationPolicy")
     val registrationPolicy: RegistrationPolicy,
+    /** Operator-set remote (WAN) URL for off-LAN access; null when unset. Clients persist it as the reconnect fallback. */
+    @SerialName("remoteUrl")
+    val remoteUrl: String? = null,
 )

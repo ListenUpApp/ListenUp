@@ -22,4 +22,27 @@ class InstanceServiceImplTest :
                 }
             }
         }
+
+        test("getServerInfo returns the operator-set remote URL") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val svc = InstanceServiceImpl(db, settings)
+                    settings.setValue("remote_url", "https://library.example.com")
+                    (svc.getServerInfo() as AppResult.Success).data.remoteUrl shouldBe "https://library.example.com"
+                }
+            }
+        }
+
+        test("getServerInfo returns null remoteUrl when unset") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val svc = InstanceServiceImpl(db, settings)
+                    (svc.getServerInfo() as AppResult.Success).data.remoteUrl shouldBe null
+                }
+            }
+        }
     })

@@ -115,6 +115,13 @@ interface AuthSession {
  * (sync clients, DownloadWorker, ImageApi, API clients).
  */
 interface ServerConfig {
+    /**
+     * Reactive change-signal for the active URL. Emits the current [getActiveUrl] value
+     * after every URL mutation. The authoritative read is still [getActiveUrl]; observers
+     * use this only to react to changes (e.g. invalidating cached connections).
+     */
+    val activeUrl: StateFlow<ServerUrl?>
+
     suspend fun setServerUrl(url: ServerUrl)
 
     suspend fun getServerUrl(): ServerUrl?
@@ -140,9 +147,19 @@ interface ServerConfig {
     suspend fun switchToFallbackUrl(): ServerUrl?
 
     /**
-     * Reset active URL to prefer local (called on app foreground/resume).
+     * Set the active URL explicitly (e.g. after a reachability probe picks the live address).
+     * Persists it and publishes [activeUrl]. Pass the resolved local or remote URL.
      */
-    suspend fun preferLocalUrl()
+    suspend fun setActiveUrl(url: ServerUrl)
+
+    /** Persist the stable mDNS instance id of the connected server (null clears it). Used to follow LAN IP changes. */
+    suspend fun setConnectedServerId(id: String?)
+
+    /** The stable mDNS instance id of the connected server, or null if none/manual. */
+    suspend fun getConnectedServerId(): String?
+
+    /** Refresh only the stored local (LAN) URL and publish [activeUrl] — no auth side effects. Used by IP-follow. */
+    suspend fun updateLocalUrl(url: ServerUrl)
 
     /** Disconnect from current server (clears URL and auth data). */
     suspend fun disconnectFromServer()
