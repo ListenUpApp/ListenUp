@@ -115,6 +115,13 @@ interface AuthSession {
  * (sync clients, DownloadWorker, ImageApi, API clients).
  */
 interface ServerConfig {
+    /**
+     * Reactive change-signal for the active URL. Emits the current [getActiveUrl] value
+     * after every URL mutation. The authoritative read is still [getActiveUrl]; observers
+     * use this only to react to changes (e.g. invalidating cached connections).
+     */
+    val activeUrl: StateFlow<ServerUrl?>
+
     suspend fun setServerUrl(url: ServerUrl)
 
     suspend fun getServerUrl(): ServerUrl?

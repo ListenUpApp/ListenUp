@@ -47,6 +47,8 @@ class SettingsRepositoryTest {
             val storage = createMockStorage()
             val authSession = createMockAuthSession()
             everySuspend { storage.save("server_url", "https://api.example.com") } returns Unit
+            everySuspend { storage.read("active_url") } returns null
+            everySuspend { storage.read("server_url") } returns "https://api.example.com"
             everySuspend { authSession.isAuthenticated() } returns true
             everySuspend { authSession.initializeAuthState() } returns Unit
             val repository = createRepository(storage = storage, authSession = authSession)
@@ -64,6 +66,8 @@ class SettingsRepositoryTest {
             val authSession = createMockAuthSession()
             val authStateFlow: StateFlow<DomainAuthState> = MutableStateFlow(DomainAuthState.Initializing)
             everySuspend { storage.save("server_url", "https://api.example.com") } returns Unit
+            everySuspend { storage.read("active_url") } returns null
+            everySuspend { storage.read("server_url") } returns "https://api.example.com"
             everySuspend { authSession.isAuthenticated() } returns false
             everySuspend { authSession.checkServerStatus() } returns DomainAuthState.NeedsLogin()
             // checkServerStatus is suspend & returns AuthState; just stub it.
@@ -103,6 +107,7 @@ class SettingsRepositoryTest {
             val storage = createMockStorage()
             val authSession = createMockAuthSession()
             everySuspend { storage.clear() } returns Unit
+            everySuspend { storage.read(any()) } returns null
             everySuspend { authSession.initializeAuthState() } returns Unit
             val repository = createRepository(storage = storage, authSession = authSession)
 
@@ -121,6 +126,7 @@ class SettingsRepositoryTest {
             everySuspend { authSession.clearPendingRegistration() } returns Unit
             everySuspend { authSession.initializeAuthState() } returns Unit
             everySuspend { storage.delete(any()) } returns Unit
+            everySuspend { storage.read(any()) } returns null
             val repository = createRepository(storage = storage, authSession = authSession)
 
             repository.disconnectFromServer()
@@ -152,6 +158,25 @@ class SettingsRepositoryTest {
             val repository = createRepository(storage = storage)
 
             assertFalse(repository.hasServerConfigured())
+        }
+
+    // ========== Active URL change-signal ==========
+
+    @Test
+    fun `activeUrl emits the active URL after preferLocalUrl`() =
+        runTest {
+            val storage = createMockStorage()
+            everySuspend { storage.read("server_url") } returns "http://192.168.1.10:8080"
+            everySuspend { storage.save("active_url", "http://192.168.1.10:8080") } returns Unit
+            everySuspend { storage.read("active_url") } returns "http://192.168.1.10:8080"
+            val repository = createRepository(storage = storage)
+
+            repository.activeUrl.test {
+                awaitItem() // current value (null initial)
+                repository.preferLocalUrl()
+                assertEquals("http://192.168.1.10:8080", awaitItem()?.value)
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     // ========== Spatial playback ==========

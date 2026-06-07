@@ -114,7 +114,7 @@ val clientSyncRenovationModule =
             val apiClientFactory: ApiClientFactory = get()
             val serverConfig: ServerConfig = get()
             SyncSseClient(
-                serverUrlProvider = { serverConfig.getServerUrl()?.value },
+                serverUrlProvider = { serverConfig.getActiveUrl()?.value },
                 streamingClientProvider = { apiClientFactory.getStreamingClient() },
                 state = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
@@ -126,7 +126,7 @@ val clientSyncRenovationModule =
             val serverConfig: ServerConfig = get()
             SyncCatchUpClient(
                 httpClientProvider = { apiClientFactory.getClient() },
-                serverUrlProvider = { serverConfig.getServerUrl()?.value },
+                serverUrlProvider = { serverConfig.getActiveUrl()?.value },
                 store = get(),
                 transactionRunner = get(),
             )
@@ -137,7 +137,7 @@ val clientSyncRenovationModule =
             val serverConfig: ServerConfig = get()
             DomainDigestClient(
                 httpClientProvider = { apiClientFactory.getClient() },
-                serverUrlProvider = { serverConfig.getServerUrl()?.value ?: "" },
+                serverUrlProvider = { serverConfig.getActiveUrl()?.value ?: "" },
             )
         }
 
