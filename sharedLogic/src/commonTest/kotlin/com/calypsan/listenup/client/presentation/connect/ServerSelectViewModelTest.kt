@@ -217,7 +217,7 @@ class ServerSelectViewModelTest {
             val server = createServer()
             every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
             every { serverRepository.startDiscovery() } returns Unit
-            everySuspend { serverRepository.setActiveServer(server.id) } returns Unit
+            everySuspend { instanceRepository.findReachableUrl(any()) } returns server.localUrl
             everySuspend { serverConfig.setServerUrl(any()) } returns Unit
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
@@ -229,7 +229,6 @@ class ServerSelectViewModelTest {
                 viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
                 advanceUntilIdle()
 
-                verifySuspend { serverRepository.setActiveServer(server.id) }
                 verifySuspend { serverConfig.setServerUrl(ServerUrl(server.localUrl!!)) }
                 assertEquals(ServerSelectViewModel.NavigationEvent.ServerActivated, awaitItem())
             }
@@ -247,7 +246,7 @@ class ServerSelectViewModelTest {
             val server = createServer()
             every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
             every { serverRepository.startDiscovery() } returns Unit
-            everySuspend { serverRepository.setActiveServer(any<String>()) } throws RuntimeException("Failed")
+            everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
@@ -270,7 +269,7 @@ class ServerSelectViewModelTest {
             val server = createServer()
             every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
             every { serverRepository.startDiscovery() } returns Unit
-            everySuspend { serverRepository.setActiveServer(any<String>()) } throws RuntimeException("Failed")
+            everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)

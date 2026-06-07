@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.connect
 
-import com.calypsan.listenup.client.domain.model.DiscoveredServer
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 
 /**
@@ -42,14 +41,9 @@ sealed interface ServerSelectUiState {
  * User actions on the server selection screen.
  */
 sealed interface ServerSelectUiEvent {
-    /** User selected a persisted server from the list. */
+    /** User selected a server from the discovered list. */
     data class ServerSelected(
         val server: ServerWithStatus,
-    ) : ServerSelectUiEvent
-
-    /** User selected a freshly discovered server not yet persisted. */
-    data class DiscoveredServerSelected(
-        val server: DiscoveredServer,
     ) : ServerSelectUiEvent
 
     /** User wants to enter a server URL manually. */

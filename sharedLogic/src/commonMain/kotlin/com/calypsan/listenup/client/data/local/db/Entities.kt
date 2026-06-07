@@ -9,7 +9,6 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 
@@ -266,78 +265,6 @@ data class PlaybackPositionEntity(
     // Epoch-ms tombstone set by the server when the position is soft-deleted
     val deletedAt: Long? = null,
 )
-
-/**
- * Local database entity for ListenUp servers.
- *
- * Client-only data - stores discovered servers and their authentication state.
- * Each server maintains its own auth tokens, enabling instant context switching
- * between servers without re-authentication.
- *
- * Discovery flow:
- * 1. mDNS discovers server on local network → creates/updates ServerEntity
- * 2. User selects server → sets isActive = true
- * 3. User authenticates → stores tokens in this entity
- * 4. Server goes offline → lastSeenAt becomes stale, but entity persists
- * 5. Server comes back → localUrl updated via discovery
- */
-@Entity(
-    tableName = "servers",
-    indices = [Index(value = ["isActive"])],
-)
-data class ServerEntity(
-    /** Server's unique ID from mDNS TXT record (id=srv_xxx) */
-    @PrimaryKey val id: String,
-    /** Human-readable server name from mDNS TXT record */
-    val name: String,
-    /** API version from mDNS TXT record (e.g., "v1") */
-    val apiVersion: String,
-    /** Server version from mDNS TXT record (e.g., "1.0.0") */
-    val serverVersion: String,
-    /** Local network URL discovered via mDNS (e.g., "http://192.168.1.50:8080") */
-    val localUrl: String? = null,
-    /** Remote/public URL from mDNS TXT record or manual entry */
-    val remoteUrl: String? = null,
-    /** PASETO access token for this server */
-    val accessToken: String? = null,
-    /** Refresh token for this server */
-    val refreshToken: String? = null,
-    /** Session ID for this server */
-    val sessionId: String? = null,
-    /** Authenticated user ID on this server */
-    val userId: String? = null,
-    /** Whether this is the currently active server */
-    val isActive: Boolean = false,
-    /** Last time server was seen on local network (epoch ms), 0 if never discovered */
-    val lastSeenAt: Long = 0,
-    /** Last successful connection (epoch ms), null if never connected */
-    val lastConnectedAt: Long? = null,
-) {
-    /** Check if server has valid authentication tokens */
-    fun isAuthenticated(): Boolean = accessToken != null && refreshToken != null && userId != null
-
-    /** Check if local URL is fresh (seen within threshold) */
-    fun isLocalUrlFresh(staleThresholdMs: Long = STALE_THRESHOLD_MS): Boolean =
-        localUrl != null && currentEpochMilliseconds() - lastSeenAt < staleThresholdMs
-
-    /** Get best available URL (prefers fresh local, falls back to remote) */
-    fun getBestUrl(staleThresholdMs: Long = STALE_THRESHOLD_MS): String? =
-        when {
-            isLocalUrlFresh(staleThresholdMs) -> localUrl
-
-            remoteUrl != null -> remoteUrl
-
-            localUrl != null -> localUrl
-
-            // Stale local better than nothing
-            else -> null
-        }
-
-    companion object {
-        /** Threshold for considering local URL stale (5 minutes) */
-        const val STALE_THRESHOLD_MS = 5 * 60 * 1000L
-    }
-}
 
 /**
  * Local database entity for tags (Tags sync substrate — Room v22).

@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
-import com.calypsan.listenup.client.data.local.db.ServerDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.TagDao
@@ -109,7 +108,6 @@ class SyncModuleVerifyTest :
                         PlaybackPositionDao::class,
                         SearchDao::class,
                         SeriesDao::class,
-                        ServerDao::class,
                         ShelfBookDao::class,
                         ShelfDao::class,
                         TagDao::class,

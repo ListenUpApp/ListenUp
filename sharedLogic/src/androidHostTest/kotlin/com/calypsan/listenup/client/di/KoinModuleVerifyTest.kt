@@ -15,7 +15,6 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
-import com.calypsan.listenup.client.data.local.db.ServerDao
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.GenreDao
@@ -106,7 +105,6 @@ class KoinModuleVerifyTest {
                     PlaybackPositionDao::class,
                     SearchDao::class,
                     SeriesDao::class,
-                    ServerDao::class,
                     ShelfBookDao::class,
                     ShelfDao::class,
                     TagDao::class,

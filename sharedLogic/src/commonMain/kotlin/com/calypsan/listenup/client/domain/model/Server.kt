@@ -33,18 +33,3 @@ data class ServerWithStatus(
     val server: Server,
     val isOnline: Boolean,
 )
-
-/**
- * Represents a server discovered on the local network via mDNS.
- *
- * This is a transient discovery result before the server is
- * persisted or selected by the user.
- */
-data class DiscoveredServer(
-    val id: String,
-    val name: String,
-    val localUrl: String,
-    val apiVersion: String,
-    val serverVersion: String,
-    val remoteUrl: String? = null,
-)

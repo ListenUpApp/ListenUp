@@ -90,9 +90,7 @@ import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryIm
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
-import com.calypsan.listenup.client.data.repository.ServerMigrationHelper
 import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
-import com.calypsan.listenup.client.data.repository.ServerUrlChangeListener
 import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
@@ -335,7 +333,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().downloadDao() }
         single { get<ListenUpDatabase>().coverDownloadDao() }
         single { get<ListenUpDatabase>().searchDao() }
-        single { get<ListenUpDatabase>().serverDao() }
         single { get<ListenUpDatabase>().collectionDao() }
         single { get<ListenUpDatabase>().collectionBookDao() }
         single { get<ListenUpDatabase>().collectionShareDao() }
@@ -355,38 +352,9 @@ val repositoryModule =
                 .RoomTransactionRunner(get())
         }
 
-        // ServerRepository - bridges mDNS discovery with database persistence
-        // When active server's URL changes via mDNS rediscovery, updates ServerConfig
-        // and invalidates the API client cache to use the new IP address.
+        // ServerRepository - maps live mDNS discovery into the server picker list.
         single<ServerRepository> {
-            ServerRepositoryImpl(
-                serverDao = get(),
-                discoveryService = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named(APP_SCOPE),
-                    ),
-                urlChangeListener =
-                    ServerUrlChangeListener { newUrl ->
-                        // Update settings with the new URL, then drop every remote cache that
-                        // captured the old HttpClient — all of them, via the aggregate, so no
-                        // authed proxy is left pointing at the stale host.
-                        val serverConfig: ServerConfig = get()
-                        serverConfig.setServerUrl(newUrl)
-                        get<com.calypsan.listenup.client.data.remote.RpcCacheInvalidator>()
-                            .invalidateAll()
-                    },
-            )
-        }
-
-        // ServerMigrationHelper - migrates legacy single-server data
-        single {
-            ServerMigrationHelper(
-                secureStorage = get(),
-                serverDao = get(),
-            )
+            ServerRepositoryImpl(discoveryService = get())
         }
     }
 
