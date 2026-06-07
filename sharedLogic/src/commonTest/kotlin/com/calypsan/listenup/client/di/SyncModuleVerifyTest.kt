@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHand
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibrarySync
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -144,6 +145,9 @@ class SyncModuleVerifyTest :
                         // ConnectionCoordinator dep owned by repositoryModule; the coordinator
                         // probes reachability via it on reevaluate / network-regain.
                         InstanceRepository::class,
+                        // ConnectionCoordinator dep owned by repositoryModule; used to relocate
+                        // the connected server on the LAN after an IP change.
+                        ServerDiscoveryService::class,
                     ),
             )
         }
