@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.DirectoryEntry
+import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.BrandMark
@@ -72,13 +73,11 @@ import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
-private val SplitThreshold = 840.dp
-
 /**
  * Library-setup wizard — choose audiobook folders, create a library, then confirm.
  *
  * Adaptive from the actual available width (via [BoxWithConstraints]): a phone shell
- * below [SplitThreshold], a brand/content split panel at or above it. Supports the
+ * below [TwoPaneMinWidth], a brand/content split panel at or above it. Supports the
  * multi-library loop driven by [LibrarySetupViewModel.navActions]; this is a visual
  * redesign over unchanged state.
  */
@@ -108,7 +107,7 @@ fun LibrarySetupScreen(
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         BoxWithConstraints {
-            val isWide = maxWidth >= SplitThreshold
+            val isWide = maxWidth >= TwoPaneMinWidth
             when {
                 state.isCheckingStatus || (!state.needsSetup && !showConfirmation) -> {
                     FullScreenLoadingIndicator()
