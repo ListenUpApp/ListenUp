@@ -45,6 +45,9 @@ data class Library(
     val createdByUserId: UserId?,
     /** Unix epoch milliseconds when this library was created. */
     val createdAt: Long,
+    /** When true, newly-scanned books in this library are quarantined in its inbox (admin-only) until released. */
+    @SerialName("inboxEnabled")
+    val inboxEnabled: Boolean = false,
 )
 
 /**

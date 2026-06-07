@@ -63,6 +63,21 @@ class LibraryDtosContractTest :
             roundTrip<Library>(library) shouldBe library
         }
 
+        test("Library round-trips with inboxEnabled") {
+            val library =
+                Library(
+                    id = LibraryId("lib-003"),
+                    name = "Main",
+                    folders = emptyList(),
+                    metadataPrecedence = "embedded,abs,sidecar",
+                    accessMode = AccessMode.SHARED,
+                    createdByUserId = null,
+                    createdAt = 1L,
+                    inboxEnabled = true,
+                )
+            roundTrip<Library>(library) shouldBe library
+        }
+
         // ── LibraryFolder ─────────────────────────────────────────────────────
 
         test("LibraryFolder round-trips") {

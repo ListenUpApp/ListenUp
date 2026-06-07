@@ -571,6 +571,63 @@ class LibraryAdminServiceImplTest :
                 }
             }
         }
+
+        // ── Inbox toggle ──────────────────────────────────────────────────────────
+
+        test("setInboxEnabled flips the flag for an admin and returns the updated Library") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val dir = createTempDir()
+                    val created =
+                        service.createLibrary(CreateLibraryRequest(name = "Lib", folderPaths = listOf(dir.absolutePath)))
+                    val libraryId = (created as AppResult.Success).data.id
+                    created.data.inboxEnabled shouldBe false
+
+                    val result = service.setInboxEnabled(libraryId, true)
+                    result.shouldBeInstanceOf<AppResult.Success<Library>>()
+                    (result as AppResult.Success).data.inboxEnabled shouldBe true
+
+                    // Persisted: a fresh read reflects the flag.
+                    val reloaded = (service.getLibrary(libraryId) as AppResult.Success).data.shouldNotBeNull()
+                    reloaded.inboxEnabled shouldBe true
+
+                    // Toggle back off.
+                    val offResult = service.setInboxEnabled(libraryId, false)
+                    (offResult as AppResult.Success).data.inboxEnabled shouldBe false
+                }
+            }
+        }
+
+        test("setInboxEnabled returns Failure(NotFound) for unknown id") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val result = service.setInboxEnabled(LibraryId("no-such"), true)
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.NotFound>()
+                }
+            }
+        }
+
+        test("setInboxEnabled by a MEMBER is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val (memberService) = makeService(db = this, role = UserRole.MEMBER)
+                val (adminService) = makeService(db = this)
+                runTest {
+                    val dir = createTempDir()
+                    val created =
+                        adminService.createLibrary(CreateLibraryRequest(name = "Lib", folderPaths = listOf(dir.absolutePath)))
+                    val libraryId = (created as AppResult.Success).data.id
+
+                    memberService
+                        .setInboxEnabled(libraryId, true)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
     })
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
