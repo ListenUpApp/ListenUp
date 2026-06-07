@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -46,6 +47,7 @@ class SyncRepositoryImpl(
     private val authSession: AuthSession,
     private val listeningEventRecorder: ListeningEventRecorder,
     private val scannerRpcFactory: ScannerRpcFactory,
+    private val bookDao: BookDao,
     private val scope: CoroutineScope,
 ) : SyncRepository {
     /** Ensures [ListeningEventRecorder.recoverOrphan] runs at most once per process lifetime. */
@@ -193,6 +195,8 @@ class SyncRepositoryImpl(
         _scanProgress.value = null
         scanObserverMutex.withLock { scanObserverStarted = false }
     }
+
+    override suspend fun hasLocalLibrary(): Boolean = bookDao.count() > 0
 }
 
 /**
