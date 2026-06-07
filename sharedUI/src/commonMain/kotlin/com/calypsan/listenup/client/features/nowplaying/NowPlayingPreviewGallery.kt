@@ -145,6 +145,14 @@ fun NowPlayingPreviewGallery() {
             WideSection()
 
             HorizontalDivider()
+
+            MiniPlayerPhoneSection()
+
+            HorizontalDivider()
+
+            MiniPlayerDesktopSection()
+
+            HorizontalDivider()
         }
     }
 }
@@ -198,6 +206,46 @@ private fun WideSection() {
             onShowAuthorPicker = {},
             onShowNarratorPicker = {},
             onCloseBook = {},
+        )
+    }
+}
+
+@Composable
+private fun MiniPlayerPhoneSection() {
+    GalleryLabel("Mini-player — phone (playing)")
+    NowPlayingBar(
+        state = mockActiveState,
+        isExpanded = false,
+        onTap = {},
+        onPlayPause = {},
+        onSkipBack = {},
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    )
+
+    GalleryLabel("Mini-player — phone (buffering)")
+    NowPlayingBar(
+        state = mockBufferingState,
+        isExpanded = false,
+        onTap = {},
+        onPlayPause = {},
+        onSkipBack = {},
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    )
+}
+
+@Composable
+private fun MiniPlayerDesktopSection() {
+    GalleryLabel("Mini-player — desktop/tablet — scroll horizontally →")
+    WidePreview {
+        DockedNowPlayingBar(
+            state = mockActiveState,
+            isExpanded = false,
+            onTap = {},
+            onPlayPause = {},
+            onSkipBack = {},
+            onSkipForward = {},
+            onSeek = {},
+            onSpeedClick = {},
         )
     }
 }
