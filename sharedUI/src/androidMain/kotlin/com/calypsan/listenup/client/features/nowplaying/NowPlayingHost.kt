@@ -129,6 +129,8 @@ fun NowPlayingHost(
                 onPlayPause = viewModel::playPause,
                 onSkipBack = { viewModel.skipBack() },
                 onSkipForward = { viewModel.skipForward() },
+                onSeek = viewModel::seekWithinChapter,
+                onSpeedClick = viewModel::showSpeedPicker,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         } else if (!hasBottomNav) {
@@ -160,7 +162,6 @@ fun NowPlayingHost(
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,
                 onSkipBack = { viewModel.skipBack() },
-                onSkipForward = { viewModel.skipForward() },
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)

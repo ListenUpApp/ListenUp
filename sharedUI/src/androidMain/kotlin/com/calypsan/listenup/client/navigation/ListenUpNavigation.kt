@@ -712,7 +712,6 @@ private fun AuthenticatedNavigation(
                                         onTap = nowPlayingViewModel::expand,
                                         onPlayPause = nowPlayingViewModel::playPause,
                                         onSkipBack = { nowPlayingViewModel.skipBack() },
-                                        onSkipForward = { nowPlayingViewModel.skipForward() },
                                     )
                                 },
                                 onBookClick = { bookId ->
