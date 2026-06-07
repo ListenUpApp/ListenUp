@@ -316,6 +316,13 @@ val repositoryModule =
                     secureStorage.read("server_url")?.let { ServerUrl(it) }
                 },
                 instanceRpcFactory = get(),
+                persistRemoteUrl = { url ->
+                    if (url != null) {
+                        secureStorage.save("server_remote_url", url)
+                    } else {
+                        secureStorage.delete("server_remote_url")
+                    }
+                },
             )
         }
 

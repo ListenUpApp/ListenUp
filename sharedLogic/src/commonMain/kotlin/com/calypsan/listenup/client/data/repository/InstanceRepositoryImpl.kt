@@ -44,10 +44,13 @@ private const val SOCKET_TIMEOUT_MS = 30_000L
  *    (notably `remoteUrl`) until a dedicated admin GET surface exists.
  *
  * [getServerUrl] supplies the already-saved URL for the post-connect probes.
+ *
+ * @param persistRemoteUrl Writes the server's advertised remote URL to ServerConfig storage on every successful getServerInfo (null clears it).
  */
 class InstanceRepositoryImpl(
     private val getServerUrl: suspend () -> ServerUrl?,
     private val instanceRpcFactory: InstanceRpcFactory,
+    private val persistRemoteUrl: suspend (String?) -> Unit,
 ) : InstanceRepository {
     private var cachedServerInfo: ServerInfo? = null
 
@@ -65,6 +68,7 @@ class InstanceRepositoryImpl(
         return when (val result = callServerInfo(toWebSocketScheme(serverUrl.value))) {
             is AppResult.Success -> {
                 cachedServerInfo = result.data
+                persistRemoteUrl(result.data.remoteUrl)
                 result
             }
 
