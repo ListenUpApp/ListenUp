@@ -297,7 +297,7 @@ private fun PanelsSection() {
         Button(onClick = { open = "sleep" }) { Text("Sleep") }
     }
     when (open) {
-        "speed" ->
+        "speed" -> {
             PlaybackSpeedSheet(
                 currentSpeed = 1.25f,
                 defaultSpeed = 1.0f,
@@ -305,14 +305,18 @@ private fun PanelsSection() {
                 onResetToDefault = {},
                 onDismiss = { open = null },
             )
-        "chapters" ->
+        }
+
+        "chapters" -> {
             ChapterPickerSheet(
                 chapters = mockDomainChapters,
                 currentChapterIndex = 2,
                 onChapterSelected = {},
                 onDismiss = { open = null },
             )
-        "sleep" ->
+        }
+
+        "sleep" -> {
             SleepTimerSheet(
                 currentState = SleepTimerState.Inactive,
                 onSetTimer = {},
@@ -320,6 +324,7 @@ private fun PanelsSection() {
                 onExtendTimer = {},
                 onDismiss = { open = null },
             )
+        }
     }
 }
 

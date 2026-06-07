@@ -66,7 +66,13 @@ fun PlayerPanelScaffold(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
     if (expanded) {
-        PlayerPanelDialog(title = title, onDismiss = onDismiss, dialogWidth = dialogWidth, modifier = modifier, content = content)
+        PlayerPanelDialog(
+            title = title,
+            onDismiss = onDismiss,
+            dialogWidth = dialogWidth,
+            modifier = modifier,
+            content = content,
+        )
     } else {
         PlayerPanelBottomSheet(title = title, onDismiss = onDismiss, modifier = modifier, content = content)
     }
@@ -94,7 +100,12 @@ private fun PlayerPanelBottomSheet(
         },
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+            modifier =
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    bottom = 8.dp,
+                ),
         ) {
             PanelTitle(title)
             content()
@@ -152,7 +163,11 @@ private fun PanelTitle(
     Text(
         text = title,
         modifier = modifier.padding(bottom = 4.dp),
-        style = MaterialTheme.typography.headlineSmall.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold),
+        style =
+            MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = DisplayFontFamily,
+                fontWeight = FontWeight.Bold,
+            ),
         color = MaterialTheme.colorScheme.onSurface,
     )
 }

@@ -74,8 +74,11 @@ fun SleepTimerSheet(
         dialogWidth = 520.dp,
     ) {
         when (currentState) {
-            is SleepTimerState.Inactive -> SleepTimerOptions(onSetTimer = onSetTimer)
-            is SleepTimerState.Active ->
+            is SleepTimerState.Inactive -> {
+                SleepTimerOptions(onSetTimer = onSetTimer)
+            }
+
+            is SleepTimerState.Active -> {
                 ActiveTimerDisplay(
                     state = currentState,
                     onExtend = onExtendTimer,
@@ -84,7 +87,11 @@ fun SleepTimerSheet(
                         onDismiss()
                     },
                 )
-            is SleepTimerState.FadingOut -> FadingOutDisplay()
+            }
+
+            is SleepTimerState.FadingOut -> {
+                FadingOutDisplay()
+            }
         }
     }
 }
