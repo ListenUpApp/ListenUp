@@ -125,6 +125,62 @@ class ContributorParsingIngestE2ETest :
             }
         }
 
+        // Regression test: two distinct display names that resolve to the same contributor (via
+        // an embedded authorsSort tag) must not crash the ingest transaction with a PK violation on
+        // book_contributor(book_id, contributor_id, role).
+        //
+        // Scenario: authors = ["Brandon Sanderson", "B. Sanderson"] + authorsSort =
+        // "Sanderson, Brandon; Sanderson, Brandon". buildContributors produces two payloads with
+        // different names but the same sortName. Both pass resolveOrCreate, which deduplicates on
+        // sortName and returns the same contributorId for both. replaceContributors must collapse
+        // them to one junction row rather than attempting two inserts with identical (book_id,
+        // contributor_id, role) — which would trigger SQLITE_CONSTRAINT_PRIMARYKEY.
+        test("two author names resolving to one contributor collapse to one membership (no PK crash)") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val bookRepo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = registry,
+                        contributorRepository = contributors,
+                        seriesRepository = series,
+                    )
+                runTest {
+                    // Two display names that both map to sortName "Sanderson, Brandon" via the
+                    // embedded authorsSort tag, so resolveOrCreate returns the same id for both.
+                    val analyzed =
+                        analyzedWith(
+                            authors = listOf("Brandon Sanderson", "B. Sanderson"),
+                            authorsSort = "Sanderson, Brandon; Sanderson, Brandon",
+                            rootRelPath = "Sanderson/Dup Contributors",
+                        )
+
+                    bookRepo
+                        .upsertFromAnalyzed(
+                            BookId("dup-contrib-book"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzed,
+                        ).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val book = bookRepo.findById(BookId("dup-contrib-book")).shouldNotBeNull()
+                    // Exactly one author membership for the deduplicated contributor.
+                    book.contributors.count { it.role == "author" } shouldBe 1
+                    book.contributors
+                        .filter { it.role == "author" }
+                        .map { it.id }
+                        .distinct()
+                        .size shouldBe 1
+                }
+            }
+        }
+
         // Crown-jewel test 2: embedded-tag path.
         //
         // "B. Sanderson" would derive sortName "Sanderson, B." (not "Sanderson, Brandon"),
