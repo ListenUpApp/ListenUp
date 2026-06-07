@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -34,11 +33,8 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,7 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -243,10 +238,11 @@ private fun DockedSelectionBar(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            PillButton(
+            ListenUpButton(
                 text = "Continue",
                 onClick = onContinue,
                 isLoading = state.isCreatingLibrary,
+                fillMaxWidth = false,
                 trailingIcon = Icons.AutoMirrored.Rounded.ArrowForward,
             )
         }
@@ -392,15 +388,14 @@ private fun DesktopPickerPanel(
                 )
             }
             if (!state.isRoot) {
-                OutlinedButton(onClick = onBack, shape = CircleShape, modifier = Modifier.height(56.dp)) {
-                    Text("Back", style = MaterialTheme.typography.titleMedium)
-                }
+                ListenUpButton(text = "Back", onClick = onBack, filled = false, fillMaxWidth = false)
             }
-            PillButton(
+            ListenUpButton(
                 text = "Continue",
                 onClick = onContinue,
-                isLoading = state.isCreatingLibrary,
                 enabled = state.selectedPaths.isNotEmpty(),
+                isLoading = state.isCreatingLibrary,
+                fillMaxWidth = false,
                 trailingIcon = Icons.AutoMirrored.Rounded.ArrowForward,
             )
         }
@@ -553,12 +548,19 @@ private fun ConfirmationActions(
 ) {
     if (wide) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            PillButton(text = "Done", onClick = onDone, leadingIcon = Icons.Rounded.CheckCircle)
-            OutlinedButton(onClick = onAddAnother, shape = CircleShape, modifier = Modifier.height(56.dp)) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Add another library", style = MaterialTheme.typography.titleMedium)
-            }
+            ListenUpButton(
+                text = "Done",
+                onClick = onDone,
+                fillMaxWidth = false,
+                leadingIcon = Icons.Rounded.CheckCircle,
+            )
+            ListenUpButton(
+                text = "Add another library",
+                onClick = onAddAnother,
+                filled = false,
+                fillMaxWidth = false,
+                leadingIcon = Icons.Rounded.Add,
+            )
         }
     } else {
         Column(
@@ -569,7 +571,6 @@ private fun ConfirmationActions(
                 text = "Done",
                 onClick = onDone,
                 leadingIcon = Icons.Rounded.CheckCircle,
-                modifier = Modifier.fillMaxWidth(),
             )
             Row(
                 modifier = Modifier.fillMaxWidth().clickable(onClick = onAddAnother).padding(vertical = 12.dp),
@@ -588,50 +589,6 @@ private fun ConfirmationActions(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
-            }
-        }
-    }
-}
-
-/**
- * A filled brand pill button that wraps its content width and supports a leading or
- * trailing icon — the variants [ListenUpButton] (always full-width, leading-icon-only)
- * doesn't cover. Used for the docked Continue, desktop Continue, and confirmation Done.
- */
-@Composable
-private fun PillButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    isLoading: Boolean = false,
-    leadingIcon: ImageVector? = null,
-    trailingIcon: ImageVector? = null,
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled && !isLoading,
-        shape = CircleShape,
-        modifier = modifier.height(56.dp),
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = MaterialTheme.colorScheme.onPrimary,
-                strokeWidth = 2.dp,
-            )
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (leadingIcon != null) {
-                    Icon(leadingIcon, contentDescription = null, modifier = Modifier.size(20.dp))
-                }
-                Text(text, style = MaterialTheme.typography.titleMedium)
-                if (trailingIcon != null) {
-                    Icon(trailingIcon, contentDescription = null, modifier = Modifier.size(20.dp))
-                }
             }
         }
     }
