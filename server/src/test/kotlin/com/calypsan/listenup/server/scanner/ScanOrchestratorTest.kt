@@ -234,6 +234,7 @@ private class FakeWatcherSupervisor : WatcherSupervisorPort {
     val mountedFolders = mutableListOf<LibraryFolderRef>()
     val unmountedFolders = mutableListOf<FolderId>()
     var unmountAllLibraryCalls = 0
+    var unmountAllCalls = 0
 
     override suspend fun mount(
         libraryId: LibraryId,
@@ -249,6 +250,10 @@ private class FakeWatcherSupervisor : WatcherSupervisorPort {
 
     override suspend fun unmountAllForLibrary(libraryId: LibraryId) {
         unmountAllLibraryCalls++
+    }
+
+    override suspend fun unmountAll() {
+        unmountAllCalls++
     }
 }
 
