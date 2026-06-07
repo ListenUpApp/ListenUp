@@ -19,20 +19,15 @@ import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
-import com.calypsan.listenup.client.data.remote.CollectionRef
-import com.calypsan.listenup.client.data.remote.InboxBookResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
 import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
-import com.calypsan.listenup.client.domain.model.InboxBook
-import com.calypsan.listenup.client.domain.model.InboxReleaseResult
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ServerSettings
-import com.calypsan.listenup.client.domain.model.StagedCollection
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -220,32 +215,6 @@ class AdminRepositoryImpl(
         }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // INBOX MANAGEMENT
-    // ═══════════════════════════════════════════════════════════════════════
-
-    override suspend fun getInboxBooks(): AppResult<List<InboxBook>> =
-        adminApi.listInboxBooks().map { it.books.map { book -> book.toDomain() } }
-
-    override suspend fun releaseBooks(bookIds: List<String>): AppResult<InboxReleaseResult> =
-        adminApi.releaseBooks(bookIds).map { response ->
-            InboxReleaseResult(
-                released = response.released,
-                publicCount = response.public,
-                toCollections = response.toCollections,
-            )
-        }
-
-    override suspend fun stageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit> = adminApi.stageCollection(bookId, collectionId)
-
-    override suspend fun unstageCollection(
-        bookId: String,
-        collectionId: String,
-    ): AppResult<Unit> = adminApi.unstageCollection(bookId, collectionId)
-
-    // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -297,30 +266,6 @@ class AdminRepositoryImpl(
 // ═══════════════════════════════════════════════════════════════════════════
 // CONVERSION FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Convert InboxBookResponse API model to InboxBook domain model.
- */
-private fun InboxBookResponse.toDomain(): InboxBook =
-    InboxBook(
-        id = id,
-        title = title,
-        author = author,
-        coverUrl = coverUrl,
-        duration = duration,
-        stagedCollectionIds = stagedCollectionIds,
-        stagedCollections = stagedCollections.map { it.toDomain() },
-        scannedAt = scannedAt,
-    )
-
-/**
- * Convert CollectionRef API model to StagedCollection domain model.
- */
-private fun CollectionRef.toDomain(): StagedCollection =
-    StagedCollection(
-        id = id,
-        name = name,
-    )
 
 /**
  * Convert the contract [ContractLibrary] (returned by [com.calypsan.listenup.api.LibraryAdminService])
