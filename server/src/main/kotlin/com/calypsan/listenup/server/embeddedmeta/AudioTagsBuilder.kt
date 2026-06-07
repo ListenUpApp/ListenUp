@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.embeddedmeta
 
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
-import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
 
 /**
  * Mutable accumulator the format readers (MP3 `Id3v2Reader`, MP4 `IlstReader`)
@@ -15,6 +14,7 @@ internal class AudioTagsBuilder {
     val narrators: MutableList<String> = mutableListOf()
     var seriesName: String? = null
     var seriesPart: String? = null
+    var grouping: String? = null
     val genres: MutableList<String> = mutableListOf()
     var description: String? = null
     var publisher: String? = null
@@ -31,9 +31,9 @@ internal class AudioTagsBuilder {
     fun build(): AudioTags {
         val series =
             if (seriesName != null) {
-                listOf(SeriesEntry(name = seriesName!!, sequence = seriesPart))
+                SeriesTagParser.zipSeries(seriesName, seriesPart)
             } else {
-                emptyList()
+                grouping?.let { SeriesTagParser.parsePacked(it) } ?: emptyList()
             }
         return AudioTags(
             title = title,

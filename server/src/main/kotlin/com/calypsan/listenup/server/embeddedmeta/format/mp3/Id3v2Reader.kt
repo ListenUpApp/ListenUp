@@ -108,7 +108,7 @@ internal object Id3v2Reader {
                     handleTxxx(frameData, builder)
                 }
 
-                frameId.startsWith("T") -> {
+                frameId.startsWith("T") || frameId in TEXT_FRAME_IDS -> {
                     handleTextFrame(frameId, frameData, builder)
                 }
 
@@ -182,6 +182,10 @@ internal object Id3v2Reader {
             "MVNM" -> builder.seriesName = builder.seriesName ?: text
 
             "MVIN" -> builder.seriesPart = builder.seriesPart ?: text
+
+            "GRP1" -> builder.grouping = builder.grouping ?: text
+
+            "TIT1" -> builder.grouping = builder.grouping ?: text
 
             "TDES" -> builder.description = builder.description ?: text
 
@@ -466,4 +470,7 @@ internal object Id3v2Reader {
     private const val ID3V2_HEADER_SIZE = 10
     private const val ID3V2_FRAME_HEADER_SIZE = 10
     private const val APIC_FRONT_COVER = 3
+
+    /** Non-T-prefixed frame IDs that are still dispatched as text frames. */
+    private val TEXT_FRAME_IDS = setOf("MVNM", "MVIN", "GRP1")
 }

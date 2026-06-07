@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.w3c.dom.Element
 import java.nio.file.Path
@@ -37,6 +38,8 @@ private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
  *  - `<dc:creator>`     → contributor; the `opf:role` attribute maps
  *    `aut` (or absent — the OPF default) → `"author"`, `nrt` → `"narrator"`.
  *    Any other relator code (`trl`, `edt`, …) is dropped, not mis-filed
+ *  - `<meta name="calibre:series" content="…">` + `<meta name="calibre:series_index"
+ *    content="…">` → [SidecarMetadata.series] (Calibre-authored `.opf` files only)
  *
  * `<dc:identifier>` (ISBN / ASIN) is intentionally NOT extracted —
  * [SidecarMetadata] carries no identifier field and the Analyzer does not
@@ -75,6 +78,19 @@ internal class OpfParser : SidecarParser {
                         },
                 publisher = root.firstText("dc:publisher"),
                 language = root.firstText("dc:language"),
+                series =
+                    root
+                        .metaContent("calibre:series")
+                        ?.let { seriesName ->
+                            // calibre:series_index is optional; absent → null sequence (valid)
+                            listOf(
+                                SeriesEntry(
+                                    name = seriesName,
+                                    sequence = root.metaContent("calibre:series_index"),
+                                ),
+                            )
+                        }
+                        ?: emptyList(),
                 contributors = root.creators(),
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -107,3 +123,15 @@ private fun Element.creators(): List<SidecarContributor> =
             SidecarContributor(name, role)
         }
     }
+
+/** `content` of the first `<meta name="[name]">`, trimmed; null if absent or blank. */
+private fun Element.metaContent(name: String): String? {
+    val nodes = getElementsByTagName("meta")
+    for (i in 0 until nodes.length) {
+        val el = nodes.item(i) as Element
+        if (el.getAttribute("name") == name) {
+            return el.getAttribute("content").trim().ifBlank { null }
+        }
+    }
+    return null
+}

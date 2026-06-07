@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import com.calypsan.listenup.api.dto.scanner.SeriesEntry
+
 /**
  * Metadata extracted from a sidecar file. Every field is optional — a parser
  * fills only what its file format carries. The
@@ -13,6 +15,8 @@ internal data class SidecarMetadata(
     val publishYear: Int? = null,
     val publisher: String? = null,
     val language: String? = null,
+    /** Series entries extracted from a sidecar (e.g. Calibre `<meta name="calibre:series">`). */
+    val series: List<SeriesEntry> = emptyList(),
     val contributors: List<SidecarContributor> = emptyList(),
 )
 
