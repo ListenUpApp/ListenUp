@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceType
+import com.calypsan.listenup.client.features.contributors.CastRole
+import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
 import com.calypsan.listenup.client.playback.ContributorPickerType
 import com.calypsan.listenup.client.playback.NowPlayingOverlay
@@ -213,16 +215,16 @@ private fun OverlayDispatch(
 
         is NowPlayingOverlay.ContributorPicker -> {
             if (activeState != null) {
-                val contributors =
+                val role =
                     when (overlay.type) {
-                        ContributorPickerType.AUTHORS -> activeState.authors
-                        ContributorPickerType.NARRATORS -> activeState.narrators
+                        ContributorPickerType.AUTHORS -> CastRole.Authors
+                        ContributorPickerType.NARRATORS -> CastRole.Narrators
                     }
-                ContributorPickerSheet(
-                    type = overlay.type,
-                    contributors = contributors,
-                    onContributorSelected = { contributorId ->
-                        viewModel.hideContributorPicker()
+                FullCastSheetFor(
+                    role = role,
+                    authors = activeState.authors,
+                    narrators = activeState.narrators,
+                    onContributorClick = { contributorId ->
                         viewModel.collapse()
                         onNavigateToContributor(contributorId)
                     },
