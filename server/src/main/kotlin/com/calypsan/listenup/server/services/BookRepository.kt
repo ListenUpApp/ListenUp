@@ -855,7 +855,13 @@ class BookRepository(
         contributors: List<BookContributorPayload>,
     ) {
         BookContributorTable.deleteWhere { BookContributorTable.bookId eq bookId }
-        contributors.forEachIndexed { idx, c ->
+        // Two display names can resolve to the same contributor id when sortName deduplication
+        // collapses them (e.g. "Brandon Sanderson" and "B. Sanderson" both map to sortName
+        // "Sanderson, Brandon" via an embedded authorsSort tag). The junction PK is
+        // (book_id, contributor_id, role); inserting both rows would trigger
+        // SQLITE_CONSTRAINT_PRIMARYKEY and abort the whole book ingest. Collapse to one row per
+        // (contributor, role) — first occurrence wins for ordinal and creditedAs.
+        contributors.distinctBy { it.id to it.role }.forEachIndexed { idx, c ->
             BookContributorTable.insert {
                 it[BookContributorTable.bookId] = bookId
                 it[BookContributorTable.contributorId] = c.id
