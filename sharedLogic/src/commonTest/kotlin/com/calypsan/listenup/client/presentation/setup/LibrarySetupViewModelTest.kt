@@ -139,8 +139,8 @@ class LibrarySetupViewModelTest :
                 val service = makeService()
                 val entries =
                     listOf(
-                        DirectoryEntry(name = "audiobooks", path = "/data/audiobooks", hasChildren = true),
-                        DirectoryEntry(name = "music", path = "/data/music", hasChildren = false),
+                        DirectoryEntry(name = "audiobooks", path = "/data/audiobooks", hasChildren = true, itemCount = 12),
+                        DirectoryEntry(name = "music", path = "/data/music", hasChildren = false, itemCount = 0),
                     )
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))

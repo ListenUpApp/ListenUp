@@ -195,6 +195,35 @@ class LibraryAdminServiceImplTest :
             }
         }
 
+        test("browseFilesystem reports itemCount = number of immediate entries per child") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val parent = createTempDir()
+                    // child "audiobooks" with 3 files + 1 subdir => itemCount 4, hasChildren true
+                    val audiobooks = parent.resolve("audiobooks").apply { mkdir() }
+                    audiobooks.resolve("a.m4b").apply { createNewFile() }
+                    audiobooks.resolve("b.m4b").apply { createNewFile() }
+                    audiobooks.resolve("c.m4b").apply { createNewFile() }
+                    audiobooks.resolve("series").apply { mkdir() }
+                    // child "empty" with nothing => itemCount 0, hasChildren false
+                    parent.resolve("empty").apply { mkdir() }
+
+                    val result = service.browseFilesystem(parent.absolutePath)
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+                    val entries = (result as AppResult.Success).data
+
+                    val audio = entries.first { it.name == "audiobooks" }
+                    audio.itemCount shouldBe 4
+                    audio.hasChildren shouldBe true
+
+                    val empty = entries.first { it.name == "empty" }
+                    empty.itemCount shouldBe 0
+                    empty.hasChildren shouldBe false
+                }
+            }
+        }
+
         test("browseFilesystem returns Failure(InvalidPath) for a non-existent path") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
