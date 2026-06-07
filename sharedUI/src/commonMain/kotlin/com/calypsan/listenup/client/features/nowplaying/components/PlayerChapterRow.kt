@@ -101,7 +101,7 @@ fun PlayerChapterRow(
         )
 
         Text(
-            text = "$durationLabel min",
+            text = durationLabel,
             style = MaterialTheme.typography.bodyMedium,
             color = subtitleColor,
         )
