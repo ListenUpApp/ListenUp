@@ -167,16 +167,28 @@ class BookPersister internal constructor(
      * scanned books land uncollected rather than stranding a half-ingested library.
      */
     private suspend fun resolveInboxCollectionId(libraryId: LibraryId): String? {
-        if (!libraryRepository.readInboxEnabled(libraryId)) return null
-        return when (val result = collectionService.getOrCreateInbox(libraryId.value)) {
-            is AppResult.Success -> {
-                result.data.id.value
+        // Resolving the inbox must never fail the scan: a typed Failure OR an escaped DB/connection
+        // fault degrades to "no quarantine" (books stay uncollected) rather than killing the scan
+        // consumer coroutine. CancellationException is always re-raised.
+        return try {
+            if (!libraryRepository.readInboxEnabled(libraryId)) {
+                return null
             }
+            when (val result = collectionService.getOrCreateInbox(libraryId.value)) {
+                is AppResult.Success -> {
+                    result.data.id.value
+                }
 
-            is AppResult.Failure -> {
-                log.warn { "Inbox quarantine skipped for library ${libraryId.value}: ${result.error.code}" }
-                null
+                is AppResult.Failure -> {
+                    log.warn { "Inbox quarantine skipped for library ${libraryId.value}: ${result.error.code}" }
+                    null
+                }
             }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "Inbox resolution failed for library ${libraryId.value}; scanning without quarantine" }
+            null
         }
     }
 

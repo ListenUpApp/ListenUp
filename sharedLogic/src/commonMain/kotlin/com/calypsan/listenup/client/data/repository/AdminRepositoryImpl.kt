@@ -221,8 +221,15 @@ class AdminRepositoryImpl(
     override suspend fun getLibraries(): AppResult<List<Library>> =
         adminApi.getLibraries().map { libraries -> libraries.map { it.toDomain() } }
 
+    // Load via the LibraryAdminService RPC (not the Go-era REST path) so the returned Library
+    // carries the live inboxEnabled flag — the settings toggle would otherwise display stale-false
+    // on open until interacted with. The RPC Library maps to the same domain shape (no folders on
+    // the domain model), so this is field-equivalent plus the inbox flag.
     override suspend fun getLibrary(libraryId: String): AppResult<Library> =
-        adminApi.getLibrary(libraryId).map { it.toDomain() }
+        libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
+            library?.let { AppResult.Success(it.toDomain()) }
+                ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
+        }
 
     override suspend fun updateLibrary(
         libraryId: String,
