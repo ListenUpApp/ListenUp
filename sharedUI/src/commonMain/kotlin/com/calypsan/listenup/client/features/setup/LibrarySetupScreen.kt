@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.setup
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -9,12 +8,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -186,23 +188,27 @@ private fun PhoneLayout(
 
         SetupBreadcrumb(
             path = state.currentPath,
+            onNavigate = onOpen,
             modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 10.dp),
         )
 
-        FolderList(
-            state = state,
-            onOpen = onOpen,
-            onToggle = onToggle,
-            onSelectCurrent = onSelectCurrent,
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-        )
-
-        AnimatedVisibility(
-            visible = state.selectedPaths.isNotEmpty(),
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
-        ) {
-            DockedSelectionBar(state = state, onContinue = onContinue)
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            FolderList(
+                state = state,
+                onOpen = onOpen,
+                onToggle = onToggle,
+                onSelectCurrent = onSelectCurrent,
+                listBottomPadding = 96.dp,
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            )
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.selectedPaths.isNotEmpty(),
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(initialOffsetY = { it }),
+                exit = slideOutVertically(targetOffsetY = { it }),
+            ) {
+                DockedSelectionBar(state = state, onContinue = onContinue)
+            }
         }
     }
 }
@@ -217,7 +223,7 @@ private fun DockedSelectionBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .systemBarsPadding()
+                    .navigationBarsPadding()
                     .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -347,7 +353,7 @@ private fun DesktopPickerPanel(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(22.dp))
-        SetupBreadcrumb(path = state.currentPath)
+        SetupBreadcrumb(path = state.currentPath, onNavigate = onOpen)
         Spacer(Modifier.height(16.dp))
         Box(
             modifier =
@@ -411,6 +417,7 @@ private fun FolderList(
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,
     modifier: Modifier = Modifier,
+    listBottomPadding: Dp = 0.dp,
 ) {
     when {
         state.isLoadingDirectories -> {
@@ -422,7 +429,11 @@ private fun FolderList(
         }
 
         else -> {
-            LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(
+                modifier = modifier,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(bottom = listBottomPadding),
+            ) {
                 items(items = state.directories, key = { it.path }) { entry ->
                     FolderRow(
                         entry = entry,
@@ -434,7 +445,6 @@ private fun FolderList(
                             },
                     )
                 }
-                item { Spacer(Modifier.height(12.dp)) }
             }
         }
     }

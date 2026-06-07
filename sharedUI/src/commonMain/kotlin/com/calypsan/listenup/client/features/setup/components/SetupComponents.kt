@@ -56,6 +56,7 @@ fun SetupHeroBlob(modifier: Modifier = Modifier) {
 @Composable
 fun SetupBreadcrumb(
     path: String,
+    onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val segments = path.split('/').filter { it.isNotBlank() }
@@ -69,6 +70,7 @@ fun SetupBreadcrumb(
                 Modifier
                     .height(36.dp)
                     .clip(CircleShape)
+                    .clickable { onNavigate("/") }
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(start = 12.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -106,6 +108,7 @@ fun SetupBreadcrumb(
                     },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable { onNavigate("/" + segments.take(index + 1).joinToString("/")) },
             )
         }
     }
@@ -205,13 +208,15 @@ fun FolderRow(
         Box(modifier = Modifier.clip(CircleShape).clickableNoRipple(onToggle).padding(2.dp)) {
             SetupCheckbox(on = selected)
         }
-        if (entry.hasChildren) {
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = "Open folder",
-                tint = chevronTint,
-                modifier = Modifier.size(24.dp),
-            )
+        Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            if (entry.hasChildren) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = "Open folder",
+                    tint = chevronTint,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         }
     }
 }
