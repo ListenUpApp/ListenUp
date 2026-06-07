@@ -110,4 +110,10 @@ interface SyncRepository {
      * @return Success on completion, Failure on error
      */
     suspend fun forceFullResync(): AppResult<Unit>
+
+    /**
+     * True when a synced library already exists in local Room (books present) — the offline-first
+     * fallback signal: a returning user can open offline even if the server is unreachable.
+     */
+    suspend fun hasLocalLibrary(): Boolean
 }

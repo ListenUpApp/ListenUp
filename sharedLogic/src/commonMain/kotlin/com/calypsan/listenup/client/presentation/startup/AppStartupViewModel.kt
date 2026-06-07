@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.startup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
@@ -75,7 +76,7 @@ class AppStartupViewModel(
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
     private val authSession: AuthSession,
     private val profileRepository: ProfileRepository,
-    syncRepository: SyncRepository,
+    private val syncRepository: SyncRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AppStartupState())
     val state: StateFlow<AppStartupState> = _state.asStateFlow()
@@ -215,26 +216,9 @@ class AppStartupViewModel(
                 }
 
                 if (user?.isAdmin == true) {
-                    when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
-                        is AppResult.Success -> {
-                            logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
-                            _state.value =
-                                _state.value.copy(
-                                    isChecking = false,
-                                    needsLibrarySetup = result.data.needsSetup,
-                                    setupCheckFailed = false,
-                                    checkResolved = true,
-                                )
-                        }
-
-                        is AppResult.Failure -> {
-                            // Honest over silent: never drop an admin into an empty Shell when the
-                            // check fails. Surface a retryable error instead of forcing the wizard.
-                            logger.warn { "AppStartupViewModel: library status check failed: ${result.error.code}" }
-                            _state.value =
-                                _state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
-                        }
-                    }
+                    applyAdminSetupCheckResult(
+                        libraryAdminRpcFactory.get().getSetupStatus(),
+                    )
                 } else {
                     logger.info {
                         "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
@@ -252,9 +236,59 @@ class AppStartupViewModel(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "AppStartupViewModel: setup check failed unexpectedly" }
-                _state.value =
-                    _state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
+                resolveOfflineOrFail()
             }
+        }
+    }
+
+    /**
+     * Applies the result of [LibraryAdminService.getSetupStatus] to [_state].
+     *
+     * On success, records whether the library needs setup. On failure, falls back to the
+     * offline-first policy via [resolveOfflineOrFail]: a returning admin with a cached
+     * local library opens offline; a genuinely fresh admin with no library sees the
+     * retryable-error wall.
+     */
+    private suspend fun applyAdminSetupCheckResult(result: AppResult<SetupStatus>) {
+        when (result) {
+            is AppResult.Success -> {
+                logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
+                _state.value =
+                    _state.value.copy(
+                        isChecking = false,
+                        needsLibrarySetup = result.data.needsSetup,
+                        setupCheckFailed = false,
+                        checkResolved = true,
+                    )
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "AppStartupViewModel: library status check failed: ${result.error.code}" }
+                resolveOfflineOrFail()
+            }
+        }
+    }
+
+    /**
+     * Offline-first fallback: when the admin setup check cannot reach the server, open offline
+     * if a local library exists. Only surface [AppStartupState.setupCheckFailed] when there is
+     * genuinely no cached library to fall back to (fresh admin, first startup offline).
+     */
+    private suspend fun resolveOfflineOrFail() {
+        val hasLocal = runCatching { syncRepository.hasLocalLibrary() }.getOrDefault(false)
+        if (hasLocal) {
+            logger.info { "library check failed but a local library exists — opening offline" }
+            _state.value =
+                _state.value.copy(
+                    isChecking = false,
+                    needsLibrarySetup = false,
+                    setupCheckFailed = false,
+                    checkResolved = true,
+                )
+        } else {
+            logger.warn { "library check failed and no local library — surfacing retryable error" }
+            _state.value =
+                _state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
         }
     }
 }

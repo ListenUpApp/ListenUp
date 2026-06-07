@@ -988,6 +988,7 @@ val syncModule =
                 authSession = get(),
                 listeningEventRecorder = get(),
                 scannerRpcFactory = get(),
+                bookDao = get(),
                 scope =
                     get(
                         qualifier =

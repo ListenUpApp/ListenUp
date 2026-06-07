@@ -72,11 +72,14 @@ class AppStartupViewModelTest {
     }
 
     // readiness derives from the sync layer's scan signal; these tests don't drive a scan, so a
-    // not-scanning stub is all the aggregator needs.
-    private fun createMockSyncRepository(): SyncRepository {
+    // not-scanning stub is all the aggregator needs. hasLocalLibrary() defaults to false so that
+    // existing failure tests still expect CheckFailed — only tests that explicitly opt in to
+    // hasLocalLibrary() = true will observe the offline-fallback path.
+    private fun createMockSyncRepository(hasLocalLibrary: Boolean = false): SyncRepository {
         val sync = mock<SyncRepository>()
         every { sync.isServerScanning } returns MutableStateFlow(false)
         every { sync.scanProgress } returns MutableStateFlow(null)
+        everySuspend { sync.hasLocalLibrary() } returns hasLocalLibrary
         return sync
     }
 
@@ -421,5 +424,66 @@ class AppStartupViewModelTest {
             // Then - state preserved, no re-check
             assertFalse(viewModel.state.value.isChecking)
             assertTrue(viewModel.state.value.needsLibrarySetup)
+        }
+
+    // ========== Offline-first Fallback Tests ==========
+
+    // Regression: a returning admin with a cached local library must NOT be stranded on a
+    // "Library Check Failed" wall when the server is unreachable at startup. The setup check
+    // only matters for a FRESH admin (no library yet). When books exist locally, the VM must
+    // resolve to Ready so the offline library is accessible.
+    @Test
+    fun `admin getSetupStatus failure resolves to Ready when a local library exists`() =
+        runTest {
+            // Given - admin user, setup-status check fails (server unreachable offline)
+            //         but a library is already cached in local Room
+            val userRepository = createMockUserRepository()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
+            val adminUser = createTestUser(isAdmin = true)
+            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+            everySuspend { userRepository.getCurrentUser() } returns adminUser
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
+            // hasLocalLibrary = true: returning user with a cached library
+            val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
+
+            // When
+            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
+            advanceUntilIdle()
+
+            // Then - opens offline, NOT stranded on the error wall
+            assertFalse(viewModel.state.value.isChecking)
+            assertFalse(viewModel.state.value.setupCheckFailed)
+            assertFalse(viewModel.state.value.needsLibrarySetup)
+            assertEquals(LibraryReadiness.Ready, viewModel.readiness.value)
+        }
+
+    // Complement: when there is genuinely no local library (fresh admin, first startup offline),
+    // the retryable error wall is the correct and honest response.
+    @Test
+    fun `admin getSetupStatus failure surfaces CheckFailed when no local library exists`() =
+        runTest {
+            // Given - admin user, setup-status check fails and no local library
+            val userRepository = createMockUserRepository()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
+            val adminUser = createTestUser(isAdmin = true)
+            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+            everySuspend { userRepository.getCurrentUser() } returns adminUser
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
+            // hasLocalLibrary = false: fresh admin, no cache yet
+            val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
+
+            // When
+            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
+            advanceUntilIdle()
+
+            // Then - retryable error surfaced (honest over silent for genuine no-library case)
+            assertFalse(viewModel.state.value.isChecking)
+            assertTrue(viewModel.state.value.setupCheckFailed)
+            assertFalse(viewModel.state.value.needsLibrarySetup)
+            assertEquals(LibraryReadiness.CheckFailed, viewModel.readiness.value)
         }
 }
