@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -435,7 +437,9 @@ private fun FolderList(
     modifier: Modifier = Modifier,
     listBottomPadding: Dp = 0.dp,
 ) {
-    val spatial = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+    val slideSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val scaleSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     Box(modifier = modifier) {
         AnimatedContent(
             targetState = FolderFrame(currentPath, directories, isLoading),
@@ -448,8 +452,15 @@ private fun FolderList(
                     } else {
                         AnimatedContentTransitionScope.SlideDirection.End
                     }
-                slideIntoContainer(direction, animationSpec = spatial) + fadeIn() togetherWith
-                    slideOutOfContainer(direction, animationSpec = spatial) + fadeOut()
+                val enter =
+                    slideIntoContainer(direction, animationSpec = slideSpatial) +
+                        fadeIn(animationSpec = fade) +
+                        scaleIn(initialScale = 0.92f, animationSpec = scaleSpatial)
+                val exit =
+                    slideOutOfContainer(direction, animationSpec = slideSpatial) +
+                        fadeOut(animationSpec = fade) +
+                        scaleOut(targetScale = 0.92f, animationSpec = scaleSpatial)
+                enter togetherWith exit
             },
             label = "folderNav",
         ) { frame ->
