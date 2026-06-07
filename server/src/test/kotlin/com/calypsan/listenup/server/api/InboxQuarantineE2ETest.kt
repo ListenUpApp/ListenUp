@@ -141,7 +141,19 @@ class InboxQuarantineE2ETest :
 
                                 // Scan the quarantined book — its content event must be dropped for m1.
                                 persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
-                                // The visible public control — m1 must receive this one.
+                                // The visible public control — m1 must receive this one. The firehose
+                                // publishes a book event from INSIDE its write transaction (before the
+                                // commit), so a member's delivery-time canAccess runs against a separate
+                                // connection that cannot yet see a brand-new row and would drop the
+                                // event — a race that's invisible on fast hardware but reliably lost on
+                                // a busy CI runner. Commit the control book first, then upsert it again:
+                                // the SECOND event's canAccess sees the already-committed public row and
+                                // is delivered, so the positive control is reliable under load. The
+                                // quarantined book is still never delivered to m1 (invisible pre-commit,
+                                // and once committed it sits in the admin-only inbox), so the FIRST
+                                // `books` event m1 sees is always `Public`, never `Quarantined`.
+                                // Followup: publish firehose events post-commit (see followups.md).
+                                books.upsert(publicBook("Public", libraryId)).requireSuccess()
                                 books.upsert(publicBook("Public", libraryId)).requireSuccess()
 
                                 val event = firstBooksEvent.await()
