@@ -129,6 +129,8 @@ fun NowPlayingHost(
                 onPlayPause = viewModel::playPause,
                 onSkipBack = { viewModel.skipBack() },
                 onSkipForward = { viewModel.skipForward() },
+                onSeek = viewModel::seekWithinChapter,
+                onSpeedClick = viewModel::showSpeedPicker,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         } else if (!hasBottomNav) {
