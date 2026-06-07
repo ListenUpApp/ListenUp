@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
@@ -59,7 +60,7 @@ class SyncEngineLifecycleTest :
                     }
                 val registry = ClientSyncDomainRegistry()
                 registry.register(handler)
-                val db = createInMemoryTestDatabase()
+                val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
                 val store = SyncCursorStore(db.syncCursorDao())
                 val queue =
                     PendingOperationQueue(
@@ -103,6 +104,7 @@ class SyncEngineLifecycleTest :
                 fakeSse.connected shouldBe true
                 fakeSse.seededLastEventId shouldBe SECOND_REVISION
 
+                engine.stopAndJoin()
                 db.close()
             }
         }
@@ -110,7 +112,7 @@ class SyncEngineLifecycleTest :
         test("start clears the queue when currentUserId differs from queued ops' owner") {
             runTest {
                 val registry = ClientSyncDomainRegistry()
-                val db = createInMemoryTestDatabase()
+                val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
                 val store = SyncCursorStore(db.syncCursorDao())
                 val queue =
                     PendingOperationQueue(
@@ -144,6 +146,7 @@ class SyncEngineLifecycleTest :
 
                 db.pendingOperationV2Dao().get(u1opId) shouldBe null
 
+                engine.stopAndJoin()
                 db.close()
             }
         }
@@ -175,7 +178,7 @@ class SyncEngineLifecycleTest :
                     }
                 val registry = ClientSyncDomainRegistry()
                 registry.register(handler)
-                val db = createInMemoryTestDatabase()
+                val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
                 val store = SyncCursorStore(db.syncCursorDao())
                 val queue =
                     PendingOperationQueue(
@@ -230,6 +233,7 @@ class SyncEngineLifecycleTest :
                 sequence shouldContainExactly listOf("sse:t3:false")
                 store.highestCursor() shouldBe 3L
 
+                engine.stopAndJoin()
                 db.close()
             }
         }
@@ -264,7 +268,7 @@ class SyncEngineLifecycleTest :
                         override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     },
                 )
-                val db = createInMemoryTestDatabase()
+                val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
                 val store = SyncCursorStore(db.syncCursorDao())
                 val queue =
                     PendingOperationQueue(
@@ -322,6 +326,7 @@ class SyncEngineLifecycleTest :
                 withTimeout(1.seconds) { engine.stopAndJoin() }
                 dispatchFinished.isCompleted shouldBe false
                 emitJob.cancel()
+                emitJob.join()
                 db.close()
             }
         }

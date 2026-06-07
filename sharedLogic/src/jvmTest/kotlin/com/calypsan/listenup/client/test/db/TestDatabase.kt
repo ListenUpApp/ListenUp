@@ -6,6 +6,7 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 
 /**
@@ -18,16 +19,20 @@ import kotlinx.coroutines.Dispatchers
  *
  * Each call returns an isolated database — tests share no state.
  *
+ * Pass [queryContext] = `StandardTestDispatcher(testScheduler)` inside a `runTest` block to
+ * make all Room queries run on the test scheduler. This lets `advanceUntilIdle()` drain DB
+ * work deterministically, eliminating races between assertions and in-flight IO continuations.
+ *
  * Scope: jvmTest only. Promoted to commonTest in W4 once cross-platform migration tests
  * need the same seam — see the W1 plan's checkpoint resolution on in-memory Room placement.
  *
  * Source: Room KMP testing guide — https://developer.android.com/kotlin/multiplatform/room.
  */
-fun createInMemoryTestDatabase(): ListenUpDatabase =
+fun createInMemoryTestDatabase(queryContext: CoroutineContext = Dispatchers.IO): ListenUpDatabase =
     Room
         .inMemoryDatabaseBuilder<ListenUpDatabase>()
         .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.IO)
+        .setQueryCoroutineContext(queryContext)
         .addCallback(FtsTestTableCallback())
         .build()
 
