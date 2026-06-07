@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
-import com.calypsan.listenup.client.domain.model.DiscoveredServer
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -141,10 +140,6 @@ class ServerSelectViewModel(
                 handleServerSelected(event.server)
             }
 
-            is ServerSelectUiEvent.DiscoveredServerSelected -> {
-                handleDiscoveredServerSelected(event.server)
-            }
-
             ServerSelectUiEvent.ManualEntryClicked -> {
                 _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
             }
@@ -179,8 +174,12 @@ class ServerSelectViewModel(
         val server = serverWithStatus.server
         logger.info { "Server selected: ${server.name} (${server.id})" }
 
-        val serverUrl = server.getBestUrl()
-        if (serverUrl == null) {
+        val urlsToTry =
+            buildList {
+                server.localUrl?.let { add(it) }
+                server.remoteUrl?.let { add(it) }
+            }
+        if (urlsToTry.isEmpty()) {
             logger.error { "Server has no URL configured" }
             overlay.value = Overlay.Failed(server.id, "Server has no URL configured")
             return
@@ -190,47 +189,18 @@ class ServerSelectViewModel(
 
         viewModelScope.launch {
             try {
-                serverRepository.setActiveServer(server.id)
-                serverConfig.setServerUrl(ServerUrl(serverUrl))
-                logger.info { "Server activated: ${server.id} at $serverUrl" }
-                overlay.value = Overlay.None
-                _navigationEvents.trySend(NavigationEvent.ServerActivated)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to activate server" }
-                overlay.value = Overlay.Failed(server.id, "Failed to connect: ${e.message}")
-            }
-        }
-    }
-
-    private fun handleDiscoveredServerSelected(discovered: DiscoveredServer) {
-        logger.info { "Discovered server selected: ${discovered.name} (${discovered.id})" }
-
-        overlay.value = Overlay.Connecting(discovered.id)
-
-        viewModelScope.launch {
-            try {
-                val urlsToTry =
-                    buildList {
-                        add(discovered.localUrl)
-                        discovered.remoteUrl?.let { add(it) }
-                    }
-
                 val reachableUrl = instanceRepository.findReachableUrl(urlsToTry)
 
                 if (reachableUrl != null) {
-                    serverRepository.setActiveServer(discovered)
                     serverConfig.setServerUrl(ServerUrl(reachableUrl))
-                    logger.info { "Server activated: ${discovered.id} at $reachableUrl" }
+                    logger.info { "Server activated: ${server.id} at $reachableUrl" }
                     overlay.value = Overlay.None
                     _navigationEvents.trySend(NavigationEvent.ServerActivated)
                 } else {
                     logger.warn { "Server discovered but not reachable at any URL: $urlsToTry" }
                     overlay.value =
                         Overlay.Failed(
-                            discovered.id,
+                            server.id,
                             "Server found on network but not reachable. " +
                                 "Try adding it manually with the server's IP address.",
                         )
@@ -239,8 +209,8 @@ class ServerSelectViewModel(
                 throw e
             } catch (e: Exception) {
                 errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to activate discovered server" }
-                overlay.value = Overlay.Failed(discovered.id, "Failed to connect: ${e.message}")
+                logger.error(e) { "Failed to activate server" }
+                overlay.value = Overlay.Failed(server.id, "Failed to connect: ${e.message}")
             }
         }
     }
