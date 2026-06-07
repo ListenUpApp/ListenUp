@@ -621,7 +621,7 @@ private fun ConfirmationActions(
                 leadingIcon = Icons.Rounded.CheckCircle,
             )
             ListenUpButton(
-                text = "Add another library",
+                text = "Add another folder",
                 onClick = onAddAnother,
                 filled = false,
                 fillMaxWidth = false,
@@ -651,7 +651,7 @@ private fun ConfirmationActions(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Add another library",
+                    text = "Add another folder",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
