@@ -1,7 +1,12 @@
 package com.calypsan.listenup.client.features.setup
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,9 +52,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.BrandMark
@@ -194,7 +201,10 @@ private fun PhoneLayout(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FolderList(
-                state = state,
+                currentPath = state.currentPath,
+                directories = state.directories,
+                isLoading = state.isLoadingDirectories,
+                selectedPaths = state.selectedPaths,
                 onOpen = onOpen,
                 onToggle = onToggle,
                 onSelectCurrent = onSelectCurrent,
@@ -365,7 +375,10 @@ private fun DesktopPickerPanel(
                     .padding(10.dp),
         ) {
             FolderList(
-                state = state,
+                currentPath = state.currentPath,
+                directories = state.directories,
+                isLoading = state.isLoadingDirectories,
+                selectedPaths = state.selectedPaths,
                 onOpen = onOpen,
                 onToggle = onToggle,
                 onSelectCurrent = onSelectCurrent,
@@ -412,43 +425,76 @@ private fun DesktopPickerPanel(
 
 @Composable
 private fun FolderList(
-    state: LibrarySetupUiState,
+    currentPath: String,
+    directories: List<DirectoryEntry>,
+    isLoading: Boolean,
+    selectedPaths: Set<String>,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,
     modifier: Modifier = Modifier,
     listBottomPadding: Dp = 0.dp,
 ) {
-    when {
-        state.isLoadingDirectories -> {
-            Box(modifier = modifier, contentAlignment = Alignment.Center) { FullScreenLoadingIndicator() }
-        }
+    val spatial = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+    Box(modifier = modifier) {
+        AnimatedContent(
+            targetState = FolderFrame(currentPath, directories, isLoading),
+            contentKey = { it.path },
+            transitionSpec = {
+                val enterDeeper = depthOf(targetState.path) >= depthOf(initialState.path)
+                val direction =
+                    if (enterDeeper) {
+                        AnimatedContentTransitionScope.SlideDirection.Start
+                    } else {
+                        AnimatedContentTransitionScope.SlideDirection.End
+                    }
+                slideIntoContainer(direction, animationSpec = spatial) + fadeIn() togetherWith
+                    slideOutOfContainer(direction, animationSpec = spatial) + fadeOut()
+            },
+            label = "folderNav",
+        ) { frame ->
+            when {
+                frame.isLoading -> {
+                    Box(Modifier.fillMaxSize(), Alignment.Center) { FullScreenLoadingIndicator() }
+                }
 
-        state.directories.isEmpty() -> {
-            EmptyFolder(onSelectCurrent = onSelectCurrent, modifier = modifier)
-        }
+                frame.directories.isEmpty() -> {
+                    EmptyFolder(onSelectCurrent = onSelectCurrent, modifier = Modifier.fillMaxSize())
+                }
 
-        else -> {
-            LazyColumn(
-                modifier = modifier,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                contentPadding = PaddingValues(bottom = listBottomPadding),
-            ) {
-                items(items = state.directories, key = { it.path }) { entry ->
-                    FolderRow(
-                        entry = entry,
-                        selected = entry.path in state.selectedPaths,
-                        onToggle = { onToggle(entry.path) },
-                        modifier =
-                            Modifier.clickable {
-                                if (entry.hasChildren) onOpen(entry.path) else onToggle(entry.path)
-                            },
-                    )
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        contentPadding = PaddingValues(bottom = listBottomPadding),
+                    ) {
+                        items(items = frame.directories, key = { it.path }) { entry ->
+                            FolderRow(
+                                entry = entry,
+                                selected = entry.path in selectedPaths,
+                                onToggle = { onToggle(entry.path) },
+                                modifier =
+                                    Modifier.clickable {
+                                        if (entry.hasChildren) onOpen(entry.path) else onToggle(entry.path)
+                                    },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** The animated unit for the folder picker — captured per-pane so the outgoing slide keeps its own list. */
+private data class FolderFrame(
+    val path: String,
+    val directories: List<DirectoryEntry>,
+    val isLoading: Boolean,
+)
+
+/** Monotonic depth proxy: deeper paths have more separators, so it tells us slide direction. */
+private fun depthOf(path: String): Int = path.count { it == '/' }
 
 @Composable
 private fun EmptyFolder(
