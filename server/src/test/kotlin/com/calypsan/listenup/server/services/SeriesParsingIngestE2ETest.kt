@@ -32,6 +32,50 @@ import kotlinx.coroutines.test.runTest
 class SeriesParsingIngestE2ETest :
     FunSpec({
 
+        test("a book tagged with the same series twice collapses to one membership (no PK crash)") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val bookRepo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = registry,
+                        contributorRepository = contributors,
+                        seriesRepository = series,
+                    )
+                runTest {
+                    val analyzed =
+                        analyzedWithSeries(
+                            series =
+                                listOf(
+                                    SeriesEntry("Cosmere", "1"),
+                                    SeriesEntry("Cosmere", "2"),
+                                ),
+                            rootRelPath = "Sanderson/Cosmere Dup",
+                        )
+
+                    val result =
+                        bookRepo.upsertFromAnalyzed(
+                            BookId("dup-series-book"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzed,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = bookRepo.findById(BookId("dup-series-book")).shouldNotBeNull()
+                    saved.series.size shouldBe 1
+                    saved.series.single().name shouldBe "Cosmere"
+                    saved.series.single().sequence shouldBe "1"
+                }
+            }
+        }
+
         test("a book tagged with two series resolves to two series memberships") {
             withInMemoryDatabase {
                 val db = this

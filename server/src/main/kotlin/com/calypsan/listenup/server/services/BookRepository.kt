@@ -877,7 +877,11 @@ class BookRepository(
         series: List<BookSeriesPayload>,
     ) {
         BookSeriesMembershipTable.deleteWhere { BookSeriesMembershipTable.bookId eq bookId }
-        series.forEachIndexed { idx, s ->
+        // A book can be tagged with the same series twice (sloppy "A;A" tags, or two spellings that
+        // normalize to one series). Collapse to one membership per series — the junction PK is
+        // (book_id, series_id) — keeping the first sequence. Without this, a duplicate aborts the
+        // whole book ingest on the PK constraint.
+        series.distinctBy { it.id }.forEachIndexed { idx, s ->
             BookSeriesMembershipTable.insert {
                 it[BookSeriesMembershipTable.bookId] = bookId
                 it[BookSeriesMembershipTable.seriesId] = s.id
