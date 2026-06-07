@@ -942,6 +942,7 @@ val syncModule =
                 com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
                     serverConfig = get(),
                     instanceRepository = get(),
+                    discoveryService = get(),
                     networkMonitor = get(),
                     invalidator = get(),
                     scope =
