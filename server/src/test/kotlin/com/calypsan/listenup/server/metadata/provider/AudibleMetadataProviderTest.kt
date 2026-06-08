@@ -30,7 +30,10 @@ class AudibleMetadataProviderTest :
             book.description.shouldBeNull()
             book.runtimeMinutes.shouldBeNull() // 0 → null
             book.authors.single().asin shouldBe "a1"
-            book.narrators.single().asin.shouldBeNull() // blank → null
+            book.narrators
+                .single()
+                .asin
+                .shouldBeNull() // blank → null
             book.series shouldBe emptyList()
             book.genres shouldBe emptyList()
             book.coverUrl shouldBe "https://a/c.jpg"

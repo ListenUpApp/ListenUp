@@ -23,6 +23,7 @@ class CoverSearchServiceTest :
             block: suspend () -> AppResult<List<CoverCandidate>>,
         ) = object : CoverProvider {
             override val source = src
+
             override suspend fun searchCovers(
                 book: BookSummary,
                 region: AudibleRegion?,
@@ -83,7 +84,10 @@ class CoverSearchServiceTest :
                         providers =
                             listOf(
                                 provider(CoverOptionSource.AUDIBLE) {
-                                    AppResult.Failure(com.calypsan.listenup.api.error.MetadataError.ExternalUnavailable())
+                                    AppResult.Failure(
+                                        com.calypsan.listenup.api.error.MetadataError
+                                            .ExternalUnavailable(),
+                                    )
                                 },
                                 provider(CoverOptionSource.ITUNES) {
                                     AppResult.Success(listOf(CoverCandidate("https://i/2.jpg", "5")))
@@ -124,7 +128,8 @@ class CoverSearchServiceTest :
                         providers = emptyList(),
                         probeDimensions = probe,
                     )
-                svc.searchCovers(BookId("missing"), region = null)
+                svc
+                    .searchCovers(BookId("missing"), region = null)
                     .shouldBeInstanceOf<AppResult.Failure>()
             }
         }

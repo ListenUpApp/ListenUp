@@ -23,7 +23,8 @@ class AudibleCoverProvider(
         region: AudibleRegion?,
     ): AppResult<List<CoverCandidate>> =
         search(book, region).map { results ->
-            results.firstOrNull { it.coverUrl.isNotBlank() }
+            results
+                .firstOrNull { it.coverUrl.isNotBlank() }
                 ?.let { listOf(CoverCandidate(url = it.coverUrl, sourceId = it.asin)) }
                 ?: emptyList()
         }

@@ -14,17 +14,19 @@ import kotlinx.coroutines.test.runTest
 
 class AudibleCoverProviderTest :
     FunSpec({
-        fun hit(asin: String, cover: String) =
-            AudibleSearchResult(
-                asin = asin,
-                title = "T",
-                subtitle = "",
-                authors = listOf(AudibleContributor("a1", "Author")),
-                narrators = emptyList(),
-                coverUrl = cover,
-                runtimeMinutes = 10,
-                releaseDate = "2020",
-            )
+        fun hit(
+            asin: String,
+            cover: String,
+        ) = AudibleSearchResult(
+            asin = asin,
+            title = "T",
+            subtitle = "",
+            authors = listOf(AudibleContributor("a1", "Author")),
+            narrators = emptyList(),
+            coverUrl = cover,
+            runtimeMinutes = 10,
+            releaseDate = "2020",
+        )
 
         test("source is AUDIBLE") {
             AudibleCoverProvider(search = { _, _ -> AppResult.Success(emptyList()) }).source shouldBe
@@ -49,7 +51,8 @@ class AudibleCoverProviderTest :
             runTest {
                 val provider =
                     AudibleCoverProvider(search = { _, _ -> AppResult.Success(listOf(hit("B1", ""))) })
-                provider.searchCovers(BookSummary("T", "A"), region = null)
+                provider
+                    .searchCovers(BookSummary("T", "A"), region = null)
                     .shouldBeInstanceOf<AppResult.Success<List<CoverCandidate>>>()
                     .data shouldBe emptyList()
             }
@@ -60,10 +63,14 @@ class AudibleCoverProviderTest :
                 val provider =
                     AudibleCoverProvider(
                         search = { _, _ ->
-                            AppResult.Failure(com.calypsan.listenup.api.error.MetadataError.ExternalUnavailable())
+                            AppResult.Failure(
+                                com.calypsan.listenup.api.error.MetadataError
+                                    .ExternalUnavailable(),
+                            )
                         },
                     )
-                provider.searchCovers(BookSummary("T", "A"), region = null)
+                provider
+                    .searchCovers(BookSummary("T", "A"), region = null)
                     .shouldBeInstanceOf<AppResult.Failure>()
             }
         }

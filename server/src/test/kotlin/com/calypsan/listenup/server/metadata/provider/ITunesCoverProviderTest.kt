@@ -32,7 +32,8 @@ class ITunesCoverProviderTest :
                         },
                     )
                 val data =
-                    provider.searchCovers(BookSummary("T", "A"), region = null)
+                    provider
+                        .searchCovers(BookSummary("T", "A"), region = null)
                         .shouldBeInstanceOf<AppResult.Success<List<CoverCandidate>>>()
                         .data
                 data shouldBe listOf(CoverCandidate(url = "https://i/7000.jpg", sourceId = "111"))
@@ -44,10 +45,14 @@ class ITunesCoverProviderTest :
                 val provider =
                     ITunesCoverProvider(
                         search = { _, _ ->
-                            AppResult.Failure(com.calypsan.listenup.api.error.MetadataError.ExternalRateLimited())
+                            AppResult.Failure(
+                                com.calypsan.listenup.api.error.MetadataError
+                                    .ExternalRateLimited(),
+                            )
                         },
                     )
-                provider.searchCovers(BookSummary("T", "A"), region = null)
+                provider
+                    .searchCovers(BookSummary("T", "A"), region = null)
                     .shouldBeInstanceOf<AppResult.Failure>()
             }
         }

@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 
 /** Which catalog a [MetadataProvider] represents. Only Audible is implemented today. */
-enum class MetadataSource { AUDIBLE }
+enum class MetadataSource { AUDIBLE, }
 
 /**
  * A source of canonical book metadata. Owns search + by-id fetch + chapter fetch for one
