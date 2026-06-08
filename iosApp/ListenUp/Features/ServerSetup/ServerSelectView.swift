@@ -114,6 +114,10 @@ private struct ServerRow: View {
                         Circle().fill(Color.secondary).frame(width: 3, height: 3)
                         Text(server.hostPort).font(.footnote).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
+                        if server.version != "unknown" {
+                            Circle().fill(Color.secondary).frame(width: 3, height: 3)
+                            Text("v\(server.version)").font(.footnote).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 Spacer(minLength: 8)

@@ -27,7 +27,9 @@ struct AuthPrimaryButton: View {
         .buttonStyle(AuthPressStyle())
         .disabled(isLoading)
         .accessibilityLabel(isLoading ? String(localized: "common.accessibility_loading") : title)
+        .accessibilityHint(isLoading ? "" : "Double tap to \(title.lowercased())")
         .accessibilityAddTraits(isLoading ? [.updatesFrequently] : [])
+        .accessibilityRemoveTraits(isLoading ? [.isButton] : [])
     }
 }
 

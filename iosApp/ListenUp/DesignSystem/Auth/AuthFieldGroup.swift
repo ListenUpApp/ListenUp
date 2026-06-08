@@ -41,6 +41,7 @@ struct AuthFieldRow: View {
                 .autocorrectionDisabled()
                 .onSubmit(onSubmit)
                 .accessibilityLabel(placeholder)
+                .accessibilityHint(placeholder)
                 .accessibilityIdentifier("\(placeholder.lowercased().replacingOccurrences(of: " ", with: "_"))_field")
         } accessory: { EmptyView() }
         .authRowError(error)
@@ -80,6 +81,7 @@ struct AuthSecureFieldRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(isSecure ? "Show password" : "Hide password")
+            .accessibilityHint("Double tap to \(isSecure ? "reveal" : "hide") password")
         }
         .authRowError(error)
     }
@@ -138,6 +140,7 @@ private extension View {
                 .padding(.bottom, 8)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Error: \(message)")
+                .accessibilityAddTraits(.isStaticText)
             }
         } else {
             self

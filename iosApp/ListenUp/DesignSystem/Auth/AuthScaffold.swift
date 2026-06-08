@@ -92,7 +92,7 @@ struct AuthScaffold<Content: View, Footer: View>: View {
     }
 }
 
-/// Large-title header used inside `AuthScaffold` content (icon/lockup + 34pt title + sub).
+/// Large-title header used inside `AuthScaffold` content (icon/lockup + large-title + sub).
 struct AuthLargeHeader<Accessory: View>: View {
     var title: String
     var subtitle: String?

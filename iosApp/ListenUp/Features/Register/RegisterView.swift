@@ -42,6 +42,9 @@ struct RegisterView: View {
     var body: some View {
         AuthScaffold(nav: AuthNav(label: String(localized: "common.back")) { navigateBack() }) {
             header
+            if let error = viewModel.error {
+                ErrorBanner(message: error)
+            }
             nameFields
             emailField
             passwordFields
@@ -103,9 +106,6 @@ struct RegisterView: View {
         }
         .onChange(of: password) { _, new in
             passwordMismatch = !confirmPassword.isEmpty && confirmPassword != new
-        }
-        .overlay(alignment: .top) {
-            if let error = viewModel.error { ErrorBanner(message: error).offset(y: -64) }
         }
     }
 

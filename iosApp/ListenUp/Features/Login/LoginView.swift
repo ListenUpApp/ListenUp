@@ -52,6 +52,9 @@ struct LoginView: View {
             // accessor (only async getServerUrl/getActiveUrl). Pending a follow-up to
             // wire async host display.
 
+            if let error = viewModel.generalError {
+                ErrorBanner(message: error)
+            }
             fields
             forgotPassword
         } footer: {
@@ -79,15 +82,6 @@ struct LoginView: View {
                 isLast: true,
                 textContentType: .password
             )
-        }
-        .overlay(alignment: .top) { errorBanner }
-    }
-
-    @ViewBuilder
-    private var errorBanner: some View {
-        if let error = viewModel.generalError {
-            ErrorBanner(message: error)
-                .offset(y: -64)
         }
     }
 
