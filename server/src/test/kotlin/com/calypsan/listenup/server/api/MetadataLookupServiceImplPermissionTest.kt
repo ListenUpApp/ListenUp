@@ -2,8 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -65,7 +66,7 @@ class MetadataLookupServiceImplPermissionTest :
                 db.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
                 val service = makeMetadataPermService(db).copyWith(memberPrincipal("member"))
                 runTest {
-                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US)
+                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US, ALL_SELECTED)
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
@@ -79,7 +80,7 @@ class MetadataLookupServiceImplPermissionTest :
                 seedTestLibraryAndFolder()
                 val service = makeMetadataPermService(db).copyWith(rootPrincipal())
                 runTest {
-                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US)
+                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US, ALL_SELECTED)
 
                     // Gate passed → reaches the applier, which fails because the book is absent.
                     // The point: it is NOT a PermissionDenied.
@@ -89,6 +90,20 @@ class MetadataLookupServiceImplPermissionTest :
             }
         }
     })
+
+private val ALL_SELECTED =
+    MetadataApplySelection(
+        title = true,
+        subtitle = true,
+        description = true,
+        publisher = true,
+        releaseDate = true,
+        language = true,
+        cover = true,
+        authorAsins = emptySet(),
+        narratorAsins = emptySet(),
+        seriesAsins = emptySet(),
+    )
 
 private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-perm-").toAbsolutePath()

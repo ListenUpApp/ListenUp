@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.AudibleRegion
@@ -17,6 +18,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
+import io.ktor.server.request.receive
 import io.ktor.server.resources.get
 import io.ktor.server.resources.post
 import io.ktor.server.response.respond
@@ -77,7 +79,11 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
 
     post<MetadataResources.ApplyBook> { resource ->
         val region = call.resolveRegion(resource.region) ?: return@post
-        when (val result = call.scoped(service).applyBookMetadata(BookId(resource.bookId), resource.asin, region)) {
+        val selection = call.receive<MetadataApplySelection>()
+        when (
+            val result =
+                call.scoped(service).applyBookMetadata(BookId(resource.bookId), resource.asin, region, selection)
+        ) {
             is AppResult.Success -> call.respond(HttpStatusCode.OK)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }

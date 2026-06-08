@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
@@ -172,10 +173,23 @@ class MetadataLookupServiceImplTest :
                             seriesRepository = seriesRepo,
                             imageStorage = imageStorage,
                             coverImageStore = coverImageStore,
-                            metadataService = metadataService,
+                            metadataProvider = AudibleMetadataProvider(metadataService),
+                        )
+                    val coverSelection =
+                        MetadataApplySelection(
+                            title = true,
+                            subtitle = true,
+                            description = true,
+                            publisher = true,
+                            releaseDate = true,
+                            language = true,
+                            cover = true,
+                            authorAsins = emptySet(),
+                            narratorAsins = emptySet(),
+                            seriesAsins = emptySet(),
                         )
 
-                    val result = applier.apply(BookId("book-1"), asin = "B0TESTASIN", region = AudibleRegion.US)
+                    val result = applier.apply(BookId("book-1"), asin = "B0TESTASIN", region = AudibleRegion.US, selection = coverSelection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // Cover lands under the managed covers dir …

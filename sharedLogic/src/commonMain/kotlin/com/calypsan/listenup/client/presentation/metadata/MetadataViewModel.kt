@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.metadata
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.metadata.AudibleRegion
@@ -437,6 +438,7 @@ class MetadataViewModel(
                         bookId = BookId(preview.context.bookId),
                         asin = preview.match.asin,
                         region = preview.region,
+                        selection = ready.selections.toApplySelection(),
                     )
             ) {
                 is AppResult.Success -> {
@@ -697,6 +699,20 @@ class MetadataViewModel(
     private fun updateReadySelections(transform: (MetadataSelections) -> MetadataSelections) {
         updateReady { it.copy(selections = transform(it.selections)) }
     }
+
+    private fun MetadataSelections.toApplySelection(): MetadataApplySelection =
+        MetadataApplySelection(
+            title = title,
+            subtitle = subtitle,
+            description = description,
+            publisher = publisher,
+            releaseDate = releaseDate,
+            language = language,
+            cover = cover,
+            authorAsins = selectedAuthors,
+            narratorAsins = selectedNarrators,
+            seriesAsins = selectedSeries,
+        )
 
     private fun initializeSelections(preview: MetadataBook): MetadataSelections =
         MetadataSelections(

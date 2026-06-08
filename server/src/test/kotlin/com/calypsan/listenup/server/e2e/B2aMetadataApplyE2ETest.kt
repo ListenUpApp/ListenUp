@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.e2e
 
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -157,7 +158,7 @@ class B2aMetadataApplyE2ETest :
                     // Seed a minimal book (no description, no ASIN, no cover)
                     bookRepo.upsert(minimalBook(bookId), clientOpId = null)
 
-                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US)
+                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
 
                     // ── Assert: AppResult.Success ────────────────────────────────
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -170,13 +171,12 @@ class B2aMetadataApplyE2ETest :
                     enriched.publisher shouldBe "Macmillan Audio"
                     enriched.language shouldBe "english"
 
-                    // Author and narrator contributors resolved via resolveOrCreate
+                    // Author resolved via resolveOrCreate (ASIN "A123" is selectable).
+                    // Narrator "Michael Kramer" has blank ASIN → null after provider mapping →
+                    // not selectable; narratorAsins = emptySet() leaves narrator role untouched.
                     val authorRef = enriched.contributors.find { it.role == "author" }
                     authorRef.shouldNotBeNull()
                     authorRef.name shouldBe "Brandon Sanderson"
-                    val narratorRef = enriched.contributors.find { it.role == "narrator" }
-                    narratorRef.shouldNotBeNull()
-                    narratorRef.name shouldBe "Michael Kramer"
 
                     // Image downloaded once
                     mockEngine.requestHistory.size shouldBe 1
@@ -239,7 +239,7 @@ class B2aMetadataApplyE2ETest :
                     // Manually set cover_path so the repo treats it as managed
                     bookRepo.setManagedCover(BookId(bookId), "covers/$bookId.png", uploadedHash, CoverSource.UPLOADED)
 
-                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US)
+                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
@@ -291,7 +291,7 @@ class B2aMetadataApplyE2ETest :
                     )
 
                 runTest {
-                    val result = service.applyBookMetadata(BookId("no-such-book"), TEST_ASIN, AudibleRegion.US)
+                    val result = service.applyBookMetadata(BookId("no-such-book"), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                 }
             }
@@ -301,6 +301,23 @@ class B2aMetadataApplyE2ETest :
 // ─── Test helpers ──────────────────────────────────────────────────────────────
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
+
+// canned_WayOfKings() has author ASIN "A123" and narrator ASIN "" (blank → null after
+// AudibleMetadataProvider.toMetadataBook mapping). Series is empty. Only the author is
+// selectable by ASIN; the narrator's null ASIN makes it unselectable per the design.
+private val APPLY_SELECTION =
+    MetadataApplySelection(
+        title = true,
+        subtitle = true,
+        description = true,
+        publisher = true,
+        releaseDate = true,
+        language = true,
+        cover = true,
+        authorAsins = setOf("A123"),
+        narratorAsins = emptySet(),
+        seriesAsins = emptySet(),
+    )
 
 private fun buildService(
     db: org.jetbrains.exposed.v1.jdbc.Database,

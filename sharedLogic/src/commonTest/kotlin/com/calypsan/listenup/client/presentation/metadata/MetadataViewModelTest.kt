@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.metadata
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.dto.MetadataChapters
@@ -328,7 +329,7 @@ class MetadataViewModelTest :
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
-                everySuspend { repo.applyBookMetadata(any(), any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -351,13 +352,53 @@ class MetadataViewModelTest :
             }
         }
 
+        test("applyMatch forwards toggled MetadataApplySelection to repository") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                // Deselect author A1 and toggle TITLE off — mapper must reflect both changes
+                vm.toggleAuthor("A1")
+                vm.toggleField(MetadataField.TITLE)
+                vm.applyMatch()
+                advanceUntilIdle()
+
+                verifySuspend {
+                    repo.applyBookMetadata(
+                        BookId("b1"),
+                        "B001",
+                        AudibleRegion.US,
+                        MetadataApplySelection(
+                            title = false,
+                            subtitle = true,
+                            description = true,
+                            publisher = true,
+                            releaseDate = true,
+                            language = true,
+                            cover = true,
+                            authorAsins = emptySet(),
+                            narratorAsins = setOf("N1"),
+                            seriesAsins = emptySet(),
+                        ),
+                    )
+                }
+            }
+        }
+
         test("applyMatch failure sets applyError and stays in Ready") {
             runTest {
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
                 val error = TransportError.NetworkUnavailable()
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
-                everySuspend { repo.applyBookMetadata(any(), any(), any()) } returns AppResult.Failure(error)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Failure(error)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
