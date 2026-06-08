@@ -1,7 +1,7 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// Manual server URL entry screen.
+/// Manual server URL entry screen, presented as a sheet over the server picker.
 ///
 /// When server is verified, AuthState updates automatically.
 /// No onServerVerified callback needed.
@@ -27,77 +27,49 @@ struct ServerManualEntryView: View {
     // MARK: - Body
 
     var body: some View {
-        AuthScreenLayout {
-            formContent
-        }
-    }
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(String(localized: "connect.enter_server_url"))
+                        .font(.subheadline).foregroundStyle(.secondary)
 
-    // MARK: - Form Content
+                    AuthFieldGroup {
+                        AuthFieldRow(
+                            icon: "globe",
+                            placeholder: String(localized: "connect.server_url_placeholder"),
+                            text: Binding(get: { viewModel.serverUrl },
+                                          set: { viewModel.onUrlChanged($0) }),
+                            error: viewModel.error,
+                            isLast: true,
+                            keyboardType: .URL,
+                            textContentType: .URL,
+                            onSubmit: { if viewModel.isConnectEnabled { viewModel.onConnectClicked() } }
+                        )
+                    }
 
-    @ViewBuilder
-    private var formContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            header
-            serverUrlField
-            connectButton
-            backLink
-        }
-    }
+                    Text(String(localized: "connect.server_url_hint"))
+                        .font(.footnote).foregroundStyle(.secondary)
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "connect.add_server"))
-                .font(.largeTitle.bold())
-
-            Text(String(localized: "connect.enter_server_url"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var serverUrlField: some View {
-        GlassTextField(
-            label: String(localized: "connect.server_url"),
-            placeholder: String(localized: "connect.server_url_placeholder"),
-            text: Binding(
-                get: { viewModel.serverUrl },
-                set: { viewModel.onUrlChanged($0) }
-            ),
-            error: viewModel.error,
-            keyboardType: .URL,
-            textContentType: .URL,
-            onSubmit: {
-                if viewModel.isConnectEnabled {
-                    viewModel.onConnectClicked()
+                    AuthPrimaryButton(
+                        title: String(localized: "connect.connect"),
+                        isLoading: viewModel.isLoading
+                    ) { viewModel.onConnectClicked() }
+                        .disabled(!viewModel.isConnectEnabled)
+                        .padding(.top, 4)
+                }
+                .padding(20)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(String(localized: "connect.add_server"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "common.cancel")) { onBack?() }
                 }
             }
-        )
-    }
-
-    private var connectButton: some View {
-        ListenUpButton(
-            title: String(localized: "connect.connect"),
-            isLoading: viewModel.isLoading
-        ) {
-            viewModel.onConnectClicked()
         }
-        .disabled(!viewModel.isConnectEnabled)
-    }
-
-    private var backLink: some View {
-        Button {
-            onBack?()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "chevron.left")
-                    .font(.subheadline)
-                Text(String(localized: "connect.back_to_server_list"))
-                    .font(.subheadline)
-            }
-            .foregroundStyle(Color.listenUpOrange)
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
