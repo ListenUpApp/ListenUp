@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import org.jetbrains.compose.resources.painterResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.brand_mark
@@ -50,9 +51,6 @@ data class AuthBadge(
     val label: String,
 )
 
-/** Below this available width we use the single-column hero; at or above it, the split panel. */
-private val SplitThreshold = 840.dp
-
 /** The form column never grows wider than this — keeps text line-length comfortable on big windows. */
 private val FormMaxWidth = 460.dp
 
@@ -62,10 +60,10 @@ private val FormMaxWidth = 460.dp
  * The layout is chosen from the *actual available width* (via [BoxWithConstraints]), not just the
  * global window size class — so it behaves on resizable desktop windows, Android desktop mode,
  * foldables, and embedded panes:
- * - **< [SplitThreshold]** → a color-blocked [primaryContainer] hero (brand mark, display title,
+ * - **< [TwoPaneMinWidth]** → a color-blocked [primaryContainer] hero (brand mark, display title,
  *   subtitle, optional badge, optional back) with the form scrolling beneath it. The form is
  *   centered and width-capped so a wide single-column window never stretches it edge-to-edge.
- * - **≥ [SplitThreshold]** → a split layout: a constrained brand panel on the left and the centered,
+ * - **≥ [TwoPaneMinWidth]** → a split layout: a constrained brand panel on the left and the centered,
  *   width-capped form on the right. Both panes flex with the window.
  *
  * Screens supply only their [content] (fields + actions); the chrome is identical everywhere.
@@ -81,7 +79,7 @@ fun AuthScaffold(
 ) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         BoxWithConstraints {
-            if (maxWidth >= SplitThreshold) {
+            if (maxWidth >= TwoPaneMinWidth) {
                 AuthSplitLayout(maxWidth, title, subtitle, badge, onBack, content)
             } else {
                 AuthHeroLayout(title, subtitle, badge, onBack, content)

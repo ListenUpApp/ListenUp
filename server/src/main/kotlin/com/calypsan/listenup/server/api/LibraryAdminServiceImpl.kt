@@ -104,13 +104,14 @@ internal class LibraryAdminServiceImpl(
                     }.map { child ->
                         val childPath = child.toString()
                         val name = child.name
+                        val grandchildren =
+                            runCatching { SystemFileSystem.list(child) }.getOrDefault(emptyList())
+                        val itemCount = grandchildren.size
                         val hasChildren =
-                            runCatching {
-                                SystemFileSystem.list(child).any { grandchild ->
-                                    SystemFileSystem.metadataOrNull(grandchild)?.isDirectory == true
-                                }
-                            }.getOrDefault(false)
-                        DirectoryEntry(name = name, path = childPath, hasChildren = hasChildren)
+                            grandchildren.any { grandchild ->
+                                SystemFileSystem.metadataOrNull(grandchild)?.isDirectory == true
+                            }
+                        DirectoryEntry(name = name, path = childPath, hasChildren = hasChildren, itemCount = itemCount)
                     }.sortedBy { it.name }
             AppResult.Success(children)
         } catch (e: kotlinx.coroutines.CancellationException) {

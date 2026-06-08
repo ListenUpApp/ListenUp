@@ -156,6 +156,8 @@ data class DirectoryEntry(
     val path: String,
     /** Whether this directory has at least one sub-directory. */
     val hasChildren: Boolean,
+    /** Number of immediate entries (files + sub-directories) inside this directory. */
+    val itemCount: Int,
 )
 
 /**

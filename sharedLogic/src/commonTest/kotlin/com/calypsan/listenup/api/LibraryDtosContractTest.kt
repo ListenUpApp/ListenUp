@@ -146,6 +146,7 @@ class LibraryDtosContractTest :
                     name = "audiobooks",
                     path = "/data/audiobooks",
                     hasChildren = true,
+                    itemCount = 7,
                 )
             roundTrip<DirectoryEntry>(entry) shouldBe entry
         }
@@ -156,6 +157,7 @@ class LibraryDtosContractTest :
                     name = "empty-folder",
                     path = "/data/empty-folder",
                     hasChildren = false,
+                    itemCount = 0,
                 )
             roundTrip<DirectoryEntry>(entry) shouldBe entry
         }

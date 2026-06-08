@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,17 +24,23 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 /**
- * Material 3 primary button with expressive pill shape and animated states.
+ * The canonical Material 3 Expressive button — a fully-rounded pill with an animated
+ * loading state.
  *
- * Uses [CircleShape] for the fully-rounded M3 Expressive look.
- * Loading state transitions smoothly with crossfade animation.
+ * Defaults to a full-width filled primary button. Opt into variants with the flags:
+ * [filled] `= false` for the outlined (secondary) treatment, [fillMaxWidth] `= false`
+ * to wrap the content width (e.g. inline in an action row). Supports an optional
+ * [leadingIcon] and/or [trailingIcon]; both are hidden while [isLoading].
  *
  * @param text Button text
- * @param onClick Callback when button is clicked
+ * @param onClick Callback when the button is clicked
  * @param modifier Optional modifier
- * @param enabled Whether button is interactive
- * @param isLoading Whether to show loading spinner (animates transition)
+ * @param enabled Whether the button is interactive
+ * @param isLoading Whether to show the loading spinner (animates the transition)
+ * @param filled `true` for the filled primary look, `false` for the outlined look
+ * @param fillMaxWidth `true` to span the available width, `false` to wrap content
  * @param leadingIcon Optional icon shown before the text (hidden while loading)
+ * @param trailingIcon Optional icon shown after the text (hidden while loading)
  */
 @Composable
 fun ListenUpButton(
@@ -42,17 +49,15 @@ fun ListenUpButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isLoading: Boolean = false,
+    filled: Boolean = true,
+    fillMaxWidth: Boolean = true,
     leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled && !isLoading,
-        shape = CircleShape,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(56.dp),
-    ) {
+    val widthModifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier
+    val spinnerColor =
+        if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+    val label: @Composable () -> Unit = {
         AnimatedContent(
             targetState = isLoading,
             transitionSpec = {
@@ -61,27 +66,44 @@ fun ListenUpButton(
             label = "ButtonContent",
         ) { loading ->
             if (loading) {
-                ListenUpLoadingIndicatorSmall(
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            } else if (leadingIcon != null) {
+                ListenUpLoadingIndicatorSmall(color = spinnerColor)
+            } else {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(ButtonDefaults.IconSpacing),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = leadingIcon,
-                        contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                    )
+                    if (leadingIcon != null) {
+                        Icon(
+                            imageVector = leadingIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(ButtonDefaults.IconSize),
+                        )
+                    }
                     Text(text = text, style = MaterialTheme.typography.titleMedium)
+                    if (trailingIcon != null) {
+                        Icon(
+                            imageVector = trailingIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(ButtonDefaults.IconSize),
+                        )
+                    }
                 }
-            } else {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.titleMedium,
-                )
             }
         }
+    }
+    if (filled) {
+        Button(
+            onClick = onClick,
+            enabled = enabled && !isLoading,
+            shape = CircleShape,
+            modifier = modifier.then(widthModifier).height(56.dp),
+        ) { label() }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            enabled = enabled && !isLoading,
+            shape = CircleShape,
+            modifier = modifier.then(widthModifier).height(56.dp),
+        ) { label() }
     }
 }
