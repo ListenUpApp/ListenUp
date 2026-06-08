@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,7 +39,8 @@ private val fallbackGradients: List<Triple<Color, Color, Color>> =
 
 /**
  * The canonical "no cover yet" placeholder — a deterministic gradient with the book's title and
- * author, used wherever a cover image is unavailable or not downloaded. Scales its type with size.
+ * author, used wherever a cover image is unavailable or not downloaded. Scales its type with size and
+ * always renders square (1:1), matching audiobook cover art.
  */
 @Composable
 fun BookCoverFallback(
@@ -50,7 +52,11 @@ fun BookCoverFallback(
     val palette = remember(seed) { fallbackGradients[seed.hashCode().mod(fallbackGradients.size)] }
     val (top, bottom, ink) = palette
     BoxWithConstraints(
-        modifier = modifier.clip(RoundedCornerShape(12.dp)).background(Brush.linearGradient(listOf(top, bottom))),
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Brush.linearGradient(listOf(top, bottom))),
         contentAlignment = Alignment.Center,
     ) {
         val side = minOf(maxWidth, maxHeight)

@@ -198,7 +198,7 @@ fun ScanCoversMarquee(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(tile * 1.5f)
+                .height(tile)
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
@@ -216,7 +216,7 @@ fun ScanCoversMarquee(
                 BookCoverFallback(
                     title = book.title,
                     author = book.author,
-                    modifier = Modifier.size(width = tile, height = tile * 1.5f),
+                    modifier = Modifier.size(tile),
                     seed = book.title + book.author,
                 )
             }
