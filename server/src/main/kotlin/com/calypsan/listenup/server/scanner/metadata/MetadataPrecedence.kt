@@ -1,5 +1,21 @@
 package com.calypsan.listenup.server.scanner.metadata
 
+/**
+ * Resolve the metadata precedence for a library: its own configured value when set, else
+ * [fallback] (the operator-global default). A blank value inherits [fallback] (not `parse`'s
+ * hardcoded all-sources DEFAULT); an unparseable value also falls back rather than failing the
+ * scan — a malformed per-library config must never strand ingest.
+ */
+fun resolveLibraryPrecedence(
+    libraryValue: String,
+    fallback: MetadataPrecedence,
+): MetadataPrecedence =
+    if (libraryValue.isBlank()) {
+        fallback
+    } else {
+        runCatching { MetadataPrecedence.parse(libraryValue) }.getOrDefault(fallback)
+    }
+
 /** A metadata signal source, in the scanner's precedence vocabulary. */
 enum class MetadataPrecedenceSource(
     val token: String,

@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.asPort
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.scanner.metadata.resolveLibraryPrecedence
 import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
 import com.calypsan.listenup.server.scanner.sidecar.NfoParser
 import com.calypsan.listenup.server.scanner.sidecar.OpfParser
@@ -153,7 +154,7 @@ fun scannerModule(
                             eventBus = eventBus,
                             scanResultBus = scanResultBus,
                             sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
-                            metadataPrecedence = metadataPrecedence,
+                            metadataPrecedence = resolveLibraryPrecedence(library.metadataPrecedence, metadataPrecedence),
                         )
                     val coordinator =
                         ScanCoordinator(
