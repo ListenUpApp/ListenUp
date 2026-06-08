@@ -1,0 +1,202 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
+
+package com.calypsan.listenup.server.api
+
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.MetadataCacheRepository
+import com.calypsan.listenup.server.services.MetadataService
+import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.metadata.audible.AudibleApi
+import com.calypsan.listenup.server.metadata.audible.AudibleBook
+import com.calypsan.listenup.server.metadata.audible.AudibleChapter
+import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
+import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
+import com.calypsan.listenup.server.metadata.audible.SearchParams
+import com.calypsan.listenup.server.metadata.itunes.ITunesApi
+import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import java.nio.file.Files
+import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
+
+// Minimal valid 1×1 PNG (passes ImageStore's magic-number sniff).
+private val ONE_PX_PNG: ByteArray =
+    java.util.Base64.getDecoder().decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    )
+
+private const val MAX_COVER_BYTES = 10L * 1024 * 1024
+
+class ApplyCoverTest :
+    FunSpec({
+        test("applyCover stores the downloaded bytes and marks the cover UPLOADED") {
+            withInMemoryDatabase {
+                val db = this
+                val tempDir = Files.createTempDirectory("applycover-").also { it.toFile().deleteOnExit() }
+                seedTestLibraryAndFolder()
+
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db, bus, registry)
+                val seriesRepo = SeriesRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
+
+                runTest {
+                    books.upsert(coverBookFixture("book1"), clientOpId = null)
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val coverStore =
+                        CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+                    val mockHttp =
+                        HttpClient(
+                            MockEngine {
+                                respond(
+                                    content = ONE_PX_PNG,
+                                    status = HttpStatusCode.OK,
+                                    headers = headersOf(HttpHeaders.ContentType, ContentType.Image.PNG.toString()),
+                                )
+                            },
+                        )
+                    val imageStorage = ImageStorage(httpClient = mockHttp)
+
+                    val service =
+                        MetadataLookupServiceImpl(
+                            metadataService =
+                                MetadataService(
+                                    audible = ApplyCoverNoOpAudible(),
+                                    itunes = ApplyCoverNoOpITunes(),
+                                    cache = MetadataCacheRepository(db),
+                                ),
+                            coverSearchService =
+                                CoverSearchService(
+                                    readBook = { null },
+                                    audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
+                                    itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
+                                    probeDimensions = { null },
+                                ),
+                            bookRepository = books,
+                            contributorRepository = contributorRepo,
+                            seriesRepository = seriesRepo,
+                            imageStorage = imageStorage,
+                            coverImageStore = coverStore,
+                            imageHome = Path(tempDir.toString()),
+                            permissionPolicy = UserPermissionPolicy(db),
+                            principal =
+                                PrincipalProvider {
+                                    UserPrincipal(UserId("root"), SessionId("s"), UserRole.ADMIN)
+                                },
+                        )
+
+                    val result = service.applyCover(BookId("book1"), "https://itunes/any.png")
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("book1"))
+                    saved.shouldNotBeNull()
+                    saved.cover?.source shouldBe CoverSource.UPLOADED
+                }
+            }
+        }
+    })
+
+private fun coverBookFixture(id: String): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = "The Way of Kings",
+        sortTitle = null,
+        subtitle = null,
+        description = null,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        hasScanWarning = false,
+        totalDuration = 0L,
+        cover = null,
+        rootRelPath = "test/way-of-kings",
+        inode = null,
+        scannedAt = 0L,
+        contributors = emptyList(),
+        series = emptyList(),
+        audioFiles = emptyList(),
+        chapters = emptyList(),
+        revision = 0L,
+        updatedAt = 0L,
+        createdAt = 0L,
+        deletedAt = null,
+    )
+
+private class ApplyCoverNoOpAudible : AudibleApi {
+    override suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
+
+    override suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?> = AppResult.Success(null)
+
+    override suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
+
+    override suspend fun getContributor(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleContributorProfile?> = AppResult.Success(null)
+
+    override suspend fun searchContributors(
+        region: AudibleRegion,
+        name: String,
+    ): AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList())
+}
+
+private class ApplyCoverNoOpITunes : ITunesApi {
+    override suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> = AppResult.Success(null)
+
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> = AppResult.Success(emptyList())
+}
