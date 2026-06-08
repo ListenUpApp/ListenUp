@@ -50,15 +50,9 @@ import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.LinearProgressIndicator
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
-import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.features.admin.AdminScreen
@@ -80,6 +74,7 @@ import com.calypsan.listenup.client.features.home.HomeScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.features.setup.LibrarySetupScreen
+import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
 import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
@@ -291,68 +286,6 @@ private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
                 textAlign = TextAlign.Center,
             )
             ListenUpButton(text = stringResource(Res.string.common_retry), onClick = onRetry)
-        }
-    }
-}
-
-/**
- * Full-screen "setting up your library" gate, shown while the initial population scan runs INSTEAD
- * of the app shell. The shell (and its Library grid + cover loading) only mounts once the library
- * is ready — so the user never navigates an empty app and the heavy grid doesn't compete with the
- * sync/catch-up for memory during onboarding.
- *
- * Drives live progress off [ScanProgressState]; falls back to an indeterminate state before the
- * first progress event arrives.
- */
-private const val POPULATING_PROGRESS_WIDTH_FRACTION = 0.6f
-
-@Composable
-private fun LibraryPopulatingScreen(scanProgress: ScanProgressState?) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp),
-        ) {
-            ListenUpLoadingIndicator(size = 64.dp)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text =
-                    if (scanProgress != null) {
-                        scanProgress.phaseDisplayName +
-                            if (scanProgress.total > 0) " ${scanProgress.current}/${scanProgress.total}" else ""
-                    } else {
-                        "Setting up your library…"
-                    },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            if (scanProgress?.progressFraction != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                LinearProgressIndicator(
-                    progress = { scanProgress.progressFraction!! },
-                    modifier = Modifier.fillMaxWidth(POPULATING_PROGRESS_WIDTH_FRACTION),
-                )
-            }
-
-            val summary = scanProgress?.changesSummary
-            if (summary != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
@@ -690,7 +623,7 @@ private fun AuthenticatedNavigation(
                             // the heap → OOM). Populating spans the server scan AND the client import, so
                             // when it clears the books are already in Room (see applyScanEvent).
                             (readiness as? LibraryReadiness.Populating)?.let { populating ->
-                                LibraryPopulatingScreen(scanProgress = populating.progress)
+                                LibraryScanScreen(scanProgress = populating.progress)
                                 return@entry
                             }
 

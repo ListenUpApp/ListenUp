@@ -15,7 +15,11 @@ import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.longs.shouldBeGreaterThan
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -109,6 +113,29 @@ class ScannerEmbeddedmetaIntegrationTest :
                     val second = scanner.runFullScan()
                     second.changes shouldBe emptyList()
                     eventBus.replayCache.count { it is ScanEvent.Change } shouldBe 0
+                }
+            }
+        }
+
+        test("scan emits ANALYZING progress enriched with authors, duration, recent books, current file") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    seedThreeBookLibrary(fixture)
+                    val (scanner, eventBus) = newScanner(fixture)
+
+                    scanner.runFullScan()
+
+                    // The unconditional final ANALYZING/DIFFING tick guarantees the last
+                    // batch's aggregates land regardless of the 200ms throttle, so the
+                    // assertion is deterministic even for a fast 3-book fixture.
+                    val enriched =
+                        eventBus.replayCache
+                            .filterIsInstance<ScanEvent.Progress>()
+                            .last { it.booksAnalyzed > 0 }
+                    enriched.authorsMatched shouldBeGreaterThan 0
+                    enriched.totalDurationMs shouldBeGreaterThan 0L
+                    enriched.recentBooks.shouldNotBeEmpty()
+                    enriched.currentFile.shouldNotBeNull()
                 }
             }
         }

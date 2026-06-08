@@ -200,6 +200,8 @@ fun BookCard(
                 coverPath = coverPath,
                 blurHash = blurHash,
                 contentDescription = title,
+                title = title,
+                author = authorName.orEmpty(),
                 progress = if (isCompleted) null else progress,
                 timeRemaining = if (isCompleted) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
@@ -322,6 +324,8 @@ private fun BookCardCover(
     coverPath: String?,
     blurHash: String?,
     contentDescription: String?,
+    title: String,
+    author: String,
     progress: Float? = null,
     timeRemaining: String? = null,
     avatarOverlay: AvatarOverlayData? = null,
@@ -360,6 +364,8 @@ private fun BookCardCover(
                 coverPath = coverPath,
                 blurHash = blurHash,
                 contentDescription = contentDescription,
+                title = title,
+                author = author,
                 modifier = Modifier.matchParentSize(),
             )
 

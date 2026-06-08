@@ -29,6 +29,8 @@ import com.calypsan.listenup.client.design.components.ElevatedCoverCard
  * @param bookId Book identifier used for server-URL fallback image loading.
  * @param coverBlurHash Optional BlurHash placeholder string.
  * @param size Side length of the square cover, and the component's layout footprint.
+ * @param title Book title, shown in the gradient fallback when no cover can be loaded.
+ * @param author Primary author, shown in the gradient fallback when no cover can be loaded.
  */
 @Composable
 fun PlayerArtwork(
@@ -36,6 +38,8 @@ fun PlayerArtwork(
     bookId: String,
     coverBlurHash: String?,
     size: Dp,
+    title: String,
+    author: String,
     modifier: Modifier = Modifier,
 ) {
     // The glow extends beyond the cover so the gradient has room to fade to nothing. It is an overlay
@@ -67,6 +71,8 @@ fun PlayerArtwork(
             bookId = bookId,
             blurHash = coverBlurHash,
             contentDescription = null,
+            title = title,
+            author = author,
             cornerRadius = 20.dp,
             elevation = 24.dp,
             modifier = Modifier.size(size),

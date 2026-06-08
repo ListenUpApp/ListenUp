@@ -3,11 +3,12 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -19,15 +20,14 @@ import coil3.compose.LocalPlatformContext
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.design.util.decodeBlurHash
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
-import androidx.compose.runtime.produceState
 
 private val logger = KotlinLogging.logger {}
 
@@ -39,141 +39,166 @@ private val logger = KotlinLogging.logger {}
  * 2. If coverPath is null -> async check: local file exists? use disk. Otherwise server URL.
  * 3. Once the download queue saves the cover to disk, subsequent renders use disk.
  *
- * Covers are NEVER blank when online.
+ * When no cover can be resolved (or it fails to load) and [title] is provided, the gradient
+ * [BookCoverFallback] is shown instead of a blank surface. When [title] is null the behavior is
+ * unchanged: the cover renders, or nothing does.
  */
 @Composable
 fun BookCoverImage(
     bookId: String,
     coverPath: String?,
     contentDescription: String?,
+    title: String? = null,
+    author: String? = null,
     modifier: Modifier = Modifier,
     blurHash: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
 ) {
+    val imageRequest = rememberCoverRequest(bookId, coverPath)
+
+    var showFallback by remember(bookId, coverPath) { mutableStateOf(false) }
+    var imageLoaded by remember(bookId, coverPath) { mutableStateOf(false) }
+
+    val boxModifier =
+        if (blurHash != null) {
+            modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)
+        } else {
+            modifier
+        }
+
+    Box(modifier = boxModifier) {
+        // Bottom layer: gradient placeholder when there's no image to show or it failed to load.
+        if (title != null && (imageRequest == null || showFallback)) {
+            BookCoverFallback(
+                title = title,
+                author = author.orEmpty(),
+                modifier = Modifier.matchParentSize(),
+                seed = bookId,
+            )
+        }
+
+        // BlurHash placeholder while the cover loads.
+        if (blurHash != null && !imageLoaded) {
+            val bitmap: ImageBitmap? = remember(blurHash) { decodeBlurHash(blurHash, width = 32, height = 32) }
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
+        }
+
+        // Top layer: the actual cover. A success covers the fallback; an error reveals it.
+        if (imageRequest != null) {
+            AsyncImage(
+                model = imageRequest,
+                contentDescription = contentDescription,
+                modifier = Modifier.matchParentSize(),
+                contentScale = contentScale,
+                onState = { state ->
+                    if (state is AsyncImagePainter.State.Success) {
+                        imageLoaded = true
+                        showFallback = false
+                    } else if (state is AsyncImagePainter.State.Error) {
+                        showFallback = true
+                    }
+                    onState?.invoke(state)
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Resolves the cover [ImageRequest] for [bookId]/[coverPath]: the synchronous local-path request when
+ * one is given, otherwise an async check for a cached file falling back to the authenticated server URL.
+ * Returns null until resolution settles or when there is no source at all (offline, no cache, no base URL).
+ */
+@Composable
+private fun rememberCoverRequest(
+    bookId: String,
+    coverPath: String?,
+): ImageRequest? {
     val context = LocalPlatformContext.current
 
     // Fast path: coverPath provided means the file exists locally.
     // Build the request synchronously — no IO dispatch, no frame delay.
     val syncRequest =
         remember(bookId, coverPath) {
-            if (coverPath != null) {
+            coverPath?.let {
                 ImageRequest
                     .Builder(context)
-                    .data(coverPath)
+                    .data(it)
                     .memoryCacheKey("$bookId:cover")
                     .diskCacheKey("$bookId:cover")
                     .build()
-            } else {
-                null
             }
         }
 
-    // Slow path: no coverPath, need async resolution (check disk, fallback to server)
-    val asyncRequest by produceState<ImageRequest?>(
-        initialValue = null,
-        key1 = bookId,
-        key2 = coverPath,
-    ) {
-        // Skip async if we already have a sync request, or if bookId is blank (no valid ID to look up)
-        if (coverPath != null || bookId.isBlank()) return@produceState
+    // Slow path: no coverPath, need async resolution (check disk, fallback to server).
+    val asyncRequest: State<ImageRequest?> =
+        produceState(initialValue = null, key1 = bookId, key2 = coverPath) {
+            if (coverPath != null || bookId.isBlank()) return@produceState
 
-        val imageRepository: ImageRepository =
-            org.koin.core.context.GlobalContext
-                .get()
-                .get()
-        val serverConfig: ServerConfig =
-            org.koin.core.context.GlobalContext
-                .get()
-                .get()
-        val authSession: AuthSession =
-            org.koin.core.context.GlobalContext
-                .get()
-                .get()
+            val imageRepository: ImageRepository =
+                org.koin.core.context.GlobalContext
+                    .get()
+                    .get()
+            val serverConfig: ServerConfig =
+                org.koin.core.context.GlobalContext
+                    .get()
+                    .get()
+            val authSession: AuthSession =
+                org.koin.core.context.GlobalContext
+                    .get()
+                    .get()
 
-        value =
-            withContext(IODispatcher) {
-                val localPath = imageRepository.getBookCoverPath(BookId(bookId))
-                val exists = imageRepository.bookCoverExists(BookId(bookId))
-
-                if (exists) {
-                    ImageRequest
-                        .Builder(context)
-                        .data(localPath)
-                        .memoryCacheKey("$bookId:cover")
-                        .diskCacheKey("$bookId:cover")
-                        .build()
-                } else {
-                    val baseUrl = serverConfig.getActiveUrl()?.value
-                    val token = authSession.getAccessToken()?.value
-                    logger.debug { "BookCoverImage: fallback bookId=$bookId, url=$baseUrl/api/v1/covers/$bookId" }
-                    if (baseUrl != null) {
-                        ImageRequest
-                            .Builder(context)
-                            .data("$baseUrl/api/v1/covers/$bookId")
-                            .apply {
-                                if (token != null) {
-                                    httpHeaders(
-                                        NetworkHeaders
-                                            .Builder()
-                                            .set("Authorization", "Bearer $token")
-                                            .build(),
-                                    )
-                                }
-                            }.build()
-                    } else {
+            value =
+                withContext(IODispatcher) {
+                    val localPath = imageRepository.getBookCoverPath(BookId(bookId))
+                    if (imageRepository.bookCoverExists(BookId(bookId))) {
                         ImageRequest
                             .Builder(context)
                             .data(localPath)
+                            .memoryCacheKey("$bookId:cover")
+                            .diskCacheKey("$bookId:cover")
                             .build()
+                    } else {
+                        serverCoverRequest(context, bookId, serverConfig, authSession, localPath)
                     }
                 }
-            }
-    }
-
-    val imageRequest = syncRequest ?: asyncRequest
-
-    if (blurHash != null) {
-        var imageLoaded by remember(bookId) { mutableStateOf(false) }
-
-        Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-            if (!imageLoaded) {
-                val bitmap: ImageBitmap? =
-                    remember(blurHash) {
-                        decodeBlurHash(blurHash, width = 32, height = 32)
-                    }
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-
-            if (imageRequest != null) {
-                AsyncImage(
-                    model = imageRequest,
-                    contentDescription = contentDescription,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = contentScale,
-                    onState = { state ->
-                        if (state is AsyncImagePainter.State.Success) {
-                            imageLoaded = true
-                        }
-                        onState?.invoke(state)
-                    },
-                )
-            }
         }
-    } else if (imageRequest != null) {
-        AsyncImage(
-            model = imageRequest,
-            contentDescription = contentDescription,
-            modifier = modifier,
-            contentScale = contentScale,
-            onState = onState,
-        )
+
+    return syncRequest ?: asyncRequest.value
+}
+
+/**
+ * Builds the authenticated server cover request, falling back to the local path when no server URL is
+ * configured (offline before any onboarding).
+ */
+private suspend fun serverCoverRequest(
+    context: coil3.PlatformContext,
+    bookId: String,
+    serverConfig: ServerConfig,
+    authSession: AuthSession,
+    localPath: String,
+): ImageRequest {
+    val baseUrl = serverConfig.getActiveUrl()?.value
+    val token = authSession.getAccessToken()?.value
+    logger.debug { "BookCoverImage: fallback bookId=$bookId, url=$baseUrl/api/v1/covers/$bookId" }
+    return if (baseUrl != null) {
+        ImageRequest
+            .Builder(context)
+            .data("$baseUrl/api/v1/covers/$bookId")
+            .apply {
+                if (token != null) {
+                    httpHeaders(NetworkHeaders.Builder().set("Authorization", "Bearer $token").build())
+                }
+            }.build()
+    } else {
+        ImageRequest.Builder(context).data(localPath).build()
     }
 }

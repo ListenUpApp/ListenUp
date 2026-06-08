@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -110,7 +110,7 @@ fun ShelfCard(
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Icon(
-                imageVector = Icons.Outlined.LibraryBooks,
+                imageVector = Icons.AutoMirrored.Outlined.LibraryBooks,
                 contentDescription = null,
                 tint = contentColor,
                 modifier = Modifier.size(26.dp),

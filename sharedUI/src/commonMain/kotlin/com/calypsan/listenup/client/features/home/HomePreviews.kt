@@ -28,7 +28,7 @@ import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.home.components.HomeStatsContent
 import com.calypsan.listenup.client.features.home.components.MyShelvesRow
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 

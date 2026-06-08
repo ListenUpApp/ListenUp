@@ -1,7 +1,11 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.event.ScanBookRef
+import kotlin.math.roundToInt
+
 /**
- * Current state of a library scan in progress. Null when no scan is running.
+ * Current state of a library scan in progress. Null when no scan is running. Carries both the
+ * granular sync counters (existing) and the rich stats driving the "Building your library" screen.
  */
 data class ScanProgressState(
     val phase: String,
@@ -10,8 +14,14 @@ data class ScanProgressState(
     val added: Int,
     val updated: Int,
     val removed: Int,
+    val filesTotal: Int = 0,
+    val books: Int = 0,
+    val authors: Int = 0,
+    val durationMs: Long = 0,
+    val currentFile: String? = null,
+    val recentBooks: List<ScanBookRef> = emptyList(),
+    val startedAtMs: Long = 0,
 ) {
-    /** Human-readable phase name. */
     val phaseDisplayName: String
         get() =
             when (phase) {
@@ -25,11 +35,14 @@ data class ScanProgressState(
                 else -> phase.replaceFirstChar { it.uppercase() }
             }
 
-    /** Progress as a fraction (0.0 to 1.0), or null if total is 0. */
+    /** Progress fraction (0..1) over discovered files, or null if unknown. */
     val progressFraction: Float?
-        get() = if (total > 0) current.toFloat() / total.toFloat() else null
+        get() = if (filesTotal > 0) (current.toFloat() / filesTotal).coerceIn(0f, 1f) else null
 
-    /** Summary of changes so far (e.g., "3 added, 1 updated"). */
+    /** Total matched audio rounded to whole hours, for the "Hours" stat. */
+    val hours: Int
+        get() = (durationMs / 3_600_000.0).roundToInt()
+
     val changesSummary: String?
         get() {
             val parts = mutableListOf<String>()

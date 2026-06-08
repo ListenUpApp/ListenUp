@@ -68,6 +68,9 @@ class SyncRepositoryImpl(
      * overlay, so a relaunched client with books already in Room shows the library immediately.
      */
     private var hasCompletedInitialScan = false
+
+    /** Wall-clock start of the current scan, stamped on [ScanEvent.Started] and surfaced in progress. */
+    private var scanStartedAtMs: Long = 0L
     override val syncState: StateFlow<SyncState> =
         syncEngineState
             .observe()
@@ -178,6 +181,9 @@ class SyncRepositoryImpl(
                             // already consumed, and the cold RPC stream applies backpressure rather than
                             // dropping any later event.
                             reconcile = { syncEngine.handleCursorStale() },
+                            nowMs = { currentEpochMilliseconds() },
+                            getStartedAt = { scanStartedAtMs },
+                            setStartedAt = { scanStartedAtMs = it },
                         )
                     }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
@@ -229,10 +235,14 @@ internal suspend fun applyScanEvent(
     setProgress: (ScanProgressState?) -> Unit,
     markInitialScanComplete: () -> Unit,
     reconcile: suspend () -> Unit,
+    nowMs: () -> Long = { 0L },
+    getStartedAt: () -> Long = { 0L },
+    setStartedAt: (Long) -> Unit = {},
 ) {
     when (event) {
         is ScanEvent.Started -> {
             if (!isInitialScanComplete()) {
+                setStartedAt(nowMs())
                 setScanning(true)
                 setProgress(null)
             }
@@ -243,12 +253,19 @@ internal suspend fun applyScanEvent(
                 setScanning(true)
                 setProgress(
                     ScanProgressState(
-                        phase = event.phase.name,
-                        current = event.booksAnalyzed,
+                        phase = event.phase.name.lowercase(),
+                        current = event.filesWalked,
                         total = event.filesWalked,
                         added = 0,
                         updated = 0,
                         removed = 0,
+                        filesTotal = event.totalFiles,
+                        books = event.booksAnalyzed,
+                        authors = event.authorsMatched,
+                        durationMs = event.totalDurationMs,
+                        currentFile = event.currentFile,
+                        recentBooks = event.recentBooks,
+                        startedAtMs = getStartedAt(),
                     ),
                 )
             }

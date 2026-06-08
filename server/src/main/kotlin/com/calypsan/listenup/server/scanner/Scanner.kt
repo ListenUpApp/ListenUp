@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.EmbeddedScanCounters
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
@@ -11,6 +12,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.UnsupportedFormatCount
 import com.calypsan.listenup.api.error.ScanError
+import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
@@ -30,6 +32,12 @@ import java.nio.file.Path
 import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
+
+/** Minimum interval between throttled ANALYZING [ScanEvent.Progress] emissions. */
+private const val PROGRESS_THROTTLE_MS = 200L
+
+/** Maximum number of recently-matched books carried in [ScanEvent.Progress.recentBooks]. */
+private const val RECENT_BOOKS_CAP = 8
 
 /**
  * Top-level scanner orchestrator for a single [Library]. Wires the four
@@ -98,9 +106,7 @@ internal class Scanner(
         emitProgress(correlationId, ScanPhase.GROUPING, allFiles.size, 0, 0)
         val candidates = grouper.group(allFiles.asFlow()).toList()
 
-        emitProgress(correlationId, ScanPhase.ANALYZING, allFiles.size, 0, 0)
-        val books = mutableListOf<AnalyzedBook>()
-        val errors = mutableListOf<ScanError>()
+        emitProgress(correlationId, ScanPhase.ANALYZING, allFiles.size, 0, 0, totalFiles = allFiles.size)
         // Analyzer uses the first folder root as the libraryRoot anchor for
         // computing rootRelPath and resolving error paths. When the library has
         // multiple folders, each folder's books will be at absolute paths inside
@@ -119,13 +125,22 @@ internal class Scanner(
                 sidecarParsers,
                 metadataPrecedence,
             )
-        analyzer.analyze(candidates.asFlow()).toList().forEach { result ->
-            result
-                .onSuccess { books += it }
-                .onFailure { errors += toScanError(it, primaryRoot) }
-        }
+        val pass = collectAnalyzed(analyzer, candidates, correlationId, allFiles.size, primaryRoot)
+        val books = pass.books
+        val errors = pass.errors
 
-        emitProgress(correlationId, ScanPhase.DIFFING, allFiles.size, books.size, errors.size)
+        emitProgress(
+            correlationId,
+            ScanPhase.DIFFING,
+            allFiles.size,
+            books.size,
+            errors.size,
+            totalFiles = allFiles.size,
+            authorsMatched = pass.authorsMatched,
+            totalDurationMs = pass.totalDurationMs,
+            currentFile = pass.currentFile,
+            recentBooks = pass.recentBooks,
+        )
         val previous = lastResult?.books.orEmpty()
         val changes = Differ().diff(books.asFlow(), previous).toList()
         changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
@@ -192,7 +207,7 @@ internal class Scanner(
         emitProgress(correlationId, ScanPhase.GROUPING, rebasedFiles.size, 0, 0)
         val candidates = grouper.group(rebasedFiles.asFlow()).toList()
 
-        emitProgress(correlationId, ScanPhase.ANALYZING, rebasedFiles.size, 0, 0)
+        emitProgress(correlationId, ScanPhase.ANALYZING, rebasedFiles.size, 0, 0, totalFiles = rebasedFiles.size)
         val analyzer =
             Analyzer(
                 folderRoot,
@@ -202,13 +217,9 @@ internal class Scanner(
                 sidecarParsers,
                 metadataPrecedence,
             )
-        val books = mutableListOf<AnalyzedBook>()
-        val errors = mutableListOf<ScanError>()
-        analyzer.analyze(candidates.asFlow()).toList().forEach { result ->
-            result
-                .onSuccess { books += it }
-                .onFailure { errors += toScanError(it, folderRoot) }
-        }
+        val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot)
+        val books = pass.books
+        val errors = pass.errors
 
         val (previousAffected, previousUntouched) =
             partitionBooksUnder(
@@ -247,6 +258,94 @@ internal class Scanner(
         scanResultBus.emit(lastResult!!)
     }
 
+    /**
+     * Drains the [Analyzer] flow for [candidates], aggregating analyzed books,
+     * errors, and the live progress signals (authors matched, total duration,
+     * current file, recent books). Emits throttled ANALYZING
+     * [ScanEvent.Progress] ticks while collecting, plus one unconditional final
+     * tick so the last batch's stats land even when it falls inside the throttle
+     * window. [errorRoot] is the folder root passed to [toScanError] for
+     * resolving failing-book paths.
+     */
+    private suspend fun collectAnalyzed(
+        analyzer: Analyzer,
+        candidates: List<CandidateBook>,
+        correlationId: String,
+        fileCount: Int,
+        errorRoot: Path,
+    ): AnalyzePass {
+        val books = mutableListOf<AnalyzedBook>()
+        val errors = mutableListOf<ScanError>()
+        val authorsSeen = mutableSetOf<String>()
+        var durationMsSum = 0L
+        val recent = ArrayDeque<ScanBookRef>()
+        var currentFile: String? = null
+        var lastEmit = clock()
+        analyzer.analyze(candidates.asFlow()).collect { result ->
+            result
+                .onSuccess { book ->
+                    books += book
+                    book.authors.forEach { authorsSeen += it }
+                    durationMsSum += book.embedded?.durationMs ?: 0L
+                    currentFile = book.candidate.rootRelPath
+                    recent.addLast(ScanBookRef(title = book.title, author = book.authors.firstOrNull().orEmpty()))
+                    while (recent.size > RECENT_BOOKS_CAP) recent.removeFirst()
+                }.onFailure { errors += toScanError(it, errorRoot) }
+            val now = clock()
+            if (now - lastEmit >= PROGRESS_THROTTLE_MS) {
+                emitProgress(
+                    correlationId,
+                    ScanPhase.ANALYZING,
+                    fileCount,
+                    books.size,
+                    errors.size,
+                    totalFiles = fileCount,
+                    authorsMatched = authorsSeen.size,
+                    totalDurationMs = durationMsSum,
+                    currentFile = currentFile,
+                    recentBooks = recent.toList(),
+                )
+                lastEmit = now
+            }
+        }
+        // Final ANALYZING tick so the last batch's stats land even when under the throttle window.
+        emitProgress(
+            correlationId,
+            ScanPhase.ANALYZING,
+            fileCount,
+            books.size,
+            errors.size,
+            totalFiles = fileCount,
+            authorsMatched = authorsSeen.size,
+            totalDurationMs = durationMsSum,
+            currentFile = currentFile,
+            recentBooks = recent.toList(),
+        )
+        return AnalyzePass(
+            books = books,
+            errors = errors,
+            authorsMatched = authorsSeen.size,
+            totalDurationMs = durationMsSum,
+            currentFile = currentFile,
+            recentBooks = recent.toList(),
+        )
+    }
+
+    /**
+     * Final aggregates from a [collectAnalyzed] pass. Carries the enriched
+     * stats (authors matched, total duration, current file, recent books)
+     * forward so the DIFFING progress tick can preserve them rather than
+     * regressing to defaults right before completion.
+     */
+    private data class AnalyzePass(
+        val books: List<AnalyzedBook>,
+        val errors: List<ScanError>,
+        val authorsMatched: Int,
+        val totalDurationMs: Long,
+        val currentFile: String?,
+        val recentBooks: List<ScanBookRef>,
+    )
+
     private fun partitionBooksUnder(
         bookRoot: Path,
         folderRoot: Path,
@@ -269,6 +368,11 @@ internal class Scanner(
         filesWalked: Int,
         booksAnalyzed: Int,
         errors: Int,
+        totalFiles: Int = 0,
+        authorsMatched: Int = 0,
+        totalDurationMs: Long = 0,
+        currentFile: String? = null,
+        recentBooks: List<ScanBookRef> = emptyList(),
     ) {
         eventBus.emit(
             ScanEvent.Progress(
@@ -278,6 +382,11 @@ internal class Scanner(
                 filesWalked = filesWalked,
                 booksAnalyzed = booksAnalyzed,
                 errors = errors,
+                totalFiles = totalFiles,
+                authorsMatched = authorsMatched,
+                totalDurationMs = totalDurationMs,
+                currentFile = currentFile,
+                recentBooks = recentBooks,
             ),
         )
     }

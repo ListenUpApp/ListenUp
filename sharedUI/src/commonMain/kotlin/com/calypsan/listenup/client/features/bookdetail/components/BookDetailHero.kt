@@ -105,6 +105,8 @@ fun CompactHero(
             path = coverPath,
             bookId = bookId,
             contentDescription = title,
+            title = title,
+            author = authors.firstOrNull()?.name.orEmpty(),
             modifier = Modifier.size(200.dp),
         ) {
             progress?.let { prog ->
@@ -293,6 +295,8 @@ fun WideHeroBand(
                     path = coverPath,
                     bookId = bookId,
                     contentDescription = title,
+                    title = title,
+                    author = authors.firstOrNull()?.name.orEmpty(),
                     modifier = Modifier.size(240.dp),
                 ) {
                     progress?.let { prog ->
