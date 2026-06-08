@@ -105,7 +105,7 @@ fun SeriesCard(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
-            FannedDeck(covers = deckCovers, size = 104.dp, peek = 24.dp, max = 5)
+            FannedDeck(covers = deckCovers, size = 104.dp, peek = 24.dp, max = 5, animate = true)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
