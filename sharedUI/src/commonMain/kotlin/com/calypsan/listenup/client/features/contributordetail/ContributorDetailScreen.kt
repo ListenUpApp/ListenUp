@@ -11,12 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -55,20 +56,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.design.components.DetailHero
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
-import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -260,15 +260,9 @@ private fun WideContributorPortfolio(
         // Full-span header: avatar beside name, metadata, and bio
         item(span = { GridItemSpan(maxLineSpan) }) {
             WideHeroHeader(
-                name = state.contributor.name,
-                aliases = state.contributor.aliases,
-                imagePath = state.contributor.imagePath,
+                state = state,
                 contributorId = contributorId,
                 colorScheme = colorScheme,
-                birthDate = state.contributor.birthDate,
-                deathDate = state.contributor.deathDate,
-                website = state.contributor.website,
-                description = state.contributor.description,
                 isDescriptionExpanded = isDescriptionExpanded,
                 onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
                 onBackClick = onBackClick,
@@ -318,15 +312,9 @@ private fun WideContributorPortfolio(
  */
 @Composable
 private fun WideHeroHeader(
-    name: String,
-    aliases: List<String>,
-    imagePath: String?,
+    state: ContributorDetailUiState.Ready,
     contributorId: String,
     colorScheme: ContributorColorScheme,
-    birthDate: String?,
-    deathDate: String?,
-    website: String?,
-    description: String?,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
     onBackClick: () -> Unit,
@@ -334,31 +322,26 @@ private fun WideHeroHeader(
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
-    val gradientColors =
-        listOf(
-            colorScheme.primaryDark.copy(alpha = 0.3f),
-            colorScheme.primaryMuted.copy(alpha = 0.15f),
-            surfaceColor,
-        )
+    val contributor = state.contributor
+    val roleLabels = state.roleSections.map { roleChipLabel(it.role) }.distinct()
+    val totalBooks = state.roleSections.sumOf { it.bookCount }
 
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(gradientColors),
-                    RoundedCornerShape(16.dp),
-                ).padding(24.dp),
+                .clip(RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
-        Column {
+        HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
+        Column(modifier = Modifier.padding(24.dp)) {
             // Navigation bar
             NavigationBar(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
-                surfaceColor = surfaceColor,
+                surfaceColor = MaterialTheme.colorScheme.surface,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -368,24 +351,24 @@ private fun WideHeroHeader(
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                // Avatar
-                ElevatedAvatar(
-                    name = name,
-                    imagePath = imagePath,
+                RingedScallopAvatar(
+                    name = contributor.name,
+                    imagePath = contributor.imagePath,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
-                    shape = cookieScallopShape(),
                 )
 
                 // Name, aliases, metadata, bio
                 Column(modifier = Modifier.weight(1f)) {
                     WideHeroInfoColumn(
-                        name = name,
-                        aliases = aliases,
-                        birthDate = birthDate,
-                        deathDate = deathDate,
-                        website = website,
-                        description = description,
+                        name = contributor.name,
+                        aliases = contributor.aliases,
+                        roleLabels = roleLabels,
+                        totalBooks = totalBooks,
+                        birthDate = contributor.birthDate,
+                        deathDate = contributor.deathDate,
+                        website = contributor.website,
+                        description = contributor.description,
                         isDescriptionExpanded = isDescriptionExpanded,
                         onToggleDescription = onToggleDescription,
                     )
@@ -396,13 +379,15 @@ private fun WideHeroHeader(
 }
 
 /**
- * Name, aliases, life dates, website, and biography column for the wide hero header.
- * Renders into the surrounding info [Column] in the exact order of the immersive layout.
+ * Role chips, name, aliases, life dates, website, stat chip, and biography for the wide hero —
+ * rendered on the color-blocked panel (on-primary-container ink).
  */
 @Composable
 private fun ColumnScope.WideHeroInfoColumn(
     name: String,
     aliases: List<String>,
+    roleLabels: List<String>,
+    totalBooks: Int,
     birthDate: String?,
     deathDate: String?,
     website: String?,
@@ -410,11 +395,21 @@ private fun ColumnScope.WideHeroInfoColumn(
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
 ) {
+    val ink = MaterialTheme.colorScheme.onPrimaryContainer
+
+    // Role chips
+    if (roleLabels.isNotEmpty()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            roleLabels.forEach { RoleChip(it) }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+    }
+
     // Name
     Text(
         text = name,
         style = MaterialTheme.typography.headlineLargeEmphasized,
-        color = MaterialTheme.colorScheme.onSurface,
+        color = ink,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
@@ -425,7 +420,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = "aka ${aliases.joinToString(", ")}",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = ink.copy(alpha = 0.85f),
         )
     }
 
@@ -436,7 +431,7 @@ private fun ColumnScope.WideHeroInfoColumn(
         Text(
             text = lifeDates,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = ink.copy(alpha = 0.7f),
         )
     }
 
@@ -450,13 +445,17 @@ private fun ColumnScope.WideHeroInfoColumn(
         )
     }
 
+    // Stat chip
+    Spacer(modifier = Modifier.height(16.dp))
+    HeroStatChip(label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}", onColor = true)
+
     // Biography
     description?.takeIf { it.isNotBlank() }?.let { desc ->
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = desc,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = ink.copy(alpha = 0.85f),
             maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
             overflow = TextOverflow.Ellipsis,
         )
@@ -536,75 +535,46 @@ private fun NarrowContributorPortfolio(
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     val colorScheme = rememberContributorColorScheme(contributorId)
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
-    val listState = rememberLazyListState()
-    val collapseFraction by rememberHeroCollapseFraction(listState)
-
-    val gradientColors =
-        listOf(
-            colorScheme.primaryDark,
-            colorScheme.primaryMuted.copy(alpha = 0.8f),
-            colorScheme.primaryMuted.copy(alpha = 0.4f),
-            surfaceColor.copy(alpha = 0.9f),
-            surfaceColor,
-        )
+    val roleLabels = state.roleSections.map { roleChipLabel(it.role) }.distinct()
+    val totalBooks = state.roleSections.sumOf { it.bookCount }
 
     LazyColumn(
-        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
-        // 1. HERO SECTION — meta + bio ride in the hero's belowTitle slot.
+        // 1. Color-blocked hero — avatar, role chips, name, aka, life dates.
         item {
-            DetailHero(
-                collapseFraction = { collapseFraction },
-                collapsing = true,
-                gradientColors = gradientColors,
-                navigation = { pinnedTitle ->
-                    HeroNavigationRow(
-                        pinnedTitle = pinnedTitle,
-                        onBackClick = onBackClick,
-                        onEditClick = onEditClick,
-                        onDownloadMetadata = onDownloadMetadata,
-                        onDeleteClick = onDeleteClick,
-                        surfaceColor = surfaceColor,
-                    )
-                },
-                title = state.contributor.name,
-                backdropMedia = {
-                    ElevatedAvatar(
-                        name = state.contributor.name,
-                        imagePath = state.contributor.imagePath,
-                        contributorId = contributorId,
-                        colorScheme = colorScheme,
-                        shape = cookieScallopShape(),
-                    )
-                },
-                subtitle =
-                    state.contributor.aliases
-                        .takeIf { it.isNotEmpty() }
-                        ?.let { "aka ${it.joinToString(", ")}" },
-                belowTitle = {
-                    ArtistMetadata(
-                        birthDate = state.contributor.birthDate,
-                        deathDate = state.contributor.deathDate,
-                        website = state.contributor.website,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                    )
-                    state.contributor.description?.takeIf { it.isNotBlank() }?.let { description ->
-                        BiographySection(
-                            description = description,
-                            isExpanded = isDescriptionExpanded,
-                            onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                        )
-                    }
-                },
+            NarrowColorHero(
+                state = state,
+                contributorId = contributorId,
+                colorScheme = colorScheme,
+                roleLabels = roleLabels,
+                onBackClick = onBackClick,
+                onEditClick = onEditClick,
+                onDownloadMetadata = onDownloadMetadata,
+                onDeleteClick = onDeleteClick,
             )
         }
 
-        // 2. THE WORK - Role sections with carousels
+        // 2. Stat chip + About, on the surface below the hero.
+        item {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
+                HeroStatChip(
+                    label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}",
+                    onColor = false,
+                )
+                state.contributor.description?.takeIf { it.isNotBlank() }?.let { description ->
+                    Spacer(modifier = Modifier.height(20.dp))
+                    BiographySection(
+                        description = description,
+                        isExpanded = isDescriptionExpanded,
+                        onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
+                    )
+                }
+            }
+        }
+
+        // 3. THE WORK - Role sections with carousels
         items(
             items = state.roleSections,
             key = { it.role },
@@ -619,60 +589,76 @@ private fun NarrowContributorPortfolio(
     }
 }
 
-/**
- * Hero navigation row for the narrow [DetailHero]: back button on the left, the collapse-driven
- * [pinnedTitle] centered, and the overflow menu on the right.
- */
+/** Color-blocked hero for the narrow layout: nav row, ringed scallop avatar, role chips, name, aka, dates. */
 @Composable
-private fun HeroNavigationRow(
-    pinnedTitle: @Composable () -> Unit,
+private fun NarrowColorHero(
+    state: ContributorDetailUiState.Ready,
+    contributorId: String,
+    colorScheme: ContributorColorScheme,
+    roleLabels: List<String>,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
-    surfaceColor: Color,
 ) {
+    val ink = MaterialTheme.colorScheme.onPrimaryContainer
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
-        Box(
-            modifier = Modifier.align(Alignment.Center),
-            contentAlignment = Alignment.Center,
-        ) {
-            pinnedTitle()
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .background(
-                            color = surfaceColor.copy(alpha = 0.5f),
-                            shape = CircleShape,
-                        ),
+        HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
+            NavigationBar(
+                onBackClick = onBackClick,
+                onEditClick = onEditClick,
+                onDownloadMetadata = onDownloadMetadata,
+                onDeleteClick = onDeleteClick,
+                surfaceColor = MaterialTheme.colorScheme.surface,
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(Res.string.common_back),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                RingedScallopAvatar(
+                    name = state.contributor.name,
+                    imagePath = state.contributor.imagePath,
+                    contributorId = contributorId,
+                    colorScheme = colorScheme,
                 )
-            }
-
-            if (!LocalDeviceContext.current.isLeanback) {
-                OverflowMenu(
-                    onEditClick = onEditClick,
-                    onDownloadMetadata = onDownloadMetadata,
-                    onDeleteClick = onDeleteClick,
-                    surfaceColor = surfaceColor,
+                if (roleLabels.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        roleLabels.forEach { RoleChip(it) }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = state.contributor.name,
+                    style = MaterialTheme.typography.headlineLargeEmphasized,
+                    color = ink,
+                    textAlign = TextAlign.Center,
                 )
+                state.contributor.aliases.takeIf { it.isNotEmpty() }?.let { aliases ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "aka ${aliases.joinToString(", ")}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = ink.copy(alpha = 0.85f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                formatLifeDates(state.contributor.birthDate, state.contributor.deathDate)?.let { dates ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = dates,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ink.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -861,6 +847,7 @@ private fun ElevatedAvatar(
     contributorId: String,
     colorScheme: ContributorColorScheme,
     shape: Shape = CircleShape,
+    elevation: Dp = 12.dp,
 ) {
     val initials =
         if (name.isNotBlank()) {
@@ -880,7 +867,7 @@ private fun ElevatedAvatar(
 
     ElevatedCard(
         shape = shape,
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
         colors =
             CardDefaults.elevatedCardColors(
                 containerColor = colorScheme.primary,
@@ -916,43 +903,6 @@ private fun ElevatedAvatar(
                         imageLoaded = true
                     }
                 },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ArtistMetadata(
-    birthDate: String?,
-    deathDate: String?,
-    website: String?,
-    modifier: Modifier = Modifier,
-) {
-    val hasContent = birthDate != null || deathDate != null || website?.isNotBlank() == true
-
-    if (!hasContent) return
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        val lifeDates = formatLifeDates(birthDate, deathDate)
-        if (lifeDates != null) {
-            Text(
-                text = lifeDates,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        website?.takeIf { it.isNotBlank() }?.let { url ->
-            Text(
-                text = url,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
             )
         }
     }
@@ -995,9 +945,104 @@ private fun BiographySection(
     }
 }
 
+/** Scallop avatar with a brand-colored rim, matching the design's "cookie" avatar. */
+@Composable
+private fun RingedScallopAvatar(
+    name: String,
+    imagePath: String?,
+    contributorId: String,
+    colorScheme: ContributorColorScheme,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(152.dp)
+                .clip(cookieScallopShape())
+                .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center,
+    ) {
+        ElevatedAvatar(
+            name = name,
+            imagePath = imagePath,
+            contributorId = contributorId,
+            colorScheme = colorScheme,
+            shape = cookieScallopShape(),
+            elevation = 0.dp,
+        )
+    }
+}
+
+/** Small role pill (Author/Narrator), tinted per role to match the design. */
+@Composable
+private fun RoleChip(label: String) {
+    val narrator = label.equals("Narrator", ignoreCase = true)
+    val bg = if (narrator) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.tertiaryContainer
+    val fg = if (narrator) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onTertiaryContainer
+    Box(
+        modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Text(text = label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = fg)
+    }
+}
+
+/** Book-count stat pill. [onColor] tints it for placement on the color-blocked hero. */
+@Composable
+private fun HeroStatChip(
+    label: String,
+    onColor: Boolean,
+) {
+    val bg =
+        if (onColor) {
+            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        }
+    val fg = if (onColor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.MenuBook,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(19.dp),
+        )
+        Text(text = label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = fg)
+    }
+}
+
+/** Soft organic accent blob behind the hero content (echoes the design's brand squircle). */
+@Composable
+private fun HeroBlob(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clip(BlobShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
+    )
+}
+
+/** Asymmetric rounded squircle approximating the design's organic blob. */
+private val BlobShape =
+    RoundedCornerShape(
+        topStartPercent = 46,
+        topEndPercent = 54,
+        bottomEndPercent = 46,
+        bottomStartPercent = 54,
+    )
+
 // =============================================================================
 // HELPERS
 // =============================================================================
+
+/** Short role label for a hero chip (e.g. "author" -> "Author"). */
+private fun roleChipLabel(role: String): String =
+    when (role.lowercase()) {
+        "author" -> "Author"
+        "narrator" -> "Narrator"
+        "translator" -> "Translator"
+        "editor" -> "Editor"
+        else -> role.replaceFirstChar { it.uppercase() }
+    }
 
 private fun formatLifeDates(
     birthDate: String?,
