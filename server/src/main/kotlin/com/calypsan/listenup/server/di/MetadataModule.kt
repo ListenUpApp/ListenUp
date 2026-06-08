@@ -14,6 +14,9 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
 import com.calypsan.listenup.server.metadata.itunes.ITunesRateLimiter
 import com.calypsan.listenup.server.metadata.itunes.ImageDimensionProbe
+import com.calypsan.listenup.server.metadata.provider.AudibleCoverProvider
+import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
+import com.calypsan.listenup.server.metadata.provider.ITunesCoverProvider
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.services.BookRepository
@@ -41,6 +44,8 @@ import org.koin.dsl.module
  *  - [AudibleClient] / [ITunesClient] — thin adapters over the external APIs.
  *  - [MetadataCacheRepository] — SQLite-backed TTL cache for API responses.
  *  - [MetadataService] — orchestrator with region-aware fallback.
+ *  - [AudibleCoverProvider] / [ITunesCoverProvider] / [AudibleMetadataProvider] — the
+ *    provider seam: each wraps [MetadataService] for one catalog surface.
  *  - [ImageStorage] — downloads cover/photo images to disk.
  *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
  *
@@ -120,6 +125,26 @@ fun metadataModule(imageHome: Path): Module =
 
         single {
             val metadataService = get<MetadataService>()
+            AudibleCoverProvider(
+                search = { book, region ->
+                    val params = SearchParams(keywords = "${book.title} ${book.author}".trim())
+                    if (region == null) {
+                        metadataService.searchWithFallback(params)
+                    } else {
+                        metadataService.search(region, params)
+                    }
+                },
+            )
+        }
+
+        single {
+            val metadataService = get<MetadataService>()
+            ITunesCoverProvider(search = { title, author -> metadataService.searchCovers(title, author) })
+        }
+
+        single { AudibleMetadataProvider(metadataService = get()) }
+
+        single {
             val bookRepository = get<BookRepository>()
             val probe = get<ImageDimensionProbe>()
             CoverSearchService(
@@ -134,15 +159,7 @@ fun metadataModule(imageHome: Path): Module =
                         )
                     }
                 },
-                audibleSearch = { book, region ->
-                    val params = SearchParams(keywords = "${book.title} ${book.author}".trim())
-                    if (region == null) {
-                        metadataService.searchWithFallback(params)
-                    } else {
-                        metadataService.search(region, params)
-                    }
-                },
-                itunesSearch = { title, author -> metadataService.searchCovers(title, author) },
+                providers = listOf(get<AudibleCoverProvider>(), get<ITunesCoverProvider>()),
                 probeDimensions = { url -> probe.probe(url) },
             )
         }
@@ -150,6 +167,7 @@ fun metadataModule(imageHome: Path): Module =
         single<MetadataLookupService> {
             MetadataLookupServiceImpl(
                 metadataService = get(),
+                metadataProviders = listOf(get<AudibleMetadataProvider>()),
                 coverSearchService = get(),
                 bookRepository = get(),
                 contributorRepository = get(),
