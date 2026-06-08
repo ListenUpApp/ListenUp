@@ -46,6 +46,16 @@ sealed interface ScanEvent {
         val filesWalked: Int,
         val booksAnalyzed: Int,
         val errors: Int,
+        /** Total files discovered (known after WALKING; 0 before). */
+        val totalFiles: Int = 0,
+        /** Running count of distinct author names matched so far. */
+        val authorsMatched: Int = 0,
+        /** Running sum of matched book durations, milliseconds → "Hours" stat. */
+        val totalDurationMs: Long = 0,
+        /** Most-recently-analyzed file (library-relative path), sampled onto this throttled tick. */
+        val currentFile: String? = null,
+        /** Up to ~8 most-recently-matched books, newest last, for the marquee. */
+        val recentBooks: List<ScanBookRef> = emptyList(),
     ) : ScanEvent
 
     /**
@@ -69,3 +79,16 @@ sealed interface ScanEvent {
         val result: ScanResultSummary,
     ) : ScanEvent
 }
+
+/**
+ * Lightweight reference to a freshly-matched book, streamed in
+ * [ScanEvent.Progress.recentBooks] to drive the scan screen's
+ * recently-matched marquee. Display text only — covers aren't available
+ * mid-scan.
+ */
+@Serializable
+@SerialName("ScanBookRef")
+data class ScanBookRef(
+    val title: String,
+    val author: String,
+)
