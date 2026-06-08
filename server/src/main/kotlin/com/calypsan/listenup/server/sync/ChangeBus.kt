@@ -6,6 +6,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 
 private const val LIVE_TAIL_BUFFER = 256
 
@@ -88,9 +89,7 @@ class ChangeBus {
         repo: SyncableRepository<T, *>,
         event: SyncEvent<T>,
         userId: String? = null,
-    ) {
-        flow.emit(BusEvent(repo, event, userId))
-    }
+    ) = emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
 
     fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()
 
@@ -101,9 +100,7 @@ class ChangeBus {
     suspend fun publishControl(
         control: SyncControl,
         userId: String,
-    ) {
-        controlFlow.emit(ControlFrame(control, userId))
-    }
+    ) = emitOrDefer { controlFlow.tryEmit(ControlFrame(control, userId)) }
 
     /**
      * Publishes a [control] frame to EVERY connected subscriber, addressed to the
@@ -111,11 +108,26 @@ class ChangeBus {
      * regardless of their own userId. Use for content-free nudges only — a
      * broadcast frame carries no per-user or per-resource data, so it cannot leak.
      */
-    suspend fun broadcastControl(control: SyncControl) {
-        controlFlow.emit(ControlFrame(control, BROADCAST))
-    }
+    suspend fun broadcastControl(control: SyncControl) =
+        emitOrDefer { controlFlow.tryEmit(ControlFrame(control, BROADCAST)) }
 
     fun subscribeControl(): SharedFlow<ControlFrame> = controlFlow.asSharedFlow()
+
+    /**
+     * Runs [emit] immediately when called outside a transaction; when inside one, defers it to the
+     * transaction's outbox so [CommitPublishingInterceptor] emits it only after the commit. This
+     * keeps the firehose's delivery-time access checks from racing an uncommitted write. `tryEmit`
+     * (not `emit`) is used because the deferred call runs in the non-suspend interceptor callback;
+     * with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST` it always succeeds.
+     */
+    private fun emitOrDefer(emit: () -> Unit) {
+        val tx = TransactionManager.currentOrNull()
+        if (tx == null) {
+            emit()
+        } else {
+            tx.getOrCreate(FIREHOSE_OUTBOX_KEY) { mutableListOf() }.add(emit)
+        }
+    }
 
     companion object {
         /** Sentinel [ControlFrame.userId] marking a frame destined for every subscriber. */
