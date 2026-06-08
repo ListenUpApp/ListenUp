@@ -66,6 +66,33 @@ interface ShelfDao {
     fun observeMyShelvesWithBookCount(): Flow<List<ShelfWithBookCount>>
 
     /**
+     * Observe the caller's non-tombstoned shelves that currently contain [bookId], with live
+     * book counts, ordered alphabetically (case-insensitive).
+     *
+     * A shelf qualifies when it has a non-tombstoned [ShelfBookEntity] row for [bookId]. The
+     * `bookCount` LEFT JOIN matches [observeMyShelvesWithBookCount] so the mapped
+     * [com.calypsan.listenup.client.domain.model.Shelf.bookCount] is the shelf's full live
+     * count, not 1. Reactive: re-emits whenever the relevant shelves or memberships change.
+     * The local mirror holds only the caller's own shelves, so no owner predicate is needed.
+     */
+    @Query(
+        """
+        SELECT s.*, COALESCE(b.cnt, 0) AS bookCount
+        FROM shelves s
+        JOIN shelf_books m ON m.shelfId = s.id AND m.bookId = :bookId AND m.deletedAt IS NULL
+        LEFT JOIN (
+            SELECT shelfId, COUNT(*) AS cnt
+            FROM shelf_books
+            WHERE deletedAt IS NULL
+            GROUP BY shelfId
+        ) b ON b.shelfId = s.id
+        WHERE s.deletedAt IS NULL
+        ORDER BY s.name COLLATE NOCASE ASC
+    """,
+    )
+    fun observeShelvesContainingBookWithBookCount(bookId: String): Flow<List<ShelfWithBookCount>>
+
+    /**
      * Cover hashes for the first few live books on a shelf, in sort order.
      *
      * Used to render the shelf-card cover grid offline. Joins the live junction rows to
