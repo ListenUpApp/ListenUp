@@ -8,6 +8,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -26,6 +27,7 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -108,6 +110,7 @@ class BookDetailViewModelTest :
                 everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
                 every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
+                every { shelfRepository.observeShelvesContainingBook(any()) } returns flowOf(emptyList())
                 every { tagRepository.observeAll() } returns flowOf(emptyList())
                 every { userRepository.observeIsAdmin() } returns flowOf(false)
             }
@@ -919,6 +922,42 @@ class BookDetailViewModelTest :
                 advanceUntilIdle()
 
                 fixture.serverReachability.retryCalls shouldBe 1
+            }
+        }
+
+        test("shelvesContainingBook reflects the loaded book's shelf membership") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(title = "My Book")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.shelfRepository.observeShelvesContainingBook("book-1") } returns
+                    flowOf(
+                        listOf(
+                            Shelf(
+                                id = "s1",
+                                name = "To Read",
+                                description = null,
+                                isPrivate = false,
+                                ownerId = "owner1",
+                                ownerDisplayName = "Owner",
+                                bookCount = 1,
+                                totalDurationSeconds = 0L,
+                                createdAtMs = 0L,
+                                updatedAtMs = 0L,
+                            ),
+                        ),
+                    )
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val membership = viewModel.shelvesContainingBook.testIn(backgroundScope)
+                    membership.awaitItem() // initial emptyList seed
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    membership.expectMostRecentItem().map { it.id } shouldContainExactly listOf("s1")
+                    membership.cancel()
+                }
             }
         }
     })
