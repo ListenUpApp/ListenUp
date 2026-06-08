@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
+import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.domain.model.ScanProgressState
@@ -135,8 +136,9 @@ class SyncRepositoryScanProgressTest :
                 )
 
                 scanning shouldBe true
-                progress?.current shouldBe 40
+                progress?.current shouldBe 100
                 progress?.total shouldBe 100
+                progress?.books shouldBe 40
                 reconciled shouldBe false
             }
         }
@@ -177,6 +179,54 @@ class SyncRepositoryScanProgressTest :
                 scanning shouldBe false
                 apply(progressEvent(booksAnalyzed = 1, filesWalked = 1))
                 scanning shouldBe false
+            }
+        }
+
+        test("Progress maps the enriched fields") {
+            runTest {
+                var progress: ScanProgressState? = null
+                applyScanEvent(
+                    event =
+                        ScanEvent.Progress(
+                            "c1", LibraryId("l1"), ScanPhase.ANALYZING,
+                            filesWalked = 100, booksAnalyzed = 28, errors = 0,
+                            totalFiles = 1647, authorsMatched = 9, totalDurationMs = 7_200_000L,
+                            currentFile = "A/B.m4b", recentBooks = listOf(ScanBookRef("Dune", "Frank Herbert")),
+                        ),
+                    isInitialScanComplete = { false },
+                    setScanning = {},
+                    setProgress = { progress = it },
+                    markInitialScanComplete = {},
+                    reconcile = {},
+                    nowMs = { 5_000L },
+                    getStartedAt = { 1_000L },
+                    setStartedAt = {},
+                )
+                progress!!.filesTotal shouldBe 1647
+                progress!!.books shouldBe 28
+                progress!!.authors shouldBe 9
+                progress!!.hours shouldBe 2
+                progress!!.currentFile shouldBe "A/B.m4b"
+                progress!!.recentBooks shouldBe listOf(ScanBookRef("Dune", "Frank Herbert"))
+                progress!!.startedAtMs shouldBe 1_000L
+            }
+        }
+
+        test("Started stamps the start time") {
+            runTest {
+                var started = 0L
+                applyScanEvent(
+                    event = ScanEvent.Started("c1", LibraryId("l1"), "/root"),
+                    isInitialScanComplete = { false },
+                    setScanning = {},
+                    setProgress = {},
+                    markInitialScanComplete = {},
+                    reconcile = {},
+                    nowMs = { 1_234L },
+                    getStartedAt = { 0L },
+                    setStartedAt = { started = it },
+                )
+                started shouldBe 1_234L
             }
         }
     })
