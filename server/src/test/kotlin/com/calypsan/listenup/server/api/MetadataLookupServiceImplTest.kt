@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -292,16 +293,24 @@ private fun makeService(
     val syncRegistry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, syncRegistry)
     val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val bookRepository =
+        BookRepository(
+            db = db,
+            bus = bus,
+            registry = syncRegistry,
+            contributorRepository = contributorRepo,
+            seriesRepository = seriesRepo,
+        )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
-        bookRepository =
-            BookRepository(
-                db = db,
-                bus = bus,
-                registry = syncRegistry,
-                contributorRepository = contributorRepo,
-                seriesRepository = seriesRepo,
+        coverSearchService =
+            CoverSearchService(
+                readBook = { null },
+                audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
+                itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
+                probeDimensions = { null },
             ),
+        bookRepository = bookRepository,
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),

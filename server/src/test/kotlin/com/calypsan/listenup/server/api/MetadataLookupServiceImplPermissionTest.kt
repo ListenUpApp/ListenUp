@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -103,6 +104,13 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
+        coverSearchService =
+            CoverSearchService(
+                readBook = { null },
+                audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
+                itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
+                probeDimensions = { null },
+            ),
         bookRepository = bookRepo,
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.CoverSearchResults
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
@@ -164,5 +165,30 @@ interface MetadataLookupService {
         contributorId: ContributorId,
         asin: String,
         region: AudibleRegion,
+    ): AppResult<Unit>
+
+    /**
+     * Searches Audible + iTunes in parallel for cover-art candidates for the book
+     * at [bookId], each with probed pixel dimensions.
+     *
+     * If [region] is `null`, the server uses its configured default region with US
+     * as a fallback for the Audible query. Each source is failure-contained: one
+     * provider being down still returns the other's candidates. The caller presents
+     * the options and passes a chosen [CoverOption.url] back to [applyCover].
+     */
+    suspend fun searchCovers(
+        bookId: BookId,
+        region: AudibleRegion?,
+    ): AppResult<CoverSearchResults>
+
+    /**
+     * Downloads the cover image at [url], stores it as the managed cover for the
+     * book at [bookId] (source `UPLOADED`), and emits an SSE event so connected
+     * clients receive the change. [url] is typically a [CoverOption.url] from a
+     * prior [searchCovers] call but may be any reachable image URL.
+     */
+    suspend fun applyCover(
+        bookId: BookId,
+        url: String,
     ): AppResult<Unit>
 }
