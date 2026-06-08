@@ -54,6 +54,9 @@ class ShelfRepositoryImpl(
     override fun observeMyShelves(userId: String): Flow<List<Shelf>> =
         dao.observeMyShelvesWithBookCount().map { rows -> rows.map { it.toDomain() } }
 
+    override fun observeShelvesContainingBook(bookId: String): Flow<List<Shelf>> =
+        dao.observeShelvesContainingBookWithBookCount(bookId).map { rows -> rows.map { it.toDomain() } }
+
     override fun observeById(id: String): Flow<Shelf?> =
         dao.observeById(id).map { entity ->
             entity?.toDomainWithDerived(

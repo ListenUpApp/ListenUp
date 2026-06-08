@@ -284,6 +284,24 @@ class ShelfRepositoryImplTest :
             }
         }
 
+        test("observeShelvesContainingBook maps Room rows to domain with bookCount") {
+            runTest {
+                val dao =
+                    mock<ShelfDao> {
+                        every { observeShelvesContainingBookWithBookCount("b1") } returns
+                            flowOf(
+                                listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha", isPrivate = false), bookCount = 3)),
+                            )
+                        everySuspend { coverHashesFor("s1") } returns listOf("hash1")
+                        everySuspend { totalDurationMsFor("s1") } returns 3_600_000L
+                    }
+                val result = repo(shelfDao = dao).observeShelvesContainingBook("b1").first()
+                result.map { it.id } shouldContainExactly listOf("s1")
+                result.first().bookCount shouldBe 3
+                result.first().ownerId shouldBe "owner1"
+            }
+        }
+
         test("CancellationException from the service is re-raised, not swallowed") {
             runTest {
                 val service =
