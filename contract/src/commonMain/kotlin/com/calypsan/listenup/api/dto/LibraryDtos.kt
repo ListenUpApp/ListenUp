@@ -139,6 +139,8 @@ data class SetupStatus(
     val needsSetup: Boolean,
     /** Total number of non-deleted libraries on the server. */
     val libraryCount: Int,
+    /** `true` while a library scan is in progress, for onboarding-status spinners. */
+    val isScanning: Boolean = false,
 )
 
 /**

@@ -138,6 +138,11 @@ class LibraryDtosContractTest :
             roundTrip<SetupStatus>(status) shouldBe status
         }
 
+        test("SetupStatus round-trips with isScanning = true") {
+            val status = SetupStatus(needsSetup = false, libraryCount = 3, isScanning = true)
+            roundTrip<SetupStatus>(status) shouldBe status
+        }
+
         // ── DirectoryEntry ────────────────────────────────────────────────────
 
         test("DirectoryEntry round-trips") {

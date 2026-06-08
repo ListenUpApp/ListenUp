@@ -154,6 +154,7 @@ class LibraryAdminServiceImplTest :
                     val status = (result as AppResult.Success).data
                     status.needsSetup shouldBe true
                     status.libraryCount shouldBe 0
+                    (result as AppResult.Success).data.isScanning shouldBe false
                 }
             }
         }
@@ -170,6 +171,7 @@ class LibraryAdminServiceImplTest :
                     val status = (result as AppResult.Success).data
                     status.needsSetup shouldBe false
                     status.libraryCount shouldBe 1
+                    (result as AppResult.Success).data.isScanning shouldBe false
                 }
             }
         }
