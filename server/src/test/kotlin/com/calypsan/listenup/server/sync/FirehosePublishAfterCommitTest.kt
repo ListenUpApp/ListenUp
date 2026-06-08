@@ -5,7 +5,6 @@ import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.plugins.sse.sse
-import io.ktor.client.request.bearerAuth
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filter
