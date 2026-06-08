@@ -45,8 +45,7 @@ class CoverSearchServiceTest :
                             ),
                         probeDimensions = probe,
                     )
-                val opts = svc.searchCovers(BookId("book1"), AudibleRegion.US)
-                    .shouldBeInstanceOf<AppResult.Success<*>>().let { (it as AppResult.Success).data }
+                val opts = (svc.searchCovers(BookId("book1"), AudibleRegion.US) as AppResult.Success).data
 
                 opts.map { it.source } shouldBe listOf(CoverOptionSource.AUDIBLE, CoverOptionSource.ITUNES)
                 opts[0].url shouldBe "https://audible/cover.jpg"

@@ -33,6 +33,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
+import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -133,19 +134,20 @@ private fun withCoverFixture(
                         )
                     },
                 )
+            val metadataService =
+                MetadataService(
+                    audible = ApplyCoverNoOpAudible(),
+                    itunes = ApplyCoverNoOpITunes(),
+                    cache = MetadataCacheRepository(db),
+                )
             val service =
                 MetadataLookupServiceImpl(
-                    metadataService =
-                        MetadataService(
-                            audible = ApplyCoverNoOpAudible(),
-                            itunes = ApplyCoverNoOpITunes(),
-                            cache = MetadataCacheRepository(db),
-                        ),
+                    metadataService = metadataService,
+                    metadataProviders = listOf(AudibleMetadataProvider(metadataService)),
                     coverSearchService =
                         CoverSearchService(
                             readBook = { null },
-                            audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
-                            itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
+                            providers = emptyList(),
                             probeDimensions = { null },
                         ),
                     bookRepository = books,
