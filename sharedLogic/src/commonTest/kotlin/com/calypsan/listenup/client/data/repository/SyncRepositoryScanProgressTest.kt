@@ -188,10 +188,17 @@ class SyncRepositoryScanProgressTest :
                 applyScanEvent(
                     event =
                         ScanEvent.Progress(
-                            "c1", LibraryId("l1"), ScanPhase.ANALYZING,
-                            filesWalked = 100, booksAnalyzed = 28, errors = 0,
-                            totalFiles = 1647, authorsMatched = 9, totalDurationMs = 7_200_000L,
-                            currentFile = "A/B.m4b", recentBooks = listOf(ScanBookRef("Dune", "Frank Herbert")),
+                            "c1",
+                            LibraryId("l1"),
+                            ScanPhase.ANALYZING,
+                            filesWalked = 100,
+                            booksAnalyzed = 28,
+                            errors = 0,
+                            totalFiles = 1647,
+                            authorsMatched = 9,
+                            totalDurationMs = 7_200_000L,
+                            currentFile = "A/B.m4b",
+                            recentBooks = listOf(ScanBookRef("Dune", "Frank Herbert")),
                         ),
                     isInitialScanComplete = { false },
                     setScanning = {},
