@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -37,6 +38,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -62,74 +64,107 @@ private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 class ApplyCoverTest :
     FunSpec({
         test("applyCover stores the downloaded bytes and marks the cover UPLOADED") {
-            withInMemoryDatabase {
-                val db = this
-                val tempDir = Files.createTempDirectory("applycover-").also { it.toFile().deleteOnExit() }
-                seedTestLibraryAndFolder()
+            withCoverFixture(downloadBytes = ONE_PX_PNG) { service, books ->
+                val result = service.applyCover(BookId("book1"), "https://itunes/any.png")
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
 
-                val bus = ChangeBus()
-                val registry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, registry)
-                val seriesRepo = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
+                val saved = books.findById(BookId("book1"))
+                saved.shouldNotBeNull()
+                saved.cover?.source shouldBe CoverSource.UPLOADED
+            }
+        }
 
-                runTest {
-                    books
-                        .upsert(coverBookFixture("book1"), clientOpId = null)
-                        .shouldBeInstanceOf<AppResult.Success<*>>()
+        test("applyCover rejects non-image bytes as a non-retryable Malformed error") {
+            withCoverFixture(downloadBytes = "not an image".toByteArray()) { service, books ->
+                val result = service.applyCover(BookId("book1"), "https://itunes/not-image.txt")
 
-                    val coverStore =
-                        CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
-                    val mockHttp =
-                        HttpClient(
-                            MockEngine {
-                                respond(
-                                    content = ONE_PX_PNG,
-                                    status = HttpStatusCode.OK,
-                                    headers = headersOf(HttpHeaders.ContentType, ContentType.Image.PNG.toString()),
-                                )
-                            },
-                        )
-                    val imageStorage = ImageStorage(httpClient = mockHttp)
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<MetadataError.Malformed>()
+                failure.error.isRetryable shouldBe false
 
-                    val service =
-                        MetadataLookupServiceImpl(
-                            metadataService =
-                                MetadataService(
-                                    audible = ApplyCoverNoOpAudible(),
-                                    itunes = ApplyCoverNoOpITunes(),
-                                    cache = MetadataCacheRepository(db),
-                                ),
-                            coverSearchService =
-                                CoverSearchService(
-                                    readBook = { null },
-                                    audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
-                                    itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
-                                    probeDimensions = { null },
-                                ),
-                            bookRepository = books,
-                            contributorRepository = contributorRepo,
-                            seriesRepository = seriesRepo,
-                            imageStorage = imageStorage,
-                            coverImageStore = coverStore,
-                            imageHome = Path(tempDir.toString()),
-                            permissionPolicy = UserPermissionPolicy(db),
-                            principal =
-                                PrincipalProvider {
-                                    UserPrincipal(UserId("root"), SessionId("s"), UserRole.ADMIN)
-                                },
-                        )
+                // No cover written and no orphan stored.
+                books.findById(BookId("book1"))?.cover.shouldBeNull()
+            }
+        }
 
-                    val result = service.applyCover(BookId("book1"), "https://itunes/any.png")
-                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+        test("applyCover returns NotFound for an unknown book without downloading or storing") {
+            withCoverFixture(downloadBytes = ONE_PX_PNG) { service, _ ->
+                val result = service.applyCover(BookId("does-not-exist"), "https://itunes/any.png")
 
-                    val saved = books.findById(BookId("book1"))
-                    saved.shouldNotBeNull()
-                    saved.cover?.source shouldBe CoverSource.UPLOADED
-                }
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<MetadataError.NotFound>()
             }
         }
     })
+
+/**
+ * Spins up an in-memory DB seeded with one book ("book1"), a cover-scoped [ImageStore] over a
+ * temp dir, and a [MetadataLookupServiceImpl] whose [ImageStorage] serves [downloadBytes] for any
+ * URL. Runs [block] inside `runTest` with the wired service and book repository.
+ */
+private fun withCoverFixture(
+    downloadBytes: ByteArray,
+    block: suspend (service: MetadataLookupServiceImpl, books: BookRepository) -> Unit,
+) {
+    withInMemoryDatabase {
+        val db = this
+        val tempDir = Files.createTempDirectory("applycover-").also { it.toFile().deleteOnExit() }
+        seedTestLibraryAndFolder()
+
+        val bus = ChangeBus()
+        val registry = SyncRegistry()
+        val contributorRepo = ContributorRepository(db, bus, registry)
+        val seriesRepo = SeriesRepository(db, bus, registry)
+        val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
+
+        runTest {
+            books
+                .upsert(coverBookFixture("book1"), clientOpId = null)
+                .shouldBeInstanceOf<AppResult.Success<*>>()
+
+            val coverStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+            val mockHttp =
+                HttpClient(
+                    MockEngine {
+                        respond(
+                            content = downloadBytes,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentType, ContentType.Image.PNG.toString()),
+                        )
+                    },
+                )
+            val service =
+                MetadataLookupServiceImpl(
+                    metadataService =
+                        MetadataService(
+                            audible = ApplyCoverNoOpAudible(),
+                            itunes = ApplyCoverNoOpITunes(),
+                            cache = MetadataCacheRepository(db),
+                        ),
+                    coverSearchService =
+                        CoverSearchService(
+                            readBook = { null },
+                            audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
+                            itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
+                            probeDimensions = { null },
+                        ),
+                    bookRepository = books,
+                    contributorRepository = contributorRepo,
+                    seriesRepository = seriesRepo,
+                    imageStorage = ImageStorage(httpClient = mockHttp),
+                    coverImageStore = coverStore,
+                    imageHome = Path(tempDir.toString()),
+                    permissionPolicy = UserPermissionPolicy(db),
+                    principal =
+                        PrincipalProvider {
+                            UserPrincipal(UserId("root"), SessionId("s"), UserRole.ADMIN)
+                        },
+                )
+
+            block(service, books)
+        }
+    }
+}
 
 private fun coverBookFixture(id: String): BookSyncPayload =
     BookSyncPayload(

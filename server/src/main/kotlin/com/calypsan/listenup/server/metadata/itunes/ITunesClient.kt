@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.metadata.itunes
 
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -55,43 +56,8 @@ class ITunesClient(
         title: String,
         author: String,
     ): AppResult<ITunesCoverHit?> =
-        try {
-            rateLimiter.await()
-            val response =
-                httpClient.get(SEARCH_BASE_URL) {
-                    parameter("term", "$title $author")
-                    parameter("media", AUDIOBOOK_MEDIA_TYPE)
-                    parameter("entity", AUDIOBOOK_MEDIA_TYPE)
-                    parameter("limit", DEFAULT_LIMIT)
-                }
-            when (response.status) {
-                HttpStatusCode.OK -> {
-                    try {
-                        val parsed = json.decodeFromString<ITunesSearchResponse>(response.bodyAsText())
-                        val best = pickBest(parsed.results, title, author)
-                        AppResult.Success(best?.let { toCoverHit(it) })
-                    } catch (e: SerializationException) {
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    } catch (e: IllegalArgumentException) {
-                        // kotlinx.serialization throws IAE for type mismatches in some cases.
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    }
-                }
-
-                HttpStatusCode.TooManyRequests -> {
-                    AppResult.Failure(MetadataError.ExternalRateLimited())
-                }
-
-                else -> {
-                    AppResult.Failure(
-                        MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
-                    )
-                }
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
+        fetchResults(title, author).map { results ->
+            pickBest(results, title, author)?.let { toCoverHit(it) }
         }
 
     /**
@@ -102,6 +68,29 @@ class ITunesClient(
         title: String,
         author: String,
     ): AppResult<List<ITunesCoverHit>> =
+        fetchResults(title, author).map { results ->
+            results
+                .filter { r -> r.wrapperType == AUDIOBOOK_MEDIA_TYPE || r.collectionType == AUDIOBOOK_COLLECTION_TYPE }
+                .ifEmpty { results }
+                .mapNotNull { toCoverHit(it).takeIf { hit -> hit.coverUrl.isNotEmpty() } }
+        }
+
+    /**
+     * Single network + error-mapping path shared by [findCover] and [searchCovers]:
+     * paces via [rateLimiter], fires the audiobook search, and maps the response to
+     * the raw [ITunesSearchResult] list or a typed failure. Callers project the list.
+     *
+     * Error mapping (mirrors [AudibleClient]):
+     * - 429 → [MetadataError.ExternalRateLimited]
+     * - 5xx / network failure → [MetadataError.ExternalUnavailable]
+     * - unparseable response → [MetadataError.Malformed]
+     *
+     * [CancellationException] is always rethrown.
+     */
+    private suspend fun fetchResults(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesSearchResult>> =
         try {
             rateLimiter.await()
             val response =
@@ -114,20 +103,11 @@ class ITunesClient(
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
-                        val parsed = json.decodeFromString<ITunesSearchResponse>(response.bodyAsText())
-                        val audiobooks =
-                            parsed.results.filter { r ->
-                                r.wrapperType == AUDIOBOOK_MEDIA_TYPE ||
-                                    r.collectionType == AUDIOBOOK_COLLECTION_TYPE
-                            }
-                        val hits =
-                            audiobooks
-                                .ifEmpty { parsed.results }
-                                .mapNotNull { toCoverHit(it).takeIf { hit -> hit.coverUrl.isNotEmpty() } }
-                        AppResult.Success(hits)
+                        AppResult.Success(json.decodeFromString<ITunesSearchResponse>(response.bodyAsText()).results)
                     } catch (e: SerializationException) {
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     } catch (e: IllegalArgumentException) {
+                        // kotlinx.serialization throws IAE for type mismatches in some cases.
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     }
                 }

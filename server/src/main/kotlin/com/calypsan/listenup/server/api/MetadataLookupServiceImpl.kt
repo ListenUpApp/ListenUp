@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
@@ -209,6 +210,10 @@ internal class MetadataLookupServiceImpl(
         url: String,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        // Validate the book exists before fetching/storing, so an unknown id can't leave an
+        // orphaned cover file on disk (the store keys on bookId, but setManagedCover would fail).
+        bookRepository.findById(bookId)
+            ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}"))
         return try {
             val bytes = imageStorage.downloadBytes(url)
             val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
@@ -216,6 +221,10 @@ internal class MetadataLookupServiceImpl(
             bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: ImageStore.InvalidImageException) {
+            // The fetched bytes are not a usable image — user must pick a different URL.
+            // Non-retryable: re-firing the same call against the same URL can't succeed.
+            AppResult.Failure(MetadataError.Malformed(debugInfo = "cover bytes rejected: ${e.message}"))
         } catch (e: Exception) {
             AppResult.Failure(
                 MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
