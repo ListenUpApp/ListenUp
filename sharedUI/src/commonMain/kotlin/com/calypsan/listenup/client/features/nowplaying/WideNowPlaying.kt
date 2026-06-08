@@ -240,6 +240,8 @@ private fun ImmersivePlayerPane(
                 bookId = state.bookId,
                 coverBlurHash = state.coverBlurHash,
                 size = WIDE_COVER_SIZE,
+                title = state.title,
+                author = state.author,
             )
 
             Spacer(Modifier.height(30.dp))

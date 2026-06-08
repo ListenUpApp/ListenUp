@@ -135,6 +135,8 @@ private fun MiniPlayerContent(
                 coverPath = state.coverPath,
                 blurHash = state.coverBlurHash,
                 contentDescription = "Book cover",
+                title = state.title,
+                author = state.author,
                 modifier =
                     Modifier
                         .size(48.dp)
