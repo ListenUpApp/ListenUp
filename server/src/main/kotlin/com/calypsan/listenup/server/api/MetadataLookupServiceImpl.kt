@@ -3,13 +3,10 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.dto.CoverSearchResults
 import com.calypsan.listenup.api.dto.MetadataBook
-import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
-import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSearchResults
-import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MetadataError
@@ -21,33 +18,28 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.metadata.audible.AudibleBook
-import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
-import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
-import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
-import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.provider.MetadataProvider
+import com.calypsan.listenup.server.metadata.provider.MetadataSource
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.metadata.ImageStorage
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
 
 /**
  * Server-side implementation of [MetadataLookupService].
  *
- * Delegates read-only operations (search / fetch / refresh) to [MetadataService],
- * which wraps the Audible and iTunes adapters with TTL caching. The two apply
- * methods ([applyBookMetadata], [applyContributorMetadata]) write through the
- * syncable substrate via [BookRepository] and [ContributorRepository].
- *
- * Internal Audible / iTunes types are projected to wire DTOs at this boundary —
- * [AudibleBook] → [MetadataBook], etc. No raw Audible types cross the RPC wire.
+ * Delegates search/fetch/refresh to the injected [metadataProviders] list, which own
+ * the catalog-specific mapping. The two apply methods ([applyBookMetadata],
+ * [applyContributorMetadata]) write through the syncable substrate via [BookRepository]
+ * and [ContributorRepository]. Contributor lookup paths still use [metadataService]
+ * directly (contributor search + profile fetch are Audible-only, not provider-abstracted yet).
  *
  * Search / fetch reads ([searchBooks], [getBookMetadata], [getBookChapters],
  * [searchContributorMetadata], [getContributorMetadata]) are open to any authenticated
@@ -62,6 +54,7 @@ import kotlinx.io.files.Path
  */
 internal class MetadataLookupServiceImpl(
     private val metadataService: MetadataService,
+    private val metadataProviders: List<MetadataProvider>,
     private val coverSearchService: CoverSearchService,
     private val bookRepository: BookRepository,
     private val contributorRepository: ContributorRepository,
@@ -73,10 +66,17 @@ internal class MetadataLookupServiceImpl(
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MetadataLookupService {
+    /** The Audible provider handles ASIN-keyed reads (get/refresh/chapters). */
+    private val audible =
+        metadataProviders.first {
+            it.source == MetadataSource.AUDIBLE
+        }
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MetadataLookupServiceImpl =
         MetadataLookupServiceImpl(
             metadataService = metadataService,
+            metadataProviders = metadataProviders,
             coverSearchService = coverSearchService,
             bookRepository = bookRepository,
             contributorRepository = contributorRepository,
@@ -104,28 +104,27 @@ internal class MetadataLookupServiceImpl(
         query: String,
         region: AudibleRegion?,
     ): AppResult<MetadataSearchResults> {
-        val params = SearchParams(keywords = query)
-        val result =
-            if (region == null) {
-                metadataService.searchWithFallback(params)
-            } else {
-                metadataService.search(region, params)
+        val hits =
+            buildList {
+                for (provider in metadataProviders) {
+                    when (val r = provider.search(query, region)) {
+                        is AppResult.Failure -> return r
+                        is AppResult.Success -> addAll(r.data)
+                    }
+                }
             }
-        return result.map { hits -> MetadataSearchResults(hits = hits.map { it.toMetadataBook() }) }
+        return AppResult.Success(MetadataSearchResults(hits = hits))
     }
 
     override suspend fun getBookMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> = metadataService.getBook(region, asin).map { it?.toMetadataBook() }
+    ): AppResult<MetadataBook?> = audible.getBook(asin, region)
 
     override suspend fun getBookChapters(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataChapters?> =
-        metadataService.getBookChapters(region, asin).map { chapters ->
-            if (chapters.isEmpty()) null else MetadataChapters(chapters = chapters.map { it.toMetadataChapter() })
-        }
+    ): AppResult<MetadataChapters?> = audible.getChapters(asin, region)
 
     /**
      * Searches Audible for contributors matching [query] using HTML scraping of
@@ -151,7 +150,7 @@ internal class MetadataLookupServiceImpl(
         region: AudibleRegion,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return metadataService.getBook(region, asin, refresh = true).map { it?.toMetadataBook() }
+        return audible.getBook(asin, region, refresh = true)
     }
 
     override suspend fun applyBookMetadata(
@@ -234,70 +233,6 @@ internal class MetadataLookupServiceImpl(
 }
 
 // ─── Internal → wire DTO mappers ─────────────────────────────────────────────
-
-private fun AudibleSearchResult.toMetadataBook(): MetadataBook =
-    MetadataBook(
-        asin = asin,
-        title = title,
-        subtitle = subtitle.takeIf { it.isNotBlank() },
-        description = null,
-        publisher = null,
-        releaseDate = releaseDate.takeIf { it.isNotBlank() },
-        runtimeMinutes = runtimeMinutes.takeIf { it > 0 },
-        language = null,
-        authors = authors.map { MetadataContributorRef(asin = it.asin.takeIf { a -> a.isNotBlank() }, name = it.name) },
-        narrators =
-            narrators.map {
-                MetadataContributorRef(
-                    asin =
-                        it.asin.takeIf { a ->
-                            a.isNotBlank()
-                        },
-                    name = it.name,
-                )
-            },
-        series = emptyList(),
-        genres = emptyList(),
-        coverUrl = coverUrl.takeIf { it.isNotBlank() },
-        coverUrlMaxSize = null,
-    )
-
-private fun AudibleBook.toMetadataBook(): MetadataBook =
-    MetadataBook(
-        asin = asin,
-        title = title,
-        subtitle = subtitle.takeIf { it.isNotBlank() },
-        description = description.takeIf { it.isNotBlank() },
-        publisher = publisher.takeIf { it.isNotBlank() },
-        releaseDate = releaseDate.takeIf { it.isNotBlank() },
-        runtimeMinutes = runtimeMinutes.takeIf { it > 0 },
-        language = language.takeIf { it.isNotBlank() },
-        authors = authors.map { MetadataContributorRef(asin = it.asin.takeIf { a -> a.isNotBlank() }, name = it.name) },
-        narrators =
-            narrators.map {
-                MetadataContributorRef(
-                    asin =
-                        it.asin.takeIf { a ->
-                            a.isNotBlank()
-                        },
-                    name = it.name,
-                )
-            },
-        series = series.map { it.toMetadataSeriesRef() },
-        genres = genres,
-        coverUrl = coverUrl.takeIf { it.isNotBlank() },
-        coverUrlMaxSize = null,
-    )
-
-private fun AudibleSeriesEntry.toMetadataSeriesRef(): MetadataSeriesRef =
-    MetadataSeriesRef(
-        asin = asin.takeIf { it.isNotBlank() },
-        title = name,
-        sequence = position.takeIf { it.isNotBlank() },
-    )
-
-private fun AudibleChapter.toMetadataChapter(): MetadataChapter =
-    MetadataChapter(title = title, startMs = startMs, lengthMs = durationMs)
 
 private fun AudibleContributorProfile.toMetadataContributorProfile(): MetadataContributorProfile =
     MetadataContributorProfile(
