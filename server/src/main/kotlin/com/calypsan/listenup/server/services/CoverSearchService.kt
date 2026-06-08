@@ -1,14 +1,12 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.CoverOption
-import com.calypsan.listenup.api.dto.CoverOptionSource
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
-import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
+import com.calypsan.listenup.server.metadata.provider.CoverProvider
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -24,22 +22,19 @@ data class BookSummary(
 )
 
 /**
- * Searches Audible + iTunes for cover candidates for a book, in parallel. Each source is
- * failure-contained: if one throws, its options are dropped (logged) and the other source's
- * options still return — never strand the operator for one provider being down. Dimensions are
- * probed per candidate; a probe miss degrades to 0×0 rather than dropping the cover. Audible
- * candidates are listed first (matches Go).
+ * Searches all configured [CoverProvider]s for cover candidates for a book, in parallel.
+ * Each provider is failure-contained: if one throws or returns a typed failure, its options
+ * are dropped (logged) and the other providers' options still return — never strand the
+ * operator for one provider being down. Dimensions are probed per candidate; a probe miss
+ * degrades to 0×0 rather than dropping the cover. Options are emitted in provider-list order
+ * (the list is built Audible-first in `MetadataModule`).
  *
- * The collaborators are function seams so the orchestration is unit-testable without a DB or HTTP;
- * the DI binding supplies the real implementations.
+ * [readBook] and [probeDimensions] are function seams so the orchestration is unit-testable
+ * without a DB or HTTP; the DI binding supplies the real implementations.
  */
 class CoverSearchService(
     private val readBook: suspend (BookId) -> BookSummary?,
-    private val audibleSearch: suspend (
-        book: BookSummary,
-        region: AudibleRegion?,
-    ) -> AppResult<List<AudibleSearchResult>>,
-    private val itunesSearch: suspend (title: String, author: String) -> AppResult<List<ITunesCoverHit>>,
+    private val providers: List<CoverProvider>,
     private val probeDimensions: suspend (String) -> Pair<Int, Int>?,
 ) {
     suspend fun searchCovers(
@@ -51,43 +46,26 @@ class CoverSearchService(
                 ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "book ${bookId.value} not found"))
 
         return coroutineScope {
-            val audible = async { contained("audible") { audibleOptions(book, region) } }
-            val itunes = async { contained("itunes") { itunesOptions(book) } }
-            AppResult.Success(awaitAll(audible, itunes).flatten())
+            val deferred =
+                providers.map { provider ->
+                    async { contained(provider.source.name) { providerOptions(provider, book, region) } }
+                }
+            AppResult.Success(deferred.awaitAll().flatten())
         }
     }
 
-    private suspend fun audibleOptions(
+    private suspend fun providerOptions(
+        provider: CoverProvider,
         book: BookSummary,
         region: AudibleRegion?,
     ): List<CoverOption> =
-        when (val r = audibleSearch(book, region)) {
-            is AppResult.Failure -> {
-                throw SourceException(r.error)
-            }
-
-            is AppResult.Success -> {
-                r.data.firstOrNull { it.coverUrl.isNotBlank() }?.let { hit ->
-                    listOf(option(CoverOptionSource.AUDIBLE, hit.coverUrl, hit.asin))
-                } ?: emptyList()
-            }
-        }
-
-    private suspend fun itunesOptions(book: BookSummary): List<CoverOption> =
-        when (val r = itunesSearch(book.title, book.author)) {
-            is AppResult.Failure -> {
-                throw SourceException(r.error)
-            }
-
-            is AppResult.Success -> {
-                r.data
-                    .filter { it.maxSizeUrl.isNotBlank() }
-                    .map { option(CoverOptionSource.ITUNES, it.maxSizeUrl, it.sourceId) }
-            }
+        when (val r = provider.searchCovers(book, region)) {
+            is AppResult.Failure -> throw SourceException(r.error)
+            is AppResult.Success -> r.data.map { option(provider.source, it.url, it.sourceId) }
         }
 
     private suspend fun option(
-        source: CoverOptionSource,
+        source: com.calypsan.listenup.api.dto.CoverOptionSource,
         url: String,
         sourceId: String,
     ): CoverOption {
