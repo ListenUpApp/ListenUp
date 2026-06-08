@@ -154,7 +154,11 @@ fun scannerModule(
                             eventBus = eventBus,
                             scanResultBus = scanResultBus,
                             sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
-                            metadataPrecedence = resolveLibraryPrecedence(library.metadataPrecedence, metadataPrecedence),
+                            metadataPrecedence =
+                                resolveLibraryPrecedence(
+                                    library.metadataPrecedence,
+                                    metadataPrecedence,
+                                ),
                         )
                     val coordinator =
                         ScanCoordinator(
