@@ -30,6 +30,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -47,6 +48,7 @@ import kotlinx.coroutines.test.setMain
  * Release maps every selected id to an empty target-collection list (all inbox releases are
  * public/uncollected) and dispatches a single [InboxRepository.releaseBooks].
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminInboxViewModelTest :
     FunSpec({
         val dispatcher = StandardTestDispatcher()

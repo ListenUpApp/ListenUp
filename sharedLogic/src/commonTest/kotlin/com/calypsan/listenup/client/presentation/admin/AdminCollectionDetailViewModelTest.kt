@@ -29,6 +29,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -44,6 +45,7 @@ import kotlinx.coroutines.test.setMain
  * [CollectionRepository]; rename / remove-book / share / revoke-share dispatch to the
  * repository, with failures surfacing on [ErrorBus] plus a transient `error`.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminCollectionDetailViewModelTest :
     FunSpec({
         val dispatcher = StandardTestDispatcher()

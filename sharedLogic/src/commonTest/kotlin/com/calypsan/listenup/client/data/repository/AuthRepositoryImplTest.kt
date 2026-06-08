@@ -19,6 +19,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -29,6 +30,7 @@ import kotlinx.coroutines.test.runTest
  * [AuthServiceAuthed] — no network. Pins the thin delegation: each repo method
  * forwards to its authed-proxy counterpart and returns its result verbatim.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AuthRepositoryImplTest :
     FunSpec({
 
