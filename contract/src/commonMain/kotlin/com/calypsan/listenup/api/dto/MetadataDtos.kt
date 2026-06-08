@@ -168,3 +168,37 @@ data class MetadataContributorHit(
     /** Display name, e.g. "Patrick Rothfuss". */
     val name: String,
 )
+
+/** Which catalog a [CoverOption] came from. */
+@Serializable
+@SerialName("CoverOptionSource")
+enum class CoverOptionSource {
+    @SerialName("AUDIBLE")
+    AUDIBLE,
+
+    @SerialName("ITUNES")
+    ITUNES,
+}
+
+/**
+ * One cover-art candidate for a book, returned by `searchCovers`. [url] is the full
+ * (max-resolution where available) image URL the client passes back to `applyCover`.
+ * [width]/[height] are pixels, or 0 when the dimension probe could not determine them.
+ * [sourceId] is provenance — the Audible ASIN or iTunes collectionId.
+ */
+@Serializable
+@SerialName("CoverOption")
+data class CoverOption(
+    @SerialName("source") val source: CoverOptionSource,
+    @SerialName("url") val url: String,
+    @SerialName("width") val width: Int,
+    @SerialName("height") val height: Int,
+    @SerialName("sourceId") val sourceId: String,
+)
+
+/** The cover candidates for a book, Audible first then iTunes. */
+@Serializable
+@SerialName("CoverSearchResults")
+data class CoverSearchResults(
+    @SerialName("options") val options: List<CoverOption>,
+)
