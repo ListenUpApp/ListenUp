@@ -122,11 +122,19 @@ class MetadataRepositoryImplTest :
 
         test("applyBookMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            val sel = MetadataApplySelection(
-                title = true, subtitle = true, description = true, publisher = true,
-                releaseDate = true, language = true, cover = false,
-                authorAsins = emptySet(), narratorAsins = emptySet(), seriesAsins = emptySet(),
-            )
+            val sel =
+                MetadataApplySelection(
+                    title = true,
+                    subtitle = true,
+                    description = true,
+                    publisher = true,
+                    releaseDate = true,
+                    language = true,
+                    cover = false,
+                    authorAsins = emptySet(),
+                    narratorAsins = emptySet(),
+                    seriesAsins = emptySet(),
+                )
             everySuspend { service.applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US, sel) } returns WireAppResult.Success(Unit)
 
             buildRepo(service).applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US, sel) shouldBe AppResult.Success(Unit)

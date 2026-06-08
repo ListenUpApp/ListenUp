@@ -72,23 +72,6 @@ internal class BookMetadataApplier(
                 )
             }
 
-            val contributors = existing.contributors.toMutableList()
-            if (selection.authorAsins.isNotEmpty()) {
-                contributors.removeAll { it.role.equals(ContributorRole.AUTHOR.apiValue, ignoreCase = true) }
-                contributors += match.authors.selected(selection.authorAsins).resolve(ContributorRole.AUTHOR)
-            }
-            if (selection.narratorAsins.isNotEmpty()) {
-                contributors.removeAll { it.role.equals(ContributorRole.NARRATOR.apiValue, ignoreCase = true) }
-                contributors += match.narrators.selected(selection.narratorAsins).resolve(ContributorRole.NARRATOR)
-            }
-
-            val series =
-                if (selection.seriesAsins.isNotEmpty()) {
-                    match.series.filter { it.asin != null && it.asin in selection.seriesAsins }.resolveSeries()
-                } else {
-                    existing.series
-                }
-
             val updated =
                 existing.copy(
                     title = if (selection.title) match.title else existing.title,
@@ -96,11 +79,10 @@ internal class BookMetadataApplier(
                     description = if (selection.description) match.description else existing.description,
                     publisher = if (selection.publisher) match.publisher else existing.publisher,
                     language = if (selection.language) match.language else existing.language,
-                    publishYear =
-                        if (selection.releaseDate) parseYear(match.releaseDate) ?: existing.publishYear else existing.publishYear,
+                    publishYear = selectedPublishYear(selection, match, existing.publishYear),
                     asin = asin,
-                    contributors = contributors,
-                    series = series,
+                    contributors = mergeContributors(existing.contributors, match, selection),
+                    series = mergeSeries(existing.series, match, selection),
                 )
 
             val upsertResult = bookRepository.upsert(updated, clientOpId = null)
@@ -118,6 +100,46 @@ internal class BookMetadataApplier(
             AppResult.Success(Unit)
         }
     }
+
+    /** Release year overwrites only when selected and parseable, else keeps [current]. */
+    private fun selectedPublishYear(
+        selection: MetadataApplySelection,
+        match: MetadataBook,
+        current: Int?,
+    ): Int? = if (selection.releaseDate) parseYear(match.releaseDate) ?: current else current
+
+    /**
+     * Replaces a role's contributors only when that role's ASIN set is non-empty; an empty set
+     * leaves the role untouched. Other roles are never modified.
+     */
+    private suspend fun mergeContributors(
+        existing: List<BookContributorPayload>,
+        match: MetadataBook,
+        selection: MetadataApplySelection,
+    ): List<BookContributorPayload> {
+        val merged = existing.toMutableList()
+        if (selection.authorAsins.isNotEmpty()) {
+            merged.removeAll { it.role.equals(ContributorRole.AUTHOR.apiValue, ignoreCase = true) }
+            merged += match.authors.selected(selection.authorAsins).resolve(ContributorRole.AUTHOR)
+        }
+        if (selection.narratorAsins.isNotEmpty()) {
+            merged.removeAll { it.role.equals(ContributorRole.NARRATOR.apiValue, ignoreCase = true) }
+            merged += match.narrators.selected(selection.narratorAsins).resolve(ContributorRole.NARRATOR)
+        }
+        return merged
+    }
+
+    /** Replaces series with the selected matches only when [MetadataApplySelection.seriesAsins] is non-empty. */
+    private suspend fun mergeSeries(
+        existing: List<BookSeriesPayload>,
+        match: MetadataBook,
+        selection: MetadataApplySelection,
+    ): List<BookSeriesPayload> =
+        if (selection.seriesAsins.isNotEmpty()) {
+            match.series.filter { it.asin != null && it.asin in selection.seriesAsins }.resolveSeries()
+        } else {
+            existing
+        }
 
     private fun List<MetadataContributorRef>.selected(asins: Set<String>): List<MetadataContributorRef> =
         filter { it.asin != null && it.asin in asins }
@@ -155,7 +177,9 @@ internal class BookMetadataApplier(
         asin: String,
     ) {
         if (existingSource != null && existingSource != CoverSource.ENRICHED) {
-            log.debug { "Skipping enriched cover for ${bookId.value}: existing source=$existingSource outranks ENRICHED" }
+            log.debug {
+                "Skipping enriched cover for ${bookId.value}: existing source=$existingSource outranks ENRICHED"
+            }
             return
         }
         val url = coverUrl?.takeIf { it.isNotBlank() } ?: return

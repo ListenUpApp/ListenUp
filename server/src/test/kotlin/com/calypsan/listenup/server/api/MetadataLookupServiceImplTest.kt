@@ -175,11 +175,19 @@ class MetadataLookupServiceImplTest :
                             coverImageStore = coverImageStore,
                             metadataProvider = AudibleMetadataProvider(metadataService),
                         )
-                    val coverSelection = MetadataApplySelection(
-                        title = true, subtitle = true, description = true, publisher = true,
-                        releaseDate = true, language = true, cover = true,
-                        authorAsins = emptySet(), narratorAsins = emptySet(), seriesAsins = emptySet(),
-                    )
+                    val coverSelection =
+                        MetadataApplySelection(
+                            title = true,
+                            subtitle = true,
+                            description = true,
+                            publisher = true,
+                            releaseDate = true,
+                            language = true,
+                            cover = true,
+                            authorAsins = emptySet(),
+                            narratorAsins = emptySet(),
+                            seriesAsins = emptySet(),
+                        )
 
                     val result = applier.apply(BookId("book-1"), asin = "B0TESTASIN", region = AudibleRegion.US, selection = coverSelection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()

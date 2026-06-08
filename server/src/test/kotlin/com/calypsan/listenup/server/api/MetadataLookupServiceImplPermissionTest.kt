@@ -93,9 +93,16 @@ class MetadataLookupServiceImplPermissionTest :
 
 private val ALL_SELECTED =
     MetadataApplySelection(
-        title = true, subtitle = true, description = true, publisher = true,
-        releaseDate = true, language = true, cover = true,
-        authorAsins = emptySet(), narratorAsins = emptySet(), seriesAsins = emptySet(),
+        title = true,
+        subtitle = true,
+        description = true,
+        publisher = true,
+        releaseDate = true,
+        language = true,
+        cover = true,
+        authorAsins = emptySet(),
+        narratorAsins = emptySet(),
+        seriesAsins = emptySet(),
     )
 
 private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {

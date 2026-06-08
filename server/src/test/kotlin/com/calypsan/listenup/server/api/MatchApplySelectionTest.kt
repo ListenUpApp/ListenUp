@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorRef
-import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
@@ -29,7 +28,6 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
@@ -82,9 +80,16 @@ private fun matchBook() =
 
 private fun allSelected() =
     MetadataApplySelection(
-        title = true, subtitle = true, description = true, publisher = true,
-        releaseDate = true, language = true, cover = false,
-        authorAsins = setOf("AUTH1"), narratorAsins = setOf("NARR1"), seriesAsins = setOf("SER1"),
+        title = true,
+        subtitle = true,
+        description = true,
+        publisher = true,
+        releaseDate = true,
+        language = true,
+        cover = false,
+        authorAsins = setOf("AUTH1"),
+        narratorAsins = setOf("NARR1"),
+        seriesAsins = setOf("SER1"),
     )
 
 class MatchApplySelectionTest :
@@ -93,21 +98,40 @@ class MatchApplySelectionTest :
             id: String,
             authorId: String,
         ) = BookSyncPayload(
-            id = id, libraryId = LibraryId("test-library"), folderId = FolderId("test-folder"),
-            title = "Old Title", sortTitle = null, subtitle = "Old Subtitle", description = "Old description.",
-            publishYear = 1999, publisher = "Old Publisher", language = "old", isbn = null, asin = null,
-            abridged = false, explicit = false, hasScanWarning = false, totalDuration = 0L, cover = null,
-            rootRelPath = "test/$id", inode = null, scannedAt = 0L,
+            id = id,
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
+            title = "Old Title",
+            sortTitle = null,
+            subtitle = "Old Subtitle",
+            description = "Old description.",
+            publishYear = 1999,
+            publisher = "Old Publisher",
+            language = "old",
+            isbn = null,
+            asin = null,
+            abridged = false,
+            explicit = false,
+            hasScanWarning = false,
+            totalDuration = 0L,
+            cover = null,
+            rootRelPath = "test/$id",
+            inode = null,
+            scannedAt = 0L,
             contributors =
                 listOf(
                     BookContributorPayload(authorId, "Old Author", null, ContributorRole.AUTHOR.apiValue, null),
                 ),
-            series = emptyList(), audioFiles = emptyList(), chapters = emptyList(),
-            revision = 0L, updatedAt = 0L, createdAt = 0L, deletedAt = null,
+            series = emptyList(),
+            audioFiles = emptyList(),
+            chapters = emptyList(),
+            revision = 0L,
+            updatedAt = 0L,
+            createdAt = 0L,
+            deletedAt = null,
         )
 
         fun applier(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
             books: BookRepository,
             contributors: ContributorRepository,
             series: SeriesRepository,
@@ -128,16 +152,18 @@ class MatchApplySelectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                val bus = ChangeBus(); val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
 
-                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, allSelected())
+                    a
+                        .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allSelected())
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     val saved = books.findById(BookId("b1"))!!
@@ -158,14 +184,15 @@ class MatchApplySelectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                val bus = ChangeBus(); val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
                     val sel = allSelected().copy(title = false, description = false, releaseDate = false)
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -183,14 +210,15 @@ class MatchApplySelectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                val bus = ChangeBus(); val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
                     val sel = allSelected().copy(authorAsins = emptySet())
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -207,13 +235,15 @@ class MatchApplySelectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                val bus = ChangeBus(); val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
-                    val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
-                    a.apply(BookId("nope"), "B0NEW", AudibleRegion.US, allSelected())
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    a
+                        .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allSelected())
                         .shouldBeInstanceOf<AppResult.Failure>()
                 }
             }

@@ -307,9 +307,16 @@ private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 // selectable by ASIN; the narrator's null ASIN makes it unselectable per the design.
 private val APPLY_SELECTION =
     MetadataApplySelection(
-        title = true, subtitle = true, description = true, publisher = true,
-        releaseDate = true, language = true, cover = true,
-        authorAsins = setOf("A123"), narratorAsins = emptySet(), seriesAsins = emptySet(),
+        title = true,
+        subtitle = true,
+        description = true,
+        publisher = true,
+        releaseDate = true,
+        language = true,
+        cover = true,
+        authorAsins = setOf("A123"),
+        narratorAsins = emptySet(),
+        seriesAsins = emptySet(),
     )
 
 private fun buildService(
