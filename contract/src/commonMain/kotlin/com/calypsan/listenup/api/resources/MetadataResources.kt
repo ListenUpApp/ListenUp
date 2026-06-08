@@ -101,9 +101,9 @@ class MetadataResources(
 
     /**
      * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.applyBookMetadata] —
-     * `POST /api/v1/metadata/apply/book/{bookId}?asin=…&region=us` applies the
-     * Audible metadata for [asin] to the book at [bookId]. Responds 200 on
-     * success or a typed error on failure.
+     * `POST /api/v1/metadata/apply/book/{bookId}?asin=…&region=us` with a
+     * [com.calypsan.listenup.api.dto.MetadataApplySelection] JSON body selecting which
+     * fields to apply. Responds 200 on success or a typed error on failure.
      */
     @Resource("/api/v1/metadata/apply/book/{bookId}")
     class ApplyBook(
