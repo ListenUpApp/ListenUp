@@ -96,6 +96,24 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
+
+    get<MetadataResources.SearchCovers> { resource ->
+        val region = resource.region?.let { AudibleRegion.fromCodeOrNull(it) }
+        when (val result = call.scoped(service).searchCovers(BookId(resource.bookId), region)) {
+            is AppResult.Success -> call.respond(result.data)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    post<MetadataResources.ApplyCover> { resource ->
+        if (resource.url.isBlank()) {
+            return@post call.respond(HttpStatusCode.BadRequest, ValidationError(message = "url must not be blank."))
+        }
+        when (val result = call.scoped(service).applyCover(BookId(resource.bookId), resource.url)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.OK)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
 }
 
 private fun Route.contributorMetadataRoutes(service: MetadataLookupService) {
