@@ -2,17 +2,21 @@ package com.calypsan.listenup.client.presentation.seriesdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Duration
@@ -30,6 +34,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class SeriesDetailViewModel(
     private val seriesRepository: SeriesRepository,
     private val imageRepository: ImageRepository,
+    private val playbackPositionRepository: PlaybackPositionRepository,
 ) : ViewModel() {
     private val seriesIdFlow = MutableStateFlow<String?>(null)
 
@@ -39,29 +44,16 @@ class SeriesDetailViewModel(
                 if (id == null) {
                     flowOf(SeriesDetailUiState.Idle)
                 } else {
-                    seriesRepository
-                        .observeSeriesWithBooks(id)
-                        .map { seriesWithBooks ->
-                            if (seriesWithBooks != null) {
-                                val books = seriesWithBooks.booksSortedBySequence()
-                                val totalDuration = books.sumOf { it.duration }.milliseconds
-                                val coverPath = resolveCoverPath(seriesWithBooks.series, id, books)
-
-                                val ready: SeriesDetailUiState =
-                                    SeriesDetailUiState.Ready(
-                                        seriesId = id,
-                                        seriesName = seriesWithBooks.series.name,
-                                        seriesDescription = seriesWithBooks.series.description,
-                                        coverPath = coverPath,
-                                        featuredBookId = books.firstOrNull()?.id?.value,
-                                        totalDuration = totalDuration,
-                                        books = books,
-                                    )
-                                ready
-                            } else {
-                                SeriesDetailUiState.Error("Series not found")
-                            }
-                        }.onStart { emit(SeriesDetailUiState.Loading) }
+                    combine(
+                        seriesRepository.observeSeriesWithBooks(id),
+                        playbackPositionRepository.observeAll(),
+                    ) { seriesWithBooks, positions ->
+                        if (seriesWithBooks != null) {
+                            buildReadyState(id, seriesWithBooks, positions)
+                        } else {
+                            SeriesDetailUiState.Error("Series not found")
+                        }
+                    }.onStart { emit(SeriesDetailUiState.Loading) }
                 }
             }.stateIn(
                 scope = viewModelScope,
@@ -72,6 +64,60 @@ class SeriesDetailViewModel(
     /** Set the series to observe. Safe to call repeatedly with the same id. */
     fun loadSeries(seriesId: String) {
         seriesIdFlow.value = seriesId
+    }
+
+    /**
+     * Builds the [SeriesDetailUiState.Ready] projection, folding live playback
+     * [positions] into per-book progress, the finished set, and the resume target.
+     */
+    private fun buildReadyState(
+        seriesId: String,
+        seriesWithBooks: SeriesWithBooks,
+        positions: Map<BookId, PlaybackPosition>,
+    ): SeriesDetailUiState.Ready {
+        val books = seriesWithBooks.booksSortedBySequence()
+        val totalDuration = books.sumOf { it.duration }.milliseconds
+
+        val finishedBookIds = mutableSetOf<BookId>()
+        val bookProgress = mutableMapOf<BookId, Float>()
+        books.forEach { book ->
+            val position = positions[book.id]
+            val fraction =
+                if (position != null && book.duration > 0) {
+                    (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+            when {
+                position?.isFinished == true || fraction >= FINISHED_THRESHOLD -> finishedBookIds += book.id
+                fraction > 0f -> bookProgress[book.id] = fraction
+            }
+        }
+
+        // Resume the first in-progress book; otherwise start the first unfinished
+        // (unstarted) book; null when the whole series is finished.
+        val resumeTarget =
+            books.firstOrNull { bookProgress.containsKey(it.id) }?.id
+                ?: books.firstOrNull { it.id !in finishedBookIds }?.id
+
+        return SeriesDetailUiState.Ready(
+            seriesId = seriesId,
+            seriesName = seriesWithBooks.series.name,
+            seriesDescription = seriesWithBooks.series.description,
+            seriesAuthor =
+                books
+                    .firstOrNull()
+                    ?.authors
+                    ?.firstOrNull()
+                    ?.name,
+            coverPath = resolveCoverPath(seriesWithBooks.series, seriesId, books),
+            featuredBookId = books.firstOrNull()?.id?.value,
+            totalDuration = totalDuration,
+            books = books,
+            bookProgress = bookProgress,
+            finishedBookIds = finishedBookIds,
+            resumeTarget = resumeTarget,
+        )
     }
 
     /**
@@ -92,6 +138,11 @@ class SeriesDetailViewModel(
         }
         return series.coverPath ?: books.firstOrNull()?.coverPath
     }
+
+    private companion object {
+        /** Progress fraction at or above which a book counts as finished. */
+        const val FINISHED_THRESHOLD = 0.99f
+    }
 }
 
 /**
@@ -109,11 +160,22 @@ sealed interface SeriesDetailUiState {
         val seriesId: String,
         val seriesName: String,
         val seriesDescription: String?,
+        /** Primary author for the series, derived from its books. Null when unknown. */
+        val seriesAuthor: String?,
         val coverPath: String?,
         val featuredBookId: String?,
         val totalDuration: Duration,
         val books: List<BookListItem>,
+        /** Per-book listening progress (0..1) for in-progress books only. */
+        val bookProgress: Map<BookId, Float>,
+        /** Books the user has finished. */
+        val finishedBookIds: Set<BookId>,
+        /** Book to resume/start via the "Continue" action; null when all are finished. */
+        val resumeTarget: BookId?,
     ) : SeriesDetailUiState {
+        /** Number of finished books, for the hero "X finished" stat. */
+        val finishedCount: Int get() = finishedBookIds.size
+
         fun formatTotalDuration(): String {
             val totalHours = totalDuration.inWholeHours
             val minutes = totalDuration.inWholeMinutes % 60

@@ -1,85 +1,80 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.components.CoverColors
-import com.calypsan.listenup.client.design.components.DetailHero
+import com.calypsan.listenup.client.design.components.FannedDeck
+import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.rememberCoverColors
-import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
-import com.calypsan.listenup.client.design.theme.LocalDarkTheme
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
-import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.common_about
-import listenup.composeapp.generated.resources.series_book_sequence
 import listenup.composeapp.generated.resources.series_books_in_series
 import listenup.composeapp.generated.resources.series_edit_series
-import listenup.composeapp.generated.resources.series_series_cover
 
 /**
- * Screen displaying series details with its books.
+ * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
+ * action, and a numbered "Books in series" list with per-book progress.
  *
- * Adapts layout based on screen width:
- * - Narrow: single-column list with hero, description, and book items
- * - Wide: horizontal header (cover beside stats/description) + responsive book grid
+ * Adapts by width:
+ * - Narrow: one scrolling column (hero → continue → numbered list).
+ * - Wide: a fixed hero panel beside a two-column book grid.
  */
 @Composable
 fun SeriesDetailScreen(
@@ -89,9 +84,7 @@ fun SeriesDetailScreen(
     onEditClick: (String) -> Unit,
     viewModel: SeriesDetailViewModel = koinViewModel(),
 ) {
-    LaunchedEffect(seriesId) {
-        viewModel.loadSeries(seriesId)
-    }
+    LaunchedEffect(seriesId) { viewModel.loadSeries(seriesId) }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -116,25 +109,14 @@ fun SeriesDetailScreen(
                 }
 
                 is SeriesDetailUiState.Ready -> {
-                    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
-                    val useWideLayout =
-                        windowSizeClass.isWidthAtLeastBreakpoint(
+                    val wide =
+                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                         )
-
-                    if (useWideLayout) {
-                        WideSeriesDetailContent(
-                            state = current,
-                            onBookClick = onBookClick,
-                            onEditClick = { onEditClick(seriesId) },
-                        )
+                    if (wide) {
+                        WideSeriesDetailContent(current, onBackClick, onBookClick) { onEditClick(seriesId) }
                     } else {
-                        NarrowSeriesDetailContent(
-                            state = current,
-                            onBookClick = onBookClick,
-                            onBackClick = onBackClick,
-                            onEditClick = { onEditClick(seriesId) },
-                        )
+                        NarrowSeriesDetailContent(current, onBackClick, onBookClick) { onEditClick(seriesId) }
                     }
                 }
             }
@@ -142,563 +124,108 @@ fun SeriesDetailScreen(
     }
 }
 
-// region Wide layout (header + grid)
+// region layouts
 
-/**
- * Wide layout: horizontal header row with cover beside stats/description,
- * then a responsive grid of book cover cards below.
- */
-@Composable
-private fun WideSeriesDetailContent(
-    state: SeriesDetailUiState.Ready,
-    onBookClick: (String) -> Unit,
-    onEditClick: () -> Unit,
-) {
-    var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
-
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        // Full-span header: cover beside stats and description
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            SeriesHeaderRow(
-                coverPath = state.coverPath,
-                featuredBookId = state.featuredBookId,
-                bookCount = state.books.size,
-                totalDuration = state.formatTotalDuration(),
-                description = state.seriesDescription,
-                isDescriptionExpanded = isDescriptionExpanded,
-                onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
-                onEditClick = onEditClick,
-            )
-        }
-
-        // Full-span section header
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Text(
-                text = stringResource(Res.string.series_books_in_series),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-            )
-        }
-
-        // Book grid cards
-        items(
-            items = state.books,
-            key = { it.id.value },
-        ) { book ->
-            SeriesBookCard(
-                book = book,
-                onClick = { onBookClick(book.id.value) },
-            )
-        }
-    }
-}
-
-/**
- * Horizontal header: cover on the left, stats and description on the right.
- */
-@Composable
-private fun SeriesHeaderRow(
-    coverPath: String?,
-    featuredBookId: String?,
-    bookCount: Int,
-    totalDuration: String,
-    description: String?,
-    isDescriptionExpanded: Boolean,
-    onToggleDescription: () -> Unit,
-    onEditClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        // Cover image
-        Box(
-            modifier =
-                Modifier
-                    .size(200.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-            contentAlignment = Alignment.Center,
-        ) {
-            BookCoverImage(
-                bookId = featuredBookId ?: "",
-                coverPath = coverPath,
-                contentDescription = stringResource(Res.string.series_series_cover),
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(12.dp)),
-            )
-        }
-
-        // Stats and description
-        Column(modifier = Modifier.weight(1f)) {
-            SeriesHeaderInfoColumn(
-                bookCount = bookCount,
-                totalDuration = totalDuration,
-                description = description,
-                isDescriptionExpanded = isDescriptionExpanded,
-                onToggleDescription = onToggleDescription,
-            )
-        }
-
-        if (!LocalDeviceContext.current.isLeanback) {
-            IconButton(onClick = onEditClick) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = stringResource(Res.string.series_edit_series),
-                )
-            }
-        }
-    }
-}
-
-/**
- * Stats row and expandable description for the wide series header.
- * Renders into the surrounding info [Column] in the exact order of the header layout.
- */
-@Composable
-private fun ColumnScope.SeriesHeaderInfoColumn(
-    bookCount: Int,
-    totalDuration: String,
-    description: String?,
-    isDescriptionExpanded: Boolean,
-    onToggleDescription: () -> Unit,
-) {
-    // Stats row
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StatItem(
-            icon = Icons.AutoMirrored.Filled.LibraryBooks,
-            value = "$bookCount",
-            label = if (bookCount == 1) "Book" else "Books",
-        )
-        StatItem(
-            icon = Icons.Default.Schedule,
-            value = totalDuration,
-            label = "Total",
-        )
-    }
-
-    // Description
-    description?.takeIf { it.isNotBlank() }?.let { desc ->
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = desc,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (desc.length > 200) {
-            TextButton(
-                onClick = onToggleDescription,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text(if (isDescriptionExpanded) "Read less" else "Read more")
-            }
-        }
-    }
-}
-
-/**
- * Grid card for a book in the series.
- * Shows cover, series position, title, and duration.
- */
-@Composable
-private fun SeriesBookCard(
-    book: BookListItem,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column {
-            // Cover image
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                contentAlignment = Alignment.Center,
-            ) {
-                BookCoverImage(
-                    bookId = book.id.value,
-                    coverPath = book.coverPath,
-                    contentDescription = book.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-
-            // Info section below cover
-            Column(
-                modifier = Modifier.padding(12.dp),
-            ) {
-                // Series position
-                book.seriesSequence?.let { sequence ->
-                    Text(
-                        text = stringResource(Res.string.series_book_sequence, sequence),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
-                // Title
-                Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Duration
-                Text(
-                    text = book.formatDuration(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-// endregion
-
-// region Narrow layout (single column)
-
-/**
- * Narrow layout: vertical list with hero section, description, and book items.
- */
 @Composable
 private fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
-    onBookClick: (String) -> Unit,
     onBackClick: () -> Unit,
+    onBookClick: (String) -> Unit,
     onEditClick: () -> Unit,
 ) {
-    var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
-
-    val coverColors = rememberCoverColors(imagePath = state.coverPath)
-    val listState = rememberLazyListState()
-    val collapseFraction by rememberHeroCollapseFraction(listState)
-
-    LazyColumn(
-        state = listState,
-        contentPadding = PaddingValues(bottom = 16.dp),
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(1),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        // Hero section with cover-color gradient and stats
-        item {
-            SeriesHeroSection(
-                coverPath = state.coverPath,
-                featuredBookId = state.featuredBookId,
-                bookCount = state.books.size,
-                totalDuration = state.formatTotalDuration(),
-                seriesName = state.seriesName,
-                coverColors = coverColors,
-                collapseFraction = { collapseFraction },
-                collapsing = true,
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            SeriesColorHero(
+                state = state,
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
             )
         }
-
-        // Description section (if available)
-        state.seriesDescription?.takeIf { it.isNotBlank() }?.let { description ->
-            item {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 16.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.common_about),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (description.length > 150) {
-                        TextButton(
-                            onClick = { isDescriptionExpanded = !isDescriptionExpanded },
-                            contentPadding = PaddingValues(0.dp),
-                        ) {
-                            Text(if (isDescriptionExpanded) "Read less" else "Read more")
-                        }
-                    }
-                }
-            }
-        }
-
-        // Books section header
-        item {
-            Text(
-                text = stringResource(Res.string.series_books_in_series),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier =
-                    Modifier
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 24.dp, bottom = 8.dp),
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            ContinueButton(
+                state = state,
+                onBookClick = onBookClick,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }
-
-        // Books list
-        items(
-            items = state.books,
-            key = { it.id.value },
-        ) { book ->
-            SeriesBookItem(
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            BooksSectionHeader(count = state.books.size, modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp))
+        }
+        itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
+            SeriesBookRow(
                 book = book,
+                positionLabel = book.seriesSequence ?: (index + 1).toString(),
+                finished = book.id in state.finishedBookIds,
+                progress = state.bookProgress[book.id],
+                highlighted = book.id == state.resumeTarget && state.bookProgress[book.id] != null,
                 onClick = { onBookClick(book.id.value) },
+                modifier = Modifier.padding(horizontal = 14.dp),
             )
         }
     }
 }
 
-/**
- * Hero section with cover-color gradient, emphasized title, and aggregate stats (narrow layout).
- * Mirrors the Book detail hero via the shared [DetailHero] scaffold.
- */
 @Composable
-private fun SeriesHeroSection(
-    coverPath: String?,
-    featuredBookId: String?,
-    bookCount: Int,
-    totalDuration: String,
-    seriesName: String,
-    coverColors: CoverColors,
-    collapseFraction: () -> Float,
-    collapsing: Boolean,
+private fun WideSeriesDetailContent(
+    state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
+    onBookClick: (String) -> Unit,
     onEditClick: () -> Unit,
 ) {
-    val isDark = LocalDarkTheme.current
-    val surfaceColor = MaterialTheme.colorScheme.surface
-    val surfaceContainerColor = MaterialTheme.colorScheme.surfaceContainer
-    val gradientColors =
-        if (isDark) {
-            listOf(
-                coverColors.darkMuted.copy(alpha = 0.5f),
-                coverColors.darkMuted.copy(alpha = 0.3f),
-                surfaceContainerColor.copy(alpha = 0.7f),
-                surfaceContainerColor,
-                surfaceColor,
-            )
-        } else {
-            listOf(
-                coverColors.darkMuted,
-                coverColors.darkMuted.copy(alpha = 0.85f),
-                surfaceContainerColor.copy(alpha = 0.7f),
-                surfaceContainerColor,
-                surfaceColor,
-            )
+    Row(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        // Left: color-blocked hero panel with the Continue action pinned at the bottom.
+        Box(
+            modifier =
+                Modifier
+                    .width(420.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+        ) {
+            HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+                Spacer(Modifier.height(8.dp))
+                HeroBody(state)
+                Spacer(Modifier.height(24.dp))
+                ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
+            }
         }
 
-    DetailHero(
-        collapseFraction = collapseFraction,
-        collapsing = collapsing,
-        gradientColors = gradientColors,
-        navigation = { pinnedTitle ->
-            Box(modifier = Modifier.fillMaxWidth()) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(horizontal = 8.dp, vertical = 8.dp)
-                            .size(48.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-                                shape = CircleShape,
-                            ),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(Res.string.common_back),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                Box(modifier = Modifier.align(Alignment.Center)) { pinnedTitle() }
-                if (!LocalDeviceContext.current.isLeanback) {
-                    IconButton(
-                        onClick = onEditClick,
-                        modifier =
-                            Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                                .size(48.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-                                    shape = CircleShape,
-                                ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = stringResource(Res.string.series_edit_series),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-            }
-        },
-        title = seriesName,
-        backdropMedia = {
-            Box(
-                modifier =
-                    Modifier
-                        .size(180.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                contentAlignment = Alignment.Center,
-            ) {
-                BookCoverImage(
-                    bookId = featuredBookId ?: "",
-                    coverPath = coverPath,
-                    contentDescription = stringResource(Res.string.series_series_cover),
-                    contentScale = ContentScale.Crop,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp)),
-                )
-            }
-        },
-        belowTitle = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StatItem(
-                    icon = Icons.AutoMirrored.Filled.LibraryBooks,
-                    value = "$bookCount",
-                    label = if (bookCount == 1) "Book" else "Books",
-                )
-                StatItem(
-                    icon = Icons.Default.Schedule,
-                    value = totalDuration,
-                    label = "Total",
-                )
-            }
-        },
-    )
-}
-
-/**
- * List item for a book in the series (narrow layout).
- */
-@Composable
-private fun SeriesBookItem(
-    book: BookListItem,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // Right: numbered "Books in series" as a two-column grid.
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
         ) {
-            // Book cover
-            Box(
-                modifier =
-                    Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                contentAlignment = Alignment.Center,
-            ) {
-                BookCoverImage(
-                    bookId = book.id.value,
-                    coverPath = book.coverPath,
-                    contentDescription = book.title,
-                    contentScale = ContentScale.Crop,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(8.dp)),
-                )
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                BooksSectionHeader(count = state.books.size, modifier = Modifier.padding(bottom = 4.dp))
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Book info
-            Column(modifier = Modifier.weight(1f)) {
-                // Series position
-                book.seriesSequence?.let { sequence ->
-                    Text(
-                        text = stringResource(Res.string.series_book_sequence, sequence),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
-                // Title
-                Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Author
-                Text(
-                    text = book.authorNames,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Duration
-                Text(
-                    text = book.formatDuration(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
+                SeriesBookRow(
+                    book = book,
+                    positionLabel = book.seriesSequence ?: (index + 1).toString(),
+                    finished = book.id in state.finishedBookIds,
+                    progress = state.bookProgress[book.id],
+                    highlighted = book.id == state.resumeTarget && state.bookProgress[book.id] != null,
+                    onClick = { onBookClick(book.id.value) },
                 )
             }
         }
@@ -707,42 +234,350 @@ private fun SeriesBookItem(
 
 // endregion
 
-// region Shared components
+// region hero
 
-/**
- * Single stat item with icon, value, and label.
- */
+/** The full color-blocked hero used in the narrow layout (rounded bottom, top action row). */
 @Composable
-private fun StatItem(
+private fun SeriesColorHero(
+    state: SeriesDetailUiState.Ready,
+    onBackClick: () -> Unit,
+    onEditClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+            Spacer(Modifier.height(4.dp))
+            HeroBody(state)
+        }
+    }
+}
+
+/** Soft organic accent blob behind the hero content (echoes the design's brand squircle). */
+@Composable
+private fun HeroBlob(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .clip(BlobShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
+    )
+}
+
+/** Asymmetric rounded squircle approximating the design's organic blob. */
+private val BlobShape =
+    RoundedCornerShape(
+        topStartPercent = 46,
+        topEndPercent = 54,
+        bottomEndPercent = 46,
+        bottomStartPercent = 54,
+    )
+
+/** Deck + overline + title + author + stat row. Shared by both layouts. */
+@Composable
+private fun HeroBody(state: SeriesDetailUiState.Ready) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        FannedDeck(
+            covers = state.books.map { it.toDeckCover() },
+            size = 150.dp,
+            peek = 34.dp,
+            max = 4,
+        )
+        Spacer(Modifier.height(22.dp))
+        Text(
+            text = "SERIES",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = state.seriesName,
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        state.seriesAuthor?.let { author ->
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = author,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+            )
+        }
+        Spacer(Modifier.height(20.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            HeroStat(
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                value = "${state.books.size} books",
+                label = "${state.finishedCount} finished",
+            )
+            HeroStat(
+                icon = Icons.Default.Schedule,
+                value = state.formatTotalDuration(),
+                label = "Total",
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeroActionRow(
+    onBackClick: () -> Unit,
+    onEditClick: () -> Unit,
+) {
+    val tint = MaterialTheme.colorScheme.onPrimaryContainer
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBackClick) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back), tint = tint)
+        }
+        Spacer(Modifier.weight(1f))
+        if (!LocalDeviceContext.current.isLeanback) {
+            IconButton(onClick = onEditClick) {
+                Icon(Icons.Default.Edit, stringResource(Res.string.series_edit_series), tint = tint)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroStat(
     icon: ImageVector,
     value: String,
     label: String,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-            )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Column {
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
             )
         }
+    }
+}
+
+/** Brand "Continue / Start Book N" pill. Hidden when the whole series is finished. */
+@Composable
+private fun ContinueButton(
+    state: SeriesDetailUiState.Ready,
+    onBookClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val targetId = state.resumeTarget ?: return
+    val target = state.books.firstOrNull { it.id == targetId } ?: return
+    val index = state.books.indexOfFirst { it.id == targetId }
+    val positionLabel = target.seriesSequence ?: (index + 1).toString()
+    val verb = if (state.bookProgress[targetId] != null) "Continue" else "Start"
+
+    Row(
+        modifier =
+            modifier
+                .height(58.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable { onBookClick(targetId.value) }
+                .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary)
+        Spacer(Modifier.width(10.dp))
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = "$verb Book $positionLabel",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimary,
         )
     }
 }
 
 // endregion
+
+// region book rows
+
+@Composable
+private fun BooksSectionHeader(
+    count: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = stringResource(Res.string.series_books_in_series),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+        )
+        CountBadge(count)
+    }
+}
+
+@Composable
+private fun CountBadge(count: Int) {
+    Box(
+        modifier =
+            Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                .padding(horizontal = 10.dp, vertical = 3.dp),
+    ) {
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+    }
+}
+
+@Composable
+private fun SeriesBookRow(
+    book: BookListItem,
+    positionLabel: String,
+    finished: Boolean,
+    progress: Float?,
+    highlighted: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val rowColor = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
+    val titleColor = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    val subColor =
+        if (highlighted) {
+            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(rowColor)
+                .clickable(onClick = onClick)
+                .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Box {
+            BookCoverImage(
+                bookId = book.id.value,
+                coverPath = book.coverPath,
+                contentDescription = book.title,
+                title = book.title,
+                author = book.authors.firstOrNull()?.name,
+                modifier = Modifier.size(68.dp).clip(RoundedCornerShape(12.dp)),
+            )
+            if (finished) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 5.dp, y = 5.dp)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.tertiaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Book $positionLabel",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = book.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = titleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(4.dp))
+            if (progress != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape),
+                    )
+                    Text(
+                        text = "${(progress * 100).toInt()}% · ${book.formatDuration()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = subColor,
+                        maxLines = 1,
+                    )
+                }
+            } else {
+                Text(
+                    text = if (finished) "${book.formatDuration()} · Finished" else book.formatDuration(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subColor,
+                )
+            }
+        }
+
+        BookRowAction(finished = finished, highlighted = highlighted)
+    }
+}
+
+@Composable
+private fun BookRowAction(
+    finished: Boolean,
+    highlighted: Boolean,
+) {
+    val bg = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
+    val tint = if (highlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val icon =
+        when {
+            highlighted -> Icons.Default.GraphicEq
+            finished -> Icons.Default.Replay
+            else -> Icons.Default.PlayArrow
+        }
+    Box(
+        modifier = Modifier.size(44.dp).clip(CircleShape).background(bg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+    }
+}
+
+// endregion
+
+private fun BookListItem.toDeckCover(): FannedDeckCover =
+    FannedDeckCover(
+        bookId = id.value,
+        coverPath = coverPath,
+        title = title,
+        author = authors.firstOrNull()?.name,
+    )

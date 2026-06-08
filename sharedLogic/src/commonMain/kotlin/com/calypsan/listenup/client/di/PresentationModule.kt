@@ -318,6 +318,7 @@ val seriesPresentationModule =
             com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel(
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 imageRepository = get(),
+                playbackPositionRepository = get(),
             )
         }
         factory {
