@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
+import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
@@ -303,11 +304,11 @@ private fun makeService(
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
+        metadataProviders = listOf(AudibleMetadataProvider(metadataService)),
         coverSearchService =
             CoverSearchService(
                 readBook = { null },
-                audibleSearch = { _, _ -> AppResult.Success(emptyList()) },
-                itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
+                providers = emptyList(),
                 probeDimensions = { null },
             ),
         bookRepository = bookRepository,
