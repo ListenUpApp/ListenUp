@@ -40,64 +40,69 @@ struct LoginView: View {
     // MARK: - Body
 
     var body: some View {
-        AuthScreenLayout {
-            formContent
-        }
-    }
+        AuthScaffold(
+            deep: true,
+            nav: AuthNav(label: String(localized: "connect.servers")) {
+                Task { try? await dependencies.serverConfig.disconnectFromServer() }
+            }
+        ) {
+            AuthLargeHeader(title: String(localized: "auth.sign_in"))
 
-    // MARK: - Form Content
+            // serverSubtitle omitted: ServerConfig has no synchronous currentServerHost
+            // accessor (only async getServerUrl/getActiveUrl). Pending a follow-up to
+            // wire async host display.
 
-    @ViewBuilder
-    private var formContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            header
             fields
-            errorMessage
+            forgotPassword
+        } footer: {
             signInButton
             footerLinks
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "auth.sign_in"))
-                .font(.largeTitle.bold())
-
-            Text(String(localized: "auth.sign_in_to_access_your"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
+    // MARK: - Private views
 
     private var fields: some View {
-        VStack(spacing: 16) {
-            GlassTextField(
-                label: String(localized: "common.email"),
-                placeholder: String(localized: "auth.email_placeholder"),
+        AuthFieldGroup {
+            AuthFieldRow(
+                icon: "envelope",
+                placeholder: String(localized: "common.email"),
                 text: $email,
                 error: viewModel.emailError,
                 keyboardType: .emailAddress,
                 textContentType: .emailAddress
             )
-
-            GlassSecureField(
-                label: String(localized: "auth.password_label"),
-                placeholder: String(localized: "auth.password_placeholder"),
+            AuthSecureFieldRow(
+                placeholder: String(localized: "auth.password_label"),
                 text: $password,
-                error: viewModel.passwordError
+                error: viewModel.passwordError,
+                isLast: true,
+                textContentType: .password
             )
         }
+        .overlay(alignment: .top) { errorBanner }
     }
 
     @ViewBuilder
-    private var errorMessage: some View {
+    private var errorBanner: some View {
         if let error = viewModel.generalError {
             ErrorBanner(message: error)
+                .offset(y: -64)
+        }
+    }
+
+    private var forgotPassword: some View {
+        HStack {
+            Spacer()
+            Button(String(localized: "auth.forgot_password")) {}
+                .font(.subheadline)
+                .foregroundStyle(Color.listenUpOrange)
+                .buttonStyle(.plain)
         }
     }
 
     private var signInButton: some View {
-        ListenUpButton(
+        AuthPrimaryButton(
             title: String(localized: "auth.sign_in"),
             isLoading: viewModel.isLoading
         ) {
@@ -108,41 +113,19 @@ struct LoginView: View {
 
     @ViewBuilder
     private var footerLinks: some View {
-        VStack(spacing: 16) {
-            if openRegistration {
-                HStack(spacing: 4) {
-                    Text(String(localized: "auth.dont_have_account"))
-                        .foregroundStyle(.secondary)
-
-                    Button(String(localized: "auth.sign_up")) {
-                        navigateToRegister()
-                    }
+        if openRegistration {
+            HStack(spacing: 4) {
+                Text(String(localized: "auth.dont_have_account"))
+                    .foregroundStyle(.secondary)
+                Button(String(localized: "auth.sign_up")) { navigateToRegister() }
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.listenUpOrange)
                     .buttonStyle(.plain)
-                }
-                .font(.subheadline)
-            }
-
-            Button(String(localized: "auth.change_server")) {
-                Task {
-                    try? await dependencies.serverConfig.disconnectFromServer()
-                }
             }
             .font(.subheadline)
-            .foregroundStyle(Color.listenUpOrange)
-            .buttonStyle(.plain)
         }
-        .frame(maxWidth: .infinity)
     }
 }
-
-// MARK: - Error Banner
-
-// MARK: - Auth Screen Layout
-
-// Reusable layout for auth screens: gradient + logo + bottom card.
-// Eliminates GeometryReader by using layout priorities.
 
 // MARK: - Previews
 
