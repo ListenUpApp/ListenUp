@@ -3,13 +3,14 @@ package com.calypsan.listenup.client.features.library.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,25 +20,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calypsan.listenup.client.design.components.SeriesCoverImage
+import com.calypsan.listenup.client.design.components.FannedDeck
+import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
-import com.calypsan.listenup.client.domain.repository.ImageStorage
-import org.koin.compose.koinInject
 
 /**
- * Floating series card with editorial design.
+ * Series card with the signature M3 Expressive fanned cover deck.
  *
- * Design philosophy: Cover stack is the hero. No container boxing.
- * Individual covers in the stack have their own shadows.
- * Press interaction uses scale animation for tactile feedback.
+ * The deck of square covers is the hero; below it sit the series name and a
+ * "*N* books · *Author*" line. Press uses a subtle scale for tactile feedback.
  *
  * @param seriesWithBooks The series with its associated books
  * @param onClick Callback when the card is clicked
@@ -48,14 +47,28 @@ fun SeriesCard(
     seriesWithBooks: SeriesWithBooks,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    imageStorage: ImageStorage = koinInject(),
 ) {
     val series = seriesWithBooks.series
-    val books = seriesWithBooks.books
-    val bookCount = books.size
+    val bookCount = seriesWithBooks.books.size
 
-    // Domain model already has bookSequences as a Map<String, String?>
-    val sequenceByBookId = seriesWithBooks.bookSequences
+    val orderedBooks = remember(seriesWithBooks) { seriesWithBooks.booksSortedBySequence() }
+    val deckCovers =
+        remember(orderedBooks) {
+            orderedBooks.map { book ->
+                FannedDeckCover(
+                    bookId = book.id.value,
+                    coverPath = book.coverPath,
+                    title = book.title,
+                    author = book.authors.firstOrNull()?.name,
+                )
+            }
+        }
+    val author =
+        orderedBooks
+            .firstOrNull()
+            ?.authors
+            ?.firstOrNull()
+            ?.name
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -65,20 +78,6 @@ fun SeriesCard(
         label = "card_scale",
     )
 
-    // Extract book covers sorted by series sequence, with IDs for server fallback
-    val bookCovers =
-        books
-            .sortedBy { sequenceByBookId[it.id.value]?.toFloatOrNull() ?: Float.MAX_VALUE }
-            .map { book ->
-                val coverPath =
-                    if (imageStorage.exists(book.id)) {
-                        imageStorage.getCoverPath(book.id)
-                    } else {
-                        null
-                    }
-                book.id.value to coverPath
-            }
-
     Column(
         modifier =
             modifier
@@ -86,65 +85,58 @@ fun SeriesCard(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.then(
+                }.clip(RoundedCornerShape(28.dp))
+                .then(
                     if (isFocused) {
-                        Modifier
-                            .border(
-                                width = 2.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(12.dp),
-                            ).padding(8.dp)
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(28.dp))
                     } else {
                         Modifier
                     },
-                ).focusable(interactionSource = interactionSource)
+                ).background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .focusable(interactionSource = interactionSource)
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = onClick,
-                ),
+                ).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Series cover takes priority; animated book stack is the fallback.
-        if (series.coverPath != null) {
-            SeriesCoverImage(
-                seriesId = series.id.value,
-                coverPath = series.coverPath,
-                contentDescription = series.name,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            AnimatedCoverStack(
-                bookCovers = bookCovers,
-                coverHeight = 140.dp,
-                cycleDurationMs = 3000L,
-            )
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            FannedDeck(covers = deckCovers, size = 104.dp, peek = 24.dp, max = 5)
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Metadata
-        Column(modifier = Modifier.padding(horizontal = 4.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = series.name,
                 style =
-                    MaterialTheme.typography.titleMedium.copy(
+                    MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.2).sp,
                     ),
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "$bookCount ${if (bookCount == 1) "book" else "books"}",
-                style = MaterialTheme.typography.bodySmall,
+                text =
+                    buildString {
+                        append(bookCount)
+                        append(if (bookCount == 1) " book" else " books")
+                        if (author != null) {
+                            append(" · ")
+                            append(author)
+                        }
+                    },
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

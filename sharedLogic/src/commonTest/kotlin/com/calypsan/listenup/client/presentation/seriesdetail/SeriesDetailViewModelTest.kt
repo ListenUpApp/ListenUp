@@ -7,15 +7,18 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
@@ -37,12 +40,15 @@ class SeriesDetailViewModelTest :
         class TestFixture {
             val seriesRepository: SeriesRepository = mock()
             val imageRepository: ImageRepository = mock()
+            val playbackPositionRepository: PlaybackPositionRepository = mock()
             val seriesFlow = MutableStateFlow<SeriesWithBooks?>(null)
+            val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
 
             fun build(): SeriesDetailViewModel =
                 SeriesDetailViewModel(
                     seriesRepository = seriesRepository,
                     imageRepository = imageRepository,
+                    playbackPositionRepository = playbackPositionRepository,
                 )
         }
 
@@ -50,8 +56,25 @@ class SeriesDetailViewModelTest :
             val fixture = TestFixture()
             every { fixture.seriesRepository.observeSeriesWithBooks(any()) } returns fixture.seriesFlow
             every { fixture.imageRepository.seriesCoverExists(any()) } returns false
+            every { fixture.playbackPositionRepository.observeAll() } returns fixture.positionsFlow
             return fixture
         }
+
+        fun createPosition(
+            bookId: String,
+            positionMs: Long = 0L,
+            isFinished: Boolean = false,
+        ): PlaybackPosition =
+            PlaybackPosition(
+                bookId = bookId,
+                positionMs = positionMs,
+                playbackSpeed = 1.0f,
+                hasCustomSpeed = false,
+                updatedAtMs = 0L,
+                syncedAtMs = null,
+                lastPlayedAtMs = null,
+                isFinished = isFinished,
+            )
 
         fun createSeries(
             id: String = "series-1",
@@ -363,6 +386,146 @@ class SeriesDetailViewModelTest :
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
                 state.coverPath shouldBe "/books/wok.jpg"
+            }
+        }
+
+        // ========== Progress, finished count, resume target, author ==========
+
+        test("seriesAuthor is derived from the first book's primary author") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book =
+                    createBook(id = "book-1").copy(
+                        authors = listOf(BookContributor(id = "a1", name = "Brandon Sanderson", roles = listOf("Author"))),
+                    )
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(series = series, books = listOf(book), bookSequences = mapOf("book-1" to "1"))
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.seriesAuthor shouldBe "Brandon Sanderson"
+            }
+        }
+
+        test("finished books are flagged and counted; in-progress book exposes its fraction") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book1 = createBook(id = "book-1", title = "One", seriesSequence = "1")
+                val book2 = createBook(id = "book-2", title = "Two", seriesSequence = "2")
+                val book3 = createBook(id = "book-3", title = "Three", seriesSequence = "3")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                // book duration is 3_600_000ms; 1_800_000ms = 50% in progress.
+                fixture.positionsFlow.value =
+                    mapOf(
+                        BookId("book-1") to createPosition("book-1", isFinished = true),
+                        BookId("book-2") to createPosition("book-2", positionMs = 1_800_000L),
+                    )
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2, book3),
+                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "3"),
+                    )
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.finishedBookIds shouldBe setOf(BookId("book-1"))
+                state.finishedCount shouldBe 1
+                state.bookProgress[BookId("book-2")]!! shouldBe (0.5f plusOrMinus 0.001f)
+                state.bookProgress.containsKey(BookId("book-1")) shouldBe false
+                state.bookProgress.containsKey(BookId("book-3")) shouldBe false
+            }
+        }
+
+        test("resumeTarget is the first in-progress book") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book1 = createBook(id = "book-1", seriesSequence = "1")
+                val book2 = createBook(id = "book-2", seriesSequence = "2")
+                val book3 = createBook(id = "book-3", seriesSequence = "3")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.positionsFlow.value =
+                    mapOf(
+                        BookId("book-1") to createPosition("book-1", isFinished = true),
+                        BookId("book-2") to createPosition("book-2", positionMs = 900_000L),
+                    )
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2, book3),
+                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "3"),
+                    )
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.resumeTarget shouldBe BookId("book-2")
+            }
+        }
+
+        test("resumeTarget is the first unstarted book when none are in progress") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book1 = createBook(id = "book-1", seriesSequence = "1")
+                val book2 = createBook(id = "book-2", seriesSequence = "2")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.positionsFlow.value =
+                    mapOf(BookId("book-1") to createPosition("book-1", isFinished = true))
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2),
+                        bookSequences = mapOf("book-1" to "1", "book-2" to "2"),
+                    )
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.resumeTarget shouldBe BookId("book-2")
+            }
+        }
+
+        test("resumeTarget is null when every book is finished") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries()
+                val book1 = createBook(id = "book-1", seriesSequence = "1")
+                val book2 = createBook(id = "book-2", seriesSequence = "2")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.positionsFlow.value =
+                    mapOf(
+                        BookId("book-1") to createPosition("book-1", isFinished = true),
+                        BookId("book-2") to createPosition("book-2", isFinished = true),
+                    )
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2),
+                        bookSequences = mapOf("book-1" to "1", "book-2" to "2"),
+                    )
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.finishedCount shouldBe 2
+                state.resumeTarget shouldBe null
             }
         }
     })
