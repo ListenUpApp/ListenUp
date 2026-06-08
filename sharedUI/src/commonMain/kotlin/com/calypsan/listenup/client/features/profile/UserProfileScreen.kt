@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,33 +24,28 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +58,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -76,30 +73,21 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_displayname_avatar
 import listenup.composeapp.generated.resources.profile_create_shelf
 import listenup.composeapp.generated.resources.profile_edit_profile
-import listenup.composeapp.generated.resources.profile_no_shelves_yet_create_one
-import listenup.composeapp.generated.resources.common_profile
 import listenup.composeapp.generated.resources.profile_recently_finished
 import listenup.composeapp.generated.resources.profile_shelves
 
 /**
- * Screen displaying a user's full profile.
- *
- * Features:
- * - Large avatar (image or auto-generated)
- * - Display name and tagline
- * - Listening stats in card format
- * - Recent finished books carousel
- * - Public shelves list
- * - Edit button if viewing own profile
+ * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
+ * colored stat tiles, recent finished books, and a shelves grid.
  *
  * @param userId The ID of the user to display
  * @param onBack Callback when back button is clicked
  * @param onEditClick Callback when edit button is clicked (own profile only)
  * @param onBookClick Callback when a book is clicked
  * @param onShelfClick Callback when a shelf is clicked
+ * @param onCreateShelfClick Callback when "New shelf" is tapped (own profile only)
  * @param viewModel The ViewModel for profile data
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
     userId: String,
@@ -112,45 +100,13 @@ fun UserProfileScreen(
     modifier: Modifier = Modifier,
     viewModel: UserProfileViewModel = koinViewModel(),
 ) {
-    // Load profile initially and refresh when refreshKey changes
     LaunchedEffect(userId, refreshKey) {
         viewModel.loadProfile(userId, forceRefresh = refreshKey > 0)
     }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val isOwnProfile = (state as? UserProfileUiState.Ready)?.isOwnProfile == true
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.common_profile)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
-                actions = {
-                    if (isOwnProfile) {
-                        IconButton(onClick = onEditClick) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = stringResource(Res.string.profile_edit_profile),
-                            )
-                        }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    ),
-            )
-        },
-        modifier = modifier,
-    ) { paddingValues ->
+    Scaffold(modifier = modifier) { paddingValues ->
         Box(
             modifier =
                 Modifier
@@ -175,6 +131,8 @@ fun UserProfileScreen(
                 is UserProfileUiState.Ready -> {
                     ProfileContent(
                         state = current,
+                        onBack = onBack,
+                        onEditClick = onEditClick,
                         onBookClick = onBookClick,
                         onShelfClick = onShelfClick,
                         onCreateShelfClick = onCreateShelfClick,
@@ -188,6 +146,8 @@ fun UserProfileScreen(
 @Composable
 private fun ProfileContent(
     state: UserProfileUiState.Ready,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onCreateShelfClick: () -> Unit,
@@ -195,26 +155,21 @@ private fun ProfileContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 16.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
     ) {
-        // Header with avatar, name, tagline
+        // Color-blocked hero
         item {
-            ProfileHeader(
-                displayName = state.displayName,
-                avatarType = state.avatarType,
-                avatarValue = state.avatarValue,
-                avatarColor = state.avatarColor,
-                tagline = state.tagline,
-                isOwnProfile = state.isOwnProfile,
-                localAvatarPath = state.localAvatarPath,
-                avatarCacheBuster = state.avatarCacheBuster,
+            ProfileColorHero(
+                state = state,
+                onBack = onBack,
+                onEditClick = onEditClick,
             )
         }
 
-        // Stats section
+        // Stats
         item {
-            Spacer(modifier = Modifier.height(24.dp))
-            StatsSection(
+            Spacer(modifier = Modifier.height(20.dp))
+            StatsRow(
                 totalListenTime = formatListenTime(state.totalListenTimeMs),
                 booksFinished = state.booksFinished,
                 currentStreak = state.currentStreak,
@@ -222,263 +177,434 @@ private fun ProfileContent(
             )
         }
 
-        // Recent books section
+        // Recent finished
         if (state.recentBooks.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(28.dp))
                 SectionHeader(title = stringResource(Res.string.profile_recently_finished))
-            }
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                RecentBooksRow(
-                    books = state.recentBooks,
-                    onBookClick = onBookClick,
-                )
+                Spacer(modifier = Modifier.height(14.dp))
+                RecentBooksRow(books = state.recentBooks, onBookClick = onBookClick)
             }
         }
 
-        // Public shelves section (show for own profile even if empty, to allow creating shelves)
+        // Shelves
         if (state.publicShelves.isNotEmpty() || state.isOwnProfile) {
             item {
-                Spacer(modifier = Modifier.height(32.dp))
-                ShelvesSectionHeader(
-                    showAddButton = state.isOwnProfile,
-                    onAddClick = onCreateShelfClick,
+                Spacer(modifier = Modifier.height(28.dp))
+                ShelvesSectionHeader(count = state.publicShelves.size)
+                Spacer(modifier = Modifier.height(14.dp))
+                ShelvesGrid(
+                    shelves = state.publicShelves,
+                    showAddTile = state.isOwnProfile,
+                    onShelfClick = onShelfClick,
+                    onCreateShelfClick = onCreateShelfClick,
                 )
-            }
-            if (state.publicShelves.isNotEmpty()) {
-                items(state.publicShelves) { shelf ->
-                    ShelfItem(
-                        shelf = shelf,
-                        onClick = { onShelfClick(shelf.id) },
-                    )
-                }
-            } else {
-                item {
-                    Text(
-                        text = stringResource(Res.string.profile_no_shelves_yet_create_one),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
             }
         }
     }
 }
 
-@Suppress("UnusedParameter")
+// region hero
+
 @Composable
-private fun ProfileHeader(
-    displayName: String,
-    avatarType: String,
-    avatarValue: String?,
-    avatarColor: String,
-    tagline: String?,
-    isOwnProfile: Boolean,
-    localAvatarPath: String?,
-    avatarCacheBuster: Long,
-    modifier: Modifier = Modifier,
+private fun ProfileColorHero(
+    state: UserProfileUiState.Ready,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
 ) {
-    val context = LocalPlatformContext.current
-    val serverConfig: ServerConfig = koinInject()
-    val serverUrl by produceState<String?>(null) {
-        value = serverConfig.getServerUrl()?.value
-    }
-
-    Column(
+    val ink = MaterialTheme.colorScheme.onPrimaryContainer
+    Box(
         modifier =
-            modifier
+            Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+                .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
-        // Avatar
-        val backgroundColor =
-            remember(avatarColor) {
-                try {
-                    Color(avatarColor.removePrefix("#").toLong(16) or 0xFF000000)
-                } catch (_: Exception) {
-                    Color(0xFF6B7280)
-                }
-            }
-
-        when {
-            // Image avatar: prefer local file path (offline-first)
-            avatarType == "image" && localAvatarPath != null -> {
-                AsyncImage(
-                    model =
-                        ImageRequest
-                            .Builder(context)
-                            .data(localAvatarPath)
-                            // Use cache buster (updatedAt) to force reload when avatar changes
-                            .memoryCacheKey("$localAvatarPath-$avatarCacheBuster")
-                            .diskCacheKey("$localAvatarPath-$avatarCacheBuster")
-                            .build(),
-                    contentDescription = stringResource(Res.string.common_displayname_avatar, displayName),
-                    modifier =
-                        Modifier
-                            .size(120.dp)
-                            .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-
-            // Fallback: fetch from server if no local path yet (downloading in background)
-            avatarType == "image" && avatarValue != null && serverUrl != null -> {
-                AsyncImage(
-                    model =
-                        ImageRequest
-                            .Builder(context)
-                            .data("$serverUrl$avatarValue")
-                            // Use cache buster to force reload when avatar changes
-                            .memoryCacheKey("$avatarValue-$avatarCacheBuster")
-                            .diskCacheKey("$avatarValue-$avatarCacheBuster")
-                            .build(),
-                    contentDescription = stringResource(Res.string.common_displayname_avatar, displayName),
-                    modifier =
-                        Modifier
-                            .size(120.dp)
-                            .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-
-            // Auto-generated avatar with initials
-            else -> {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .background(backgroundColor),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text =
-                            displayName
-                                .trim()
-                                .split("\\s+".toRegex())
-                                .let { parts ->
-                                    when {
-                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                        displayName.length >= 2 -> displayName.take(2)
-                                        else -> displayName.take(1)
-                                    }
-                                }.uppercase(),
-                        color = Color.White,
-                        fontSize = 42.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Display name
-        Text(
-            text = displayName,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
+        HeroBlob(
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(210.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.13f),
+            shape = BlobShape,
+        )
+        HeroBlob(
+            modifier = Modifier.align(Alignment.BottomStart).offset(x = (-60).dp, y = 80.dp).size(190.dp),
+            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+            shape = CircleShape,
         )
 
-        // Tagline
-        if (!tagline.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = tagline,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
+            // Nav row
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back), tint = ink)
+                }
+                Spacer(Modifier.weight(1f))
+                if (state.isOwnProfile) {
+                    IconButton(onClick = onEditClick) {
+                        Icon(Icons.Default.Edit, stringResource(Res.string.profile_edit_profile), tint = ink)
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                ProfileScallopAvatar(state = state)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = state.displayName,
+                    style = MaterialTheme.typography.headlineMediumEmphasized,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = ink,
+                    textAlign = TextAlign.Center,
+                )
+                if (!state.tagline.isNullOrBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = state.tagline!!,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = ink.copy(alpha = 0.82f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 120dp scallop avatar with a brand rim — image (clipped to the scallop) or tonal initials. */
+@Composable
+private fun ProfileScallopAvatar(state: UserProfileUiState.Ready) {
+    val context = LocalPlatformContext.current
+    val serverConfig: ServerConfig = koinInject()
+    val serverUrl by produceState<String?>(null) { value = serverConfig.getServerUrl()?.value }
+    val scallop = cookieScallopShape()
+
+    Box(
+        modifier = Modifier.size(132.dp).clip(scallop).background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center,
+    ) {
+        val imageModel: Any? =
+            when {
+                state.avatarType == "image" && state.localAvatarPath != null -> {
+                    ImageRequest
+                        .Builder(context)
+                        .data(state.localAvatarPath)
+                        .memoryCacheKey("${state.localAvatarPath}-${state.avatarCacheBuster}")
+                        .diskCacheKey("${state.localAvatarPath}-${state.avatarCacheBuster}")
+                        .build()
+                }
+
+                state.avatarType == "image" && state.avatarValue != null && serverUrl != null -> {
+                    ImageRequest
+                        .Builder(context)
+                        .data("$serverUrl${state.avatarValue}")
+                        .memoryCacheKey("${state.avatarValue}-${state.avatarCacheBuster}")
+                        .diskCacheKey("${state.avatarValue}-${state.avatarCacheBuster}")
+                        .build()
+                }
+
+                else -> {
+                    null
+                }
+            }
+
+        if (imageModel != null) {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = stringResource(Res.string.common_displayname_avatar, state.displayName),
+                modifier = Modifier.size(120.dp).clip(scallop),
+                contentScale = ContentScale.Crop,
             )
+        } else {
+            Box(
+                modifier = Modifier.size(120.dp).clip(scallop).background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = initialsOf(state.displayName),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun StatsSection(
+private fun HeroBlob(
+    modifier: Modifier,
+    color: Color,
+    shape: Shape,
+) {
+    Box(modifier = modifier.clip(shape).background(color))
+}
+
+private val BlobShape =
+    RoundedCornerShape(
+        topStartPercent = 46,
+        topEndPercent = 54,
+        bottomEndPercent = 46,
+        bottomStartPercent = 54,
+    )
+
+// endregion
+
+// region stats
+
+private data class StatTileData(
+    val icon: ImageVector,
+    val value: String,
+    val label: String,
+    val container: Color,
+    val onContainer: Color,
+    val iconTint: Color,
+)
+
+@Composable
+private fun StatsRow(
     totalListenTime: String,
     booksFinished: Int,
     currentStreak: Int,
     longestStreak: Int,
     modifier: Modifier = Modifier,
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val tiles =
+        listOf(
+            StatTileData(
+                icon = Icons.Default.Schedule,
+                value = totalListenTime,
+                label = "Listened",
+                container = scheme.primaryContainer,
+                onContainer = scheme.onPrimaryContainer,
+                iconTint = scheme.primary,
+            ),
+            StatTileData(
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                value = booksFinished.toString(),
+                label = "Finished",
+                container = scheme.tertiaryContainer,
+                onContainer = scheme.onTertiaryContainer,
+                iconTint = scheme.tertiary,
+            ),
+            StatTileData(
+                icon = Icons.Default.LocalFireDepartment,
+                value = "${currentStreak}d",
+                label = "Streak",
+                container = scheme.secondaryContainer,
+                onContainer = scheme.onSecondaryContainer,
+                iconTint = scheme.secondary,
+            ),
+            StatTileData(
+                icon = Icons.Default.EmojiEvents,
+                value = "${longestStreak}d",
+                label = "Best",
+                container = scheme.surfaceContainerHigh,
+                onContainer = scheme.onSurface,
+                iconTint = scheme.primary,
+            ),
+        )
     Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StatCard(
-            icon = Icons.Default.Schedule,
-            value = totalListenTime,
-            label = "Listened",
-            modifier = Modifier.weight(1f),
-        )
-        StatCard(
-            icon = Icons.Default.Book,
-            value = booksFinished.toString(),
-            label = "Finished",
-            modifier = Modifier.weight(1f),
-        )
-        StatCard(
-            icon = Icons.Default.LocalFireDepartment,
-            value = "${currentStreak}d",
-            label = "Streak",
-            modifier = Modifier.weight(1f),
-        )
-        StatCard(
-            icon = Icons.Default.EmojiEvents,
-            value = "${longestStreak}d",
-            label = "Best",
-            modifier = Modifier.weight(1f),
-        )
+        tiles.forEach { StatTile(it, modifier = Modifier.weight(1f)) }
     }
 }
 
 @Composable
-private fun StatCard(
-    icon: ImageVector,
-    value: String,
-    label: String,
+private fun StatTile(
+    data: StatTileData,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
+    Column(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(data.container)
+                .padding(vertical = 16.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Box(
+            modifier = Modifier.size(38.dp).clip(cookieScallopShape()).background(data.onContainer.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            Icon(data.icon, null, tint = data.iconTint, modifier = Modifier.size(21.dp))
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = value,
+                text = data.value,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
+                color = data.onContainer,
+                maxLines = 1,
             )
             Text(
-                text = label,
+                text = data.label,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = data.onContainer.copy(alpha = 0.82f),
+                maxLines = 1,
             )
         }
     }
 }
+
+// endregion
+
+// region shelves
+
+@Composable
+private fun ShelvesSectionHeader(
+    count: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = stringResource(Res.string.profile_shelves),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+        )
+        if (count > 0) {
+            Box(
+                modifier =
+                    Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShelvesGrid(
+    shelves: List<ProfileShelfSummary>,
+    showAddTile: Boolean,
+    onShelfClick: (String) -> Unit,
+    onCreateShelfClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Two tiles per row; the add tile trails the list.
+    val tiles: List<ProfileShelfSummary?> = shelves + if (showAddTile) listOf(null) else emptyList()
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        tiles.chunked(2).forEach { rowTiles ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                rowTiles.forEachIndexed { index, shelf ->
+                    if (shelf != null) {
+                        ShelfTile(
+                            shelf = shelf,
+                            colorIndex = shelves.indexOf(shelf),
+                            onClick = { onShelfClick(shelf.id) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        AddShelfTile(onClick = onCreateShelfClick, modifier = Modifier.weight(1f))
+                    }
+                }
+                // Pad a trailing single tile so it doesn't stretch full width.
+                if (rowTiles.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShelfTile(
+    shelf: ProfileShelfSummary,
+    colorIndex: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val (container, onContainer) =
+        when (colorIndex.mod(3)) {
+            0 -> scheme.primaryContainer to scheme.onPrimaryContainer
+            1 -> scheme.tertiaryContainer to scheme.onTertiaryContainer
+            else -> scheme.secondaryContainer to scheme.onSecondaryContainer
+        }
+    Box(
+        modifier =
+            modifier
+                .height(112.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(container)
+                .clickable(onClick = onClick),
+    ) {
+        HeroBlob(
+            modifier = Modifier.align(Alignment.BottomEnd).offset(x = 22.dp, y = 22.dp).size(84.dp),
+            color = onContainer.copy(alpha = 0.12f),
+            shape = BlobShape,
+        )
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Icon(Icons.Default.Bookmarks, null, tint = onContainer, modifier = Modifier.size(24.dp))
+            Column {
+                Text(
+                    text = shelf.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = onContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${shelf.bookCount} books",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = onContainer.copy(alpha = 0.8f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddShelfTile(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier =
+            modifier
+                .height(112.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(Res.string.profile_create_shelf),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+// endregion
+
+// region recent books (kept from prior screen)
 
 @Composable
 private fun SectionHeader(
@@ -488,40 +614,9 @@ private fun SectionHeader(
     Text(
         text = title,
         style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.ExtraBold,
         modifier = modifier.padding(horizontal = 16.dp),
     )
-}
-
-@Composable
-private fun ShelvesSectionHeader(
-    showAddButton: Boolean,
-    onAddClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(Res.string.profile_shelves),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
-        if (showAddButton) {
-            IconButton(onClick = onAddClick) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(Res.string.profile_create_shelf),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -536,10 +631,7 @@ private fun RecentBooksRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         items(books, key = { it.bookId }) { book ->
-            RecentBookCard(
-                book = book,
-                onClick = { onBookClick(book.bookId) },
-            )
+            RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
         }
     }
 }
@@ -551,47 +643,24 @@ private fun RecentBookCard(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier =
-            modifier
-                .width(140.dp)
-                .clickable(onClick = onClick),
+        modifier = modifier.width(140.dp).clickable(onClick = onClick),
     ) {
-        // Book cover
-        Surface(
+        Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f),
-            // Square
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
-            if (true) { // Always render — BookCoverImage handles server URL fallback
-                ListenUpAsyncImage(
-                    path = book.coverPath,
-                    contentDescription = book.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                // Placeholder
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Book,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            ListenUpAsyncImage(
+                path = book.coverPath,
+                contentDescription = book.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Title
         Text(
             text = book.title,
             style = MaterialTheme.typography.bodyMedium,
@@ -602,40 +671,16 @@ private fun RecentBookCard(
     }
 }
 
-@Composable
-private fun ShelfItem(
-    shelf: ProfileShelfSummary,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        onClick = onClick,
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = shelf.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = "${shelf.bookCount} books",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+// endregion
+
+private fun initialsOf(displayName: String): String =
+    displayName
+        .trim()
+        .split("\\s+".toRegex())
+        .let { parts ->
+            when {
+                parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                displayName.length >= 2 -> displayName.take(2)
+                else -> displayName.take(1)
             }
-        }
-    }
-}
+        }.uppercase()
