@@ -180,6 +180,15 @@ internal class MetadataService(
         author: String,
     ): AppResult<ITunesCoverHit?> = itunes.findCover(title, author)
 
+    /**
+     * Delegates multi-candidate cover-art search to [ITunesApi]. Uncached at this
+     * layer — like [findCover], cover searches are fast single requests.
+     */
+    suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> = itunes.searchCovers(title, author)
+
     // ── Private caching helpers ───────────────────────────────────────────────
 
     /**

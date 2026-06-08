@@ -33,6 +33,7 @@ import kotlinx.serialization.json.Json
 class ITunesClient(
     private val httpClient: HttpClient,
     private val json: Json,
+    private val rateLimiter: ITunesRateLimiter = ITunesRateLimiter(),
 ) : ITunesApi {
     /**
      * Searches iTunes for the best cover matching [title] + [author].
@@ -55,6 +56,7 @@ class ITunesClient(
         author: String,
     ): AppResult<ITunesCoverHit?> =
         try {
+            rateLimiter.await()
             val response =
                 httpClient.get(SEARCH_BASE_URL) {
                     parameter("term", "$title $author")
@@ -85,6 +87,55 @@ class ITunesClient(
                         MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )
                 }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
+        }
+
+    /**
+     * Searches iTunes for all audiobook cover candidates matching [title] + [author],
+     * each mapped to its max-resolution variant and stamped with its collectionId.
+     */
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> =
+        try {
+            rateLimiter.await()
+            val response =
+                httpClient.get(SEARCH_BASE_URL) {
+                    parameter("term", "$title $author")
+                    parameter("media", AUDIOBOOK_MEDIA_TYPE)
+                    parameter("entity", AUDIOBOOK_MEDIA_TYPE)
+                    parameter("limit", DEFAULT_LIMIT)
+                }
+            when (response.status) {
+                HttpStatusCode.OK -> {
+                    try {
+                        val parsed = json.decodeFromString<ITunesSearchResponse>(response.bodyAsText())
+                        val audiobooks =
+                            parsed.results.filter { r ->
+                                r.wrapperType == AUDIOBOOK_MEDIA_TYPE ||
+                                    r.collectionType == AUDIOBOOK_COLLECTION_TYPE
+                            }
+                        val hits =
+                            audiobooks.ifEmpty { parsed.results }
+                                .mapNotNull { toCoverHit(it).takeIf { hit -> hit.coverUrl.isNotEmpty() } }
+                        AppResult.Success(hits)
+                    } catch (e: SerializationException) {
+                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                    } catch (e: IllegalArgumentException) {
+                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                    }
+                }
+
+                HttpStatusCode.TooManyRequests -> AppResult.Failure(MetadataError.ExternalRateLimited())
+                else ->
+                    AppResult.Failure(
+                        MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
+                    )
             }
         } catch (e: CancellationException) {
             throw e
@@ -149,12 +200,13 @@ class ITunesClient(
      * matching Go's selection logic (`artworkURL := r.ArtworkURL100; if artworkURL == "" { artworkURL = r.ArtworkURL60 }`).
      */
     private fun toCoverHit(result: ITunesSearchResult): ITunesCoverHit {
+        val sourceId = result.collectionId?.toString() ?: ""
         val original =
             result.artworkUrl100?.ifEmpty { null }
                 ?: result.artworkUrl60?.ifEmpty { null }
-                ?: return ITunesCoverHit(coverUrl = "", maxSizeUrl = "")
+                ?: return ITunesCoverHit(coverUrl = "", maxSizeUrl = "", sourceId = sourceId)
         val maxSize = SIZE_PATTERN.replace(original, "/7000x7000bb.jpg")
-        return ITunesCoverHit(coverUrl = original, maxSizeUrl = maxSize)
+        return ITunesCoverHit(coverUrl = original, maxSizeUrl = maxSize, sourceId = sourceId)
     }
 
     private companion object {

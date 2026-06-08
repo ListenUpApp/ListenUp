@@ -401,4 +401,9 @@ private class FakeITunesApi(
             findCoverCalls++
             coverResult
         }
+
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> = AppResult.Success(emptyList())
 }

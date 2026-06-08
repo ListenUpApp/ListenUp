@@ -47,4 +47,5 @@ internal data class ITunesSearchResult(
 data class ITunesCoverHit(
     val coverUrl: String,
     val maxSizeUrl: String,
+    val sourceId: String = "",
 )

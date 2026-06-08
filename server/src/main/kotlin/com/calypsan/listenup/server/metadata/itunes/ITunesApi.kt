@@ -23,4 +23,16 @@ interface ITunesApi {
         title: String,
         author: String,
     ): AppResult<ITunesCoverHit?>
+
+    /**
+     * Searches iTunes for all audiobook cover candidates matching [title] + [author].
+     *
+     * @return [AppResult.Success] with one max-resolution [ITunesCoverHit] per audiobook
+     *   result (each stamped with its iTunes collectionId as `sourceId`), or a typed
+     *   [com.calypsan.listenup.api.error.MetadataError] on failure.
+     */
+    suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>>
 }
