@@ -125,8 +125,9 @@ internal class Scanner(
                 sidecarParsers,
                 metadataPrecedence,
             )
-        val (books, errors) =
-            collectAnalyzed(analyzer, candidates, correlationId, allFiles.size, primaryRoot)
+        val pass = collectAnalyzed(analyzer, candidates, correlationId, allFiles.size, primaryRoot)
+        val books = pass.books
+        val errors = pass.errors
 
         emitProgress(
             correlationId,
@@ -135,6 +136,10 @@ internal class Scanner(
             books.size,
             errors.size,
             totalFiles = allFiles.size,
+            authorsMatched = pass.authorsMatched,
+            totalDurationMs = pass.totalDurationMs,
+            currentFile = pass.currentFile,
+            recentBooks = pass.recentBooks,
         )
         val previous = lastResult?.books.orEmpty()
         val changes = Differ().diff(books.asFlow(), previous).toList()
@@ -212,8 +217,9 @@ internal class Scanner(
                 sidecarParsers,
                 metadataPrecedence,
             )
-        val (books, errors) =
-            collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot)
+        val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot)
+        val books = pass.books
+        val errors = pass.errors
 
         val (previousAffected, previousUntouched) =
             partitionBooksUnder(
@@ -267,7 +273,7 @@ internal class Scanner(
         correlationId: String,
         fileCount: Int,
         errorRoot: Path,
-    ): Pair<List<AnalyzedBook>, List<ScanError>> {
+    ): AnalyzePass {
         val books = mutableListOf<AnalyzedBook>()
         val errors = mutableListOf<ScanError>()
         val authorsSeen = mutableSetOf<String>()
@@ -315,8 +321,30 @@ internal class Scanner(
             currentFile = currentFile,
             recentBooks = recent.toList(),
         )
-        return books to errors
+        return AnalyzePass(
+            books = books,
+            errors = errors,
+            authorsMatched = authorsSeen.size,
+            totalDurationMs = durationMsSum,
+            currentFile = currentFile,
+            recentBooks = recent.toList(),
+        )
     }
+
+    /**
+     * Final aggregates from a [collectAnalyzed] pass. Carries the enriched
+     * stats (authors matched, total duration, current file, recent books)
+     * forward so the DIFFING progress tick can preserve them rather than
+     * regressing to defaults right before completion.
+     */
+    private data class AnalyzePass(
+        val books: List<AnalyzedBook>,
+        val errors: List<ScanError>,
+        val authorsMatched: Int,
+        val totalDurationMs: Long,
+        val currentFile: String?,
+        val recentBooks: List<ScanBookRef>,
+    )
 
     private fun partitionBooksUnder(
         bookRoot: Path,
