@@ -74,7 +74,8 @@ class ApplyCoverTest :
                 val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
 
                 runTest {
-                    books.upsert(coverBookFixture("book1"), clientOpId = null)
+                    books
+                        .upsert(coverBookFixture("book1"), clientOpId = null)
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     val coverStore =

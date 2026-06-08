@@ -35,7 +35,10 @@ data class BookSummary(
  */
 class CoverSearchService(
     private val readBook: suspend (BookId) -> BookSummary?,
-    private val audibleSearch: suspend (book: BookSummary, region: AudibleRegion?) -> AppResult<List<AudibleSearchResult>>,
+    private val audibleSearch: suspend (
+        book: BookSummary,
+        region: AudibleRegion?,
+    ) -> AppResult<List<AudibleSearchResult>>,
     private val itunesSearch: suspend (title: String, author: String) -> AppResult<List<ITunesCoverHit>>,
     private val probeDimensions: suspend (String) -> Pair<Int, Int>?,
 ) {
@@ -59,20 +62,28 @@ class CoverSearchService(
         region: AudibleRegion?,
     ): List<CoverOption> =
         when (val r = audibleSearch(book, region)) {
-            is AppResult.Failure -> throw SourceException(r.error)
-            is AppResult.Success ->
+            is AppResult.Failure -> {
+                throw SourceException(r.error)
+            }
+
+            is AppResult.Success -> {
                 r.data.firstOrNull { it.coverUrl.isNotBlank() }?.let { hit ->
                     listOf(option(CoverOptionSource.AUDIBLE, hit.coverUrl, hit.asin))
                 } ?: emptyList()
+            }
         }
 
     private suspend fun itunesOptions(book: BookSummary): List<CoverOption> =
         when (val r = itunesSearch(book.title, book.author)) {
-            is AppResult.Failure -> throw SourceException(r.error)
-            is AppResult.Success ->
+            is AppResult.Failure -> {
+                throw SourceException(r.error)
+            }
+
+            is AppResult.Success -> {
                 r.data
                     .filter { it.maxSizeUrl.isNotBlank() }
                     .map { option(CoverOptionSource.ITUNES, it.maxSizeUrl, it.sourceId) }
+            }
         }
 
     private suspend fun option(
@@ -100,5 +111,7 @@ class CoverSearchService(
             emptyList()
         }
 
-    private class SourceException(val error: AppError) : Exception()
+    private class SourceException(
+        val error: AppError,
+    ) : Exception()
 }

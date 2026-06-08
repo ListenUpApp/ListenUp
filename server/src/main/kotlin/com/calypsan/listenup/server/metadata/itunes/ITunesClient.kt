@@ -121,7 +121,8 @@ class ITunesClient(
                                     r.collectionType == AUDIOBOOK_COLLECTION_TYPE
                             }
                         val hits =
-                            audiobooks.ifEmpty { parsed.results }
+                            audiobooks
+                                .ifEmpty { parsed.results }
                                 .mapNotNull { toCoverHit(it).takeIf { hit -> hit.coverUrl.isNotEmpty() } }
                         AppResult.Success(hits)
                     } catch (e: SerializationException) {
@@ -131,11 +132,15 @@ class ITunesClient(
                     }
                 }
 
-                HttpStatusCode.TooManyRequests -> AppResult.Failure(MetadataError.ExternalRateLimited())
-                else ->
+                HttpStatusCode.TooManyRequests -> {
+                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                }
+
+                else -> {
                     AppResult.Failure(
                         MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )
+                }
             }
         } catch (e: CancellationException) {
             throw e

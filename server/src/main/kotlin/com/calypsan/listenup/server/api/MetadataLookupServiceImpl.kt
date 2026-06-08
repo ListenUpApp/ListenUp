@@ -217,7 +217,9 @@ internal class MetadataLookupServiceImpl(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"))
+            AppResult.Failure(
+                MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
+            )
         }
     }
 }

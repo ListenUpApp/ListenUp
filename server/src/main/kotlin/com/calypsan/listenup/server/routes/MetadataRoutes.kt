@@ -35,6 +35,7 @@ import io.ktor.server.routing.Route
  */
 fun Route.metadataRoutes(metadataLookupService: MetadataLookupService) {
     bookMetadataRoutes(metadataLookupService)
+    bookCoverRoutes(metadataLookupService)
     contributorMetadataRoutes(metadataLookupService)
 }
 
@@ -96,7 +97,9 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
+}
 
+private fun Route.bookCoverRoutes(service: MetadataLookupService) {
     get<MetadataResources.SearchCovers> { resource ->
         val region = resource.region?.let { AudibleRegion.fromCodeOrNull(it) }
         when (val result = call.scoped(service).searchCovers(BookId(resource.bookId), region)) {

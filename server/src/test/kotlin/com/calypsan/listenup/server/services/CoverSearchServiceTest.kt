@@ -81,7 +81,8 @@ class CoverSearchServiceTest :
                         itunesSearch = { _, _ -> AppResult.Success(emptyList()) },
                         probeDimensions = probe,
                     )
-                svc.searchCovers(BookId("missing"), region = null)
+                svc
+                    .searchCovers(BookId("missing"), region = null)
                     .shouldBeInstanceOf<AppResult.Failure>()
             }
         }
