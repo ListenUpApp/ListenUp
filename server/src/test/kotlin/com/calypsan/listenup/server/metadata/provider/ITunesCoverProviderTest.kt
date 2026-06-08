@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.metadata.provider
 
 import com.calypsan.listenup.api.dto.CoverOptionSource
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.services.BookSummary
@@ -45,10 +46,7 @@ class ITunesCoverProviderTest :
                 val provider =
                     ITunesCoverProvider(
                         search = { _, _ ->
-                            AppResult.Failure(
-                                com.calypsan.listenup.api.error.MetadataError
-                                    .ExternalRateLimited(),
-                            )
+                            AppResult.Failure(MetadataError.ExternalRateLimited())
                         },
                     )
                 provider

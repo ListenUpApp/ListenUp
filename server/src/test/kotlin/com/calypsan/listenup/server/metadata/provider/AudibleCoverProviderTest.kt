@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.metadata.provider
 
 import com.calypsan.listenup.api.dto.CoverOptionSource
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.metadata.audible.AudibleContributor
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
@@ -63,10 +64,7 @@ class AudibleCoverProviderTest :
                 val provider =
                     AudibleCoverProvider(
                         search = { _, _ ->
-                            AppResult.Failure(
-                                com.calypsan.listenup.api.error.MetadataError
-                                    .ExternalUnavailable(),
-                            )
+                            AppResult.Failure(MetadataError.ExternalUnavailable())
                         },
                     )
                 provider

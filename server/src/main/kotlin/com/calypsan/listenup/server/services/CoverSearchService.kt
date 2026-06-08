@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.CoverOption
+import com.calypsan.listenup.api.dto.CoverOptionSource
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
@@ -65,7 +66,7 @@ class CoverSearchService(
         }
 
     private suspend fun option(
-        source: com.calypsan.listenup.api.dto.CoverOptionSource,
+        source: CoverOptionSource,
         url: String,
         sourceId: String,
     ): CoverOption {

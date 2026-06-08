@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.CoverOptionSource
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -84,10 +85,7 @@ class CoverSearchServiceTest :
                         providers =
                             listOf(
                                 provider(CoverOptionSource.AUDIBLE) {
-                                    AppResult.Failure(
-                                        com.calypsan.listenup.api.error.MetadataError
-                                            .ExternalUnavailable(),
-                                    )
+                                    AppResult.Failure(MetadataError.ExternalUnavailable())
                                 },
                                 provider(CoverOptionSource.ITUNES) {
                                     AppResult.Success(listOf(CoverCandidate("https://i/2.jpg", "5")))
