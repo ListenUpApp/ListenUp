@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -21,6 +22,7 @@ import kotlinx.coroutines.test.runTest
  * books the lossy live tail dropped during the scan burst) — without it, a just-scanned library
  * shows no books until the app is relaunched.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SyncRepositoryScanProgressTest :
     FunSpec({
 

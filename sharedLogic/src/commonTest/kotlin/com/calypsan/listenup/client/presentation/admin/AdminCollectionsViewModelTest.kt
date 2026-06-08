@@ -18,6 +18,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -32,6 +33,7 @@ import kotlinx.coroutines.test.setMain
  * dispatch to the repository, and failures surface on [ErrorBus] plus a transient
  * `error` on [AdminCollectionsUiState.Ready].
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminCollectionsViewModelTest :
     FunSpec({
         val dispatcher = StandardTestDispatcher()
