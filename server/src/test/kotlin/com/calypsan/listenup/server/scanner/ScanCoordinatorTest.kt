@@ -259,6 +259,31 @@ class ScanCoordinatorTest :
             }
         }
 
+        test("isScanning is true while a scan holds the lock, false before and after") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val coordinator =
+                    ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
+                        runFullScan = {
+                            gate.await()
+                            emptyResult()
+                        },
+                        runIncremental = { /* unused */ },
+                        scope = backgroundScope,
+                    )
+                coordinator.isScanning() shouldBe false
+
+                val running = async { coordinator.scanFull() }
+                runCurrent() // let the scan acquire the mutex and suspend on the gate
+                coordinator.isScanning() shouldBe true
+
+                gate.complete(Unit)
+                running.await().shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                coordinator.isScanning() shouldBe false
+            }
+        }
+
         test("a busy reanalyze worker doesn't block scanFull from acquiring the mutex eventually") {
             runTest {
                 val incrementalGate = CompletableDeferred<Unit>()

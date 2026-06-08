@@ -144,6 +144,14 @@ class ScanOrchestratorTest :
             }
         }
 
+        test("isScanning is false when no scan is running") {
+            runTest {
+                val orchestrator = orchestrator(FakeScannerFactory(), FakeWatcherSupervisor(), backgroundScope)
+                orchestrator.onLibraryAdded(testLib("lib-1", "/tmp/books"))
+                orchestrator.isScanning() shouldBe false
+            }
+        }
+
         test("concurrent scanLibrary on the same library collapses via single-flight") {
             runTest {
                 val gate = CompletableDeferred<Unit>()
