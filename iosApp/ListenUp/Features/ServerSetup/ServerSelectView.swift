@@ -27,87 +27,69 @@ struct ServerSelectView: View {
     // MARK: - Body
 
     var body: some View {
-        AuthScreenLayout {
-            content
-        }
-        .onAppear {
-            viewModel.onManualEntryRequested = {
-                showManualEntry = true
-            }
-        }
-    }
-
-    // MARK: - Content
-
-    @ViewBuilder
-    private var content: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            header
-            serverList
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "connect.select_server"))
-                    .font(.largeTitle.bold())
-
+        AuthScaffold {
+            VStack(alignment: .center, spacing: 16) {
+                BrandLockup()
                 Text(String(localized: "connect.choose_server"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity)
 
-            Spacer()
+            groupHeader
+            serverList
+        } footer: {
+            AuthPrimaryButton(title: String(localized: "connect.continue")) {
+                if let first = viewModel.servers.first { viewModel.selectServer(first) }
+            }
+            .disabled(viewModel.servers.isEmpty || viewModel.isConnecting)
 
-            refreshButton
+            HStack(spacing: 4) {
+                Text(String(localized: "auth.already_have_account")).foregroundStyle(.secondary)
+                Text(String(localized: "auth.sign_in"))
+                    .fontWeight(.semibold).foregroundStyle(Color.listenUpOrange)
+            }
+            .font(.subheadline)
         }
+        .onAppear { viewModel.onManualEntryRequested = { showManualEntry = true } }
     }
 
-    private var refreshButton: some View {
-        Button {
-            viewModel.refresh()
-        } label: {
-            if viewModel.isDiscovering {
-                ProgressView()
-                    .scaleEffect(0.8)
-            } else {
-                Image(systemName: "arrow.clockwise")
-                    .font(.title3)
-                    .foregroundStyle(Color.listenUpOrange)
-            }
+    // MARK: - Private views
+
+    private var groupHeader: some View {
+        HStack(spacing: 9) {
+            Text(String(localized: "connect.on_your_network").uppercased())
+                .font(.footnote).foregroundStyle(.secondary)
+            Text("\(viewModel.servers.count)")
+                .font(.caption.weight(.bold)).foregroundStyle(Color.listenUpOrange)
+                .padding(.horizontal, 7).padding(.vertical, 2)
+                .background(Capsule().fill(Color.listenUpOrange.opacity(0.16)))
+            Spacer()
+            RescanPill(isBusy: viewModel.isDiscovering) { viewModel.refresh() }
         }
-        .disabled(viewModel.isDiscovering)
     }
 
     private var serverList: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                if viewModel.servers.isEmpty {
-                    EmptyDiscoveryState(isDiscovering: viewModel.isDiscovering)
-                } else {
-                    ForEach(viewModel.servers) { server in
-                        ServerCard(
-                            server: server,
-                            isSelected: viewModel.selectedServerId == server.id,
-                            isConnecting: viewModel.isConnecting && viewModel.selectedServerId == server.id
-                        ) {
-                            viewModel.selectServer(server)
-                        }
-                    }
-                }
-
-                ManualEntryCard {
-                    viewModel.requestManualEntry()
+        AuthFieldGroup {
+            if viewModel.servers.isEmpty {
+                DiscoveryRow(isDiscovering: viewModel.isDiscovering)
+            } else {
+                ForEach(viewModel.servers) { server in
+                    ServerRow(
+                        server: server,
+                        isSelected: viewModel.selectedServerId == server.id,
+                        isConnecting: viewModel.isConnecting && viewModel.selectedServerId == server.id
+                    ) { viewModel.selectServer(server) }
                 }
             }
+            AddServerRow { viewModel.requestManualEntry() }
         }
     }
 }
 
-// MARK: - Server Card
+// MARK: - Rows
 
-private struct ServerCard: View {
+private struct ServerRow: View {
     let server: DiscoveredServerItem
     let isSelected: Bool
     let isConnecting: Bool
@@ -115,135 +97,88 @@ private struct ServerCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(server.isOnline ? Color.green : Color.secondary)
-                    .frame(width: 8, height: 8)
-
+            HStack(spacing: 13) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color.listenUpOrange : Color(.systemFill))
+                    .frame(width: 40, height: 40)
+                    .overlay {
+                        Image(systemName: "server.rack")
+                            .foregroundStyle(isSelected ? .white : .secondary)
+                    }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(server.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-
-                    HStack(spacing: 8) {
+                    Text(server.name).font(.headline).foregroundStyle(.primary)
+                    HStack(spacing: 7) {
+                        Circle().fill(server.isOnline ? .green : .secondary).frame(width: 9, height: 9)
                         Text(server.isOnline ? String(localized: "common.online") : String(localized: "common.offline"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        if server.version != "unknown" {
-                            Text("v\(server.version)")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Circle().fill(Color.secondary).frame(width: 3, height: 3)
+                        Text(server.hostPort).font(.footnote).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle)
                     }
                 }
-
-                Spacer()
-
-                statusIndicator
+                Spacer(minLength: 8)
+                trailing
             }
-            .padding(16)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? Color.listenUpOrange.opacity(0.1) : Color(.secondarySystemBackground))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(
-                                isSelected ? Color.listenUpOrange.opacity(0.3) : Color.clear,
-                                lineWidth: 1
-                            )
-                    }
-            }
+            .frame(minHeight: 68)
+            .padding(.horizontal, 14)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(isConnecting)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 67)
+        }
     }
 
     @ViewBuilder
-    private var statusIndicator: some View {
+    private var trailing: some View {
         if isConnecting {
-            ProgressView()
-                .scaleEffect(0.8)
+            ProgressView().controlSize(.small)
         } else if isSelected {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color.listenUpOrange)
+            Image(systemName: "checkmark").font(.headline.weight(.bold)).foregroundStyle(Color.listenUpOrange)
         } else {
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
         }
     }
 }
 
-// MARK: - Empty Discovery State
-
-private struct EmptyDiscoveryState: View {
-    let isDiscovering: Bool
-
-    var body: some View {
-        VStack(spacing: 8) {
-            if isDiscovering {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text(String(localized: "connect.searching"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text(String(format: String(localized: "common.no_items_found"), String(localized: "connect.listenup_server")))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(String(localized: "connect.make_sure_your_listenup_server"))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        }
-    }
-}
-
-// MARK: - Manual Entry Card
-
-private struct ManualEntryCard: View {
+private struct AddServerRow: View {
     let onTap: () -> Void
-
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 12) {
-                Image(systemName: "plus")
-                    .font(.title3)
-                    .foregroundStyle(Color.listenUpOrange)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(localized: "connect.add_server_manually"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-
-                    Text(String(localized: "connect.enter_server_url_directly"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
+            HStack(spacing: 13) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.listenUpOrange.opacity(0.14)).frame(width: 40, height: 40)
+                    .overlay { Image(systemName: "plus").foregroundStyle(Color.listenUpOrange) }
+                Text(String(localized: "connect.add_server_manually"))
+                    .font(.body).foregroundStyle(Color.listenUpOrange)
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
             }
-            .padding(16)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.tertiarySystemBackground))
-            }
+            .frame(minHeight: 56).padding(.horizontal, 14).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct DiscoveryRow: View {
+    let isDiscovering: Bool
+    var body: some View {
+        HStack(spacing: 10) {
+            if isDiscovering {
+                ProgressView().controlSize(.small)
+                Text(String(localized: "connect.searching")).font(.subheadline).foregroundStyle(.secondary)
+            } else {
+                Text(String(format: String(localized: "common.no_items_found"),
+                            String(localized: "connect.listenup_server")))
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .frame(minHeight: 56).padding(.horizontal, 14)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).padding(.leading, 14)
+        }
     }
 }
 
