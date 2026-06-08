@@ -150,4 +150,34 @@ class MetadataResources(
         /** Chapter ordinals (start-time order) whose names to apply; empty = no-op. */
         val ordinals: List<Int> = emptyList(),
     )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.searchCovers] —
+     * `GET /api/v1/metadata/covers/{bookId}?region=us` searches Audible + iTunes for
+     * cover-art candidates for the book at [bookId]. Responds 200 with
+     * [com.calypsan.listenup.api.dto.CoverSearchResults] on success or a typed error
+     * on failure. When [region] is omitted the server uses its default region with
+     * US fallback.
+     */
+    @Resource("/api/v1/metadata/covers/{bookId}")
+    class SearchCovers(
+        /** Our internal book identifier. */
+        val bookId: String,
+        /** Optional region code (e.g. `"us"`). */
+        val region: String? = null,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.applyCover] —
+     * `POST /api/v1/metadata/apply/cover/{bookId}?url=…` downloads the image at [url]
+     * and stores it as the managed cover (source `UPLOADED`) for the book at [bookId].
+     * Responds 200 on success or a typed error on failure.
+     */
+    @Resource("/api/v1/metadata/apply/cover/{bookId}")
+    class ApplyCover(
+        /** Our internal book identifier. */
+        val bookId: String,
+        /** The image URL to download and store as the cover. */
+        val url: String,
+    )
 }

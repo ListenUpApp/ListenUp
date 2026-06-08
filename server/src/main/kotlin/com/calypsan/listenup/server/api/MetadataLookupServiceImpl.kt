@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.dto.CoverSearchResults
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.dto.MetadataChapters
@@ -11,9 +12,11 @@ import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -25,11 +28,14 @@ import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.metadata.ImageStorage
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
 
 /**
@@ -56,6 +62,7 @@ import kotlinx.io.files.Path
  */
 internal class MetadataLookupServiceImpl(
     private val metadataService: MetadataService,
+    private val coverSearchService: CoverSearchService,
     private val bookRepository: BookRepository,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
@@ -70,6 +77,7 @@ internal class MetadataLookupServiceImpl(
     fun copyWith(principal: PrincipalProvider): MetadataLookupServiceImpl =
         MetadataLookupServiceImpl(
             metadataService = metadataService,
+            coverSearchService = coverSearchService,
             bookRepository = bookRepository,
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
@@ -187,6 +195,41 @@ internal class MetadataLookupServiceImpl(
             metadataService = metadataService,
             imageHome = imageHome,
         ).apply(contributorId, asin, region)
+    }
+
+    override suspend fun searchCovers(
+        bookId: BookId,
+        region: AudibleRegion?,
+    ): AppResult<CoverSearchResults> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return coverSearchService.searchCovers(bookId, region).map { CoverSearchResults(options = it) }
+    }
+
+    override suspend fun applyCover(
+        bookId: BookId,
+        url: String,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        // Validate the book exists before fetching/storing, so an unknown id can't leave an
+        // orphaned cover file on disk (the store keys on bookId, but setManagedCover would fail).
+        bookRepository.findById(bookId)
+            ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}"))
+        return try {
+            val bytes = imageStorage.downloadBytes(url)
+            val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
+            val relPath = "covers/${stored.path.fileName}"
+            bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ImageStore.InvalidImageException) {
+            // The fetched bytes are not a usable image — user must pick a different URL.
+            // Non-retryable: re-firing the same call against the same URL can't succeed.
+            AppResult.Failure(MetadataError.Malformed(debugInfo = "cover bytes rejected: ${e.message}"))
+        } catch (e: Exception) {
+            AppResult.Failure(
+                MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
+            )
+        }
     }
 }
 

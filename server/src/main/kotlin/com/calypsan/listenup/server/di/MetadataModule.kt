@@ -9,10 +9,16 @@ import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
+import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
+import com.calypsan.listenup.server.metadata.itunes.ITunesRateLimiter
+import com.calypsan.listenup.server.metadata.itunes.ImageDimensionProbe
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.BookSummary
+import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import io.ktor.client.HttpClient
@@ -82,6 +88,8 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
+        single { ITunesRateLimiter() }
+
         single<ITunesApi> {
             ITunesClient(
                 httpClient = get(named(METADATA_HTTP_CLIENT)),
@@ -90,6 +98,7 @@ fun metadataModule(imageHome: Path): Module =
                         ignoreUnknownKeys = true
                         isLenient = true
                     },
+                rateLimiter = get(),
             )
         }
 
@@ -107,9 +116,41 @@ fun metadataModule(imageHome: Path): Module =
             ImageStorage(httpClient = get(named(METADATA_HTTP_CLIENT)))
         }
 
+        single { ImageDimensionProbe(httpClient = get(named(METADATA_HTTP_CLIENT))) }
+
+        single {
+            val metadataService = get<MetadataService>()
+            val bookRepository = get<BookRepository>()
+            val probe = get<ImageDimensionProbe>()
+            CoverSearchService(
+                readBook = { id ->
+                    bookRepository.findById(id)?.let { b ->
+                        BookSummary(
+                            title = b.title,
+                            author =
+                                b.contributors.firstOrNull { it.role.equals("author", ignoreCase = true) }?.name
+                                    ?: b.contributors.firstOrNull()?.name
+                                    ?: "",
+                        )
+                    }
+                },
+                audibleSearch = { book, region ->
+                    val params = SearchParams(keywords = "${book.title} ${book.author}".trim())
+                    if (region == null) {
+                        metadataService.searchWithFallback(params)
+                    } else {
+                        metadataService.search(region, params)
+                    }
+                },
+                itunesSearch = { title, author -> metadataService.searchCovers(title, author) },
+                probeDimensions = { url -> probe.probe(url) },
+            )
+        }
+
         single<MetadataLookupService> {
             MetadataLookupServiceImpl(
                 metadataService = get(),
+                coverSearchService = get(),
                 bookRepository = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),

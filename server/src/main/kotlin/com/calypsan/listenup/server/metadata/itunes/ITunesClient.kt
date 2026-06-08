@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.metadata.itunes
 
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -33,6 +34,7 @@ import kotlinx.serialization.json.Json
 class ITunesClient(
     private val httpClient: HttpClient,
     private val json: Json,
+    private val rateLimiter: ITunesRateLimiter = ITunesRateLimiter(),
 ) : ITunesApi {
     /**
      * Searches iTunes for the best cover matching [title] + [author].
@@ -54,7 +56,43 @@ class ITunesClient(
         title: String,
         author: String,
     ): AppResult<ITunesCoverHit?> =
+        fetchResults(title, author).map { results ->
+            pickBest(results, title, author)?.let { toCoverHit(it) }
+        }
+
+    /**
+     * Searches iTunes for all audiobook cover candidates matching [title] + [author],
+     * each mapped to its max-resolution variant and stamped with its collectionId.
+     */
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> =
+        fetchResults(title, author).map { results ->
+            results
+                .filter { r -> r.wrapperType == AUDIOBOOK_MEDIA_TYPE || r.collectionType == AUDIOBOOK_COLLECTION_TYPE }
+                .ifEmpty { results }
+                .mapNotNull { toCoverHit(it).takeIf { hit -> hit.coverUrl.isNotEmpty() } }
+        }
+
+    /**
+     * Single network + error-mapping path shared by [findCover] and [searchCovers]:
+     * paces via [rateLimiter], fires the audiobook search, and maps the response to
+     * the raw [ITunesSearchResult] list or a typed failure. Callers project the list.
+     *
+     * Error mapping (mirrors [AudibleClient]):
+     * - 429 → [MetadataError.ExternalRateLimited]
+     * - 5xx / network failure → [MetadataError.ExternalUnavailable]
+     * - unparseable response → [MetadataError.Malformed]
+     *
+     * [CancellationException] is always rethrown.
+     */
+    private suspend fun fetchResults(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesSearchResult>> =
         try {
+            rateLimiter.await()
             val response =
                 httpClient.get(SEARCH_BASE_URL) {
                     parameter("term", "$title $author")
@@ -65,9 +103,7 @@ class ITunesClient(
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
-                        val parsed = json.decodeFromString<ITunesSearchResponse>(response.bodyAsText())
-                        val best = pickBest(parsed.results, title, author)
-                        AppResult.Success(best?.let { toCoverHit(it) })
+                        AppResult.Success(json.decodeFromString<ITunesSearchResponse>(response.bodyAsText()).results)
                     } catch (e: SerializationException) {
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     } catch (e: IllegalArgumentException) {
@@ -149,12 +185,13 @@ class ITunesClient(
      * matching Go's selection logic (`artworkURL := r.ArtworkURL100; if artworkURL == "" { artworkURL = r.ArtworkURL60 }`).
      */
     private fun toCoverHit(result: ITunesSearchResult): ITunesCoverHit {
+        val sourceId = result.collectionId?.toString() ?: ""
         val original =
             result.artworkUrl100?.ifEmpty { null }
                 ?: result.artworkUrl60?.ifEmpty { null }
-                ?: return ITunesCoverHit(coverUrl = "", maxSizeUrl = "")
+                ?: return ITunesCoverHit(coverUrl = "", maxSizeUrl = "", sourceId = sourceId)
         val maxSize = SIZE_PATTERN.replace(original, "/7000x7000bb.jpg")
-        return ITunesCoverHit(coverUrl = original, maxSizeUrl = maxSize)
+        return ITunesCoverHit(coverUrl = original, maxSizeUrl = maxSize, sourceId = sourceId)
     }
 
     private companion object {

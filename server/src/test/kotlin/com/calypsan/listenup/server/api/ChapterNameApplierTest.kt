@@ -244,4 +244,9 @@ private class NoOpITunes : ITunesApi {
         title: String,
         author: String,
     ) = AppResult.Success<ITunesCoverHit?>(null)
+
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ) = AppResult.Success<List<ITunesCoverHit>>(emptyList())
 }

@@ -34,7 +34,7 @@ class ITunesClientTest :
                 HttpClient(engine) {
                     install(ContentNegotiation) { json(json) }
                 }
-            return ITunesClient(httpClient, json)
+            return ITunesClient(httpClient, json, ITunesRateLimiter(minInterval = kotlin.time.Duration.ZERO))
         }
 
         // ─── findCover — success path ─────────────────────────────────────────
@@ -217,6 +217,26 @@ class ITunesClientTest :
                     threw = true
                 }
                 threw shouldBe true
+            }
+        }
+
+        test("searchCovers returns one max-res candidate per audiobook result") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_WITH_RESULTS,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val result = client.searchCovers("Project Hail Mary", "Andy Weir")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val hits = (result as AppResult.Success<List<ITunesCoverHit>>).data
+                hits.isNotEmpty() shouldBe true
+                hits.first().maxSizeUrl.endsWith("/7000x7000bb.jpg") shouldBe true
             }
         }
     })

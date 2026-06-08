@@ -35,6 +35,7 @@ import io.ktor.server.routing.Route
  */
 fun Route.metadataRoutes(metadataLookupService: MetadataLookupService) {
     bookMetadataRoutes(metadataLookupService)
+    bookCoverRoutes(metadataLookupService)
     contributorMetadataRoutes(metadataLookupService)
 }
 
@@ -92,6 +93,26 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
                 resource.ordinals.toSet(),
             )
         when (result) {
+            is AppResult.Success -> call.respond(HttpStatusCode.OK)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+}
+
+private fun Route.bookCoverRoutes(service: MetadataLookupService) {
+    get<MetadataResources.SearchCovers> { resource ->
+        val region = resource.region?.let { AudibleRegion.fromCodeOrNull(it) }
+        when (val result = call.scoped(service).searchCovers(BookId(resource.bookId), region)) {
+            is AppResult.Success -> call.respond(result.data)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    post<MetadataResources.ApplyCover> { resource ->
+        if (resource.url.isBlank()) {
+            return@post call.respond(HttpStatusCode.BadRequest, ValidationError(message = "url must not be blank."))
+        }
+        when (val result = call.scoped(service).applyCover(BookId(resource.bookId), resource.url)) {
             is AppResult.Success -> call.respond(HttpStatusCode.OK)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
