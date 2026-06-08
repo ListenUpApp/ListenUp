@@ -178,7 +178,14 @@ class ScannerTest :
                     val (scanner, eventBus) = newScanner(fixture)
                     scanner.runFullScan()
 
-                    val phases = eventBus.replayCache.filterIsInstance<ScanEvent.Progress>().map { it.phase }
+                    // ANALYZING now ticks more than once (initial seed + throttled mid-loop
+                    // emits + an unconditional final tick carrying running aggregates), so we
+                    // assert each phase is present rather than an exact multiset.
+                    val phases =
+                        eventBus.replayCache
+                            .filterIsInstance<ScanEvent.Progress>()
+                            .map { it.phase }
+                            .distinct()
                     phases shouldContainExactlyInAnyOrder
                         listOf(
                             com.calypsan.listenup.api.dto.scanner.ScanPhase.WALKING,
