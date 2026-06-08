@@ -182,22 +182,29 @@ private fun WideSeriesDetailContent(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // Left: color-blocked hero panel with the Continue action pinned at the bottom.
-        Column(
+        Box(
             modifier =
                 Modifier
                     .width(420.dp)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .verticalScroll(rememberScrollState())
-                    .padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                    .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
-            HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
-            Spacer(Modifier.height(8.dp))
-            HeroBody(state)
-            Spacer(Modifier.height(24.dp))
-            ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
+            HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+                Spacer(Modifier.height(8.dp))
+                HeroBody(state)
+                Spacer(Modifier.height(24.dp))
+                ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
+            }
         }
 
         // Right: numbered "Books in series" as a two-column grid.
@@ -236,21 +243,48 @@ private fun SeriesColorHero(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
 ) {
-    Column(
+    Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(horizontal = 20.dp)
-                .padding(top = 8.dp, bottom = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+                .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
-        HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
-        Spacer(Modifier.height(4.dp))
-        HeroBody(state)
+        HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-50).dp).size(220.dp))
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+            Spacer(Modifier.height(4.dp))
+            HeroBody(state)
+        }
     }
 }
+
+/** Soft organic accent blob behind the hero content (echoes the design's brand squircle). */
+@Composable
+private fun HeroBlob(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .clip(BlobShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
+    )
+}
+
+/** Asymmetric rounded squircle approximating the design's organic blob. */
+private val BlobShape =
+    RoundedCornerShape(
+        topStartPercent = 46,
+        topEndPercent = 54,
+        bottomEndPercent = 46,
+        bottomStartPercent = 54,
+    )
 
 /** Deck + overline + title + author + stat row. Shared by both layouts. */
 @Composable
