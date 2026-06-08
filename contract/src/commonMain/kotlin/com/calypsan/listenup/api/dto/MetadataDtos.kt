@@ -202,3 +202,31 @@ data class CoverOption(
 data class CoverSearchResults(
     @SerialName("options") val options: List<CoverOption>,
 )
+
+/**
+ * A user's per-field choices for applying an Audible match to a book, sent with
+ * [com.calypsan.listenup.api.MetadataLookupService.applyBookMetadata].
+ *
+ * Each boolean toggles whether the matched value overwrites the book's current value
+ * for that scalar field (deselected = leave untouched). The ASIN sets choose which of
+ * the match's contributors/series to apply: a non-empty set REPLACES the book's entries
+ * for that role/relation with the selected ones; an empty set leaves them untouched, so
+ * the wizard never silently wipes a role the user didn't engage. Contributors/series
+ * whose Audible ASIN is absent are not selectable.
+ *
+ * Genres are intentionally absent — genre application is a separate follow-up.
+ */
+@Serializable
+@SerialName("MetadataApplySelection")
+data class MetadataApplySelection(
+    @SerialName("title") val title: Boolean,
+    @SerialName("subtitle") val subtitle: Boolean,
+    @SerialName("description") val description: Boolean,
+    @SerialName("publisher") val publisher: Boolean,
+    @SerialName("releaseDate") val releaseDate: Boolean,
+    @SerialName("language") val language: Boolean,
+    @SerialName("cover") val cover: Boolean,
+    @SerialName("authorAsins") val authorAsins: Set<String>,
+    @SerialName("narratorAsins") val narratorAsins: Set<String>,
+    @SerialName("seriesAsins") val seriesAsins: Set<String>,
+)
