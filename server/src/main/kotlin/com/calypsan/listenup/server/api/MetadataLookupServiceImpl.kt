@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.dto.CoverSearchResults
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
@@ -157,6 +158,7 @@ internal class MetadataLookupServiceImpl(
         bookId: BookId,
         asin: String,
         region: AudibleRegion,
+        selection: MetadataApplySelection,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return BookMetadataApplier(
@@ -165,8 +167,8 @@ internal class MetadataLookupServiceImpl(
             seriesRepository = seriesRepository,
             imageStorage = imageStorage,
             coverImageStore = coverImageStore,
-            metadataService = metadataService,
-        ).apply(bookId, asin, region)
+            metadataProvider = audible,
+        ).apply(bookId, asin, region, selection)
     }
 
     override suspend fun applyChapterNames(
