@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
@@ -41,6 +40,7 @@ import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -189,7 +189,7 @@ internal fun ContributorCard(
         ) {
             // Avatar with image or initials
             Surface(
-                shape = CircleShape,
+                shape = cookieScallopShape(),
                 color = Color.hsl((contributor.id.value.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f),
                 modifier = Modifier.size(48.dp),
             ) {
