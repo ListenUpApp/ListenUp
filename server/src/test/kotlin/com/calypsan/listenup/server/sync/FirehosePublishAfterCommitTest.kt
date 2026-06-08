@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.plugins.sse.sse
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
@@ -40,16 +41,22 @@ class FirehosePublishAfterCommitTest :
             }
         }
 
-        test("same-entity writes are published in ascending revision order") {
+        test("concurrent writes are published to the firehose in ascending revision order") {
             withTestApplication {
                 client.sse("/api/v1/sync/events") {
                     coroutineScope {
-                        // Collect exactly 5 `tags` events, then assert ascending ids (== commit order).
-                        val firstFive = async { incoming.filter { it.event == "tags" }.take(5).toList() }
-                        repeat(5) { i -> tagRepo.upsert(Tag("t", "label-$i", "label-$i", 0, 0)) }
-                        val revisions = firstFive.await().mapNotNull { it.id?.toLongOrNull() }
+                        // Collect the first 8 `tags` events in arrival order.
+                        val firstEight = async { incoming.filter { it.event == "tags" }.take(8).toList() }
+                        // Fire 8 writes CONCURRENTLY. Their published revisions can only come out
+                        // ascending because nextRevision() serializes on the sync_meta row lock and
+                        // the deferred emit fires synchronously at each commit — a serial driver would
+                        // hide a reordering regression, so the concurrency is the point.
+                        coroutineScope {
+                            repeat(8) { i -> launch { tagRepo.upsert(Tag("tag-$i", "n$i", "n$i", 0, 0)) } }
+                        }
+                        val revisions = firstEight.await().mapNotNull { it.id?.toLongOrNull() }
+                        revisions.size shouldBe 8
                         revisions shouldBe revisions.sorted()
-                        revisions.size shouldBe 5
                     }
                 }
             }
