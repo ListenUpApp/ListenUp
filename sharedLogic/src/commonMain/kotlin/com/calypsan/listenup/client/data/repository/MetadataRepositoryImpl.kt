@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
@@ -65,7 +66,8 @@ class MetadataRepositoryImpl(
         bookId: BookId,
         asin: String,
         region: AudibleRegion,
-    ): AppResult<Unit> = wrap { rpcFactory.metadataLookupService().applyBookMetadata(bookId, asin, region) }
+        selection: MetadataApplySelection,
+    ): AppResult<Unit> = wrap { rpcFactory.metadataLookupService().applyBookMetadata(bookId, asin, region, selection) }
 
     override suspend fun applyChapterNames(
         bookId: BookId,

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
@@ -121,9 +122,14 @@ class MetadataRepositoryImplTest :
 
         test("applyBookMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            everySuspend { service.applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US) } returns WireAppResult.Success(Unit)
+            val sel = MetadataApplySelection(
+                title = true, subtitle = true, description = true, publisher = true,
+                releaseDate = true, language = true, cover = false,
+                authorAsins = emptySet(), narratorAsins = emptySet(), seriesAsins = emptySet(),
+            )
+            everySuspend { service.applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US, sel) } returns WireAppResult.Success(Unit)
 
-            buildRepo(service).applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US) shouldBe AppResult.Success(Unit)
+            buildRepo(service).applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US, sel) shouldBe AppResult.Success(Unit)
         }
 
         test("applyContributorMetadata delegates to service and returns Success") {

@@ -328,7 +328,7 @@ class MetadataViewModelTest :
                 val book = makeBook()
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
-                everySuspend { repo.applyBookMetadata(any(), any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
@@ -357,7 +357,7 @@ class MetadataViewModelTest :
                 val repo = mock<MetadataRepository>()
                 val error = TransportError.NetworkUnavailable()
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
-                everySuspend { repo.applyBookMetadata(any(), any(), any()) } returns AppResult.Failure(error)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Failure(error)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")

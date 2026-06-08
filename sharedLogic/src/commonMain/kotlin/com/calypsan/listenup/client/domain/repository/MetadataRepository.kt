@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
@@ -54,7 +55,8 @@ interface MetadataRepository {
     ): AppResult<MetadataBook?>
 
     /**
-     * Applies the canonical Audible metadata for [asin] to the book at [bookId].
+     * Applies the Audible metadata for [asin] to the book at [bookId], honoring
+     * the per-field [selection].
      *
      * The server enriches the persisted book entity and emits an SSE event so
      * connected clients' Room databases receive the update.
@@ -63,6 +65,7 @@ interface MetadataRepository {
         bookId: BookId,
         asin: String,
         region: AudibleRegion,
+        selection: MetadataApplySelection,
     ): AppResult<Unit>
 
     /**

@@ -32,6 +32,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 
@@ -85,20 +89,22 @@ private fun allSelected() =
 
 class MatchApplySelectionTest :
     FunSpec({
-        fun seedBook(id: String) =
-            BookSyncPayload(
-                id = id, libraryId = LibraryId("test-library"), folderId = FolderId("test-folder"),
-                title = "Old Title", sortTitle = null, subtitle = "Old Subtitle", description = "Old description.",
-                publishYear = 1999, publisher = "Old Publisher", language = "old", isbn = null, asin = null,
-                abridged = false, explicit = false, hasScanWarning = false, totalDuration = 0L, cover = null,
-                rootRelPath = "test/$id", inode = null, scannedAt = 0L,
-                contributors =
-                    listOf(
-                        BookContributorPayload("old-auth", "Old Author", null, ContributorRole.AUTHOR.apiValue, null),
-                    ),
-                series = emptyList(), audioFiles = emptyList(), chapters = emptyList(),
-                revision = 0L, updatedAt = 0L, createdAt = 0L, deletedAt = null,
-            )
+        fun seedBook(
+            id: String,
+            authorId: String,
+        ) = BookSyncPayload(
+            id = id, libraryId = LibraryId("test-library"), folderId = FolderId("test-folder"),
+            title = "Old Title", sortTitle = null, subtitle = "Old Subtitle", description = "Old description.",
+            publishYear = 1999, publisher = "Old Publisher", language = "old", isbn = null, asin = null,
+            abridged = false, explicit = false, hasScanWarning = false, totalDuration = 0L, cover = null,
+            rootRelPath = "test/$id", inode = null, scannedAt = 0L,
+            contributors =
+                listOf(
+                    BookContributorPayload(authorId, "Old Author", null, ContributorRole.AUTHOR.apiValue, null),
+                ),
+            series = emptyList(), audioFiles = emptyList(), chapters = emptyList(),
+            revision = 0L, updatedAt = 0L, createdAt = 0L, deletedAt = null,
+        )
 
         fun applier(
             db: org.jetbrains.exposed.v1.jdbc.Database,
@@ -112,7 +118,7 @@ class MatchApplySelectionTest :
                 bookRepository = books,
                 contributorRepository = contributors,
                 seriesRepository = series,
-                imageStorage = ImageStorage(httpClient = io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { io.ktor.client.engine.mock.respondError(io.ktor.http.HttpStatusCode.NotFound) })),
+                imageStorage = ImageStorage(httpClient = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) })),
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
                 metadataProvider = provider,
             )
@@ -127,7 +133,8 @@ class MatchApplySelectionTest :
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
-                    books.upsert(seedBook("b1"), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, allSelected())
@@ -156,7 +163,8 @@ class MatchApplySelectionTest :
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
-                    books.upsert(seedBook("b1"), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
                     val sel = allSelected().copy(title = false, description = false, releaseDate = false)
 
@@ -180,7 +188,8 @@ class MatchApplySelectionTest :
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
                 runTest {
-                    books.upsert(seedBook("b1"), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a = applier(db, books, contributors, series, fakeProvider(matchBook()))
                     val sel = allSelected().copy(authorAsins = emptySet())
 
