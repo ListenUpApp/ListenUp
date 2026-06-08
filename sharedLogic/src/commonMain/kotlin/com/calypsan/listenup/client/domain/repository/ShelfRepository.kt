@@ -34,6 +34,14 @@ interface ShelfRepository {
     fun observeMyShelves(userId: String): Flow<List<Shelf>>
 
     /**
+     * Observe the caller's own shelves that currently contain [bookId], alphabetical.
+     *
+     * Reactive and offline — reads the local Room mirror, re-emitting when membership changes.
+     * Empty when the book is on none of the caller's shelves.
+     */
+    fun observeShelvesContainingBook(bookId: String): Flow<List<Shelf>>
+
+    /**
      * Observe a single shelf by ID.
      *
      * @param id The shelf ID

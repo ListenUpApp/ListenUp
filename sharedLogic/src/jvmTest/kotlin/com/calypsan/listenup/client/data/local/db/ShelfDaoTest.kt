@@ -138,6 +138,74 @@ class ShelfDaoTest :
                 shelfBookDao.findById("s1:b1") shouldNotBe null
             }
         }
+
+        // ── ShelfDao: observeShelvesContainingBookWithBookCount ────────────────
+
+        test("observeShelvesContainingBook returns only shelves holding the book, alphabetical (NOCASE)") {
+            runTest {
+                shelfDao.upsert(shelf("s1", "Beta"))
+                shelfDao.upsert(shelf("s2", "alpha"))
+                shelfDao.upsert(shelf("s3", "Gamma"))
+                shelfBookDao.upsert(member("s1", "b1", sortOrder = 0))
+                shelfBookDao.upsert(member("s2", "b1", sortOrder = 0))
+                shelfBookDao.upsert(member("s3", "b2", sortOrder = 0)) // different book
+                shelfDao.observeShelvesContainingBookWithBookCount("b1").test {
+                    awaitItem().map { it.shelf.id } shouldContainExactly listOf("s2", "s1") // alpha < Beta, case-insensitive
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeShelvesContainingBook is empty when the book is on no shelf") {
+            runTest {
+                shelfDao.upsert(shelf("s1", "Alpha"))
+                shelfBookDao.upsert(member("s1", "b1", sortOrder = 0))
+                shelfDao.observeShelvesContainingBookWithBookCount("nope").test {
+                    awaitItem().shouldBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeShelvesContainingBook excludes tombstoned membership and tombstoned shelves") {
+            runTest {
+                shelfDao.upsert(shelf("s1", "Alpha"))
+                shelfDao.upsert(shelf("s2", "Beta", deletedAt = 999L)) // tombstoned shelf
+                shelfBookDao.upsert(member("s1", "b1", sortOrder = 0, deletedAt = 10L)) // tombstoned membership
+                shelfBookDao.upsert(member("s2", "b1", sortOrder = 0)) // live membership, dead shelf
+                shelfDao.observeShelvesContainingBookWithBookCount("b1").test {
+                    awaitItem().shouldBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeShelvesContainingBook reports the shelf's full live bookCount, not 1") {
+            runTest {
+                shelfDao.upsert(shelf("s1", "Alpha"))
+                shelfBookDao.upsert(member("s1", "b1", sortOrder = 0))
+                shelfBookDao.upsert(member("s1", "b2", sortOrder = 1))
+                shelfBookDao.upsert(member("s1", "b3", sortOrder = 2, deletedAt = 10L)) // tombstoned, not counted
+                shelfDao.observeShelvesContainingBookWithBookCount("b1").test {
+                    val row = awaitItem().single()
+                    row.shelf.id shouldBe "s1"
+                    row.bookCount shouldBe 2
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeShelvesContainingBook reacts to a new membership row") {
+            runTest {
+                shelfDao.upsert(shelf("s1", "Alpha"))
+                shelfDao.observeShelvesContainingBookWithBookCount("b1").test {
+                    awaitItem().shouldBeEmpty()
+                    shelfBookDao.upsert(member("s1", "b1", sortOrder = 0))
+                    awaitItem().map { it.shelf.id } shouldContainExactly listOf("s1")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

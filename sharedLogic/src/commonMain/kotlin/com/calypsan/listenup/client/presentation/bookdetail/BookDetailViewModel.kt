@@ -124,6 +124,17 @@ class BookDetailViewModel(
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
+     * The caller's own shelves that currently contain the loaded book, alphabetical.
+     * Lets the shelf picker mark already-added shelves and the detail show shelf badges.
+     * Reactive + offline; switches automatically when the displayed book changes.
+     */
+    val shelvesContainingBook: StateFlow<List<Shelf>> =
+        bookIdFlow
+            .filterNotNull()
+            .flatMapLatest { id -> shelfRepository.observeShelvesContainingBook(id) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
      * Apply [transform] to state only if it is currently [BookDetailUiState.Ready].
      * No-ops when state is [BookDetailUiState.Loading] or [BookDetailUiState.Error].
      */
