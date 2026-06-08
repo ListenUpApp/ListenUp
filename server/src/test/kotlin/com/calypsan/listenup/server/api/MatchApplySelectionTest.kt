@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
@@ -78,7 +79,7 @@ private fun matchBook() =
         coverUrlMaxSize = null,
     )
 
-private fun allSelected() =
+private fun allButCover() =
     MetadataApplySelection(
         title = true,
         subtitle = true,
@@ -163,7 +164,7 @@ class MatchApplySelectionTest :
                     val a = applier(books, contributors, series, fakeProvider(matchBook()))
 
                     a
-                        .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allSelected())
+                        .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover())
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     val saved = books.findById(BookId("b1"))!!
@@ -176,6 +177,7 @@ class MatchApplySelectionTest :
                     saved.asin shouldBe "B0NEW"
                     saved.contributors.map { it.name }.toSet() shouldBe setOf("New Author", "New Narrator")
                     saved.series.single().name shouldBe "New Series"
+                    saved.cover.shouldBeNull() // cover deselected → no cover write
                 }
             }
         }
@@ -193,7 +195,7 @@ class MatchApplySelectionTest :
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a = applier(books, contributors, series, fakeProvider(matchBook()))
-                    val sel = allSelected().copy(title = false, description = false, releaseDate = false)
+                    val sel = allButCover().copy(title = false, description = false, releaseDate = false)
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
@@ -219,7 +221,7 @@ class MatchApplySelectionTest :
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a = applier(books, contributors, series, fakeProvider(matchBook()))
-                    val sel = allSelected().copy(authorAsins = emptySet())
+                    val sel = allButCover().copy(authorAsins = emptySet())
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
@@ -243,7 +245,7 @@ class MatchApplySelectionTest :
                 runTest {
                     val a = applier(books, contributors, series, fakeProvider(matchBook()))
                     a
-                        .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allSelected())
+                        .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allButCover())
                         .shouldBeInstanceOf<AppResult.Failure>()
                 }
             }
