@@ -135,10 +135,6 @@ internal class Scanner(
             books.size,
             errors.size,
             totalFiles = allFiles.size,
-            authorsMatched = authorsSeen.size,
-            totalDurationMs = durationMsSum,
-            currentFile = currentFile,
-            recentBooks = recent.toList(),
         )
         val previous = lastResult?.books.orEmpty()
         val changes = Differ().diff(books.asFlow(), previous).toList()
