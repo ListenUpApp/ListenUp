@@ -12,8 +12,12 @@ import kotlinx.coroutines.flow.Flow
  * Room DAO for [BookEntity] operations.
  *
  * Provides both reactive (Flow-based) and one-shot queries for books.
- * All queries that return live data respect soft deletes — rows with a non-null
- * [BookEntity.deletedAt] are treated as tombstones and filtered out.
+ * List/browse queries (library, series, contributor, and Discover surfaces) respect
+ * soft deletes — rows with a non-null [BookEntity.deletedAt] are filtered out, so a
+ * tombstoned book never appears in a browse list. Point lookups by id (`getById`,
+ * `getByIdWithContributors`, `observeByIdWithContributors`, the `*ByIds*` batch reads)
+ * deliberately return the row regardless of tombstone state; the detail layer decides
+ * how to react to a deleted book. [digestRows] also includes tombstones by design.
  * Use [softDelete] to apply a server tombstone; [deleteById] is a hard removal
  * for local-only cleanup scenarios.
  */
