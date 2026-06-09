@@ -255,7 +255,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_series bs ON b.id = bs.bookId
-        WHERE bs.seriesId = :seriesId
+        WHERE bs.seriesId = :seriesId AND b.deletedAt IS NULL
         ORDER BY bs.sequence ASC, b.title ASC
     """,
     )
@@ -275,7 +275,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_series bs ON b.id = bs.bookId
-        WHERE bs.seriesId = :seriesId
+        WHERE bs.seriesId = :seriesId AND b.deletedAt IS NULL
         ORDER BY bs.sequence ASC, b.title ASC
     """,
     )
@@ -296,7 +296,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_contributors bc ON b.id = bc.bookId
-        WHERE bc.contributorId = :contributorId AND bc.role = :role
+        WHERE bc.contributorId = :contributorId AND bc.role = :role AND b.deletedAt IS NULL
         ORDER BY b.title ASC
     """,
     )
