@@ -501,7 +501,6 @@
   },
   "admin": {
     "1_day": "1 day",
-    "access_mode": "Access Mode",
     "add_folder": "Add Folder",
     "add_genre": "Add Genre",
     "add_member": "Add Member",
@@ -591,9 +590,7 @@
     "they_will_no_longer_have": "They will no longer have access to the books in this collection.",
     "they_wont_be_able_to": "They won't be able to use this link anymore.",
     "this_users_permissions_cannot_be": "This user's permissions cannot be modified",
-    "uncollected_books_are_visible_to": "Uncollected books are visible to all users. Collections restrict access.",
     "unmapped_genres": "Unmapped Genres",
-    "users_only_see_books_in": "Users only see books in collections they have access to. Collections grant access.",
     "view_the_genre_hierarchy_tree": "View the genre hierarchy tree",
     "what_to_include": "What to include"
   },

@@ -4,7 +4,7 @@ package com.calypsan.listenup.client.domain.model
  * Domain model representing a library.
  *
  * A library is a named, operator-configured collection of zero-or-more
- * [LibraryFolder] roots. Libraries are server-wide (cross-user) in the
+ * [LibraryFolderRef] roots. Libraries are server-wide (cross-user) in the
  * current single-user model.
  *
  * `metadataPrecedence` governs which metadata source wins when multiple

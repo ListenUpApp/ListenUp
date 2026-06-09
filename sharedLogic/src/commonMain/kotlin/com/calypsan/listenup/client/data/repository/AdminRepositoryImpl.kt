@@ -224,9 +224,11 @@ class AdminRepositoryImpl(
     // on open until interacted with. The RPC Library maps to the same domain shape (no folders on
     // the domain model), so this is field-equivalent plus the inbox flag.
     override suspend fun getLibrary(libraryId: String): AppResult<Library> =
-        libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
-            library?.let { AppResult.Success(it.toDomain()) }
-                ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
+        catching("getLibrary") {
+            libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
+                library?.let { AppResult.Success(it.toDomain()) }
+                    ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
+            }
         }
 
     override suspend fun setInboxEnabled(
@@ -310,4 +312,3 @@ private fun ContractLibrary.toDomain(): Library =
         revision = 0L,
         inboxEnabled = inboxEnabled,
     )
-
