@@ -123,15 +123,14 @@ class AdminRepositoryImplInviteTest :
         fun buildRepo(
             service: FakeInviteService,
             serverUrl: String = "https://srv.example",
-        ): AdminRepositoryImpl {
-            return AdminRepositoryImpl(
+        ): AdminRepositoryImpl =
+            AdminRepositoryImpl(
                 adminUserRpc = mock<AdminUserRpcFactory>(),
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = FakeInviteRpcFactory(service),
                 libraryAdminRpc = mock(),
                 serverConfig = FakeServerConfig(serverUrl),
             )
-        }
 
         test("getInvites maps InviteSummary list to InviteInfo with reconstructed url") {
             val service = FakeInviteService()

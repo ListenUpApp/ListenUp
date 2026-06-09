@@ -123,15 +123,14 @@ private class FakeAdminUserRpcFactory(
 class AdminRepositoryImplUserTest :
     FunSpec({
 
-        fun buildRepo(service: FakeAdminUserService): AdminRepositoryImpl {
-            return AdminRepositoryImpl(
+        fun buildRepo(service: FakeAdminUserService): AdminRepositoryImpl =
+            AdminRepositoryImpl(
                 adminUserRpc = FakeAdminUserRpcFactory(service),
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                 libraryAdminRpc = mock(),
                 serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
             )
-        }
 
         test("getUsers maps contract Users to AdminUserInfo, ROOT user has isRoot=true") {
             val service = FakeAdminUserService()
