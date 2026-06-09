@@ -48,13 +48,14 @@ interface BookDao {
     suspend fun getById(id: BookId): BookEntity?
 
     /**
-     * Get all books synchronously.
-     * Used by FtsPopulator to populate FTS tables during sync.
+     * Get all live (non-tombstoned) books synchronously.
+     * Used by FtsPopulator to populate FTS tables during sync — the search
+     * index must not surface server-deleted books.
      *
-     * @return List of all books
+     * @return List of all live books
      */
-    @Query("SELECT * FROM books")
-    suspend fun getAll(): List<BookEntity>
+    @Query("SELECT * FROM books WHERE deletedAt IS NULL")
+    suspend fun getAllLive(): List<BookEntity>
 
     /**
      * Count total number of books in the database.

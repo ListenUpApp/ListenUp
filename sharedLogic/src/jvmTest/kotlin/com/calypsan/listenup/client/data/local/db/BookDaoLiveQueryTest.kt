@@ -56,6 +56,37 @@ class BookDaoLiveQueryTest :
                 db.close()
             }
         }
+
+        test("getAllLive excludes soft-deleted books") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+                    bookDao.softDelete(BookId("b2"), deletedAt = 999L, revision = 1L)
+
+                    bookDao.getAllLive().map { it.id.value }.toSet() shouldBe setOf("b1")
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("getAllLive still returns live books") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+
+                    bookDao.getAllLive().map { it.id.value }.toSet() shouldBe setOf("b1", "b2")
+                }
+            } finally {
+                db.close()
+            }
+        }
     })
 
 private suspend fun seedBook(
