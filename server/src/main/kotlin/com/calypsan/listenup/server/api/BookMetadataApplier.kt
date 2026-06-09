@@ -91,7 +91,10 @@ internal class BookMetadataApplier(
             if (selection.cover) {
                 applyChosenCover(
                     bookId = bookId,
-                    coverUrl = selection.coverUrl?.takeIf { it.isNotBlank() } ?: match.coverUrlMaxSize ?: match.coverUrl,
+                    coverUrl =
+                        selection.coverUrl?.takeIf {
+                            it.isNotBlank()
+                        } ?: match.coverUrlMaxSize ?: match.coverUrl,
                     asin = asin,
                 )
             }

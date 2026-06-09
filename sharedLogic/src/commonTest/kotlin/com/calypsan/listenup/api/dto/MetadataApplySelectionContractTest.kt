@@ -11,9 +11,16 @@ class MetadataApplySelectionContractTest :
         test("MetadataApplySelection round-trips with a chosen coverUrl") {
             val selection =
                 MetadataApplySelection(
-                    title = true, subtitle = false, description = true, publisher = false,
-                    releaseDate = true, language = false, cover = true,
-                    authorAsins = setOf("B01AUTHOR"), narratorAsins = emptySet(), seriesAsins = emptySet(),
+                    title = true,
+                    subtitle = false,
+                    description = true,
+                    publisher = false,
+                    releaseDate = true,
+                    language = false,
+                    cover = true,
+                    authorAsins = setOf("B01AUTHOR"),
+                    narratorAsins = emptySet(),
+                    seriesAsins = emptySet(),
                     coverUrl = "https://itunes/7000x7000.jpg",
                 )
             json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection

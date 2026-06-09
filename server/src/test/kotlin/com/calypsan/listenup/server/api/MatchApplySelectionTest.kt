@@ -275,7 +275,8 @@ class MatchApplySelectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                val bus = ChangeBus(); val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
@@ -300,7 +301,8 @@ class MatchApplySelectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                val bus = ChangeBus(); val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series)
@@ -313,7 +315,10 @@ class MatchApplySelectionTest :
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
                     val saved = books.findById(BookId("b1"))!!
-                    saved.contributors.filter { it.role.equals("author", ignoreCase = true) }.single().name shouldBe "Old Author"
+                    saved.contributors
+                        .filter { it.role.equals("author", ignoreCase = true) }
+                        .single()
+                        .name shouldBe "Old Author"
                 }
             }
         }
