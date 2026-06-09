@@ -8,8 +8,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
 import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
-import com.calypsan.listenup.client.data.remote.AdminApi
-import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
@@ -590,11 +588,6 @@ val syncModule =
                 .SessionApi(clientFactory = get())
         } bind com.calypsan.listenup.client.data.remote.SessionApiContract::class
 
-        // AdminApi for admin operations (user/invite management)
-        single {
-            AdminApi(clientFactory = get())
-        } bind AdminApiContract::class
-
         // BackupApi for admin backup/restore operations
         single {
             BackupApi(clientFactory = get())
@@ -1073,7 +1066,6 @@ val syncModule =
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
         single<AdminRepository> {
             AdminRepositoryImpl(
-                adminApi = get(),
                 adminUserRpc = get(),
                 adminSettingsRpc = get(),
                 inviteRpc = get(),

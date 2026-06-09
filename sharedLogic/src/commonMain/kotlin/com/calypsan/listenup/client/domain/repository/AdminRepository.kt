@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
@@ -178,22 +177,6 @@ interface AdminRepository {
     suspend fun getLibrary(libraryId: String): AppResult<Library>
 
     /**
-     * Update library settings.
-     *
-     * @param libraryId The library ID to update
-     * @param name New library name (null to keep unchanged)
-     * @param skipInbox New inbox skip setting (null to keep unchanged)
-     * @param accessMode New access mode (null to keep unchanged)
-     * @return [AppResult] carrying the updated library, or a failure.
-     */
-    suspend fun updateLibrary(
-        libraryId: String,
-        name: String? = null,
-        skipInbox: Boolean? = null,
-        accessMode: AccessMode? = null,
-    ): AppResult<Library>
-
-    /**
      * Enable or disable inbox quarantine for a library.
      *
      * When enabled, newly-scanned books in this library are quarantined in its
@@ -221,15 +204,15 @@ interface AdminRepository {
     ): AppResult<Library>
 
     /**
-     * Remove a scan path from a library.
+     * Remove a folder from a library by its folder id, cascade-deleting its books.
      *
-     * @param libraryId The library ID
-     * @param path The scan path to remove
+     * @param libraryId The library the folder belongs to (used to re-fetch the updated aggregate).
+     * @param folderId The folder id to remove.
      * @return [AppResult] carrying the updated library, or a failure.
      */
-    suspend fun removeScanPath(
+    suspend fun removeFolder(
         libraryId: String,
-        path: String,
+        folderId: String,
     ): AppResult<Library>
 
     /**

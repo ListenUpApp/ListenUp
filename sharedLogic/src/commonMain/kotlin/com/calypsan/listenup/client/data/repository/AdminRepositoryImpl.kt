@@ -14,19 +14,19 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
 import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
+import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
-import com.calypsan.listenup.client.data.remote.LibraryResponse
-import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -36,16 +36,13 @@ import kotlinx.coroutines.CancellationException
 private val logger = KotlinLogging.logger {}
 
 /**
- * Implementation of AdminRepository using AdminApiContract for non-user operations,
- * [AdminUserRpcFactory] for user management, and [InviteRpcFactory] for invite management
- * (both routed through the Kotlin RPC server).
+ * Implementation of AdminRepository backed entirely by Kotlin RPC services.
  *
  * All methods return [AppResult] — no exceptions are thrown. The [catching] helper wraps
  * every RPC call so that transport-level exceptions (e.g. [io.ktor.client.plugins.websocket.WebSocketException]
  * on a 401 WS handshake) are converted to [AppResult.Failure] rather than propagating as
  * unhandled exceptions. This mirrors [AuthRepositoryImpl.catching] and upholds the contract.
  *
- * @property adminApi API client for inbox/library operations
  * @property adminUserRpc RPC factory for user-management operations
  * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
@@ -53,7 +50,6 @@ private val logger = KotlinLogging.logger {}
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
-    private val adminApi: AdminApiContract,
     private val adminUserRpc: AdminUserRpcFactory,
     private val adminSettingsRpc: AdminSettingsRpcFactory,
     private val inviteRpc: InviteRpcFactory,
@@ -219,32 +215,21 @@ class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getLibraries(): AppResult<List<Library>> =
-        adminApi.getLibraries().map { libraries -> libraries.map { it.toDomain() } }
+        catching("getLibraries") {
+            libraryAdminRpc.get().listLibraries().map { libraries -> libraries.map { it.toDomain() } }
+        }
 
     // Load via the LibraryAdminService RPC (not the Go-era REST path) so the returned Library
     // carries the live inboxEnabled flag — the settings toggle would otherwise display stale-false
     // on open until interacted with. The RPC Library maps to the same domain shape (no folders on
     // the domain model), so this is field-equivalent plus the inbox flag.
     override suspend fun getLibrary(libraryId: String): AppResult<Library> =
-        libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
-            library?.let { AppResult.Success(it.toDomain()) }
-                ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
+        catching("getLibrary") {
+            libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
+                library?.let { AppResult.Success(it.toDomain()) }
+                    ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
+            }
         }
-
-    override suspend fun updateLibrary(
-        libraryId: String,
-        name: String?,
-        skipInbox: Boolean?,
-        accessMode: AccessMode?,
-    ): AppResult<Library> {
-        val request =
-            UpdateLibraryRequest(
-                name = name,
-                skipInbox = skipInbox,
-                accessMode = accessMode?.toApiString(),
-            )
-        return adminApi.updateLibrary(libraryId, request).map { it.toDomain() }
-    }
 
     override suspend fun setInboxEnabled(
         libraryId: String,
@@ -257,17 +242,47 @@ class AdminRepositoryImpl(
     override suspend fun addScanPath(
         libraryId: String,
         path: String,
-    ): AppResult<Library> = adminApi.addScanPath(libraryId, path).map { it.toDomain() }
+    ): AppResult<Library> =
+        catching("addScanPath") {
+            libraryAdminRpc.get().addFolder(LibraryId(libraryId), path).flatMap {
+                getLibrary(libraryId)
+            }
+        }
 
-    override suspend fun removeScanPath(
+    override suspend fun removeFolder(
         libraryId: String,
-        path: String,
-    ): AppResult<Library> = adminApi.removeScanPath(libraryId, path).map { it.toDomain() }
+        folderId: String,
+    ): AppResult<Library> =
+        catching("removeFolder") {
+            libraryAdminRpc.get().removeFolder(FolderId(folderId)).flatMap {
+                getLibrary(libraryId)
+            }
+        }
 
-    override suspend fun triggerScan(libraryId: String): AppResult<Unit> = adminApi.triggerScan(libraryId)
+    override suspend fun triggerScan(libraryId: String): AppResult<Unit> =
+        catching("triggerScan") {
+            libraryAdminRpc.get().scanLibrary(LibraryId(libraryId))
+        }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
-        adminApi.browseFilesystem(path)
+        catching("browseFilesystem") {
+            libraryAdminRpc.get().browseFilesystem(path).map { entries ->
+                val isRoot = path == "/"
+                val parent =
+                    if (isRoot) {
+                        null
+                    } else {
+                        val lastSlash = path.lastIndexOf('/')
+                        if (lastSlash <= 0) "/" else path.substring(0, lastSlash)
+                    }
+                BrowseFilesystemResponse(
+                    path = path,
+                    parent = parent,
+                    entries = entries.map { DirectoryEntryResponse(name = it.name, path = it.path) },
+                    isRoot = isRoot,
+                )
+            }
+        }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -279,13 +294,13 @@ class AdminRepositoryImpl(
  * to the [Library] domain model.
  *
  * The contract DTO carries no `revision` (that lives on the member-synced
- * projection, not the admin aggregate), so it defaults to 0L — matching the
- * Go-REST [LibraryResponse.toDomain] mapping until the full admin RPC rewire lands.
+ * projection, not the admin aggregate), so it defaults to 0L.
  */
 private fun ContractLibrary.toDomain(): Library =
     Library(
         id = id.value,
         name = name,
+        folders = folders.map { LibraryFolderRef(id = it.id.value, rootPath = it.rootPath) },
         metadataPrecedence = metadataPrecedence,
         accessMode =
             when (accessMode) {
@@ -296,22 +311,4 @@ private fun ContractLibrary.toDomain(): Library =
         createdAt = createdAt,
         revision = 0L,
         inboxEnabled = inboxEnabled,
-    )
-
-/**
- * Convert LibraryResponse API model to Library domain model.
- *
- * Legacy Go REST response: `metadataPrecedence`, `createdByUserId`, and `revision`
- * are not present on the wire. Defaults apply until the Kotlin server RPC
- * path replaces this code in the LibraryAdminService rewire (Task 25+).
- */
-private fun LibraryResponse.toDomain(): Library =
-    Library(
-        id = id,
-        name = name,
-        metadataPrecedence = "embedded,abs",
-        accessMode = AccessMode.fromString(accessMode),
-        createdByUserId = null,
-        createdAt = 0L,
-        revision = 0L,
     )

@@ -123,17 +123,14 @@ private class FakeAdminUserRpcFactory(
 class AdminRepositoryImplUserTest :
     FunSpec({
 
-        fun buildRepo(service: FakeAdminUserService): AdminRepositoryImpl {
-            val unusedApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>()
-            return AdminRepositoryImpl(
-                adminApi = unusedApi,
+        fun buildRepo(service: FakeAdminUserService): AdminRepositoryImpl =
+            AdminRepositoryImpl(
                 adminUserRpc = FakeAdminUserRpcFactory(service),
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                 libraryAdminRpc = mock(),
                 serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
             )
-        }
 
         test("getUsers maps contract Users to AdminUserInfo, ROOT user has isRoot=true") {
             val service = FakeAdminUserService()
@@ -263,7 +260,6 @@ class AdminRepositoryImplUserTest :
                 }
             val repo =
                 AdminRepositoryImpl(
-                    adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
                     adminUserRpc = throwingFactory,
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
@@ -299,7 +295,6 @@ class AdminRepositoryImplUserTest :
                 }
             val repo =
                 AdminRepositoryImpl(
-                    adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
                     adminUserRpc = throwingFactory,
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),

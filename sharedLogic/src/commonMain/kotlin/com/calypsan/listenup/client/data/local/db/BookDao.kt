@@ -407,6 +407,36 @@ interface BookDao {
     )
     fun observeRandomUnstartedBooksWithAuthor(limit: Int = 10): Flow<List<DiscoveryBookWithAuthor>>
 
+    /**
+     * Observe **all** unstarted books joined to their series sequences — one row per
+     * (book, series-edge), with a `null` [DiscoveryBookWithSeries.sequence] for standalone
+     * books (no `book_series` edge).
+     *
+     * Neutral query: no `LIMIT`, no series filter. Series-aware filtering and limiting are
+     * applied in the repository (per the rule "query-shaping lives in the repository"), which
+     * must filter the full candidate set *before* limiting.
+     *
+     * @return Flow emitting every unstarted (book × sequence) row.
+     */
+    @Query(
+        """
+        SELECT
+            b.id, b.title, b.coverBlurHash, b.createdAt,
+            (
+                SELECT c.name FROM book_contributors bc
+                INNER JOIN contributors c ON bc.contributorId = c.id
+                WHERE bc.bookId = b.id AND bc.role = 'author'
+                LIMIT 1
+            ) as authorName,
+            bs.sequence as sequence
+        FROM books b
+        LEFT JOIN playback_positions p ON b.id = p.bookId
+        LEFT JOIN book_series bs ON bs.bookId = b.id
+        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+    """,
+    )
+    fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>>
+
     /** All rows (including tombstones) with [revision][BookEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM books WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
@@ -467,4 +497,20 @@ data class DiscoveryBookWithAuthor(
     val coverBlurHash: String?,
     val createdAt: Timestamp,
     val authorName: String?,
+)
+
+/**
+ * Discovery candidate row carrying one book × one series-sequence edge.
+ *
+ * Standalone books (no series edge) produce a single row with [sequence] = `null`.
+ * A book in N series produces N rows. The repository groups by [id] and applies the
+ * series-starter filter before limiting.
+ */
+data class DiscoveryBookWithSeries(
+    val id: BookId,
+    val title: String,
+    val coverBlurHash: String?,
+    val createdAt: Timestamp,
+    val authorName: String?,
+    val sequence: String?,
 )

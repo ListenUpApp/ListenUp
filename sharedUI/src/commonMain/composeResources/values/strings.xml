@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="admin_1_day">1 day</string>
-    <string name="admin_access_mode">Access Mode</string>
     <string name="admin_add_folder">Add Folder</string>
     <string name="admin_add_genre">Add Genre</string>
     <string name="admin_add_member">Add Member</string>
@@ -91,11 +90,10 @@
     <string name="admin_they_will_no_longer_have">They will no longer have access to the books in this collection.</string>
     <string name="admin_they_wont_be_able_to">They won\'t be able to use this link anymore.</string>
     <string name="admin_this_users_permissions_cannot_be">This user\'s permissions cannot be modified</string>
-    <string name="admin_uncollected_books_are_visible_to">Uncollected books are visible to all users. Collections restrict access.</string>
     <string name="admin_unmapped_genres">Unmapped Genres</string>
-    <string name="admin_users_only_see_books_in">Users only see books in collections they have access to. Collections grant access.</string>
     <string name="admin_view_the_genre_hierarchy_tree">View the genre hierarchy tree</string>
     <string name="admin_what_to_include">What to include</string>
+    <string name="auth_admin_account_subtitle">You\'re creating the first account on this server.</string>
     <string name="auth_already_have_account">Already have an account?</string>
     <string name="auth_approved">Approved!</string>
     <string name="auth_cancel_registration">Cancel Registration</string>
@@ -320,6 +318,7 @@
     <string name="connect_connect">Connect</string>
     <string name="connect_connect_to_server">Connect to Server</string>
     <string name="connect_connect_to_server_subtitle">Enter the address of your ListenUp server to get started.</string>
+    <string name="connect_continue">Continue</string>
     <string name="connect_enter_server_url">Enter your ListenUp server URL</string>
     <string name="connect_enter_server_url_directly">Enter server URL directly</string>
     <string name="connect_has_root_user">Has Root User</string>
@@ -338,6 +337,7 @@
     <string name="connect_server_url">Server URL</string>
     <string name="connect_server_url_hint">Your server address looks like https://yourname.listenup.app — find it in your server dashboard.</string>
     <string name="connect_server_url_placeholder">example.com or 192.168.1.100:8080</string>
+    <string name="connect_servers">Servers</string>
     <string name="contributor_aka">aka %1$s</string>
     <string name="contributor_also_known_as">Also Known As</string>
     <string name="contributor_apply_selectedcount_of_availablefieldcount">Apply %1$s of %2$s</string>
