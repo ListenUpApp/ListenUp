@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Solid, legible content surface for the regular-width (iPad / future Mac) auth layout.
-/// Deliberately NOT glass — glass is reserved for floating controls; the form sits on a
-/// crisp opaque card so text stays sharp (Apple HIG).
+/// Solid, legible content surface for the regular-width (iPad / future Mac) auth layout —
+/// a floating "grouped page" the form's white field cells sit on, mirroring the iPhone
+/// layout's page/cell relationship. Deliberately NOT glass — glass is reserved for floating
+/// controls; the form sits on a crisp opaque card so text stays sharp (Apple HIG).
 struct AuthCard<Content: View>: View {
     var maxWidth: CGFloat = AuthMetrics.cardMaxWidth
     @ViewBuilder var content: Content
@@ -13,7 +14,7 @@ struct AuthCard<Content: View>: View {
             .frame(maxWidth: maxWidth)
             .background(
                 RoundedRectangle(cornerRadius: AuthMetrics.cardCornerRadius, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(Color(.systemGroupedBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: AuthMetrics.cardCornerRadius, style: .continuous)

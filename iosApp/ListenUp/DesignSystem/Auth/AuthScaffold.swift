@@ -8,9 +8,11 @@ struct AuthNav {
 }
 
 /// The adaptive shell every full-screen auth screen (Sign In, Create Account, Select
-/// Server) composes. Compact: scrollable content with a floating glass CTA tray pinned
-/// to the bottom (scroll-edge fade) and an optional glass nav pill top-left. Regular:
-/// the same content + footer centered inside a solid `AuthCard` over a wide aurora.
+/// Server) composes. Compact (iPhone): scrollable content on the solid system grouped
+/// background with a floating glass CTA tray pinned to the bottom (scroll-edge fade) and
+/// an optional glass nav pill top-left — the aurora reads as mushy at phone size, so it
+/// is omitted here. Regular (iPad / future Mac): the same content + footer centered inside
+/// a solid `AuthCard` floating over a wide aurora.
 ///
 /// `content` is the form body; `footer` is the primary CTA plus any secondary links —
 /// it lives in the floating tray (compact) or at the bottom of the card (regular).
@@ -25,11 +27,15 @@ struct AuthScaffold<Content: View, Footer: View>: View {
     private var mode: AuthLayoutMode { AuthLayoutMode(horizontalSizeClass: hSize) }
 
     var body: some View {
-        AuroraBackdrop(deep: deep, wide: mode == .regular) {
-            switch mode {
-            case .compact: compactBody
-            case .regular: regularBody
-            }
+        switch mode {
+        case .compact:
+            // iPhone auth sits on the solid system grouped background; glass is still used
+            // for the floating controls (nav pill, rescan, CTA tray) over it.
+            compactBody
+                .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        case .regular:
+            // iPad / future Mac: the centered card floats over the branded aurora.
+            AuroraBackdrop(deep: deep, wide: true) { regularBody }
         }
     }
 
@@ -62,7 +68,7 @@ struct AuthScaffold<Content: View, Footer: View>: View {
             .padding(.bottom, 8)
             .background(
                 // Scroll-edge fade: content dissolves into the background beneath the tray.
-                LinearGradient(colors: [.clear, Color(.systemBackground).opacity(0.92)],
+                LinearGradient(colors: [.clear, Color(.systemGroupedBackground).opacity(0.92)],
                                startPoint: .top, endPoint: .bottom)
                     .padding(.top, -46)
                     .allowsHitTesting(false)

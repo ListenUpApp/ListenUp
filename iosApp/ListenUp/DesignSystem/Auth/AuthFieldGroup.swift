@@ -9,7 +9,7 @@ struct AuthFieldGroup<Content: View>: View {
         VStack(spacing: 0) { content }
             .background(
                 RoundedRectangle(cornerRadius: AuthMetrics.fieldGroupCornerRadius, style: .continuous)
-                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .fill(Color(.secondarySystemGroupedBackground))
             )
             .clipShape(RoundedRectangle(cornerRadius: AuthMetrics.fieldGroupCornerRadius, style: .continuous))
             .overlay(
