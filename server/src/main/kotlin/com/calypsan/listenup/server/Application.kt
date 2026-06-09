@@ -120,7 +120,6 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
 import io.ktor.server.auth.authenticate
-import io.ktor.server.cio.EngineMain
 import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -217,8 +216,6 @@ private fun Application.launchSeeders(
         }
     }
 }
-
-fun main(args: Array<String>) = EngineMain.main(args)
 
 /**
  * Installs the core Ktor plugins every route depends on (serialization, resources, SSE, RPC, ranges, HEAD),
