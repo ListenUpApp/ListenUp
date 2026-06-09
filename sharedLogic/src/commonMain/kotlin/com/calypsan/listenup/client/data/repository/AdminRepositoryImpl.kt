@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -219,7 +220,9 @@ class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getLibraries(): AppResult<List<Library>> =
-        adminApi.getLibraries().map { libraries -> libraries.map { it.toDomain() } }
+        catching("getLibraries") {
+            libraryAdminRpc.get().listLibraries().map { libraries -> libraries.map { it.toDomain() } }
+        }
 
     // Load via the LibraryAdminService RPC (not the Go-era REST path) so the returned Library
     // carries the live inboxEnabled flag — the settings toggle would otherwise display stale-false
@@ -286,6 +289,7 @@ private fun ContractLibrary.toDomain(): Library =
     Library(
         id = id.value,
         name = name,
+        folders = folders.map { LibraryFolderRef(id = it.id.value, rootPath = it.rootPath) },
         metadataPrecedence = metadataPrecedence,
         accessMode =
             when (accessMode) {
