@@ -17,6 +17,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.db.BookGenreTable
+import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
@@ -29,6 +31,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -42,6 +45,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 
@@ -297,6 +302,56 @@ class MatchApplySelectionTest :
             }
         }
 
+        test("applies selected genres to the book, resolved through the cascade") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series)
+                runTest {
+                    suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+
+                    val sel = allButCover().copy(genres = setOf("Fantasy"))
+                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.genres.map { it.name } shouldContainExactly listOf("Fantasy")
+                }
+            }
+        }
+
+        test("empty genres selection leaves the book's existing genres untouched") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series)
+                runTest {
+                    suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    // seed the existing genre link AFTER the book row exists (FK constraint)
+                    suspendTransaction(db) { BookGenreTable.insertIfAbsent("b1", "g-fant") }
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+
+                    a
+                        .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    books.findById(BookId("b1"))!!.genres.map { it.name } shouldContainExactly listOf("Fantasy")
+                }
+            }
+        }
+
         test("non-empty but unresolvable authorAsins leaves existing authors untouched") {
             withInMemoryDatabase {
                 val db = this
@@ -323,3 +378,32 @@ class MatchApplySelectionTest :
             }
         }
     })
+
+@Suppress("LongParameterList")
+private fun seedGenre(
+    id: String,
+    name: String,
+    slug: String,
+    path: String,
+    parentId: String? = null,
+    depth: Int = 0,
+    sortOrder: Int = 0,
+    deletedAt: Long? = null,
+) {
+    GenreTable.insert {
+        it[GenreTable.id] = id
+        it[GenreTable.name] = name
+        it[GenreTable.slug] = slug
+        it[GenreTable.path] = path
+        it[GenreTable.parentId] = parentId
+        it[GenreTable.depth] = depth
+        it[GenreTable.sortOrder] = sortOrder
+        it[GenreTable.color] = null
+        it[GenreTable.description] = null
+        it[GenreTable.revision] = 0L
+        it[GenreTable.createdAt] = 0L
+        it[GenreTable.updatedAt] = 0L
+        it[GenreTable.deletedAt] = deletedAt
+        it[GenreTable.clientOpId] = null
+    }
+}

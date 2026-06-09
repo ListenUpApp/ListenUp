@@ -39,11 +39,16 @@ private val log = KotlinLogging.logger {}
  *    touched. Names resolve through [ContributorRepository.resolveOrCreate].
  *  - **Series** are replaced when [MetadataApplySelection.seriesAsins] is non-empty, else
  *    left untouched. Resolved through [SeriesRepository.resolveOrCreate].
+ *  - **Genres** (when [MetadataApplySelection.genres] is non-empty) are replaced via the same
+ *    3-step cascade as the scanner (alias → [GenreNormalizer] → pending), written BEFORE the
+ *    text `upsert` so the upsert's `readPayload` re-reads the junction and the genres ride the
+ *    same SSE event + revision bump. An empty set leaves existing genres untouched.
  *  - **Cover** (when selected) downloads the wizard's chosen cover URL and stores it as
  *    [CoverSource.UPLOADED] — an explicit user choice that wins over any existing cover.
  *
  * Returns [MetadataError.NotFound] when the book is absent or the provider has no match.
- * All writes go through `upsert` / `setManagedCover`, so revisions bump and SSE fires.
+ * All writes go through `upsert` / `setManagedCover` / `setBookGenres`, so revisions bump
+ * and SSE fires.
  */
 internal class BookMetadataApplier(
     private val bookRepository: BookRepository,
@@ -71,6 +76,8 @@ internal class BookMetadataApplier(
                     MetadataError.NotFound(debugInfo = "No metadata for ASIN $asin in region $region."),
                 )
             }
+
+            applyGenresBestEffort(bookId, asin, selection)
 
             val updated =
                 existing.copy(
@@ -166,6 +173,26 @@ internal class BookMetadataApplier(
             val id = seriesRepository.resolveOrCreate(entry.title)
             BookSeriesPayload(id = id.value, name = entry.title, sequence = entry.sequence)
         }
+
+    /**
+     * Applies [selection]'s genres to [bookId] via [BookRepository.setBookGenres] when the selection
+     * is non-empty; no-ops otherwise. Best-effort: a failure is logged and skipped so text metadata
+     * already committed is not rolled back. [CancellationException] is always re-raised.
+     */
+    private suspend fun applyGenresBestEffort(
+        bookId: BookId,
+        asin: String,
+        selection: MetadataApplySelection,
+    ) {
+        if (selection.genres.isEmpty()) return
+        try {
+            bookRepository.setBookGenres(bookId, selection.genres.toList())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "Genre apply failed for ${bookId.value} (ASIN $asin) — skipping" }
+        }
+    }
 
     /**
      * Downloads [coverUrl] and stores it as the book's managed cover ([CoverSource.UPLOADED]) — a

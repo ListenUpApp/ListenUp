@@ -58,7 +58,7 @@ class MetadataViewModelTest :
                 authors = listOf(MetadataContributorRef(asin = authorAsin, name = "Author One")),
                 narrators = listOf(MetadataContributorRef(asin = "N1", name = "Narrator One")),
                 series = emptyList(),
-                genres = emptyList(),
+                genres = listOf("Fantasy", "Sci-Fi"),
                 coverUrl = "https://example.com/cover.jpg",
                 coverUrlMaxSize = "https://example.com/cover-max.jpg",
             )
@@ -386,6 +386,7 @@ class MetadataViewModelTest :
                             authorAsins = emptySet(),
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
+                            genres = setOf("Fantasy", "Sci-Fi"),
                         ),
                     )
                 }
@@ -425,6 +426,47 @@ class MetadataViewModelTest :
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
                             coverUrl = "https://itunes/hd.jpg",
+                            genres = setOf("Fantasy", "Sci-Fi"),
+                        ),
+                    )
+                }
+            }
+        }
+
+        test("applyMatch forwards selected genres; initializeSelections seeds them from the preview") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.toggleGenre("Sci-Fi") // turn one off
+                vm.applyMatch()
+                advanceUntilIdle()
+
+                verifySuspend {
+                    repo.applyBookMetadata(
+                        BookId("b1"),
+                        "B001",
+                        AudibleRegion.US,
+                        MetadataApplySelection(
+                            title = true,
+                            subtitle = true,
+                            description = true,
+                            publisher = true,
+                            releaseDate = true,
+                            language = true,
+                            cover = true,
+                            authorAsins = setOf("A1"),
+                            narratorAsins = setOf("N1"),
+                            seriesAsins = emptySet(),
+                            coverUrl = null,
+                            genres = setOf("Fantasy"),
                         ),
                     )
                 }

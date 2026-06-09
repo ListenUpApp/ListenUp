@@ -603,6 +603,23 @@ class BookRepository(
     }
 
     /**
+     * Replaces [bookId]'s genres with [rawGenres], resolved through the same 3-step cascade as the
+     * scanner ([processGenreStrings]: curator alias → [GenreNormalizer] → pending). Idempotent —
+     * wipes the book's prior `book_genres`/`pending_book_genres` first. Writes the junction only; it
+     * does NOT bump the book's revision or publish — pair it with a book `upsert` (which re-reads the
+     * junction and emits) so the change propagates. The match-apply wizard calls this immediately
+     * before its text upsert.
+     */
+    suspend fun setBookGenres(
+        bookId: BookId,
+        rawGenres: List<String>,
+    ): AppResult<Unit> =
+        suspendTransaction(db) {
+            processGenreStrings(bookId, rawGenres, clock.now().toEpochMilliseconds())
+            AppResult.Success(Unit)
+        }
+
+    /**
      * Reads the full book aggregate for [id], or null when absent. Opens its own
      * read transaction — usable outside the substrate's `upsert`/`pullSince`
      * orchestration (the scanner reads a book's current `rootRelPath` before

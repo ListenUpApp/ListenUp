@@ -214,7 +214,9 @@ data class CoverSearchResults(
  * the wizard never silently wipes a role the user didn't engage. Contributors/series
  * whose Audible ASIN is absent are not selectable.
  *
- * Genres are intentionally absent — genre application is a separate follow-up.
+ * [genres] carries the raw Audible genre labels selected by the user; the server resolves
+ * them through the same 3-step cascade used by the scanner (alias → [GenreNormalizer] →
+ * pending). An empty set leaves the book's genres untouched.
  */
 @Serializable
 @SerialName("MetadataApplySelection")
@@ -231,4 +233,6 @@ data class MetadataApplySelection(
     @SerialName("seriesAsins") val seriesAsins: Set<String>,
     /** The user's chosen cover URL when [cover] is true; null = the match's default-max cover. */
     @SerialName("coverUrl") val coverUrl: String? = null,
+    /** Selected raw genre labels from the match; resolved server-side through the genre cascade. Empty = leave genres untouched. */
+    @SerialName("genres") val genres: Set<String> = emptySet(),
 )
