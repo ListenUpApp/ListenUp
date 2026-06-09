@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
+import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -192,5 +193,49 @@ class AdminRepositoryImplLibraryTest :
 
             service.scannedLibraryIds shouldBe listOf("lib1")
             (result is AppResult.Success) shouldBe true
+        }
+
+        test("browseFilesystem at root maps entries with parent=null and isRoot=true") {
+            val service = FakeLibraryAdminService()
+            service.browseResult =
+                listOf(
+                    DirectoryEntry(name = "data", path = "/data", hasChildren = true, itemCount = 3),
+                )
+            val repo = buildRepo(service)
+
+            val result = repo.browseFilesystem("/")
+
+            service.browsePaths shouldBe listOf("/")
+            (result is AppResult.Success) shouldBe true
+            val resp = (result as AppResult.Success).data
+            resp.path shouldBe "/"
+            resp.parent shouldBe null
+            resp.isRoot shouldBe true
+            resp.entries.map { it.name } shouldBe listOf("data")
+            resp.entries.map { it.path } shouldBe listOf("/data")
+        }
+
+        test("browseFilesystem at a nested path derives the parent segment and isRoot=false") {
+            val service = FakeLibraryAdminService()
+            service.browseResult = emptyList()
+            val repo = buildRepo(service)
+
+            val result = repo.browseFilesystem("/data/audiobooks")
+
+            (result is AppResult.Success) shouldBe true
+            val resp = (result as AppResult.Success).data
+            resp.path shouldBe "/data/audiobooks"
+            resp.parent shouldBe "/data"
+            resp.isRoot shouldBe false
+        }
+
+        test("browseFilesystem one level below root derives parent=root") {
+            val service = FakeLibraryAdminService()
+            service.browseResult = emptyList()
+            val repo = buildRepo(service)
+
+            val resp = (repo.browseFilesystem("/data") as AppResult.Success).data
+            resp.parent shouldBe "/"
+            resp.isRoot shouldBe false
         }
     })

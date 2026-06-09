@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
+import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
@@ -278,7 +279,24 @@ class AdminRepositoryImpl(
         }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
-        adminApi.browseFilesystem(path)
+        catching("browseFilesystem") {
+            libraryAdminRpc.get().browseFilesystem(path).map { entries ->
+                val isRoot = path == "/"
+                val parent =
+                    if (isRoot) {
+                        null
+                    } else {
+                        val lastSlash = path.lastIndexOf('/')
+                        if (lastSlash <= 0) "/" else path.substring(0, lastSlash)
+                    }
+                BrowseFilesystemResponse(
+                    path = path,
+                    parent = parent,
+                    entries = entries.map { DirectoryEntryResponse(name = it.name, path = it.path) },
+                    isRoot = isRoot,
+                )
+            }
+        }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
