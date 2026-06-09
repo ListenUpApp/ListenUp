@@ -9,7 +9,7 @@ group = "com.calypsan.listenup"
 version = "0.0.1"
 
 application {
-    mainClass.set("com.calypsan.listenup.server.ApplicationKt")
+    mainClass.set("com.calypsan.listenup.server.LauncherKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
@@ -76,7 +76,6 @@ dependencies {
     implementation(libs.logstash.logback.encoder)
     implementation(libs.kotlinx.coroutines.slf4j)
     implementation(libs.micrometer.core)
-    runtimeOnly(libs.janino) // enables logback.xml <if>/<condition> elements
 
     // Phase 2 scanner — filesystem watching across Linux/macOS/Windows.
     implementation(libs.kfswatch)
@@ -176,7 +175,7 @@ tasks.register<JavaExec>("runDemo") {
     group = "demo"
     description = "Runs the server as a seeded demo server (generates the synthetic library first)."
     dependsOn("generateSeedLibrary")
-    mainClass.set("com.calypsan.listenup.server.ApplicationKt")
+    mainClass.set("com.calypsan.listenup.server.LauncherKt")
     classpath = sourceSets["main"].runtimeClasspath
     environment("LISTENUP_SEED_PROFILE", "demo")
     environment("LISTENUP_LIBRARY_PATH", seedLibraryDir.get().asFile.absolutePath)
