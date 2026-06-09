@@ -77,15 +77,7 @@ internal class BookMetadataApplier(
                 )
             }
 
-            if (selection.genres.isNotEmpty()) {
-                try {
-                    bookRepository.setBookGenres(bookId, selection.genres.toList())
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    log.warn(e) { "Genre apply failed for ${bookId.value} (ASIN $asin) — skipping" }
-                }
-            }
+            applyGenresBestEffort(bookId, asin, selection)
 
             val updated =
                 existing.copy(
@@ -181,6 +173,26 @@ internal class BookMetadataApplier(
             val id = seriesRepository.resolveOrCreate(entry.title)
             BookSeriesPayload(id = id.value, name = entry.title, sequence = entry.sequence)
         }
+
+    /**
+     * Applies [selection]'s genres to [bookId] via [BookRepository.setBookGenres] when the selection
+     * is non-empty; no-ops otherwise. Best-effort: a failure is logged and skipped so text metadata
+     * already committed is not rolled back. [CancellationException] is always re-raised.
+     */
+    private suspend fun applyGenresBestEffort(
+        bookId: BookId,
+        asin: String,
+        selection: MetadataApplySelection,
+    ) {
+        if (selection.genres.isEmpty()) return
+        try {
+            bookRepository.setBookGenres(bookId, selection.genres.toList())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "Genre apply failed for ${bookId.value} (ASIN $asin) — skipping" }
+        }
+    }
 
     /**
      * Downloads [coverUrl] and stores it as the book's managed cover ([CoverSource.UPLOADED]) — a

@@ -29,10 +29,18 @@ class MetadataApplySelectionContractTest :
         test("MetadataApplySelection round-trips with selected genres") {
             val selection =
                 MetadataApplySelection(
-                    title = true, subtitle = false, description = true, publisher = false,
-                    releaseDate = true, language = false, cover = true,
-                    authorAsins = setOf("B01AUTHOR"), narratorAsins = emptySet(), seriesAsins = emptySet(),
-                    coverUrl = null, genres = setOf("Fantasy", "Science Fiction & Fantasy"),
+                    title = true,
+                    subtitle = false,
+                    description = true,
+                    publisher = false,
+                    releaseDate = true,
+                    language = false,
+                    cover = true,
+                    authorAsins = setOf("B01AUTHOR"),
+                    narratorAsins = emptySet(),
+                    seriesAsins = emptySet(),
+                    coverUrl = null,
+                    genres = setOf("Fantasy", "Science Fiction & Fantasy"),
                 )
             json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection
         }

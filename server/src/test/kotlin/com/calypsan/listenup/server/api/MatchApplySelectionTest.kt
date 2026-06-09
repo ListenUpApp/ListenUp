@@ -343,7 +343,8 @@ class MatchApplySelectionTest :
                     suspendTransaction(db) { BookGenreTable.insertIfAbsent("b1", "g-fant") }
                     val a = applier(books, contributors, series, fakeProvider(matchBook()))
 
-                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
+                    a
+                        .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     books.findById(BookId("b1"))!!.genres.map { it.name } shouldContainExactly listOf("Fantasy")
