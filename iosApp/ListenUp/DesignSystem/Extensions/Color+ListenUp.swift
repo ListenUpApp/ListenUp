@@ -3,8 +3,11 @@ import SwiftUI
 extension Color {
     // MARK: - Brand Colors
 
-    /// ListenUp brand orange (#FF6B4A)
-    static let listenUpOrange = Color(hex: "FF6B4A")
+    /// ListenUp brand coral (#F0512F) — the single action tint, app-wide.
+    static let listenUpOrange = Color(hex: "F0512F")
+
+    /// Pressed/active state of the brand coral (#D8431F).
+    static let listenUpTintPressed = Color(hex: "D8431F")
 
     /// Dark grey for gradient backgrounds (#1A1A1A)
     static let brandDarkGrey = Color(hex: "1A1A1A")

@@ -62,6 +62,15 @@ final class ServerSelectViewModelWrapper {
         viewModel.onEvent(event: ServerSelectUiEventManualEntryClicked.shared)
     }
 
+    /// Kick off mDNS discovery. The shared `ServerSelectViewModel` does not auto-start
+    /// discovery — it waits for the UI to signal local-network access (mirroring the
+    /// Android `RequestLocalNetworkPermission` flow). iOS has no pre-flight permission
+    /// API, so starting the Bonjour browse is what surfaces the system's "find devices on
+    /// your local network" prompt; we therefore fire the granted event on appear.
+    func startDiscovery() {
+        viewModel.onEvent(event: ServerSelectUiEventLocalNetworkPermissionGranted.shared)
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: ServerSelectUiState) {

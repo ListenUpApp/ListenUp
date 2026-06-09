@@ -106,6 +106,7 @@
     "yes": "Yes"
   },
   "auth": {
+    "admin_account_subtitle": "You're creating the first account on this server.",
     "already_have_account": "Already have an account?",
     "approved": "Approved!",
     "cancel_registration": "Cancel Registration",
@@ -146,6 +147,8 @@
     "server_administrator": "Server administrator"
   },
   "connect": {
+    "continue": "Continue",
+    "servers": "Servers",
     "add_server": "Add Server",
     "add_server_manually": "Add Server Manually",
     "back_to_server_list": "Back to Server List",

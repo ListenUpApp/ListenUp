@@ -29,106 +29,94 @@ struct RegisterView: View {
         ))
     }
 
+    // MARK: - Admin badge helper (pure, unit-tested)
+
+    /// Whether to surface the "Server administrator" badge + admin copy. Pure so it can
+    /// be unit-tested; defaults to the generic path until a first-run signal exists.
+    static func showsAdminBadge(isFirstRun: Bool) -> Bool { isFirstRun }
+
+    private var showsAdminBadge: Bool { Self.showsAdminBadge(isFirstRun: false) }
+
     // MARK: - Body
 
     var body: some View {
-        AuthScreenLayout {
-            formContent
-        }
-    }
-
-    // MARK: - Form Content
-
-    @ViewBuilder
-    private var formContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        AuthScaffold(nav: AuthNav(label: String(localized: "common.back")) { navigateBack() }) {
             header
-            fields
-            errorMessage
+            if let error = viewModel.error {
+                ErrorBanner(message: error)
+            }
+            nameFields
+            emailField
+            passwordFields
+        } footer: {
             registerButton
             loginLink
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "auth.create_account"))
-                .font(.largeTitle.bold())
-
-            Text(String(localized: "auth.join_listenup"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var fields: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 12) {
-                GlassTextField(
-                    label: String(localized: "auth.first_name"),
-                    placeholder: String(localized: "auth.first_name_placeholder"),
-                    text: $firstName,
-                    textContentType: .givenName,
-                    autocapitalization: .words
-                )
-
-                GlassTextField(
-                    label: String(localized: "auth.last_name"),
-                    placeholder: String(localized: "auth.last_name_placeholder"),
-                    text: $lastName,
-                    textContentType: .familyName,
-                    autocapitalization: .words
-                )
-            }
-
-            GlassTextField(
-                label: String(localized: "common.email"),
-                placeholder: String(localized: "auth.email_placeholder"),
-                text: $email,
-                keyboardType: .emailAddress,
-                textContentType: .emailAddress
-            )
-
-            GlassSecureField(
-                label: String(localized: "auth.password_label"),
-                placeholder: String(localized: "auth.create_password_placeholder"),
-                text: $password
-            )
-
-            GlassSecureField(
-                label: String(localized: "auth.confirm_password"),
-                placeholder: String(localized: "auth.confirm_password_placeholder"),
-                text: $confirmPassword,
-                error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil
-            )
-            .onChange(of: confirmPassword) { _, newValue in
-                passwordMismatch = !newValue.isEmpty && newValue != password
-            }
-            .onChange(of: password) { _, newValue in
-                passwordMismatch = !confirmPassword.isEmpty && confirmPassword != newValue
-            }
-        }
-    }
+    // MARK: - Private views
 
     @ViewBuilder
-    private var errorMessage: some View {
-        if let error = viewModel.error {
-            ErrorBanner(message: error)
+    private var header: some View {
+        if showsAdminBadge {
+            AuthLargeHeader(
+                title: String(localized: "auth.create_account"),
+                subtitle: String(localized: "auth.admin_account_subtitle")
+            ) {
+                Label(String(localized: "auth.server_administrator"), systemImage: "checkmark.shield")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.listenUpOrange)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(Color.listenUpOrange.opacity(0.15)))
+            }
+        } else {
+            AuthLargeHeader(title: String(localized: "auth.create_account"))
+        }
+    }
+
+    private var nameFields: some View {
+        AuthFieldGroup {
+            AuthFieldRow(icon: "person", placeholder: String(localized: "auth.first_name"),
+                         text: $firstName, textContentType: .givenName, autocapitalization: .words)
+            AuthFieldRow(placeholder: String(localized: "auth.last_name"),
+                         text: $lastName, isLast: true, textContentType: .familyName,
+                         autocapitalization: .words)
+        }
+    }
+
+    private var emailField: some View {
+        AuthFieldGroup {
+            AuthFieldRow(icon: "envelope", placeholder: String(localized: "common.email"),
+                         text: $email, isLast: true, keyboardType: .emailAddress,
+                         textContentType: .emailAddress)
+        }
+    }
+
+    private var passwordFields: some View {
+        AuthFieldGroup {
+            AuthSecureFieldRow(placeholder: String(localized: "auth.password_label"),
+                               text: $password, textContentType: .newPassword)
+            AuthSecureFieldRow(placeholder: String(localized: "auth.confirm_password"),
+                               text: $confirmPassword,
+                               error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil,
+                               isLast: true, textContentType: .newPassword)
+        }
+        .onChange(of: confirmPassword) { _, new in
+            passwordMismatch = !new.isEmpty && new != password
+        }
+        .onChange(of: password) { _, new in
+            passwordMismatch = !confirmPassword.isEmpty && confirmPassword != new
         }
     }
 
     private var registerButton: some View {
-        ListenUpButton(
+        AuthPrimaryButton(
             title: String(localized: "auth.create_account"),
             isLoading: viewModel.isLoading
         ) {
             if validateForm() {
-                viewModel.register(
-                    email: email,
-                    password: password,
-                    firstName: firstName,
-                    lastName: lastName
-                )
+                viewModel.register(email: email, password: password,
+                                   firstName: firstName, lastName: lastName)
             }
         }
         .disabled(!isFormValid)
@@ -136,18 +124,11 @@ struct RegisterView: View {
 
     private var loginLink: some View {
         HStack(spacing: 4) {
-            Text(String(localized: "auth.already_have_account"))
-                .foregroundStyle(.secondary)
-
-            Button(String(localized: "auth.sign_in")) {
-                navigateBack()
-            }
-            .fontWeight(.semibold)
-            .foregroundStyle(Color.listenUpOrange)
-            .buttonStyle(.plain)
+            Text(String(localized: "auth.already_have_account")).foregroundStyle(.secondary)
+            Button(String(localized: "auth.sign_in")) { navigateBack() }
+                .fontWeight(.semibold).foregroundStyle(Color.listenUpOrange).buttonStyle(.plain)
         }
         .font(.subheadline)
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Validation
@@ -169,8 +150,6 @@ struct RegisterView: View {
         return isFormValid
     }
 }
-
-// MARK: - Error Banner (shared component, could be extracted)
 
 // MARK: - Previews
 
