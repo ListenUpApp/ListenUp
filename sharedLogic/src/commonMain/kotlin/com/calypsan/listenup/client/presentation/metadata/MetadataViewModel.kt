@@ -713,6 +713,7 @@ class MetadataViewModel(
             narratorAsins = selectedNarrators,
             seriesAsins = selectedSeries,
             coverUrl = coverUrl,
+            genres = selectedGenres,
         )
 
     private fun initializeSelections(preview: MetadataBook): MetadataSelections =
@@ -727,6 +728,7 @@ class MetadataViewModel(
             selectedAuthors = preview.authors.mapNotNull { it.asin }.toSet(),
             selectedNarrators = preview.narrators.mapNotNull { it.asin }.toSet(),
             selectedSeries = preview.series.mapNotNull { it.asin }.toSet(),
+            selectedGenres = preview.genres.toSet(),
         )
 
     /**
