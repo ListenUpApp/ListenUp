@@ -22,16 +22,36 @@ package com.calypsan.listenup.client.domain.model
  * @property revision Monotonic server revision, advanced on every committed change.
  * @property inboxEnabled When true, newly-scanned books are quarantined in the
  *   library's inbox (admin-only) until released, rather than becoming visible to members.
+ * @property folders Lightweight refs to every root folder registered under this library.
+ *   Empty for projections that do not carry folder data; admins see each folder's
+ *   [LibraryFolderRef.rootPath].
  */
 data class Library(
     val id: String,
     val name: String,
+    val folders: List<LibraryFolderRef> = emptyList(),
     val metadataPrecedence: String,
     val accessMode: AccessMode,
     val createdByUserId: String?,
     val createdAt: Long,
     val revision: Long,
     val inboxEnabled: Boolean = false,
+)
+
+/**
+ * Lightweight reference to a library root folder.
+ *
+ * Mirrors the contract `LibraryFolderRef`: carries folder identity plus the
+ * absolute server filesystem path the scanner walks. [rootPath] is `null` when
+ * redacted for a non-admin caller, so members carry folder identity without the
+ * server's directory layout.
+ *
+ * @property id Stable folder identifier.
+ * @property rootPath Absolute server path, or `null` when redacted for a non-admin.
+ */
+data class LibraryFolderRef(
+    val id: String,
+    val rootPath: String?,
 )
 
 /**
