@@ -24,7 +24,6 @@ import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
-import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -235,21 +234,6 @@ class AdminRepositoryImpl(
             library?.let { AppResult.Success(it.toDomain()) }
                 ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
         }
-
-    override suspend fun updateLibrary(
-        libraryId: String,
-        name: String?,
-        skipInbox: Boolean?,
-        accessMode: AccessMode?,
-    ): AppResult<Library> {
-        val request =
-            UpdateLibraryRequest(
-                name = name,
-                skipInbox = skipInbox,
-                accessMode = accessMode?.toApiString(),
-            )
-        return adminApi.updateLibrary(libraryId, request).map { it.toDomain() }
-    }
 
     override suspend fun setInboxEnabled(
         libraryId: String,

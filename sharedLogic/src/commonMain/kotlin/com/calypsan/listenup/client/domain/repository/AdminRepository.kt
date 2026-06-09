@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
@@ -176,22 +175,6 @@ interface AdminRepository {
      * @return [AppResult] carrying the library, or a failure.
      */
     suspend fun getLibrary(libraryId: String): AppResult<Library>
-
-    /**
-     * Update library settings.
-     *
-     * @param libraryId The library ID to update
-     * @param name New library name (null to keep unchanged)
-     * @param skipInbox New inbox skip setting (null to keep unchanged)
-     * @param accessMode New access mode (null to keep unchanged)
-     * @return [AppResult] carrying the updated library, or a failure.
-     */
-    suspend fun updateLibrary(
-        libraryId: String,
-        name: String? = null,
-        skipInbox: Boolean? = null,
-        accessMode: AccessMode? = null,
-    ): AppResult<Library>
 
     /**
      * Enable or disable inbox quarantine for a library.

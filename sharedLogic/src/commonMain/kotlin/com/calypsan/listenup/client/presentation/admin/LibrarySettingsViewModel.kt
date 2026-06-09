@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
-import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
@@ -21,7 +20,6 @@ private val logger = KotlinLogging.logger {}
  * ViewModel for the library settings screen.
  *
  * Manages viewing and editing a single library's settings:
- * - Access mode (open vs restricted)
  * - Inbox quarantine setting
  */
 class LibrarySettingsViewModel(
@@ -53,14 +51,12 @@ class LibrarySettingsViewModel(
                         if (current is LibrarySettingsUiState.Ready) {
                             current.copy(
                                 library = library,
-                                accessMode = library.accessMode,
                                 inboxEnabled = library.inboxEnabled,
                                 error = null,
                             )
                         } else {
                             LibrarySettingsUiState.Ready(
                                 library = library,
-                                accessMode = library.accessMode,
                                 inboxEnabled = library.inboxEnabled,
                             )
                         }
@@ -77,51 +73,6 @@ class LibrarySettingsViewModel(
                         } else {
                             LibrarySettingsUiState.Error(message)
                         }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Set the access mode for the library.
-     *
-     * Optimistically updates the UI state, then saves to server.
-     * Reverts on failure.
-     */
-    fun setAccessMode(accessMode: AccessMode) {
-        val ready = state.value as? LibrarySettingsUiState.Ready ?: return
-        val previousValue = ready.accessMode
-
-        if (accessMode == previousValue) return
-
-        // Optimistic update
-        updateReady { it.copy(accessMode = accessMode, isSaving = true) }
-
-        viewModelScope.launch {
-            when (val result = adminRepository.updateLibrary(libraryId = libraryId, accessMode = accessMode)) {
-                is AppResult.Success -> {
-                    val updatedLibrary = result.data
-                    logger.info { "Updated access mode for library $libraryId to ${accessMode.toApiString()}" }
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            library = updatedLibrary,
-                            accessMode = updatedLibrary.accessMode,
-                        )
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to update access mode for library: $libraryId — ${result.error}" }
-                    // Revert to previous value
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            accessMode = previousValue,
-                            error = userMessageFor(result.error),
-                        )
                     }
                 }
             }
@@ -358,7 +309,7 @@ class LibrarySettingsViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `adminRepository.getLibrary` response.
  * - [Ready] once the library has loaded; carries the canonical library,
- *   the edit-buffer fields (`accessMode`, `inboxEnabled`) that mirror the
+ *   the edit-buffer field (`inboxEnabled`) that mirrors the
  *   server state after optimistic updates, action overlays
  *   (`isSaving`, `isScanning`, `isBrowserLoading`), the folder-browser
  *   overlay fields, and a transient `error` surfaced via snackbar.
@@ -375,7 +326,6 @@ sealed interface LibrarySettingsUiState {
      */
     data class Ready(
         val library: Library,
-        val accessMode: AccessMode,
         val inboxEnabled: Boolean = false,
         val isSaving: Boolean = false,
         val isScanning: Boolean = false,

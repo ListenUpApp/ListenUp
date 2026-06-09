@@ -19,10 +19,6 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.RadioButtonChecked
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
@@ -52,13 +48,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.admin_access_mode
 import listenup.composeapp.generated.resources.admin_add_folder
 import listenup.composeapp.generated.resources.admin_add_this_folder
 import listenup.composeapp.generated.resources.admin_inbox_settings
@@ -73,13 +67,9 @@ import listenup.composeapp.generated.resources.admin_scan_paths
 import listenup.composeapp.generated.resources.admin_scanning
 import listenup.composeapp.generated.resources.admin_select_folder
 import listenup.composeapp.generated.resources.admin_inbox_new_books
-import listenup.composeapp.generated.resources.admin_uncollected_books_are_visible_to
-import listenup.composeapp.generated.resources.admin_users_only_see_books_in
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_entity_information
-import listenup.composeapp.generated.resources.common_open
 import listenup.composeapp.generated.resources.common_remove
-import listenup.composeapp.generated.resources.common_restricted
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -87,7 +77,6 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Features:
  * - View library information (name, scan paths)
- * - Toggle access mode (open vs restricted)
  * - Toggle inbox quarantine for new books
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,7 +147,6 @@ private fun LibrarySettingsBody(
         is LibrarySettingsUiState.Ready -> {
             LibrarySettingsContent(
                 state = state,
-                onAccessModeChange = viewModel::setAccessMode,
                 onInboxEnabledChange = viewModel::setInboxEnabled,
                 onRemoveFolder = viewModel::removeFolder,
                 onAddFolder = { viewModel.setShowFolderBrowser(true) },
@@ -183,7 +171,6 @@ private fun LibrarySettingsBody(
 @Composable
 private fun LibrarySettingsContent(
     state: LibrarySettingsUiState.Ready,
-    onAccessModeChange: (AccessMode) -> Unit,
     onInboxEnabledChange: (Boolean) -> Unit,
     onRemoveFolder: (String) -> Unit,
     onAddFolder: () -> Unit,
@@ -247,25 +234,6 @@ private fun LibrarySettingsContent(
             RescanCard(
                 isScanning = state.isScanning,
                 onTriggerScan = onTriggerScan,
-            )
-        }
-
-        // Access mode section
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.admin_access_mode),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        item {
-            AccessModeCard(
-                currentMode = state.accessMode,
-                isSaving = state.isSaving,
-                onModeSelected = onAccessModeChange,
             )
         }
 
@@ -338,120 +306,7 @@ private fun LibraryInfoCard(
                     )
                 }
             }
-
         }
-    }
-}
-
-@Composable
-private fun AccessModeCard(
-    currentMode: AccessMode,
-    isSaving: Boolean,
-    onModeSelected: (AccessMode) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Column {
-            // Open mode option
-            AccessModeRow(
-                icon = Icons.Outlined.LockOpen,
-                title = stringResource(Res.string.common_open),
-                description = stringResource(Res.string.admin_uncollected_books_are_visible_to),
-                isSelected = currentMode == AccessMode.OPEN,
-                isEnabled = !isSaving,
-                onClick = { onModeSelected(AccessMode.OPEN) },
-            )
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            // Restricted mode option
-            AccessModeRow(
-                icon = Icons.Outlined.Lock,
-                title = stringResource(Res.string.common_restricted),
-                description = stringResource(Res.string.admin_users_only_see_books_in),
-                isSelected = currentMode == AccessMode.RESTRICTED,
-                isEnabled = !isSaving,
-                onClick = { onModeSelected(AccessMode.RESTRICTED) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AccessModeRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    description: String,
-    isSelected: Boolean,
-    isEnabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(enabled = isEnabled, onClick = onClick)
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint =
-                if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color =
-                    if (isSelected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Icon(
-            imageVector =
-                if (isSelected) {
-                    Icons.Outlined.RadioButtonChecked
-                } else {
-                    Icons.Outlined.RadioButtonUnchecked
-                },
-            contentDescription =
-                if (isSelected) {
-                    "Selected"
-                } else {
-                    "Not selected"
-                },
-            tint =
-                if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
     }
 }
 
