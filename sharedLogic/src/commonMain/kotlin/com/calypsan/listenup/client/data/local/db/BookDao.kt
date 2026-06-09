@@ -67,17 +67,6 @@ interface BookDao {
     suspend fun count(): Int
 
     /**
-     * Observe all books as a reactive Flow.
-     * Emits new list whenever any book changes.
-     *
-     * Used by UI to display book library with automatic updates.
-     *
-     * @return Flow emitting list of all books
-     */
-    @Query("SELECT * FROM books ORDER BY title ASC")
-    fun observeAll(): Flow<List<BookEntity>>
-
-    /**
      * Observe all books with their contributors as a reactive Flow.
      *
      * Uses Room Relations to efficiently load books and their contributors
