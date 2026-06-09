@@ -88,7 +88,7 @@ interface BookDao {
      * @return Flow emitting list of books with their contributors
      */
     @Transaction
-    @Query("SELECT * FROM books ORDER BY title ASC")
+    @Query("SELECT * FROM books WHERE deletedAt IS NULL ORDER BY title ASC")
     fun observeAllWithContributors(): Flow<List<BookWithContributors>>
 
     /**
