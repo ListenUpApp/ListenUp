@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ktor)
     application
+    id("org.graalvm.buildtools.native") version "0.11.0"
 }
 
 group = "com.calypsan.listenup"
@@ -113,6 +114,10 @@ dependencies {
 
     // Konsist — architectural assertions for :server production code.
     testImplementation(libs.konsist)
+
+    // Classpath scanner used only by ContractSerializerRegistrationTest to enumerate every
+    // contract @Serializable type for native-image metadata capture under the tracing agent.
+    testImplementation("io.github.classgraph:classgraph:4.8.179")
 }
 
 kotlin {
@@ -125,6 +130,11 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+    // The native-image tracing agent (`-Pagent`) ships only inside GraalVM; the project's
+    // pinned JetBrains daemon JDK lacks it. When GRAALVM_HOME is set, run the test JVM on
+    // GraalVM directly so the agent can attach and capture reflection/resource/serialization
+    // metadata from the real test suite (the agent-over-tests strategy).
+    System.getenv("GRAALVM_HOME")?.let { executable = "$it/bin/java" }
     // Recycle the test JVM every 25 classes. The Ktor `testApplication` specs extract the
     // runtime classpath into the working dir on first use; left in a single long-lived worker
     // alongside the full spec count this intermittently corrupts class loading of synthetic
@@ -180,4 +190,54 @@ tasks.register<JavaExec>("runDemo") {
     environment("LISTENUP_SEED_PROFILE", "demo")
     environment("LISTENUP_LIBRARY_PATH", seedLibraryDir.get().asFile.absolutePath)
     environment("LISTENUP_DB_URL", "jdbc:sqlite:${layout.buildDirectory.get().asFile.absolutePath}/demo.db")
+}
+
+// GraalVM native-image build for the server. Exploratory — see
+// docs/superpowers/findings/2026-06-09-graalvm-native-image-feasibility.md. Driven by
+// GRAALVM_HOME; run native tasks with `--no-configuration-cache` (plugin 0.11.0 limitation).
+graalvmNative {
+    // The Gradle daemon is pinned to a JetBrains-vendor JDK (gradle-daemon-jvm.properties), so
+    // toolchain selection would hand native-image a non-GraalVM JDK. Resolve native-image from
+    // GRAALVM_HOME instead.
+    toolchainDetection.set(false)
+    // Pull upstream reachability metadata for our dependencies (java-jwt, logback, exposed,
+    // hikari, flyway, …) automatically.
+    metadataRepository {
+        enabled.set(true)
+    }
+    // `./gradlew :server:test -Pagent` captures runtime metadata; `:server:metadataCopy` then
+    // promotes it into src/main/resources/META-INF/native-image where native-image auto-discovers
+    // it — the committed, reviewed artifact. Metadata coverage == test coverage.
+    agent {
+        metadataCopy {
+            inputTaskNames.add("test")
+            outputDirectories.add("src/main/resources/META-INF/native-image/com.calypsan.listenup/server")
+            mergeWithExisting.set(false)
+        }
+    }
+    binaries.named("main") {
+        imageName.set("listenup-server")
+        mainClass.set("com.calypsan.listenup.server.LauncherKt")
+        buildArgs.add("-H:+ReportExceptionStackTraces")
+        // Canonical Kotlin-on-native-image fix for the annotation/deprecation enums that get
+        // initialized during image build.
+        // Minimal build-time-init: only the specific Kotlin stdlib classes native-image flags
+        // (annotation/deprecation enums + the lazy-delegate impl behind generated serializers).
+        // Broad build-time-init (whole `kotlin`/contract packages) is deliberately avoided — it
+        // creates DynamicHubs that retain the system classloader's open JarFile handles in the
+        // image heap. The sealed-serializer subtype companions are made reachable by the committed
+        // reflect-config (captured by ContractSerializerRegistrationTest), not by build-time-init.
+        val buildTimeInit =
+            listOf(
+                "kotlin.annotation.AnnotationRetention",
+                "kotlin.annotation.AnnotationTarget",
+                "kotlin.DeprecationLevel",
+                "kotlin.SafePublicationLazyImpl",
+            )
+        buildArgs.add("--initialize-at-build-time=${buildTimeInit.joinToString(",")}")
+        // Logback initializes at RUN time: at build time it reads its config off the classpath and
+        // bakes an open JarFile/ZipFile handle into the heap. Run-time init also matches the #436
+        // design, where Launcher sets logback.configurationFile before the first logger is created.
+        buildArgs.add("--initialize-at-run-time=ch.qos.logback,net.logstash.logback")
+    }
 }
