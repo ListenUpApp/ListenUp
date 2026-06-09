@@ -238,4 +238,20 @@ class AdminRepositoryImplLibraryTest :
             resp.parent shouldBe "/"
             resp.isRoot shouldBe false
         }
+
+        test("removeFolder calls removeFolder(folderId) then returns the re-fetched library") {
+            val service = FakeLibraryAdminService()
+            service.seed(
+                contractLibrary(
+                    id = "lib1",
+                    folders = listOf(LibraryFolderRef(id = FolderId("f1"), rootPath = "/a")),
+                ),
+            )
+            val repo = buildRepo(service)
+
+            val result = repo.removeFolder("lib1", "f1")
+
+            service.removedFolderIds shouldBe listOf("f1")
+            (result is AppResult.Success<*>) shouldBe true
+        }
     })

@@ -174,17 +174,17 @@ class LibrarySettingsViewModel(
     }
 
     /**
-     * Remove a scan path from the library.
+     * Remove a folder from the library by its folder id.
      */
-    fun removeScanPath(path: String) {
+    fun removeFolder(folderId: String) {
         if (state.value !is LibrarySettingsUiState.Ready) return
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true) }
 
-            when (val result = adminRepository.removeScanPath(libraryId, path)) {
+            when (val result = adminRepository.removeFolder(libraryId, folderId)) {
                 is AppResult.Success -> {
                     val updatedLibrary = result.data
-                    logger.info { "Removed scan path from library $libraryId: $path" }
+                    logger.info { "Removed folder $folderId from library $libraryId" }
                     updateReady {
                         it.copy(
                             isSaving = false,
@@ -195,7 +195,7 @@ class LibrarySettingsViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to remove scan path from library: $libraryId — ${result.error}" }
+                    logger.error { "Failed to remove folder from library: $libraryId — ${result.error}" }
                     updateReady {
                         it.copy(
                             isSaving = false,

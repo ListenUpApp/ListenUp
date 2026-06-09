@@ -221,15 +221,15 @@ interface AdminRepository {
     ): AppResult<Library>
 
     /**
-     * Remove a scan path from a library.
+     * Remove a folder from a library by its folder id, cascade-deleting its books.
      *
-     * @param libraryId The library ID
-     * @param path The scan path to remove
+     * @param libraryId The library the folder belongs to (used to re-fetch the updated aggregate).
+     * @param folderId The folder id to remove.
      * @return [AppResult] carrying the updated library, or a failure.
      */
-    suspend fun removeScanPath(
+    suspend fun removeFolder(
         libraryId: String,
-        path: String,
+        folderId: String,
     ): AppResult<Library>
 
     /**

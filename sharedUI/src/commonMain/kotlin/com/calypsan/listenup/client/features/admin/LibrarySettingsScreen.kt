@@ -54,6 +54,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
 import listenup.composeapp.generated.resources.Res
@@ -159,7 +160,7 @@ private fun LibrarySettingsBody(
                 state = state,
                 onAccessModeChange = viewModel::setAccessMode,
                 onInboxEnabledChange = viewModel::setInboxEnabled,
-                onRemoveScanPath = viewModel::removeScanPath,
+                onRemoveFolder = viewModel::removeFolder,
                 onAddFolder = { viewModel.setShowFolderBrowser(true) },
                 onTriggerScan = viewModel::triggerScan,
                 modifier = Modifier.padding(innerPadding),
@@ -184,7 +185,7 @@ private fun LibrarySettingsContent(
     state: LibrarySettingsUiState.Ready,
     onAccessModeChange: (AccessMode) -> Unit,
     onInboxEnabledChange: (Boolean) -> Unit,
-    onRemoveScanPath: (String) -> Unit,
+    onRemoveFolder: (String) -> Unit,
     onAddFolder: () -> Unit,
     onTriggerScan: () -> Unit,
     modifier: Modifier = Modifier,
@@ -223,11 +224,10 @@ private fun LibrarySettingsContent(
         }
 
         item {
-            // Folder paths shown once AdminRepository.getLibrary returns LibraryFolder entities (Task 25).
             ScanPathsCard(
-                scanPaths = emptyList(),
+                folders = library.folders,
                 isSaving = state.isSaving,
-                onRemovePath = onRemoveScanPath,
+                onRemoveFolder = onRemoveFolder,
                 onAddFolder = onAddFolder,
             )
         }
@@ -339,7 +339,6 @@ private fun LibraryInfoCard(
                 }
             }
 
-            // Folder paths shown once AdminRepository.getLibrary returns LibraryFolder entities (Task 25).
         }
     }
 }
@@ -510,30 +509,32 @@ private fun InboxSettingsCard(
 
 @Composable
 private fun ScanPathsCard(
-    scanPaths: List<String>,
+    folders: List<LibraryFolderRef>,
     isSaving: Boolean,
-    onRemovePath: (String) -> Unit,
+    onRemoveFolder: (String) -> Unit,
     onAddFolder: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var pathToRemove by remember { mutableStateOf<String?>(null) }
+    var folderToRemove by remember { mutableStateOf<LibraryFolderRef?>(null) }
 
     // Confirm removal dialog
-    pathToRemove?.let { path ->
+    folderToRemove?.let { folder ->
         AlertDialog(
-            onDismissRequest = { pathToRemove = null },
+            onDismissRequest = { folderToRemove = null },
             title = { Text(stringResource(Res.string.admin_remove_scan_path)) },
-            text = { Text(stringResource(Res.string.admin_remove_path_from_library_scan, path)) },
+            text = {
+                Text(stringResource(Res.string.admin_remove_path_from_library_scan, folder.rootPath ?: folder.id))
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    onRemovePath(path)
-                    pathToRemove = null
+                    onRemoveFolder(folder.id)
+                    folderToRemove = null
                 }) {
                     Text(stringResource(Res.string.common_remove))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pathToRemove = null }) {
+                TextButton(onClick = { folderToRemove = null }) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -549,7 +550,7 @@ private fun ScanPathsCard(
             ),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            scanPaths.forEachIndexed { index, path ->
+            folders.forEachIndexed { index, folder ->
                 Row(
                     modifier =
                         Modifier
@@ -564,13 +565,13 @@ private fun ScanPathsCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = path,
+                        text = folder.rootPath ?: folder.id,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
                     )
-                    if (scanPaths.size > 1 && !isSaving) {
-                        IconButton(onClick = { pathToRemove = path }) {
+                    if (folders.size > 1 && !isSaving) {
+                        IconButton(onClick = { folderToRemove = folder }) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = stringResource(Res.string.admin_remove_path),
@@ -579,7 +580,7 @@ private fun ScanPathsCard(
                         }
                     }
                 }
-                if (index < scanPaths.lastIndex) {
+                if (index < folders.lastIndex) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                     )

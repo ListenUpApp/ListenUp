@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
 import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
@@ -268,10 +269,15 @@ class AdminRepositoryImpl(
             }
         }
 
-    override suspend fun removeScanPath(
+    override suspend fun removeFolder(
         libraryId: String,
-        path: String,
-    ): AppResult<Library> = adminApi.removeScanPath(libraryId, path).map { it.toDomain() }
+        folderId: String,
+    ): AppResult<Library> =
+        catching("removeFolder") {
+            libraryAdminRpc.get().removeFolder(FolderId(folderId)).flatMap {
+                getLibrary(libraryId)
+            }
+        }
 
     override suspend fun triggerScan(libraryId: String): AppResult<Unit> =
         catching("triggerScan") {
