@@ -39,8 +39,8 @@ private val log = KotlinLogging.logger {}
  *    touched. Names resolve through [ContributorRepository.resolveOrCreate].
  *  - **Series** are replaced when [MetadataApplySelection.seriesAsins] is non-empty, else
  *    left untouched. Resolved through [SeriesRepository.resolveOrCreate].
- *  - **Cover** (when selected) downloads the match cover and stores it as
- *    [CoverSource.ENRICHED] via [applyEnrichedCoverIfAbsent] (precedence-gated).
+ *  - **Cover** (when selected) downloads the wizard's chosen cover URL and stores it as
+ *    [CoverSource.UPLOADED] — an explicit user choice that wins over any existing cover.
  *
  * Returns [MetadataError.NotFound] when the book is absent or the provider has no match.
  * All writes go through `upsert` / `setManagedCover`, so revisions bump and SSE fires.
@@ -89,10 +89,9 @@ internal class BookMetadataApplier(
             if (upsertResult is AppResult.Failure) return@flatMap upsertResult
 
             if (selection.cover) {
-                applyEnrichedCoverIfAbsent(
+                applyChosenCover(
                     bookId = bookId,
-                    coverUrl = match.coverUrlMaxSize ?: match.coverUrl,
-                    existingSource = existing.cover?.source,
+                    coverUrl = selection.coverUrl?.takeIf { it.isNotBlank() } ?: match.coverUrlMaxSize ?: match.coverUrl,
                     asin = asin,
                 )
             }
@@ -109,8 +108,9 @@ internal class BookMetadataApplier(
     ): Int? = if (selection.releaseDate) parseYear(match.releaseDate) ?: current else current
 
     /**
-     * Replaces a role's contributors only when that role's ASIN set is non-empty; an empty set
-     * leaves the role untouched. Other roles are never modified.
+     * Replaces a role's contributors only when the resolved replacement is non-empty; an empty
+     * ASIN set or a non-empty-but-unresolvable set leaves the role untouched. Other roles are
+     * never modified.
      */
     private suspend fun mergeContributors(
         existing: List<BookContributorPayload>,
@@ -118,28 +118,28 @@ internal class BookMetadataApplier(
         selection: MetadataApplySelection,
     ): List<BookContributorPayload> {
         val merged = existing.toMutableList()
-        if (selection.authorAsins.isNotEmpty()) {
+        val authors = match.authors.selected(selection.authorAsins).resolve(ContributorRole.AUTHOR)
+        if (authors.isNotEmpty()) {
             merged.removeAll { it.role.equals(ContributorRole.AUTHOR.apiValue, ignoreCase = true) }
-            merged += match.authors.selected(selection.authorAsins).resolve(ContributorRole.AUTHOR)
+            merged += authors
         }
-        if (selection.narratorAsins.isNotEmpty()) {
+        val narrators = match.narrators.selected(selection.narratorAsins).resolve(ContributorRole.NARRATOR)
+        if (narrators.isNotEmpty()) {
             merged.removeAll { it.role.equals(ContributorRole.NARRATOR.apiValue, ignoreCase = true) }
-            merged += match.narrators.selected(selection.narratorAsins).resolve(ContributorRole.NARRATOR)
+            merged += narrators
         }
         return merged
     }
 
-    /** Replaces series with the selected matches only when [MetadataApplySelection.seriesAsins] is non-empty. */
+    /** Replaces series only when the resolved set is non-empty; unresolvable ASINs leave series untouched. */
     private suspend fun mergeSeries(
         existing: List<BookSeriesPayload>,
         match: MetadataBook,
         selection: MetadataApplySelection,
-    ): List<BookSeriesPayload> =
-        if (selection.seriesAsins.isNotEmpty()) {
-            match.series.filter { it.asin != null && it.asin in selection.seriesAsins }.resolveSeries()
-        } else {
-            existing
-        }
+    ): List<BookSeriesPayload> {
+        val resolved = match.series.filter { it.asin != null && it.asin in selection.seriesAsins }.resolveSeries()
+        return resolved.ifEmpty { existing }
+    }
 
     private fun List<MetadataContributorRef>.selected(asins: Set<String>): List<MetadataContributorRef> =
         filter { it.asin != null && it.asin in asins }
@@ -165,38 +165,33 @@ internal class BookMetadataApplier(
         }
 
     /**
-     * Downloads [coverUrl] and stores it as a [CoverSource.ENRICHED] managed cover, but only
-     * when [existingSource] is null or already ENRICHED — higher-precedence covers (UPLOADED,
-     * FILESYSTEM, EMBEDDED) block enrichment. Binary I/O stays outside the text-fields
-     * transaction; an orphan from a failed `setManagedCover` is reaped by OrphanImageCleanupTask.
+     * Downloads [coverUrl] and stores it as the book's managed cover ([CoverSource.UPLOADED]) — a
+     * wizard cover selection is an explicit user choice that wins over any existing cover (matching
+     * the dedicated `applyCover`). Best-effort: the text metadata is already committed, so a failed
+     * or invalid cover is logged and skipped, never failing the apply. Binary I/O stays outside the
+     * text transaction; an orphan from a failed [setManagedCover][BookRepository.setManagedCover] is
+     * reaped by OrphanImageCleanupTask. [CancellationException] is re-raised.
      */
-    private suspend fun applyEnrichedCoverIfAbsent(
+    private suspend fun applyChosenCover(
         bookId: BookId,
         coverUrl: String?,
-        existingSource: CoverSource?,
         asin: String,
     ) {
-        if (existingSource != null && existingSource != CoverSource.ENRICHED) {
-            log.debug {
-                "Skipping enriched cover for ${bookId.value}: existing source=$existingSource outranks ENRICHED"
-            }
-            return
-        }
         val url = coverUrl?.takeIf { it.isNotBlank() } ?: return
         try {
             val bytes = imageStorage.downloadBytes(url)
             val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
             val relPath = "covers/${stored.path.fileName}"
-            val result = bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.ENRICHED)
+            val result = bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
             if (result is AppResult.Success) {
-                log.info { "Stored enriched cover for ${bookId.value} → $relPath" }
+                log.info { "Stored wizard-chosen cover for ${bookId.value} → $relPath" }
             } else {
                 log.warn { "setManagedCover failed for ${bookId.value}: $result" }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Enriched cover download/store failed for ${bookId.value} (ASIN $asin) — skipping" }
+            log.warn(e) { "Wizard cover download/store failed for ${bookId.value} (ASIN $asin) — skipping" }
         }
     }
 
