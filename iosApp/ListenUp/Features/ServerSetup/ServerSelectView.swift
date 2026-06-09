@@ -44,7 +44,10 @@ struct ServerSelectView: View {
             }
             .disabled(viewModel.servers.isEmpty || viewModel.isConnecting)
         }
-        .onAppear { viewModel.onManualEntryRequested = { showManualEntry = true } }
+        .onAppear {
+            viewModel.onManualEntryRequested = { showManualEntry = true }
+            viewModel.startDiscovery()
+        }
     }
 
     // MARK: - Private views
