@@ -75,7 +75,7 @@ class FtsPopulator(
         searchDao.clearBooksFts()
 
         // Get all books
-        val books = bookDao.getAll()
+        val books = bookDao.getAllLive()
 
         // Insert each book with denormalized data
         var insertCount = 0

@@ -12,8 +12,12 @@ import kotlinx.coroutines.flow.Flow
  * Room DAO for [BookEntity] operations.
  *
  * Provides both reactive (Flow-based) and one-shot queries for books.
- * All queries that return live data respect soft deletes — rows with a non-null
- * [BookEntity.deletedAt] are treated as tombstones and filtered out.
+ * List/browse queries (library, series, contributor, and Discover surfaces) respect
+ * soft deletes — rows with a non-null [BookEntity.deletedAt] are filtered out, so a
+ * tombstoned book never appears in a browse list. Point lookups by id (`getById`,
+ * `getByIdWithContributors`, `observeByIdWithContributors`, the `*ByIds*` batch reads)
+ * deliberately return the row regardless of tombstone state; the detail layer decides
+ * how to react to a deleted book. [digestRows] also includes tombstones by design.
  * Use [softDelete] to apply a server tombstone; [deleteById] is a hard removal
  * for local-only cleanup scenarios.
  */
@@ -48,13 +52,14 @@ interface BookDao {
     suspend fun getById(id: BookId): BookEntity?
 
     /**
-     * Get all books synchronously.
-     * Used by FtsPopulator to populate FTS tables during sync.
+     * Get all live (non-tombstoned) books synchronously.
+     * Used by FtsPopulator to populate FTS tables during sync — the search
+     * index must not surface server-deleted books.
      *
-     * @return List of all books
+     * @return List of all live books
      */
-    @Query("SELECT * FROM books")
-    suspend fun getAll(): List<BookEntity>
+    @Query("SELECT * FROM books WHERE deletedAt IS NULL")
+    suspend fun getAllLive(): List<BookEntity>
 
     /**
      * Count total number of books in the database.
@@ -64,17 +69,6 @@ interface BookDao {
      */
     @Query("SELECT COUNT(*) FROM books")
     suspend fun count(): Int
-
-    /**
-     * Observe all books as a reactive Flow.
-     * Emits new list whenever any book changes.
-     *
-     * Used by UI to display book library with automatic updates.
-     *
-     * @return Flow emitting list of all books
-     */
-    @Query("SELECT * FROM books ORDER BY title ASC")
-    fun observeAll(): Flow<List<BookEntity>>
 
     /**
      * Observe all books with their contributors as a reactive Flow.
@@ -88,7 +82,7 @@ interface BookDao {
      * @return Flow emitting list of books with their contributors
      */
     @Transaction
-    @Query("SELECT * FROM books ORDER BY title ASC")
+    @Query("SELECT * FROM books WHERE deletedAt IS NULL ORDER BY title ASC")
     fun observeAllWithContributors(): Flow<List<BookWithContributors>>
 
     /**
@@ -265,7 +259,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_series bs ON b.id = bs.bookId
-        WHERE bs.seriesId = :seriesId
+        WHERE bs.seriesId = :seriesId AND b.deletedAt IS NULL
         ORDER BY bs.sequence ASC, b.title ASC
     """,
     )
@@ -285,7 +279,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_series bs ON b.id = bs.bookId
-        WHERE bs.seriesId = :seriesId
+        WHERE bs.seriesId = :seriesId AND b.deletedAt IS NULL
         ORDER BY bs.sequence ASC, b.title ASC
     """,
     )
@@ -306,7 +300,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         INNER JOIN book_contributors bc ON b.id = bc.bookId
-        WHERE bc.contributorId = :contributorId AND bc.role = :role
+        WHERE bc.contributorId = :contributorId AND bc.role = :role AND b.deletedAt IS NULL
         ORDER BY b.title ASC
     """,
     )
@@ -327,6 +321,7 @@ interface BookDao {
     @Query(
         """
         SELECT * FROM books
+        WHERE deletedAt IS NULL
         ORDER BY createdAt DESC
         LIMIT :limit
     """,
@@ -345,7 +340,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+        WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
         ORDER BY RANDOM()
         LIMIT :limit
     """,
@@ -374,6 +369,7 @@ interface BookDao {
                 LIMIT 1
             ) as authorName
         FROM books b
+        WHERE b.deletedAt IS NULL
         ORDER BY b.createdAt DESC
         LIMIT :limit
     """,
@@ -400,7 +396,7 @@ interface BookDao {
             ) as authorName
         FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+        WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
         ORDER BY RANDOM()
         LIMIT :limit
     """,
@@ -432,7 +428,7 @@ interface BookDao {
         FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
         LEFT JOIN book_series bs ON bs.bookId = b.id
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+        WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
     """,
     )
     fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>>

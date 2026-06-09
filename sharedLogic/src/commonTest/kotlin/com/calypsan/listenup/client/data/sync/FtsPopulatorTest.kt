@@ -51,7 +51,7 @@ class FtsPopulatorTest {
         val fixture = TestFixture()
 
         // Default stubs - empty lists
-        everySuspend { fixture.bookDao.getAll() } returns emptyList()
+        everySuspend { fixture.bookDao.getAllLive() } returns emptyList()
         everySuspend { fixture.contributorDao.getAll() } returns emptyList()
         everySuspend { fixture.seriesDao.getAll() } returns emptyList()
 
@@ -150,7 +150,7 @@ class FtsPopulatorTest {
             val book1 = createBookEntity(id = "book-1", title = "Book One")
             val book2 = createBookEntity(id = "book-2", title = "Book Two")
 
-            everySuspend { fixture.bookDao.getAll() } returns listOf(book1, book2)
+            everySuspend { fixture.bookDao.getAllLive() } returns listOf(book1, book2)
             val ftsPopulator = fixture.build()
 
             // When
@@ -212,7 +212,7 @@ class FtsPopulatorTest {
                     description = "This is a description",
                 )
 
-            everySuspend { fixture.bookDao.getAll() } returns listOf(book)
+            everySuspend { fixture.bookDao.getAllLive() } returns listOf(book)
             val ftsPopulator = fixture.build()
 
             // When
@@ -240,7 +240,7 @@ class FtsPopulatorTest {
             val fixture = createFixture()
             val book = createBookEntity(id = "book-1", title = "Test Book")
 
-            everySuspend { fixture.bookDao.getAll() } returns listOf(book)
+            everySuspend { fixture.bookDao.getAllLive() } returns listOf(book)
             everySuspend { fixture.searchDao.getPrimaryAuthorName("book-1") } returns "John Author"
             everySuspend { fixture.searchDao.getPrimaryNarratorName("book-1") } returns "Jane Narrator"
             val ftsPopulator = fixture.build()
@@ -274,7 +274,7 @@ class FtsPopulatorTest {
                     title = "Fantasy Book",
                 )
 
-            everySuspend { fixture.bookDao.getAll() } returns listOf(book)
+            everySuspend { fixture.bookDao.getAllLive() } returns listOf(book)
             everySuspend { fixture.searchDao.getGenreNamesForBook("book-1") } returns "Fantasy, Adventure"
             val ftsPopulator = fixture.build()
 
@@ -359,7 +359,7 @@ class FtsPopulatorTest {
         runTest {
             // Given
             val fixture = createFixture()
-            everySuspend { fixture.bookDao.getAll() } returns emptyList()
+            everySuspend { fixture.bookDao.getAllLive() } returns emptyList()
             val ftsPopulator = fixture.build()
 
             // When
