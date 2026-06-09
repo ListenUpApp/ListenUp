@@ -392,6 +392,45 @@ class MetadataViewModelTest :
             }
         }
 
+        test("applyMatch forwards the chosen cover URL as MetadataApplySelection.coverUrl") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.selectCover("https://itunes/hd.jpg")
+                vm.applyMatch()
+                advanceUntilIdle()
+
+                verifySuspend {
+                    repo.applyBookMetadata(
+                        BookId("b1"),
+                        "B001",
+                        AudibleRegion.US,
+                        MetadataApplySelection(
+                            title = true,
+                            subtitle = true,
+                            description = true,
+                            publisher = true,
+                            releaseDate = true,
+                            language = true,
+                            cover = true,
+                            authorAsins = setOf("A1"),
+                            narratorAsins = setOf("N1"),
+                            seriesAsins = emptySet(),
+                            coverUrl = "https://itunes/hd.jpg",
+                        ),
+                    )
+                }
+            }
+        }
+
         test("applyMatch failure sets applyError and stays in Ready") {
             runTest {
                 val book = makeBook()

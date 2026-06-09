@@ -184,15 +184,15 @@ class B2aMetadataApplyE2ETest :
                     // ── Assert: cover stored via CoverImageStore + columns set ────
                     val cover = enriched.cover
                     cover.shouldNotBeNull()
-                    cover.source shouldBe CoverSource.ENRICHED
+                    cover.source shouldBe CoverSource.UPLOADED
                     cover.hash.shouldNotBeNull()
                 }
             }
         }
 
-        test("applyBookMetadata does NOT overwrite a higher-precedence cover") {
+        test("applyBookMetadata overwrites any existing cover — wizard pick is an explicit UPLOADED overwrite") {
             withInMemoryDatabase {
-                val tempDir = Files.createTempDirectory("b2a-e2e-nooverwrite-").also { it.toFile().deleteOnExit() }
+                val tempDir = Files.createTempDirectory("b2a-e2e-overwrite-").also { it.toFile().deleteOnExit() }
                 val db = this
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
@@ -226,31 +226,26 @@ class B2aMetadataApplyE2ETest :
                         tempDir.toString(),
                     )
 
-                val bookId = "b2a-no-overwrite"
+                val bookId = "b2a-overwrite"
                 runTest {
-                    // Seed a book with an UPLOADED cover (higher precedence than ENRICHED)
-                    val uploadedHash = "uploaded-sha256-hash"
+                    // Seed a book with a pre-existing EMBEDDED cover to prove the gate is gone
+                    val existingHash = "embedded-sha256-hash"
                     bookRepo.upsert(
                         minimalBook(bookId).copy(
-                            cover = CoverPayload(source = CoverSource.UPLOADED, hash = uploadedHash),
+                            cover = CoverPayload(source = CoverSource.EMBEDDED, hash = existingHash),
                         ),
                         clientOpId = null,
                     )
-                    // Manually set cover_path so the repo treats it as managed
-                    bookRepo.setManagedCover(BookId(bookId), "covers/$bookId.png", uploadedHash, CoverSource.UPLOADED)
+                    bookRepo.setManagedCover(BookId(bookId), "covers/$bookId.png", existingHash, CoverSource.EMBEDDED)
 
                     val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    // Cover columns must still reflect UPLOADED — enrichment was blocked
+                    // Wizard cover is an explicit user choice: source must be UPLOADED, replacing the EMBEDDED one
                     val afterApply = bookRepo.findById(BookId(bookId))
                     afterApply.shouldNotBeNull()
                     afterApply.cover?.source shouldBe CoverSource.UPLOADED
-                    afterApply.cover?.hash shouldBe uploadedHash
-                    // No HTTP download for the cover (Audible text metadata still downloaded,
-                    // but we only check that the cover was NOT re-fetched by looking at
-                    // whether we still see the uploaded hash)
                 }
             }
         }

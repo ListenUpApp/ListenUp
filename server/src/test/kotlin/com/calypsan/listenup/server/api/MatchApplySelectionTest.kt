@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -29,16 +30,26 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
+
+// Minimal valid 1×1 PNG (passes ImageStore's magic-number sniff).
+private val ONE_PX_PNG: ByteArray =
+    java.util.Base64.getDecoder().decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    )
 
 private fun fakeProvider(book: MetadataBook) =
     object : MetadataProvider {
@@ -137,13 +148,22 @@ class MatchApplySelectionTest :
             contributors: ContributorRepository,
             series: SeriesRepository,
             provider: MetadataProvider,
+            coverBytes: ByteArray? = null,
         ): BookMetadataApplier {
             val tempDir = Files.createTempDirectory("matchapply-").also { it.toFile().deleteOnExit() }
+            val engine =
+                MockEngine {
+                    if (coverBytes != null) {
+                        respond(coverBytes, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, ContentType.Image.PNG.toString()))
+                    } else {
+                        respond("", HttpStatusCode.NotFound)
+                    }
+                }
             return BookMetadataApplier(
                 bookRepository = books,
                 contributorRepository = contributors,
                 seriesRepository = series,
-                imageStorage = ImageStorage(httpClient = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) })),
+                imageStorage = ImageStorage(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
                 metadataProvider = provider,
             )
@@ -247,6 +267,58 @@ class MatchApplySelectionTest :
                     a
                         .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allButCover())
                         .shouldBeInstanceOf<AppResult.Failure>()
+                }
+            }
+        }
+
+        test("cover=on with a chosen coverUrl stores that cover as UPLOADED, overriding an existing cover") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    // give the book a pre-existing non-ENRICHED cover to prove the gate is gone
+                    books.setManagedCover(BookId("b1"), "covers/old.png", "oldhash", CoverSource.EMBEDDED)
+
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()), coverBytes = ONE_PX_PNG)
+                    val sel = allButCover().copy(cover = true, coverUrl = "https://itunes/chosen.png")
+                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.cover.shouldNotBeNull()
+                    saved.cover!!.source shouldBe CoverSource.UPLOADED
+                }
+            }
+        }
+
+        test("non-empty but unresolvable authorAsins leaves existing authors untouched") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    // matchBook authors have asin "AUTH1"; select an asin that isn't in the match
+                    val sel = allButCover().copy(authorAsins = setOf("NOT-IN-MATCH"), seriesAsins = setOf("NOT-IN-MATCH"))
+                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.contributors
+                        .filter { it.role.equals("author", ignoreCase = true) }
+                        .single()
+                        .name shouldBe "Old Author"
                 }
             }
         }

@@ -438,7 +438,7 @@ class MetadataViewModel(
                         bookId = BookId(preview.context.bookId),
                         asin = preview.match.asin,
                         region = preview.region,
-                        selection = ready.selections.toApplySelection(),
+                        selection = ready.selections.toApplySelection(coverUrl = ready.selectedCoverUrl),
                     )
             ) {
                 is AppResult.Success -> {
@@ -700,7 +700,7 @@ class MetadataViewModel(
         updateReady { it.copy(selections = transform(it.selections)) }
     }
 
-    private fun MetadataSelections.toApplySelection(): MetadataApplySelection =
+    private fun MetadataSelections.toApplySelection(coverUrl: String?): MetadataApplySelection =
         MetadataApplySelection(
             title = title,
             subtitle = subtitle,
@@ -712,6 +712,7 @@ class MetadataViewModel(
             authorAsins = selectedAuthors,
             narratorAsins = selectedNarrators,
             seriesAsins = selectedSeries,
+            coverUrl = coverUrl,
         )
 
     private fun initializeSelections(preview: MetadataBook): MetadataSelections =
