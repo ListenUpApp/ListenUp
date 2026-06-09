@@ -56,7 +56,6 @@ struct LoginView: View {
                 ErrorBanner(message: error)
             }
             fields
-            forgotPassword
         } footer: {
             signInButton
             footerLinks
@@ -82,16 +81,6 @@ struct LoginView: View {
                 isLast: true,
                 textContentType: .password
             )
-        }
-    }
-
-    private var forgotPassword: some View {
-        HStack {
-            Spacer()
-            Button(String(localized: "auth.forgot_password")) {}
-                .font(.subheadline)
-                .foregroundStyle(Color.listenUpOrange)
-                .buttonStyle(.plain)
         }
     }
 

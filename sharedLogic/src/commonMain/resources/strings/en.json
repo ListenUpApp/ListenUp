@@ -107,7 +107,6 @@
   },
   "auth": {
     "admin_account_subtitle": "You're creating the first account on this server.",
-    "forgot_password": "Forgot password?",
     "already_have_account": "Already have an account?",
     "approved": "Approved!",
     "cancel_registration": "Cancel Registration",
