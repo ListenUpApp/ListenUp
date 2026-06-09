@@ -182,4 +182,15 @@ class AdminRepositoryImplLibraryTest :
             val lib = (result as AppResult.Success).data
             lib.folders.map { it.rootPath } shouldBe listOf("/new/path")
         }
+
+        test("triggerScan calls scanLibrary with the library id") {
+            val service = FakeLibraryAdminService()
+            service.seed(contractLibrary(id = "lib1"))
+            val repo = buildRepo(service)
+
+            val result = repo.triggerScan("lib1")
+
+            service.scannedLibraryIds shouldBe listOf("lib1")
+            (result is AppResult.Success) shouldBe true
+        }
     })

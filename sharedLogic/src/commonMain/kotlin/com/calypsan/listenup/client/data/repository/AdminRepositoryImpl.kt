@@ -272,7 +272,10 @@ class AdminRepositoryImpl(
         path: String,
     ): AppResult<Library> = adminApi.removeScanPath(libraryId, path).map { it.toDomain() }
 
-    override suspend fun triggerScan(libraryId: String): AppResult<Unit> = adminApi.triggerScan(libraryId)
+    override suspend fun triggerScan(libraryId: String): AppResult<Unit> =
+        catching("triggerScan") {
+            libraryAdminRpc.get().scanLibrary(LibraryId(libraryId))
+        }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
         adminApi.browseFilesystem(path)
