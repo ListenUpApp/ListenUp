@@ -229,4 +229,6 @@ data class MetadataApplySelection(
     @SerialName("authorAsins") val authorAsins: Set<String>,
     @SerialName("narratorAsins") val narratorAsins: Set<String>,
     @SerialName("seriesAsins") val seriesAsins: Set<String>,
+    /** The user's chosen cover URL when [cover] is true; null = the match's default-max cover. */
+    @SerialName("coverUrl") val coverUrl: String? = null,
 )
