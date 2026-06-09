@@ -43,13 +43,6 @@ struct ServerSelectView: View {
                 if let first = viewModel.servers.first { viewModel.selectServer(first) }
             }
             .disabled(viewModel.servers.isEmpty || viewModel.isConnecting)
-
-            HStack(spacing: 4) {
-                Text(String(localized: "auth.already_have_account")).foregroundStyle(.secondary)
-                Text(String(localized: "auth.sign_in"))
-                    .fontWeight(.semibold).foregroundStyle(Color.listenUpOrange)
-            }
-            .font(.subheadline)
         }
         .onAppear { viewModel.onManualEntryRequested = { showManualEntry = true } }
     }
