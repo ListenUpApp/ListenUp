@@ -181,7 +181,7 @@ class BrowseTreeProvider(
     private suspend fun getDownloadedBooks(): List<MediaItem> {
         // Get all downloads and find fully downloaded books
         // For now, use a simpler approach - get books that have completed downloads
-        val books = bookDao.getAll()
+        val books = bookDao.getAllLive()
         val downloadedBookIds = mutableSetOf<String>()
 
         // Check each book's download status
