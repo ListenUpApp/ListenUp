@@ -317,6 +317,7 @@ interface BookDao {
     @Query(
         """
         SELECT * FROM books
+        WHERE deletedAt IS NULL
         ORDER BY createdAt DESC
         LIMIT :limit
     """,
@@ -335,7 +336,7 @@ interface BookDao {
         """
         SELECT b.* FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+        WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
         ORDER BY RANDOM()
         LIMIT :limit
     """,
@@ -364,6 +365,7 @@ interface BookDao {
                 LIMIT 1
             ) as authorName
         FROM books b
+        WHERE b.deletedAt IS NULL
         ORDER BY b.createdAt DESC
         LIMIT :limit
     """,
@@ -390,7 +392,7 @@ interface BookDao {
             ) as authorName
         FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+        WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
         ORDER BY RANDOM()
         LIMIT :limit
     """,
@@ -422,7 +424,7 @@ interface BookDao {
         FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
         LEFT JOIN book_series bs ON bs.bookId = b.id
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
+        WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
     """,
     )
     fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>>

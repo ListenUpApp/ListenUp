@@ -139,6 +139,63 @@ class BookDaoLiveQueryTest :
                 db.close()
             }
         }
+
+        test("observeRandomUnstartedBooks excludes soft-deleted books") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+                    bookDao.softDelete(BookId("b2"), deletedAt = 999L, revision = 1L)
+
+                    bookDao.observeRandomUnstartedBooks(limit = 10).test {
+                        awaitItem().map { it.id.value }.toSet() shouldBe setOf("b1")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeRecentlyAddedWithAuthor excludes soft-deleted books") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+                    bookDao.softDelete(BookId("b2"), deletedAt = 999L, revision = 1L)
+
+                    bookDao.observeRecentlyAddedWithAuthor(limit = 10).test {
+                        awaitItem().map { it.id.value }.toSet() shouldBe setOf("b1")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeUnstartedCandidatesWithSeries excludes soft-deleted books") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+                    bookDao.softDelete(BookId("b2"), deletedAt = 999L, revision = 1L)
+
+                    bookDao.observeUnstartedCandidatesWithSeries().test {
+                        awaitItem().map { it.id.value }.toSet() shouldBe setOf("b1")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
     })
 
 private suspend fun liveQuerySeedSeries(
