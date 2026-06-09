@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.api.dto.invite.InviteSummary
 import com.calypsan.listenup.api.dto.invite.InviteStatus
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.core.ServerUrl
@@ -125,11 +124,8 @@ class AdminRepositoryImplInviteTest :
             service: FakeInviteService,
             serverUrl: String = "https://srv.example",
         ): AdminRepositoryImpl {
-            val unusedApi = mock<AdminApiContract>()
-            val unusedUserRpc = mock<AdminUserRpcFactory>()
             return AdminRepositoryImpl(
-                adminApi = unusedApi,
-                adminUserRpc = unusedUserRpc,
+                adminUserRpc = mock<AdminUserRpcFactory>(),
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = FakeInviteRpcFactory(service),
                 libraryAdminRpc = mock(),
@@ -219,7 +215,6 @@ class AdminRepositoryImplInviteTest :
                 }
             val repo =
                 AdminRepositoryImpl(
-                    adminApi = mock<AdminApiContract>(),
                     adminUserRpc = mock<AdminUserRpcFactory>(),
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = throwingFactory,

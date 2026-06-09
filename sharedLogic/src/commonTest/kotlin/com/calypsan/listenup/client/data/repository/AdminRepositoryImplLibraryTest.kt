@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
@@ -134,7 +133,6 @@ private class FakeLibraryAdminRpcFactory(
 
 private fun buildRepo(service: FakeLibraryAdminService): AdminRepositoryImpl =
     AdminRepositoryImpl(
-        adminApi = mock<AdminApiContract>(),
         adminUserRpc = mock<AdminUserRpcFactory>(),
         adminSettingsRpc = mock<AdminSettingsRpcFactory>(),
         inviteRpc = mock<InviteRpcFactory>(),

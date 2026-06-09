@@ -34,7 +34,6 @@ class AdminRepositoryImplSettingsTest :
     FunSpec({
         fun repo(svc: AdminSettingsService) =
             AdminRepositoryImpl(
-                adminApi = mock(),
                 adminUserRpc = mock(),
                 adminSettingsRpc = FakeAdminSettingsRpcFactory(svc),
                 inviteRpc = mock(),
@@ -62,7 +61,7 @@ class AdminRepositoryImplSettingsTest :
 
                     override suspend fun invalidate() = Unit
                 }
-            val r = AdminRepositoryImpl(mock(), mock(), throwing, mock(), mock(), mock()).getServerSettings()
+            val r = AdminRepositoryImpl(mock(), throwing, mock(), mock(), mock()).getServerSettings()
             (r is AppResult.Failure) shouldBe true
         }
     })

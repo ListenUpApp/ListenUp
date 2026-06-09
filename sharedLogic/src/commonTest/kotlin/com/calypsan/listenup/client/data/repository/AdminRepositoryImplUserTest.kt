@@ -124,9 +124,7 @@ class AdminRepositoryImplUserTest :
     FunSpec({
 
         fun buildRepo(service: FakeAdminUserService): AdminRepositoryImpl {
-            val unusedApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>()
             return AdminRepositoryImpl(
-                adminApi = unusedApi,
                 adminUserRpc = FakeAdminUserRpcFactory(service),
                 adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                 inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
@@ -263,7 +261,6 @@ class AdminRepositoryImplUserTest :
                 }
             val repo =
                 AdminRepositoryImpl(
-                    adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
                     adminUserRpc = throwingFactory,
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
@@ -299,7 +296,6 @@ class AdminRepositoryImplUserTest :
                 }
             val repo =
                 AdminRepositoryImpl(
-                    adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
                     adminUserRpc = throwingFactory,
                     adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),

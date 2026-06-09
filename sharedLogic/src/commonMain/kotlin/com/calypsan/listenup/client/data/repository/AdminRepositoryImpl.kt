@@ -16,14 +16,12 @@ import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
-import com.calypsan.listenup.client.data.remote.LibraryResponse
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -38,16 +36,13 @@ import kotlinx.coroutines.CancellationException
 private val logger = KotlinLogging.logger {}
 
 /**
- * Implementation of AdminRepository using AdminApiContract for non-user operations,
- * [AdminUserRpcFactory] for user management, and [InviteRpcFactory] for invite management
- * (both routed through the Kotlin RPC server).
+ * Implementation of AdminRepository backed entirely by Kotlin RPC services.
  *
  * All methods return [AppResult] — no exceptions are thrown. The [catching] helper wraps
  * every RPC call so that transport-level exceptions (e.g. [io.ktor.client.plugins.websocket.WebSocketException]
  * on a 401 WS handshake) are converted to [AppResult.Failure] rather than propagating as
  * unhandled exceptions. This mirrors [AuthRepositoryImpl.catching] and upholds the contract.
  *
- * @property adminApi API client for inbox/library operations
  * @property adminUserRpc RPC factory for user-management operations
  * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
@@ -55,7 +50,6 @@ private val logger = KotlinLogging.logger {}
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
-    private val adminApi: AdminApiContract,
     private val adminUserRpc: AdminUserRpcFactory,
     private val adminSettingsRpc: AdminSettingsRpcFactory,
     private val inviteRpc: InviteRpcFactory,
@@ -298,8 +292,7 @@ class AdminRepositoryImpl(
  * to the [Library] domain model.
  *
  * The contract DTO carries no `revision` (that lives on the member-synced
- * projection, not the admin aggregate), so it defaults to 0L — matching the
- * Go-REST [LibraryResponse.toDomain] mapping until the full admin RPC rewire lands.
+ * projection, not the admin aggregate), so it defaults to 0L.
  */
 private fun ContractLibrary.toDomain(): Library =
     Library(
@@ -318,20 +311,3 @@ private fun ContractLibrary.toDomain(): Library =
         inboxEnabled = inboxEnabled,
     )
 
-/**
- * Convert LibraryResponse API model to Library domain model.
- *
- * Legacy Go REST response: `metadataPrecedence`, `createdByUserId`, and `revision`
- * are not present on the wire. Defaults apply until the Kotlin server RPC
- * path replaces this code in the LibraryAdminService rewire (Task 25+).
- */
-private fun LibraryResponse.toDomain(): Library =
-    Library(
-        id = id,
-        name = name,
-        metadataPrecedence = "embedded,abs",
-        accessMode = AccessMode.fromString(accessMode),
-        createdByUserId = null,
-        createdAt = 0L,
-        revision = 0L,
-    )
