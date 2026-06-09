@@ -79,6 +79,9 @@ internal class ScanCoordinator(
         }
     }
 
+    /** True while a scan currently holds this library's single-flight lock. */
+    fun isScanning(): Boolean = mutex.isLocked
+
     suspend fun scanFull(): AppResult<ScanResult> {
         if (!mutex.tryLock()) {
             return AppResult.Failure(ScanError.AlreadyRunning())

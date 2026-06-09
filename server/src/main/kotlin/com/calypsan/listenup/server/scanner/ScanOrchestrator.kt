@@ -60,6 +60,9 @@ internal class ScanOrchestrator(
     // Folder-to-library reverse index for scanFolder lookups.
     private val libraryByFolder = mutableMapOf<FolderId, LibraryId>()
 
+    /** True if any library currently has a scan in flight. */
+    suspend fun isScanning(): Boolean = mutex.withLock { bundlesByLibrary.values.any { it.coordinator.isScanning() } }
+
     /**
      * Registers [library] with the orchestrator: creates a [Scanner] +
      * [ScanCoordinator] pair, registers the folder-to-library index, and mounts

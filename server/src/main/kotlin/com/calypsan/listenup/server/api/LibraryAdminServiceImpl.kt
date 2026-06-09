@@ -80,7 +80,9 @@ internal class LibraryAdminServiceImpl(
         // Open to any authenticated caller: drives first-launch onboarding before any admin exists.
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val count = page.items.count { it.deletedAt == null }
-        return AppResult.Success(SetupStatus(needsSetup = count == 0, libraryCount = count))
+        return AppResult.Success(
+            SetupStatus(needsSetup = count == 0, libraryCount = count, isScanning = scanOrchestrator.isScanning()),
+        )
     }
 
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> {
