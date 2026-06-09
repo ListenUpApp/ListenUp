@@ -169,4 +169,17 @@ class AdminRepositoryImplLibraryTest :
             libs.first().folders.map { it.id } shouldBe listOf("f1", "f2")
             libs.first().folders.map { it.rootPath } shouldBe listOf("/audiobooks", null)
         }
+
+        test("addScanPath calls addFolder then returns the re-fetched library") {
+            val service = FakeLibraryAdminService()
+            service.seed(contractLibrary(id = "lib1"))
+            val repo = buildRepo(service)
+
+            val result = repo.addScanPath("lib1", "/new/path")
+
+            service.addFolderCalls shouldBe listOf("lib1" to "/new/path")
+            (result is AppResult.Success) shouldBe true
+            val lib = (result as AppResult.Success).data
+            lib.folders.map { it.rootPath } shouldBe listOf("/new/path")
+        }
     })

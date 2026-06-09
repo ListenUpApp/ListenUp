@@ -260,7 +260,12 @@ class AdminRepositoryImpl(
     override suspend fun addScanPath(
         libraryId: String,
         path: String,
-    ): AppResult<Library> = adminApi.addScanPath(libraryId, path).map { it.toDomain() }
+    ): AppResult<Library> =
+        catching("addScanPath") {
+            libraryAdminRpc.get().addFolder(LibraryId(libraryId), path).flatMap {
+                getLibrary(libraryId)
+            }
+        }
 
     override suspend fun removeScanPath(
         libraryId: String,
