@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.toDetail
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.core.isFirstInSeries
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -118,16 +119,25 @@ class BookRepositoryImpl(
         )
 
     /**
-     * Observe random unstarted books for discovery.
+     * Observe random unstarted books for discovery, series-aware.
      *
-     * Transforms data layer entities to domain DiscoveryBook models,
-     * resolving local cover paths via ImageStorage.
+     * Includes a book iff it is standalone (no series edge) OR first-in-series
+     * in at least one of its series. Mid-series books are excluded so the
+     * Discover surface never surfaces a book whose story has already begun.
+     * The result is shuffled on every emission so pull-to-refresh reorders it.
      */
     override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> =
-        bookDao.observeRandomUnstartedBooksWithAuthor(limit).map { entities ->
-            entities.map { entity ->
-                entity.toDiscoveryBook(imageStorage)
-            }
+        bookDao.observeUnstartedCandidatesWithSeries().map { rows ->
+            rows
+                .groupBy { it.id }
+                .values
+                .filter { bookRows ->
+                    val sequences = bookRows.mapNotNull { it.sequence }
+                    sequences.isEmpty() || sequences.any { isFirstInSeries(it) }
+                }.map { bookRows -> bookRows.first() }
+                .shuffled()
+                .take(limit)
+                .map { it.toDiscoveryBook(imageStorage) }
         }
 
     /**
@@ -346,6 +356,21 @@ class BookRepositoryImpl(
  * Convert DiscoveryBookWithAuthor entity to domain DiscoveryBook.
  */
 private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithAuthor.toDiscoveryBook(
+    imageStorage: ImageStorage,
+): DiscoveryBook =
+    DiscoveryBook(
+        id = id.value,
+        title = title,
+        authorName = authorName,
+        coverPath = if (imageStorage.exists(id)) imageStorage.getCoverPath(id) else null,
+        coverBlurHash = coverBlurHash,
+        createdAt = createdAt.epochMillis,
+    )
+
+/**
+ * Convert a [DiscoveryBookWithSeries] row to a domain [DiscoveryBook].
+ */
+private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries.toDiscoveryBook(
     imageStorage: ImageStorage,
 ): DiscoveryBook =
     DiscoveryBook(
