@@ -235,9 +235,12 @@ graalvmNative {
                 "kotlin.SafePublicationLazyImpl",
             )
         buildArgs.add("--initialize-at-build-time=${buildTimeInit.joinToString(",")}")
-        // Logback initializes at RUN time: at build time it reads its config off the classpath and
-        // bakes an open JarFile/ZipFile handle into the heap. Run-time init also matches the #436
-        // design, where Launcher sets logback.configurationFile before the first logger is created.
-        buildArgs.add("--initialize-at-run-time=ch.qos.logback,net.logstash.logback")
+        // Logback + SLF4J initialize at BUILD time — the canonical native-image setup (matches the
+        // reachability-metadata repo's expectation). A half-initialized logback (some classes
+        // build-time, some run-time) is what retains the system classloader's open JarFile handles
+        // in the heap; initializing the whole slf4j+logback graph at build time resolves it.
+        // NOTE: this bakes the logback config at build time, so the runtime LISTENUP_LOG_FORMAT
+        // switching (#436 Launcher) needs a native-specific rethink later — tracked as follow-up.
+        buildArgs.add("--initialize-at-build-time=org.slf4j,ch.qos.logback,net.logstash.logback")
     }
 }
