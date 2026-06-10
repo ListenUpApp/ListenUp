@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
+    id("listenup.jvm")
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ktor)
     application
