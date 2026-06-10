@@ -170,6 +170,53 @@ struct InterruptionPolicyTests {
     }
 }
 
+@Suite("Route change handling")
+@MainActor
+struct RouteChangeTests {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine) {
+        let engine = FakePlaybackEngine()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        return (coordinator, engine)
+    }
+
+    @Test func routeChangeOldDeviceUnavailablePauses() async {
+        let (coordinator, engine) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await awaitUntil { await engine.didPlay }
+
+        NotificationCenter.default.post(
+            name: AVAudioSession.routeChangeNotification, object: nil,
+            userInfo: [AVAudioSessionRouteChangeReasonKey:
+                NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
+
+        await awaitUntil { await engine.didPause }
+        #expect(await engine.didPause)
+    }
+
+}
+
+@Suite("Route change policy")
+struct RouteChangePolicyTests {
+    @Test func oldDeviceUnavailablePauses() {
+        #expect(RouteChangePolicy.shouldPause(reason: .oldDeviceUnavailable))
+    }
+    @Test func newDeviceAvailableDoesNotPause() {
+        #expect(RouteChangePolicy.shouldPause(reason: .newDeviceAvailable) == false)
+    }
+    @Test func categoryChangeDoesNotPause() {
+        #expect(RouteChangePolicy.shouldPause(reason: .categoryChange) == false)
+    }
+}
+
 @Suite("End of chapter")
 @MainActor
 struct EndOfChapterTests {
