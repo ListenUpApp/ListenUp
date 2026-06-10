@@ -25,7 +25,7 @@ struct MiniPlayerView: View {
                 GeometryReader { geometry in
                     Rectangle()
                         .fill(Color.listenUpOrange)
-                        .frame(width: geometry.size.width * CGFloat(observer.bookProgress))
+                        .frame(width: geometry.size.width * CGFloat(observer.displayBookProgress))
                 }
                 .frame(height: 2)
                 .background(Color.gray.opacity(0.2))
@@ -58,7 +58,7 @@ struct MiniPlayerView: View {
                     Spacer()
 
                     // Time remaining
-                    Text(formatTimeRemaining(observer.bookDurationMs - observer.bookPositionMs))
+                    Text(formatTimeRemaining(observer.bookDurationMs - observer.displayBookPositionMs))
                         .font(.caption.width(.condensed))
                         .fontDesign(.rounded)
                         .foregroundStyle(.secondary)

@@ -15,8 +15,6 @@ struct FullScreenPlayerView: View {
     let observer: PlayerCoordinator
     @Binding var isPresented: Bool
 
-    @State private var sliderPosition: Double = 0
-    @State private var isDraggingSlider: Bool = false
     @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
     @State private var showSleepTimer: Bool = false
@@ -70,36 +68,9 @@ struct FullScreenPlayerView: View {
 
             // Controls
             VStack(spacing: 20) {
-                // Chapter-scoped progress
-                VStack(spacing: 8) {
-                    Slider(
-                        value: $sliderPosition,
-                        in: 0...max(Double(observer.chapterDurationMs), 1),
-                        onEditingChanged: { editing in
-                            isDraggingSlider = editing
-                            if !editing {
-                                // Seek relative to chapter start
-                                if let info = observer.currentChapterInfoForSeeking {
-                                    let absolutePosition = Int64(info.startMs) + Int64(sliderPosition)
-                                    observer.seekTo(positionMs: absolutePosition)
-                                }
-                            }
-                        }
-                    )
-
-                    HStack {
-                        Text(formatTime(isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs))
-                            .font(.caption)
-                            .foregroundStyle(.gray)
-                            .monospacedDigit()
-                        Spacer()
-                        let remaining = observer.chapterDurationMs - (isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs)
-                        Text("-" + formatTime(remaining))
-                            .font(.caption)
-                            .foregroundStyle(.gray)
-                            .monospacedDigit()
-                    }
-                }
+                // Chapter-scoped progress — isolated so its per-frame position reads
+                // don't re-evaluate the rest of the player (incl. the blur background).
+                ChapterScrubberSection(observer: observer)
 
                 // Overall book progress bar (thin)
                 VStack(spacing: 4) {
@@ -110,13 +81,13 @@ struct FullScreenPlayerView: View {
                                 .frame(height: 3)
                             Capsule()
                                 .fill(Color.listenUpOrange.opacity(0.6))
-                                .frame(width: geo.size.width * CGFloat(observer.bookProgress), height: 3)
+                                .frame(width: geo.size.width * CGFloat(observer.displayBookProgress), height: 3)
                         }
                     }
                     .frame(height: 3)
 
                     HStack {
-                        Text(formatTime(observer.bookPositionMs))
+                        Text(formatTime(observer.displayBookPositionMs))
                             .font(.system(size: 10))
                             .foregroundStyle(.gray.opacity(0.6))
                             .monospacedDigit()
@@ -231,14 +202,6 @@ struct FullScreenPlayerView: View {
             }
         }
         .statusBarHidden(false)
-        .onChange(of: observer.chapterPositionMs) { _, newValue in
-            if !isDraggingSlider {
-                sliderPosition = Double(newValue)
-            }
-        }
-        .onAppear {
-            sliderPosition = Double(observer.chapterPositionMs)
-        }
         .sheet(isPresented: $showSpeedPicker) {
             SpeedPickerSheet(
                 currentSpeed: observer.playbackSpeed,
@@ -304,6 +267,71 @@ struct FullScreenPlayerView: View {
             return "\(Int(speed))x"
         } else {
             return String(format: "%.2gx", speed)
+        }
+    }
+}
+
+// MARK: - Chapter Scrubber
+
+/// The chapter slider + elapsed/remaining labels. Extracted from
+/// `FullScreenPlayerView` so the per-frame position reads that drive the moving
+/// thumb re-evaluate only this small view — not the whole player and its blurred
+/// cover background, which now re-evaluate at most ~1×/sec.
+private struct ChapterScrubberSection: View {
+    let observer: PlayerCoordinator
+
+    @State private var sliderPosition: Double = 0
+    @State private var isDraggingSlider: Bool = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Slider(
+                value: $sliderPosition,
+                in: 0...max(Double(observer.chapterDurationMs), 1),
+                onEditingChanged: { editing in
+                    isDraggingSlider = editing
+                    if !editing {
+                        // Seek relative to chapter start
+                        if let info = observer.currentChapterInfoForSeeking {
+                            let absolutePosition = Int64(info.startMs) + Int64(sliderPosition)
+                            observer.seekTo(positionMs: absolutePosition)
+                        }
+                    }
+                }
+            )
+
+            HStack {
+                let elapsed = isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs
+                Text(formatTime(elapsed))
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+                    .monospacedDigit()
+                Spacer()
+                Text("-" + formatTime(observer.chapterDurationMs - elapsed))
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+                    .monospacedDigit()
+            }
+        }
+        .onChange(of: observer.chapterPositionMs) { _, newValue in
+            if !isDraggingSlider {
+                sliderPosition = Double(newValue)
+            }
+        }
+        .onAppear {
+            sliderPosition = Double(observer.chapterPositionMs)
+        }
+    }
+
+    private func formatTime(_ ms: Int64) -> String {
+        let totalSeconds = max(0, ms / 1000)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%d:%02d", minutes, seconds)
         }
     }
 }
