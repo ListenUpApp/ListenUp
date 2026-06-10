@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
 import org.koin.core.module.Module
-import org.koin.dsl.module
 
 /**
  * Platform-specific storage module.
@@ -23,16 +22,6 @@ expect val platformDiscoveryModule: Module
  */
 expect val platformDeviceModule: Module
 
-/**
- * Data layer dependencies.
- * Provides repositories for settings and domain data.
- *
- * Bindings moved to dedicated modules:
- *  - [appCoreModule] — ErrorBus, DeepLinkManager, ShortcutActionManager, appScope CoroutineScope
- *  - [settingsModule] — SettingsRepositoryImpl + segregated interface binds
- */
-val dataModule = module { }
-
 // networkModule is defined in NetworkModule.kt — relocated wholesale to avoid a
 // top-level `val networkModule` name collision between this file and that file.
 
@@ -43,50 +32,6 @@ val dataModule = module { }
  * - Physical devices: Use your computer's LAN IP
  */
 expect fun getBaseUrl(): String
-
-/**
- * Repository layer dependencies.
- * Binds repository interfaces to their implementations.
- *
- * Bindings moved to dedicated modules:
- *  - [persistenceModule] — all DAO providers + TransactionRunner
- *  - [connectionModule] — InstanceRpcFactory, InstanceRepository, ServerRepository
- */
-val repositoryModule = module { }
-
-/**
- * Use case layer dependencies.
- * Creates use case instances for business logic.
- *
- * Bindings moved to dedicated modules:
- *  - [connectionModule] — GetInstanceUseCase
- *  - [adminModule] — admin use cases (LoadUsersUseCase etc.)
- *  - [socialModule] — FetchActivitiesUseCase
- *  - [libraryModule] — RefreshLibraryUseCase
- */
-val useCaseModule = module { }
-
-/**
- * Sync infrastructure module.
- *
- * Provides SyncManager, SyncApi, and related sync components.
- *
- * Bindings moved to dedicated modules:
- *  - [appCoreModule] — appScope CoroutineScope
- *  - [connectionModule] — RpcCacheInvalidator, ConnectionCoordinator
- *  - [adminModule] — BackupApi, ABSImportApi, LibraryAdminRpcFactory, AdminUserRpcFactory,
- *    AdminSettingsRpcFactory, BackupRpcFactory, ImportRpcFactory, BackupRepository,
- *    ImportRepository, AdminRepository, EventStreamRepository
- *  - [socialModule] — SessionApi, SocialRpcFactory, ActivityRpcFactory, ProfileRpcFactory,
- *    ProfileEditRepository, UserRepository, UserProfileRepository, LeaderboardRepository,
- *    ActivityRepository, ActiveSessionRepository, ProfileRepository, BookReadersRepository
- *  - [listeningModule] — StatsApi, StatsRepository, ListeningEventRepository,
- *    PlaybackPositionRepository
- *  - [libraryModule] — SyncApi, UserPreferencesApi, LibraryResetHelper, ScannerRpcFactory,
- *    HomeRepository, SyncRepository, UserPreferencesRepository, SyncStatusRepository,
- *    PendingOperationRepository, LibraryRepository, RefreshLibraryUseCase
- */
-val syncModule = module { }
 
 /**
  * All shared modules that should be loaded in both Android and iOS.
@@ -102,10 +47,6 @@ val sharedModules =
         networkModule,
         persistenceModule,
         connectionModule,
-        dataModule,
-        repositoryModule,
-        useCaseModule,
-        syncModule,
         bookModule,
         contributorModule,
         seriesModule,

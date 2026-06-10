@@ -13,8 +13,6 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
-private const val APP_SCOPE = "appScope"
-
 /**
  * Listening aggregate Koin wiring — API, repositories for the listening/stats domain
  * (listening stats, listening events, playback positions).
