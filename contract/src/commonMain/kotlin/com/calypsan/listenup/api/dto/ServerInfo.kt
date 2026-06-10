@@ -33,4 +33,11 @@ data class ServerInfo(
     /** Operator-set remote (WAN) URL for off-LAN access; null when unset. Clients persist it as the reconnect fallback. */
     @SerialName("remoteUrl")
     val remoteUrl: String? = null,
+    /**
+     * Stable server-instance id (the mDNS TXT `id`), persisted server-side so it survives restarts.
+     * Clients compare it on reconnect to tell a restart of the *same* server (stay signed in) from a
+     * *different* server (clean re-auth).
+     */
+    @SerialName("instanceId")
+    val instanceId: String,
 )

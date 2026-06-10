@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -14,12 +15,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * [ServerInfo.setupRequired] is derived, not stored: a fresh instance with no
  * users needs root setup. [ServerInfo.registrationPolicy] is read live from
  * [ServerSettingsRepository] so an admin's `setRegistrationPolicy` is reflected
- * on the next verification without a restart. The remaining fields are static
- * server identity.
+ * on the next verification without a restart. [ServerInfo.instanceId] is the
+ * stable, DB-persisted instance id (read-or-created via [InstanceIdentity], the
+ * same id advertised over mDNS). The remaining fields are static server identity.
  */
 class InstanceServiceImpl(
     private val db: Database,
     private val settings: ServerSettingsRepository,
+    private val instanceIdentity: InstanceIdentity,
 ) : InstanceService {
     override suspend fun getServerInfo(): AppResult<ServerInfo> {
         val setupRequired = suspendTransaction(db) { UserEntity.all().limit(1).empty() }
@@ -31,6 +34,7 @@ class InstanceServiceImpl(
                 setupRequired = setupRequired,
                 registrationPolicy = settings.registrationPolicy(),
                 remoteUrl = settings.remoteUrl(),
+                instanceId = instanceIdentity.instanceId(),
             ),
         )
     }

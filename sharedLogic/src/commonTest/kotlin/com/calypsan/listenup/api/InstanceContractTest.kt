@@ -27,6 +27,7 @@ class InstanceContractTest :
                     apiVersion = "v1",
                     setupRequired = true,
                     registrationPolicy = RegistrationPolicy.OPEN,
+                    instanceId = "test-instance",
                 )
             roundTrip(original) shouldBe original
         }
@@ -40,6 +41,7 @@ class InstanceContractTest :
                         apiVersion = "v1",
                         setupRequired = false,
                         registrationPolicy = RegistrationPolicy.APPROVAL_QUEUE,
+                        instanceId = "test-instance",
                     ),
                 )
             decoded.setupRequired shouldBe false

@@ -260,6 +260,7 @@ private fun AuthError.toHttpStatus(): HttpStatusCode =
         is AuthError.PendingApproval -> HttpStatusCode.Forbidden
         is AuthError.AccountDenied -> HttpStatusCode.Forbidden
         is AuthError.SessionExpired -> HttpStatusCode.Unauthorized
+        is AuthError.ServerInstanceChanged -> HttpStatusCode.Unauthorized
         is AuthError.SessionNotFound -> HttpStatusCode.Unauthorized
         is AuthError.InvalidRefreshToken -> HttpStatusCode.Unauthorized
         is AuthError.RateLimited -> HttpStatusCode.TooManyRequests
@@ -287,6 +288,7 @@ private fun AuthError.withCorrelationId(id: String?): AuthError =
         is AuthError.PendingApproval -> copy(correlationId = id)
         is AuthError.AccountDenied -> copy(correlationId = id)
         is AuthError.SessionExpired -> copy(correlationId = id)
+        is AuthError.ServerInstanceChanged -> copy(correlationId = id)
         is AuthError.SessionNotFound -> copy(correlationId = id)
         is AuthError.InvalidRefreshToken -> copy(correlationId = id)
         is AuthError.RateLimited -> copy(correlationId = id)

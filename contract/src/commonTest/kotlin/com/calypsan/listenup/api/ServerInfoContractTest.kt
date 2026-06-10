@@ -17,6 +17,7 @@ class ServerInfoContractTest :
                     setupRequired = false,
                     registrationPolicy = RegistrationPolicy.OPEN,
                     remoteUrl = "https://library.example.com",
+                    instanceId = "test-instance",
                 )
             contractJson.decodeFromString<ServerInfo>(contractJson.encodeToString(info)) shouldBe info
         }
@@ -30,7 +31,24 @@ class ServerInfoContractTest :
                     setupRequired = true,
                     registrationPolicy = RegistrationPolicy.CLOSED,
                     remoteUrl = null,
+                    instanceId = "test-instance",
                 )
             contractJson.decodeFromString<ServerInfo>(contractJson.encodeToString(info)) shouldBe info
+        }
+
+        test("ServerInfo round-trips instanceId") {
+            val original =
+                ServerInfo(
+                    name = "ListenUp",
+                    version = "0.0.1",
+                    apiVersion = "v1",
+                    setupRequired = false,
+                    registrationPolicy = RegistrationPolicy.CLOSED,
+                    remoteUrl = null,
+                    instanceId = "inst-123",
+                )
+            val decoded = contractJson.decodeFromString<ServerInfo>(contractJson.encodeToString(original))
+            decoded.instanceId shouldBe "inst-123"
+            decoded shouldBe original
         }
     })

@@ -135,6 +135,7 @@ fun authModule(config: ApplicationConfig): Module =
             InstanceServiceImpl(
                 db = get(),
                 settings = get(),
+                instanceIdentity = get(),
             )
         }
 

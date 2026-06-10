@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
+import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -328,5 +330,19 @@ val clientSyncRenovationModule =
                 activityRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
             )
+        }
+
+        single(createdAtStart = true) {
+            val coordinator: ConnectionCoordinator = get()
+            ReconnectionSupervisor(
+                engineState = get(),
+                instanceRepository = get(),
+                serverConfig = get(),
+                sseClient = get(),
+                authSession = get(),
+                errorBus = get(),
+                reevaluate = { coordinator.reevaluate() },
+                scope = get(qualifier = named(APP_SCOPE)),
+            ).apply { start() }
         }
     }

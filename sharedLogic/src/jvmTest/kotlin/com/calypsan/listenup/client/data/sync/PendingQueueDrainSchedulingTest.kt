@@ -387,4 +387,6 @@ private class FakeSseClient(
         disconnect()
         seeded = newLastEventId
     }
+
+    override fun reconnectNow() = Unit
 }

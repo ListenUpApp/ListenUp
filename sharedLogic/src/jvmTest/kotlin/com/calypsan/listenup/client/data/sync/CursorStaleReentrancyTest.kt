@@ -159,4 +159,6 @@ private class NoopSseClient(
     override suspend fun reseed(newLastEventId: Long?) {
         seeded = newLastEventId
     }
+
+    override fun reconnectNow() = Unit
 }

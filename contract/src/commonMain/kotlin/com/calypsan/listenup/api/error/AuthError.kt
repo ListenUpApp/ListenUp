@@ -107,6 +107,22 @@ sealed interface AuthError : AppError {
         override val isRetryable: Boolean = false
     }
 
+    /**
+     * The server we reconnected to is a *different* instance than the one this
+     * session was issued for (its persisted `instanceId` changed — DB recreated,
+     * or a different server at the same URL). The session cannot be reused.
+     */
+    @Serializable
+    @SerialName("AuthError.ServerInstanceChanged")
+    data class ServerInstanceChanged(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "This server was reset or replaced. Please sign in again."
+        override val code: String = "AUTH_SERVER_INSTANCE_CHANGED"
+        override val isRetryable: Boolean = false
+    }
+
     /** JWT decoded fine but no matching session row exists. */
     @Serializable
     @SerialName("AuthError.SessionNotFound")

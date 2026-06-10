@@ -156,6 +156,8 @@ private class FakeReconcileSse : SseClient {
     override fun currentLastEventId(): Long? = null
 
     override suspend fun reseed(newLastEventId: Long?) = Unit
+
+    override fun reconnectNow() = Unit
 }
 
 private data class ReconcileHarness(
