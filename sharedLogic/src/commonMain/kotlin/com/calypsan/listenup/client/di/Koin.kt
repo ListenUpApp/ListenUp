@@ -1,16 +1,11 @@
 
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
 import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
-import com.calypsan.listenup.client.data.remote.CollectionInboxApi
-import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
@@ -19,15 +14,11 @@ import com.calypsan.listenup.client.data.remote.BackupRpcFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorImportRpcFactory
-import com.calypsan.listenup.client.data.remote.GenreRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
 import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
-import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
@@ -40,23 +31,18 @@ import com.calypsan.listenup.client.data.remote.StatsApi
 import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.remote.KtorTagRpcFactory
-import com.calypsan.listenup.client.data.remote.TagRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesApi
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
-import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CoverDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
-import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
-import com.calypsan.listenup.client.data.repository.ShelfRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
@@ -66,7 +52,6 @@ import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
-import com.calypsan.listenup.client.data.repository.TagRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserRepositoryImpl
 import com.calypsan.listenup.client.data.sync.FtsPopulator
@@ -78,12 +63,9 @@ import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.CoverDownloadRepository
-import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
@@ -93,7 +75,6 @@ import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
-import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
@@ -109,13 +90,6 @@ import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
-import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -196,43 +170,8 @@ val useCaseModule =
         // Book, contributor, and series use cases are provided by bookModule,
         // contributorModule, and seriesModule respectively.
 
-        // Shelf use cases
-        factory {
-            CreateShelfUseCase(
-                shelfRepository = get(),
-            )
-        }
-        factory {
-            UpdateShelfUseCase(
-                shelfRepository = get(),
-            )
-        }
-        factory {
-            DeleteShelfUseCase(
-                shelfRepository = get(),
-            )
-        }
-        factory {
-            LoadShelfDetailUseCase(
-                shelfRepository = get(),
-                imageRepository = get(),
-            )
-        }
-        factory {
-            RemoveBookFromShelfUseCase(
-                shelfRepository = get(),
-            )
-        }
-        factory {
-            AddBooksToShelfUseCase(
-                shelfRepository = get(),
-            )
-        }
-        factory {
-            ReorderShelfBooksUseCase(
-                shelfRepository = get(),
-            )
-        }
+        // Shelf use cases are provided by shelfModule.
+
         // Admin user management use cases
         factory {
             LoadUsersUseCase(
@@ -337,12 +276,7 @@ val syncModule =
             SearchApi(clientFactory = get())
         }
 
-        // GenreRpcFactory — kotlinx.rpc proxy for the curator mutation surface.
-        // Tree reads come from Room (via GenreDao); only mutations and the
-        // unmapped-string queue need an RPC channel.
-        single<GenreRpcFactory> {
-            KtorGenreRpcFactory(apiClientFactory = get(), serverConfig = get())
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // GenreRpcFactory and GenreRepository are provided by genreTagModule.
 
         // StatsApi for listening statistics
         single {
@@ -400,13 +334,7 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).
-        single<TagRpcFactory> {
-            KtorTagRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // TagRpcFactory and TagRepository are provided by genreTagModule.
 
         // BackupRpcFactory — kotlinx.rpc proxy for BackupService (admin backup/restore over RPC).
         single<BackupRpcFactory> {
@@ -424,13 +352,8 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
-        single<CollectionRpcFactory> {
-            KtorCollectionRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // CollectionRpcFactory, CollectionRepository, CollectionInboxApi, and InboxRepository
+        // are provided by collectionModule.
 
         // MetadataRepository is provided by bookModule (R3: metadata travels with book).
 
@@ -466,23 +389,13 @@ val syncModule =
             EventStreamRepositoryImpl()
         }
 
-        // AdminInboxApi for the 1b admin collection-inbox REST routes
-        single {
-            CollectionInboxApi(clientFactory = get())
-        } bind CollectionInboxApiContract::class
+        // AdminInboxApi is provided by collectionModule.
+        // ShelfRpcFactory is provided by shelfModule.
 
         // UserPreferencesApi for syncing user preferences across devices
         single {
             UserPreferencesApi(clientFactory = get())
         } bind UserPreferencesApiContract::class
-
-        // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
-        single<ShelfRpcFactory> {
-            KtorShelfRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
         single<SocialRpcFactory> {
@@ -665,14 +578,7 @@ val syncModule =
             )
         }
 
-        // TagRepository — observations from Room, mutations via RPC (Tags phase)
-        single<TagRepository> {
-            TagRepositoryImpl(
-                tagRpcFactory = get(),
-                tagDao = get<ListenUpDatabase>().tagDao(),
-                bookTagDao = get<ListenUpDatabase>().bookTagDao(),
-            )
-        }
+        // TagRepository is provided by genreTagModule.
 
         // BackupRepository — admin backup/restore via BackupService RPC proxy.
         single<BackupRepository> {
@@ -684,35 +590,9 @@ val syncModule =
             ImportRepositoryImpl(rpcFactory = get())
         }
 
-        // GenreRepository — Room-backed reads, RPC-dispatched mutations.
-        single<GenreRepository> {
-            GenreRepositoryImpl(dao = get(), rpcFactory = get())
-        }
-
-        // ShelfRepository for personal curation shelves (SOLID: interface in domain, impl in data)
-        single<ShelfRepository> {
-            ShelfRepositoryImpl(
-                dao = get(),
-                userDao = get(),
-                rpcFactory = get(),
-            )
-        }
-
-        // CollectionRepository — Room reads + CollectionService RPC writes (interface in domain, impl in data)
-        single<CollectionRepository> {
-            CollectionRepositoryImpl(
-                collectionDao = get(),
-                collectionBookDao = get(),
-                collectionShareDao = get(),
-                rpcFactory = get(),
-            )
-        }
-
-        // InboxRepository — admin collection-inbox over the 1b REST routes
-        single<com.calypsan.listenup.client.domain.repository.InboxRepository> {
-            com.calypsan.listenup.client.data.repository
-                .InboxRepositoryImpl(api = get())
-        }
+        // GenreRepository is provided by genreTagModule.
+        // ShelfRepository is provided by shelfModule.
+        // CollectionRepository and InboxRepository are provided by collectionModule.
 
         // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
         single<ActivityRepository> {
@@ -815,6 +695,9 @@ val sharedModules =
         bookModule,
         contributorModule,
         seriesModule,
+        collectionModule,
+        shelfModule,
+        genreTagModule,
         clientSyncRenovationModule,
         clientAuthModule,
         voiceModule,
