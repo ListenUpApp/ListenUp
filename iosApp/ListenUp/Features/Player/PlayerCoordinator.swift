@@ -14,6 +14,15 @@ enum InterruptionPolicy {
     }
 }
 
+/// Pure decision for an audio-route change — testable without notifications.
+enum RouteChangePolicy {
+    /// Pause only when the previous output device went away (headphones/AirPods
+    /// unplugged) — otherwise audio would blast out of the speaker (charter rule 13).
+    static func shouldPause(reason: AVAudioSession.RouteChangeReason) -> Bool {
+        reason == .oldDeviceUnavailable
+    }
+}
+
 /// Pure chapter math — resolves a whole-book position to a chapter index.
 /// Split out so it is testable without a coordinator.
 enum ChapterMath {
@@ -177,6 +186,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
         observeSleep()
         observeInterruptions()
+        observeRouteChanges()
     }
 
     /// Convenience initializer using `Dependencies` — wires the Kotlin adapters.
@@ -209,6 +219,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
             }()
             let action = InterruptionPolicy.action(type: type, shouldResume: shouldResume)
             Task { @MainActor in await self.applyInterruption(action) }
+        }
+    }
+
+    private func observeRouteChanges() {
+        let name = AVAudioSession.routeChangeNotification
+        bridge.bind(NotificationCenter.default.notifications(named: name)) { [weak self] note in
+            guard let self else { return }
+            guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                  let reason = AVAudioSession.RouteChangeReason(rawValue: raw),
+                  RouteChangePolicy.shouldPause(reason: reason) else { return }
+            Task { @MainActor in await self.applyInterruption(.pause) }
         }
     }
 

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.db.BookGenreTable
+import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -31,9 +32,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Integration tests for the read + create surface of [GenreServiceImpl]:
@@ -152,6 +155,30 @@ class GenreServiceImplReadCreateTest :
                     val byId = result.data.associateBy { it.id.value }
                     byId["g-fant"]?.bookCount shouldBe 3
                     byId["g-scifi"]?.bookCount shouldBe 1
+                }
+            }
+        }
+
+        test("listGenres counts only live books and includes zero-book genres") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("live1")
+                seedTestBook("gone1")
+                transaction(db) {
+                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                    seedGenre("g-empty", name = "Empty", slug = "empty", path = "/empty")
+                    BookGenreTable.insertIfAbsent("live1", "g-fic")
+                    BookGenreTable.insertIfAbsent("gone1", "g-fic")
+                    BookTable.update({ BookTable.id eq "gone1" }) { it[BookTable.deletedAt] = 123L }
+                }
+                runTest {
+                    val service = makeService(db)
+                    val result = service.listGenres()
+                    require(result is AppResult.Success)
+                    val byId = result.data.associateBy { it.id.value }
+                    byId["g-fic"]?.bookCount shouldBe 1
+                    byId["g-empty"]?.bookCount shouldBe 0
                 }
             }
         }

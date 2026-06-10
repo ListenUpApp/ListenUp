@@ -66,11 +66,11 @@ dependencies {
     detektPlugins(project(":build-logic:detekt-rules"))
 }
 
-// Suppress SLF4J "no binding" warnings during SKIE processing
-// Version must match libs.versions.toml slf4j version (2.0.17)
+// Suppress SLF4J "no binding" warnings during SKIE processing (build-time only).
+// Version comes from the catalog so it can't drift from the runtime slf4j version.
 buildscript {
     dependencies {
-        classpath("org.slf4j:slf4j-simple:2.0.17")
+        classpath(libs.slf4j.simple)
     }
 }
 

@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookGenreTable
+import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.GenreAliasTable
 import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.PendingBookGenreTable
@@ -26,9 +27,11 @@ import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -89,6 +92,15 @@ internal class GenreServiceImpl(
                     .where { GenreTable.deletedAt.isNull() }
                     .orderBy(GenreTable.path)
                     .toList()
+            // One grouped count over LIVE books (a soft-deleted book keeps its book_genres
+            // row — FK cascade is hard-delete only — so exclude tombstones here).
+            val bookCountExpr = BookGenreTable.genreId.count()
+            val counts: Map<String, Long> =
+                (BookGenreTable innerJoin BookTable)
+                    .select(BookGenreTable.genreId, bookCountExpr)
+                    .where { BookTable.deletedAt.isNull() }
+                    .groupBy(BookGenreTable.genreId)
+                    .associate { it[BookGenreTable.genreId] to it[bookCountExpr] }
             val summaries =
                 rows.map { row ->
                     val genreIdStr = row[GenreTable.id]
@@ -100,12 +112,7 @@ internal class GenreServiceImpl(
                         parentId = row[GenreTable.parentId]?.let(::GenreId),
                         depth = row[GenreTable.depth],
                         sortOrder = row[GenreTable.sortOrder],
-                        bookCount =
-                            BookGenreTable
-                                .selectAll()
-                                .where { BookGenreTable.genreId eq genreIdStr }
-                                .count()
-                                .toInt(),
+                        bookCount = (counts[genreIdStr] ?: 0L).toInt(),
                     )
                 }
             AppResult.Success(summaries)
