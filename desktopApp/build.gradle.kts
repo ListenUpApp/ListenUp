@@ -1,20 +1,15 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
-    alias(libs.plugins.kotlinJvm)
+    id("listenup.jvm")
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
 }
 
 kotlin {
-    jvmToolchain(21)
     compilerOptions {
-        freeCompilerArgs.addAll(
-            "-Xexpect-actual-classes",
-            "-Xreturn-value-checker=check",
-            "-Xexplicit-backing-fields",
-            "-Xskip-prerelease-check", // Skip pre-release Kotlin metadata check
-        )
+        // :sharedLogic/:sharedUI compile against pre-release Kotlin 2.3.20 metadata.
+        freeCompilerArgs.add("-Xskip-prerelease-check")
     }
 }
 

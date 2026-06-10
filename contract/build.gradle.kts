@@ -1,8 +1,5 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKmpLibrary)
+    id("listenup.kmp.library")
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlinxRpc)
@@ -14,45 +11,10 @@ kotlin {
 
     android {
         namespace = "com.calypsan.listenup.contract"
-        compileSdk =
-            libs.versions.android.compileSdk
-                .get()
-                .toInt()
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
-
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-            freeCompilerArgs.addAll(
-                "-Xexpect-actual-classes",
-                "-Xreturn-value-checker=check",
-                "-Xexplicit-backing-fields",
-            )
-        }
 
         lint {
-            warningsAsErrors = false
-            abortOnError = true
             checkDependencies = false
-            htmlReport = true
-            xmlReport = true
             disable += setOf("InvalidPackage", "ObsoleteLintCustomCheck")
-        }
-    }
-
-    targets.all {
-        compilations.all {
-            compileTaskProvider.configure {
-                compilerOptions {
-                    freeCompilerArgs.addAll(
-                        "-Xexpect-actual-classes",
-                        "-Xreturn-value-checker=check",
-                        "-Xexplicit-backing-fields",
-                    )
-                }
-            }
         }
     }
 

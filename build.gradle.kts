@@ -19,21 +19,6 @@ plugins {
     // supports the new KMP configuration.
 }
 
-// Configure Java toolchain for all subprojects
-// This ensures Java 17 is used even if you have Java 25 installed
-allprojects {
-    tasks.withType<JavaCompile>().configureEach {
-        sourceCompatibility = JavaVersion.VERSION_17.toString()
-        targetCompatibility = JavaVersion.VERSION_17.toString()
-    }
-
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
-}
-
 // =============================================================================
 // DETEKT - Static Analysis
 // =============================================================================
@@ -63,7 +48,7 @@ detekt {
 
 dependencies {
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:${libs.versions.detekt.get()}")
-    detektPlugins(project(":build-logic:detekt-rules"))
+    detektPlugins("com.calypsan.listenup.build-logic:detekt-rules:0.0.1")
 }
 
 // Suppress SLF4J "no binding" warnings during SKIE processing (build-time only).

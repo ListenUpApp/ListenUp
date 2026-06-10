@@ -1,9 +1,5 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
-}
-
-kotlin {
-    jvmToolchain(21)
+    id("listenup.jvm")
 }
 
 dependencies {
