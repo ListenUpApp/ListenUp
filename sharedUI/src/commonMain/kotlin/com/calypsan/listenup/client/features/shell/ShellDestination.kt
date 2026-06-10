@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -51,3 +52,11 @@ sealed class ShellDestination(
         }
     }
 }
+
+/** Saves a [ShellDestination] by its stable [ShellDestination.route] so the selected
+ *  shell tab survives configuration changes via `rememberSaveable`. */
+val shellDestinationSaver: Saver<ShellDestination, String> =
+    Saver(
+        save = { it.route },
+        restore = { route -> ShellDestination.entries.first { it.route == route } },
+    )

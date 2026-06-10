@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +78,7 @@ import com.calypsan.listenup.client.features.setup.LibrarySetupScreen
 import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
 import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
+import com.calypsan.listenup.client.features.shell.shellDestinationSaver
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
@@ -548,7 +550,9 @@ private fun AuthenticatedNavigation(
     val backStack = rememberNavBackStack(Shell)
 
     // Track shell tab state here so it survives navigation to detail screens
-    var currentShellDestination by remember { mutableStateOf<ShellDestination>(ShellDestination.Home) }
+    var currentShellDestination by rememberSaveable(stateSaver = shellDestinationSaver) {
+        mutableStateOf<ShellDestination>(ShellDestination.Home)
+    }
 
     // Navigate to LibrarySetup the moment readiness resolves to "needs setup".
     LaunchedEffect(readiness) {
@@ -559,7 +563,7 @@ private fun AuthenticatedNavigation(
     }
 
     // Track profile refresh - incremented when profile is updated to trigger refresh
-    var profileRefreshKey by remember { mutableStateOf(0) }
+    var profileRefreshKey by rememberSaveable { mutableStateOf(0) }
 
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
