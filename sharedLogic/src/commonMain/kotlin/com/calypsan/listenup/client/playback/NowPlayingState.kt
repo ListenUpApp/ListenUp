@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.client.domain.model.BookContributor
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 
 /** One chapter for the Now Playing "Up next" queue. */
 data class NowPlayingChapter(
@@ -49,16 +47,7 @@ sealed interface NowPlayingState {
         val isBuffering: Boolean,
         val playbackSpeed: Float,
         val defaultPlaybackSpeed: Float,
-        val bookProgress: Float, // 0.0-1.0
-        val bookPositionMs: Long,
-        val bookDurationMs: Long,
-        val chapterProgress: Float, // 0.0-1.0
-        val chapterPositionMs: Long,
-        val chapterDurationMs: Long,
     ) : NowPlayingState {
-        val chapterPosition: Duration get() = chapterPositionMs.milliseconds
-        val chapterDuration: Duration get() = chapterDurationMs.milliseconds
-
         val chapterLabel: String get() =
             if (totalChapters > 0) "Chapter ${chapterIndex + 1} of $totalChapters" else ""
 

@@ -55,6 +55,7 @@ fun NowPlayingHost(
     modifier: Modifier = Modifier,
 ) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
@@ -91,6 +92,7 @@ fun NowPlayingHost(
             if (activeState != null) {
                 NowPlayingScreen(
                     state = activeState,
+                    progress = progress,
                     onCollapse = viewModel::collapse,
                     onPlayPause = viewModel::playPause,
                     onSeek = viewModel::seekWithinChapter,
@@ -126,6 +128,7 @@ fun NowPlayingHost(
         if (useDockedBar) {
             DockedNowPlayingBar(
                 state = state,
+                progress = progress,
                 isExpanded = screenState.isExpanded,
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,
@@ -160,6 +163,7 @@ fun NowPlayingHost(
 
             NowPlayingBar(
                 state = state,
+                progress = progress,
                 isExpanded = screenState.isExpanded,
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,

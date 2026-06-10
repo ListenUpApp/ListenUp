@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.features.nowplaying.components.SpeedPill
 import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -58,6 +59,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun DockedNowPlayingBar(
     state: NowPlayingState,
+    progress: PlaybackProgress,
     isExpanded: Boolean,
     onTap: () -> Unit,
     onPlayPause: () -> Unit,
@@ -111,6 +113,7 @@ fun DockedNowPlayingBar(
             if (state is NowPlayingState.Active) {
                 ActiveDockedContent(
                     state = state,
+                    progress = progress,
                     onPlayPause = onPlayPause,
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,
@@ -126,6 +129,7 @@ fun DockedNowPlayingBar(
 @Composable
 private fun ActiveDockedContent(
     state: NowPlayingState.Active,
+    progress: PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -220,9 +224,9 @@ private fun ActiveDockedContent(
             }
 
             ChapterScrubberRow(
-                chapterPositionMs = state.chapterPositionMs,
-                chapterDurationMs = state.chapterDurationMs,
-                chapterProgress = state.chapterProgress,
+                chapterPositionMs = progress.chapterPositionMs,
+                chapterDurationMs = progress.chapterDurationMs,
+                chapterProgress = progress.chapterProgress,
                 isPlaying = state.isPlaying,
                 onSeek = onSeek,
             )

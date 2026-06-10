@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
@@ -49,6 +50,7 @@ private const val TV_AMBIENT_DELAY_MS = 15_000L
 @Composable
 fun NowPlayingScreen(
     state: NowPlayingState.Active,
+    progress: PlaybackProgress,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -195,6 +197,7 @@ fun NowPlayingScreen(
         if (expanded) {
             WideNowPlaying(
                 state = state,
+                progress = progress,
                 onCollapse = onCollapse,
                 onPlayPause = onPlayPause,
                 onSeek = onSeek,
@@ -216,6 +219,7 @@ fun NowPlayingScreen(
         } else {
             CompactNowPlaying(
                 state = state,
+                progress = progress,
                 onCollapse = onCollapse,
                 onPlayPause = onPlayPause,
                 onSeek = onSeek,

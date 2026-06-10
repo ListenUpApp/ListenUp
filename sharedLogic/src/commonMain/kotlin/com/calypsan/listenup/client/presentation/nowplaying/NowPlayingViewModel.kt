@@ -16,10 +16,12 @@ import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackDynamics
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SurfaceMetadata
 import com.calypsan.listenup.client.playback.mapToNowPlayingState
+import com.calypsan.listenup.client.playback.mapToPlaybackProgress
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -91,20 +93,14 @@ class NowPlayingViewModel(
             }
         }
 
-    /** Aggregated playback dynamics (4 flows joined into one). */
-    private val dynamicsRawFlow: Flow<DynamicsRaw> =
+    /** Slow-changing play state (no position) — feeds the position-free [Active] combine. */
+    private val playStateFlow: Flow<PlaybackDynamics> =
         combine(
             playbackManager.isPlaying,
             playbackManager.isBuffering,
-            playbackManager.currentPositionMs,
-            playbackManager.totalDurationMs,
-        ) { isPlaying, isBuffering, position, duration ->
-            DynamicsRaw(
-                isPlaying = isPlaying,
-                isBuffering = isBuffering,
-                currentPositionMs = position,
-                totalDurationMs = duration,
-            )
+            playbackManager.playbackSpeed,
+        ) { isPlaying, isBuffering, speed ->
+            PlaybackDynamics(isPlaying = isPlaying, isBuffering = isBuffering, playbackSpeed = speed)
         }
 
     /** Aggregated surface metadata (chapter info + chapter list + error + default speed). */
@@ -127,22 +123,10 @@ class NowPlayingViewModel(
     private val nowPlayingState: Flow<NowPlayingState> =
         combine(
             bookFlow,
-            dynamicsRawFlow,
-            playbackManager.playbackSpeed,
+            playStateFlow,
             surfaceMetadataFlow,
-        ) { book, dynamicsRaw, speed, metadata ->
-            mapToNowPlayingState(
-                book = book,
-                dynamics =
-                    PlaybackDynamics(
-                        isPlaying = dynamicsRaw.isPlaying,
-                        isBuffering = dynamicsRaw.isBuffering,
-                        currentPositionMs = dynamicsRaw.currentPositionMs,
-                        totalDurationMs = dynamicsRaw.totalDurationMs,
-                        playbackSpeed = speed,
-                    ),
-                metadata = metadata,
-            )
+        ) { book, dynamics, metadata ->
+            mapToNowPlayingState(book = book, dynamics = dynamics, metadata = metadata)
         }
 
     /** Tail-combined screen state; the only flow the UI subscribes to. */
@@ -169,6 +153,24 @@ class NowPlayingViewModel(
                     isExpanded = false,
                     sleepTimerState = sleepTimerManager.state.value,
                 ),
+        )
+
+    /**
+     * Fast-changing playback progress. Split from [screenState] so a position tick
+     * re-emits only this — not the whole player state. The seekbar + time labels
+     * subscribe here; the player layout subscribes to [screenState].
+     */
+    val progress: StateFlow<PlaybackProgress> =
+        combine(
+            playbackManager.currentPositionMs,
+            playbackManager.totalDurationMs,
+            playbackManager.currentChapter,
+        ) { position, duration, chapter ->
+            mapToPlaybackProgress(position, duration, chapter)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = PlaybackProgress.Zero,
         )
 
     init {
@@ -466,11 +468,4 @@ class NowPlayingViewModel(
 
     /** Snapshot of the current book's chapters (non-reactive; for one-shot reads). */
     val chapters: List<Chapter> get() = playbackManager.chapters.value
-
-    private data class DynamicsRaw(
-        val isPlaying: Boolean,
-        val isBuffering: Boolean,
-        val currentPositionMs: Long,
-        val totalDurationMs: Long,
-    )
 }

@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.playback.NowPlayingChapter
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.playback.SleepTimerState
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
@@ -94,6 +95,11 @@ private val mockActiveState =
         isBuffering = false,
         playbackSpeed = 1.25f,
         defaultPlaybackSpeed = 1.0f,
+    )
+
+// Fast-changing progress fixture matching the primary state's chapter 2 position.
+private val mockProgress =
+    PlaybackProgress(
         bookProgress = 0.38f,
         bookPositionMs = 17_820_000L,
         bookDurationMs = 46_800_000L,
@@ -109,6 +115,11 @@ private val mockBufferingState =
         chapterIndex = 1,
         isPlaying = false,
         isBuffering = true,
+    )
+
+// Progress fixture for the buffering preview — early in chapter 1.
+private val mockBufferingProgress =
+    mockProgress.copy(
         chapterProgress = 0.12f,
         chapterPositionMs = 296_000L,
         chapterDurationMs = 2_469_000L,
@@ -140,6 +151,7 @@ fun NowPlayingPreviewGallery() {
             Box(modifier = Modifier.fillMaxWidth().height(820.dp)) {
                 CompactNowPlaying(
                     state = mockBufferingState,
+                    progress = mockBufferingProgress,
                     onCollapse = {},
                     onPlayPause = {},
                     onSeek = {},
@@ -186,6 +198,7 @@ private fun CompactSection() {
     Box(modifier = Modifier.fillMaxWidth().height(820.dp)) {
         CompactNowPlaying(
             state = mockActiveState,
+            progress = mockProgress,
             onCollapse = {},
             onPlayPause = {},
             onSeek = {},
@@ -212,6 +225,7 @@ private fun WideSection() {
     WidePreview {
         WideNowPlaying(
             state = mockActiveState,
+            progress = mockProgress,
             onCollapse = {},
             onPlayPause = {},
             onSeek = {},
@@ -238,6 +252,7 @@ private fun MiniPlayerPhoneSection() {
     GalleryLabel("Mini-player — phone (playing)")
     NowPlayingBar(
         state = mockActiveState,
+        progress = mockProgress,
         isExpanded = false,
         onTap = {},
         onPlayPause = {},
@@ -248,6 +263,7 @@ private fun MiniPlayerPhoneSection() {
     GalleryLabel("Mini-player — phone (buffering)")
     NowPlayingBar(
         state = mockBufferingState,
+        progress = mockBufferingProgress,
         isExpanded = false,
         onTap = {},
         onPlayPause = {},
@@ -262,6 +278,7 @@ private fun MiniPlayerDesktopSection() {
     WidePreview {
         DockedNowPlayingBar(
             state = mockActiveState,
+            progress = mockProgress,
             isExpanded = false,
             onTap = {},
             onPlayPause = {},
