@@ -1,10 +1,7 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 import co.touchlab.skie.configuration.SuppressSkieWarning
 
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKmpLibrary)
+    id("listenup.kmp.library")
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
@@ -19,53 +16,17 @@ kotlin {
     // Android target using new AGP 9.0-compatible plugin
     android {
         namespace = "com.calypsan.listenup.client.shared"
-        compileSdk =
-            libs.versions.android.compileSdk
-                .get()
-                .toInt()
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
 
         // Enable Android unit tests (runs on JVM, connected to commonTest)
         withHostTest {}
 
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-            freeCompilerArgs.addAll(
-                "-Xexpect-actual-classes",
-                "-Xreturn-value-checker=check",
-                "-Xexplicit-backing-fields",
-            )
-        }
-
         lint {
-            warningsAsErrors = false
-            abortOnError = true
             checkDependencies = false // Avoid KMP dependency double-scanning
-            htmlReport = true
-            xmlReport = true
-            // KMP-specific accommodations
             disable +=
                 setOf(
                     "InvalidPackage", // False positives on multiplatform expect/actual
                     "ObsoleteLintCustomCheck", // Third-party KMP libs may trigger this
                 )
-        }
-    }
-
-    targets.all {
-        compilations.all {
-            compileTaskProvider.configure {
-                compilerOptions {
-                    freeCompilerArgs.addAll(
-                        "-Xexpect-actual-classes",
-                        "-Xreturn-value-checker=check",
-                        "-Xexplicit-backing-fields",
-                    )
-                }
-            }
         }
     }
 

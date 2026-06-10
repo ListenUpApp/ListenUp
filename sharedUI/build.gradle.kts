@@ -1,8 +1,5 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKmpLibrary)
+    id("listenup.kmp.library")
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
@@ -46,14 +43,6 @@ kotlin {
     // Android target using new AGP 9.0-compatible plugin
     android {
         namespace = "com.calypsan.listenup.client.composeapp"
-        compileSdk =
-            libs.versions.android.compileSdk
-                .get()
-                .toInt()
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
 
         // Enable Android resources (opt-in required with new KMP plugin)
         androidResources { enable = true }
@@ -67,34 +56,15 @@ kotlin {
             isIncludeAndroidResources = true
         }
 
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-            freeCompilerArgs.addAll(
-                "-Xexpect-actual-classes",
-                "-Xreturn-value-checker=check",
-                "-Xexplicit-backing-fields",
-            )
-        }
-
         lint {
-            warningsAsErrors = false
-            abortOnError = true
             checkDependencies = true
-            htmlReport = true
-            xmlReport = true
         }
     }
 
     // JVM target for desktop (Windows/Linux)
     jvm("desktop") {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-            freeCompilerArgs.addAll(
-                "-Xexpect-actual-classes",
-                "-Xreturn-value-checker=check",
-                "-Xexplicit-backing-fields",
-                "-Xskip-prerelease-check", // Skip pre-release Kotlin metadata check
-            )
+            freeCompilerArgs.add("-Xskip-prerelease-check") // Skip pre-release Kotlin metadata check
         }
     }
 
