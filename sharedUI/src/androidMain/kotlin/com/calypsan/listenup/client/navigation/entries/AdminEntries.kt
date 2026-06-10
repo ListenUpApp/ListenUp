@@ -131,6 +131,12 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
         )
     }
+    adminDetailEntries(backStack)
+    adminMaintenanceEntries(backStack)
+}
+
+/** Admin collection + user + library detail entries. */
+internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackStack<NavKey>) {
     entry<AdminCollections> {
         val viewModel: com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel =
             koinViewModel()
@@ -186,7 +192,6 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
         )
     }
-    adminMaintenanceEntries(backStack)
 }
 
 /** Admin maintenance navigation entries (backups, restores, ABS import). */
