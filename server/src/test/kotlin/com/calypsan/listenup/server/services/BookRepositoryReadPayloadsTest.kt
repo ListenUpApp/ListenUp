@@ -5,10 +5,12 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable
+import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -94,6 +96,36 @@ class BookRepositoryReadPayloadsTest :
                                     it[format] = "m4b"; it[codec] = "aac"; it[duration] = 100L; it[size] = 100L
                                 }
                             }
+                            // Two live genres (distinct paths) + one soft-deleted genre — exercises the
+                            // genre grouping query's orderBy(path) and its deletedAt.isNull() filter.
+                            GenreTable.insert {
+                                it[id] = "g-$bookId-fic"
+                                it[name] = "Fiction"
+                                it[slug] = "fiction-$bookId"
+                                it[path] = "fiction"
+                                it[parentId] = null
+                                it[revision] = 0L
+                            }
+                            GenreTable.insert {
+                                it[id] = "g-$bookId-sf"
+                                it[name] = "Science Fiction"
+                                it[slug] = "scifi-$bookId"
+                                it[path] = "fiction/science-fiction"
+                                it[parentId] = null
+                                it[revision] = 0L
+                            }
+                            GenreTable.insert {
+                                it[id] = "g-$bookId-dead"
+                                it[name] = "Deleted Genre"
+                                it[slug] = "dead-$bookId"
+                                it[path] = "deleted"
+                                it[parentId] = null
+                                it[revision] = 0L
+                                it[deletedAt] = 123L
+                            }
+                            BookGenreTable.insert { it[BookGenreTable.bookId] = bookId; it[genreId] = "g-$bookId-fic" }
+                            BookGenreTable.insert { it[BookGenreTable.bookId] = bookId; it[genreId] = "g-$bookId-sf" }
+                            BookGenreTable.insert { it[BookGenreTable.bookId] = bookId; it[genreId] = "g-$bookId-dead" }
                         }
                     }
                     suspendTransaction(db = db) {
