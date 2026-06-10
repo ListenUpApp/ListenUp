@@ -1,6 +1,5 @@
 import Foundation
 import MediaPlayer
-import UIKit
 
 /// Immutable snapshot of what the lock screen should show. The `Now Playing`
 /// info center extrapolates the elapsed clock from `elapsedMs` + `rate`, so this
@@ -39,6 +38,11 @@ final class SystemIntegration {
     /// skip commands.
     nonisolated static let skipIntervalSeconds: Int = 30
 
+    // NSCache is thread-safe; `nonisolated` lets `artwork(forPath:)` access it without hopping actors.
+    nonisolated(unsafe) private static let artworkCache = NSCache<NSString, MPMediaItemArtwork>()
+    /// Lock-screen now-playing art is shown near screen-width; cap generously so it stays crisp.
+    nonisolated private static let artworkMaxPixels = 1024
+
     private weak var handler: RemoteCommandHandler?
 
     /// Begin routing remote commands to `handler`. Call once, after construction.
@@ -68,11 +72,20 @@ final class SystemIntegration {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.elapsedMs) / 1000.0,
             MPNowPlayingInfoPropertyPlaybackRate: info.rate
         ]
-        if let path = info.artworkPath,
-           let image = UIImage(contentsOfFile: path) {
-            dict[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        if let path = info.artworkPath, let artwork = artwork(forPath: path) {
+            dict[MPMediaItemPropertyArtwork] = artwork
         }
         return dict
+    }
+
+    /// Resolve (and memoize) the downsampled lock-screen artwork for `path`.
+    /// `nonisolated static` + thread-safe `NSCache`, so `dictionary(from:)` stays pure-signature.
+    nonisolated static func artwork(forPath path: String) -> MPMediaItemArtwork? {
+        if let cached = artworkCache.object(forKey: path as NSString) { return cached }
+        guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: artworkMaxPixels) else { return nil }
+        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        artworkCache.setObject(artwork, forKey: path as NSString)
+        return artwork
     }
 
     private func configureRemoteCommands() {
