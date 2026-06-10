@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Pure mapping: combines book identity + playback dynamics + surface metadata into
@@ -43,30 +45,6 @@ fun mapToNowPlayingState(
     }
 
     val chapter = metadata.currentChapter
-    val chapterDurationMs: Long =
-        if (chapter != null) {
-            (chapter.endMs - chapter.startMs).coerceAtLeast(0L)
-        } else {
-            0L
-        }
-    val chapterPositionMs: Long =
-        if (chapter != null) {
-            (dynamics.currentPositionMs - chapter.startMs).coerceAtLeast(0L)
-        } else {
-            0L
-        }
-    val chapterProgress: Float =
-        if (chapterDurationMs > 0L) {
-            (chapterPositionMs.toFloat() / chapterDurationMs).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
-    val bookProgress: Float =
-        if (dynamics.totalDurationMs > 0L) {
-            (dynamics.currentPositionMs.toFloat() / dynamics.totalDurationMs).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
 
     return NowPlayingState.Active(
         bookId = book.id.value,
@@ -89,12 +67,6 @@ fun mapToNowPlayingState(
         isBuffering = dynamics.isBuffering,
         playbackSpeed = dynamics.playbackSpeed,
         defaultPlaybackSpeed = metadata.defaultPlaybackSpeed,
-        bookProgress = bookProgress,
-        bookPositionMs = dynamics.currentPositionMs,
-        bookDurationMs = dynamics.totalDurationMs,
-        chapterProgress = chapterProgress,
-        chapterPositionMs = chapterPositionMs,
-        chapterDurationMs = chapterDurationMs,
     )
 }
 
@@ -104,8 +76,6 @@ fun mapToNowPlayingState(
 data class PlaybackDynamics(
     val isPlaying: Boolean,
     val isBuffering: Boolean,
-    val currentPositionMs: Long,
-    val totalDurationMs: Long,
     val playbackSpeed: Float,
 )
 
@@ -118,3 +88,52 @@ data class SurfaceMetadata(
     val error: PlaybackManager.PlaybackErrorUiState?,
     val defaultPlaybackSpeed: Float,
 )
+
+/**
+ * Fast-changing playback progress, split out of [NowPlayingState.Active] so the
+ * per-tick position update (≈250ms) re-emits only this value, not the whole
+ * 20-field player state. The player layout reads [NowPlayingState]; only the
+ * seekbar + time labels read [PlaybackProgress].
+ */
+data class PlaybackProgress(
+    val bookProgress: Float, // 0.0-1.0
+    val bookPositionMs: Long,
+    val bookDurationMs: Long,
+    val chapterProgress: Float, // 0.0-1.0
+    val chapterPositionMs: Long,
+    val chapterDurationMs: Long,
+) {
+    val chapterPosition: Duration get() = chapterPositionMs.milliseconds
+    val chapterDuration: Duration get() = chapterDurationMs.milliseconds
+
+    companion object {
+        val Zero = PlaybackProgress(0f, 0L, 0L, 0f, 0L, 0L)
+    }
+}
+
+/**
+ * Pure mapping of raw position + duration + current chapter into [PlaybackProgress].
+ * Same arithmetic that previously lived inside [mapToNowPlayingState].
+ */
+fun mapToPlaybackProgress(
+    currentPositionMs: Long,
+    totalDurationMs: Long,
+    chapter: PlaybackManager.ChapterInfo?,
+): PlaybackProgress {
+    val chapterDurationMs: Long =
+        if (chapter != null) (chapter.endMs - chapter.startMs).coerceAtLeast(0L) else 0L
+    val chapterPositionMs: Long =
+        if (chapter != null) (currentPositionMs - chapter.startMs).coerceAtLeast(0L) else 0L
+    val chapterProgress: Float =
+        if (chapterDurationMs > 0L) (chapterPositionMs.toFloat() / chapterDurationMs).coerceIn(0f, 1f) else 0f
+    val bookProgress: Float =
+        if (totalDurationMs > 0L) (currentPositionMs.toFloat() / totalDurationMs).coerceIn(0f, 1f) else 0f
+    return PlaybackProgress(
+        bookProgress = bookProgress,
+        bookPositionMs = currentPositionMs,
+        bookDurationMs = totalDurationMs,
+        chapterProgress = chapterProgress,
+        chapterPositionMs = chapterPositionMs,
+        chapterDurationMs = chapterDurationMs,
+    )
+}

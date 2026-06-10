@@ -18,8 +18,6 @@ class NowPlayingStateMapperTest :
             PlaybackDynamics(
                 isPlaying = false,
                 isBuffering = false,
-                currentPositionMs = 0L,
-                totalDurationMs = 0L,
                 playbackSpeed = 1.0f,
             )
 
@@ -96,17 +94,12 @@ class NowPlayingStateMapperTest :
             val dynamics =
                 emptyDynamics.copy(
                     isPlaying = true,
-                    currentPositionMs = 50_000L,
-                    totalDurationMs = 100_000L,
                     playbackSpeed = 1.5f,
                 )
             val result = mapToNowPlayingState(book = book, dynamics = dynamics, metadata = emptyMetadata)
             val active = result.shouldBeInstanceOf<NowPlayingState.Active>()
             active.bookId shouldBe "book-1"
             active.isPlaying shouldBe true
-            active.bookProgress shouldBe 0.5f
-            active.bookPositionMs shouldBe 50_000L
-            active.bookDurationMs shouldBe 100_000L
             active.playbackSpeed shouldBe 1.5f
         }
 
@@ -118,18 +111,8 @@ class NowPlayingStateMapperTest :
             active.chapterLabel shouldBe ""
         }
 
-        test("mapToNowPlayingState Active bookProgress clamps to 0_1f range") {
-            val book = sampleBook(duration = 100_000L)
-            // Position past duration — progress should clamp to 1.0f
-            val dynamics = emptyDynamics.copy(currentPositionMs = 200_000L, totalDurationMs = 100_000L)
-            val result = mapToNowPlayingState(book = book, dynamics = dynamics, metadata = emptyMetadata)
-            val active = result.shouldBeInstanceOf<NowPlayingState.Active>()
-            active.bookProgress shouldBe 1.0f
-        }
-
-        test("mapToNowPlayingState Active chapterPositionMs cannot be negative") {
+        test("mapToNowPlayingState Active totalChapters pulled from current chapter") {
             val book = sampleBook()
-            // Chapter starts at 60_000 but we are at position 30_000 (before chapter start)
             val chapter =
                 PlaybackManager.ChapterInfo(
                     index = 1,
@@ -140,13 +123,42 @@ class NowPlayingStateMapperTest :
                     totalChapters = 3,
                     isGenericTitle = false,
                 )
-            val dynamics = emptyDynamics.copy(currentPositionMs = 30_000L, totalDurationMs = 100_000L)
             val metadata = emptyMetadata.copy(currentChapter = chapter)
-            val result = mapToNowPlayingState(book = book, dynamics = dynamics, metadata = metadata)
+            val result = mapToNowPlayingState(book = book, dynamics = emptyDynamics, metadata = metadata)
             val active = result.shouldBeInstanceOf<NowPlayingState.Active>()
-            active.chapterPositionMs shouldBe 0L // coerceAtLeast(0L) — cannot be negative
-            active.chapterDurationMs shouldBe 30_000L // endMs - startMs
             active.totalChapters shouldBe 3 // pulled from chapter.totalChapters
+        }
+
+        test("mapToPlaybackProgress computes book and chapter progress") {
+            val chapter =
+                PlaybackManager.ChapterInfo(
+                    index = 1,
+                    title = "Two",
+                    startMs = 40_000L,
+                    endMs = 100_000L,
+                    remainingMs = 50_000L,
+                    totalChapters = 3,
+                    isGenericTitle = false,
+                )
+            val p = mapToPlaybackProgress(currentPositionMs = 50_000L, totalDurationMs = 200_000L, chapter = chapter)
+            p.bookPositionMs shouldBe 50_000L
+            p.bookDurationMs shouldBe 200_000L
+            p.bookProgress shouldBe 0.25f
+            p.chapterPositionMs shouldBe 10_000L
+            p.chapterDurationMs shouldBe 60_000L
+            p.chapterProgress shouldBe (10_000f / 60_000f)
+        }
+
+        test("mapToPlaybackProgress clamps progress and floors chapter position at zero") {
+            val p = mapToPlaybackProgress(currentPositionMs = 300_000L, totalDurationMs = 200_000L, chapter = null)
+            p.bookProgress shouldBe 1f
+            p.chapterPositionMs shouldBe 0L
+            p.chapterProgress shouldBe 0f
+        }
+
+        test("mapToPlaybackProgress with zero duration yields zero progress") {
+            val p = mapToPlaybackProgress(currentPositionMs = 0L, totalDurationMs = 0L, chapter = null)
+            p shouldBe PlaybackProgress.Zero
         }
 
         test("mapToNowPlayingState Active chapters populated in order with titles and durations") {
