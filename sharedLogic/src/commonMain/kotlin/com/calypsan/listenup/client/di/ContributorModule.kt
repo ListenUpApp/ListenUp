@@ -28,9 +28,8 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler] — `clientSyncRenovationModule`
  *  - [com.calypsan.listenup.client.domain.repository.MetadataRepository] — `bookModule`
  */
-val contributorModule: Module
-    get() =
-        module {
+val contributorModule: Module =
+    module {
             // ContributorRpcFactory - kotlinx.rpc proxy for ContributorService (cache-miss fetch).
             // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
             single<ContributorRpcFactory> {

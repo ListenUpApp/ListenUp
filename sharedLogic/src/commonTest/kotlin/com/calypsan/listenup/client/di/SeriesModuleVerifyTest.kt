@@ -29,8 +29,8 @@ import org.koin.test.verify.verify
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [SeriesSyncDomainHandler] — owned by `clientSyncRenovationModule`.
- *  - [ImageRepository] — owned by `syncModule`.
- *  - [ImageStagingRepository] — owned by `syncModule`.
+ *  - [ImageRepository] — owned by `mediaModule`.
+ *  - [ImageStagingRepository] — owned by `mediaModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class SeriesModuleVerifyTest :

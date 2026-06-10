@@ -49,144 +49,143 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.core.error.ErrorBus] — `appCoreModule`
  *  - [com.calypsan.listenup.client.data.remote.InviteRpcFactory] — `clientAuthModule`
  */
-val adminModule: Module
-    get() =
-        module {
-            // BackupApi for admin backup/restore operations
-            single {
-                BackupApi(clientFactory = get())
-            } bind BackupApiContract::class
+val adminModule: Module =
+    module {
+        // BackupApi for admin backup/restore operations
+        single {
+            BackupApi(clientFactory = get())
+        } bind BackupApiContract::class
 
-            // ABSImportApi for persistent ABS import operations
-            single {
-                ABSImportApi(clientFactory = get(), errorBus = get())
-            } bind ABSImportApiContract::class
+        // ABSImportApi for persistent ABS import operations
+        single {
+            ABSImportApi(clientFactory = get(), errorBus = get())
+        } bind ABSImportApiContract::class
 
-            // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
-            single<LibraryAdminRpcFactory> {
-                KtorLibraryAdminRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
+        single<LibraryAdminRpcFactory> {
+            KtorLibraryAdminRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // AdminUserRpcFactory — kotlinx.rpc proxy for AdminUserService (user roster, approval queue, edits).
-            single<AdminUserRpcFactory> {
-                KtorAdminUserRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // AdminUserRpcFactory — kotlinx.rpc proxy for AdminUserService (user roster, approval queue, edits).
+        single<AdminUserRpcFactory> {
+            KtorAdminUserRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // AdminSettingsRpcFactory — kotlinx.rpc proxy for AdminSettingsService (server identity settings).
-            single<AdminSettingsRpcFactory> {
-                KtorAdminSettingsRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // AdminSettingsRpcFactory — kotlinx.rpc proxy for AdminSettingsService (server identity settings).
+        single<AdminSettingsRpcFactory> {
+            KtorAdminSettingsRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // BackupRpcFactory — kotlinx.rpc proxy for BackupService (admin backup/restore over RPC).
-            single<BackupRpcFactory> {
-                KtorBackupRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // BackupRpcFactory — kotlinx.rpc proxy for BackupService (admin backup/restore over RPC).
+        single<BackupRpcFactory> {
+            KtorBackupRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // ImportRpcFactory — kotlinx.rpc proxy for ImportService (admin Audiobookshelf import over RPC).
-            single<ImportRpcFactory> {
-                KtorImportRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ImportRpcFactory — kotlinx.rpc proxy for ImportService (admin Audiobookshelf import over RPC).
+        single<ImportRpcFactory> {
+            KtorImportRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // BackupRepository — admin backup/restore via BackupService RPC proxy.
-            single<BackupRepository> {
-                BackupRepositoryImpl(rpcFactory = get())
-            }
-
-            // ImportRepository — admin Audiobookshelf import via ImportService RPC proxy.
-            single<ImportRepository> {
-                ImportRepositoryImpl(rpcFactory = get())
-            }
-
-            // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
-            single<AdminRepository> {
-                AdminRepositoryImpl(
-                    adminUserRpc = get(),
-                    adminSettingsRpc = get(),
-                    inviteRpc = get(),
-                    libraryAdminRpc = get(),
-                    serverConfig = get(),
-                )
-            }
-
-            // EventStreamRepository for real-time events (SOLID: interface in domain, impl in data)
-            single<EventStreamRepository> {
-                EventStreamRepositoryImpl()
-            }
-
-            // Admin user management use cases
-            factory {
-                LoadUsersUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                LoadPendingUsersUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                LoadInvitesUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                DeleteUserUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                RevokeInviteUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                ApproveUserUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                DenyUserUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                GetRegistrationPolicyUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                SetOpenRegistrationUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                CreateInviteUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                LoadServerSettingsUseCase(
-                    adminRepository = get(),
-                )
-            }
-            factory {
-                UpdateServerSettingsUseCase(
-                    adminRepository = get(),
-                )
-            }
+        // BackupRepository — admin backup/restore via BackupService RPC proxy.
+        single<BackupRepository> {
+            BackupRepositoryImpl(rpcFactory = get())
         }
+
+        // ImportRepository — admin Audiobookshelf import via ImportService RPC proxy.
+        single<ImportRepository> {
+            ImportRepositoryImpl(rpcFactory = get())
+        }
+
+        // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
+        single<AdminRepository> {
+            AdminRepositoryImpl(
+                adminUserRpc = get(),
+                adminSettingsRpc = get(),
+                inviteRpc = get(),
+                libraryAdminRpc = get(),
+                serverConfig = get(),
+            )
+        }
+
+        // EventStreamRepository for real-time events (SOLID: interface in domain, impl in data)
+        single<EventStreamRepository> {
+            EventStreamRepositoryImpl()
+        }
+
+        // Admin user management use cases
+        factory {
+            LoadUsersUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            LoadPendingUsersUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            LoadInvitesUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            DeleteUserUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            RevokeInviteUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            ApproveUserUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            DenyUserUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            GetRegistrationPolicyUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            SetOpenRegistrationUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            CreateInviteUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            LoadServerSettingsUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            UpdateServerSettingsUseCase(
+                adminRepository = get(),
+            )
+        }
+    }

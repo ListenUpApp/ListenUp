@@ -24,48 +24,47 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler] — `clientSyncRenovationModule`
- *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `syncModule`
- *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `syncModule`
+ *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
+ *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  */
-val seriesModule: Module
-    get() =
-        module {
-            // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
-            // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
-            single<SeriesRpcFactory> {
-                KtorSeriesRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+val seriesModule: Module =
+    module {
+        // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
+        // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
+        single<SeriesRpcFactory> {
+            KtorSeriesRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // SeriesRepository for domain-layer series queries including search
-            single<com.calypsan.listenup.client.domain.repository.SeriesRepository> {
-                SeriesRepositoryImpl(
-                    seriesDao = get(),
-                    bookDao = get(),
-                    searchDao = get(),
-                    api = get(),
-                    networkMonitor = get(),
-                    imageStorage = get(),
-                    rpcFactory = get(),
-                    seriesSyncHandler = get<com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler>(),
-                )
-            }
-
-            // SeriesEditRepository — pure RPC dispatcher (Books-C1).
-            single<SeriesEditRepository> {
-                SeriesEditRepositoryImpl(
-                    seriesRpcFactory = get(),
-                )
-            }
-
-            // Series use cases
-            factory {
-                UpdateSeriesUseCase(
-                    seriesEditRepository = get(),
-                    imageRepository = get(),
-                    imageStagingRepository = get(),
-                )
-            }
+        // SeriesRepository for domain-layer series queries including search
+        single<com.calypsan.listenup.client.domain.repository.SeriesRepository> {
+            SeriesRepositoryImpl(
+                seriesDao = get(),
+                bookDao = get(),
+                searchDao = get(),
+                api = get(),
+                networkMonitor = get(),
+                imageStorage = get(),
+                rpcFactory = get(),
+                seriesSyncHandler = get<com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler>(),
+            )
         }
+
+        // SeriesEditRepository — pure RPC dispatcher (Books-C1).
+        single<SeriesEditRepository> {
+            SeriesEditRepositoryImpl(
+                seriesRpcFactory = get(),
+            )
+        }
+
+        // Series use cases
+        factory {
+            UpdateSeriesUseCase(
+                seriesEditRepository = get(),
+                imageRepository = get(),
+                imageStagingRepository = get(),
+            )
+        }
+    }

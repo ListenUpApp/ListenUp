@@ -50,94 +50,93 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.data.local.db.TransactionRunner] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.LibrarySync] — `settingsModule`
  */
-val libraryModule: Module
-    get() =
-        module {
-            // Sync API uses ApiClientFactory to get authenticated HttpClient at call time
-            // This avoids runBlocking during DI initialization (structured concurrency)
-            single<SyncApiContract> {
-                SyncApi(clientFactory = get())
-            }
-
-            // UserPreferencesApi for syncing user preferences across devices
-            single {
-                UserPreferencesApi(clientFactory = get())
-            } bind UserPreferencesApiContract::class
-
-            single {
-                LibraryResetHelper(
-                    database = get(),
-                    transactionRunner = get(),
-                    librarySyncContract = get(),
-                )
-            } bind LibraryResetHelperContract::class
-
-            // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (public mount):
-            // live scan-progress stream that drives the scan UI + post-scan reconcile.
-            single<ScannerRpcFactory> {
-                KtorScannerRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-            // HomeRepository for Home screen data (local-first)
-            single<HomeRepository> {
-                HomeRepositoryImpl(
-                    bookRepository = get(),
-                    playbackPositionDao = get(),
-                )
-            }
-
-            // SyncRepository for library sync operations (SOLID: interface in domain, impl in data)
-            single<SyncRepository> {
-                SyncRepositoryImpl(
-                    syncEngine = get(),
-                    syncEngineState = get(),
-                    authSession = get(),
-                    listeningEventRecorder = get(),
-                    scannerRpcFactory = get(),
-                    bookDao = get(),
-                    scope =
-                        get(
-                            qualifier =
-                                named(APP_SCOPE),
-                        ),
-                )
-            }
-
-            // UserPreferencesRepository for syncing user preferences across devices
-            single<UserPreferencesRepository> {
-                UserPreferencesRepositoryImpl(
-                    userPreferencesApi = get(),
-                )
-            }
-
-            // SyncStatusRepository for sync timestamp tracking (SOLID: interface in domain, impl in data)
-            single<SyncStatusRepository> {
-                SyncStatusRepositoryImpl()
-            }
-
-            // PendingOperationRepository (domain) for UI observation of sync status
-            // Wraps the data layer contract to provide domain models to ViewModels
-            single<PendingOperationRepository> {
-                PendingOperationRepositoryImpl()
-            }
-
-            // LibraryRepository — observation-only Room-backed view of the libraries domain.
-            // Hygiene fix: uses get() for the two DAO bindings that persistenceModule already owns,
-            // rather than calling db.libraryDao()/db.libraryFolderDao() inline.
-            single<LibraryRepository> {
-                LibraryRepositoryImpl(
-                    libraryDao = get(),
-                    libraryFolderDao = get(),
-                )
-            }
-
-            // Library use cases (using domain layer interfaces only)
-            factory {
-                RefreshLibraryUseCase(
-                    syncRepository = get(),
-                )
-            }
+val libraryModule: Module =
+    module {
+        // Sync API uses ApiClientFactory to get authenticated HttpClient at call time
+        // This avoids runBlocking during DI initialization (structured concurrency)
+        single<SyncApiContract> {
+            SyncApi(clientFactory = get())
         }
+
+        // UserPreferencesApi for syncing user preferences across devices
+        single {
+            UserPreferencesApi(clientFactory = get())
+        } bind UserPreferencesApiContract::class
+
+        single {
+            LibraryResetHelper(
+                database = get(),
+                transactionRunner = get(),
+                librarySyncContract = get(),
+            )
+        } bind LibraryResetHelperContract::class
+
+        // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (public mount):
+        // live scan-progress stream that drives the scan UI + post-scan reconcile.
+        single<ScannerRpcFactory> {
+            KtorScannerRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // HomeRepository for Home screen data (local-first)
+        single<HomeRepository> {
+            HomeRepositoryImpl(
+                bookRepository = get(),
+                playbackPositionDao = get(),
+            )
+        }
+
+        // SyncRepository for library sync operations (SOLID: interface in domain, impl in data)
+        single<SyncRepository> {
+            SyncRepositoryImpl(
+                syncEngine = get(),
+                syncEngineState = get(),
+                authSession = get(),
+                listeningEventRecorder = get(),
+                scannerRpcFactory = get(),
+                bookDao = get(),
+                scope =
+                    get(
+                        qualifier =
+                            named(APP_SCOPE),
+                    ),
+            )
+        }
+
+        // UserPreferencesRepository for syncing user preferences across devices
+        single<UserPreferencesRepository> {
+            UserPreferencesRepositoryImpl(
+                userPreferencesApi = get(),
+            )
+        }
+
+        // SyncStatusRepository for sync timestamp tracking (SOLID: interface in domain, impl in data)
+        single<SyncStatusRepository> {
+            SyncStatusRepositoryImpl()
+        }
+
+        // PendingOperationRepository (domain) for UI observation of sync status
+        // Wraps the data layer contract to provide domain models to ViewModels
+        single<PendingOperationRepository> {
+            PendingOperationRepositoryImpl()
+        }
+
+        // LibraryRepository — observation-only Room-backed view of the libraries domain.
+        // Hygiene fix: uses get() for the two DAO bindings that persistenceModule already owns,
+        // rather than calling db.libraryDao()/db.libraryFolderDao() inline.
+        single<LibraryRepository> {
+            LibraryRepositoryImpl(
+                libraryDao = get(),
+                libraryFolderDao = get(),
+            )
+        }
+
+        // Library use cases (using domain layer interfaces only)
+        factory {
+            RefreshLibraryUseCase(
+                syncRepository = get(),
+            )
+        }
+    }

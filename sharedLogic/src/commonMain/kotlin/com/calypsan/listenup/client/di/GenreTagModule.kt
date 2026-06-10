@@ -23,36 +23,35 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.TagDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookTagDao] — `persistenceModule`
  */
-val genreTagModule: Module
-    get() =
-        module {
-            // GenreRpcFactory — kotlinx.rpc proxy for the curator mutation surface.
-            // Tree reads come from Room (via GenreDao); only mutations and the
-            // unmapped-string queue need an RPC channel.
-            single<GenreRpcFactory> {
-                KtorGenreRpcFactory(apiClientFactory = get(), serverConfig = get())
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+val genreTagModule: Module =
+    module {
+        // GenreRpcFactory — kotlinx.rpc proxy for the curator mutation surface.
+        // Tree reads come from Room (via GenreDao); only mutations and the
+        // unmapped-string queue need an RPC channel.
+        single<GenreRpcFactory> {
+            KtorGenreRpcFactory(apiClientFactory = get(), serverConfig = get())
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // GenreRepository — Room-backed reads, RPC-dispatched mutations.
-            single<GenreRepository> {
-                GenreRepositoryImpl(dao = get(), rpcFactory = get())
-            }
-
-            // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).
-            single<TagRpcFactory> {
-                KtorTagRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-            // TagRepository — observations from Room, mutations via RPC (Tags phase).
-            // DAOs are injected directly (tagDao, bookTagDao provided by persistenceModule).
-            single<TagRepository> {
-                TagRepositoryImpl(
-                    tagRpcFactory = get(),
-                    tagDao = get(),
-                    bookTagDao = get(),
-                )
-            }
+        // GenreRepository — Room-backed reads, RPC-dispatched mutations.
+        single<GenreRepository> {
+            GenreRepositoryImpl(dao = get(), rpcFactory = get())
         }
+
+        // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).
+        single<TagRpcFactory> {
+            KtorTagRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // TagRepository — observations from Room, mutations via RPC (Tags phase).
+        // DAOs are injected directly (tagDao, bookTagDao provided by persistenceModule).
+        single<TagRepository> {
+            TagRepositoryImpl(
+                tagRpcFactory = get(),
+                tagDao = get(),
+                bookTagDao = get(),
+            )
+        }
+    }

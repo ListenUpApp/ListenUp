@@ -24,63 +24,62 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
  *  - [com.calypsan.listenup.client.data.local.db.ShelfDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.UserDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `syncModule`
+ *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  */
-val shelfModule: Module
-    get() =
-        module {
-            // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
-            single<ShelfRpcFactory> {
-                KtorShelfRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+val shelfModule: Module =
+    module {
+        // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
+        single<ShelfRpcFactory> {
+            KtorShelfRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // ShelfRepository for personal curation shelves (SOLID: interface in domain, impl in data)
-            single<ShelfRepository> {
-                ShelfRepositoryImpl(
-                    dao = get(),
-                    userDao = get(),
-                    rpcFactory = get(),
-                )
-            }
-
-            // Shelf use cases
-            factory {
-                CreateShelfUseCase(
-                    shelfRepository = get(),
-                )
-            }
-            factory {
-                UpdateShelfUseCase(
-                    shelfRepository = get(),
-                )
-            }
-            factory {
-                DeleteShelfUseCase(
-                    shelfRepository = get(),
-                )
-            }
-            factory {
-                LoadShelfDetailUseCase(
-                    shelfRepository = get(),
-                    imageRepository = get(),
-                )
-            }
-            factory {
-                RemoveBookFromShelfUseCase(
-                    shelfRepository = get(),
-                )
-            }
-            factory {
-                AddBooksToShelfUseCase(
-                    shelfRepository = get(),
-                )
-            }
-            factory {
-                ReorderShelfBooksUseCase(
-                    shelfRepository = get(),
-                )
-            }
+        // ShelfRepository for personal curation shelves (SOLID: interface in domain, impl in data)
+        single<ShelfRepository> {
+            ShelfRepositoryImpl(
+                dao = get(),
+                userDao = get(),
+                rpcFactory = get(),
+            )
         }
+
+        // Shelf use cases
+        factory {
+            CreateShelfUseCase(
+                shelfRepository = get(),
+            )
+        }
+        factory {
+            UpdateShelfUseCase(
+                shelfRepository = get(),
+            )
+        }
+        factory {
+            DeleteShelfUseCase(
+                shelfRepository = get(),
+            )
+        }
+        factory {
+            LoadShelfDetailUseCase(
+                shelfRepository = get(),
+                imageRepository = get(),
+            )
+        }
+        factory {
+            RemoveBookFromShelfUseCase(
+                shelfRepository = get(),
+            )
+        }
+        factory {
+            AddBooksToShelfUseCase(
+                shelfRepository = get(),
+            )
+        }
+        factory {
+            ReorderShelfBooksUseCase(
+                shelfRepository = get(),
+            )
+        }
+    }

@@ -18,7 +18,7 @@ import org.koin.test.verify.verify
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [ShelfDao] — owned by `persistenceModule`.
  *  - [UserDao] — owned by `persistenceModule`.
- *  - [ImageRepository] — owned by `syncModule`.
+ *  - [ImageRepository] — owned by `mediaModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ShelfModuleVerifyTest :

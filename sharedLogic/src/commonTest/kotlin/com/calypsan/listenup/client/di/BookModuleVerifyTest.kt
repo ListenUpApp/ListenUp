@@ -33,11 +33,11 @@ import org.koin.test.verify.verify
  *  - [TransactionRunner] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [NetworkMonitor] — owned by the platform device module.
- *  - [GenreRepository] — owned by `syncModule`.
- *  - [TagRepository] — owned by `syncModule`.
- *  - [CollectionRpcFactory] — owned by `syncModule`.
- *  - [ImageRepository] — owned by `syncModule`.
- *  - [ImageStagingRepository] — owned by `syncModule`.
+ *  - [GenreRepository] — owned by `genreTagModule`.
+ *  - [TagRepository] — owned by `genreTagModule`.
+ *  - [CollectionRpcFactory] — owned by `collectionModule`.
+ *  - [ImageRepository] — owned by `mediaModule`.
+ *  - [ImageStagingRepository] — owned by `mediaModule`.
  *  - [BookSyncDomainHandler] — owned by `clientSyncRenovationModule`.
  */
 @OptIn(KoinExperimentalAPI::class)

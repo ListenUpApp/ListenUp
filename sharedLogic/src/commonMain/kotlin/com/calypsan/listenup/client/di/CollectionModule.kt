@@ -24,34 +24,33 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.CollectionBookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.CollectionShareDao] — `persistenceModule`
  */
-val collectionModule: Module
-    get() =
-        module {
-            // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
-            single<CollectionRpcFactory> {
-                KtorCollectionRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+val collectionModule: Module =
+    module {
+        // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
+        single<CollectionRpcFactory> {
+            KtorCollectionRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // CollectionRepository — Room reads + CollectionService RPC writes (interface in domain, impl in data)
-            single<CollectionRepository> {
-                CollectionRepositoryImpl(
-                    collectionDao = get(),
-                    collectionBookDao = get(),
-                    collectionShareDao = get(),
-                    rpcFactory = get(),
-                )
-            }
-
-            // AdminInboxApi for the 1b admin collection-inbox REST routes
-            single {
-                CollectionInboxApi(clientFactory = get())
-            } bind CollectionInboxApiContract::class
-
-            // InboxRepository — admin collection-inbox over the 1b REST routes
-            single<InboxRepository> {
-                InboxRepositoryImpl(api = get())
-            }
+        // CollectionRepository — Room reads + CollectionService RPC writes (interface in domain, impl in data)
+        single<CollectionRepository> {
+            CollectionRepositoryImpl(
+                collectionDao = get(),
+                collectionBookDao = get(),
+                collectionShareDao = get(),
+                rpcFactory = get(),
+            )
         }
+
+        // AdminInboxApi for the 1b admin collection-inbox REST routes
+        single {
+            CollectionInboxApi(clientFactory = get())
+        } bind CollectionInboxApiContract::class
+
+        // InboxRepository — admin collection-inbox over the 1b REST routes
+        single<InboxRepository> {
+            InboxRepositoryImpl(api = get())
+        }
+    }

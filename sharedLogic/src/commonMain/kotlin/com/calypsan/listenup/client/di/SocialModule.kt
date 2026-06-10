@@ -49,102 +49,101 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
  */
-val socialModule: Module
-    get() =
-        module {
-            // SessionApi for reading session operations
-            single {
-                SessionApi(clientFactory = get())
-            } bind SessionApiContract::class
+val socialModule: Module =
+    module {
+        // SessionApi for reading session operations
+        single {
+            SessionApi(clientFactory = get())
+        } bind SessionApiContract::class
 
-            // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
-            single<SocialRpcFactory> {
-                KtorSocialRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
+        single<SocialRpcFactory> {
+            KtorSocialRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
-            single<ActivityRpcFactory> {
-                KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
+        single<ActivityRpcFactory> {
+            KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
-            single<ProfileRpcFactory> {
-                KtorProfileRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
+        single<ProfileRpcFactory> {
+            KtorProfileRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-            // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
-            single<ProfileEditRepository> {
-                ProfileEditRepositoryImpl(
-                    userDao = get(),
-                    profileRpcFactory = get(),
-                    avatarUploader = avatarUploaderOf(get()),
-                )
-            }
-
-            // UserRepository for current user profile data (SOLID: interface in domain, impl in data)
-            single<UserRepository> {
-                UserRepositoryImpl(userDao = get(), authRpcFactory = get())
-            }
-
-            // UserProfileRepository for other users' profile data (avatars in activity feed, etc.)
-            single<UserProfileRepository> {
-                UserProfileRepositoryImpl(userProfileDao = get())
-            }
-
-            // LeaderboardRepository — Room-observed, offline-first; reads the synced
-            // public_profiles roster so all users appear in each other's leaderboard.
-            single<LeaderboardRepository> {
-                LeaderboardRepositoryImpl(publicProfileDao = get())
-            }
-
-            // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
-            single<ActivityRepository> {
-                ActivityRepositoryImpl(dao = get(), activityRpc = get(), bookDao = get())
-            }
-
-            // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
-            // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
-            single<ActiveSessionRepository> {
-                ActiveSessionRepositoryImpl(
-                    socialRpc = get(),
-                    bookDao = get(),
-                    imageStorage = get(),
-                    presence = get(),
-                )
-            }
-
-            // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
-            single<ProfileRepository> {
-                ProfileRepositoryImpl(
-                    profileRpcFactory = get(),
-                    userDao = get(),
-                    userProfileDao = get(),
-                    avatarDownloadRepository = get(),
-                )
-            }
-
-            // BookReadersRepository for Book Detail Readers section — combines the current user's local
-            // reading state with other live listeners (SocialService RPC, ACL-filtered, caller-excluded,
-            // re-fetched on every PresenceRefreshSignal ping).
-            single<BookReadersRepository> {
-                BookReadersRepositoryImpl(
-                    socialRpc = get(),
-                    presence = get(),
-                    playbackPositionRepository = get(),
-                    userRepository = get(),
-                )
-            }
-
-            // Activity use cases
-            factory {
-                FetchActivitiesUseCase(
-                    activityRepository = get(),
-                )
-            }
+        // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
+        single<ProfileEditRepository> {
+            ProfileEditRepositoryImpl(
+                userDao = get(),
+                profileRpcFactory = get(),
+                avatarUploader = avatarUploaderOf(get()),
+            )
         }
+
+        // UserRepository for current user profile data (SOLID: interface in domain, impl in data)
+        single<UserRepository> {
+            UserRepositoryImpl(userDao = get(), authRpcFactory = get())
+        }
+
+        // UserProfileRepository for other users' profile data (avatars in activity feed, etc.)
+        single<UserProfileRepository> {
+            UserProfileRepositoryImpl(userProfileDao = get())
+        }
+
+        // LeaderboardRepository — Room-observed, offline-first; reads the synced
+        // public_profiles roster so all users appear in each other's leaderboard.
+        single<LeaderboardRepository> {
+            LeaderboardRepositoryImpl(publicProfileDao = get())
+        }
+
+        // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
+        single<ActivityRepository> {
+            ActivityRepositoryImpl(dao = get(), activityRpc = get(), bookDao = get())
+        }
+
+        // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
+        // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
+        single<ActiveSessionRepository> {
+            ActiveSessionRepositoryImpl(
+                socialRpc = get(),
+                bookDao = get(),
+                imageStorage = get(),
+                presence = get(),
+            )
+        }
+
+        // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
+        single<ProfileRepository> {
+            ProfileRepositoryImpl(
+                profileRpcFactory = get(),
+                userDao = get(),
+                userProfileDao = get(),
+                avatarDownloadRepository = get(),
+            )
+        }
+
+        // BookReadersRepository for Book Detail Readers section — combines the current user's local
+        // reading state with other live listeners (SocialService RPC, ACL-filtered, caller-excluded,
+        // re-fetched on every PresenceRefreshSignal ping).
+        single<BookReadersRepository> {
+            BookReadersRepositoryImpl(
+                socialRpc = get(),
+                presence = get(),
+                playbackPositionRepository = get(),
+                userRepository = get(),
+            )
+        }
+
+        // Activity use cases
+        factory {
+            FetchActivitiesUseCase(
+                activityRepository = get(),
+            )
+        }
+    }
