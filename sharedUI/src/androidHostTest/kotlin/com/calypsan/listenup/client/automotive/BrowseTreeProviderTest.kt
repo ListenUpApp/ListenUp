@@ -16,7 +16,9 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
+import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.DiscoveryBookWithAuthor
+import com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
@@ -501,7 +503,7 @@ private class FakeBookDao(
     private val allBooks: List<BookEntity> = emptyList(),
     private val booksById: Map<String, BookEntity> = emptyMap(),
 ) : BookDao {
-    override suspend fun getAll(): List<BookEntity> = allBooks
+    override suspend fun getAllLive(): List<BookEntity> = allBooks
 
     override suspend fun getById(id: BookId): BookEntity? = booksById[id.value]
 
@@ -510,8 +512,6 @@ private class FakeBookDao(
     override suspend fun upsertAll(books: List<BookEntity>) = Unit
 
     override suspend fun count(): Int = allBooks.size
-
-    override fun observeAll(): Flow<List<BookEntity>> = flowOf(allBooks)
 
     override fun observeAllWithContributors(): Flow<List<BookWithContributors>> = flowOf(emptyList())
 
@@ -562,6 +562,10 @@ private class FakeBookDao(
     override fun observeRecentlyAddedWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
 
     override fun observeRandomUnstartedBooksWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
+
+    override fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>> = flowOf(emptyList())
+
+    override suspend fun getBookSummary(id: String): BookSummary? = null
 
     override suspend fun liveIds(): List<String> = allBooks.map { it.id.value }
 
