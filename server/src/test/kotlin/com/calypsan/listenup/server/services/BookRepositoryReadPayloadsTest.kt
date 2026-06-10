@@ -61,39 +61,61 @@ class BookRepositoryReadPayloadsTest :
                                 it[coverHash] = "hash-$bookId"
                             }
                             ContributorTable.insert {
-                                it[id] = "c-$bookId-0"; it[normalizedName] = "a $bookId"
-                                it[name] = "Author $bookId"; it[sortName] = "Author, $bookId"
+                                it[id] = "c-$bookId-0"
+                                it[normalizedName] = "a $bookId"
+                                it[name] = "Author $bookId"
+                                it[sortName] = "Author, $bookId"
                             }
                             ContributorTable.insert {
-                                it[id] = "c-$bookId-1"; it[normalizedName] = "n $bookId"
-                                it[name] = "Narrator $bookId"; it[sortName] = null
+                                it[id] = "c-$bookId-1"
+                                it[normalizedName] = "n $bookId"
+                                it[name] = "Narrator $bookId"
+                                it[sortName] = null
                             }
                             BookContributorTable.insert {
-                                it[BookContributorTable.bookId] = bookId; it[contributorId] = "c-$bookId-0"
-                                it[role] = "author"; it[creditedAs] = null; it[ordinal] = 0
+                                it[BookContributorTable.bookId] = bookId
+                                it[contributorId] = "c-$bookId-0"
+                                it[role] = "author"
+                                it[creditedAs] = null
+                                it[ordinal] = 0
                             }
                             BookContributorTable.insert {
-                                it[BookContributorTable.bookId] = bookId; it[contributorId] = "c-$bookId-1"
-                                it[role] = "narrator"; it[creditedAs] = null; it[ordinal] = 1
+                                it[BookContributorTable.bookId] = bookId
+                                it[contributorId] = "c-$bookId-1"
+                                it[role] = "narrator"
+                                it[creditedAs] = null
+                                it[ordinal] = 1
                             }
                             BookSeriesTable.insert {
-                                it[id] = "s-$bookId"; it[normalizedName] = "series $bookId"
-                                it[name] = "Series $bookId"; it[sortName] = null
+                                it[id] = "s-$bookId"
+                                it[normalizedName] = "series $bookId"
+                                it[name] = "Series $bookId"
+                                it[sortName] = null
                             }
                             BookSeriesMembershipTable.insert {
-                                it[BookSeriesMembershipTable.bookId] = bookId; it[seriesId] = "s-$bookId"
-                                it[sequence] = "1"; it[ordinal] = 0
+                                it[BookSeriesMembershipTable.bookId] = bookId
+                                it[seriesId] = "s-$bookId"
+                                it[sequence] = "1"
+                                it[ordinal] = 0
                             }
                             (0..2).forEach { ci ->
                                 BookChapterTable.insert {
-                                    it[BookChapterTable.bookId] = bookId; it[ordinal] = ci
-                                    it[id] = "ch-$bookId-$ci"; it[title] = "Chapter $ci"
-                                    it[duration] = 100L; it[startTime] = (ci * 100).toLong()
+                                    it[BookChapterTable.bookId] = bookId
+                                    it[ordinal] = ci
+                                    it[id] = "ch-$bookId-$ci"
+                                    it[title] = "Chapter $ci"
+                                    it[duration] = 100L
+                                    it[startTime] = (ci * 100).toLong()
                                 }
                                 BookAudioFileTable.insert {
-                                    it[BookAudioFileTable.bookId] = bookId; it[ordinal] = ci
-                                    it[id] = "af-$bookId-$ci"; it[filename] = "$ci.m4b"
-                                    it[format] = "m4b"; it[codec] = "aac"; it[duration] = 100L; it[size] = 100L
+                                    it[BookAudioFileTable.bookId] = bookId
+                                    it[ordinal] = ci
+                                    it[id] = "af-$bookId-$ci"
+                                    it[filename] = "$ci.m4b"
+                                    it[format] = "m4b"
+                                    it[codec] = "aac"
+                                    it[duration] = 100L
+                                    it[size] = 100L
                                 }
                             }
                             // Two live genres (distinct paths) + one soft-deleted genre — exercises the
@@ -123,9 +145,18 @@ class BookRepositoryReadPayloadsTest :
                                 it[revision] = 0L
                                 it[deletedAt] = 123L
                             }
-                            BookGenreTable.insert { it[BookGenreTable.bookId] = bookId; it[genreId] = "g-$bookId-fic" }
-                            BookGenreTable.insert { it[BookGenreTable.bookId] = bookId; it[genreId] = "g-$bookId-sf" }
-                            BookGenreTable.insert { it[BookGenreTable.bookId] = bookId; it[genreId] = "g-$bookId-dead" }
+                            BookGenreTable.insert {
+                                it[BookGenreTable.bookId] = bookId
+                                it[genreId] = "g-$bookId-fic"
+                            }
+                            BookGenreTable.insert {
+                                it[BookGenreTable.bookId] = bookId
+                                it[genreId] = "g-$bookId-sf"
+                            }
+                            BookGenreTable.insert {
+                                it[BookGenreTable.bookId] = bookId
+                                it[genreId] = "g-$bookId-dead"
+                            }
                         }
                     }
                     suspendTransaction(db = db) {
@@ -147,9 +178,16 @@ class BookRepositoryReadPayloadsTest :
                     transaction(db) {
                         listOf("a", "b", "c").forEach { bookId ->
                             BookTable.insert {
-                                it[id] = bookId; it[libraryId] = libId; it[title] = bookId; it[sortTitle] = bookId
-                                it[totalDuration] = 0L; it[rootRelPath] = bookId; it[scannedAt] = 0L
-                                it[revision] = 1L; it[createdAt] = 0L; it[updatedAt] = 0L
+                                it[id] = bookId
+                                it[libraryId] = libId
+                                it[title] = bookId
+                                it[sortTitle] = bookId
+                                it[totalDuration] = 0L
+                                it[rootRelPath] = bookId
+                                it[scannedAt] = 0L
+                                it[revision] = 1L
+                                it[createdAt] = 0L
+                                it[updatedAt] = 0L
                             }
                         }
                     }
@@ -169,9 +207,16 @@ class BookRepositoryReadPayloadsTest :
                     transaction(db) {
                         listOf("x", "z").forEach { bookId ->
                             BookTable.insert {
-                                it[id] = bookId; it[libraryId] = libId; it[title] = bookId; it[sortTitle] = bookId
-                                it[totalDuration] = 0L; it[rootRelPath] = bookId; it[scannedAt] = 0L
-                                it[revision] = 1L; it[createdAt] = 0L; it[updatedAt] = 0L
+                                it[id] = bookId
+                                it[libraryId] = libId
+                                it[title] = bookId
+                                it[sortTitle] = bookId
+                                it[totalDuration] = 0L
+                                it[rootRelPath] = bookId
+                                it[scannedAt] = 0L
+                                it[revision] = 1L
+                                it[createdAt] = 0L
+                                it[updatedAt] = 0L
                             }
                         }
                     }
@@ -204,9 +249,16 @@ class BookRepositoryReadPayloadsTest :
                     transaction(db) {
                         ids.forEach { bookId ->
                             BookTable.insert {
-                                it[id] = bookId; it[libraryId] = libId; it[title] = bookId; it[sortTitle] = bookId
-                                it[totalDuration] = 0L; it[rootRelPath] = bookId; it[scannedAt] = 0L
-                                it[revision] = 1L; it[createdAt] = 0L; it[updatedAt] = 0L
+                                it[id] = bookId
+                                it[libraryId] = libId
+                                it[title] = bookId
+                                it[sortTitle] = bookId
+                                it[totalDuration] = 0L
+                                it[rootRelPath] = bookId
+                                it[scannedAt] = 0L
+                                it[revision] = 1L
+                                it[createdAt] = 0L
+                                it[updatedAt] = 0L
                             }
                         }
                     }

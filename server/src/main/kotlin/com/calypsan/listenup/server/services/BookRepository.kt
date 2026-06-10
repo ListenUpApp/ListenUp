@@ -870,7 +870,10 @@ class BookRepository(
         // SQLITE_CONSTRAINT_PRIMARYKEY and abort the whole book ingest. Collapse to one row per
         // (contributor, role) — first occurrence wins for ordinal and creditedAs.
         val deduped = contributors.distinctBy { it.id to it.role }
-        BookContributorTable.batchInsert(deduped.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, c) ->
+        BookContributorTable.batchInsert(
+            deduped.withIndex().toList(),
+            shouldReturnGeneratedValues = false,
+        ) { (idx, c) ->
             this[BookContributorTable.bookId] = bookId
             this[BookContributorTable.contributorId] = c.id
             this[BookContributorTable.role] = c.role
@@ -895,7 +898,10 @@ class BookRepository(
         // (book_id, series_id) — keeping the first sequence. Without this, a duplicate aborts the
         // whole book ingest on the PK constraint.
         val deduped = series.distinctBy { it.id }
-        BookSeriesMembershipTable.batchInsert(deduped.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, s) ->
+        BookSeriesMembershipTable.batchInsert(
+            deduped.withIndex().toList(),
+            shouldReturnGeneratedValues = false,
+        ) { (idx, s) ->
             this[BookSeriesMembershipTable.bookId] = bookId
             this[BookSeriesMembershipTable.seriesId] = s.id
             this[BookSeriesMembershipTable.sequence] = s.sequence
@@ -986,8 +992,7 @@ class BookRepository(
     internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? = readPayload(idStr)
 
     /** Test-only accessor for the protected [readPayloads]. */
-    internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> =
-        readPayloads(idStrs)
+    internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> = readPayloads(idStrs)
 }
 
 /**

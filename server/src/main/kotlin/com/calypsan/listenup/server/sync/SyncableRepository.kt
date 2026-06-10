@@ -89,8 +89,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * queries override this to batch those reads (see `BookRepository`). Called inside
      * the transaction opened by [pullSince].
      */
-    protected open suspend fun readPayloads(idStrs: List<String>): List<T> =
-        idStrs.mapNotNull { readPayload(it) }
+    protected open suspend fun readPayloads(idStrs: List<String>): List<T> = idStrs.mapNotNull { readPayload(it) }
 
     /**
      * Write the full aggregate (root row + children) inside the open transaction.

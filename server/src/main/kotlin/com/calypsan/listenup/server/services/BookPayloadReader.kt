@@ -108,7 +108,8 @@ internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
             .where { BookContributorTable.bookId inList chunk }
             .orderBy(BookContributorTable.ordinal)
             .forEach { row ->
-                contributorsByBook.getOrPut(row[BookContributorTable.bookId]) { mutableListOf() }
+                contributorsByBook
+                    .getOrPut(row[BookContributorTable.bookId]) { mutableListOf() }
                     .add(
                         BookContributorPayload(
                             id = row[ContributorTable.id],
@@ -125,7 +126,8 @@ internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
             .where { BookSeriesMembershipTable.bookId inList chunk }
             .orderBy(BookSeriesMembershipTable.ordinal)
             .forEach { row ->
-                seriesByBook.getOrPut(row[BookSeriesMembershipTable.bookId]) { mutableListOf() }
+                seriesByBook
+                    .getOrPut(row[BookSeriesMembershipTable.bookId]) { mutableListOf() }
                     .add(
                         BookSeriesPayload(
                             id = row[BookSeriesTable.id],
@@ -140,7 +142,8 @@ internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
             .where { BookChapterTable.bookId inList chunk }
             .orderBy(BookChapterTable.ordinal)
             .forEach { row ->
-                chaptersByBook.getOrPut(row[BookChapterTable.bookId]) { mutableListOf() }
+                chaptersByBook
+                    .getOrPut(row[BookChapterTable.bookId]) { mutableListOf() }
                     .add(
                         BookChapterPayload(
                             id = row[BookChapterTable.id],
@@ -156,7 +159,8 @@ internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
             .where { (BookGenreTable.bookId inList chunk) and GenreTable.deletedAt.isNull() }
             .orderBy(GenreTable.path)
             .forEach { row ->
-                genresByBook.getOrPut(row[BookGenreTable.bookId]) { mutableListOf() }
+                genresByBook
+                    .getOrPut(row[BookGenreTable.bookId]) { mutableListOf() }
                     .add(
                         BookGenrePayload(
                             id = row[GenreTable.id],
@@ -172,7 +176,8 @@ internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
             .where { BookAudioFileTable.bookId inList chunk }
             .orderBy(BookAudioFileTable.ordinal)
             .forEach { row ->
-                audioByBook.getOrPut(row[BookAudioFileTable.bookId]) { mutableListOf() }
+                audioByBook
+                    .getOrPut(row[BookAudioFileTable.bookId]) { mutableListOf() }
                     .add(
                         BookAudioFilePayload(
                             id = row[BookAudioFileTable.id],
