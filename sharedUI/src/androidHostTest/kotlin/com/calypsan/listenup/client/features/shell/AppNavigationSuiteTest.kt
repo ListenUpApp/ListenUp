@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.shell
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
@@ -38,7 +37,7 @@ class AppNavigationSuiteTest {
     }
 
     @Test
-    fun collapsedRailExposesDestinationsViaContentDescription() {
+    fun collapsedRailExposesDestinations() {
         composeRule.setContent {
             MaterialTheme {
                 AppNavigationSuite(
@@ -49,7 +48,9 @@ class AppNavigationSuiteTest {
                 )
             }
         }
-        composeRule.onNodeWithContentDescription("Library").assertExists()
+        // The expressive rail renders a visible label per destination; the merged
+        // accessibility node exposes it as text (not the icon's contentDescription).
+        composeRule.onNodeWithText("Library").assertIsDisplayed()
     }
 
     @Test
