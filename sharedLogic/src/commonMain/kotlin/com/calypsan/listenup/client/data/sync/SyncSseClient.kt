@@ -123,7 +123,12 @@ class SyncSseClient(
     /** Highest `id:` seen this session; sent as `Last-Event-Id` on reconnect. */
     private var lastEventId: Long? = null
 
-    /** Reconnect-backoff attempt counter; reset to 0 by [reconnectNow]. */
+    /**
+     * Reconnect-backoff attempt counter; reset to 0 by [reconnectNow]. Deliberately unsynchronized:
+     * it is best-effort backoff state, and the only cross-coroutine race (a reset briefly unobserved
+     * by the loop) merely lengthens one backoff. The real wake hand-off is [wakeSignal], which is
+     * thread-safe — don't add a lock here.
+     */
     private var reconnectAttempt = 0
 
     /** Conflated wake signal: [reconnectNow] sends; the backoff wait races it against the delay. */

@@ -40,7 +40,7 @@ class SyncSseClientReconnectNowTest :
 
             client.reconnectNow()
             scope.testScheduler.runCurrent()
-            attempts shouldBeGreaterThan afterFirst // woke immediately
+            attempts shouldBe afterFirst + 1 // woke immediately, exactly one more attempt (no busy-loop)
 
             client.disconnect()
         }
