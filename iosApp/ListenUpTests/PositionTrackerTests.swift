@@ -35,3 +35,19 @@ struct PositionTrackerTests {
         #expect(result == 5000)
     }
 }
+
+@Suite("PositionQuantizer")
+struct PositionQuantizerTests {
+    @Test func floorsToWholeSeconds() {
+        #expect(PositionQuantizer.displayMs(0) == 0)
+        #expect(PositionQuantizer.displayMs(1_200) == 1_000)
+        #expect(PositionQuantizer.displayMs(1_999) == 1_000)
+        #expect(PositionQuantizer.displayMs(2_000) == 2_000)
+    }
+
+    @Test func isStableWithinASecondAndStepsOnBoundary() {
+        // Same second → same bucket; crossing the boundary → a new bucket.
+        #expect(PositionQuantizer.displayMs(1_001) == PositionQuantizer.displayMs(1_500))
+        #expect(PositionQuantizer.displayMs(1_999) != PositionQuantizer.displayMs(2_000))
+    }
+}

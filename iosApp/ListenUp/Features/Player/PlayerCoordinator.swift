@@ -69,14 +69,24 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Preserved UI surface — position (derived from PositionTracker)
 
     var bookDurationMs: Int64 { phase.playingState?.durationMs ?? 0 }
+
+    /// Fine, per-frame position — read only by the scrubber slider (smooth thumb).
     var bookPositionMs: Int64 { positionTracker.positionMs }
-    var bookProgress: Float {
-        bookDurationMs > 0 ? Float(bookPositionMs) / Float(bookDurationMs) : 0
+
+    /// Coarse, ~1×/sec position — read by everything that only shows seconds (time
+    /// labels, the book-progress bar, the mini-player) so they don't invalidate per frame.
+    var displayPositionMs: Int64 { positionTracker.displayPositionMs }
+    var displayBookPositionMs: Int64 { positionTracker.displayPositionMs }
+    var displayBookProgress: Float {
+        bookDurationMs > 0 ? Float(displayPositionMs) / Float(bookDurationMs) : 0
     }
 
     // MARK: - Preserved UI surface — chapter (computed from chapters + position)
 
-    var chapterIndex: Int { ChapterMath.index(forPositionMs: bookPositionMs, in: chapters) ?? 0 }
+    /// Chapter identity tracks the COARSE position: chapter transitions at 1 s
+    /// granularity are imperceptible, and this keeps chapter-derived reads
+    /// (title, "Chapter X of Y", duration) off the per-frame invalidation path.
+    var chapterIndex: Int { ChapterMath.index(forPositionMs: displayPositionMs, in: chapters) ?? 0 }
     var totalChapters: Int { chapters.count }
 
     var chapterTitle: String? {
