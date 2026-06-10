@@ -337,6 +337,71 @@ class BookRepositoryUpsertTest :
             }
         }
 
+        test("batch child writes preserve ordinal order and collapse duplicate contributors/series") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                runTest {
+                    transaction(db) {
+                        seedContributor("c1", "Brandon Sanderson")
+                        seedSeries("s1", "Stormlight Archive")
+                    }
+                    val payload =
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "Way of Kings",
+                            // Same (id, role) twice — distinctBy collapses to one junction row;
+                            // without it the (book_id, contributor_id, role) PK aborts the ingest.
+                            contributors =
+                                listOf(
+                                    contributor("c1", "Brandon Sanderson", "author"),
+                                    contributor("c1", "B. Sanderson", "author"),
+                                ),
+                            // Same series id twice — distinctBy collapses to one membership.
+                            series =
+                                listOf(
+                                    series("s1", "Stormlight Archive", "1"),
+                                    series("s1", "Stormlight Archive", "2"),
+                                ),
+                            // Multiple audio files — read-back must preserve insertion order via ordinal.
+                            audioFiles =
+                                listOf(
+                                    audioFile("af1", "01.m4b", 1_000L, 1024L),
+                                    audioFile("af2", "02.m4b", 2_000L, 2048L),
+                                    audioFile("af3", "03.m4b", 3_000L, 3072L),
+                                ),
+                        )
+
+                    val result = repo.upsert(payload)
+
+                    result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    val saved = result.data
+                    saved.contributors.size shouldBe 1
+                    saved.contributors[0].id shouldBe "c1"
+                    saved.series.size shouldBe 1
+                    saved.series[0].id shouldBe "s1"
+                    saved.series[0].sequence shouldBe "1"
+                    saved.audioFiles.map { it.id } shouldBe listOf("af1", "af2", "af3")
+
+                    // Re-read through the read path to confirm ordinal order is persisted, not just
+                    // echoed from the write payload.
+                    val reread = repo.findById(BookId("b1"))
+                    reread shouldNotBe null
+                    reread!!.audioFiles.map { it.id } shouldBe listOf("af1", "af2", "af3")
+                }
+            }
+        }
+
         test("update re-uses existing rowid; book_search has exactly one row per book") {
             withInMemoryDatabase {
                 val db = this

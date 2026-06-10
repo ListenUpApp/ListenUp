@@ -82,6 +82,16 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     protected abstract suspend fun readPayload(idStr: String): T?
 
     /**
+     * Batch variant of [readPayload]: hydrate many aggregates by id, returning them
+     * in the same order as [idStrs] and skipping ids whose root row is absent.
+     *
+     * The default delegates per-id. Domains whose [readPayload] issues several child
+     * queries override this to batch those reads (see `BookRepository`). Called inside
+     * the transaction opened by [pullSince].
+     */
+    protected open suspend fun readPayloads(idStrs: List<String>): List<T> = idStrs.mapNotNull { readPayload(it) }
+
+    /**
      * Write the full aggregate (root row + children) inside the open transaction.
      *
      * The base class has already determined [rev] (next revision) and [now]
@@ -375,7 +385,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                     )
                 }
 
-            val items = idsWithRev.mapNotNull { (idStr, _) -> readPayload(idStr) }
+            val items = readPayloads(idsWithRev.map { (idStr, _) -> idStr })
 
             Page(
                 items = items,

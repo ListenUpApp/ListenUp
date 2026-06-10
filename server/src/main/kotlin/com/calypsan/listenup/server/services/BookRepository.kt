@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -53,6 +52,7 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -228,47 +228,11 @@ class BookRepository(
                     )
                 }
 
-        val cover =
-            bookRow[BookTable.coverHash]?.let { hash ->
-                val coverSrc =
-                    bookRow[BookTable.coverSource]?.let { raw ->
-                        CoverSource.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
-                    }
-                coverSrc?.let { CoverPayload(source = it, hash = hash) }
-            }
-
-        return BookSyncPayload(
-            id = bookRow[BookTable.id],
-            libraryId = LibraryId(bookRow[BookTable.libraryId]),
-            folderId = FolderId(bookRow[BookTable.folderId]),
-            title = bookRow[BookTable.title],
-            sortTitle = bookRow[BookTable.sortTitle],
-            subtitle = bookRow[BookTable.subtitle],
-            description = bookRow[BookTable.description],
-            publishYear = bookRow[BookTable.publishYear],
-            publisher = bookRow[BookTable.publisher],
-            language = bookRow[BookTable.language],
-            isbn = bookRow[BookTable.isbn],
-            asin = bookRow[BookTable.asin],
-            abridged = bookRow[BookTable.abridged],
-            explicit = bookRow[BookTable.explicit],
-            hasScanWarning = bookRow[BookTable.hasScanWarning],
-            totalDuration = bookRow[BookTable.totalDuration],
-            cover = cover,
-            rootRelPath = bookRow[BookTable.rootRelPath],
-            inode = bookRow[BookTable.inode],
-            scannedAt = bookRow[BookTable.scannedAt],
-            contributors = contributors,
-            series = series,
-            genres = genres,
-            audioFiles = audioFiles,
-            chapters = chapters,
-            revision = bookRow[BookTable.revision],
-            updatedAt = bookRow[BookTable.updatedAt],
-            createdAt = bookRow[BookTable.createdAt],
-            deletedAt = bookRow[BookTable.deletedAt],
-        )
+        return assembleBookPayload(bookRow, contributors, series, genres, audioFiles, chapters)
     }
+
+    /** Batched hydration: fetches each child table once per id-chunk and assembles in input-id order. */
+    override suspend fun readPayloads(idStrs: List<String>): List<BookSyncPayload> = readBookPayloads(idStrs)
 
     /**
      * Writes the full book aggregate inside the substrate's open transaction.
@@ -905,14 +869,16 @@ class BookRepository(
         // (book_id, contributor_id, role); inserting both rows would trigger
         // SQLITE_CONSTRAINT_PRIMARYKEY and abort the whole book ingest. Collapse to one row per
         // (contributor, role) — first occurrence wins for ordinal and creditedAs.
-        contributors.distinctBy { it.id to it.role }.forEachIndexed { idx, c ->
-            BookContributorTable.insert {
-                it[BookContributorTable.bookId] = bookId
-                it[BookContributorTable.contributorId] = c.id
-                it[BookContributorTable.role] = c.role
-                it[BookContributorTable.creditedAs] = c.creditedAs
-                it[BookContributorTable.ordinal] = idx
-            }
+        val deduped = contributors.distinctBy { it.id to it.role }
+        BookContributorTable.batchInsert(
+            deduped.withIndex().toList(),
+            shouldReturnGeneratedValues = false,
+        ) { (idx, c) ->
+            this[BookContributorTable.bookId] = bookId
+            this[BookContributorTable.contributorId] = c.id
+            this[BookContributorTable.role] = c.role
+            this[BookContributorTable.creditedAs] = c.creditedAs
+            this[BookContributorTable.ordinal] = idx
         }
     }
 
@@ -931,13 +897,15 @@ class BookRepository(
         // normalize to one series). Collapse to one membership per series — the junction PK is
         // (book_id, series_id) — keeping the first sequence. Without this, a duplicate aborts the
         // whole book ingest on the PK constraint.
-        series.distinctBy { it.id }.forEachIndexed { idx, s ->
-            BookSeriesMembershipTable.insert {
-                it[BookSeriesMembershipTable.bookId] = bookId
-                it[BookSeriesMembershipTable.seriesId] = s.id
-                it[BookSeriesMembershipTable.sequence] = s.sequence
-                it[BookSeriesMembershipTable.ordinal] = idx
-            }
+        val deduped = series.distinctBy { it.id }
+        BookSeriesMembershipTable.batchInsert(
+            deduped.withIndex().toList(),
+            shouldReturnGeneratedValues = false,
+        ) { (idx, s) ->
+            this[BookSeriesMembershipTable.bookId] = bookId
+            this[BookSeriesMembershipTable.seriesId] = s.id
+            this[BookSeriesMembershipTable.sequence] = s.sequence
+            this[BookSeriesMembershipTable.ordinal] = idx
         }
     }
 
@@ -946,15 +914,13 @@ class BookRepository(
         chapters: List<BookChapterPayload>,
     ) {
         BookChapterTable.deleteWhere { BookChapterTable.bookId eq bookId }
-        chapters.forEachIndexed { idx, ch ->
-            BookChapterTable.insert {
-                it[BookChapterTable.bookId] = bookId
-                it[BookChapterTable.ordinal] = idx
-                it[BookChapterTable.id] = ch.id.ifBlank { UUID.randomUUID().toString() }
-                it[BookChapterTable.title] = ch.title
-                it[BookChapterTable.duration] = ch.duration
-                it[BookChapterTable.startTime] = ch.startTime
-            }
+        BookChapterTable.batchInsert(chapters.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, ch) ->
+            this[BookChapterTable.bookId] = bookId
+            this[BookChapterTable.ordinal] = idx
+            this[BookChapterTable.id] = ch.id.ifBlank { UUID.randomUUID().toString() }
+            this[BookChapterTable.title] = ch.title
+            this[BookChapterTable.duration] = ch.duration
+            this[BookChapterTable.startTime] = ch.startTime
         }
     }
 
@@ -963,17 +929,15 @@ class BookRepository(
         files: List<BookAudioFilePayload>,
     ) {
         BookAudioFileTable.deleteWhere { BookAudioFileTable.bookId eq bookId }
-        files.forEachIndexed { idx, f ->
-            BookAudioFileTable.insert {
-                it[BookAudioFileTable.bookId] = bookId
-                it[BookAudioFileTable.ordinal] = idx
-                it[BookAudioFileTable.id] = f.id.ifBlank { UUID.randomUUID().toString() }
-                it[BookAudioFileTable.filename] = f.filename
-                it[BookAudioFileTable.format] = f.format
-                it[BookAudioFileTable.codec] = f.codec
-                it[BookAudioFileTable.duration] = f.duration
-                it[BookAudioFileTable.size] = f.size
-            }
+        BookAudioFileTable.batchInsert(files.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, f) ->
+            this[BookAudioFileTable.bookId] = bookId
+            this[BookAudioFileTable.ordinal] = idx
+            this[BookAudioFileTable.id] = f.id.ifBlank { UUID.randomUUID().toString() }
+            this[BookAudioFileTable.filename] = f.filename
+            this[BookAudioFileTable.format] = f.format
+            this[BookAudioFileTable.codec] = f.codec
+            this[BookAudioFileTable.duration] = f.duration
+            this[BookAudioFileTable.size] = f.size
         }
     }
 
@@ -992,7 +956,7 @@ class BookRepository(
                     .select(BookContributorTable.bookId)
                     .where { BookContributorTable.contributorId eq contributorId.value }
                     .map { it[BookContributorTable.bookId] }
-            bookIds.mapNotNull { readPayload(it) }
+            readPayloads(bookIds)
         }
 
     /**
@@ -1011,7 +975,7 @@ class BookRepository(
                     .where { BookSeriesMembershipTable.seriesId eq seriesId.value }
                     .orderBy(BookSeriesMembershipTable.ordinal)
                     .map { it[BookSeriesMembershipTable.bookId] }
-            bookIds.mapNotNull { readPayload(it) }
+            readPayloads(bookIds)
         }
 
     /**
@@ -1026,6 +990,9 @@ class BookRepository(
      * outside the substrate's `upsert` / `pullSince` orchestration.
      */
     internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? = readPayload(idStr)
+
+    /** Test-only accessor for the protected [readPayloads]. */
+    internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> = readPayloads(idStrs)
 }
 
 /**
