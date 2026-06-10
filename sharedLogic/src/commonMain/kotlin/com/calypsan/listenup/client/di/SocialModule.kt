@@ -1,0 +1,150 @@
+package com.calypsan.listenup.client.di
+
+import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
+import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.SessionApi
+import com.calypsan.listenup.client.data.remote.SessionApiContract
+import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
+import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
+import com.calypsan.listenup.client.data.repository.UserProfileRepositoryImpl
+import com.calypsan.listenup.client.data.repository.UserRepositoryImpl
+import com.calypsan.listenup.client.data.repository.avatarUploaderOf
+import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
+import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.domain.repository.BookReadersRepository
+import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
+import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
+import com.calypsan.listenup.client.domain.repository.ProfileRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
+import org.koin.core.module.Module
+import org.koin.dsl.bind
+import org.koin.dsl.binds
+import org.koin.dsl.module
+
+/**
+ * Social aggregate Koin wiring — RPC proxies, repositories, and use cases for the
+ * social domain (sessions, profiles, activity feed, leaderboard, readers).
+ *
+ * External dependencies (owned by other modules):
+ *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
+ *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
+ *  - [com.calypsan.listenup.client.data.local.db.UserDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.UserProfileDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.ActivityDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.PublicProfileDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
+ *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.remote.AuthRpcFactory] — `clientAuthModule`
+ *  - [com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository] — `mediaModule`
+ *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
+ */
+val socialModule: Module
+    get() =
+        module {
+            // SessionApi for reading session operations
+            single {
+                SessionApi(clientFactory = get())
+            } bind SessionApiContract::class
+
+            // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
+            single<SocialRpcFactory> {
+                KtorSocialRpcFactory(
+                    apiClientFactory = get(),
+                    serverConfig = get(),
+                )
+            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+            // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
+            single<ActivityRpcFactory> {
+                KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
+            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+            // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
+            single<ProfileRpcFactory> {
+                KtorProfileRpcFactory(
+                    apiClientFactory = get(),
+                    serverConfig = get(),
+                )
+            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+            // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
+            single<ProfileEditRepository> {
+                ProfileEditRepositoryImpl(
+                    userDao = get(),
+                    profileRpcFactory = get(),
+                    avatarUploader = avatarUploaderOf(get()),
+                )
+            }
+
+            // UserRepository for current user profile data (SOLID: interface in domain, impl in data)
+            single<UserRepository> {
+                UserRepositoryImpl(userDao = get(), authRpcFactory = get())
+            }
+
+            // UserProfileRepository for other users' profile data (avatars in activity feed, etc.)
+            single<UserProfileRepository> {
+                UserProfileRepositoryImpl(userProfileDao = get())
+            }
+
+            // LeaderboardRepository — Room-observed, offline-first; reads the synced
+            // public_profiles roster so all users appear in each other's leaderboard.
+            single<LeaderboardRepository> {
+                LeaderboardRepositoryImpl(publicProfileDao = get())
+            }
+
+            // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
+            single<ActivityRepository> {
+                ActivityRepositoryImpl(dao = get(), activityRpc = get(), bookDao = get())
+            }
+
+            // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
+            // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
+            single<ActiveSessionRepository> {
+                ActiveSessionRepositoryImpl(
+                    socialRpc = get(),
+                    bookDao = get(),
+                    imageStorage = get(),
+                    presence = get(),
+                )
+            }
+
+            // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
+            single<ProfileRepository> {
+                ProfileRepositoryImpl(
+                    profileRpcFactory = get(),
+                    userDao = get(),
+                    userProfileDao = get(),
+                    avatarDownloadRepository = get(),
+                )
+            }
+
+            // BookReadersRepository for Book Detail Readers section — combines the current user's local
+            // reading state with other live listeners (SocialService RPC, ACL-filtered, caller-excluded,
+            // re-fetched on every PresenceRefreshSignal ping).
+            single<BookReadersRepository> {
+                BookReadersRepositoryImpl(
+                    socialRpc = get(),
+                    presence = get(),
+                    playbackPositionRepository = get(),
+                    userRepository = get(),
+                )
+            }
+
+            // Activity use cases
+            factory {
+                FetchActivitiesUseCase(
+                    activityRepository = get(),
+                )
+            }
+        }
