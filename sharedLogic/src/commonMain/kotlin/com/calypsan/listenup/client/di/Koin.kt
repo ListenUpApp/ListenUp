@@ -15,8 +15,6 @@ import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorImportRpcFactory
 import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
-import com.calypsan.listenup.client.data.remote.ImageApi
-import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
@@ -25,8 +23,6 @@ import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.repository.avatarUploaderOf
-import com.calypsan.listenup.client.data.remote.SearchApi
-import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.StatsApi
 import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
@@ -36,17 +32,13 @@ import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
-import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
-import com.calypsan.listenup.client.data.repository.CoverDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
-import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
-import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
@@ -54,22 +46,15 @@ import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserRepositoryImpl
-import com.calypsan.listenup.client.data.sync.FtsPopulator
-import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
-import com.calypsan.listenup.client.data.sync.ImageDownloader
-import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.data.sync.LibraryResetHelper
 import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
-import com.calypsan.listenup.client.domain.repository.CoverDownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
-import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -258,23 +243,10 @@ val syncModule =
             SyncApi(clientFactory = get())
         }
 
-        // Image API for downloading cover images and uploading images
-        single {
-            ImageApi(clientFactory = get(), serverConfig = get())
-        } bind ImageApiContract::class
-
-        // Image downloader for batch cover downloads during sync
-        single {
-            ImageDownloader(
-                imageApi = get(),
-                imageStorage = get(),
-            )
-        } bind ImageDownloaderContract::class
-
-        // SearchApi for server-side search
-        single<SearchApiContract> {
-            SearchApi(clientFactory = get())
-        }
+        // SearchApi, SearchRepository, and FtsPopulator are provided by searchModule.
+        // ImageApi, ImageDownloader, ImageRepositoryImpl, DownloadRepository,
+        // CoverDownloadRepository, AvatarDownloadRepository, and CoverDownloadWorker
+        // are provided by mediaModule.
 
         // GenreRpcFactory and GenreRepository are provided by genreTagModule.
 
@@ -357,32 +329,8 @@ val syncModule =
 
         // MetadataRepository is provided by bookModule (R3: metadata travels with book).
 
-        // ImageRepositoryImpl — one concrete instance bound to both interfaces
-        single {
-            ImageRepositoryImpl(
-                imageDownloader = get(),
-                imageStorage = get(),
-                imageApi = get(),
-                appScope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named(APP_SCOPE),
-                    ),
-            )
-        }
-        single<com.calypsan.listenup.client.domain.repository.ImageRepository> { get<ImageRepositoryImpl>() }
-        single<com.calypsan.listenup.client.domain.repository.ImageStagingRepository> { get<ImageRepositoryImpl>() }
-
-        // DownloadRepository — read-side of download state. Per-book commands still live
-        // on DownloadService; W8 will consolidate.
-        single<com.calypsan.listenup.client.domain.repository.DownloadRepository> {
-            com.calypsan.listenup.client.data.repository.DownloadRepositoryImpl(
-                downloadDao = get(),
-                bookRepository = get(),
-                enqueuer = get(),
-            )
-        }
+        // ImageRepositoryImpl (3-bind group), DownloadRepository, CoverDownloadRepository,
+        // AvatarDownloadRepository, and CoverDownloadWorker are provided by mediaModule.
 
         // EventStreamRepository for real-time events (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.EventStreamRepository> {
@@ -410,50 +358,9 @@ val syncModule =
             KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // FtsPopulator for rebuilding FTS tables after sync
-        single {
-            FtsPopulator(
-                bookDao = get(),
-                contributorDao = get(),
-                seriesDao = get(),
-                searchDao = get(),
-            )
-        } bind FtsPopulatorContract::class
-
-        // CoverDownloadRepository - owns scope for fire-and-forget cover downloads
-        single<CoverDownloadRepository> {
-            CoverDownloadRepositoryImpl(
-                imageDownloader = get(),
-                bookDao = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named(APP_SCOPE),
-                    ),
-            )
-        }
-
-        // AvatarDownloadRepository - owns scope for fire-and-forget avatar downloads (mirrors CoverDownloadRepository)
-        single<AvatarDownloadRepository> {
-            AvatarDownloadRepositoryImpl(
-                imageDownloader = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named(APP_SCOPE),
-                    ),
-            )
-        }
-
-        // Cover Download Worker — processes the persistent cover download queue
-        single {
-            com.calypsan.listenup.client.data.sync.CoverDownloadWorker(
-                coverDownloadDao = get(),
-                imageDownloader = get(),
-            )
-        }
+        // FtsPopulator and SearchRepository are provided by searchModule.
+        // CoverDownloadRepository, AvatarDownloadRepository, and CoverDownloadWorker
+        // are provided by mediaModule.
 
         single {
             LibraryResetHelper(
@@ -463,17 +370,10 @@ val syncModule =
             )
         } bind LibraryResetHelperContract::class
 
-        // SearchRepository for offline-first search
-        single<SearchRepository> {
-            SearchRepositoryImpl(
-                searchApi = get(),
-                searchDao = get(),
-                imageStorage = get(),
-            )
-        }
-
         // BookRpcFactory, ContributorRpcFactory, SeriesRpcFactory, BookRepository, and
         // their edit repositories are provided by bookModule, contributorModule, and seriesModule.
+
+        // SearchRepository is provided by searchModule.
 
         // HomeRepository for Home screen data (local-first)
         single<HomeRepository> {
@@ -698,6 +598,8 @@ val sharedModules =
         collectionModule,
         shelfModule,
         genreTagModule,
+        searchModule,
+        mediaModule,
         clientSyncRenovationModule,
         clientAuthModule,
         voiceModule,
