@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.features.shell.components.NavigationBarHeigh
 import com.calypsan.listenup.client.playback.ContributorPickerType
 import com.calypsan.listenup.client.playback.NowPlayingOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.SleepTimerState
 
@@ -55,6 +56,7 @@ fun NowPlayingHost(
     modifier: Modifier = Modifier,
 ) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
@@ -91,6 +93,7 @@ fun NowPlayingHost(
             if (activeState != null) {
                 NowPlayingScreen(
                     state = activeState,
+                    progress = progress,
                     onCollapse = viewModel::collapse,
                     onPlayPause = viewModel::playPause,
                     onSeek = viewModel::seekWithinChapter,
@@ -126,6 +129,7 @@ fun NowPlayingHost(
         if (useDockedBar) {
             DockedNowPlayingBar(
                 state = state,
+                progress = progress,
                 isExpanded = screenState.isExpanded,
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,
@@ -160,6 +164,7 @@ fun NowPlayingHost(
 
             NowPlayingBar(
                 state = state,
+                progress = progress,
                 isExpanded = screenState.isExpanded,
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,

@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubbe
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_narrated_by
@@ -63,6 +64,7 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
  * free to fire, instead of being consumed by an inner scroll container.
  *
  * @param state Current [NowPlayingState.Active] snapshot.
+ * @param progress Fast-changing playback progress driving the scrubber and time labels.
  * @param onCollapse Called when the collapse button (or back gesture) fires.
  * @param onPlayPause Called when the play/pause FAB is tapped.
  * @param onSeek Called with a 0f–1f fractional position when the user seeks.
@@ -85,6 +87,7 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
 @Composable
 fun CompactNowPlaying(
     state: NowPlayingState.Active,
+    progress: PlaybackProgress,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -221,9 +224,9 @@ fun CompactNowPlaying(
 
             // Scrubber + time labels — fills column width (horizontal padding from the column).
             PlayerScrubber(
-                chapterProgress = state.chapterProgress,
-                chapterPositionMs = state.chapterPositionMs,
-                chapterDurationMs = state.chapterDurationMs,
+                chapterProgress = progress.chapterProgress,
+                chapterPositionMs = progress.chapterPositionMs,
+                chapterDurationMs = progress.chapterDurationMs,
                 isPlaying = state.isPlaying,
                 isBuffering = state.isBuffering,
                 onSeek = onSeek,

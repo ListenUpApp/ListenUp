@@ -639,8 +639,12 @@ private fun AuthenticatedNavigation(
                                     val nowPlayingScreenState by nowPlayingViewModel
                                         .screenState
                                         .collectAsStateWithLifecycle()
+                                    val nowPlayingProgress by nowPlayingViewModel
+                                        .progress
+                                        .collectAsStateWithLifecycle()
                                     NowPlayingBar(
                                         state = nowPlayingScreenState.state,
+                                        progress = nowPlayingProgress,
                                         isExpanded = nowPlayingScreenState.isExpanded,
                                         onTap = nowPlayingViewModel::expand,
                                         onPlayPause = nowPlayingViewModel::playPause,

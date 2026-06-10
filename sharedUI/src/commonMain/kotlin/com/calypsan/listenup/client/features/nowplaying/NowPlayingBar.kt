@@ -39,6 +39,7 @@ import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 
 /**
  * Floating mini-player card docked above the bottom navigation.
@@ -55,6 +56,7 @@ import com.calypsan.listenup.client.playback.NowPlayingState
 @Composable
 fun NowPlayingBar(
     state: NowPlayingState,
+    progress: PlaybackProgress,
     isExpanded: Boolean,
     onTap: () -> Unit,
     onPlayPause: () -> Unit,
@@ -106,6 +108,7 @@ fun NowPlayingBar(
             if (state is NowPlayingState.Active) {
                 MiniPlayerContent(
                     state = state,
+                    progress = progress,
                     onPlayPause = onPlayPause,
                     onSkipBack = onSkipBack,
                 )
@@ -118,6 +121,7 @@ fun NowPlayingBar(
 @Composable
 private fun MiniPlayerContent(
     state: NowPlayingState.Active,
+    progress: PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
 ) {
@@ -191,7 +195,7 @@ private fun MiniPlayerContent(
         // cleaner at the mini-player's small height — the expressive wave is reserved for the
         // full-screen player and the desktop bar, where it has the vertical room to register.
         LinearProgressIndicator(
-            progress = { state.chapterProgress },
+            progress = { progress.chapterProgress },
             modifier =
                 Modifier
                     .fillMaxWidth()

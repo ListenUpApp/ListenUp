@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
 import com.calypsan.listenup.client.features.nowplaying.components.UpNextQueue
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_other_narrators
@@ -76,6 +77,7 @@ private val PLAYER_CARD_PADDING = 40.dp
  * without errors.
  *
  * @param state Current [NowPlayingState.Active] snapshot.
+ * @param progress Fast-changing playback progress driving the scrubber and time labels.
  * @param onCollapse Called when the collapse button is tapped.
  * @param onPlayPause Called when the play/pause FAB is tapped.
  * @param onSeek Called with a 0f–1f fractional position when the user seeks.
@@ -100,6 +102,7 @@ private val PLAYER_CARD_PADDING = 40.dp
 @Composable
 fun WideNowPlaying(
     state: NowPlayingState.Active,
+    progress: PlaybackProgress,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -157,6 +160,7 @@ fun WideNowPlaying(
                 // LEFT: Immersive player card — fills remaining width.
                 ImmersivePlayerPane(
                     state = state,
+                    progress = progress,
                     onPlayPause = onPlayPause,
                     onSeek = onSeek,
                     onSkipBack = onSkipBack,
@@ -208,6 +212,7 @@ fun WideNowPlaying(
 @Composable
 private fun ImmersivePlayerPane(
     state: NowPlayingState.Active,
+    progress: PlaybackProgress,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
     onSkipBack: () -> Unit,
@@ -308,9 +313,9 @@ private fun ImmersivePlayerPane(
 
             // Scrubber: wavy seek bar + elapsed / remaining labels.
             PlayerScrubber(
-                chapterProgress = state.chapterProgress,
-                chapterPositionMs = state.chapterPositionMs,
-                chapterDurationMs = state.chapterDurationMs,
+                chapterProgress = progress.chapterProgress,
+                chapterPositionMs = progress.chapterPositionMs,
+                chapterDurationMs = progress.chapterDurationMs,
                 isPlaying = state.isPlaying,
                 isBuffering = state.isBuffering,
                 onSeek = onSeek,
