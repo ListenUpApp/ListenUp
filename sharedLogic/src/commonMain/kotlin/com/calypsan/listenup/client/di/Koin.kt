@@ -11,16 +11,8 @@ import com.calypsan.listenup.client.data.remote.CollectionInboxApi
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorContributorRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorSeriesRpcFactory
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.BackupRpcFactory
@@ -38,9 +30,7 @@ import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
-import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.repository.avatarUploaderOf
@@ -57,8 +47,6 @@ import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
-import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
-import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CoverDownloadRepositoryImpl
@@ -69,7 +57,6 @@ import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ShelfRepositoryImpl
-import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
@@ -91,9 +78,7 @@ import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
-import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.CoverDownloadRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -103,7 +88,6 @@ import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
-import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -125,11 +109,6 @@ import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
-import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
-import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
-import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
-import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
-import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
@@ -138,14 +117,11 @@ import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseC
 import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
-import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.binds
 import org.koin.dsl.module
-import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
-import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 
 /**
  * Platform-specific storage module.
@@ -217,46 +193,9 @@ val useCaseModule =
             )
         }
 
-        // Book use cases (using domain layer interfaces only)
-        factory {
-            LoadBookForEditUseCase(
-                bookRepository = get(),
-                genreRepository = get(),
-                tagRepository = get(),
-            )
-        }
-        factory {
-            UpdateBookUseCase(
-                bookEditRepository = get(),
-                tagRepository = get(),
-                imageRepository = get(),
-                imageStagingRepository = get(),
-            )
-        }
-        // Contributor use cases
-        factory {
-            UpdateContributorUseCase(
-                contributorEditRepository = get(),
-            )
-        }
-        factory {
-            DeleteContributorUseCase(
-                contributorRepository = get(),
-            )
-        }
-        factory {
-            ApplyContributorMetadataUseCase(
-                metadataRepository = get(),
-            )
-        }
-        // Series use cases
-        factory {
-            UpdateSeriesUseCase(
-                seriesEditRepository = get(),
-                imageRepository = get(),
-                imageStagingRepository = get(),
-            )
-        }
+        // Book, contributor, and series use cases are provided by bookModule,
+        // contributorModule, and seriesModule respectively.
+
         // Shelf use cases
         factory {
             CreateShelfUseCase(
@@ -443,13 +382,7 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
-        single<MetadataLookupRpcFactory> {
-            KtorMetadataLookupRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // MetadataLookupRpcFactory is provided by bookModule (R3: metadata travels with book).
 
         // AdminUserRpcFactory — kotlinx.rpc proxy for AdminUserService (user roster, approval queue, edits).
         single<AdminUserRpcFactory> {
@@ -499,10 +432,7 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
-        single<com.calypsan.listenup.client.domain.repository.MetadataRepository> {
-            MetadataRepositoryImpl(rpcFactory = get())
-        }
+        // MetadataRepository is provided by bookModule (R3: metadata travels with book).
 
         // ImageRepositoryImpl — one concrete instance bound to both interfaces
         single {
@@ -629,50 +559,8 @@ val syncModule =
             )
         }
 
-        // BookRpcFactory - kotlinx.rpc proxy for BookService (on-demand fetch + search).
-        // Mirrors AuthRpcFactory; fully functional end-to-end — the server registers
-        // BookService on its bearer-gated /api/rpc/authed surface (landed in T28.5).
-        single<BookRpcFactory> {
-            KtorBookRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-        // ContributorRpcFactory - kotlinx.rpc proxy for ContributorService (cache-miss fetch).
-        // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
-        single<ContributorRpcFactory> {
-            KtorContributorRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-        // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
-        // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
-        single<SeriesRpcFactory> {
-            KtorSeriesRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-        // BookRepository for UI data access
-        single<BookRepository> {
-            BookRepositoryImpl(
-                bookDao = get(),
-                chapterDao = get(),
-                audioFileDao = get(),
-                searchDao = get(),
-                transactionRunner = get(),
-                imageStorage = get(),
-                genreRepository = get(),
-                tagRepository = get(),
-                networkMonitor = get(),
-                bookRpcFactory = get(),
-                bookSyncDomainHandler = get(),
-            )
-        }
+        // BookRpcFactory, ContributorRpcFactory, SeriesRpcFactory, BookRepository, and
+        // their edit repositories are provided by bookModule, contributorModule, and seriesModule.
 
         // HomeRepository for Home screen data (local-first)
         single<HomeRepository> {
@@ -715,27 +603,8 @@ val syncModule =
             )
         }
 
-        // BookEditRepository — pure RPC dispatcher; SSE echoes write back into Room.
-        single<com.calypsan.listenup.client.domain.repository.BookEditRepository> {
-            BookEditRepositoryImpl(
-                bookRpcFactory = get(),
-                collectionRpcFactory = get(),
-            )
-        }
-
-        // SeriesEditRepository — pure RPC dispatcher (Books-C1).
-        single<SeriesEditRepository> {
-            SeriesEditRepositoryImpl(
-                seriesRpcFactory = get(),
-            )
-        }
-
-        // ContributorEditRepository — pure RPC dispatcher (Books-C1).
-        single<ContributorEditRepository> {
-            ContributorEditRepositoryImpl(
-                contributorRpcFactory = get(),
-            )
-        }
+        // BookEditRepository, SeriesEditRepository, ContributorEditRepository are provided
+        // by bookModule, seriesModule, and contributorModule respectively.
 
         // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
         single<ProfileRpcFactory> {
@@ -901,33 +770,7 @@ val syncModule =
             )
         }
 
-        // ContributorRepository for domain-layer contributor queries including search and metadata
-        single<com.calypsan.listenup.client.domain.repository.ContributorRepository> {
-            com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl(
-                contributorDao = get(),
-                bookDao = get(),
-                searchDao = get(),
-                api = get(),
-                networkMonitor = get(),
-                imageStorage = get(),
-                rpcFactory = get(),
-                contributorSyncHandler = get<ContributorSyncDomainHandler>(),
-            )
-        }
-
-        // SeriesRepository for domain-layer series queries including search
-        single<com.calypsan.listenup.client.domain.repository.SeriesRepository> {
-            com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl(
-                seriesDao = get(),
-                bookDao = get(),
-                searchDao = get(),
-                api = get(),
-                networkMonitor = get(),
-                imageStorage = get(),
-                rpcFactory = get(),
-                seriesSyncHandler = get<SeriesSyncDomainHandler>(),
-            )
-        }
+        // ContributorRepository and SeriesRepository are provided by contributorModule and seriesModule.
 
         // SyncStatusRepository for sync timestamp tracking (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.SyncStatusRepository> {
@@ -969,6 +812,9 @@ val sharedModules =
         repositoryModule,
         useCaseModule,
         syncModule,
+        bookModule,
+        contributorModule,
+        seriesModule,
         clientSyncRenovationModule,
         clientAuthModule,
         voiceModule,
