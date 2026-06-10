@@ -245,6 +245,63 @@ private fun stableColorForUserId(userId: String): Color {
     return avatarPalette[index]
 }
 
+// ---------------------------------------------------------------------------
+// Resolved UI state — computed off the recomposition hot path
+// ---------------------------------------------------------------------------
+
+/** Resolved render state for [UserAvatar], computed off the recomposition hot path. */
+internal sealed interface UserAvatarUiState {
+    /** Profile not yet in the local cache — show the neutral loading circle. */
+    data object Loading : UserAvatarUiState
+
+    /** A downloaded avatar image exists locally. */
+    data class Image(
+        val localPath: String,
+        val cacheKey: String,
+        val contentDescription: String,
+    ) : UserAvatarUiState
+
+    /** No local image (auto type, or image not yet downloaded) — render initials. */
+    data class Initials(
+        val initials: String,
+        val color: Color,
+    ) : UserAvatarUiState
+}
+
+/**
+ * Derive up-to-two-letter initials from a display name. Returns `"?"` when blank.
+ */
+internal fun avatarInitials(displayName: String): String =
+    displayName
+        .trim()
+        .split("\\s+".toRegex())
+        .filter { it.isNotBlank() }
+        .take(2)
+        .joinToString("") { it.first().uppercase() }
+        .ifBlank { "?" }
+
+/** Pure mapping from a profile + local-avatar presence to the render state. No Compose/IO. */
+internal fun userAvatarUiState(
+    profile: CachedUserProfile?,
+    hasLocalAvatar: Boolean,
+    localPath: String,
+    userId: String,
+): UserAvatarUiState =
+    when {
+        profile == null -> UserAvatarUiState.Loading
+        profile.avatarType == "image" && hasLocalAvatar ->
+            UserAvatarUiState.Image(
+                localPath = localPath,
+                cacheKey = "$userId-avatar",
+                contentDescription = profile.displayName.ifBlank { "User avatar" },
+            )
+        else ->
+            UserAvatarUiState.Initials(
+                initials = avatarInitials(profile.displayName),
+                color = parseAvatarHexColor(profile.avatarColor, userId),
+            )
+    }
+
 /** Twelve-color Material 3 palette for stable avatar background colors. */
 private val avatarPalette =
     listOf(
