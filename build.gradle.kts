@@ -63,7 +63,7 @@ detekt {
 
 dependencies {
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:${libs.versions.detekt.get()}")
-    detektPlugins(project(":build-logic:detekt-rules"))
+    detektPlugins("com.calypsan.listenup.build-logic:detekt-rules:0.0.1")
 }
 
 // Suppress SLF4J "no binding" warnings during SKIE processing (build-time only).

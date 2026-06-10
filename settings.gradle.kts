@@ -37,6 +37,8 @@ dependencyResolutionManagement {
     }
 }
 
+includeBuild("build-logic")
+
 include(":androidApp")
 include(":baselineprofile")
 include(":sharedUI")
@@ -44,5 +46,4 @@ include(":contract")
 include(":desktopApp")
 include(":server")
 include(":sharedLogic")
-include(":build-logic:detekt-rules")
 include(":rpc-guard-ksp")
