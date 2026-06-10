@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -20,6 +21,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 class InstanceServiceImpl(
     private val db: Database,
     private val settings: ServerSettingsRepository,
+    private val instanceIdentity: InstanceIdentity,
 ) : InstanceService {
     override suspend fun getServerInfo(): AppResult<ServerInfo> {
         val setupRequired = suspendTransaction(db) { UserEntity.all().limit(1).empty() }
@@ -31,6 +33,7 @@ class InstanceServiceImpl(
                 setupRequired = setupRequired,
                 registrationPolicy = settings.registrationPolicy(),
                 remoteUrl = settings.remoteUrl(),
+                instanceId = instanceIdentity.instanceId(),
             ),
         )
     }
