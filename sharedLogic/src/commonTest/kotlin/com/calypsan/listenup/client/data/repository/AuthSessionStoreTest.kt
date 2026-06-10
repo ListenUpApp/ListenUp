@@ -31,6 +31,7 @@ private fun createTestServerInfo(
         apiVersion = "v1",
         setupRequired = setupRequired,
         registrationPolicy = registrationPolicy,
+        instanceId = "test-instance",
     )
 
 private fun createMockStorage(): SecureStorage = mock<SecureStorage>()

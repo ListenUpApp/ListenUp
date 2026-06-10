@@ -32,6 +32,7 @@ class InstanceRepositoryImplTest :
                 apiVersion = "v1",
                 setupRequired = true,
                 registrationPolicy = RegistrationPolicy.OPEN,
+                instanceId = "test-instance",
             )
 
         /** Fake factory: records the ws URL it was asked for, returns a canned result. */
