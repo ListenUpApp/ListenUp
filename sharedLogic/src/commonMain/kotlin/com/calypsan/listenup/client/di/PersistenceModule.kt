@@ -1,0 +1,56 @@
+package com.calypsan.listenup.client.di
+
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import org.koin.core.module.Module
+import org.koin.dsl.bind
+import org.koin.dsl.module
+
+/**
+ * Persistence layer bindings — all DAO providers sourced from [ListenUpDatabase]
+ * and the [TransactionRunner] implementation. Every DAO is a singleton obtained
+ * from the Room database instance supplied by `platformDatabaseModule`.
+ */
+val persistenceModule: Module
+    get() =
+        module {
+            // Provide DAOs from database
+            single { get<ListenUpDatabase>().userDao() }
+            single { get<ListenUpDatabase>().userProfileDao() }
+            single { get<ListenUpDatabase>().bookDao() }
+            single { get<ListenUpDatabase>().chapterDao() }
+            single { get<ListenUpDatabase>().seriesDao() }
+            single { get<ListenUpDatabase>().contributorDao() }
+            single { get<ListenUpDatabase>().contributorAliasDao() }
+            single { get<ListenUpDatabase>().bookContributorDao() }
+            single { get<ListenUpDatabase>().bookSeriesDao() }
+            single { get<ListenUpDatabase>().playbackPositionDao() }
+            single { get<ListenUpDatabase>().downloadDao() }
+            single { get<ListenUpDatabase>().coverDownloadDao() }
+            single { get<ListenUpDatabase>().searchDao() }
+            single { get<ListenUpDatabase>().collectionDao() }
+            single { get<ListenUpDatabase>().collectionBookDao() }
+            single { get<ListenUpDatabase>().collectionShareDao() }
+            single { get<ListenUpDatabase>().shelfDao() }
+            single { get<ListenUpDatabase>().shelfBookDao() }
+            single { get<ListenUpDatabase>().tagDao() }
+            single { get<ListenUpDatabase>().genreDao() }
+            single { get<ListenUpDatabase>().audioFileDao() }
+            single { get<ListenUpDatabase>().listeningEventDao() }
+            single { get<ListenUpDatabase>().activityDao() }
+            single { get<ListenUpDatabase>().userStatsDao() }
+            single { get<ListenUpDatabase>().tentativeSpanDao() }
+            single { get<ListenUpDatabase>().publicProfileDao() }
+
+            // Hygiene additions: three DAOs consumed by repositories but previously
+            // fetched inline via `get<ListenUpDatabase>().xDao()` at the call site
+            // rather than through a named Koin binding.
+            single { get<ListenUpDatabase>().bookTagDao() }
+            single { get<ListenUpDatabase>().libraryDao() }
+            single { get<ListenUpDatabase>().libraryFolderDao() }
+
+            single<TransactionRunner> {
+                RoomTransactionRunner(get())
+            }
+        }

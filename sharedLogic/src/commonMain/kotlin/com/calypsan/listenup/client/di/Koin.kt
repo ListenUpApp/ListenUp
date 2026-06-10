@@ -1,27 +1,21 @@
 
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.client.device.DeviceContextProvider
-import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
 import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionInboxApi
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorInstanceRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
@@ -33,14 +27,11 @@ import com.calypsan.listenup.client.data.remote.BackupRpcFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorImportRpcFactory
-import com.calypsan.listenup.client.data.remote.BookApiContract
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
 import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
-import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
@@ -55,7 +46,6 @@ import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.repository.avatarUploaderOf
 import com.calypsan.listenup.client.data.remote.SearchApi
 import com.calypsan.listenup.client.data.remote.SearchApiContract
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.StatsApi
 import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
@@ -64,7 +54,6 @@ import com.calypsan.listenup.client.data.remote.KtorTagRpcFactory
 import com.calypsan.listenup.client.data.remote.TagRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesApi
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
-import com.calypsan.listenup.client.data.remote.api.ListenUpApi
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
@@ -73,14 +62,11 @@ import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CoverDownloadRepositoryImpl
-import com.calypsan.listenup.client.data.repository.DeepLinkManager
-import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
-import com.calypsan.listenup.client.data.repository.InstanceRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ShelfRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
@@ -88,9 +74,7 @@ import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryIm
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
-import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
-import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
@@ -107,8 +91,6 @@ import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.AuthRepository
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -116,19 +98,12 @@ import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.CoverDownloadRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
-import com.calypsan.listenup.client.domain.repository.LibraryPreferences
-import com.calypsan.listenup.client.domain.repository.LibrarySync
-import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
-import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.ServerRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -137,7 +112,6 @@ import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.domain.usecase.GetInstanceUseCase
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
@@ -166,7 +140,6 @@ import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.binds
@@ -198,96 +171,15 @@ private const val APP_SCOPE = "appScope"
 /**
  * Data layer dependencies.
  * Provides repositories for settings and domain data.
- */
-val dataModule =
-    module {
-        // Error bus — single instance shared by every emitter (data layer, ViewModels)
-        // and the single subscriber (GlobalErrorSnackbar in AppShell).
-        single {
-            com.calypsan.listenup.core.error
-                .ErrorBus()
-        }
-
-        // Deep link manager - singleton for handling invite deep links
-        // Must be initialized before MainActivity handles intents
-        single { DeepLinkManager() }
-
-        // Shortcut action manager - singleton for handling app shortcut intents
-        // Observed by navigation layer to execute shortcut actions
-        single { ShortcutActionManager() }
-
-        // AuthSession (tokens + AuthState flow) is provided by clientAuthModule.
-        // SettingsRepositoryImpl depends on AuthSession, but AuthSessionStore (the
-        // AuthSession impl) depends on ServerConfig, which resolves back to
-        // SettingsRepositoryImpl — a construction-time cycle. The cycle is broken by
-        // injecting AuthSession as Lazy<AuthSession>: the lambda body runs only on
-        // first suspend-method use, by which time SettingsRepositoryImpl is fully
-        // constructed and registered in the Koin graph.
-
-        // Settings repository — everything *non-auth*: server-URL plumbing, library identity,
-        // library + playback preferences, device-local UI preferences. Emits preference change
-        // events for PreferencesSyncObserver (in syncModule) to consume without circular deps.
-        single {
-            val scope = this
-            SettingsRepositoryImpl(
-                secureStorage = get(),
-                authSession = lazy { scope.get<AuthSession>() },
-            )
-        }
-
-        // Bind the remaining segregated interfaces to the same SettingsRepositoryImpl instance.
-        single<ServerConfig> { get<SettingsRepositoryImpl>() }
-        single<LibrarySync> { get<SettingsRepositoryImpl>() }
-        single<LibraryPreferences> { get<SettingsRepositoryImpl>() }
-        single<PlaybackPreferences> { get<SettingsRepositoryImpl>() }
-        single<LocalPreferences> { get<SettingsRepositoryImpl>() }
-    }
-
-/**
- * Network layer dependencies.
- * Provides HTTP clients and API configuration with authentication support.
  *
- * Note: Initial setup uses default base URL from getBaseUrl().
- * When user configures a different server URL at runtime, API instances
- * should be recreated via factory pattern or manual invalidation.
+ * Bindings moved to dedicated modules:
+ *  - [appCoreModule] — ErrorBus, DeepLinkManager, ShortcutActionManager, appScope CoroutineScope
+ *  - [settingsModule] — SettingsRepositoryImpl + segregated interface binds
  */
-val networkModule =
-    module {
-        // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
-        //
-        // The refreshAccessToken seam is a lambda that resolves AuthRepository LAZILY at
-        // refresh time, breaking the construction-time cycle:
-        //   AuthRepositoryImpl(rpc=AuthRpcFactory(apiClientFactory=ApiClientFactory(...)))
-        // If we passed `authRepository = get()` here Koin would recurse during graph
-        // construction. The lambda body executes on 401, by which time all three singletons
-        // are constructed.
-        single {
-            ApiClientFactory(
-                serverConfig = get(),
-                authSession = get(),
-                refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+val dataModule = module { }
 
-        // AuthRpcFactory is provided by clientAuthModule. It still needs to be
-        // invalidated alongside ApiClientFactory whenever the underlying HttpClient
-        // is recycled — see the ServerRepository binding's URL-change listener.
-
-        // ListenUpApi - main API for server communication
-        // Uses default base URL initially; can be recreated when server URL changes
-        single {
-            ListenUpApi(
-                baseUrl = getBaseUrl(),
-                apiClientFactory = get(),
-            )
-        }
-
-        // Bind segregated interfaces to the same ListenUpApi instance (ISP compliance)
-        single<InstanceApiContract> { get<ListenUpApi>() }
-        single<BookApiContract> { get<ListenUpApi>() }
-        single<ContributorApiContract> { get<ListenUpApi>() }
-        single<SeriesApiContract> { get<ListenUpApi>() }
-    }
+// networkModule is defined in NetworkModule.kt — relocated wholesale to avoid a
+// top-level `val networkModule` name collision between this file and that file.
 
 /**
  * Platform-specific base URL for the API.
@@ -300,77 +192,22 @@ expect fun getBaseUrl(): String
 /**
  * Repository layer dependencies.
  * Binds repository interfaces to their implementations.
+ *
+ * Bindings moved to dedicated modules:
+ *  - [persistenceModule] — all DAO providers + TransactionRunner
+ *  - [connectionModule] — InstanceRpcFactory, InstanceRepository, ServerRepository
  */
-val repositoryModule =
-    module {
-        // InstanceRepository reads server URL directly from SecureStorage to avoid circular
-        // dependency (SettingsRepository -> InstanceRepository -> SettingsRepository).
-        // The URL is stored before checkServerStatus() is called.
-        single<InstanceRpcFactory> { KtorInstanceRpcFactory() }
-        single<InstanceRepository> {
-            val secureStorage: com.calypsan.listenup.core.SecureStorage = get()
-            InstanceRepositoryImpl(
-                getServerUrl = {
-                    secureStorage.read("server_url")?.let { ServerUrl(it) }
-                },
-                instanceRpcFactory = get(),
-                persistRemoteUrl = { url ->
-                    if (url != null) {
-                        secureStorage.save("server_remote_url", url)
-                    } else {
-                        secureStorage.delete("server_remote_url")
-                    }
-                },
-            )
-        }
-
-        // Provide DAOs from database
-        single { get<ListenUpDatabase>().userDao() }
-        single { get<ListenUpDatabase>().userProfileDao() }
-        single { get<ListenUpDatabase>().bookDao() }
-        single { get<ListenUpDatabase>().chapterDao() }
-        single { get<ListenUpDatabase>().seriesDao() }
-        single { get<ListenUpDatabase>().contributorDao() }
-        single { get<ListenUpDatabase>().contributorAliasDao() }
-        single { get<ListenUpDatabase>().bookContributorDao() }
-        single { get<ListenUpDatabase>().bookSeriesDao() }
-        single { get<ListenUpDatabase>().playbackPositionDao() }
-        single { get<ListenUpDatabase>().downloadDao() }
-        single { get<ListenUpDatabase>().coverDownloadDao() }
-        single { get<ListenUpDatabase>().searchDao() }
-        single { get<ListenUpDatabase>().collectionDao() }
-        single { get<ListenUpDatabase>().collectionBookDao() }
-        single { get<ListenUpDatabase>().collectionShareDao() }
-        single { get<ListenUpDatabase>().shelfDao() }
-        single { get<ListenUpDatabase>().shelfBookDao() }
-        single { get<ListenUpDatabase>().tagDao() }
-        single { get<ListenUpDatabase>().genreDao() }
-        single { get<ListenUpDatabase>().audioFileDao() }
-        single { get<ListenUpDatabase>().listeningEventDao() }
-        single { get<ListenUpDatabase>().activityDao() }
-        single { get<ListenUpDatabase>().userStatsDao() }
-        single { get<ListenUpDatabase>().tentativeSpanDao() }
-        single { get<ListenUpDatabase>().publicProfileDao() }
-
-        single<com.calypsan.listenup.client.data.local.db.TransactionRunner> {
-            com.calypsan.listenup.client.data.local.db
-                .RoomTransactionRunner(get())
-        }
-
-        // ServerRepository - maps live mDNS discovery into the server picker list.
-        single<ServerRepository> {
-            ServerRepositoryImpl(discoveryService = get())
-        }
-    }
+val repositoryModule = module { }
 
 /**
  * Use case layer dependencies.
  * Creates use case instances for business logic.
+ *
+ * Bindings moved to dedicated modules:
+ *  - [connectionModule] — GetInstanceUseCase
  */
 val useCaseModule =
     module {
-        factoryOf(::GetInstanceUseCase)
-
         // Auth use cases are provided by clientAuthModule.
 
         // Library use cases (using domain layer interfaces only)
@@ -530,22 +367,13 @@ val useCaseModule =
  * Sync infrastructure module.
  *
  * Provides SyncManager, SyncApi, and related sync components.
+ *
+ * Bindings moved to dedicated modules:
+ *  - [appCoreModule] — appScope CoroutineScope
+ *  - [connectionModule] — RpcCacheInvalidator, ConnectionCoordinator
  */
 val syncModule =
     module {
-        // Application-scoped CoroutineScope for long-lived background operations.
-        // Used by sync and playback tasks that span the app's lifetime.
-        // SupervisorJob ensures child failures don't cancel siblings.
-        single<kotlinx.coroutines.CoroutineScope>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named(APP_SCOPE),
-        ) {
-            kotlinx.coroutines.CoroutineScope(
-                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
-            )
-        }
-
         // Sync API uses ApiClientFactory to get authenticated HttpClient at call time
         // This avoids runBlocking during DI initialization (structured concurrency)
         single<SyncApiContract> {
@@ -917,37 +745,7 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // Aggregates every RemoteCache (RPC factories + the shared ApiClientFactory)
-        // so logout / user-switch / server-URL change can drop them all in one sweep.
-        // The cache set is assembled automatically via getAll() from every single bound
-        // with `binds arrayOf(RemoteCache::class)` — no list to maintain.
-        single<com.calypsan.listenup.client.data.remote.RpcCacheInvalidator> {
-            com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator(
-                caches = getAll(),
-            )
-        }
-
-        // ConnectionCoordinator — drops all cached connections whenever the active
-        // server URL's host:port changes, so every transport follows the new URL on
-        // its next reconnect. Started at app launch.
-        single(createdAtStart = true) {
-            val coordinator =
-                com.calypsan.listenup.client.data.connection.ConnectionCoordinator(
-                    serverConfig = get(),
-                    instanceRepository = get(),
-                    discoveryService = get(),
-                    networkMonitor = get(),
-                    invalidator = get(),
-                    scope =
-                        get(
-                            qualifier =
-                                org.koin.core.qualifier
-                                    .named(APP_SCOPE),
-                        ),
-                )
-            coordinator.start()
-            coordinator
-        }
+        // RpcCacheInvalidator and ConnectionCoordinator are provided by connectionModule.
 
         // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
         single<com.calypsan.listenup.client.domain.repository.ProfileEditRepository> {
@@ -1162,8 +960,12 @@ val sharedModules =
         platformDatabaseModule,
         platformDiscoveryModule,
         platformDeviceModule,
-        dataModule,
+        appCoreModule,
+        settingsModule,
         networkModule,
+        persistenceModule,
+        connectionModule,
+        dataModule,
         repositoryModule,
         useCaseModule,
         syncModule,
