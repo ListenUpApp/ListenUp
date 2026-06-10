@@ -18,12 +18,13 @@ import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val logger = KotlinLogging.logger {}
 
@@ -122,6 +123,12 @@ class SyncSseClient(
     /** Highest `id:` seen this session; sent as `Last-Event-Id` on reconnect. */
     private var lastEventId: Long? = null
 
+    /** Reconnect-backoff attempt counter; reset to 0 by [reconnectNow]. */
+    private var reconnectAttempt = 0
+
+    /** Conflated wake signal: [reconnectNow] sends; the backoff wait races it against the delay. */
+    private val wakeSignal = Channel<Unit>(Channel.CONFLATED)
+
     /** Seed [lastEventId] from the persisted highest cursor before the first connect. */
     override fun seedLastEventId(initial: Long?) {
         if (initial != null) lastEventId = initial
@@ -144,9 +151,9 @@ class SyncSseClient(
     /** Open an SSE connection (or no-op if one is already active). */
     override fun connect() {
         if (connectionJob?.isActive == true) return
+        reconnectAttempt = 0
         connectionJob =
             scope.launch {
-                var attempt = 0
                 while (isActive) {
                     state.setConnection(ConnectionState.Connecting)
                     when (runOnce()) {
@@ -164,23 +171,17 @@ class SyncSseClient(
                             // through to the same backoff+retry as Reconnect.
                             state.setConnection(ConnectionState.Disconnected("auth-transient"))
                             state.recordError(SyncError.RealtimeDisconnected())
-                            val delayMs = reconnectDelayMillis(attempt)
-                            logger.debug { "SSE reconnect after auth-transient in ${delayMs}ms (attempt $attempt)" }
-                            attempt++
-                            delay(delayMs)
+                            backoffWait()
                         }
 
                         ConnectAttempt.Reconnect -> {
                             state.setConnection(ConnectionState.Disconnected("reconnecting"))
                             state.recordError(SyncError.RealtimeDisconnected())
-                            val delayMs = reconnectDelayMillis(attempt)
-                            logger.debug { "SSE reconnect in ${delayMs}ms (attempt $attempt)" }
-                            attempt++
-                            delay(delayMs)
+                            backoffWait()
                         }
 
                         ConnectAttempt.Connected -> {
-                            attempt = 0
+                            reconnectAttempt = 0
                             state.recordSuccess(nowMillis())
                         }
                     }
@@ -188,11 +189,28 @@ class SyncSseClient(
             }
     }
 
+    /**
+     * Wait out the current backoff, returning early if [reconnectNow] signals.
+     * Computes the delay from the current attempt, increments, then waits — so a
+     * [reconnectNow] (which resets [reconnectAttempt] to 0) shortens this wait and the next.
+     */
+    private suspend fun backoffWait() {
+        val delayMs = reconnectDelayMillis(reconnectAttempt)
+        logger.debug { "SSE reconnect in ${delayMs}ms (attempt $reconnectAttempt)" }
+        reconnectAttempt++
+        withTimeoutOrNull(delayMs) { wakeSignal.receive() }
+    }
+
     /** Close the SSE connection and stop the reconnect loop. */
     override fun disconnect() {
         connectionJob?.cancel()
         connectionJob = null
         state.setConnection(ConnectionState.Disconnected("closed"))
+    }
+
+    override fun reconnectNow() {
+        reconnectAttempt = 0
+        wakeSignal.trySend(Unit)
     }
 
     @Suppress("ReturnCount", "TooGenericExceptionCaught")

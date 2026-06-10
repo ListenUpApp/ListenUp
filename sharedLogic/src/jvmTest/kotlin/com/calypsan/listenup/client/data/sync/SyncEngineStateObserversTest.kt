@@ -204,4 +204,6 @@ private class FakeStateSseClient(
         disconnect()
         seeded = newLastEventId
     }
+
+    override fun reconnectNow() = Unit
 }

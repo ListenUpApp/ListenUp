@@ -29,4 +29,12 @@ interface SseClient {
      * rather than looping forever with the pre-stale value.
      */
     suspend fun reseed(newLastEventId: Long?)
+
+    /**
+     * Reset the reconnect backoff to zero and wake the retry loop so the next
+     * connect attempt fires immediately. Called by the reconnection supervisor
+     * once it has confirmed the server is live again (possibly at a new URL),
+     * turning "recover within up to 60s" into "recover within seconds".
+     */
+    fun reconnectNow()
 }

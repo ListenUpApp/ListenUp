@@ -390,6 +390,8 @@ private class FakeSse : SseClient {
         seededLastEventId = newLastEventId
     }
 
+    override fun reconnectNow() = Unit
+
     suspend fun emit(frame: ParsedSseFrame) {
         flow.emit(frame)
     }
