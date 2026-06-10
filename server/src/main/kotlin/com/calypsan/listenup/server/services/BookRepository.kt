@@ -55,6 +55,7 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -1042,14 +1043,13 @@ class BookRepository(
         // (book_id, contributor_id, role); inserting both rows would trigger
         // SQLITE_CONSTRAINT_PRIMARYKEY and abort the whole book ingest. Collapse to one row per
         // (contributor, role) — first occurrence wins for ordinal and creditedAs.
-        contributors.distinctBy { it.id to it.role }.forEachIndexed { idx, c ->
-            BookContributorTable.insert {
-                it[BookContributorTable.bookId] = bookId
-                it[BookContributorTable.contributorId] = c.id
-                it[BookContributorTable.role] = c.role
-                it[BookContributorTable.creditedAs] = c.creditedAs
-                it[BookContributorTable.ordinal] = idx
-            }
+        val deduped = contributors.distinctBy { it.id to it.role }
+        BookContributorTable.batchInsert(deduped.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, c) ->
+            this[BookContributorTable.bookId] = bookId
+            this[BookContributorTable.contributorId] = c.id
+            this[BookContributorTable.role] = c.role
+            this[BookContributorTable.creditedAs] = c.creditedAs
+            this[BookContributorTable.ordinal] = idx
         }
     }
 
@@ -1068,13 +1068,12 @@ class BookRepository(
         // normalize to one series). Collapse to one membership per series — the junction PK is
         // (book_id, series_id) — keeping the first sequence. Without this, a duplicate aborts the
         // whole book ingest on the PK constraint.
-        series.distinctBy { it.id }.forEachIndexed { idx, s ->
-            BookSeriesMembershipTable.insert {
-                it[BookSeriesMembershipTable.bookId] = bookId
-                it[BookSeriesMembershipTable.seriesId] = s.id
-                it[BookSeriesMembershipTable.sequence] = s.sequence
-                it[BookSeriesMembershipTable.ordinal] = idx
-            }
+        val deduped = series.distinctBy { it.id }
+        BookSeriesMembershipTable.batchInsert(deduped.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, s) ->
+            this[BookSeriesMembershipTable.bookId] = bookId
+            this[BookSeriesMembershipTable.seriesId] = s.id
+            this[BookSeriesMembershipTable.sequence] = s.sequence
+            this[BookSeriesMembershipTable.ordinal] = idx
         }
     }
 
@@ -1083,15 +1082,13 @@ class BookRepository(
         chapters: List<BookChapterPayload>,
     ) {
         BookChapterTable.deleteWhere { BookChapterTable.bookId eq bookId }
-        chapters.forEachIndexed { idx, ch ->
-            BookChapterTable.insert {
-                it[BookChapterTable.bookId] = bookId
-                it[BookChapterTable.ordinal] = idx
-                it[BookChapterTable.id] = ch.id.ifBlank { UUID.randomUUID().toString() }
-                it[BookChapterTable.title] = ch.title
-                it[BookChapterTable.duration] = ch.duration
-                it[BookChapterTable.startTime] = ch.startTime
-            }
+        BookChapterTable.batchInsert(chapters.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, ch) ->
+            this[BookChapterTable.bookId] = bookId
+            this[BookChapterTable.ordinal] = idx
+            this[BookChapterTable.id] = ch.id.ifBlank { UUID.randomUUID().toString() }
+            this[BookChapterTable.title] = ch.title
+            this[BookChapterTable.duration] = ch.duration
+            this[BookChapterTable.startTime] = ch.startTime
         }
     }
 
@@ -1100,17 +1097,15 @@ class BookRepository(
         files: List<BookAudioFilePayload>,
     ) {
         BookAudioFileTable.deleteWhere { BookAudioFileTable.bookId eq bookId }
-        files.forEachIndexed { idx, f ->
-            BookAudioFileTable.insert {
-                it[BookAudioFileTable.bookId] = bookId
-                it[BookAudioFileTable.ordinal] = idx
-                it[BookAudioFileTable.id] = f.id.ifBlank { UUID.randomUUID().toString() }
-                it[BookAudioFileTable.filename] = f.filename
-                it[BookAudioFileTable.format] = f.format
-                it[BookAudioFileTable.codec] = f.codec
-                it[BookAudioFileTable.duration] = f.duration
-                it[BookAudioFileTable.size] = f.size
-            }
+        BookAudioFileTable.batchInsert(files.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, f) ->
+            this[BookAudioFileTable.bookId] = bookId
+            this[BookAudioFileTable.ordinal] = idx
+            this[BookAudioFileTable.id] = f.id.ifBlank { UUID.randomUUID().toString() }
+            this[BookAudioFileTable.filename] = f.filename
+            this[BookAudioFileTable.format] = f.format
+            this[BookAudioFileTable.codec] = f.codec
+            this[BookAudioFileTable.duration] = f.duration
+            this[BookAudioFileTable.size] = f.size
         }
     }
 
