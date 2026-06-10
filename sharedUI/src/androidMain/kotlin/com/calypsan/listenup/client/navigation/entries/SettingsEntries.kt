@@ -9,13 +9,11 @@ import com.calypsan.listenup.client.navigation.Licenses
 import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Storage
 
-/**
- * Settings navigation entries.
- *
- * Note: [Devices] is intentionally excluded — it captures [scope], [libraryResetHelper], and
- * [authSession] from [AuthenticatedNavigation] and must remain inline.
- */
-internal fun EntryProviderScope<NavKey>.settingsEntries(backStack: NavBackStack<NavKey>) {
+/** Settings navigation entries, including the Devices screen. */
+internal fun EntryProviderScope<NavKey>.settingsEntries(
+    backStack: NavBackStack<NavKey>,
+    onSignOut: () -> Unit,
+) {
     entry<Settings> {
         SettingsScreen(
             showDynamicColors = true,
@@ -44,6 +42,19 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(backStack: NavBackStack<
         com.calypsan.listenup.client.features.settings.StorageScreen(
             onNavigateBack = {
                 backStack.removeAt(backStack.lastIndex)
+            },
+        )
+    }
+    entry<Devices> {
+        com.calypsan.listenup.client.features.settings.DevicesScreen(
+            onBack = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            onSignedOutEverywhere = {
+                // Mirror the Shell sign-out teardown: clear local library
+                // data, then clear auth tokens so auth-state routing returns
+                // the user to login.
+                onSignOut()
             },
         )
     }
