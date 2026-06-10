@@ -2,9 +2,12 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -34,6 +37,12 @@ import org.koin.test.verify.verify
  *    `false` on Desktop. Declared here so `verify()` does not fail on the qualified lookup.
  *  - [AuthSession] — owned by `dataModule` (bound to SettingsRepositoryImpl). The listening-event
  *    sync handler reads the signed-in user id from it to stamp synced cross-device events.
+ *  - [ConnectionCoordinator] — owned by the main `Koin.kt` module; [ReconnectionSupervisor]
+ *    drives `reevaluate` through it to re-point the active URL during an outage.
+ *  - [InstanceRepository] — owned by the main `Koin.kt` module; [ReconnectionSupervisor] probes
+ *    the resolved URL with its unauthenticated `verifyServer` to detect instance identity changes.
+ *  - [ErrorBus] — owned by the main `Koin.kt` module; [ReconnectionSupervisor] surfaces an
+ *    instance-changed signal through it.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ClientSyncRenovationModuleVerifyTest :
@@ -49,6 +58,9 @@ class ClientSyncRenovationModuleVerifyTest :
                         ServerConfig::class,
                         CoroutineScope::class,
                         AuthSession::class,
+                        ConnectionCoordinator::class,
+                        InstanceRepository::class,
+                        ErrorBus::class,
                         Function1::class,
                         Function2::class,
                         Function3::class,
