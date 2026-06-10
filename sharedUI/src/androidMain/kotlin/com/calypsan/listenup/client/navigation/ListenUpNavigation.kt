@@ -73,7 +73,6 @@ import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.features.discover.DiscoverScreen
 import com.calypsan.listenup.client.features.home.HomeScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
-import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.features.setup.LibrarySetupScreen
 import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
 import com.calypsan.listenup.client.features.shell.AppShell
@@ -97,6 +96,11 @@ import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.navigation.entries.bookEntries
+import com.calypsan.listenup.client.navigation.entries.contributorEntries
+import com.calypsan.listenup.client.navigation.entries.seriesEntries
+import com.calypsan.listenup.client.navigation.entries.settingsEntries
+import com.calypsan.listenup.client.navigation.entries.shelfEntries
 
 private val logger = KotlinLogging.logger {}
 
@@ -768,182 +772,9 @@ private fun AuthenticatedNavigation(
                                 },
                             )
                         }
-                        entry<BookDetail> { args ->
-                            com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
-                                bookId = args.bookId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onEditClick = { bookId ->
-                                    backStack.add(BookEdit(bookId))
-                                },
-                                onMetadataSearchClick = { bookId ->
-                                    backStack.add(MetadataSearch(bookId))
-                                },
-                                onSeriesClick = { seriesId ->
-                                    backStack.add(SeriesDetail(seriesId))
-                                },
-                                onContributorClick = { contributorId ->
-                                    backStack.add(ContributorDetail(contributorId))
-                                },
-                                onTagClick = { tagId ->
-                                    backStack.add(TagDetail(tagId))
-                                },
-                                onUserProfileClick = { userId ->
-                                    backStack.add(UserProfile(userId))
-                                },
-                            )
-                        }
-                        entry<BookEdit> { args ->
-                            com.calypsan.listenup.client.features.bookedit.BookEditScreen(
-                                bookId = args.bookId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSaveSuccess = {
-                                    // Navigate back after successful save
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<MetadataSearch> { args ->
-                            com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
-                                bookId = args.bookId,
-                                onResultSelected = { asin ->
-                                    backStack.add(MatchPreview(args.bookId, asin))
-                                },
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<MatchPreview> { args ->
-                            com.calypsan.listenup.client.features.metadata.MatchPreviewRoute(
-                                bookId = args.bookId,
-                                asin = args.asin,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onApplySuccess = {
-                                    // Navigate back to book detail after successful apply
-                                    // Pop both MatchPreview and MetadataSearch
-                                    backStack.removeAt(backStack.lastIndex)
-                                    if (backStack.lastOrNull() is MetadataSearch) {
-                                        backStack.removeAt(backStack.lastIndex)
-                                    }
-                                },
-                            )
-                        }
-                        entry<SeriesDetail> { args ->
-                            com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen(
-                                seriesId = args.seriesId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onEditClick = { seriesId ->
-                                    backStack.add(SeriesEdit(seriesId))
-                                },
-                            )
-                        }
-                        entry<TagDetail> { args ->
-                            com.calypsan.listenup.client.features.tagdetail.TagDetailScreen(
-                                tagId = args.tagId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                            )
-                        }
-                        entry<SeriesEdit> { args ->
-                            com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen(
-                                seriesId = args.seriesId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSaveSuccess = {
-                                    // Navigate back after successful save
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ContributorDetail> { args ->
-                            com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen(
-                                contributorId = args.contributorId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onEditClick = { contributorId ->
-                                    backStack.add(ContributorEdit(contributorId))
-                                },
-                                onViewAllClick = { contributorId, role ->
-                                    backStack.add(ContributorBooks(contributorId, role))
-                                },
-                                onMetadataClick = { contributorId ->
-                                    backStack.add(ContributorMetadataSearch(contributorId))
-                                },
-                            )
-                        }
-                        entry<ContributorEdit> { args ->
-                            com.calypsan.listenup.client.features.contributoredit.ContributorEditScreen(
-                                contributorId = args.contributorId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSaveSuccess = {
-                                    // Navigate back after successful save
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ContributorBooks> { args ->
-                            com.calypsan.listenup.client.features.contributordetail.ContributorBooksScreen(
-                                contributorId = args.contributorId,
-                                role = args.role,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                            )
-                        }
-                        entry<ContributorMetadataSearch> { args ->
-                            com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute(
-                                contributorId = args.contributorId,
-                                onCandidateSelected = { asin ->
-                                    backStack.add(ContributorMetadataPreview(args.contributorId, asin))
-                                },
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ContributorMetadataPreview> { args ->
-                            com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute(
-                                contributorId = args.contributorId,
-                                asin = args.asin,
-                                onApplySuccess = {
-                                    // Pop both preview and search to go back to contributor detail
-                                    backStack.removeAt(backStack.lastIndex)
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onChangeMatch = {
-                                    // Pop preview to go back to search
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
+                        bookEntries(backStack)
+                        seriesEntries(backStack)
+                        contributorEntries(backStack)
                         // Admin screens
                         entry<Admin> {
                             val viewModel: AdminViewModel = koinViewModel()
@@ -1141,23 +972,7 @@ private fun AuthenticatedNavigation(
                                 },
                             )
                         }
-                        entry<Settings> {
-                            SettingsScreen(
-                                showDynamicColors = true,
-                                onNavigateBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onNavigateToDevices = {
-                                    backStack.add(Devices)
-                                },
-                                onNavigateToStorage = {
-                                    backStack.add(Storage)
-                                },
-                                onNavigateToLicenses = {
-                                    backStack.add(Licenses)
-                                },
-                            )
-                        }
+                        settingsEntries(backStack)
                         entry<Devices> {
                             com.calypsan.listenup.client.features.settings.DevicesScreen(
                                 onBack = {
@@ -1174,50 +989,7 @@ private fun AuthenticatedNavigation(
                                 },
                             )
                         }
-                        entry<ShelfDetail> { args ->
-                            com.calypsan.listenup.client.features.shelf.ShelfDetailScreen(
-                                shelfId = args.shelfId,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onEditClick = { shelfId ->
-                                    backStack.add(ShelfEdit(shelfId))
-                                },
-                            )
-                        }
-                        entry<CreateShelf> {
-                            com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen(
-                                shelfId = null,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ShelfEdit> { args ->
-                            com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen(
-                                shelfId = args.shelfId,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<Licenses> {
-                            com.calypsan.listenup.client.features.settings.LicensesScreen(
-                                onNavigateBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<Storage> {
-                            com.calypsan.listenup.client.features.settings.StorageScreen(
-                                onNavigateBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
+                        shelfEntries(backStack)
                     },
             )
 
