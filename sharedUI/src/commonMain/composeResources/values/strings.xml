@@ -557,7 +557,7 @@
     <string name="settings_view_thirdparty_licenses">View third-party licenses</string>
     <string name="settings_you_can_redownload_books_anytime">You can re-download books anytime.</string>
     <string name="shelf_add_books_from_the_library">Add books from the library</string>
-    <string name="shelf_books_in_shelf">Books in Shelf</string>
+    <string name="shelf_books_in_shelf">Books in shelf</string>
     <string name="shelf_delete_shelf">Delete Shelf</string>
     <string name="shelf_description_optional">Description (optional)</string>
     <string name="shelf_edit_shelf">Edit shelf</string>

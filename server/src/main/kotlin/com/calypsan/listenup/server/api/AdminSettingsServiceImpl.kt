@@ -7,8 +7,10 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.ChangeBus
 
 /** Max length for the operator-set server name. */
 private const val MAX_SERVER_NAME = 100
@@ -23,10 +25,12 @@ private const val MAX_REMOTE_URL = 2048
  */
 class AdminSettingsServiceImpl(
     private val settings: ServerSettingsRepository,
+    private val changeBus: ChangeBus,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : AdminSettingsService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
-    fun copyWith(provider: PrincipalProvider): AdminSettingsServiceImpl = AdminSettingsServiceImpl(settings, provider)
+    fun copyWith(provider: PrincipalProvider): AdminSettingsServiceImpl =
+        AdminSettingsServiceImpl(settings, changeBus, provider)
 
     override suspend fun getServerSettings(): AppResult<AdminServerSettings> {
         requireAdmin()?.let { return it }
@@ -35,17 +39,23 @@ class AdminSettingsServiceImpl(
 
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
         requireAdmin()?.let { return it }
+        var changed = false
         patch.serverName?.let { name ->
             val trimmed = name.trim()
             if (trimmed.isBlank() || trimmed.length > MAX_SERVER_NAME) {
                 return AppResult.Failure(AdminError.InvalidInput())
             }
             settings.setServerName(trimmed)
+            changed = true
         }
         patch.remoteUrl?.let { url ->
             if (url.length > MAX_REMOTE_URL) return AppResult.Failure(AdminError.InvalidInput())
             settings.setRemoteUrl(url)
+            changed = true
         }
+        // Nudge every connected client to re-fetch getServerInfo so an admin's new name/remote URL
+        // reaches them without a cold start. Content-free broadcast — carries no per-user data.
+        if (changed) changeBus.broadcastControl(SyncControl.ServerInfoChanged)
         return AppResult.Success(current())
     }
 
