@@ -221,8 +221,8 @@ class ReconnectionSupervisorTest :
 
             supervisor.start()
             // Don't advanceUntilIdle — the retry loop is infinite. Drive bounded virtual time.
-            // First probe at t0, then waits `interval` (base), then `interval * 2` (escalated).
-            // Advancing base + 2*base covers at least the first two waits → 3 probes by then.
+            // First probe at t0; each failure escalates the wait BEFORE delaying, so the first
+            // wait is already `interval * 2`. Advancing base + 2*base covers the first two waits.
             scope.testScheduler.advanceTimeBy(interval + interval * 2 + 1)
             scope.testScheduler.runCurrent()
 
