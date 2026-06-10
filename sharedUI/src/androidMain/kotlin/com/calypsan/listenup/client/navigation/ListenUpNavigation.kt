@@ -6,6 +6,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_retry
@@ -56,38 +58,14 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
-import com.calypsan.listenup.client.features.admin.AdminScreen
-import com.calypsan.listenup.client.features.admin.CreateInviteScreen
-import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
-import com.calypsan.listenup.client.features.admin.backup.ABSImportHubDetailScreen
-import com.calypsan.listenup.client.features.admin.backup.ABSImportScreen
-import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
-import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.connect.ServerSelectScreen
 import com.calypsan.listenup.client.features.connect.ServerSetupScreen
 import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
-import com.calypsan.listenup.client.features.discover.DiscoverScreen
-import com.calypsan.listenup.client.features.home.HomeScreen
-import com.calypsan.listenup.client.features.library.LibraryScreen
-import com.calypsan.listenup.client.features.settings.SettingsScreen
-import com.calypsan.listenup.client.features.setup.LibrarySetupScreen
-import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
-import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
-import com.calypsan.listenup.client.presentation.library.LibraryViewModel
-import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
-import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
-import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
-import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel
-import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
-import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
-import com.calypsan.listenup.client.presentation.admin.AdminViewModel
-import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -97,6 +75,15 @@ import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.navigation.entries.adminEntries
+import com.calypsan.listenup.client.navigation.entries.bookEntries
+import com.calypsan.listenup.client.navigation.entries.contributorEntries
+import com.calypsan.listenup.client.navigation.entries.librarySetupEntry
+import com.calypsan.listenup.client.navigation.entries.profileEntries
+import com.calypsan.listenup.client.navigation.entries.seriesEntries
+import com.calypsan.listenup.client.navigation.entries.settingsEntries
+import com.calypsan.listenup.client.navigation.entries.shelfEntries
+import com.calypsan.listenup.client.navigation.entries.shellEntry
 
 private val logger = KotlinLogging.logger {}
 
@@ -520,7 +507,6 @@ private suspend fun handleShortcutAction(
  * When user logs out, SettingsRepository clears auth tokens,
  * triggering automatic switch to UnauthenticatedNavigation.
  */
-@Suppress("LongMethod", "CognitiveComplexMethod")
 @Composable
 private fun AuthenticatedNavigation(
     authSession: AuthSession,
@@ -568,24 +554,23 @@ private fun AuthenticatedNavigation(
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle pending shortcut actions
-    val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingAction) {
-        val action = pendingAction ?: return@LaunchedEffect
-
-        logger.info { "Processing shortcut action: $action" }
-
-        handleShortcutAction(
-            action = action,
-            homeRepository = homeRepository,
-            nowPlayingViewModel = nowPlayingViewModel,
-            backStack = backStack,
-            onSelectShellDestination = { currentShellDestination = it },
-        )
-
-        // Consume the action after processing
-        shortcutActionManager.consumeAction()
+    // Hoisted sign-out action shared by shell and settings entries.
+    // Clear library data before signing out so the next login (same or different user)
+    // always starts with fresh data.
+    val onSignOut: () -> Unit = {
+        scope.launch {
+            libraryResetHelper.clearLibraryData()
+            authSession.clearAuthTokens()
+        }
     }
+
+    ShortcutActionEffect(
+        shortcutActionManager = shortcutActionManager,
+        homeRepository = homeRepository,
+        nowPlayingViewModel = nowPlayingViewModel,
+        backStack = backStack,
+        onSelectShellDestination = { currentShellDestination = it },
+    )
 
     // Wrap navigation with NowPlayingHost for persistent mini player
     CompositionLocalProvider(
@@ -618,664 +603,177 @@ private fun AuthenticatedNavigation(
                     slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
                 },
                 entryProvider =
-                    entryProvider {
-                        entry<Shell> {
-                            // Readiness gate: while the initial library population is running we show a
-                            // dedicated full-screen progress screen and DO NOT mount the shell — so the
-                            // user never navigates an empty app, and the Library grid + Coil don't decode
-                            // a thousand covers while the sync/catch-up is still churning (which exhausted
-                            // the heap → OOM). Populating spans the server scan AND the client import, so
-                            // when it clears the books are already in Room (see applyScanEvent).
-                            (readiness as? LibraryReadiness.Populating)?.let { populating ->
-                                LibraryScanScreen(scanProgress = populating.progress)
-                                return@entry
-                            }
-
-                            // Preload library data by injecting LibraryViewModel early
-                            @Suppress("UNUSED_VARIABLE")
-                            val libraryViewModel: LibraryViewModel = koinViewModel()
-
-                            // Get search state for overlay
-                            AppShell(
-                                currentDestination = currentShellDestination,
-                                onDestinationChange = { currentShellDestination = it },
-                                nowPlayingContent = {
-                                    val nowPlayingScreenState by nowPlayingViewModel
-                                        .screenState
-                                        .collectAsStateWithLifecycle()
-                                    val nowPlayingProgress by nowPlayingViewModel
-                                        .progress
-                                        .collectAsStateWithLifecycle()
-                                    NowPlayingBar(
-                                        state = nowPlayingScreenState.state,
-                                        progress = nowPlayingProgress,
-                                        isExpanded = nowPlayingScreenState.isExpanded,
-                                        onTap = nowPlayingViewModel::expand,
-                                        onPlayPause = nowPlayingViewModel::playPause,
-                                        onSkipBack = { nowPlayingViewModel.skipBack() },
-                                    )
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onSeriesClick = { seriesId ->
-                                    backStack.add(SeriesDetail(seriesId))
-                                },
-                                onContributorClick = { contributorId ->
-                                    backStack.add(ContributorDetail(contributorId))
-                                },
-                                onTagClick = { tagId ->
-                                    backStack.add(TagDetail(tagId))
-                                },
-                                onAdminClick =
-                                    if (!LocalDeviceContext.current.isLeanback) {
-                                        { backStack.add(Admin) }
-                                    } else {
-                                        null
-                                    },
-                                onSettingsClick = {
-                                    backStack.add(Settings)
-                                },
-                                onSignOut = {
-                                    scope.launch {
-                                        // Clear library data before signing out
-                                        // This ensures next login (same or different user) gets fresh data
-                                        libraryResetHelper.clearLibraryData()
-                                        authSession.clearAuthTokens()
-                                    }
-                                },
-                                onUserProfileClick = { userId ->
-                                    backStack.add(UserProfile(userId))
-                                },
-                                homeContent = { padding, appHeader, onNavigateToLibrary ->
-                                    HomeScreen(
-                                        appHeader = appHeader,
-                                        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
-                                        onNavigateToLibrary = onNavigateToLibrary,
-                                        onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
-                                        onSeeAllShelves = onNavigateToLibrary,
-                                        contentPadding = padding,
-                                    )
-                                },
-                                libraryContent = { padding, appHeader ->
-                                    LibraryScreen(
-                                        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
-                                        onSeriesClick = { seriesId -> backStack.add(SeriesDetail(seriesId)) },
-                                        onAuthorClick = { authorId -> backStack.add(ContributorDetail(authorId)) },
-                                        onNarratorClick = { narratorId ->
-                                            backStack.add(ContributorDetail(narratorId))
-                                        },
-                                        appHeader = appHeader,
-                                        modifier = Modifier.padding(padding),
-                                    )
-                                },
-                                discoverContent = { padding, appHeader ->
-                                    DiscoverScreen(
-                                        appHeader = appHeader,
-                                        onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
-                                        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
-                                        onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
-                                        contentPadding = padding,
-                                    )
-                                },
-                            )
-                        }
-                        entry<LibrarySetup> {
-                            LibrarySetupScreen(
-                                onSetupComplete = {
-                                    // Clear the stale needs-setup flag so the startup readiness overlay
-                                    // can't re-latch on top of the shell after we navigate away.
-                                    startupViewModel.onLibrarySetupComplete()
-                                    // Trigger sync to pull newly scanned books
-                                    scope.launch {
-                                        logger.info { "Library setup complete, triggering sync" }
-                                        syncRepository.sync()
-                                    }
-                                    // Navigate to main app, clearing library setup from back stack
-                                    backStack.clear()
-                                    backStack.add(Shell)
-                                },
-                            )
-                        }
-                        entry<UserProfile> { args ->
-                            com.calypsan.listenup.client.features.profile.UserProfileScreen(
-                                userId = args.userId,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onEditClick = {
-                                    backStack.add(EditProfile)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onShelfClick = { shelfId ->
-                                    backStack.add(ShelfDetail(shelfId))
-                                },
-                                onCreateShelfClick = {
-                                    backStack.add(CreateShelf)
-                                },
-                                refreshKey = profileRefreshKey,
-                            )
-                        }
-                        entry<EditProfile> {
-                            com.calypsan.listenup.client.features.profile.EditProfileScreen(
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onProfileUpdated = {
-                                    profileRefreshKey++
-                                },
-                            )
-                        }
-                        entry<BookDetail> { args ->
-                            com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
-                                bookId = args.bookId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onEditClick = { bookId ->
-                                    backStack.add(BookEdit(bookId))
-                                },
-                                onMetadataSearchClick = { bookId ->
-                                    backStack.add(MetadataSearch(bookId))
-                                },
-                                onSeriesClick = { seriesId ->
-                                    backStack.add(SeriesDetail(seriesId))
-                                },
-                                onContributorClick = { contributorId ->
-                                    backStack.add(ContributorDetail(contributorId))
-                                },
-                                onTagClick = { tagId ->
-                                    backStack.add(TagDetail(tagId))
-                                },
-                                onUserProfileClick = { userId ->
-                                    backStack.add(UserProfile(userId))
-                                },
-                            )
-                        }
-                        entry<BookEdit> { args ->
-                            com.calypsan.listenup.client.features.bookedit.BookEditScreen(
-                                bookId = args.bookId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSaveSuccess = {
-                                    // Navigate back after successful save
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<MetadataSearch> { args ->
-                            com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
-                                bookId = args.bookId,
-                                onResultSelected = { asin ->
-                                    backStack.add(MatchPreview(args.bookId, asin))
-                                },
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<MatchPreview> { args ->
-                            com.calypsan.listenup.client.features.metadata.MatchPreviewRoute(
-                                bookId = args.bookId,
-                                asin = args.asin,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onApplySuccess = {
-                                    // Navigate back to book detail after successful apply
-                                    // Pop both MatchPreview and MetadataSearch
-                                    backStack.removeAt(backStack.lastIndex)
-                                    if (backStack.lastOrNull() is MetadataSearch) {
-                                        backStack.removeAt(backStack.lastIndex)
-                                    }
-                                },
-                            )
-                        }
-                        entry<SeriesDetail> { args ->
-                            com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen(
-                                seriesId = args.seriesId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onEditClick = { seriesId ->
-                                    backStack.add(SeriesEdit(seriesId))
-                                },
-                            )
-                        }
-                        entry<TagDetail> { args ->
-                            com.calypsan.listenup.client.features.tagdetail.TagDetailScreen(
-                                tagId = args.tagId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                            )
-                        }
-                        entry<SeriesEdit> { args ->
-                            com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen(
-                                seriesId = args.seriesId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSaveSuccess = {
-                                    // Navigate back after successful save
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ContributorDetail> { args ->
-                            com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen(
-                                contributorId = args.contributorId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onEditClick = { contributorId ->
-                                    backStack.add(ContributorEdit(contributorId))
-                                },
-                                onViewAllClick = { contributorId, role ->
-                                    backStack.add(ContributorBooks(contributorId, role))
-                                },
-                                onMetadataClick = { contributorId ->
-                                    backStack.add(ContributorMetadataSearch(contributorId))
-                                },
-                            )
-                        }
-                        entry<ContributorEdit> { args ->
-                            com.calypsan.listenup.client.features.contributoredit.ContributorEditScreen(
-                                contributorId = args.contributorId,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSaveSuccess = {
-                                    // Navigate back after successful save
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ContributorBooks> { args ->
-                            com.calypsan.listenup.client.features.contributordetail.ContributorBooksScreen(
-                                contributorId = args.contributorId,
-                                role = args.role,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                            )
-                        }
-                        entry<ContributorMetadataSearch> { args ->
-                            com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute(
-                                contributorId = args.contributorId,
-                                onCandidateSelected = { asin ->
-                                    backStack.add(ContributorMetadataPreview(args.contributorId, asin))
-                                },
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ContributorMetadataPreview> { args ->
-                            com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute(
-                                contributorId = args.contributorId,
-                                asin = args.asin,
-                                onApplySuccess = {
-                                    // Pop both preview and search to go back to contributor detail
-                                    backStack.removeAt(backStack.lastIndex)
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onChangeMatch = {
-                                    // Pop preview to go back to search
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        // Admin screens
-                        entry<Admin> {
-                            val viewModel: AdminViewModel = koinViewModel()
-                            val settingsViewModel: AdminSettingsViewModel = koinViewModel()
-                            val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
-                            val readySettings = settingsState as? AdminSettingsUiState.Ready
-
-                            AdminScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onInviteClick = {
-                                    backStack.add(CreateInvite)
-                                },
-                                onCollectionsClick = {
-                                    backStack.add(AdminCollections)
-                                },
-                                onCategoriesClick = {
-                                    backStack.add(AdminCategories)
-                                },
-                                onUnmappedGenresClick = {
-                                    backStack.add(UnmappedGenres)
-                                },
-                                onBackupClick = {
-                                    backStack.add(AdminBackups)
-                                },
-                                onUserClick = { userId ->
-                                    backStack.add(AdminUserDetail(userId))
-                                },
-                                serverName = readySettings?.serverName ?: "",
-                                onServerNameChange = { settingsViewModel.setServerName(it) },
-                                remoteUrl = readySettings?.remoteUrl ?: "",
-                                onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
-                                isDirty = readySettings?.isDirty == true,
-                                onSave = { settingsViewModel.saveAll() },
-                                settingsError =
-                                    readySettings?.error
-                                        ?: (settingsState as? AdminSettingsUiState.Error)?.message,
-                                onClearSettingsError = { settingsViewModel.clearError() },
-                            )
-                        }
-                        entry<AdminInbox> {
-                            val viewModel: AdminInboxViewModel = koinViewModel()
-                            com.calypsan.listenup.client.features.admin.inbox.AdminInboxScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                // Tapping a row opens book-edit to fix tags/collections before release.
-                                onBookClick = { bookId ->
-                                    backStack.add(BookEdit(bookId))
-                                },
-                            )
-                        }
-                        entry<AdminCategories> {
-                            val viewModel: AdminCategoriesViewModel = koinViewModel()
-                            com.calypsan.listenup.client.features.admin.categories.AdminCategoriesScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<BrowseGenre> {
-                            val viewModel: BrowseGenreViewModel = koinViewModel()
-                            com.calypsan.listenup.client.features.browsegenre.BrowseGenreScreen(
-                                viewModel = viewModel,
-                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
-                                onBookClick = { bookId -> backStack.add(BookDetail(bookId.value)) },
-                            )
-                        }
-                        entry<UnmappedGenres> {
-                            val viewModel: UnmappedGenresViewModel = koinViewModel()
-                            com.calypsan.listenup.client.features.unmappedgenres.UnmappedGenresScreen(
-                                viewModel = viewModel,
-                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
-                            )
-                        }
-                        entry<CreateInvite> {
-                            val viewModel: CreateInviteViewModel = koinViewModel()
-                            CreateInviteScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSuccess = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<AdminCollections> {
-                            val viewModel: com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel =
-                                koinViewModel()
-                            com.calypsan.listenup.client.features.admin.collections.AdminCollectionsScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onCollectionClick = { collectionId ->
-                                    backStack.add(AdminCollectionDetail(collectionId))
-                                },
-                            )
-                        }
-                        entry<AdminCollectionDetail> { args ->
-                            val viewModel:
-                                com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel =
-                                koinViewModel {
-                                    org.koin.core.parameter
-                                        .parametersOf(args.collectionId)
-                                }
-                            com.calypsan.listenup.client.features.admin.collections.AdminCollectionDetailScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<AdminUserDetail> { args ->
-                            val viewModel:
-                                com.calypsan.listenup.client.presentation.admin.UserDetailViewModel =
-                                koinViewModel {
-                                    org.koin.core.parameter
-                                        .parametersOf(args.userId)
-                                }
-                            com.calypsan.listenup.client.features.admin.UserDetailScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<AdminLibrarySettings> { args ->
-                            val viewModel:
-                                com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel =
-                                koinViewModel {
-                                    org.koin.core.parameter
-                                        .parametersOf(args.libraryId)
-                                }
-                            com.calypsan.listenup.client.features.admin.LibrarySettingsScreen(
-                                viewModel = viewModel,
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<AdminBackups> {
-                            AdminBackupScreen(
-                                onBackClick = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onCreateClick = {
-                                    backStack.add(CreateBackup)
-                                },
-                                onRestoreClick = { backupId ->
-                                    backStack.add(RestoreBackup(backupId))
-                                },
-                                onABSImportHubClick = { importId ->
-                                    backStack.add(ABSImportDetail(importId))
-                                },
-                            )
-                        }
-                        entry<CreateBackup> {
-                            CreateBackupScreen(
-                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
-                                onSuccess = {
-                                    // Navigate back to backup list after successful creation
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<RestoreBackup> { args ->
-                            RestoreBackupScreen(
-                                backupId = args.backupId,
-                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
-                                onComplete = {
-                                    // Navigate back to backup list after restore
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        // ABSImportList removed - imports are now shown inline in AdminBackupScreen
-                        entry<ABSImportDetail> { args ->
-                            ABSImportHubDetailScreen(
-                                importId = args.importId,
-                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
-                            )
-                        }
-                        entry<ABSImport> {
-                            ABSImportScreen(
-                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
-                                onComplete = {
-                                    // Navigate back to backup list after import
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<Settings> {
-                            SettingsScreen(
-                                showDynamicColors = true,
-                                onNavigateBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onNavigateToDevices = {
-                                    backStack.add(Devices)
-                                },
-                                onNavigateToStorage = {
-                                    backStack.add(Storage)
-                                },
-                                onNavigateToLicenses = {
-                                    backStack.add(Licenses)
-                                },
-                            )
-                        }
-                        entry<Devices> {
-                            com.calypsan.listenup.client.features.settings.DevicesScreen(
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onSignedOutEverywhere = {
-                                    // Mirror the Shell sign-out teardown: clear local library
-                                    // data, then clear auth tokens so auth-state routing returns
-                                    // the user to login.
-                                    scope.launch {
-                                        libraryResetHelper.clearLibraryData()
-                                        authSession.clearAuthTokens()
-                                    }
-                                },
-                            )
-                        }
-                        entry<ShelfDetail> { args ->
-                            com.calypsan.listenup.client.features.shelf.ShelfDetailScreen(
-                                shelfId = args.shelfId,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                                onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
-                                },
-                                onEditClick = { shelfId ->
-                                    backStack.add(ShelfEdit(shelfId))
-                                },
-                            )
-                        }
-                        entry<CreateShelf> {
-                            com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen(
-                                shelfId = null,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<ShelfEdit> { args ->
-                            com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen(
-                                shelfId = args.shelfId,
-                                onBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<Licenses> {
-                            com.calypsan.listenup.client.features.settings.LicensesScreen(
-                                onNavigateBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                        entry<Storage> {
-                            com.calypsan.listenup.client.features.settings.StorageScreen(
-                                onNavigateBack = {
-                                    backStack.removeAt(backStack.lastIndex)
-                                },
-                            )
-                        }
-                    },
+                    authenticatedNavEntries(
+                        backStack = backStack,
+                        currentShellDestination = currentShellDestination,
+                        onShellDestinationChange = { currentShellDestination = it },
+                        nowPlayingViewModel = nowPlayingViewModel,
+                        readiness = readiness,
+                        onSignOut = onSignOut,
+                        startupViewModel = startupViewModel,
+                        scope = scope,
+                        syncRepository = syncRepository,
+                        profileRefreshKey = profileRefreshKey,
+                        onProfileRefreshed = { profileRefreshKey++ },
+                    ),
             )
 
-            // Now Playing overlay - persistent across all navigation
-            // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
-            // Also animates up when snackbar is visible
-            // Pass viewModel explicitly to ensure NowPlayingHost shares the same instance
-            // as NowPlayingBar in AppShell - prevents state divergence between screens
-            NowPlayingHost(
-                hasBottomNav = backStack.lastOrNull() == Shell,
+            AuthenticatedNavOverlays(
+                backStack = backStack,
                 snackbarHostState = snackbarHostState,
-                onNavigateToBook = { bookId ->
-                    backStack.add(BookDetail(bookId))
-                },
-                onNavigateToSeries = { seriesId ->
-                    backStack.add(SeriesDetail(seriesId))
-                },
-                onNavigateToContributor = { contributorId ->
-                    backStack.add(ContributorDetail(contributorId))
-                },
-                viewModel = nowPlayingViewModel,
+                nowPlayingViewModel = nowPlayingViewModel,
+                readiness = readiness,
+                onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
             )
+        }
+    }
+}
 
-            // App-wide snackbar - positioned at bottom, mini player animates up when visible
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp),
-            )
+/**
+ * Builds the [entryProvider] block for all authenticated navigation destinations.
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ * All parameters are passed verbatim; no logic lives here beyond wiring entries to their
+ * extension functions.
+ */
+private fun authenticatedNavEntries(
+    backStack: NavBackStack<NavKey>,
+    currentShellDestination: ShellDestination,
+    onShellDestinationChange: (ShellDestination) -> Unit,
+    nowPlayingViewModel: NowPlayingViewModel,
+    readiness: LibraryReadiness,
+    onSignOut: () -> Unit,
+    startupViewModel: AppStartupViewModel,
+    scope: CoroutineScope,
+    syncRepository: SyncRepository,
+    profileRefreshKey: Int,
+    onProfileRefreshed: () -> Unit,
+) = entryProvider {
+    shellEntry(
+        backStack = backStack,
+        currentShellDestination = currentShellDestination,
+        onDestinationChange = onShellDestinationChange,
+        nowPlayingViewModel = nowPlayingViewModel,
+        readiness = readiness,
+        onSignOut = onSignOut,
+    )
+    librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
+    bookEntries(backStack)
+    seriesEntries(backStack)
+    contributorEntries(backStack)
+    adminEntries(backStack)
+    profileEntries(
+        backStack = backStack,
+        profileRefreshKey = profileRefreshKey,
+        onProfileRefreshed = onProfileRefreshed,
+    )
+    shelfEntries(backStack)
+    settingsEntries(
+        backStack = backStack,
+        onSignOut = onSignOut,
+    )
+}
 
-            // Single readiness gate for the non-shell startup states. Populating is handled inside the
-            // Shell entry above (so the shell never mounts during import); everything else is covered
-            // here by one `when`. The overlays use an OPAQUE surface because they sit on top of the
-            // default `Shell` back-stack entry, and FullScreenLoadingIndicator is transparent by itself
-            // — without a background the shell flashes through (the "shell flash before the picker").
-            when (readiness) {
-                LibraryReadiness.Checking -> {
-                    FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
-                }
+/**
+ * Overlays rendered inside the authenticated [Box]: the NowPlaying host, the app-wide snackbar,
+ * and the single readiness gate that covers non-shell startup states.
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ */
+@Composable
+private fun BoxScope.AuthenticatedNavOverlays(
+    backStack: NavBackStack<NavKey>,
+    snackbarHostState: SnackbarHostState,
+    nowPlayingViewModel: NowPlayingViewModel,
+    readiness: LibraryReadiness,
+    onRetryLibrarySetupCheck: () -> Unit,
+) {
+    // Now Playing overlay - persistent across all navigation
+    // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
+    // Also animates up when snackbar is visible
+    // Pass viewModel explicitly to ensure NowPlayingHost shares the same instance
+    // as NowPlayingBar in AppShell - prevents state divergence between screens
+    NowPlayingHost(
+        hasBottomNav = backStack.lastOrNull() == Shell,
+        snackbarHostState = snackbarHostState,
+        onNavigateToBook = { bookId ->
+            backStack.add(BookDetail(bookId))
+        },
+        onNavigateToSeries = { seriesId ->
+            backStack.add(SeriesDetail(seriesId))
+        },
+        onNavigateToContributor = { contributorId ->
+            backStack.add(ContributorDetail(contributorId))
+        },
+        viewModel = nowPlayingViewModel,
+    )
 
-                LibraryReadiness.NeedsSetup -> {
-                    // Bridge the gap until the LaunchedEffect above swaps the back stack to LibrarySetup;
-                    // once it has, the wizard renders and no overlay is needed.
-                    if (backStack.lastOrNull() != LibrarySetup) {
-                        FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
-                    }
-                }
+    // App-wide snackbar - positioned at bottom, mini player animates up when visible
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp),
+    )
 
-                LibraryReadiness.CheckFailed -> {
-                    // Honest over silent: surface a retryable error instead of an empty Shell.
-                    SetupCheckFailedScreen(onRetry = { startupViewModel.retryLibrarySetupCheck() })
-                }
+    // Single readiness gate for the non-shell startup states. Populating is handled inside the
+    // Shell entry above (so the shell never mounts during import); everything else is covered
+    // here by one `when`. The overlays use an OPAQUE surface because they sit on top of the
+    // default `Shell` back-stack entry, and FullScreenLoadingIndicator is transparent by itself
+    // — without a background the shell flashes through (the "shell flash before the picker").
+    when (readiness) {
+        LibraryReadiness.Checking -> {
+            FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
+        }
 
-                // Populating renders inside the Shell entry; Ready shows the shell — no overlay for either.
-                is LibraryReadiness.Populating, LibraryReadiness.Ready -> {}
+        LibraryReadiness.NeedsSetup -> {
+            // Bridge the gap until the LaunchedEffect above swaps the back stack to LibrarySetup;
+            // once it has, the wizard renders and no overlay is needed.
+            if (backStack.lastOrNull() != LibrarySetup) {
+                FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
             }
         }
+
+        LibraryReadiness.CheckFailed -> {
+            // Honest over silent: surface a retryable error instead of an empty Shell.
+            SetupCheckFailedScreen(onRetry = onRetryLibrarySetupCheck)
+        }
+
+        // Populating renders inside the Shell entry; Ready shows the shell — no overlay for either.
+        is LibraryReadiness.Populating, LibraryReadiness.Ready -> {}
+    }
+}
+
+/**
+ * Reads the pending [ShortcutAction] and routes it to the appropriate playback or navigation
+ * effect via [handleShortcutAction].
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ */
+@Composable
+private fun ShortcutActionEffect(
+    shortcutActionManager: ShortcutActionManager,
+    homeRepository: HomeRepository,
+    nowPlayingViewModel: NowPlayingViewModel,
+    backStack: NavBackStack<NavKey>,
+    onSelectShellDestination: (ShellDestination) -> Unit,
+) {
+    val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingAction) {
+        val action = pendingAction ?: return@LaunchedEffect
+
+        logger.info { "Processing shortcut action: $action" }
+
+        handleShortcutAction(
+            action = action,
+            homeRepository = homeRepository,
+            nowPlayingViewModel = nowPlayingViewModel,
+            backStack = backStack,
+            onSelectShellDestination = onSelectShellDestination,
+        )
+
+        // Consume the action after processing
+        shortcutActionManager.consumeAction()
     }
 }
