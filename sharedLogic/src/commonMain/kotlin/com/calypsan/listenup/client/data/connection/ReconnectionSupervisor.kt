@@ -28,12 +28,16 @@ private val logger = KotlinLogging.logger {}
  * *stored* URL — so a server that returns at a new IP/port (or after a restart) can leave the client
  * stuck offline. This supervisor closes that gap: whenever the firehose is not connected, it
  * periodically (1) re-resolves the live server URL ([reevaluate] → mDNS relocation + remote fallback),
- * (2) probes it with the unauthenticated [InstanceRepository.getServerInfo], and (3) either kicks an
- * immediate reconnect ([SseClient.reconnectNow]) when it's the same instance, or triggers a clean
- * re-auth when the server's instanceId changed.
+ * (2) probes the resolved active URL with the unauthenticated [InstanceRepository.verifyServer], and
+ * (3) either kicks an immediate reconnect ([SseClient.reconnectNow]) when it's the same instance, or
+ * triggers a clean re-auth when the server's instanceId changed.
  *
  * Offline-first / never-stranded: never blocks, never clears the configured URL; the manual
  * "Change Server" path remains the explicit fallback.
+ *
+ * The loop is gated on a boolean "is connected" (not the raw [ConnectionState]) so the SSE client's
+ * Connecting↔Disconnected backoff oscillation doesn't restart it; the probe interval escalates on
+ * sustained failure so a long outage doesn't sweep mDNS every few seconds.
  *
  * @param reevaluate re-points the active URL at a reachable address (wired to
  *   `ConnectionCoordinator.reevaluate`); a lambda so this stays unit-testable.
@@ -54,48 +58,54 @@ class ReconnectionSupervisor(
         scope.launch {
             engineState
                 .observe()
-                .map { it.connection }
+                .map { it.connection is ConnectionState.Connected }
                 .distinctUntilChanged()
-                .collectLatest { connection ->
-                    // collectLatest cancels the running recovery loop the moment the connection
-                    // state changes (e.g. back to Connected) — clean stop.
-                    if (connection !is ConnectionState.Connected) {
-                        recoveryLoop()
-                    }
+                .collectLatest { connected ->
+                    // collectLatest cancels the running recovery loop the moment we become Connected.
+                    // Gating on the Boolean (not the raw ConnectionState) means the SSE client's
+                    // Connecting<->Disconnected backoff flapping does NOT keep restarting the loop.
+                    if (!connected) recoveryLoop()
                 }
         }
     }
 
     private suspend fun recoveryLoop() {
+        var interval = probeIntervalMillis
         while (currentCoroutineContext().isActive) {
-            serverConfig.getActiveUrl() ?: return // no server configured — nothing to recover
+            val active =
+                run {
+                    reevaluate() // re-point the active URL at a reachable address first
+                    serverConfig.getActiveUrl()
+                } ?: return // no server configured — nothing to recover
 
-            reevaluate()
-
-            when (val probe = instanceRepository.getServerInfo(forceRefresh = true)) {
+            when (val probe = instanceRepository.verifyServer(active.value)) {
                 is AppResult.Success -> {
                     val connectedId = serverConfig.getConnectedServerId()
-                    if (connectedId != null && probe.data.instanceId != connectedId) {
-                        logger.info {
-                            "Server instance changed ($connectedId -> ${probe.data.instanceId}); re-auth required"
-                        }
+                    val serverId = probe.data.serverInfo.instanceId
+                    if (connectedId != null && serverId != connectedId) {
+                        logger.info { "Server instance changed ($connectedId -> $serverId); re-auth required" }
                         authSession.clearAuthTokens()
                         errorBus.emit(AuthError.ServerInstanceChanged())
                         return // stop hammering a server we can't use this session against
                     }
+                    // Same instance (or no stored id to compare): server is live — kick the SSE loop
+                    // now. On success the connection flips to Connected and collectLatest cancels us.
                     sseClient.reconnectNow()
+                    interval = probeIntervalMillis // reachable again → probe promptly until Connected
                 }
 
                 is AppResult.Failure -> {
                     logger.debug { "Reconnect probe failed: ${probe.error.code}" }
+                    interval = (interval * 2).coerceAtMost(MAX_PROBE_INTERVAL_MS) // back off while down
                 }
             }
 
-            delay(probeIntervalMillis)
+            delay(interval)
         }
     }
 
     private companion object {
         const val DEFAULT_PROBE_INTERVAL_MS = 5_000L
+        const val MAX_PROBE_INTERVAL_MS = 60_000L
     }
 }

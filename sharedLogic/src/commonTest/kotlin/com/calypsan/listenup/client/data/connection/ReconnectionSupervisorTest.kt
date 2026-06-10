@@ -13,12 +13,16 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.VerifiedServer
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode.Companion.atLeast
 import dev.mokkery.verify.VerifyMode.Companion.exactly
 import dev.mokkery.verifySuspend
@@ -48,12 +52,14 @@ class ReconnectionSupervisorTest :
                 instanceId = instanceId,
             )
 
+        fun verified(instanceId: String) = VerifiedServer(serverInfo = serverInfo(instanceId), verifiedUrl = activeUrl)
+
         test("disconnected + same instance triggers reconnectNow without logout") {
             val scope = TestScope(StandardTestDispatcher())
             val engineState = SyncEngineState() // starts Disconnected
             val instance =
                 mock<InstanceRepository> {
-                    everySuspend { getServerInfo(any()) } returns AppResult.Success(serverInfo("inst-1"))
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
                 }
             val serverConfig =
                 mock<ServerConfig> {
@@ -62,7 +68,7 @@ class ReconnectionSupervisorTest :
                 }
             val sseClient =
                 mock<SseClient> {
-                    everySuspend { reconnectNow() } returns Unit
+                    every { reconnectNow() } returns Unit
                 }
             val authSession =
                 mock<AuthSession> {
@@ -88,7 +94,7 @@ class ReconnectionSupervisorTest :
             engineState.setConnection(ConnectionState.Connected(lastEventId = 1L))
             scope.testScheduler.advanceUntilIdle()
 
-            verifySuspend { sseClient.reconnectNow() }
+            verify { sseClient.reconnectNow() }
             verifySuspend(exactly(0)) { authSession.clearAuthTokens() }
             check(reevaluateCount >= 1) { "reevaluate should have run at least once" }
         }
@@ -98,7 +104,7 @@ class ReconnectionSupervisorTest :
             val engineState = SyncEngineState()
             val instance =
                 mock<InstanceRepository> {
-                    everySuspend { getServerInfo(any()) } returns AppResult.Success(serverInfo("inst-NEW"))
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-NEW"))
                 }
             val serverConfig =
                 mock<ServerConfig> {
@@ -107,7 +113,7 @@ class ReconnectionSupervisorTest :
                 }
             val sseClient =
                 mock<SseClient> {
-                    everySuspend { reconnectNow() } returns Unit
+                    every { reconnectNow() } returns Unit
                 }
             val authSession =
                 mock<AuthSession> {
@@ -134,7 +140,7 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.advanceUntilIdle()
 
             verifySuspend { authSession.clearAuthTokens() }
-            verifySuspend(exactly(0)) { sseClient.reconnectNow() }
+            verify(exactly(0)) { sseClient.reconnectNow() }
             emitted.map { it.code } shouldContain AuthError.ServerInstanceChanged().code
         }
 
@@ -144,7 +150,7 @@ class ReconnectionSupervisorTest :
             engineState.setConnection(ConnectionState.Connected(lastEventId = 1L))
             val instance =
                 mock<InstanceRepository> {
-                    everySuspend { getServerInfo(any()) } returns AppResult.Success(serverInfo("inst-1"))
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
                 }
             val serverConfig =
                 mock<ServerConfig> {
@@ -153,7 +159,7 @@ class ReconnectionSupervisorTest :
                 }
             val sseClient =
                 mock<SseClient> {
-                    everySuspend { reconnectNow() } returns Unit
+                    every { reconnectNow() } returns Unit
                 }
             val authSession =
                 mock<AuthSession> {
@@ -175,16 +181,16 @@ class ReconnectionSupervisorTest :
             supervisor.start()
             scope.testScheduler.advanceUntilIdle()
 
-            verifySuspend(exactly(0)) { instance.getServerInfo(any()) }
-            verifySuspend(exactly(0)) { sseClient.reconnectNow() }
+            verifySuspend(exactly(0)) { instance.verifyServer(any()) }
+            verify(exactly(0)) { sseClient.reconnectNow() }
         }
 
-        test("unreachable server retries on the interval") {
+        test("unreachable server retries with escalating interval") {
             val scope = TestScope(StandardTestDispatcher())
             val engineState = SyncEngineState()
             val instance =
                 mock<InstanceRepository> {
-                    everySuspend { getServerInfo(any()) } returns
+                    everySuspend { verifyServer(any()) } returns
                         AppResult.Failure(TransportError.NetworkUnavailable())
                 }
             val serverConfig =
@@ -194,7 +200,7 @@ class ReconnectionSupervisorTest :
                 }
             val sseClient =
                 mock<SseClient> {
-                    everySuspend { reconnectNow() } returns Unit
+                    every { reconnectNow() } returns Unit
                 }
             val authSession =
                 mock<AuthSession> {
@@ -215,9 +221,108 @@ class ReconnectionSupervisorTest :
 
             supervisor.start()
             // Don't advanceUntilIdle — the retry loop is infinite. Drive bounded virtual time.
-            scope.testScheduler.advanceTimeBy(interval * 3 + 1)
+            // First probe at t0, then waits `interval` (base), then `interval * 2` (escalated).
+            // Advancing base + 2*base covers at least the first two waits → 3 probes by then.
+            scope.testScheduler.advanceTimeBy(interval + interval * 2 + 1)
             scope.testScheduler.runCurrent()
 
-            verifySuspend(atLeast(3)) { instance.getServerInfo(any()) }
+            verifySuspend(atLeast(2)) { instance.verifyServer(any()) }
+        }
+
+        test("no active url: returns early without probing or clearing auth") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns null
+                    everySuspend { getConnectedServerId() } returns null
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                )
+
+            supervisor.start()
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend(exactly(0)) { instance.verifyServer(any()) }
+            verifySuspend(exactly(0)) { authSession.clearAuthTokens() }
+            verify(exactly(0)) { sseClient.reconnectNow() }
+        }
+
+        test("loop is cancelled once the connection becomes Connected") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected
+            // Keep failing so the loop would otherwise probe forever; count actual probes.
+            var probeCount = 0
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } calls
+                        {
+                            probeCount++
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                        }
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                )
+
+            supervisor.start()
+            scope.testScheduler.runCurrent() // one probe runs
+            engineState.setConnection(ConnectionState.Connected(lastEventId = 1L))
+            scope.testScheduler.runCurrent() // let collectLatest cancel the loop
+
+            // Capture the count after cancellation, then advance well past several intervals.
+            // If the loop were still alive it would fire many more probes.
+            val countAtConnect = probeCount
+            scope.testScheduler.advanceTimeBy(interval * 10)
+            scope.testScheduler.runCurrent()
+
+            check(probeCount == countAtConnect) {
+                "expected no further probes after Connected, but probeCount grew from " +
+                    "$countAtConnect to $probeCount"
+            }
         }
     })
