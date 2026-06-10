@@ -41,8 +41,10 @@ struct BookCoverImage: View {
     let coverPath: String?
     let blurHash: String?
 
+    @Environment(\.displayScale) private var displayScale
     @State private var loadedImage: UIImage?
     @State private var loadTask: Task<Void, Never>?
+    @State private var targetMaxPixels: Int = 0
 
     /// Convenience initializer from a BookListItem
     init(book: BookListItem) {
@@ -80,7 +82,13 @@ struct BookCoverImage: View {
             }
         }
         .animation(.easeIn(duration: 0.2), value: loadedImage != nil)
-        .onAppear { loadImage() }
+        .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
+            let px = Int((max(size.width, size.height) * displayScale).rounded())
+            if px > 0, px != targetMaxPixels {
+                targetMaxPixels = px
+                loadImage()
+            }
+        }
         .onDisappear { loadTask?.cancel() }
         .onChange(of: coverPath) {
             loadedImage = nil
@@ -89,19 +97,21 @@ struct BookCoverImage: View {
     }
 
     private func loadImage() {
-        guard let path = coverPath else { return }
+        guard let path = coverPath, targetMaxPixels > 0 else { return }
 
+        let cacheKey = "\(path)@\(targetMaxPixels)"
         // Check cache first (instant, no async needed)
-        if let cached = CoverImageCache.shared.image(forKey: path) {
+        if let cached = CoverImageCache.shared.image(forKey: cacheKey) {
             loadedImage = cached
             return
         }
 
-        // Load from disk on background thread
+        // Decode downsampled (to the displayed pixel size) on a background thread.
         loadTask?.cancel()
+        let maxPixels = targetMaxPixels
         loadTask = Task.detached(priority: .utility) {
-            guard let image = UIImage(contentsOfFile: path) else { return }
-            CoverImageCache.shared.setImage(image, forKey: path)
+            guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxPixels) else { return }
+            CoverImageCache.shared.setImage(image, forKey: cacheKey)
             await MainActor.run {
                 guard !Task.isCancelled else { return }
                 loadedImage = image
