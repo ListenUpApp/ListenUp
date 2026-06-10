@@ -6,6 +6,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_retry
@@ -505,7 +507,6 @@ private suspend fun handleShortcutAction(
  * When user logs out, SettingsRepository clears auth tokens,
  * triggering automatic switch to UnauthenticatedNavigation.
  */
-@Suppress("LongMethod", "CognitiveComplexMethod")
 @Composable
 private fun AuthenticatedNavigation(
     authSession: AuthSession,
@@ -553,24 +554,23 @@ private fun AuthenticatedNavigation(
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle pending shortcut actions
-    val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingAction) {
-        val action = pendingAction ?: return@LaunchedEffect
-
-        logger.info { "Processing shortcut action: $action" }
-
-        handleShortcutAction(
-            action = action,
-            homeRepository = homeRepository,
-            nowPlayingViewModel = nowPlayingViewModel,
-            backStack = backStack,
-            onSelectShellDestination = { currentShellDestination = it },
-        )
-
-        // Consume the action after processing
-        shortcutActionManager.consumeAction()
+    // Hoisted sign-out action shared by shell and settings entries.
+    // Clear library data before signing out so the next login (same or different user)
+    // always starts with fresh data.
+    val onSignOut: () -> Unit = {
+        scope.launch {
+            libraryResetHelper.clearLibraryData()
+            authSession.clearAuthTokens()
+        }
     }
+
+    ShortcutActionEffect(
+        shortcutActionManager = shortcutActionManager,
+        homeRepository = homeRepository,
+        nowPlayingViewModel = nowPlayingViewModel,
+        backStack = backStack,
+        onSelectShellDestination = { currentShellDestination = it },
+    )
 
     // Wrap navigation with NowPlayingHost for persistent mini player
     CompositionLocalProvider(
@@ -603,100 +603,177 @@ private fun AuthenticatedNavigation(
                     slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
                 },
                 entryProvider =
-                    entryProvider {
-                        shellEntry(
-                            backStack = backStack,
-                            currentShellDestination = currentShellDestination,
-                            onDestinationChange = { currentShellDestination = it },
-                            nowPlayingViewModel = nowPlayingViewModel,
-                            readiness = readiness,
-                            onSignOut = {
-                                scope.launch {
-                                    // Clear library data before signing out
-                                    // This ensures next login (same or different user) gets fresh data
-                                    libraryResetHelper.clearLibraryData()
-                                    authSession.clearAuthTokens()
-                                }
-                            },
-                        )
-                        librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
-                        bookEntries(backStack)
-                        seriesEntries(backStack)
-                        contributorEntries(backStack)
-                        adminEntries(backStack)
-                        profileEntries(
-                            backStack = backStack,
-                            profileRefreshKey = profileRefreshKey,
-                            onProfileRefreshed = { profileRefreshKey++ },
-                        )
-                        shelfEntries(backStack)
-                        settingsEntries(
-                            backStack = backStack,
-                            onSignOut = {
-                                scope.launch {
-                                    libraryResetHelper.clearLibraryData()
-                                    authSession.clearAuthTokens()
-                                }
-                            },
-                        )
-                    },
+                    authenticatedNavEntries(
+                        backStack = backStack,
+                        currentShellDestination = currentShellDestination,
+                        onShellDestinationChange = { currentShellDestination = it },
+                        nowPlayingViewModel = nowPlayingViewModel,
+                        readiness = readiness,
+                        onSignOut = onSignOut,
+                        startupViewModel = startupViewModel,
+                        scope = scope,
+                        syncRepository = syncRepository,
+                        profileRefreshKey = profileRefreshKey,
+                        onProfileRefreshed = { profileRefreshKey++ },
+                    ),
             )
 
-            // Now Playing overlay - persistent across all navigation
-            // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
-            // Also animates up when snackbar is visible
-            // Pass viewModel explicitly to ensure NowPlayingHost shares the same instance
-            // as NowPlayingBar in AppShell - prevents state divergence between screens
-            NowPlayingHost(
-                hasBottomNav = backStack.lastOrNull() == Shell,
+            AuthenticatedNavOverlays(
+                backStack = backStack,
                 snackbarHostState = snackbarHostState,
-                onNavigateToBook = { bookId ->
-                    backStack.add(BookDetail(bookId))
-                },
-                onNavigateToSeries = { seriesId ->
-                    backStack.add(SeriesDetail(seriesId))
-                },
-                onNavigateToContributor = { contributorId ->
-                    backStack.add(ContributorDetail(contributorId))
-                },
-                viewModel = nowPlayingViewModel,
+                nowPlayingViewModel = nowPlayingViewModel,
+                readiness = readiness,
+                onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
             )
+        }
+    }
+}
 
-            // App-wide snackbar - positioned at bottom, mini player animates up when visible
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp),
-            )
+/**
+ * Builds the [entryProvider] block for all authenticated navigation destinations.
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ * All parameters are passed verbatim; no logic lives here beyond wiring entries to their
+ * extension functions.
+ */
+private fun authenticatedNavEntries(
+    backStack: NavBackStack<NavKey>,
+    currentShellDestination: ShellDestination,
+    onShellDestinationChange: (ShellDestination) -> Unit,
+    nowPlayingViewModel: NowPlayingViewModel,
+    readiness: LibraryReadiness,
+    onSignOut: () -> Unit,
+    startupViewModel: AppStartupViewModel,
+    scope: CoroutineScope,
+    syncRepository: SyncRepository,
+    profileRefreshKey: Int,
+    onProfileRefreshed: () -> Unit,
+) = entryProvider {
+    shellEntry(
+        backStack = backStack,
+        currentShellDestination = currentShellDestination,
+        onDestinationChange = onShellDestinationChange,
+        nowPlayingViewModel = nowPlayingViewModel,
+        readiness = readiness,
+        onSignOut = onSignOut,
+    )
+    librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
+    bookEntries(backStack)
+    seriesEntries(backStack)
+    contributorEntries(backStack)
+    adminEntries(backStack)
+    profileEntries(
+        backStack = backStack,
+        profileRefreshKey = profileRefreshKey,
+        onProfileRefreshed = onProfileRefreshed,
+    )
+    shelfEntries(backStack)
+    settingsEntries(
+        backStack = backStack,
+        onSignOut = onSignOut,
+    )
+}
 
-            // Single readiness gate for the non-shell startup states. Populating is handled inside the
-            // Shell entry above (so the shell never mounts during import); everything else is covered
-            // here by one `when`. The overlays use an OPAQUE surface because they sit on top of the
-            // default `Shell` back-stack entry, and FullScreenLoadingIndicator is transparent by itself
-            // — without a background the shell flashes through (the "shell flash before the picker").
-            when (readiness) {
-                LibraryReadiness.Checking -> {
-                    FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
-                }
+/**
+ * Overlays rendered inside the authenticated [Box]: the NowPlaying host, the app-wide snackbar,
+ * and the single readiness gate that covers non-shell startup states.
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ */
+@Composable
+private fun BoxScope.AuthenticatedNavOverlays(
+    backStack: NavBackStack<NavKey>,
+    snackbarHostState: SnackbarHostState,
+    nowPlayingViewModel: NowPlayingViewModel,
+    readiness: LibraryReadiness,
+    onRetryLibrarySetupCheck: () -> Unit,
+) {
+    // Now Playing overlay - persistent across all navigation
+    // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
+    // Also animates up when snackbar is visible
+    // Pass viewModel explicitly to ensure NowPlayingHost shares the same instance
+    // as NowPlayingBar in AppShell - prevents state divergence between screens
+    NowPlayingHost(
+        hasBottomNav = backStack.lastOrNull() == Shell,
+        snackbarHostState = snackbarHostState,
+        onNavigateToBook = { bookId ->
+            backStack.add(BookDetail(bookId))
+        },
+        onNavigateToSeries = { seriesId ->
+            backStack.add(SeriesDetail(seriesId))
+        },
+        onNavigateToContributor = { contributorId ->
+            backStack.add(ContributorDetail(contributorId))
+        },
+        viewModel = nowPlayingViewModel,
+    )
 
-                LibraryReadiness.NeedsSetup -> {
-                    // Bridge the gap until the LaunchedEffect above swaps the back stack to LibrarySetup;
-                    // once it has, the wizard renders and no overlay is needed.
-                    if (backStack.lastOrNull() != LibrarySetup) {
-                        FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
-                    }
-                }
+    // App-wide snackbar - positioned at bottom, mini player animates up when visible
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp),
+    )
 
-                LibraryReadiness.CheckFailed -> {
-                    // Honest over silent: surface a retryable error instead of an empty Shell.
-                    SetupCheckFailedScreen(onRetry = { startupViewModel.retryLibrarySetupCheck() })
-                }
+    // Single readiness gate for the non-shell startup states. Populating is handled inside the
+    // Shell entry above (so the shell never mounts during import); everything else is covered
+    // here by one `when`. The overlays use an OPAQUE surface because they sit on top of the
+    // default `Shell` back-stack entry, and FullScreenLoadingIndicator is transparent by itself
+    // — without a background the shell flashes through (the "shell flash before the picker").
+    when (readiness) {
+        LibraryReadiness.Checking -> {
+            FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
+        }
 
-                // Populating renders inside the Shell entry; Ready shows the shell — no overlay for either.
-                is LibraryReadiness.Populating, LibraryReadiness.Ready -> {}
+        LibraryReadiness.NeedsSetup -> {
+            // Bridge the gap until the LaunchedEffect above swaps the back stack to LibrarySetup;
+            // once it has, the wizard renders and no overlay is needed.
+            if (backStack.lastOrNull() != LibrarySetup) {
+                FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
             }
         }
+
+        LibraryReadiness.CheckFailed -> {
+            // Honest over silent: surface a retryable error instead of an empty Shell.
+            SetupCheckFailedScreen(onRetry = onRetryLibrarySetupCheck)
+        }
+
+        // Populating renders inside the Shell entry; Ready shows the shell — no overlay for either.
+        is LibraryReadiness.Populating, LibraryReadiness.Ready -> {}
+    }
+}
+
+/**
+ * Reads the pending [ShortcutAction] and routes it to the appropriate playback or navigation
+ * effect via [handleShortcutAction].
+ *
+ * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
+ */
+@Composable
+private fun ShortcutActionEffect(
+    shortcutActionManager: ShortcutActionManager,
+    homeRepository: HomeRepository,
+    nowPlayingViewModel: NowPlayingViewModel,
+    backStack: NavBackStack<NavKey>,
+    onSelectShellDestination: (ShellDestination) -> Unit,
+) {
+    val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingAction) {
+        val action = pendingAction ?: return@LaunchedEffect
+
+        logger.info { "Processing shortcut action: $action" }
+
+        handleShortcutAction(
+            action = action,
+            homeRepository = homeRepository,
+            nowPlayingViewModel = nowPlayingViewModel,
+            backStack = backStack,
+            onSelectShellDestination = onSelectShellDestination,
+        )
+
+        // Consume the action after processing
+        shortcutActionManager.consumeAction()
     }
 }
