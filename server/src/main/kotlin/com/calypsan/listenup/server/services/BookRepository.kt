@@ -1129,7 +1129,7 @@ class BookRepository(
                     .select(BookContributorTable.bookId)
                     .where { BookContributorTable.contributorId eq contributorId.value }
                     .map { it[BookContributorTable.bookId] }
-            bookIds.mapNotNull { readPayload(it) }
+            readPayloads(bookIds)
         }
 
     /**
@@ -1148,7 +1148,7 @@ class BookRepository(
                     .where { BookSeriesMembershipTable.seriesId eq seriesId.value }
                     .orderBy(BookSeriesMembershipTable.ordinal)
                     .map { it[BookSeriesMembershipTable.bookId] }
-            bookIds.mapNotNull { readPayload(it) }
+            readPayloads(bookIds)
         }
 
     /**
