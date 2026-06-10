@@ -15,8 +15,18 @@ kotlin {
     jvmToolchain(21)
 
     android {
-        compileSdk = libs.findVersion("android-compileSdk").get().requiredVersion.toInt()
-        minSdk = libs.findVersion("android-minSdk").get().requiredVersion.toInt()
+        compileSdk =
+            libs
+                .findVersion("android-compileSdk")
+                .get()
+                .requiredVersion
+                .toInt()
+        minSdk =
+            libs
+                .findVersion("android-minSdk")
+                .get()
+                .requiredVersion
+                .toInt()
 
         // Android stays on JVM_17 bytecode.
         compilerOptions {
