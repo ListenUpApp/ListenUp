@@ -14,6 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_next_chapter
+import listenup.composeapp.generated.resources.player_previous_chapter
+import listenup.composeapp.generated.resources.player_skip_back_10s
+import listenup.composeapp.generated.resources.player_skip_forward_30s
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Full transport control row: previous chapter, skip back 10s, play/pause FAB,
@@ -54,7 +60,7 @@ fun PlayerTransport(
     ) {
         Ctrl(
             icon = Icons.Default.SkipPrevious,
-            contentDescription = "Previous chapter",
+            contentDescription = stringResource(Res.string.player_previous_chapter),
             onClick = onPreviousChapter,
             size = ctrlSize,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -62,7 +68,7 @@ fun PlayerTransport(
 
         Ctrl(
             icon = Icons.Default.Replay10,
-            contentDescription = "Skip back 10 seconds",
+            contentDescription = stringResource(Res.string.player_skip_back_10s),
             onClick = onSkipBack,
             size = ctrlSize,
             tint = MaterialTheme.colorScheme.onSurface,
@@ -77,7 +83,7 @@ fun PlayerTransport(
 
         Ctrl(
             icon = Icons.Default.Forward30,
-            contentDescription = "Skip forward 30 seconds",
+            contentDescription = stringResource(Res.string.player_skip_forward_30s),
             onClick = onSkipForward,
             size = ctrlSize,
             tint = MaterialTheme.colorScheme.onSurface,
@@ -85,7 +91,7 @@ fun PlayerTransport(
 
         Ctrl(
             icon = Icons.Default.SkipNext,
-            contentDescription = "Next chapter",
+            contentDescription = stringResource(Res.string.player_next_chapter),
             onClick = onNextChapter,
             size = ctrlSize,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -39,6 +39,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.playback.NowPlayingState
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_cast
+import listenup.composeapp.generated.resources.player_close_book
+import listenup.composeapp.generated.resources.player_collapse
+import listenup.composeapp.generated.resources.player_go_to_book
+import listenup.composeapp.generated.resources.player_go_to_series
+import listenup.composeapp.generated.resources.player_more_options
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Top bar for the Now Playing screen.
@@ -89,7 +97,7 @@ fun PlayerTopBar(
             IconButton(onClick = { showMenu = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
+                    contentDescription = stringResource(Res.string.player_more_options),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -149,7 +157,7 @@ private fun WideTopBar(
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Collapse player",
+                    contentDescription = stringResource(Res.string.player_collapse),
                     modifier = Modifier.size(28.dp),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
@@ -177,7 +185,7 @@ private fun WideTopBar(
         IconButton(onClick = { /* cast not yet wired */ }) {
             Icon(
                 imageVector = Icons.Default.Cast,
-                contentDescription = "Cast",
+                contentDescription = stringResource(Res.string.player_cast),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -206,7 +214,7 @@ private fun CompactTopBar(
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = "Collapse player",
+                contentDescription = stringResource(Res.string.player_collapse),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -248,7 +256,7 @@ private fun OverflowMenu(
     ) {
         // Go to Book — always present.
         DropdownMenuItem(
-            text = { Text("Go to Book") },
+            text = { Text(stringResource(Res.string.player_go_to_book)) },
             onClick = {
                 onDismiss()
                 onGoToBook()
@@ -259,7 +267,7 @@ private fun OverflowMenu(
         // Go to Series — only when the book belongs to a series.
         if (state.seriesId != null) {
             DropdownMenuItem(
-                text = { Text("Go to Series") },
+                text = { Text(stringResource(Res.string.player_go_to_series)) },
                 onClick = {
                     onDismiss()
                     state.seriesId?.let { onGoToSeries(it) }
@@ -304,7 +312,7 @@ private fun OverflowMenu(
 
         // Close Book — ends the playback session.
         DropdownMenuItem(
-            text = { Text("Close Book") },
+            text = { Text(stringResource(Res.string.player_close_book)) },
             onClick = {
                 onDismiss()
                 onCloseBook()

@@ -40,6 +40,10 @@ import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_cover_a11y
+import listenup.composeapp.generated.resources.player_skip_back_10s
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Floating mini-player card docked above the bottom navigation.
@@ -138,7 +142,7 @@ private fun MiniPlayerContent(
                 bookId = state.bookId,
                 coverPath = state.coverPath,
                 blurHash = state.coverBlurHash,
-                contentDescription = "Book cover",
+                contentDescription = stringResource(Res.string.player_cover_a11y),
                 title = state.title,
                 author = state.author,
                 modifier =
@@ -175,7 +179,7 @@ private fun MiniPlayerContent(
             // Skip-back control (single skip on the phone mini-player)
             Ctrl(
                 icon = Icons.Default.Replay10,
-                contentDescription = "Skip back 10 seconds",
+                contentDescription = stringResource(Res.string.player_skip_back_10s),
                 onClick = onSkipBack,
                 size = 40.dp,
                 tint = MaterialTheme.colorScheme.onSurface,

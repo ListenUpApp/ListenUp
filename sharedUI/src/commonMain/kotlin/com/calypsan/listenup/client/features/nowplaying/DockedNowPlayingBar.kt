@@ -43,6 +43,12 @@ import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlin.time.Duration.Companion.milliseconds
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_cover_a11y
+import listenup.composeapp.generated.resources.player_expand
+import listenup.composeapp.generated.resources.player_skip_back_10s
+import listenup.composeapp.generated.resources.player_skip_forward_30s
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Docked mini-player bar for TV, Desktop, and Tablet form factors.
@@ -154,7 +160,7 @@ private fun ActiveDockedContent(
                 bookId = state.bookId,
                 coverPath = state.coverPath,
                 blurHash = state.coverBlurHash,
-                contentDescription = "Book cover",
+                contentDescription = stringResource(Res.string.player_cover_a11y),
                 title = state.title,
                 author = state.author,
                 modifier =
@@ -204,7 +210,7 @@ private fun ActiveDockedContent(
             ) {
                 Ctrl(
                     icon = Icons.Default.Replay10,
-                    contentDescription = "Skip back 10 seconds",
+                    contentDescription = stringResource(Res.string.player_skip_back_10s),
                     onClick = onSkipBack,
                     size = 44.dp,
                 )
@@ -217,7 +223,7 @@ private fun ActiveDockedContent(
                 )
                 Ctrl(
                     icon = Icons.Default.Forward30,
-                    contentDescription = "Skip forward 30 seconds",
+                    contentDescription = stringResource(Res.string.player_skip_forward_30s),
                     onClick = onSkipForward,
                     size = 44.dp,
                 )
@@ -246,7 +252,7 @@ private fun ActiveDockedContent(
             )
             Ctrl(
                 icon = Icons.Default.OpenInFull,
-                contentDescription = "Expand",
+                contentDescription = stringResource(Res.string.player_expand),
                 onClick = onExpand,
                 size = 44.dp,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

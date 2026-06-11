@@ -334,10 +334,6 @@
     <ID>NoHardcodedUiString:DiscoverLeaderboardSection.kt$text = "Could not load leaderboard."</ID>
     <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
     <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${userShelves.shelves.size} ${if (userShelves.shelves.size == 1) "shelf" else "shelves"}"</ID>
-    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Book cover"</ID>
-    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Expand"</ID>
-    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Skip back 10 seconds"</ID>
-    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Skip forward 30 seconds"</ID>
     <ID>NoHardcodedUiString:EditProfileScreen.kt$"Change Password"</ID>
     <ID>NoHardcodedUiString:EditProfileScreen.kt$"Edit Profile"</ID>
     <ID>NoHardcodedUiString:EditProfileScreen.kt$"Remove Photo"</ID>
@@ -386,27 +382,13 @@
     <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "Narrated by ${result.narrators.joinToString { it.name }}"</ID>
     <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "Searching for: ${state.context.currentTitle}"</ID>
     <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "by ${result.authors.joinToString { it.name }}"</ID>
-    <ID>NoHardcodedUiString:NowPlayingBar.kt$contentDescription = "Book cover"</ID>
-    <ID>NoHardcodedUiString:NowPlayingBar.kt$contentDescription = "Skip back 10 seconds"</ID>
     <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Chapters"</ID>
     <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Sleep"</ID>
     <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Speed"</ID>
     <ID>NoHardcodedUiString:PlaybackSpeedSheet.kt$text = "${PlaybackSpeedPresets.MAX_SPEED}x"</ID>
     <ID>NoHardcodedUiString:PlaybackSpeedSheet.kt$text = "${PlaybackSpeedPresets.MIN_SPEED}x"</ID>
-    <ID>NoHardcodedUiString:PlayerSecondaryActions.kt$contentDescription = "Chapters"</ID>
-    <ID>NoHardcodedUiString:PlayerSecondaryActions.kt$contentDescription = "Sleep timer"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$"Close Book"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$"Go to Book"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$"Go to Series"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$contentDescription = "Cast"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$contentDescription = "Collapse player"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$contentDescription = "More options"</ID>
     <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "NOW PLAYING"</ID>
     <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "Now playing"</ID>
-    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Next chapter"</ID>
-    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Previous chapter"</ID>
-    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Skip back 10 seconds"</ID>
-    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Skip forward 30 seconds"</ID>
     <ID>NoHardcodedUiString:ProgressOverlay.kt$text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%"</ID>
     <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Back"</ID>
     <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Run Preview"</ID>

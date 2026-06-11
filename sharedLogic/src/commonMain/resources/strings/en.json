@@ -615,6 +615,18 @@
     "cancel_timer": "Cancel timer",
     "until_end_of_chapter": "Until end of chapter",
     "until_end_of_chapter_detail": "Playback will pause when this chapter ends",
-    "fading_out": "Fading out…"
+    "fading_out": "Fading out…",
+    "cover_a11y": "Book cover",
+    "skip_back_10s": "Skip back 10 seconds",
+    "skip_forward_30s": "Skip forward 30 seconds",
+    "expand": "Expand",
+    "previous_chapter": "Previous chapter",
+    "next_chapter": "Next chapter",
+    "more_options": "More options",
+    "collapse": "Collapse player",
+    "cast": "Cast",
+    "go_to_book": "Go to Book",
+    "go_to_series": "Go to Series",
+    "close_book": "Close Book"
   }
 }

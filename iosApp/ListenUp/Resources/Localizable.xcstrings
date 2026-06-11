@@ -4641,6 +4641,16 @@
         }
       }
     },
+    "player.cast": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cast"
+          }
+        }
+      }
+    },
     "player.chapter_of": {
       "localizations": {
         "en": {
@@ -4667,6 +4677,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Close"
+          }
+        }
+      }
+    },
+    "player.close_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Book"
+          }
+        }
+      }
+    },
+    "player.collapse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse player"
+          }
+        }
+      }
+    },
+    "player.cover_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book cover"
           }
         }
       }
@@ -4701,6 +4741,16 @@
         }
       }
     },
+    "player.expand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand"
+          }
+        }
+      }
+    },
     "player.extend_minutes": {
       "localizations": {
         "en": {
@@ -4717,6 +4767,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fading out…"
+          }
+        }
+      }
+    },
+    "player.go_to_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Book"
+          }
+        }
+      }
+    },
+    "player.go_to_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Series"
+          }
+        }
+      }
+    },
+    "player.more_options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More options"
+          }
+        }
+      }
+    },
+    "player.next_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next chapter"
           }
         }
       }
@@ -4741,12 +4831,32 @@
         }
       }
     },
+    "player.previous_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous chapter"
+          }
+        }
+      }
+    },
     "player.reset_to_default": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Reset to default (%1$@)"
+          }
+        }
+      }
+    },
+    "player.skip_back_10s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip back 10 seconds"
           }
         }
       }
@@ -4767,6 +4877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skip forward %1$@ seconds"
+          }
+        }
+      }
+    },
+    "player.skip_forward_30s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip forward 30 seconds"
           }
         }
       }
