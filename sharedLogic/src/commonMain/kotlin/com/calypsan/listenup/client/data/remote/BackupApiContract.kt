@@ -6,63 +6,16 @@ import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.data.remote.model.AsyncAnalyzeResponse
-import com.calypsan.listenup.client.data.remote.model.BackupResponse
 import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
 import com.calypsan.listenup.client.data.remote.model.ImportABSResponse
-import com.calypsan.listenup.client.data.remote.model.RebuildProgressResponse
-import com.calypsan.listenup.client.data.remote.model.RestoreRequest
-import com.calypsan.listenup.client.data.remote.model.RestoreResponse
-import com.calypsan.listenup.client.data.remote.model.ValidationResponse
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * API contract for backup and restore operations.
+ * API contract for the Audiobookshelf-import and filesystem-browse surface.
  * All operations require admin authentication.
  */
 interface BackupApiContract {
-    /**
-     * Create a new backup.
-     *
-     * @param includeImages Include cover images and avatars (increases size)
-     * @param includeEvents Include listening events (required for history)
-     * @return [AppResult] wrapping backup metadata, or a typed [com.calypsan.listenup.api.error.AppError] on failure.
-     */
-    suspend fun createBackup(
-        includeImages: Boolean = false,
-        includeEvents: Boolean = true,
-    ): AppResult<BackupResponse>
-
-    /**
-     * List all available backups.
-     */
-    suspend fun listBackups(): AppResult<List<BackupResponse>>
-
-    /**
-     * Get details for a specific backup.
-     */
-    suspend fun getBackup(id: String): AppResult<BackupResponse>
-
-    /**
-     * Delete a backup.
-     */
-    suspend fun deleteBackup(id: String): AppResult<Unit>
-
-    /**
-     * Validate a backup without restoring.
-     */
-    suspend fun validateBackup(backupId: String): AppResult<ValidationResponse>
-
-    /**
-     * Restore from a backup.
-     */
-    suspend fun restore(request: RestoreRequest): AppResult<RestoreResponse>
-
-    /**
-     * Rebuild all playback progress from listening events.
-     */
-    suspend fun rebuildProgress(): AppResult<RebuildProgressResponse>
-
     // === Filesystem Browsing ===
 
     /**

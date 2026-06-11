@@ -46,15 +46,3 @@ fun BackupSummary.toDomain(): BackupInfo =
         size = sizeBytes,
         createdAt = Timestamp(createdAt),
     )
-
-/**
- * Validation result for a backup, consumed by the restore wizard.
- */
-data class BackupValidation(
-    val valid: Boolean,
-    val version: String?,
-    val serverName: String?,
-    val entityCounts: Map<String, Int>,
-    val errors: List<String>,
-    val warnings: List<String>,
-)
