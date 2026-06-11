@@ -3,10 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$also</ID>
-    <ID>CognitiveComplexMethod:AdminCollectionDetailViewModel.kt$AdminCollectionDetailViewModel$private fun loadCollection()</ID>
-    <ID>CognitiveComplexMethod:Application.kt$fun Application.module()</ID>
     <ID>CognitiveComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
-    <ID>CognitiveComplexMethod:BookCoverImage.kt$@Composable fun BookCoverImage( bookId: String, coverPath: String?, contentDescription: String?, modifier: Modifier = Modifier, blurHash: String? = null, contentScale: ContentScale = ContentScale.Crop, onState: ((AsyncImagePainter.State) -&gt; Unit)? = null, )</ID>
     <ID>CognitiveComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
     <ID>CognitiveComplexMethod:SyncTestApplication.kt$internal fun withTestApplication( heartbeatIntervalMillis: Long? = null, userScoped: Boolean = false, playbackPositions: Boolean = false, playbackEvents: Boolean = false, block: suspend SyncTestScope.() -&gt; Unit, )</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x4F.toByte() &amp;&amp; headerBytes[1] == 0x67.toByte() &amp;&amp; headerBytes[2] == 0x67.toByte() &amp;&amp; headerBytes[3] == 0x53.toByte()</ID>
@@ -14,21 +11,14 @@
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[4] == 0x66.toByte() &amp;&amp; headerBytes[5] == 0x74.toByte() &amp;&amp; headerBytes[6] == 0x79.toByte() &amp;&amp; headerBytes[7] == 0x70.toByte()</ID>
     <ID>ComplexCondition:AudioRoutes.kt$exp == null || sig == null || userId == null || !signer.verify(userId, bookId, fileId, exp, sig)</ID>
     <ID>ComplexCondition:BuildMp4File.kt$MoovBuilder$patched[i] == stcoMarker[0] &amp;&amp; patched[i + 1] == stcoMarker[1] &amp;&amp; patched[i + 2] == stcoMarker[2] &amp;&amp; patched[i + 3] == stcoMarker[3]</ID>
-    <ID>CyclomaticComplexMethod:Application.kt$fun Application.module()</ID>
     <ID>CyclomaticComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt$Id3v2Reader$private fun handleTextFrame( frameId: String, data: ByteArray, builder: AudioTagsBuilder, )</ID>
     <ID>CyclomaticComplexMethod:IlstReader.kt$IlstReader$private fun mapTextTag( type: String, value: String, builder: AudioTagsBuilder, )</ID>
-    <ID>CyclomaticComplexMethod:IlstReader.kt$IlstReader$private fun readFreeform( bytes: ByteArray, atom: Atom, builder: AudioTagsBuilder, )</ID>
-    <ID>CyclomaticComplexMethod:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$private fun parseTextTrackChapters( bytes: ByteArray, trakAtom: Atom, durationMs: Long, source: SeekableAudioSource, ): List&lt;Chapter&gt;</ID>
-    <ID>CyclomaticComplexMethod:UserAvatarMenu.kt$@Composable fun UserAvatarMenu( user: User?, expanded: Boolean, onExpandedChange: (Boolean) -&gt; Unit, onMyProfileClick: () -&gt; Unit, onAdminClick: (() -&gt; Unit)? = null, onSettingsClick: (() -&gt; Unit)? = null, onSignOutClick: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getIncomplete returns rows not COMPLETED and not DELETED`()</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getLocalPath returns localPath for COMPLETED rows only`()</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getOldWaitingForServer returns only rows older than threshold`()</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getWaitingForServer returns only WAITING_FOR_SERVER rows`()</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `hasDeletedRecords returns true if any DELETED row exists for a book`()</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `markDeletedForBook transitions all rows for a book to DELETED`()</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `markWaitingForServer transitions state and persists transcodeJobId`()</ID>
     <ID>FunctionMaxLength:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `deleteForBook removes all download rows for that book`()</ID>
     <ID>FunctionMaxLength:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `downloads whose book is missing from repository are silently dropped`()</ID>
     <ID>FunctionMaxLength:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `single completed download becomes one summary row`()</ID>
@@ -63,15 +53,10 @@
     <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns null when book has no genres`()</ID>
     <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getSeriesNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
     <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getSeriesNamesForBook returns null when book has no series`()</ID>
-    <ID>FunctionMinLength:BookReadersRepositoryImplTest.kt$BookReadersRepositoryImplTest$fun db(): ListenUpDatabase</ID>
-    <ID>FunctionMinLength:LeaderboardRepositoryImplTest.kt$LeaderboardRepositoryImplTest$fun db()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getIncomplete returns rows not COMPLETED and not DELETED`()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getLocalPath returns localPath for COMPLETED rows only`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getOldWaitingForServer returns only rows older than threshold`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getWaitingForServer returns only WAITING_FOR_SERVER rows`()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `hasDeletedRecords returns true if any DELETED row exists for a book`()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `markDeletedForBook transitions all rows for a book to DELETED`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `markWaitingForServer transitions state and persists transcodeJobId`()</ID>
     <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `deleteForBook removes all download rows for that book`()</ID>
     <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `downloads whose book is missing from repository are silently dropped`()</ID>
     <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `empty downloads emits empty list`()</ID>
@@ -154,120 +139,20 @@
     <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:WithClientSyncEngineAgainstServer.kt$fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -&gt; Unit)</ID>
     <ID>LongMethod:WithTagSyncEngineAgainstServer.kt$fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -&gt; Unit)</ID>
-    <ID>LongParameterList:ContributorDetailScreen.kt$( name: String, aliases: List&lt;String&gt;, imagePath: String?, contributorId: String, colorScheme: ContributorColorScheme, birthDate: String?, deathDate: String?, website: String?, description: String?, isDescriptionExpanded: Boolean, onToggleDescription: () -&gt; Unit, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onDownloadMetadata: () -&gt; Unit, onDeleteClick: () -&gt; Unit, )</ID>
     <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$for</ID>
     <ID>MagicNumber:AudioUrlSigner.kt$AudioUrlSigner$64</ID>
-    <ID>MagicNumber:AuroraBackground.kt$0.95f</ID>
     <ID>MagicNumber:AuroraBackground.kt$120f</ID>
     <ID>MagicNumber:AuroraBackground.kt$180f</ID>
     <ID>MagicNumber:AuroraBackground.kt$240f</ID>
     <ID>MagicNumber:AuroraBackground.kt$300f</ID>
     <ID>MagicNumber:AuroraBackground.kt$360f</ID>
-    <ID>MagicNumber:AuthServicePublicGuardedBehaviorTest.kt$AuthServicePublicGuardedBehaviorTest$36</ID>
-    <ID>MagicNumber:AuthorsContent.kt$0.4f</ID>
-    <ID>MagicNumber:AuthorsContent.kt$0.65f</ID>
-    <ID>MagicNumber:AuthorsContent.kt$0x7FFFFFFF</ID>
-    <ID>MagicNumber:AuthorsContent.kt$360</ID>
-    <ID>MagicNumber:BookListeningHistoryRepositoryImplTest.kt$BookListeningHistoryRepositoryImplTest$1800L</ID>
-    <ID>MagicNumber:BookListeningHistoryRepositoryImplTest.kt$BookListeningHistoryRepositoryImplTest$2026</ID>
-    <ID>MagicNumber:BookListeningHistoryRepositoryImplTest.kt$BookListeningHistoryRepositoryImplTest$23</ID>
     <ID>MagicNumber:ContributorDetailScreen.kt$12</ID>
-    <ID>MagicNumber:ContributorDetailScreen.kt$200</ID>
-    <ID>MagicNumber:CorrelationIdAndMdcTest.kt$CorrelationIdAndMdcTest$36</ID>
-    <ID>MagicNumber:CorrelationIdAndMdcTest.kt$CorrelationIdAndMdcTest$8</ID>
-    <ID>MagicNumber:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$1_000_000L</ID>
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$0.5f</ID>
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$0xFF</ID>
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$24</ID>
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$8</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$0.1f</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$0.7f</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$0xFF</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$128</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$150</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$200</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$24</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$255</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$50</ID>
-    <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$5000</ID>
-    <ID>MagicNumber:LeaderboardRepositoryImplTest.kt$LeaderboardRepositoryImplTest$120L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$1.25f</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$1.5f</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$10_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$30_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$31_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$45_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$50_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$5_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$60_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$61_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$80_000L</ID>
-    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$90_000L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$200L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$30_000L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$555L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$5_000L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$60_000L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$61_000L</ID>
-    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$9L</ID>
-    <ID>MagicNumber:LoginScreen.kt$0.4f</ID>
-    <ID>MagicNumber:LoginScreen.kt$0.6f</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$12345L</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$6</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$7</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$8</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$800L</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$9</ID>
-    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$900L</ID>
-    <ID>MagicNumber:NowPlayingScreen.kt$0.45f</ID>
-    <ID>MagicNumber:NowPlayingScreen.kt$0.4f</ID>
-    <ID>MagicNumber:NowPlayingScreen.kt$0.6f</ID>
-    <ID>MagicNumber:NowPlayingScreen.kt$1.4f</ID>
-    <ID>MagicNumber:NowPlayingScreen.kt$15_000L</ID>
-    <ID>MagicNumber:NowPlayingScreen.kt$200</ID>
-    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$1.25f</ID>
-    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$1.5f</ID>
-    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$42_000L</ID>
-    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$99_000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$10_000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$123L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$20_000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$5000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$500L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$77_000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$7L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$88_000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$9000L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$999L</ID>
-    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$99_000L</ID>
-    <ID>MagicNumber:RegisterScreen.kt$0.4f</ID>
-    <ID>MagicNumber:RegisterScreen.kt$0.6f</ID>
-    <ID>MagicNumber:SeriesDetailScreen.kt$150</ID>
-    <ID>MagicNumber:SeriesDetailScreen.kt$200</ID>
-    <ID>MagicNumber:ServerSetupScreen.kt$0.4f</ID>
-    <ID>MagicNumber:ServerSetupScreen.kt$0.6f</ID>
-    <ID>MagicNumber:SetupScreen.kt$0.4f</ID>
-    <ID>MagicNumber:SetupScreen.kt$0.6f</ID>
-    <ID>MagicNumber:ShelfCard.kt$6</ID>
-    <ID>MagicNumber:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$10800L</ID>
-    <ID>MagicNumber:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$14</ID>
-    <ID>MagicNumber:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$1800L</ID>
-    <ID>MagicNumber:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$3600L</ID>
-    <ID>MagicNumber:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$5400L</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$200L</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$42</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$5000L</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$500L</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$7777L</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$99</ID>
-    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$9999L</ID>
     <ID>MagicNumber:WeeklyStats.kt$WeeklyStats.Companion$7</ID>
-    <ID>MaxLineLength:AudioFileLocatorTest.kt$AudioFileLocatorTest$repo.upsert(locatorFixture(bookId = "b1", fileId = "af1", rootRelPath = "Sanderson/WayOfKings", filename = "01.m4b", format = "m4b", size = 500_000_000L))</ID>
-    <ID>MaxLineLength:BookReadersRepositoryImplTest.kt$BookReadersRepositoryImplTest.&lt;no name provided&gt;$override suspend fun checkServerStatus(): com.calypsan.listenup.client.domain.model.AuthState</ID>
-    <ID>MaxLineLength:ChangeBusTest.kt$ChangeBusTest$val fakeEvent = SyncEvent.Created(id = "x", revision = 1L, occurredAt = 0L, payload = Tag(id = "x", name = "e1", revision = 1, updatedAt = 0))</ID>
-    <ID>MaxLineLength:ChangeBusTest.kt$ChangeBusTest$val fakeEvent2 = SyncEvent.Created(id = "y", revision = 2L, occurredAt = 0L, payload = Tag(id = "y", name = "e2", revision = 2, updatedAt = 0))</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
-    <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakePlaybackApiContract$PreparePlaybackResponse(ready = false, streamUrl = "", variant = "original", codec = "mp3", transcodeJobId = "job1", progress = 0)</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
     <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
@@ -275,19 +160,331 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
-    <ID>NestedBlockDepth:UserStatsRepository.kt$UserStatsRepository$override suspend fun pullSince( userId: String?, cursor: Long, limit: Int, ): Page&lt;UserStatsSyncPayload&gt;</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"ABS Imports"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Are you sure you want to delete \"${import.name}\"? This cannot be undone."</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Choose how to create a new import:"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Delete Import"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Keep"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"New Import"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Search Instead"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"This will delete the stuck import. You can create a new one afterwards."</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Clear"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Complete"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Dismiss"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Mapped"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "New Import"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Refresh"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Skip"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "$mapped / $total"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${response.importedCount}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${response.pendingCount}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${response.readyCount}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${session.duration / 60000}m listened"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Analysis in progress…"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Analysis was likely interrupted. Cancel and try again."</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Analyzing backup…"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Create a new import from an Audiobookshelf backup to get started."</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Created: ${import.createdAt.substringBefore('T')}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Import Wizard"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Import appears stuck"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Imported ${result.imported} sessions"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Imported"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Mapped to: $mappedDisplay"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Mapped to: ${user.listenUpDisplayName ?: user.listenUpEmail ?: user.listenUpId}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Narr. ${book.absNarrator}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No Imports"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No books found"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No sessions found"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No users found"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Pending"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Ready"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Select a backup file from your device"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Status: ${import.status.replaceFirstChar { it.uppercase() }}"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Step-by-step import from server file"</ID>
+    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Upload from device"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Clear"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Import from Audiobookshelf"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Matched (${autoMatchedBooks.size})"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Matched (${autoMatchedUsers.size})"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Needs Review (${needsReviewBooks.size})"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Needs Review (${needsReviewUsers.size})"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Parent directory"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Pick Different"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Change selection"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Matched"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "$current / $total"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.affectedUsers} users updated"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.eventsCreated} events created"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.progressImported} progress records imported (${r.progressSkipped} skipped)"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.sessionsImported} sessions imported (${r.sessionsSkipped} skipped)"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${state.progressReady} book progress records"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${state.sessionsReady} listening sessions"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${suggestions.size} suggestion${if (suggestions.size != 1) "s" else ""} available"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "...and ${r.errors.size - 5} more"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "...and ${r.warnings.size - 5} more"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "All books matched automatically!"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "All users matched automatically!"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Choose what to import from the Audiobookshelf backup."</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Completed in $it"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Current position and completion status"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Empty directory"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Errors"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "For ${state.usersMatched} users"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "How to export from Audiobookshelf"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import Options"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import Summary"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import book progress"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import listening history from an Audiobookshelf backup."</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import listening sessions"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Individual listening events with timestamps"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Match Audiobookshelf books to your ListenUp library."</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Match Audiobookshelf users to ListenUp users."</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Ready to Import"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Rebuild progress after import"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Recalculate listening stats from events"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Select backup source"</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Uploading Backup..."</ID>
+    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Warnings"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$"Cancel"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$"Choose Different File"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Import Ready"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Import from Audiobookshelf"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Ready to Upload"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Supports .audiobookshelf, .zip, .tar.gz files"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Upload Failed"</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Upload your Audiobookshelf backup to migrate listening history and progress."</ID>
+    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Your backup has been uploaded and analyzed."</ID>
+    <ID>NoHardcodedUiString:AboutSectionPreviews.kt$text = "Credits go here"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$" $it"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$" $type: $count"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete ${backup.id}? This cannot be undone."</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete \"${import.name}\"? This cannot be undone."</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Backups"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Cancel"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Close"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Contents:"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Delete Backup"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Delete Import"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Errors:"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Open"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Restore"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Server: $it"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Validate"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Version: $it"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Warnings:"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Create Backup"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Menu"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Books: ${import.booksMapped}/${import.totalBooks}"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Create a backup to protect your data"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Created: ${localDateTime.date} at $timeStr"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Migrate listening history from ABS backup"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "No backups yet"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Sessions: ${import.sessionsImported}/${import.totalSessions}"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Size: ${backup.sizeFormatted}"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Upload New Import"</ID>
+    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Users: ${import.usersMapped}/${import.totalUsers}"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Merge \"$sourceName\" into…"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Merge into…"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Move \"$sourceName\" to…"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Move to…"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"No other genres available as a merge target."</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "${node.genre.bookCount}"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "${state.genres.size} categories • ${state.totalBookCount} books"</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "No other genres available — only 'Top level' is possible."</ID>
+    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "Top level"</ID>
+    <ID>NoHardcodedUiString:AdminCollectionDetailScreen.kt$text = "$count book${if (count != 1) "s" else ""}"</ID>
+    <ID>NoHardcodedUiString:AdminCollectionsScreen.kt$text = "${collection.bookCount} book${if (collection.bookCount != 1) "s" else ""}"</ID>
+    <ID>NoHardcodedUiString:AdminCollectionsScreen.kt$text = "${state.collections.size} collection${if (state.collections.size != 1) "s" else ""}"</ID>
+    <ID>NoHardcodedUiString:AdminInboxScreen.kt$"${ready.selectedCount} selected"</ID>
+    <ID>NoHardcodedUiString:AdminInboxScreen.kt$text = "${state.bookIds.size} book${if (state.bookIds.size != 1) "s" else ""} awaiting review"</ID>
+    <ID>NoHardcodedUiString:AdminScreen.kt$"https://audiobooks.example.com"</ID>
+    <ID>NoHardcodedUiString:AppNavigationSuite.kt$"Logout"</ID>
+    <ID>NoHardcodedUiString:AppNavigationSuite.kt$contentDescription = "Logout"</ID>
+    <ID>NoHardcodedUiString:AppNavigationSuite.kt$text = "ListenUp"</ID>
+    <ID>NoHardcodedUiString:AuthScaffold.kt$contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:AuthScaffold.kt$text = "ListenUp"</ID>
+    <ID>NoHardcodedUiString:AuthScaffold.kt$text = "Thousands of audiobooks.\nOne beautiful library."</ID>
+    <ID>NoHardcodedUiString:AuthorsContent.kt$contentDescription = "${contributor.name} profile image"</ID>
+    <ID>NoHardcodedUiString:AuthorsContent.kt$text = "${contributorWithCount.bookCount} $bookLabel"</ID>
+    <ID>NoHardcodedUiString:BookCard.kt$contentDescription = "Now playing"</ID>
+    <ID>NoHardcodedUiString:BookDetailScreen.kt$"Show all ${state.chapters.size} chapters"</ID>
+    <ID>NoHardcodedUiString:BrowseGenreScreen.kt$"Browse by Genre"</ID>
+    <ID>NoHardcodedUiString:BrowseGenreScreen.kt$text = "${genre.bookCount}"</ID>
+    <ID>NoHardcodedUiString:BrowseGenreScreen.kt$text = "Include subtree"</ID>
+    <ID>NoHardcodedUiString:BrowseGenreScreen.kt$text = "No books in this genre."</ID>
+    <ID>NoHardcodedUiString:BrowseGenreScreen.kt$text = "No genres yet."</ID>
+    <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$"Apply chapter names"</ID>
+    <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$text = "Audible names replace your chapter labels. Timings stay the same."</ID>
+    <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$text = "Review chapter names"</ID>
+    <ID>NoHardcodedUiString:ClassificationSection.kt$contentDescription = "Remove ${collection.name}"</ID>
+    <ID>NoHardcodedUiString:ClassificationSection.kt$contentDescription = "Remove ${genre.name}"</ID>
+    <ID>NoHardcodedUiString:ClassificationSection.kt$contentDescription = "Remove ${tag.displayName()}"</ID>
+    <ID>NoHardcodedUiString:ContributorBooksScreen.kt$text = "$totalBooks ${if (totalBooks == 1) "book" else "books"} by $contributorName"</ID>
+    <ID>NoHardcodedUiString:ContributorBooksScreen.kt$text = "${books.size} ${if (books.size == 1) "book" else "books"}"</ID>
+    <ID>NoHardcodedUiString:ContributorBooksScreen.kt$text = "${seriesGroup.books.size} ${if (seriesGroup.books.size == 1) "book" else "books"}"</ID>
+    <ID>NoHardcodedUiString:ContributorDetailScreen.kt$text = "${section.bookCount} ${if (section.bookCount == 1) "book" else "books"}"</ID>
+    <ID>NoHardcodedUiString:ContributorDetailScreen.kt$text = "aka ${aliases.joinToString(", ")}"</ID>
+    <ID>NoHardcodedUiString:ContributorMetadataSearchScreen.kt$text = "Searching for: ${contributor.name}"</ID>
+    <ID>NoHardcodedUiString:CreateBackupScreen.kt$text = "ℹ️"</ID>
+    <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Only you can see this shelf."</ID>
+    <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Private shelf"</ID>
+    <ID>NoHardcodedUiString:DiscoverLeaderboardSection.kt$text = "Could not load leaderboard."</ID>
+    <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
+    <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${userShelves.shelves.size} ${if (userShelves.shelves.size == 1) "shelf" else "shelves"}"</ID>
+    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Book cover"</ID>
+    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Expand"</ID>
+    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Skip back 10 seconds"</ID>
+    <ID>NoHardcodedUiString:DockedNowPlayingBar.kt$contentDescription = "Skip forward 30 seconds"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Change Password"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Edit Profile"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Remove Photo"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Save Name"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Save Tagline"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Upload Photo"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$"What are you listening to?"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$contentDescription = "Current avatar"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "${value.length}/${EditProfileViewModel.MAX_TAGLINE_LENGTH}"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "A short bio that appears on your profile"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Avatar"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Change Password"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Must be at least ${PASSWORD_MIN} characters"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Name"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Passwords do not match"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Set a new password for your account"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Tagline"</ID>
+    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Update your first and last name"</ID>
+    <ID>NoHardcodedUiString:GenreBreakdownBars.kt$text = "$percent%"</ID>
+    <ID>NoHardcodedUiString:HomeStatsSection.kt$text = "${hours}h ${minutes}m"</ID>
+    <ID>NoHardcodedUiString:HomeStatsSection.kt$text = "listened"</ID>
+    <ID>NoHardcodedUiString:JoinScreen.kt$text = "Your email: ${preview.email}"</ID>
+    <ID>NoHardcodedUiString:LibraryScanScreen.kt$text = "/ ${progress.filesTotal} files"</ID>
+    <ID>NoHardcodedUiString:LibraryScanScreen.kt$text = "Building your library"</ID>
+    <ID>NoHardcodedUiString:LibraryScanScreen.kt$text = "Building your library."</ID>
+    <ID>NoHardcodedUiString:LibraryScanScreen.kt$text = "Recently matched"</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Add another folder"</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Choose your audiobook folders"</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Choose your folders"</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Library created!"</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "No subfolders here"</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Point ListenUp at your audiobooks."</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Select one or more folders where your audiobooks are stored."</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "This folder has no subfolders. You can select it as a library location."</ID>
+    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Your audiobooks will be scanned and available shortly."</ID>
+    <ID>NoHardcodedUiString:LibrarySortBar.kt$text = " · ignoring A · An · The"</ID>
+    <ID>NoHardcodedUiString:LibrarySortBar.kt$text = "$count $unit"</ID>
+    <ID>NoHardcodedUiString:LibrarySortBar.kt$text = "Title sort"</ID>
+    <ID>NoHardcodedUiString:LicensesScreen.kt$text = "by ${library.author}"</ID>
+    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$"Review"</ID>
+    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$contentDescription = "Cover from ${cover.label}"</ID>
+    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$text = "${suggestion.rows.size} Audible chapters match — review and apply."</ID>
+    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$text = "Chapter names"</ID>
+    <ID>NoHardcodedUiString:MetadataSearchRoute.kt$"Loading match…"</ID>
+    <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "Narrated by ${result.narrators.joinToString { it.name }}"</ID>
+    <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "Searching for: ${state.context.currentTitle}"</ID>
+    <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "by ${result.authors.joinToString { it.name }}"</ID>
+    <ID>NoHardcodedUiString:NowPlayingBar.kt$contentDescription = "Book cover"</ID>
+    <ID>NoHardcodedUiString:NowPlayingBar.kt$contentDescription = "Skip back 10 seconds"</ID>
+    <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Chapters"</ID>
+    <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Sleep"</ID>
+    <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Speed"</ID>
+    <ID>NoHardcodedUiString:PlaybackSpeedSheet.kt$text = "${PlaybackSpeedPresets.MAX_SPEED}x"</ID>
+    <ID>NoHardcodedUiString:PlaybackSpeedSheet.kt$text = "${PlaybackSpeedPresets.MIN_SPEED}x"</ID>
+    <ID>NoHardcodedUiString:PlayerSecondaryActions.kt$contentDescription = "Chapters"</ID>
+    <ID>NoHardcodedUiString:PlayerSecondaryActions.kt$contentDescription = "Sleep timer"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$"Close Book"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$"Go to Book"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$"Go to Series"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$contentDescription = "Cast"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$contentDescription = "Collapse player"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$contentDescription = "More options"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "NOW PLAYING"</ID>
+    <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "Now playing"</ID>
+    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Next chapter"</ID>
+    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Previous chapter"</ID>
+    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Skip back 10 seconds"</ID>
+    <ID>NoHardcodedUiString:PlayerTransport.kt$contentDescription = "Skip forward 30 seconds"</ID>
+    <ID>NoHardcodedUiString:ProgressOverlay.kt$text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Back"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Run Preview"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Skip Preview"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = " $count $type"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "$count $type will be imported"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "$count $type"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "${error.entityType}: ${error.error}"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "${results.errors.size} potential issues found"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "...and ${r.errors.size - 5} more"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "All existing data will be permanently deleted. This action cannot be undone."</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Choose how to restore from this backup."</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Completed in $it"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Errors"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Full Data Wipe"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "How should conflicts be handled when an item exists in both the backup and your current data?"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Imported"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Mode: ${state.mode?.displayName ?: "Not selected"}"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Please confirm you want to proceed with the restore."</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Preview Results"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Preview what will happen during the restore."</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Restore Configuration"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Running preview..."</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Skipped"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Strategy: ${state.mergeStrategy?.displayName ?: "Not selected"}"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Summary"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Will import:"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Will skip:"</ID>
+    <ID>NoHardcodedUiString:ScanComponents.kt$text = "SCANNING"</ID>
+    <ID>NoHardcodedUiString:SearchResultsOverlay.kt$contentDescription = "Cover for ${hit.name}"</ID>
+    <ID>NoHardcodedUiString:SearchResultsOverlay.kt$text = "$count ${if (count == 1) "book" else "books"}"</ID>
+    <ID>NoHardcodedUiString:SearchResultsOverlay.kt$text = "($count)"</ID>
+    <ID>NoHardcodedUiString:SectionTitle.kt$text = "See all"</ID>
+    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "$verb Book $positionLabel"</ID>
+    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "${(progress * 100).toInt()}% · ${book.formatDuration()}"</ID>
+    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "Book $positionLabel"</ID>
+    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "SERIES"</ID>
+    <ID>NoHardcodedUiString:SeriesSection.kt$contentDescription = "Remove ${series.name}"</ID>
+    <ID>NoHardcodedUiString:ServerSelectScreen.kt$text = "v$it"</ID>
+    <ID>NoHardcodedUiString:SetupComponents.kt$contentDescription = "Open folder"</ID>
+    <ID>NoHardcodedUiString:ShelfCard.kt$contentDescription = "Private shelf"</ID>
+    <ID>NoHardcodedUiString:ShelfCard.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
+    <ID>NoHardcodedUiString:ShelfDetailScreen.kt$text = "Private"</ID>
+    <ID>NoHardcodedUiString:StorageScreen.kt$text = "${formatFileSize(available)} available"</ID>
+    <ID>NoHardcodedUiString:StorageScreen.kt$text = "${formatFileSize(book.sizeBytes)} · ${book.fileCount} files"</ID>
+    <ID>NoHardcodedUiString:StreakIndicator.kt$text = "Best: ${dayCount(longestStreak)}"</ID>
+    <ID>NoHardcodedUiString:SyncDetailsDropdown.kt$text = "${failedOperations.size} failed"</ID>
+    <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add tag..."</ID>
+    <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add"</ID>
+    <ID>NoHardcodedUiString:TagPickerSheet.kt$text = "Add Tag"</ID>
+    <ID>NoHardcodedUiString:TagPickerSheet.kt$text = "Popular Tags"</ID>
+    <ID>NoHardcodedUiString:TalentSection.kt$contentDescription = "Remove ${contributor.name}"</ID>
+    <ID>NoHardcodedUiString:TalentSection.kt$contentDescription = "Remove ${role.displayName} section"</ID>
+    <ID>NoHardcodedUiString:TalentSection.kt$text = "${role.displayName}s"</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$"Cancel"</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$"Map \"$rawString\" to…"</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$"No live genres available. Create one in Admin → Categories first."</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$"Unmapped Genres"</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$text = "${summary.bookCount} book${if (summary.bookCount == 1) "" else "s"}"</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$text = "Every genre string from your scanner has been mapped or auto-resolved."</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$text = "Map →"</ID>
+    <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$text = "Nothing to map."</ID>
+    <ID>NoHardcodedUiString:UpNextQueue.kt$text = "Up next"</ID>
+    <ID>NoHardcodedUiString:UpNextQueue.kt$text = "View all $totalChapters chapters"</ID>
+    <ID>NoHardcodedUiString:UserAvatarMenu.kt$contentDescription = "${user.displayName} avatar"</ID>
+    <ID>NoHardcodedUiString:UserProfileScreen.kt$text = "${shelf.bookCount} books"</ID>
+    <ID>NoHardcodedUiString:WideBookDetail.kt$"Show all ${chapters.size} chapters"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>
     <ID>StringLiteralDuplication:IlstReader.kt$IlstReader$"image/jpeg"</ID>
-    <ID>StringLiteralDuplication:InstanceRepositoryImpl.kt$InstanceRepositoryImpl$"/api/v1/instance"</ID>
     <ID>StringLiteralDuplication:Mp4Parser.kt$Mp4Parser$"&lt;source&gt;"</ID>
     <ID>StringLiteralDuplication:PlatformUtils.jvm.kt$PlatformUtils$"Unknown"</ID>
     <ID>StringLiteralDuplication:PlaybackServiceImpl.kt$PlaybackServiceImpl$"principal"</ID>
     <ID>SwallowedException:CurrentUserApiResponse.kt$CurrentUserApiResponse$e: Exception</ID>
     <ID>SwallowedException:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$e: Exception</ID>
     <ID>ThrowsCount:AtomWalker.kt$AtomWalker$fun readHeader( bytes: ByteArray, offset: Int, end: Int = bytes.size, ): Atom</ID>
-    <ID>TooGenericExceptionThrown:BookListeningHistoryViewModelTest.kt$BookListeningHistoryViewModelTest.&lt;no name provided&gt;$throw RuntimeException("boom")</ID>
     <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt$ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
     <ID>TooManyFunctions:Koin.ios.kt$KoinHelper : KoinComponent</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$10800_000L</ID>
@@ -307,7 +504,6 @@
     <ID>UnnecessaryParentheses:BinaryDecoder.kt$(BITS_PER_SYNC_SAFE_BYTE * 3)</ID>
     <ID>UnnecessaryParentheses:BinaryDecoder.kt$(raw[0].toInt() and BYTE_MASK)</ID>
     <ID>UnnecessaryParentheses:BinaryDecoder.kt$(raw[1].toInt() and BYTE_MASK)</ID>
-    <ID>UnnecessaryParentheses:BookListeningHistorySection.kt$(seconds % 3600)</ID>
     <ID>UnnecessaryParentheses:BuildMp3File.kt$Mp3Builder$(144 * bitrate)</ID>
     <ID>UnnecessaryParentheses:BuildMp4File.kt$MoovBuilder$(ch.startMs + 1)</ID>
     <ID>UnnecessaryParentheses:BuildMp4File.kt$MoovBuilder$(deltaMs * timescale)</ID>
@@ -320,30 +516,16 @@
     <ID>UnnecessaryParentheses:MpegDurationCalculator.kt$MpegDurationCalculator$(bytes[i + 1].toInt() and 0xE0)</ID>
     <ID>UnnecessaryParentheses:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$(endedAt - startedAt)</ID>
     <ID>UnnecessaryParentheses:SyncableRepository.kt$SyncableRepository$(table as? UserScopedSyncableTable)</ID>
-    <ID>UnusedImports:DownloadWorkerLogicTest.kt$import kotlin.test.assertFails</ID>
     <ID>UnusedImports:HomeStatsViewModel.kt$import com.calypsan.listenup.client.domain.WeeklyStats</ID>
-    <ID>UnusedImports:InstanceRepositoryImpl.kt$import io.ktor.client.plugins.timeout</ID>
     <ID>UnusedImports:JvmSecureStorageTest.kt$import kotlin.test.assertNotEquals</ID>
     <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.core.ServerUrl</ID>
-    <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContext</ID>
-    <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContextProvider</ID>
     <ID>UnusedImports:ListeningEventAndStatsRouteTest.kt$import io.kotest.matchers.nulls.shouldNotBeNull</ID>
-    <ID>UnusedImports:PlaybackPositionDaoTest.kt$import io.kotest.matchers.shouldBe</ID>
     <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.client.data.remote.model.ApiResponse</ID>
-    <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.core.flatMap</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content1 = file1.readText()</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content2 = file2.readText()</ID>
     <ID>UnusedPrivateProperty:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$j</ID>
-    <ID>UnusedPrivateProperty:ShelfCard.kt$private const val HEX_RADIX = 16</ID>
-    <ID>UnusedPrivateProperty:ShelfCard.kt$private const val MAX_RGB_LENGTH = 6</ID>
-    <ID>UnusedPrivateProperty:UserStatsUpdater.kt$UserStatsUpdater$private val clock: Clock = Clock.System</ID>
-    <ID>UseIfInsteadOfWhen:BookListeningHistoryRepositoryImpl.kt$BookListeningHistoryRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
-    <ID>UseIfInsteadOfWhen:DockedNowPlayingBar.kt$when { hours &gt; 0 -&gt; "${hours}h ${minutes}m left" else -&gt; "${minutes}m left" }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt$JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt$JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt$StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
-    <ID>UseIfInsteadOfWhen:UserAvatar.kt$when { profile != null -&gt; ResolvedAvatar(profile = profile!!, userId = userId, size = size, modifier = baseModifier) else -&gt; LoadingPlaceholder(modifier = baseModifier) }</ID>
-    <ID>UseLet:AdminRepositoryImpl.kt$AdminRepositoryImpl$if (canShare != null) { UpdatePermissionsRequest( canShare = canShare, ) } else { null }</ID>
-    <ID>UseLet:BookCoverImage.kt$if (coverPath != null) { ImageRequest .Builder(context) .data(coverPath) .memoryCacheKey("$bookId:cover") .diskCacheKey("$bookId:cover") .build() } else { null }</ID>
   </CurrentIssues>
 </SmellBaseline>

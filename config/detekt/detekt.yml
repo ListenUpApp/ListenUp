@@ -626,3 +626,5 @@ listenup-custom:
   active: true
   NoKoinInjectViewModel:
     active: true
+  NoHardcodedUiString:
+    active: true
