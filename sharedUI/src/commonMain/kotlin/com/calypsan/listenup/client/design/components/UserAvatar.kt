@@ -10,8 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.koinInject
 
 /**
@@ -83,53 +84,56 @@ fun UserAvatar(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    val repo: UserProfileRepository = koinInject()
-    val profile by repo.observeProfile(userId).collectAsState(initial = null)
-
     val baseModifier =
         modifier
             .size(size.dp)
             .clip(CircleShape)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }
 
-    when {
-        profile != null -> ResolvedAvatar(profile = profile!!, userId = userId, size = size, modifier = baseModifier)
-        else -> LoadingPlaceholder(modifier = baseModifier)
+    when (val state = rememberUserAvatarState(userId)) {
+        UserAvatarUiState.Loading -> {
+            LoadingPlaceholder(modifier = baseModifier)
+        }
+
+        is UserAvatarUiState.Image -> {
+            LocalImageAvatar(
+                localPath = state.localPath,
+                cacheKey = state.cacheKey,
+                contentDescription = state.contentDescription,
+                modifier = baseModifier,
+            )
+        }
+
+        is UserAvatarUiState.Initials -> {
+            InitialsAvatar(
+                initials = state.initials,
+                color = state.color,
+                size = size,
+                modifier = baseModifier,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun rememberUserAvatarState(userId: String): UserAvatarUiState {
+    val repo: UserProfileRepository = koinInject()
+    val imageStorage: ImageStorage = koinInject()
+    val profile by repo.observeProfile(userId).collectAsStateWithLifecycle(initialValue = null)
+
+    return remember(userId, profile) {
+        userAvatarUiState(
+            profile = profile,
+            hasLocalAvatar = imageStorage.userAvatarExists(userId),
+            localPath = imageStorage.getUserAvatarPath(userId),
+            userId = userId,
+        )
     }
 }
 
 // ---------------------------------------------------------------------------
 // Internal rendering helpers
 // ---------------------------------------------------------------------------
-
-@Composable
-private fun ResolvedAvatar(
-    profile: CachedUserProfile,
-    userId: String,
-    size: AvatarSize,
-    modifier: Modifier,
-) {
-    val imageStorage: ImageStorage = koinInject()
-    val hasLocalAvatar = imageStorage.userAvatarExists(userId)
-
-    if (profile.avatarType == "image" && hasLocalAvatar) {
-        LocalImageAvatar(
-            localPath = imageStorage.getUserAvatarPath(userId),
-            cacheKey = "$userId-avatar",
-            contentDescription = profile.displayName.ifBlank { "User avatar" },
-            modifier = modifier,
-        )
-    } else {
-        // "auto" type, or "image" type where the file has not downloaded yet.
-        InitialsAvatar(
-            userId = userId,
-            displayName = profile.displayName,
-            avatarColor = profile.avatarColor,
-            size = size,
-            modifier = modifier,
-        )
-    }
-}
 
 @Composable
 private fun LocalImageAvatar(
@@ -158,21 +162,11 @@ private fun LocalImageAvatar(
 
 @Composable
 private fun InitialsAvatar(
-    userId: String,
-    displayName: String,
-    avatarColor: String,
+    initials: String,
+    color: Color,
     size: AvatarSize,
     modifier: Modifier,
 ) {
-    val color = parseAvatarHexColor(avatarColor, userId)
-    val initials =
-        displayName
-            .trim()
-            .split("\\s+".toRegex())
-            .filter { it.isNotBlank() }
-            .take(2)
-            .joinToString("") { it.first().uppercase() }
-            .ifBlank { "?" }
     // Derive font size from physical pixels so the text stays inside the circle
     // regardless of the user's font-scale setting. ~38% of diameter is a good fit.
     val derivedFontSize = with(LocalDensity.current) { (size.dp.toPx() * 0.38f).toSp() }
@@ -244,6 +238,69 @@ private fun stableColorForUserId(userId: String): Color {
         }
     return avatarPalette[index]
 }
+
+// ---------------------------------------------------------------------------
+// Resolved UI state — computed off the recomposition hot path
+// ---------------------------------------------------------------------------
+
+/** Resolved render state for [UserAvatar], computed off the recomposition hot path. */
+internal sealed interface UserAvatarUiState {
+    /** Profile not yet in the local cache — show the neutral loading circle. */
+    data object Loading : UserAvatarUiState
+
+    /** A downloaded avatar image exists locally. */
+    data class Image(
+        val localPath: String,
+        val cacheKey: String,
+        val contentDescription: String,
+    ) : UserAvatarUiState
+
+    /** No local image (auto type, or image not yet downloaded) — render initials. */
+    data class Initials(
+        val initials: String,
+        val color: Color,
+    ) : UserAvatarUiState
+}
+
+/**
+ * Derive up-to-two-letter initials from a display name. Returns `"?"` when blank.
+ */
+internal fun avatarInitials(displayName: String): String =
+    displayName
+        .trim()
+        .split("\\s+".toRegex())
+        .filter { it.isNotBlank() }
+        .take(2)
+        .joinToString("") { it.first().uppercase() }
+        .ifBlank { "?" }
+
+/** Pure mapping from a profile + local-avatar presence to the render state. No Compose/IO. */
+internal fun userAvatarUiState(
+    profile: CachedUserProfile?,
+    hasLocalAvatar: Boolean,
+    localPath: String,
+    userId: String,
+): UserAvatarUiState =
+    when {
+        profile == null -> {
+            UserAvatarUiState.Loading
+        }
+
+        profile.avatarType == "image" && hasLocalAvatar -> {
+            UserAvatarUiState.Image(
+                localPath = localPath,
+                cacheKey = "$userId-avatar",
+                contentDescription = profile.displayName.ifBlank { "User avatar" },
+            )
+        }
+
+        else -> {
+            UserAvatarUiState.Initials(
+                initials = avatarInitials(profile.displayName),
+                color = parseAvatarHexColor(profile.avatarColor, userId),
+            )
+        }
+    }
 
 /** Twelve-color Material 3 palette for stable avatar background colors. */
 private val avatarPalette =
