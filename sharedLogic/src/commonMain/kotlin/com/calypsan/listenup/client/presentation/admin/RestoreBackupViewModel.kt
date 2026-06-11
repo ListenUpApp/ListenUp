@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.BackupRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -59,6 +60,7 @@ sealed interface RestoreBackupUiState {
 class RestoreBackupViewModel(
     private val backupId: String,
     private val backupRepository: BackupRepository,
+    private val syncRepository: SyncRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<RestoreBackupUiState>
@@ -91,7 +93,21 @@ class RestoreBackupViewModel(
         viewModelScope.launch {
             when (val result = backupRepository.restoreBackup(BackupId(backupId))) {
                 is AppResult.Success -> {
-                    state.value = RestoreBackupUiState.Completed(result.data)
+                    // The server swapped its entire DB in-process and does NOT publish to the
+                    // cross-domain sync firehose, so the client's Room is now stale and a delta
+                    // sync can't reconcile a wholesale swap. Force a full resync before showing
+                    // success, so the UI reflects the restored server data.
+                    when (val resync = syncRepository.forceFullResync()) {
+                        is AppResult.Success -> {
+                            state.value = RestoreBackupUiState.Completed(result.data)
+                        }
+
+                        is AppResult.Failure -> {
+                            errorBus.emit(resync.error)
+                            logger.error { "Restore succeeded but resync failed: ${resync.error.message}" }
+                            state.value = RestoreBackupUiState.Idle(error = userMessageFor(resync.error))
+                        }
+                    }
                 }
 
                 is AppResult.Failure -> {
