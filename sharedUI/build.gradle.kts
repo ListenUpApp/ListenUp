@@ -1,5 +1,6 @@
 plugins {
     id("listenup.kmp.library")
+    id("listenup.localization")
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
@@ -226,62 +227,9 @@ dependencies {
     "androidRuntimeClasspath"(libs.compose.ui.tooling)
 }
 
-// --- Localization: generate platform string files from shared JSON ---
-val generateStrings by tasks.registering {
-    group = "localization"
-    description = "Generate platform string resource files from shared JSON"
-
-    val stringsDir = rootProject.file("sharedLogic/src/commonMain/resources/strings")
-    val outputDir = project.file("src/commonMain/composeResources")
-
-    inputs.dir(stringsDir)
-    // Don't declare outputs.dir on composeResources — it conflicts with Compose plugin tasks.
-    // Instead we just generate files in place and let Compose pick them up.
-
-    doLast {
-        stringsDir.listFiles { f -> f.extension == "json" }?.forEach { jsonFile ->
-            val locale = jsonFile.nameWithoutExtension
-            val valuesFolder = if (locale == "en") "values" else "values-" + locale
-            val outDir = outputDir.resolve(valuesFolder)
-            outDir.mkdirs()
-
-            @Suppress("UNCHECKED_CAST")
-            val map = groovy.json.JsonSlurper().parseText(jsonFile.readText()) as Map<String, Any>
-
-            val entries = mutableListOf<Pair<String, String>>()
-
-            fun flatten(
-                prefix: String,
-                obj: Any,
-            ) {
-                when (obj) {
-                    is Map<*, *> -> {
-                        obj.forEach { (k, v) ->
-                            flatten(if (prefix.isEmpty()) k.toString() else prefix + "_" + k, v!!)
-                        }
-                    }
-
-                    else -> {
-                        entries.add(prefix to obj.toString())
-                    }
-                }
-            }
-            flatten("", map)
-
-            val sb = StringBuilder()
-            sb.appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
-            sb.appendLine("<resources>")
-            entries.sortedBy { it.first }.forEach { (key, value) ->
-                val escaped = value.replace("&", "&amp;").replace("<", "&lt;").replace("'", "\\'")
-                sb.appendLine("    <string name=\"" + key + "\">" + escaped + "</string>")
-            }
-            sb.appendLine("</resources>")
-            outDir.resolve("strings.xml").writeText(sb.toString())
-            println("Generated " + valuesFolder + "/strings.xml (" + entries.size + " strings)")
-        }
-    }
-}
-
+// The `generateStrings` / `verifyStrings` tasks come from the `listenup.localization` convention
+// plugin. The Compose resource-processing tasks must see the generated strings.xml, so make them
+// depend on generation (reference by name — the plugin registers it lazily).
 tasks
     .matching {
         it.name.startsWith("generateComposeResClass") ||
@@ -290,5 +238,5 @@ tasks
             it.name.startsWith("prepareComposeResources") ||
             it.name.startsWith("generateActualResourceCollectors")
     }.configureEach {
-        dependsOn(generateStrings)
+        dependsOn("generateStrings")
     }
