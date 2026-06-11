@@ -16,8 +16,8 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -101,13 +101,8 @@ internal class SeriesServiceImpl(
                 }
             }
         if (outcome.result is AppResult.Success && outcome.reindexNeeded) {
-            try {
-                reindexer.reindexAllBooksForSeries(id.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed for series ${id.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForSeries(id.value) }
+                .onFailure { logger.warn(it) { "FTS reindex failed for series ${id.value}" } }
         }
         return outcome.result
     }
@@ -161,13 +156,12 @@ internal class SeriesServiceImpl(
             }
 
         if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForSeries(target.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed after series merge ${source.value} -> ${target.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForSeries(target.value) }
+                .onFailure {
+                    logger.warn(
+                        it,
+                    ) { "FTS reindex failed after series merge ${source.value} -> ${target.value}" }
+                }
         }
 
         return result
@@ -195,13 +189,8 @@ internal class SeriesServiceImpl(
                 }
             }
         if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForSeries(id.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed during delete of series ${id.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForSeries(id.value) }
+                .onFailure { logger.warn(it) { "FTS reindex failed during delete of series ${id.value}" } }
         }
         return result
     }

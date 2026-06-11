@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 
 private val log = KotlinLogging.logger {}
 
@@ -28,13 +28,9 @@ class ActivityRecorder(
         shelfId: String? = null,
         shelfName: String? = null,
     ) {
-        try {
+        runCatchingCancellable {
             repo.record(userId, type, bookId, isReread, durationMs, milestoneValue, milestoneUnit, shelfId, shelfName)
             bus.broadcastControl(SyncControl.ActivityChanged)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            log.warn(e) { "failed to record activity type=$type user=$userId" }
-        }
+        }.onFailure { log.warn(it) { "failed to record activity type=$type user=$userId" } }
     }
 }

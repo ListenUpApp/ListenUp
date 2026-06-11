@@ -2,10 +2,10 @@ package com.calypsan.listenup.server.scheduler
 
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,13 +50,8 @@ internal class OrphanImageCleanupTask(
         scope.launch {
             while (isActive) {
                 delay(interval)
-                try {
-                    runOnce()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    log.warn(e) { "OrphanImageCleanupTask sweep failed; will retry next interval" }
-                }
+                runCatchingCancellable { runOnce() }
+                    .onFailure { log.warn(it) { "OrphanImageCleanupTask sweep failed; will retry next interval" } }
             }
         }
 
