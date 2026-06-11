@@ -25,16 +25,21 @@ import kotlinx.serialization.json.putJsonObject
  */
 object LocalizationGenerator {
     /** Stable, pretty-printed JSON encoder for the iOS String Catalog. */
-    private val prettyJson = Json {
-        prettyPrint = true
-        prettyPrintIndent = "  "
-    }
+    private val prettyJson =
+        Json {
+            prettyPrint = true
+            prettyPrintIndent = "  "
+        }
 
     /** Flattens nested locale JSON into a `dotted.path` -> value map. */
     fun parse(json: String): Map<String, String> =
         buildMap { flatten(Json.parseToJsonElement(json).jsonObject, "", this) }
 
-    private fun flatten(obj: JsonObject, prefix: String, out: MutableMap<String, String>) {
+    private fun flatten(
+        obj: JsonObject,
+        prefix: String,
+        out: MutableMap<String, String>,
+    ) {
         for ((key, value) in obj) {
             val path = if (prefix.isEmpty()) key else "$prefix.$key"
             when (value) {
@@ -69,14 +74,15 @@ object LocalizationGenerator {
      * Renders a flattened locale map as an Android `strings.xml` document: snake_case resource
      * names, sorted alphabetically, values XML-escaped. Format specifiers are preserved verbatim.
      */
-    fun androidXml(strings: Map<String, String>): String = buildString {
-        appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
-        appendLine("<resources>")
-        strings.toSortedMap().forEach { (key, value) ->
-            appendLine("""    <string name="${snakeKey(key)}">${xmlEscape(value)}</string>""")
+    fun androidXml(strings: Map<String, String>): String =
+        buildString {
+            appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
+            appendLine("<resources>")
+            strings.toSortedMap().forEach { (key, value) ->
+                appendLine("""    <string name="${snakeKey(key)}">${xmlEscape(value)}</string>""")
+            }
+            appendLine("</resources>")
         }
-        appendLine("</resources>")
-    }
 
     /**
      * Renders every locale as a single iOS String Catalog (`.xcstrings`).
@@ -89,31 +95,36 @@ object LocalizationGenerator {
      * [JsonObject] in sorted insertion order and pretty-printed, so it is valid JSON Xcode parses
      * as a String Catalog and is byte-identical across runs for the same input.
      */
-    fun xcstrings(localesByCode: Map<String, Map<String, String>>, sourceLanguage: String): String {
+    fun xcstrings(
+        localesByCode: Map<String, Map<String, String>>,
+        sourceLanguage: String,
+    ): String {
         val allKeys = localesByCode.values.flatMap { it.keys }.toSortedSet()
-        val catalog = buildJsonObject {
-            put("sourceLanguage", sourceLanguage)
-            putJsonObject("strings") {
-                for (key in allKeys) {
-                    putJsonObject(key) {
-                        putJsonObject("localizations") {
-                            val locales = localesByCode.entries
-                                .filter { it.value.containsKey(key) }
-                                .sortedBy { it.key }
-                            for ((code, map) in locales) {
-                                putJsonObject(code) {
-                                    putJsonObject("stringUnit") {
-                                        put("state", "translated")
-                                        put("value", androidToIosFormat(map.getValue(key)))
+        val catalog =
+            buildJsonObject {
+                put("sourceLanguage", sourceLanguage)
+                putJsonObject("strings") {
+                    for (key in allKeys) {
+                        putJsonObject(key) {
+                            putJsonObject("localizations") {
+                                val locales =
+                                    localesByCode.entries
+                                        .filter { it.value.containsKey(key) }
+                                        .sortedBy { it.key }
+                                for ((code, map) in locales) {
+                                    putJsonObject(code) {
+                                        putJsonObject("stringUnit") {
+                                            put("state", "translated")
+                                            put("value", androidToIosFormat(map.getValue(key)))
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                put("version", "1.0")
             }
-            put("version", "1.0")
-        }
         return prettyJson.encodeToString(JsonObject.serializer(), catalog) + "\n"
     }
 }

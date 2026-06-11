@@ -5,12 +5,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class LocalizationGeneratorTest {
-    private val en = """
+    private val en =
+        """
         {
           "common": { "add_name": "Add %1${'$'}s", "cancel": "Cancel", "amp": "Tom & Jerry" },
           "admin": { "n_day": "1 day" }
         }
-    """.trimIndent()
+        """.trimIndent()
 
     @Test
     fun `parse flattens nested json to dotted keys`() {
@@ -27,7 +28,8 @@ class LocalizationGeneratorTest {
     fun `android xml uses snake keys, sorted, escaped`() {
         val xml = LocalizationGenerator.androidXml(LocalizationGenerator.parse(en))
         // snake keys (dots -> underscores), alphabetical order, & -> &amp;, %1$s preserved verbatim.
-        val expected = """
+        val expected =
+            """
             <?xml version="1.0" encoding="utf-8"?>
             <resources>
                 <string name="admin_n_day">1 day</string>
@@ -36,7 +38,7 @@ class LocalizationGeneratorTest {
                 <string name="common_cancel">Cancel</string>
             </resources>
 
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(expected, xml)
     }
 
@@ -49,10 +51,11 @@ class LocalizationGeneratorTest {
 
     @Test
     fun `xcstrings uses dotted keys and converts format specifiers`() {
-        val cat = LocalizationGenerator.xcstrings(
-            mapOf("en" to LocalizationGenerator.parse(en)),
-            sourceLanguage = "en",
-        )
+        val cat =
+            LocalizationGenerator.xcstrings(
+                mapOf("en" to LocalizationGenerator.parse(en)),
+                sourceLanguage = "en",
+            )
         assertTrue(cat.contains("\"common.add_name\""), "expected dotted key")
         assertTrue(cat.contains("Add %1$@"), "expected %1\$s -> %1\$@ conversion")
         assertTrue(cat.contains("\"sourceLanguage\": \"en\""), "expected sourceLanguage")
@@ -63,12 +66,15 @@ class LocalizationGeneratorTest {
 
     @Test
     fun `xcstrings is valid json the catalog shape Xcode expects`() {
-        val cat = LocalizationGenerator.xcstrings(
-            mapOf("en" to LocalizationGenerator.parse(en)),
-            sourceLanguage = "en",
-        )
+        val cat =
+            LocalizationGenerator.xcstrings(
+                mapOf("en" to LocalizationGenerator.parse(en)),
+                sourceLanguage = "en",
+            )
         // Parseable JSON with the canonical String Catalog top-level keys.
-        val element = kotlinx.serialization.json.Json.parseToJsonElement(cat)
+        val element =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(cat)
         val obj = element as kotlinx.serialization.json.JsonObject
         assertTrue(obj.containsKey("sourceLanguage"))
         assertTrue(obj.containsKey("strings"))
