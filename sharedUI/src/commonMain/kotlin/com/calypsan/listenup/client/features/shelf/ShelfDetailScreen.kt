@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,17 +24,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -64,10 +68,12 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
+import com.calypsan.listenup.client.presentation.shelf.ShelfBookSort
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfGridWidth
 import com.calypsan.listenup.client.presentation.shelf.shelfGridColumns
+import com.calypsan.listenup.client.presentation.shelf.sortShelfBooks
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_back
@@ -200,6 +206,8 @@ private fun ShelfDetailContent(
     formatDuration: (Long) -> String,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
+    var sort by rememberSaveable { mutableStateOf(ShelfBookSort.ADDED_NEWEST) }
+    val sortedBooks = sortShelfBooks(detail.books, sort)
 
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val gridWidth =
@@ -245,7 +253,11 @@ private fun ShelfDetailContent(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }) {
-            ShelfBooksHeader(count = detail.bookCount)
+            ShelfBooksHeader(
+                sort = sort,
+                onSortChange = { sort = it },
+                showSortPill = detail.books.isNotEmpty(),
+            )
         }
 
         if (detail.books.isEmpty()) {
@@ -253,7 +265,7 @@ private fun ShelfDetailContent(
                 ShelfEmptyState(isOwner = isOwner)
             }
         } else {
-            items(items = detail.books, key = { it.id }) { book ->
+            items(items = sortedBooks, key = { it.id }) { book ->
                 ShelfBookGridItem(book = book, onClick = { onBookClick(book.id) })
             }
         }
@@ -424,9 +436,13 @@ private fun ShelfStatChip(
     }
 }
 
-/** "Books in shelf" title with a tertiary count pill. */
+/** "Books in shelf" title on the left; sort pill on the right (hidden when the shelf is empty). */
 @Composable
-private fun ShelfBooksHeader(count: Int) {
+private fun ShelfBooksHeader(
+    sort: ShelfBookSort,
+    onSortChange: (ShelfBookSort) -> Unit,
+    showSortPill: Boolean,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -437,23 +453,61 @@ private fun ShelfBooksHeader(count: Int) {
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
         )
-        Box(
-            modifier =
-                Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.tertiaryContainer)
-                    .defaultMinSize(minWidth = 28.dp)
-                    .height(26.dp)
-                    .padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center,
+        if (showSortPill) {
+            ShelfSortPill(sort = sort, onSortChange = onSortChange)
+        }
+    }
+}
+
+/** Pill showing the current [ShelfBookSort]; tap to pick another from a dropdown. */
+@Composable
+private fun ShelfSortPill(
+    sort: ShelfBookSort,
+    onSortChange: (ShelfBookSort) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Surface(
+            onClick = { expanded = true },
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
-            Text(
-                text = "$count",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-            )
+            Row(
+                modifier = Modifier.padding(start = 14.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = sort.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            ShelfBookSort.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onSortChange(option)
+                        expanded = false
+                    },
+                    trailingIcon =
+                        if (option == sort) {
+                            { Icon(Icons.Default.Check, contentDescription = null) }
+                        } else {
+                            null
+                        },
+                )
+            }
         }
     }
 }
