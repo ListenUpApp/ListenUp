@@ -82,6 +82,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getLibrarySetupViewModel(): com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel by inject()
+        return viewModel
+    }
+
     fun getAuthSession(): com.calypsan.listenup.client.domain.repository.AuthSession {
         val authSession: com.calypsan.listenup.client.domain.repository.AuthSession by inject()
         return authSession
