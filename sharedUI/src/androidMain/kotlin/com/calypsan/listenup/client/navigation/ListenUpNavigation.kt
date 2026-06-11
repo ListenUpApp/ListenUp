@@ -605,10 +605,12 @@ private fun AuthenticatedNavigation(
                 entryProvider =
                     authenticatedNavEntries(
                         backStack = backStack,
-                        currentShellDestination = currentShellDestination,
+                        // Deferred reads: the entry content reads these inside the Shell composable so
+                        // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
+                        currentShellDestination = { currentShellDestination },
                         onShellDestinationChange = { currentShellDestination = it },
                         nowPlayingViewModel = nowPlayingViewModel,
-                        readiness = readiness,
+                        readiness = { readiness },
                         onSignOut = onSignOut,
                         startupViewModel = startupViewModel,
                         scope = scope,
@@ -638,10 +640,10 @@ private fun AuthenticatedNavigation(
  */
 private fun authenticatedNavEntries(
     backStack: NavBackStack<NavKey>,
-    currentShellDestination: ShellDestination,
+    currentShellDestination: () -> ShellDestination,
     onShellDestinationChange: (ShellDestination) -> Unit,
     nowPlayingViewModel: NowPlayingViewModel,
-    readiness: LibraryReadiness,
+    readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
     startupViewModel: AppStartupViewModel,
     scope: CoroutineScope,
