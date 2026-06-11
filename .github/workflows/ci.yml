@@ -80,6 +80,13 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
+      # Drift gate: regenerates localization artifacts from en.json into memory and
+      # compares against the committed Android strings.xml + iOS Localizable.xcstrings,
+      # failing with a per-file message if en.json was edited without regenerating (or
+      # an artifact was hand-edited).
+      - name: Verify localization artifacts in sync
+        run: ./gradlew :sharedUI:verifyStrings --no-daemon
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :sharedLogic), and the server. :sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.

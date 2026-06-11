@@ -341,11 +341,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/ListenUp/Resources/en.lproj/Localizable.strings",
+				"$(SRCROOT)/ListenUp/Resources/Localizable.xcstrings",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/generate-strings.sh\"\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Set JAVA_HOME to ensure Gradle uses the correct Java version\nexport JAVA_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\n\ncd \"$SRCROOT/..\"\n./gradlew :sharedUI:generateStrings\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
