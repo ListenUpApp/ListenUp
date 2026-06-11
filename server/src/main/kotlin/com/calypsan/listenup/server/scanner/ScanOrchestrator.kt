@@ -204,6 +204,9 @@ internal class ScanOrchestrator(
             .mapNotNull { it.scanner.lastResult() }
             .maxByOrNull { it.durationMs }
 
+    /** Snapshot of every library currently registered with a scanner bundle. */
+    fun registeredLibraryIds(): List<LibraryId> = bundlesByLibrary.keys.toList()
+
     private fun onFileChanged(
         libraryId: LibraryId,
         subtreePath: Path,

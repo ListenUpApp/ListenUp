@@ -12,8 +12,8 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Uniform "done writing" detector across Linux/macOS/Windows.
  *
- * kfswatch translates platform events into a uniform Create/Modify/Delete
- * model, but the *semantics* of those events differ:
+ * The recursive WatchService watcher translates platform events into a uniform
+ * Create/Modify/Delete model, but the *semantics* of those events differ:
  *
  *  - **Linux** (inotify): `IN_CLOSE_WRITE` fires once after the writer's
  *    fd is closed — already a "done writing" signal.
