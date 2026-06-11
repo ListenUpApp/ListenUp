@@ -54,5 +54,5 @@ fun sha256Of(path: Path): String {
             digest.update(buf, 0, n)
         }
     }
-    return digest.digest().joinToString("") { "%02x".format(it) }
+    return digest.digest().toHexString()
 }

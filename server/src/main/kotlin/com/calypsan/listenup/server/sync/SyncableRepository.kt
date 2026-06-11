@@ -438,7 +438,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 val hex =
                     md
                         .digest(joined.toByteArray(Charsets.UTF_8))
-                        .joinToString("") { "%02x".format(it) }
+                        .toHexString()
                 DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
             }
         }
