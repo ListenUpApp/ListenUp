@@ -238,4 +238,76 @@ class SyncRepositoryScanProgressTest :
                 started shouldBe 1_234L
             }
         }
+
+        // The strand: the terminal `ScanEvent.Completed` travels over a replay=0 bus, so a
+        // progress stream that drops or re-establishes mid-scan can miss it — latching the
+        // populating gate (`isServerScanning`) forever. [recoverFromScanStreamEnd] is the
+        // never-stranded recovery run whenever the stream terminates while the initial gate is
+        // still up: confirm the scan really finished (the server's authoritative lastScanResult),
+        // then reconcile + clear + latch. Confirm-then-clear — never strands, never latches early.
+        test("recovery clears the gate when the missed-Completed scan is confirmed finished") {
+            runTest {
+                var scanning = true
+                var progress: ScanProgressState? = ScanProgressState("ANALYZING", 72, 1647, 0, 0, 0)
+                var initialComplete = false
+                var reconciled = false
+
+                recoverFromScanStreamEnd(
+                    isInitialScanComplete = { initialComplete },
+                    isScanning = { scanning },
+                    confirmScanFinished = { true },
+                    reconcile = { reconciled = true },
+                    setScanning = { scanning = it },
+                    setProgress = { progress = it },
+                    markInitialScanComplete = { initialComplete = true },
+                )
+
+                reconciled shouldBe true // pulled the books the missed Completed would have
+                scanning shouldBe false // gate cleared — user escapes the populating screen
+                progress shouldBe null
+                initialComplete shouldBe true // latched so a later incremental can't re-block
+            }
+        }
+
+        test("recovery keeps the gate up when completion is not confirmed (scan still running / server unreachable)") {
+            runTest {
+                var scanning = true
+                var initialComplete = false
+                var reconciled = false
+
+                recoverFromScanStreamEnd(
+                    isInitialScanComplete = { initialComplete },
+                    isScanning = { scanning },
+                    confirmScanFinished = { false },
+                    reconcile = { reconciled = true },
+                    setScanning = { scanning = it },
+                    setProgress = { },
+                    markInitialScanComplete = { initialComplete = true },
+                )
+
+                scanning shouldBe true // genuinely mid-scan — keep the gate, re-subscribe
+                initialComplete shouldBe false
+                reconciled shouldBe false // confirm-first: no wasted catch-up while still scanning
+            }
+        }
+
+        test("recovery is a no-op once the initial population has already latched") {
+            runTest {
+                var reconciled = false
+                var scanningWrites = 0
+
+                recoverFromScanStreamEnd(
+                    isInitialScanComplete = { true },
+                    isScanning = { false },
+                    confirmScanFinished = { true },
+                    reconcile = { reconciled = true },
+                    setScanning = { scanningWrites++ },
+                    setProgress = { },
+                    markInitialScanComplete = { },
+                )
+
+                reconciled shouldBe false
+                scanningWrites shouldBe 0
+            }
+        }
     })
