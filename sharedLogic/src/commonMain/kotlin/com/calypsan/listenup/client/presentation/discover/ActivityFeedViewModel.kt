@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -65,10 +65,9 @@ class ActivityFeedViewModel(
             .map<_, ActivityFeedUiState> { activities ->
                 ActivityFeedUiState.Ready(activities = activities.map { it.toUiModel() })
             }.onStart { emit(ActivityFeedUiState.Loading) }
-            .catch { e ->
-                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+            .fallbackTo { e ->
                 logger.error(e) { "Error observing activity feed" }
-                emit(ActivityFeedUiState.Error("Failed to load activity feed"))
+                ActivityFeedUiState.Error("Failed to load activity feed")
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

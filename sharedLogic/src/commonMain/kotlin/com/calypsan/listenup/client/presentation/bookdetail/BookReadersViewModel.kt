@@ -3,11 +3,10 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.readers.BookReaders
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -63,9 +62,8 @@ class BookReadersViewModel(
                 } else {
                     BookReadersUiState.Data(readers)
                 }
-            }.catch { e ->
-                if (e is CancellationException) throw e
-                emit(BookReadersUiState.Error(isRetryable = true))
+            }.fallbackTo {
+                BookReadersUiState.Error(isRetryable = true)
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),

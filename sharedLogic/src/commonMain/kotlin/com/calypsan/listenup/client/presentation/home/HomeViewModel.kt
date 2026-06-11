@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.currentHourOfDay
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -17,7 +18,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -98,10 +98,10 @@ class HomeViewModel(
     private val continueListeningFlow: Flow<List<ContinueListeningItem>> =
         homeRepository
             .observeContinueListening(CONTINUE_LISTENING_LIMIT)
-            .catch { e ->
+            .fallbackTo { e ->
                 logger.error(e) { "Error observing continue listening" }
                 snackbarChannel.trySend("Failed to load continue listening")
-                emit(emptyList())
+                emptyList()
             }
 
     val state: StateFlow<HomeUiState> =
@@ -122,10 +122,9 @@ class HomeViewModel(
                     scanProgress = scan,
                 )
             ready
-        }.catch { e ->
-            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+        }.fallbackTo { e ->
             logger.error(e) { "Home state pipeline failed" }
-            emit(HomeUiState.Error("Failed to load home screen"))
+            HomeUiState.Error("Failed to load home screen")
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

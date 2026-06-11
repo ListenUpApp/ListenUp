@@ -5,12 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.WeeklyStats
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -51,10 +50,9 @@ class HomeStatsViewModel(
                         topGenres = stats.topGenres,
                     )
                 }
-            }.catch { e ->
-                if (e is CancellationException) throw e
+            }.fallbackTo { e ->
                 logger.error(e) { "Error observing stats" }
-                emit(HomeStatsUiState.Error(isRetryable = true))
+                HomeStatsUiState.Error(isRetryable = true)
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

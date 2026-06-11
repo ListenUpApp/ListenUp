@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.browsegenre
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.api.result.AppResult
@@ -13,7 +14,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -49,10 +49,9 @@ class BrowseGenreViewModel(
                 .observeAll()
                 .map<List<Genre>, BrowseGenreUiState> { genres ->
                     BrowseGenreUiState.Ready(genres = genres)
-                }.catch { e ->
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
-                    logger.error(e) { "Failed to observe genres for browse" }
-                    emit(BrowseGenreUiState.Error(e.message ?: "Failed to load genres"))
+                }.fallbackTo {
+                    logger.error(it) { "Failed to observe genres for browse" }
+                    BrowseGenreUiState.Error(it.message ?: "Failed to load genres")
                 },
             local,
         ) { upstream, l ->

@@ -7,13 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -69,8 +68,8 @@ sealed interface LeaderboardUiState {
  * - Category changes update [category] only — no DB query.
  * - A single `combine` merges the period/snapshot stream with category, so every
  *   render is driven by the same downstream state machine.
- * - Failures re-throw [CancellationException] and emit [LeaderboardUiState.Error]
- *   for everything else so the section never silently hides errors.
+ * - Failures emit [LeaderboardUiState.Error] (via `fallbackTo`, which re-throws
+ *   cancellation) so the section never silently hides errors.
  *
  * @property repo Repository that vends [LeaderboardSnapshot] flows from Room.
  */
@@ -92,9 +91,8 @@ class LeaderboardViewModel(
             } else {
                 LeaderboardUiState.Data(snap, p, cat)
             }
-        }.catch { e ->
-            if (e is CancellationException) throw e
-            emit(LeaderboardUiState.Error(isRetryable = true))
+        }.fallbackTo {
+            LeaderboardUiState.Error(isRetryable = true)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),

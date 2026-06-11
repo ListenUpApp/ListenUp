@@ -548,6 +548,24 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun `continue listening cancellation is not swallowed into a fallback emission`() =
+        runTest {
+            // Regression: the continueListening .catch used to omit the cancellation
+            // rethrow, swallowing CancellationException into an emit(emptyList()).
+            // fallbackTo restores the rethrow by construction, so a cancelling upstream
+            // must NOT collapse into a Ready/empty-list state — it must propagate.
+            val fixture = createFixture()
+            every { fixture.homeRepository.observeContinueListening(any()) } returns
+                flow { throw kotlin.coroutines.cancellation.CancellationException("cancelled") }
+            val viewModel = fixture.build().also { keepStateHot(it) }
+            advanceUntilIdle()
+
+            // State never advanced past the stateIn initial value — the cancelling
+            // upstream did not produce a Ready emission with an empty list.
+            assertIs<HomeUiState.Loading>(viewModel.state.value)
+        }
+
+    @Test
     fun `pipeline failure surfaces Error state`() =
         runTest {
             // Make the combine transform itself throw by failing the greeting
