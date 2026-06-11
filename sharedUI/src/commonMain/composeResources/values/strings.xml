@@ -408,6 +408,12 @@
     <string name="discover_total_time">Total Time</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
     <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they\'ll appear here.</string>
+    <string name="error_auth_session_expired">Your session expired. Please sign in again.</string>
+    <string name="error_conflict">That resource is in use or already exists.</string>
+    <string name="error_forbidden">You don\'t have permission to do that.</string>
+    <string name="error_not_found">Not found.</string>
+    <string name="error_transport_network_unavailable">Can\'t reach the server. Check your connection.</string>
+    <string name="error_transport_timeout">The request took too long. Please try again.</string>
     <string name="home_best_longeststreak">(best: %1$s)</string>
     <string name="home_browse_library">Browse Library</string>
     <string name="home_content_coming_soon">Content sections coming soon</string>
