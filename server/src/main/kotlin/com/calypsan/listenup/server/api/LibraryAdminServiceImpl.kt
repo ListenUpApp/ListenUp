@@ -26,6 +26,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import java.util.UUID
+import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
@@ -55,6 +56,7 @@ internal class LibraryAdminServiceImpl(
     private val libraryFolderRepository: LibraryFolderRepository,
     private val bookRepository: BookRepository,
     private val scanOrchestrator: ScanOrchestrator,
+    private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : LibraryAdminService {
     // ── Observation ──────────────────────────────────────────────────────────
@@ -143,7 +145,7 @@ internal class LibraryAdminServiceImpl(
         val duplicateCheck = checkForDuplicateFolders(request.folderPaths)
         if (duplicateCheck != null) return duplicateCheck
 
-        val now = System.currentTimeMillis()
+        val now = clock.now().toEpochMilliseconds()
         val libraryId = LibraryId(UUID.randomUUID().toString())
         val precedence = request.metadataPrecedence ?: "embedded,abs,sidecar"
 
@@ -213,7 +215,7 @@ internal class LibraryAdminServiceImpl(
             page.items.firstOrNull { it.id == id.value && it.deletedAt == null }
                 ?: return AppResult.Failure(LibraryError.NotFound())
 
-        val now = System.currentTimeMillis()
+        val now = clock.now().toEpochMilliseconds()
         val updated = existing.copy(name = name, updatedAt = now)
         return when (val result = libraryRepository.upsert(updated)) {
             is AppResult.Failure -> AppResult.Failure(result.error)
@@ -295,7 +297,7 @@ internal class LibraryAdminServiceImpl(
         val duplicateCheck = checkForDuplicateFolders(listOf(path))
         if (duplicateCheck != null) return AppResult.Failure((duplicateCheck as AppResult.Failure).error)
 
-        val now = System.currentTimeMillis()
+        val now = clock.now().toEpochMilliseconds()
         val folderId = FolderId(UUID.randomUUID().toString())
         val folderPayload =
             LibraryFolderSyncPayload(
@@ -376,6 +378,7 @@ internal class LibraryAdminServiceImpl(
             libraryFolderRepository = libraryFolderRepository,
             bookRepository = bookRepository,
             scanOrchestrator = scanOrchestrator,
+            clock = clock,
             principal = principal,
         )
 

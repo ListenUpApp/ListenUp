@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -21,6 +22,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlin.time.Instant
 
 class ProfileServiceImplTest :
     FunSpec({
@@ -39,6 +41,29 @@ class ProfileServiceImplTest :
             withInMemoryDatabase {
                 seedTestUser("u1")
                 runTest { svc("u1").getMyProfile().shouldBeInstanceOf<AppResult.Success<Profile>>() }
+            }
+        }
+
+        test("updateMyProfile stamps updatedAt from the injected clock") {
+            withInMemoryDatabase {
+                seedTestUser("u1")
+                runTest {
+                    val fixed = 1_700_000_000_000L
+                    val svc =
+                        ProfileServiceImpl(
+                            db = this@withInMemoryDatabase,
+                            passwordHasher = PasswordHasher(),
+                            publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
+                            clock = FixedClock(Instant.fromEpochMilliseconds(fixed)),
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
+                            },
+                        )
+                    val r = svc.updateMyProfile(UpdateProfileRequest(displayName = "New Name"))
+                    r as AppResult.Success
+                    r.data.updatedAt shouldBe fixed
+                }
             }
         }
 

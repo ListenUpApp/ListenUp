@@ -16,6 +16,7 @@ fun profileModule(avatarsDir: Path): Module =
                 db = get(),
                 passwordHasher = get(),
                 publicProfileMaintainer = get(),
+                clock = get(),
             )
         }
         single { ImageStore(avatarsDir, maxBytes = AVATAR_MAX_BYTES) }

@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -39,6 +40,8 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 class LibraryAdminServiceImplTest :
     FunSpec({
@@ -141,6 +144,21 @@ class LibraryAdminServiceImplTest :
 
                     val libraries = (member.listLibraries() as AppResult.Success).data
                     libraries.flatMap { it.folders }.forEach { it.rootPath.shouldBeNull() }
+                }
+            }
+        }
+
+        test("createLibrary stamps createdAt from the injected clock") {
+            withInMemoryDatabase {
+                val fixed = 1_700_000_000_000L
+                val (service) = makeService(db = this, clock = FixedClock(Instant.fromEpochMilliseconds(fixed)))
+                runTest {
+                    val created =
+                        service.createLibrary(
+                            CreateLibraryRequest(name = "Timed", folderPaths = listOf(createTempDir().absolutePath)),
+                        )
+                    val library = (created as AppResult.Success).data
+                    library.createdAt shouldBe fixed
                 }
             }
         }
@@ -673,6 +691,7 @@ private fun makeService(
     db: Database,
     orchestrator: ScanOrchestrator = noOpOrchestrator(db),
     role: UserRole = UserRole.ADMIN,
+    clock: Clock = Clock.System,
 ): ServiceFixture {
     val bus = ChangeBus()
     val registry = SyncRegistry()
@@ -704,6 +723,7 @@ private fun makeService(
             libraryFolderRepository = folderRepo,
             bookRepository = bookRepo,
             scanOrchestrator = orchestrator,
+            clock = clock,
         ).copyWith(
             PrincipalProvider { UserPrincipal(UserId("caller"), SessionId("s-caller"), role) },
         )
