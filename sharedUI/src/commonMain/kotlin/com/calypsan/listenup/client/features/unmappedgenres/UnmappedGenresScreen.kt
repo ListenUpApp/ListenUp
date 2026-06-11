@@ -42,6 +42,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresUiState
 import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel
 import com.calypsan.listenup.core.GenreId
@@ -72,7 +74,7 @@ fun UnmappedGenresScreen(
     val readyError = (state as? UnmappedGenresUiState.Ready)?.error
     LaunchedEffect(readyError) {
         readyError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
         }
     }
@@ -151,7 +153,7 @@ private fun UnmappedGenresContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = state.message,
+                    text = state.message.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error,
                 )
