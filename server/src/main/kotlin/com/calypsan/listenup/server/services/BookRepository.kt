@@ -41,7 +41,9 @@ import com.calypsan.listenup.server.sync.nextRevision
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
 import java.util.UUID
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Clock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.IColumnType
 import org.jetbrains.exposed.v1.core.IntegerColumnType
@@ -115,28 +117,6 @@ class BookRepository(
         get() = BookId(this.id)
 
     override fun BookSyncPayload.revisionOf(): Long = revision
-
-    /**
-     * Per-book managed covers pending write in [writePayload]. Keyed by book-id string.
-     *
-     * [upsertWithManagedCover] inserts an entry for the target book-id, calls [upsert]
-     * (which calls [writePayload] synchronously inside its transaction), then removes the
-     * entry in a `finally` block — so the map is always leak-free even on failure.
-     *
-     * Using a [java.util.concurrent.ConcurrentHashMap] keyed by book-id eliminates the
-     * data-corruption race that the old `@Volatile` single-field approach had: two
-     * concurrent `upsertFromAnalyzed` calls on DIFFERENT books now have distinct keys
-     * and cannot clobber each other's pending cover.
-     */
-    private val pendingManagedCovers = java.util.concurrent.ConcurrentHashMap<String, StoredCoverInfo>()
-
-    /**
-     * Per-book inbox collection ids (book-id → inbox id) pending an atomic membership write in
-     * [writePayload]'s INSERT branch — stashed by [upsertFromAnalyzed] only for a NEW book and
-     * cleared in a `finally`, mirroring [pendingManagedCovers]. Same-transaction membership
-     * closes the TOCTOU firehose leak (a member's delivery-time `canAccess` sees it quarantined).
-     */
-    private val pendingInboxIds = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /**
      * Reads the book aggregate by id — joins child tables for contributors,
@@ -262,9 +242,10 @@ class BookRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        // Read the managed cover registered by upsertWithManagedCover (null for all other callers).
-        // Do NOT remove here — the finally block in upsertWithManagedCover owns the cleanup.
-        val managedCover = pendingManagedCovers[value.id]
+        // Read per-call extras injected via the coroutine context by upsertFromAnalyzed.
+        // Null for all other callers — same semantics as before, but scoped to the call, not the map.
+        val extras = coroutineContext[BookWriteExtras.Key]
+        val managedCover = extras?.managedCover
 
         if (existed) {
             // Sticky-upload merge: if the existing row carries a user-uploaded cover
@@ -304,7 +285,7 @@ class BookRepository(
             // Atomic inbox quarantine: insertInboxMembership's upsert joins THIS transaction.
             // A stashed inbox id without a wired repo is a misconfiguration — fail loudly rather
             // than silently drop the quarantine (which would re-open the firehose leak).
-            pendingInboxIds[value.id]?.let { inboxId ->
+            extras?.inboxCollectionId?.let { inboxId ->
                 val repo =
                     requireNotNull(collectionBookRepository) {
                         "inbox quarantine requested but CollectionBookRepository is not wired"
@@ -514,13 +495,14 @@ class BookRepository(
             } else {
                 managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
             }
-        // Stash the inbox id ONLY for a new book; writePayload commits the membership atomically.
-        if (isNew && inboxCollectionId != null) pendingInboxIds[bookId.value] = inboxCollectionId
         val result =
-            try {
-                upsertWithManagedCover(payload, managedCover = storedCover)
-            } finally {
-                pendingInboxIds.remove(bookId.value)
+            withContext(
+                BookWriteExtras(
+                    managedCover = storedCover,
+                    inboxCollectionId = if (isNew) inboxCollectionId else null,
+                ),
+            ) {
+                upsert(payload, clientOpId = null)
             }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
@@ -590,31 +572,6 @@ class BookRepository(
      * logging a move; tests assert post-write state).
      */
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
-
-    /**
-     * Calls [upsert] with [managedCover] threaded through [writePayload] via [pendingManagedCovers].
-     *
-     * Inserts the cover into [pendingManagedCovers] under the payload's book-id key, then calls
-     * [upsert] (which calls [writePayload] synchronously within its transaction). The `finally`
-     * block removes the entry unconditionally — guaranteeing no map-entry leak even when [upsert]
-     * throws or is cancelled.
-     *
-     * Using the book-id as key makes concurrent scans of DIFFERENT books safe: each book's cover
-     * lives under its own key and cannot overwrite another book's entry.
-     */
-    private suspend fun upsertWithManagedCover(
-        payload: BookSyncPayload,
-        managedCover: StoredCoverInfo?,
-    ): AppResult<BookSyncPayload> {
-        if (managedCover == null) return upsert(payload, clientOpId = null)
-        val idStr = payload.id
-        pendingManagedCovers[idStr] = managedCover
-        return try {
-            upsert(payload, clientOpId = null)
-        } finally {
-            pendingManagedCovers.remove(idStr)
-        }
-    }
 
     /**
      * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
