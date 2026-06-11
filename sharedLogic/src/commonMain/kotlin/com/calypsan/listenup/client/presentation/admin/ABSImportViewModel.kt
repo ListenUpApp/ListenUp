@@ -4,27 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.core.FileSource
-import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
-import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.SearchApiContract
-import com.calypsan.listenup.client.data.remote.SearchHitResponse
-import com.calypsan.listenup.client.data.remote.UserSearchResult
-import com.calypsan.listenup.client.data.remote.model.ABSBookMatch
-import com.calypsan.listenup.client.data.remote.model.ABSUserMatch
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.presentation.admin.absimport.ready
+import com.calypsan.listenup.client.presentation.admin.absimport.updateReady
 import com.calypsan.listenup.client.presentation.error.userMessageFor
+import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -34,226 +30,6 @@ private const val ANALYSIS_POLL_INTERVAL_MS = 1_500L
 
 private const val MIN_SEARCH_QUERY_LEN = 2
 private const val SEARCH_LIMIT = 10
-
-/**
- * Source type for the ABS backup file.
- */
-enum class ABSSourceType {
-    /** File from user's device (phone/tablet) */
-    LOCAL,
-
-    /** File already on the server */
-    REMOTE,
-}
-
-/**
- * Step in the ABS import wizard.
- */
-enum class ABSImportStep {
-    /** Choose between local file or server file */
-    SOURCE_SELECTION,
-
-    /** Browsing server filesystem (remote mode) */
-    FILE_BROWSER,
-
-    /** Uploading local file to server */
-    UPLOADING,
-
-    /** Analyzing the backup */
-    ANALYZING,
-
-    /** Mapping ABS users to ListenUp users */
-    USER_MAPPING,
-
-    /** Mapping ABS books to ListenUp books */
-    BOOK_MAPPING,
-
-    /** Configuring import options */
-    IMPORT_OPTIONS,
-
-    /** Import in progress */
-    IMPORTING,
-
-    /** Import complete, showing results */
-    RESULTS,
-}
-
-/**
- * Tab selection for user mapping step.
- */
-enum class UserMappingTab {
-    /** Users that need manual mapping */
-    NEEDS_REVIEW,
-
-    /** Auto-matched users for verification */
-    AUTO_MATCHED,
-}
-
-/**
- * Tab selection for book mapping step.
- */
-enum class BookMappingTab {
-    /** Books that need manual mapping */
-    NEEDS_REVIEW,
-
-    /** Auto-matched books for verification */
-    AUTO_MATCHED,
-}
-
-/**
- * Display information for a selected user mapping.
- */
-data class SelectedUserDisplay(
-    val userId: String,
-    val email: String,
-    val displayName: String? = null,
-)
-
-/**
- * Display information for a selected book mapping.
- */
-data class SelectedBookDisplay(
-    val bookId: String,
-    val title: String,
-    val author: String? = null,
-    val durationMs: Long? = null,
-)
-
-/**
- * UI state for the ABS import wizard.
- *
- * Sealed hierarchy:
- * - [Loading] declared for future async-init hooks; the current VM has no initial
- *   load and starts directly in [Ready].
- * - [Ready] carries the full wizard state: the current [ABSImportStep], every
- *   pipeline's inputs/outputs, overlays (`isUploading`, `isAnalyzing`,
- *   `isLoadingDirectories`, `isSearchingUsers`, `isSearchingBooks`, `isImporting`,
- *   plus item-level loading ids), and intent fields (tab selections, active search
- *   ids, search queries, import-option toggles, mapping displays). A transient
- *   `error` field surfaces mutation failures as snackbar-style banners.
- * - [Error] terminal state declared for parity with other W5 migrations; no code
- *   path currently reaches it, since pipeline failures fall back to
- *   [ABSImportStep.SOURCE_SELECTION] with a transient `error` on [Ready].
- *
- * W5 minimal-flatten note: `ABSImportStep` already discriminates the wizard
- * phase and the fields it carries overlap across adjacent steps (e.g. back-nav
- * from `BOOK_MAPPING` consults `usersPending`). Splitting [Ready] into per-step
- * sub-records would duplicate shared data; decomposition is deferred to W6.
- */
-sealed interface ABSImportUiState {
-    data object Loading : ABSImportUiState
-
-    /**
-     * Wizard is interactive. [step] discriminates the current phase; the remaining fields
-     * carry pipeline inputs/outputs, action overlays, and a transient `error` for snackbar
-     * surfacing. See the parent KDoc for the W5 minimal-flatten note.
-     */
-    @Suppress("LongParameterList")
-    data class Ready(
-        val step: ABSImportStep = ABSImportStep.SOURCE_SELECTION,
-        val sourceType: ABSSourceType? = null,
-        // Local file state
-        val selectedLocalFile: SelectedLocalFile? = null,
-        val isUploading: Boolean = false,
-        val uploadProgress: Float = 0f,
-        // Remote file browser state
-        val currentPath: String = "/",
-        val parentPath: String? = null,
-        val directories: List<DirectoryEntryResponse> = emptyList(),
-        val isLoadingDirectories: Boolean = false,
-        val isRoot: Boolean = true,
-        val selectedRemotePath: String = "",
-        // After file is selected/uploaded
-        val backupPath: String = "",
-        val isAnalyzing: Boolean = false,
-        val analysisComplete: Boolean = false,
-        val analyzePhase: String = "",
-        val analyzeCurrent: Int = 0,
-        val analyzeTotal: Int = 0,
-        // Analysis results
-        val summary: String = "",
-        val totalUsers: Int = 0,
-        val totalBooks: Int = 0,
-        val totalSessions: Int = 0,
-        val usersMatched: Int = 0,
-        val usersPending: Int = 0,
-        val booksMatched: Int = 0,
-        val booksPending: Int = 0,
-        val sessionsReady: Int = 0,
-        val sessionsPending: Int = 0,
-        val progressReady: Int = 0,
-        val progressPending: Int = 0,
-        val userMatches: List<ABSUserMatch> = emptyList(),
-        val bookMatches: List<ABSBookMatch> = emptyList(),
-        val analysisWarnings: List<String> = emptyList(),
-        // User/book mappings - ABS ID -> ListenUp ID
-        val userMappings: Map<String, String> = emptyMap(),
-        val bookMappings: Map<String, String> = emptyMap(),
-        // User mapping UI state
-        val userMappingTab: UserMappingTab = UserMappingTab.NEEDS_REVIEW,
-        // Display info for selected users (absUserId -> display info)
-        val selectedUserDisplays: Map<String, SelectedUserDisplay> = emptyMap(),
-        // Inline user search state (for the currently active search field)
-        val activeSearchAbsUserId: String? = null,
-        val userSearchQuery: String = "",
-        val userSearchResults: List<UserSearchResult> = emptyList(),
-        val isSearchingUsers: Boolean = false,
-        // ID of the user result item currently being processed (shows loading spinner)
-        val loadingUserItemId: String? = null,
-        // Book mapping UI state
-        val bookMappingTab: BookMappingTab = BookMappingTab.NEEDS_REVIEW,
-        // Display info for selected books (absItemId -> display info)
-        val selectedBookDisplays: Map<String, SelectedBookDisplay> = emptyMap(),
-        // Inline book search state (for the currently active search field)
-        val activeSearchAbsItemId: String? = null,
-        val bookSearchQuery: String = "",
-        val bookSearchResults: List<SearchHitResponse> = emptyList(),
-        val isSearchingBooks: Boolean = false,
-        // ID of the book result item currently being processed (shows loading spinner)
-        val loadingBookItemId: String? = null,
-        // Import options
-        val importSessions: Boolean = true,
-        val importProgress: Boolean = true,
-        val rebuildProgress: Boolean = true,
-        // Import results
-        val isImporting: Boolean = false,
-        val importResults: ABSImportResults? = null,
-        // Transient mutation-failure error (snackbar/banner).
-        val error: String? = null,
-    ) : ABSImportUiState
-
-    /** Terminal failure state declared for parity with other W5 migrations; not currently reached. */
-    data class Error(
-        val message: String,
-    ) : ABSImportUiState
-}
-
-/**
- * A locally selected file ready for upload.
- *
- * Uses [FileSource] for streaming access to avoid loading the entire file into memory.
- * This is critical for large backup files that could otherwise cause OOM crashes.
- */
-data class SelectedLocalFile(
-    val fileSource: FileSource,
-    val filename: String,
-    val size: Long,
-)
-
-/**
- * Results from the ABS import.
- */
-data class ABSImportResults(
-    val sessionsImported: Int,
-    val sessionsSkipped: Int,
-    val progressImported: Int,
-    val progressSkipped: Int,
-    val eventsCreated: Int,
-    val affectedUsers: Int,
-    val duration: String,
-    val warnings: List<String>,
-    val errors: List<String>,
-)
 
 /**
  * ViewModel for ABS import flow.
@@ -279,7 +55,7 @@ class ABSImportViewModel(
     // === Source Selection ===
 
     fun selectSourceType(type: ABSSourceType) {
-        updateReady { it.copy(sourceType = type, error = null) }
+        state.updateReady { it.copy(sourceType = type, error = null) }
         when (type) {
             ABSSourceType.LOCAL -> {
                 // Stay on source selection, user will pick file via UI
@@ -287,7 +63,7 @@ class ABSImportViewModel(
 
             ABSSourceType.REMOTE -> {
                 // Navigate to file browser and load root
-                updateReady { it.copy(step = ABSImportStep.FILE_BROWSER) }
+                state.updateReady { it.copy(step = ABSImportStep.FILE_BROWSER) }
                 loadDirectory("/")
             }
         }
@@ -307,7 +83,7 @@ class ABSImportViewModel(
         filename: String,
         size: Long,
     ) {
-        updateReady {
+        state.updateReady {
             it.copy(
                 selectedLocalFile = SelectedLocalFile(fileSource, filename, size),
                 error = null,
@@ -319,7 +95,7 @@ class ABSImportViewModel(
      * Clear the selected local file.
      */
     fun clearLocalFile() {
-        updateReady { it.copy(selectedLocalFile = null) }
+        state.updateReady { it.copy(selectedLocalFile = null) }
     }
 
     /**
@@ -332,13 +108,13 @@ class ABSImportViewModel(
         val file = ready.selectedLocalFile ?: return
 
         viewModelScope.launch {
-            updateReady { it.copy(step = ABSImportStep.UPLOADING, isUploading = true, error = null) }
+            state.updateReady { it.copy(step = ABSImportStep.UPLOADING, isUploading = true, error = null) }
 
             when (val result = backupApi.uploadABSBackup(file.fileSource)) {
                 is AppResult.Success -> {
                     val uploadResult = result.data
                     // Proceed to analysis with the returned path
-                    updateReady {
+                    state.updateReady {
                         it.copy(
                             isUploading = false,
                             backupPath = uploadResult.path,
@@ -350,7 +126,7 @@ class ABSImportViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to upload ABS backup: ${result.error.message}" }
-                    updateReady {
+                    state.updateReady {
                         it.copy(
                             step = ABSImportStep.SOURCE_SELECTION,
                             isUploading = false,
@@ -369,12 +145,12 @@ class ABSImportViewModel(
      */
     fun loadDirectory(path: String) {
         viewModelScope.launch {
-            updateReady { it.copy(isLoadingDirectories = true, error = null) }
+            state.updateReady { it.copy(isLoadingDirectories = true, error = null) }
 
             when (val result = backupApi.browseFilesystem(path)) {
                 is AppResult.Success -> {
                     val browseResult = result.data
-                    updateReady {
+                    state.updateReady {
                         it.copy(
                             currentPath = browseResult.path,
                             parentPath = browseResult.parent,
@@ -388,7 +164,7 @@ class ABSImportViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to browse filesystem: ${result.error.message}" }
-                    updateReady {
+                    state.updateReady {
                         it.copy(
                             isLoadingDirectories = false,
                             error = userMessageFor(result.error),
@@ -424,7 +200,7 @@ class ABSImportViewModel(
                 "$currentPath/$filename"
             }
 
-        updateReady { it.copy(selectedRemotePath = fullPath, backupPath = fullPath) }
+        state.updateReady { it.copy(selectedRemotePath = fullPath, backupPath = fullPath) }
         analyzeBackup(fullPath)
     }
 
@@ -432,7 +208,7 @@ class ABSImportViewModel(
      * Set the full remote path directly and proceed to analysis.
      */
     fun setFullRemotePath(path: String) {
-        updateReady { it.copy(selectedRemotePath = path, backupPath = path) }
+        state.updateReady { it.copy(selectedRemotePath = path, backupPath = path) }
         analyzeBackup(path)
     }
 
@@ -441,7 +217,7 @@ class ABSImportViewModel(
     @Suppress("CyclomaticComplexMethod")
     private fun analyzeBackup(path: String) {
         viewModelScope.launch {
-            updateReady {
+            state.updateReady {
                 it.copy(
                     step = ABSImportStep.ANALYZING,
                     isAnalyzing = true,
@@ -473,7 +249,7 @@ class ABSImportViewModel(
                     is AppResult.Failure -> {
                         errorBus.emit(asyncResult.error)
                         logger.error { "Failed to analyze ABS backup: ${asyncResult.error.message}" }
-                        updateReady {
+                        state.updateReady {
                             it.copy(
                                 isAnalyzing = false,
                                 step = ABSImportStep.SOURCE_SELECTION,
@@ -496,7 +272,7 @@ class ABSImportViewModel(
                         is AppResult.Failure -> {
                             errorBus.emit(result.error)
                             logger.error { "Failed to poll analysis status: ${result.error.message}" }
-                            updateReady {
+                            state.updateReady {
                                 it.copy(
                                     isAnalyzing = false,
                                     step = ABSImportStep.SOURCE_SELECTION,
@@ -512,7 +288,7 @@ class ABSImportViewModel(
             var statusResponse = pollStatus(analysisId) ?: return@launch
 
             while (statusResponse.status == "running") {
-                updateReady {
+                state.updateReady {
                     it.copy(
                         analyzePhase = statusResponse.phase,
                         analyzeCurrent = statusResponse.current,
@@ -528,7 +304,7 @@ class ABSImportViewModel(
             if (statusResponse.status == "failed") {
                 val errorMessage = statusResponse.error ?: "Analysis failed"
                 logger.error { "Analysis reported failed status: $errorMessage" }
-                updateReady {
+                state.updateReady {
                     it.copy(
                         isAnalyzing = false,
                         step = ABSImportStep.SOURCE_SELECTION,
@@ -563,7 +339,7 @@ class ABSImportViewModel(
                     else -> ABSImportStep.IMPORT_OPTIONS
                 }
 
-            updateReady {
+            state.updateReady {
                 it.copy(
                     isAnalyzing = false,
                     analysisComplete = true,
@@ -627,7 +403,7 @@ class ABSImportViewModel(
         absUserId: String,
         listenupUserId: String?,
     ) {
-        updateReady { current ->
+        state.updateReady { current ->
             val newMappings = current.userMappings.toMutableMap()
             if (listenupUserId != null) {
                 newMappings[absUserId] = listenupUserId
@@ -642,7 +418,7 @@ class ABSImportViewModel(
         absItemId: String,
         listenupBookId: String?,
     ) {
-        updateReady { current ->
+        state.updateReady { current ->
             val newMappings = current.bookMappings.toMutableMap()
             if (listenupBookId != null) {
                 newMappings[absItemId] = listenupBookId
@@ -659,7 +435,7 @@ class ABSImportViewModel(
      * Set the active tab in the user mapping step.
      */
     fun setUserMappingTab(tab: UserMappingTab) {
-        updateReady { it.copy(userMappingTab = tab) }
+        state.updateReady { it.copy(userMappingTab = tab) }
     }
 
     // === Inline User Search ===
@@ -669,7 +445,7 @@ class ABSImportViewModel(
      * Activates search for that specific user and clears previous search state.
      */
     fun activateUserSearch(absUserId: String) {
-        updateReady {
+        state.updateReady {
             it.copy(
                 activeSearchAbsUserId = absUserId,
                 userSearchQuery = "",
@@ -684,7 +460,7 @@ class ABSImportViewModel(
      * Clears the active search state.
      */
     fun deactivateUserSearch() {
-        updateReady {
+        state.updateReady {
             it.copy(
                 activeSearchAbsUserId = null,
                 userSearchQuery = "",
@@ -698,19 +474,19 @@ class ABSImportViewModel(
      * Update search query for the active user search field.
      */
     fun updateUserSearchQuery(query: String) {
-        updateReady { it.copy(userSearchQuery = query) }
+        state.updateReady { it.copy(userSearchQuery = query) }
 
         if (query.length < MIN_SEARCH_QUERY_LEN) {
-            updateReady { it.copy(userSearchResults = emptyList(), isSearchingUsers = false) }
+            state.updateReady { it.copy(userSearchResults = emptyList(), isSearchingUsers = false) }
             return
         }
 
         viewModelScope.launch {
-            updateReady { it.copy(isSearchingUsers = true) }
+            state.updateReady { it.copy(isSearchingUsers = true) }
             try {
                 when (val result = absImportApi.searchUsers(query, limit = SEARCH_LIMIT)) {
                     is AppResult.Success -> {
-                        updateReady {
+                        state.updateReady {
                             it.copy(
                                 userSearchResults = result.data,
                                 isSearchingUsers = false,
@@ -720,7 +496,7 @@ class ABSImportViewModel(
 
                     is AppResult.Failure -> {
                         logger.error { "User search failed: ${null as Exception?}" }
-                        updateReady {
+                        state.updateReady {
                             it.copy(
                                 userSearchResults = emptyList(),
                                 isSearchingUsers = false,
@@ -733,7 +509,7 @@ class ABSImportViewModel(
             } catch (e: Exception) {
                 errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "User search failed: ${e.message}" }
-                updateReady {
+                state.updateReady {
                     it.copy(
                         userSearchResults = emptyList(),
                         isSearchingUsers = false,
@@ -754,7 +530,7 @@ class ABSImportViewModel(
     ) {
         viewModelScope.launch {
             // Show loading spinner on the tapped result while state propagates
-            updateReady { it.copy(loadingUserItemId = userId) }
+            state.updateReady { it.copy(loadingUserItemId = userId) }
 
             // Store display info for the selected user
             val displayInfo =
@@ -764,7 +540,7 @@ class ABSImportViewModel(
                     displayName = displayName,
                 )
 
-            updateReady { s ->
+            state.updateReady { s ->
                 val newDisplays = s.selectedUserDisplays.toMutableMap()
                 newDisplays[absUserId] = displayInfo
 
@@ -788,7 +564,7 @@ class ABSImportViewModel(
      * Clear the user mapping for an ABS user (allows re-searching).
      */
     fun clearUserMapping(absUserId: String) {
-        updateReady { s ->
+        state.updateReady { s ->
             val newDisplays = s.selectedUserDisplays.toMutableMap()
             newDisplays.remove(absUserId)
 
@@ -808,7 +584,7 @@ class ABSImportViewModel(
      * Set the active tab in the book mapping step.
      */
     fun setBookMappingTab(tab: BookMappingTab) {
-        updateReady { it.copy(bookMappingTab = tab) }
+        state.updateReady { it.copy(bookMappingTab = tab) }
     }
 
     // === Inline Book Search ===
@@ -818,7 +594,7 @@ class ABSImportViewModel(
      * Activates search for that specific book and clears previous search state.
      */
     fun activateBookSearch(absItemId: String) {
-        updateReady {
+        state.updateReady {
             it.copy(
                 activeSearchAbsItemId = absItemId,
                 bookSearchQuery = "",
@@ -833,7 +609,7 @@ class ABSImportViewModel(
      * Clears the active search state.
      */
     fun deactivateBookSearch() {
-        updateReady {
+        state.updateReady {
             it.copy(
                 activeSearchAbsItemId = null,
                 bookSearchQuery = "",
@@ -847,15 +623,15 @@ class ABSImportViewModel(
      * Update search query for the active book search field.
      */
     fun updateBookSearchQuery(query: String) {
-        updateReady { it.copy(bookSearchQuery = query) }
+        state.updateReady { it.copy(bookSearchQuery = query) }
 
         if (query.length < MIN_SEARCH_QUERY_LEN) {
-            updateReady { it.copy(bookSearchResults = emptyList(), isSearchingBooks = false) }
+            state.updateReady { it.copy(bookSearchResults = emptyList(), isSearchingBooks = false) }
             return
         }
 
         viewModelScope.launch {
-            updateReady { it.copy(isSearchingBooks = true) }
+            state.updateReady { it.copy(isSearchingBooks = true) }
             try {
                 val response =
                     searchApi.search(
@@ -868,7 +644,7 @@ class ABSImportViewModel(
                         limit = SEARCH_LIMIT,
                         offset = 0,
                     )
-                updateReady {
+                state.updateReady {
                     it.copy(
                         bookSearchResults = response.hits,
                         isSearchingBooks = false,
@@ -879,7 +655,7 @@ class ABSImportViewModel(
             } catch (e: Exception) {
                 errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Book search failed: ${e.message}" }
-                updateReady {
+                state.updateReady {
                     it.copy(
                         bookSearchResults = emptyList(),
                         isSearchingBooks = false,
@@ -901,7 +677,7 @@ class ABSImportViewModel(
     ) {
         viewModelScope.launch {
             // Show loading spinner on the tapped result while state propagates
-            updateReady { it.copy(loadingBookItemId = bookId) }
+            state.updateReady { it.copy(loadingBookItemId = bookId) }
 
             // Store display info for the selected book
             val displayInfo =
@@ -912,7 +688,7 @@ class ABSImportViewModel(
                     durationMs = durationMs,
                 )
 
-            updateReady { s ->
+            state.updateReady { s ->
                 val newDisplays = s.selectedBookDisplays.toMutableMap()
                 newDisplays[absItemId] = displayInfo
 
@@ -936,7 +712,7 @@ class ABSImportViewModel(
      * Clear the book mapping for an ABS item (allows re-searching).
      */
     fun clearBookMapping(absItemId: String) {
-        updateReady { s ->
+        state.updateReady { s ->
             val newDisplays = s.selectedBookDisplays.toMutableMap()
             newDisplays.remove(absItemId)
 
@@ -953,15 +729,15 @@ class ABSImportViewModel(
     // === Import Options ===
 
     fun setImportSessions(value: Boolean) {
-        updateReady { it.copy(importSessions = value) }
+        state.updateReady { it.copy(importSessions = value) }
     }
 
     fun setImportProgress(value: Boolean) {
-        updateReady { it.copy(importProgress = value) }
+        state.updateReady { it.copy(importProgress = value) }
     }
 
     fun setRebuildProgress(value: Boolean) {
-        updateReady { it.copy(rebuildProgress = value) }
+        state.updateReady { it.copy(rebuildProgress = value) }
     }
 
     // === Navigation ===
@@ -978,7 +754,7 @@ class ABSImportViewModel(
                     }
 
                     ABSSourceType.REMOTE -> {
-                        updateReady { it.copy(step = ABSImportStep.FILE_BROWSER) }
+                        state.updateReady { it.copy(step = ABSImportStep.FILE_BROWSER) }
                         loadDirectory("/")
                     }
 
@@ -1001,14 +777,14 @@ class ABSImportViewModel(
             ABSImportStep.USER_MAPPING -> {
                 // Move to book mapping or import options
                 if (current.booksPending > 0) {
-                    updateReady { it.copy(step = ABSImportStep.BOOK_MAPPING) }
+                    state.updateReady { it.copy(step = ABSImportStep.BOOK_MAPPING) }
                 } else {
-                    updateReady { it.copy(step = ABSImportStep.IMPORT_OPTIONS) }
+                    state.updateReady { it.copy(step = ABSImportStep.IMPORT_OPTIONS) }
                 }
             }
 
             ABSImportStep.BOOK_MAPPING -> {
-                updateReady { it.copy(step = ABSImportStep.IMPORT_OPTIONS) }
+                state.updateReady { it.copy(step = ABSImportStep.IMPORT_OPTIONS) }
             }
 
             ABSImportStep.IMPORT_OPTIONS -> {
@@ -1031,7 +807,7 @@ class ABSImportViewModel(
             ABSImportStep.SOURCE_SELECTION -> { /* Can't go back */ }
 
             ABSImportStep.FILE_BROWSER -> {
-                updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
+                state.updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
             }
 
             ABSImportStep.UPLOADING -> { /* Can't go back during upload */ }
@@ -1039,24 +815,24 @@ class ABSImportViewModel(
             ABSImportStep.ANALYZING -> { /* Can't go back during analysis */ }
 
             ABSImportStep.USER_MAPPING -> {
-                updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
+                state.updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
             }
 
             ABSImportStep.BOOK_MAPPING -> {
                 if (current.usersPending > 0) {
-                    updateReady { it.copy(step = ABSImportStep.USER_MAPPING) }
+                    state.updateReady { it.copy(step = ABSImportStep.USER_MAPPING) }
                 } else {
-                    updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
+                    state.updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
                 }
             }
 
             ABSImportStep.IMPORT_OPTIONS -> {
                 if (current.booksPending > 0) {
-                    updateReady { it.copy(step = ABSImportStep.BOOK_MAPPING) }
+                    state.updateReady { it.copy(step = ABSImportStep.BOOK_MAPPING) }
                 } else if (current.usersPending > 0) {
-                    updateReady { it.copy(step = ABSImportStep.USER_MAPPING) }
+                    state.updateReady { it.copy(step = ABSImportStep.USER_MAPPING) }
                 } else {
-                    updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
+                    state.updateReady { it.copy(step = ABSImportStep.SOURCE_SELECTION) }
                 }
             }
 
@@ -1070,7 +846,7 @@ class ABSImportViewModel(
 
     private fun performImport() {
         viewModelScope.launch {
-            updateReady { it.copy(step = ABSImportStep.IMPORTING, isImporting = true, error = null) }
+            state.updateReady { it.copy(step = ABSImportStep.IMPORTING, isImporting = true, error = null) }
 
             val current = state.value as? ABSImportUiState.Ready ?: return@launch
             when (
@@ -1088,7 +864,7 @@ class ABSImportViewModel(
             ) {
                 is AppResult.Success -> {
                     val importResult = result.data
-                    updateReady {
+                    state.updateReady {
                         it.copy(
                             isImporting = false,
                             step = ABSImportStep.RESULTS,
@@ -1117,7 +893,7 @@ class ABSImportViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to import ABS backup: ${result.error.message}" }
-                    updateReady {
+                    state.updateReady {
                         it.copy(
                             isImporting = false,
                             step = ABSImportStep.IMPORT_OPTIONS,
@@ -1130,16 +906,6 @@ class ABSImportViewModel(
     }
 
     fun clearError() {
-        updateReady { it.copy(error = null) }
-    }
-
-    /**
-     * Apply [transform] to state only if it is currently
-     * [ABSImportUiState.Ready]. No-ops otherwise.
-     */
-    private fun updateReady(transform: (ABSImportUiState.Ready) -> ABSImportUiState.Ready) {
-        state.update { current ->
-            if (current is ABSImportUiState.Ready) transform(current) else current
-        }
+        state.updateReady { it.copy(error = null) }
     }
 }
