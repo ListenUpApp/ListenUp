@@ -4191,6 +4191,16 @@
         }
       }
     },
+    "home.couldnt_load_stats": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load your stats."
+          }
+        }
+      }
+    },
     "home.cover_1": {
       "localizations": {
         "en": {
@@ -4231,6 +4241,16 @@
         }
       }
     },
+    "home.day_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d day streak"
+          }
+        }
+      }
+    },
     "home.greeting": {
       "localizations": {
         "en": {
@@ -4251,12 +4271,32 @@
         }
       }
     },
+    "home.listened": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "listened"
+          }
+        }
+      }
+    },
     "home.my_shelves": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "My shelves"
+          }
+        }
+      }
+    },
+    "home.no_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No listening"
           }
         }
       }
@@ -4317,6 +4357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This Week"
+          }
+        }
+      }
+    },
+    "home.today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
           }
         }
       }
