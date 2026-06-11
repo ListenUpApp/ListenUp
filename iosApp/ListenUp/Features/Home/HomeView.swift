@@ -4,8 +4,11 @@ import SwiftUI
 /// Home ("Listen Now") — the personalized landing screen.
 ///
 /// Reads two native observers: `HomeViewModelWrapper` (greeting, continue-listening, shelves) and
-/// `HomeStatsObserver` (the weekly stats card). Both bind their flows in their own initializers, so
-/// the view just renders the flattened phases and tears the observers down on disappear.
+/// `HomeStatsObserver` (the weekly stats card). Both bind their flows in their own initializers.
+/// Because Home is a persistent tab root, the observers are lazily constructed in `.onAppear` and
+/// kept alive for the screen's lifetime — tearing them down on `.onDisappear` would permanently
+/// cancel their flows when the user pushes a detail and pops back (`@State` keeps the same dead
+/// instances). This mirrors `LibraryView`/`SeriesDetailView`: observation is live whenever visible.
 ///
 /// Layout adapts to width: at compact (iPhone) the screen is a single scrolling column; at regular
 /// (iPad) the content is constrained to a comfortable reading width and the non-hero continue rows
@@ -14,8 +17,8 @@ struct HomeView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var home = HomeViewModelWrapper()
-    @State private var stats = HomeStatsObserver()
+    @State private var home: HomeViewModelWrapper?
+    @State private var stats: HomeStatsObserver?
 
     private var user: User_? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -24,17 +27,15 @@ struct HomeView: View {
     private var contentMaxWidth: CGFloat? { isRegularWidth ? 700 : nil }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                phaseContent
+        Group {
+            if let home, let stats {
+                content(home: home, stats: stats)
+            } else {
+                loadingContent
             }
-            .padding(.vertical, 8)
-            .frame(maxWidth: contentMaxWidth)
-            .frame(maxWidth: .infinity)
         }
         .background(Color(.systemBackground))
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { home.refresh() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: UserProfileDestination()) {
@@ -43,24 +44,38 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
-        .overlay(alignment: .bottom) { snackbarOverlay }
-        .onDisappear {
-            home.stopObserving()
-            stats.stopObserving()
+        .onAppear {
+            if home == nil { home = HomeViewModelWrapper() }
+            if stats == nil { stats = HomeStatsObserver() }
         }
+    }
+
+    // MARK: - Content
+
+    private func content(home: HomeViewModelWrapper, stats: HomeStatsObserver) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                phaseContent(home: home, stats: stats)
+            }
+            .padding(.vertical, 8)
+            .frame(maxWidth: contentMaxWidth)
+            .frame(maxWidth: .infinity)
+        }
+        .refreshable { home.refresh() }
+        .overlay(alignment: .bottom) { snackbarOverlay(home: home) }
     }
 
     // MARK: - Phase
 
     @ViewBuilder
-    private var phaseContent: some View {
+    private func phaseContent(home: HomeViewModelWrapper, stats: HomeStatsObserver) -> some View {
         switch home.phase {
         case .loading:
             loadingContent
         case .ready(let ready):
-            readyContent(ready)
+            readyContent(ready, home: home, stats: stats)
         case .error(let message):
-            errorContent(message)
+            errorContent(message, home: home)
         }
     }
 
@@ -75,8 +90,12 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func readyContent(_ ready: HomeReady) -> some View {
-        HomeHeader(greeting: ready.greeting, userName: ready.userName)
+    private func readyContent(
+        _ ready: HomeReady,
+        home: HomeViewModelWrapper,
+        stats: HomeStatsObserver
+    ) -> some View {
+        HomeHeader(greeting: ready.timeGreeting, userName: ready.userName)
             .padding(.horizontal, 20)
 
         continueSection(ready.continueItems)
@@ -89,7 +108,7 @@ struct HomeView: View {
         }
     }
 
-    private func errorContent(_ message: String) -> some View {
+    private func errorContent(_ message: String, home: HomeViewModelWrapper) -> some View {
         ContentUnavailableView {
             Label(String(localized: "home.couldnt_load"), systemImage: "wifi.exclamationmark")
         } description: {
@@ -150,7 +169,7 @@ struct HomeView: View {
     /// A transient native banner for the VM's snackbar channel — auto-dismisses after a few seconds.
     /// Deliberately not an alert: a snackbar should be unobtrusive and self-clearing.
     @ViewBuilder
-    private var snackbarOverlay: some View {
+    private func snackbarOverlay(home: HomeViewModelWrapper) -> some View {
         if let message = home.snackbar {
             Text(message)
                 .font(.subheadline)

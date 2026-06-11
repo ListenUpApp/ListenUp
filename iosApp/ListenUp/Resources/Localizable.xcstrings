@@ -4151,6 +4151,16 @@
         }
       }
     },
+    "home.best_day_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best: %1$d day streak"
+          }
+        }
+      }
+    },
     "home.best_longeststreak": {
       "localizations": {
         "en": {

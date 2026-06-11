@@ -44,7 +44,7 @@ struct HomeStatsCard: View {
             header(listenTimeLabel: data.listenTimeLabel)
 
             if data.hasStreak {
-                StreakBadge(currentStreak: data.currentStreak)
+                StreakBadge(currentStreak: data.currentStreak, longestStreak: data.longestStreak)
             }
 
             DailyListeningChart(days: data.days, maxDaySeconds: data.maxDaySeconds)
@@ -124,6 +124,7 @@ extension HomeStatsData {
     init(
         listenTimeLabel: String,
         currentStreak: Int,
+        longestStreak: Int,
         hasStreak: Bool,
         days: [DayBar],
         maxDaySeconds: Int,
@@ -132,6 +133,7 @@ extension HomeStatsData {
     ) {
         self.listenTimeLabel = listenTimeLabel
         self.currentStreak = currentStreak
+        self.longestStreak = longestStreak
         self.hasStreak = hasStreak
         self.days = days
         self.maxDaySeconds = maxDaySeconds
@@ -144,6 +146,7 @@ extension HomeStatsData {
     let sample = HomeStatsData(
         listenTimeLabel: "8h 12m",
         currentStreak: 7,
+        longestStreak: 14,
         hasStreak: true,
         days: [
             DayBar(dayOffset: 6, seconds: 1_800),

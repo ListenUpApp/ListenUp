@@ -71,14 +71,17 @@ enum HomePhase: Equatable {
 
 /// Everything the Home screen renders when `HomeUiState.Ready` is active.
 struct HomeReady: Equatable {
-    let greeting: String
+    /// The bare time-of-day greeting ("Good evening") — *not* combined with the name. The KMP
+    /// `Ready.greeting` getter appends the name; the header renders the name separately as a hero,
+    /// so we map the bare `timeGreeting` here to avoid showing the name twice.
+    let timeGreeting: String
     let userName: String
     let continueItems: [ContinueItem]
     let shelves: [ShelfItem]
     let isSyncing: Bool
 
     init(from ready: HomeUiStateReady) {
-        self.greeting = ready.greeting
+        self.timeGreeting = ready.timeGreeting
         self.userName = ready.userName
         self.continueItems = ready.continueListening.map(ContinueItem.init(from:))
         self.shelves = ready.myShelves.map(ShelfItem.init(from:))

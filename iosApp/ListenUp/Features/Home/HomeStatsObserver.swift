@@ -60,6 +60,7 @@ enum StatsPhase: Equatable {
 struct HomeStatsData: Equatable {
     let listenTimeLabel: String
     let currentStreak: Int
+    let longestStreak: Int
     let hasStreak: Bool
     let days: [DayBar]
     let maxDaySeconds: Int
@@ -69,6 +70,7 @@ struct HomeStatsData: Equatable {
     init(from data: HomeStatsUiStateData) {
         self.listenTimeLabel = data.formattedListenTime
         self.currentStreak = Int(data.currentStreakDays)
+        self.longestStreak = Int(data.longestStreakDays)
         self.hasStreak = data.hasStreak
         self.days = data.dailyBuckets.map {
             DayBar(dayOffset: Int($0.dayOffsetFromToday), seconds: Int($0.totalSeconds))

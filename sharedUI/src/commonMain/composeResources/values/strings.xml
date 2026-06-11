@@ -415,6 +415,7 @@
     <string name="error_not_found">Not found.</string>
     <string name="error_transport_network_unavailable">Can\'t reach the server. Check your connection.</string>
     <string name="error_transport_timeout">The request took too long. Please try again.</string>
+    <string name="home_best_day_streak">Best: %1$d day streak</string>
     <string name="home_best_longeststreak">(best: %1$s)</string>
     <string name="home_browse_library">Browse Library</string>
     <string name="home_continue_listening">Continue listening</string>
