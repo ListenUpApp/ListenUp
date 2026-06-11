@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
@@ -131,11 +132,7 @@ internal class TagServiceImpl(
     ): AppResult<Tag> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         // Validate name.
-        val slug =
-            when (val slugResult = TagSlug.normalize(name)) {
-                is AppResult.Success -> slugResult.data
-                is AppResult.Failure -> return AppResult.Failure(slugResult.error)
-            }
+        val slug = TagSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
         // Verify book exists.
         if (!bookExists(bookId.value)) {
@@ -154,10 +151,7 @@ internal class TagServiceImpl(
                             revision = 0L,
                             updatedAt = clock.now().toEpochMilliseconds(),
                         )
-                    when (val result = tagRepository.upsert(newTag)) {
-                        is AppResult.Success -> result.data
-                        is AppResult.Failure -> return AppResult.Failure(result.error)
-                    }
+                    tagRepository.upsert(newTag).getOrElse { return AppResult.Failure(it) }
                 }
 
         // Upsert the junction row (re-adding a previously removed tag clears deletedAt).

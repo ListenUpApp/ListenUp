@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
@@ -178,11 +179,7 @@ internal class GenreServiceImpl(
     ): AppResult<GenreId> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         // 1. Slug normalization owns blank/empty-after-normalize validation.
-        val slug =
-            when (val slugResult = GenreSlug.normalize(name)) {
-                is AppResult.Success -> slugResult.data
-                is AppResult.Failure -> return AppResult.Failure(slugResult.error)
-            }
+        val slug = GenreSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
         // 2. Lookup parent (if provided); reject when missing or tombstoned.
         val parent: GenreSyncPayload? =

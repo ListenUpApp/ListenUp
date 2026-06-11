@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
@@ -139,11 +140,7 @@ internal class CollectionServiceImpl(
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )
-        val saved =
-            when (val result = collectionRepo.upsert(payload)) {
-                is AppResult.Success -> result.data
-                is AppResult.Failure -> return AppResult.Failure(result.error)
-            }
+        val saved = collectionRepo.upsert(payload).getOrElse { return AppResult.Failure(it) }
         return AppResult.Success(summarize(saved, caller))
     }
 
@@ -162,11 +159,7 @@ internal class CollectionServiceImpl(
 
         val existing = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
         val updated = existing.copy(name = trimmed, updatedAt = clock.now().toEpochMilliseconds())
-        val saved =
-            when (val result = collectionRepo.upsert(updated)) {
-                is AppResult.Success -> result.data
-                is AppResult.Failure -> return AppResult.Failure(result.error)
-            }
+        val saved = collectionRepo.upsert(updated).getOrElse { return AppResult.Failure(it) }
         return AppResult.Success(summarize(saved, caller, decision))
     }
 
@@ -449,11 +442,7 @@ internal class CollectionServiceImpl(
     ): AppResult<Unit> {
         if (!bookExists(bookId)) return AppResult.Failure(CollectionError.BookNotFound())
 
-        val inbox =
-            when (val result = getOrCreateInbox(libraryId)) {
-                is AppResult.Success -> result.data
-                is AppResult.Failure -> return AppResult.Failure(result.error)
-            }
+        val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
 
         val payload =
             CollectionBookSyncPayload(
@@ -487,11 +476,7 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
 
-        val inbox =
-            when (val result = getOrCreateInbox(libraryId)) {
-                is AppResult.Success -> result.data
-                is AppResult.Failure -> return AppResult.Failure(result.error)
-            }
+        val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
         val inboxId = inbox.id.value
 
         // Validate every distinct target collection up front — exists, live, same library —
