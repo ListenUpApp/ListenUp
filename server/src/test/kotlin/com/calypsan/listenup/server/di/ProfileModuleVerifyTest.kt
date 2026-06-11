@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import java.nio.file.Files
+import kotlin.time.Clock
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 
@@ -25,6 +26,7 @@ class ProfileModuleVerifyTest :
                                     single { db }
                                     single { PasswordHasher() }
                                     single { db.noOpPublicProfileMaintainer() }
+                                    single<Clock> { Clock.System }
                                 },
                                 profileModule(avatarsDir),
                             )

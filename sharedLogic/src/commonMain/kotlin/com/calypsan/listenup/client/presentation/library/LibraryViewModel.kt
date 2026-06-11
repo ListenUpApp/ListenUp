@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -26,7 +27,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -112,31 +112,27 @@ class LibraryViewModel(
         combine(
             bookRepository
                 .observeBookListItems()
-                .catch { e ->
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                .fallbackTo { e ->
                     logger.error(e) { "observeBookListItems failed; emitting empty list" }
-                    emit(emptyList())
+                    emptyList()
                 },
             seriesRepository
                 .observeAllWithBooks()
-                .catch { e ->
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                .fallbackTo { e ->
                     logger.error(e) { "observeAllWithBooks failed; emitting empty list" }
-                    emit(emptyList())
+                    emptyList()
                 },
             contributorRepository
                 .observeContributorsByRole(ContributorRole.AUTHOR.apiValue)
-                .catch { e ->
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                .fallbackTo { e ->
                     logger.error(e) { "observeContributorsByRole(AUTHOR) failed; emitting empty list" }
-                    emit(emptyList())
+                    emptyList()
                 },
             contributorRepository
                 .observeContributorsByRole(ContributorRole.NARRATOR.apiValue)
-                .catch { e ->
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                .fallbackTo { e ->
                     logger.error(e) { "observeContributorsByRole(NARRATOR) failed; emitting empty list" }
-                    emit(emptyList())
+                    emptyList()
                 },
             ::RawContent,
         ).shareIn(
@@ -150,10 +146,9 @@ class LibraryViewModel(
             rawContent,
             playbackPositionRepository
                 .observeAll()
-                .catch { e ->
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                .fallbackTo { e ->
                     logger.error(e) { "observeAll(positions) failed; emitting empty map" }
-                    emit(emptyMap())
+                    emptyMap()
                 },
         ) { content, positions ->
             computeProgress(content.books, positions)
@@ -178,10 +173,9 @@ class LibraryViewModel(
             val loaded: LibraryUiState =
                 buildLoaded(intentValue, content, progress, sync, selection)
             loaded
-        }.catch { e ->
-            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+        }.fallbackTo { e ->
             logger.error(e) { "Library state pipeline failed" }
-            emit(LibraryUiState.Error("Failed to load library"))
+            LibraryUiState.Error("Failed to load library")
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

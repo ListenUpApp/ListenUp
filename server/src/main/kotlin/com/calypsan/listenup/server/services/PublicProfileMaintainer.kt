@@ -5,8 +5,8 @@ import com.calypsan.listenup.server.db.ListeningEventTable
 import com.calypsan.listenup.server.db.UserStatsTable
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.sync.PublicProfileRepository
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -90,26 +90,22 @@ class PublicProfileMaintainer(
      * where the projection write is intentionally atomic with the stats write).
      */
     suspend fun refreshBestEffort(userId: String) {
-        try {
-            refresh(userId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
-        }
+        runCatchingCancellable { refresh(userId) }
+            .onFailure {
+                logger.warn(
+                    it,
+                ) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
+            }
     }
 
     /** Best-effort [tombstone]; see [refreshBestEffort]. */
     suspend fun tombstoneBestEffort(userId: String) {
-        try {
-            tombstone(userId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(
-                e,
-            ) { "public_profiles tombstone failed for $userId; projection will self-heal on next backfill" }
-        }
+        runCatchingCancellable { tombstone(userId) }
+            .onFailure {
+                logger.warn(
+                    it,
+                ) { "public_profiles tombstone failed for $userId; projection will self-heal on next backfill" }
+            }
     }
 
     /**

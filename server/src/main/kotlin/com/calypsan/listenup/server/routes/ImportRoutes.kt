@@ -32,6 +32,7 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import kotlin.io.path.outputStream
 import kotlin.io.path.writeText
+import kotlin.time.Clock
 
 /**
  * REST route for binary Audiobookshelf-backup upload (staging only).
@@ -56,11 +57,14 @@ import kotlin.io.path.writeText
  *  - A zip with no `absdatabase.sqlite` is rejected with 422 and the partial import dir is removed.
  *  - The temp upload zip is always cleaned up in a `finally` block.
  */
-fun Route.importRoutes(paths: ImportPaths) {
+fun Route.importRoutes(
+    paths: ImportPaths,
+    clock: Clock = Clock.System,
+) {
     post("/api/v1/admin/imports/abs/upload") {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         if (!p.role.isImportAdmin()) return@post call.respondImportAppError(AuthError.PermissionDenied())
-        call.handleImportUpload(paths)
+        call.handleImportUpload(paths, clock)
     }
 }
 
@@ -69,7 +73,10 @@ fun Route.importRoutes(paths: ImportPaths) {
  * a fresh import directory, and responds an [ImportSummary]. The temp zip is always removed in a
  * `finally`; on any failure the partial import directory is removed too.
  */
-private suspend fun ApplicationCall.handleImportUpload(paths: ImportPaths) {
+private suspend fun ApplicationCall.handleImportUpload(
+    paths: ImportPaths,
+    clock: Clock,
+) {
     paths.ensureDirs()
     // Stream the upload to a temp file — never buffer a multi-hundred-MB ABS backup into memory.
     val tmpZip = Files.createTempFile(paths.tmpDir, "abs-upload-", ".audiobookshelf")
@@ -94,14 +101,15 @@ private suspend fun ApplicationCall.handleImportUpload(paths: ImportPaths) {
         Files.createDirectories(importDir)
         try {
             extractAbsDatabase(tmpZip, importDir, paths.absDbFor(importId))
+            val createdAt = clock.now().toEpochMilliseconds()
             paths.metaFor(importId).writeText(
-                metaJson.encodeToString(UploadMeta(createdAt = System.currentTimeMillis())),
+                metaJson.encodeToString(UploadMeta(createdAt = createdAt)),
             )
             respond(
                 HttpStatusCode.OK,
                 ImportSummary(
                     id = ImportId(importId),
-                    createdAt = System.currentTimeMillis(),
+                    createdAt = createdAt,
                     status = ImportStatus.UPLOADED,
                     bookCount = 0,
                     userCount = 0,

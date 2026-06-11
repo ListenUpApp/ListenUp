@@ -9,6 +9,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import java.io.IOException
+import kotlin.text.HexFormat
 
 /**
  * Public entry point for the embedded-metadata parser.
@@ -57,7 +58,7 @@ internal class EmbeddedMetadataParser(
                     return@use AppResult.Failure(
                         AudioMetadataError.UnsupportedFormat(
                             pathString = path.toString(),
-                            detectedMagic = head.take(MAGIC_HEX_BYTES).joinToString("") { "%02X".format(it) },
+                            detectedMagic = head.copyOf(MAGIC_HEX_BYTES).toHexString(HexFormat.UpperCase),
                             format = null,
                         ),
                     )
@@ -68,7 +69,7 @@ internal class EmbeddedMetadataParser(
                     return@use AppResult.Failure(
                         AudioMetadataError.UnsupportedFormat(
                             pathString = path.toString(),
-                            detectedMagic = head.take(MAGIC_HEX_BYTES).joinToString("") { "%02X".format(it) },
+                            detectedMagic = head.copyOf(MAGIC_HEX_BYTES).toHexString(HexFormat.UpperCase),
                             format = format,
                         ),
                     )

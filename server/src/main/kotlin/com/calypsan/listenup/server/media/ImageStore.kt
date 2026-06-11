@@ -126,7 +126,7 @@ class ImageStore(
             b[WEBP_OFFSET_10] == WEBP_SIG_10 && b[WEBP_OFFSET_11] == WEBP_SIG_11
 
     private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance(SHA256_ALGORITHM).digest(bytes).joinToString("") { "%02x".format(it) }
+        MessageDigest.getInstance(SHA256_ALGORITHM).digest(bytes).toHexString()
 
     private companion object {
         const val MIN_SNIFF_BYTES = 4

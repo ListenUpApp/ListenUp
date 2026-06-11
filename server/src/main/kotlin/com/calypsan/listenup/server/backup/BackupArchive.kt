@@ -220,8 +220,8 @@ class BackupArchive(
         }
 
         return ImageDigests(
-            covers = coversDigest.digest().joinToString("") { "%02x".format(it) },
-            avatars = avatarsDigest.digest().joinToString("") { "%02x".format(it) },
+            covers = coversDigest.digest().toHexString(),
+            avatars = avatarsDigest.digest().toHexString(),
         )
     }
 
@@ -322,7 +322,7 @@ class BackupArchive(
         val digest = newSha256()
 
         if (!Files.exists(dir)) {
-            return digest.digest().joinToString("") { "%02x".format(it) }
+            return digest.digest().toHexString()
         }
 
         val allFiles =
@@ -349,7 +349,7 @@ class BackupArchive(
             onEvent(BackupEvent.ImagesCopying(done = index + 1, total = total))
         }
 
-        return digest.digest().joinToString("") { "%02x".format(it) }
+        return digest.digest().toHexString()
     }
 
     private data class ImageDigests(
@@ -396,7 +396,7 @@ class BackupArchive(
                 if (n < 0) break
                 digest.update(buf, 0, n)
             }
-            return digest.digest().joinToString("") { "%02x".format(it) }
+            return digest.digest().toHexString()
         }
     }
 }

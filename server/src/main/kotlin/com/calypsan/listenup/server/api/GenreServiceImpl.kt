@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
@@ -22,9 +23,9 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
 import com.calypsan.listenup.server.sync.BookSearchReindexer
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
-import kotlin.coroutines.cancellation.CancellationException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
@@ -178,11 +179,7 @@ internal class GenreServiceImpl(
     ): AppResult<GenreId> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         // 1. Slug normalization owns blank/empty-after-normalize validation.
-        val slug =
-            when (val slugResult = GenreSlug.normalize(name)) {
-                is AppResult.Success -> slugResult.data
-                is AppResult.Failure -> return AppResult.Failure(slugResult.error)
-            }
+        val slug = GenreSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
         // 2. Lookup parent (if provided); reject when missing or tombstoned.
         val parent: GenreSyncPayload? =
@@ -245,13 +242,8 @@ internal class GenreServiceImpl(
                 }
             }
         if (outcome.result is AppResult.Success && outcome.nameChanged) {
-            try {
-                reindexer.reindexAllBooksForGenre(id.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed after rename of genre ${id.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
+                .onFailure { logger.warn(it) { "FTS reindex failed after rename of genre ${id.value}" } }
         }
         return outcome.result
     }
@@ -289,13 +281,8 @@ internal class GenreServiceImpl(
                 }
             }
         if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForGenre(id.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed during delete of genre ${id.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
+                .onFailure { logger.warn(it) { "FTS reindex failed during delete of genre ${id.value}" } }
         }
         return result
     }
@@ -325,13 +312,8 @@ internal class GenreServiceImpl(
                 }
             }
         if (outcome.result is AppResult.Success && outcome.oldPathPrefix != null) {
-            try {
-                reindexer.reindexAllBooksForSubtree(outcome.oldPathPrefix)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed after moveGenre id=${id.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForSubtree(outcome.oldPathPrefix) }
+                .onFailure { logger.warn(it) { "FTS reindex failed after moveGenre id=${id.value}" } }
         }
         return outcome.result
     }
@@ -380,13 +362,12 @@ internal class GenreServiceImpl(
                 }
             }
         if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForGenre(target.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForGenre(target.value) }
+                .onFailure {
+                    logger.warn(
+                        it,
+                    ) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
+                }
         }
         return result
     }
@@ -441,13 +422,12 @@ internal class GenreServiceImpl(
                 reupsertBooks(affectedBookIds)
             }
         if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForGenre(genreId.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
-            }
+            runCatchingCancellable { reindexer.reindexAllBooksForGenre(genreId.value) }
+                .onFailure {
+                    logger.warn(
+                        it,
+                    ) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
+                }
         }
         return result
     }

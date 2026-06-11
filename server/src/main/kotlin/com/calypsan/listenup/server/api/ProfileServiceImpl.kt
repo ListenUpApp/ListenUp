@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import kotlin.time.Clock
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -33,6 +34,7 @@ internal class ProfileServiceImpl(
     private val db: Database,
     private val passwordHasher: PasswordHasher,
     private val publicProfileMaintainer: PublicProfileMaintainer,
+    private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ProfileService {
     override suspend fun getMyProfile(): AppResult<Profile> {
@@ -67,7 +69,7 @@ internal class ProfileServiceImpl(
                 request.displayName?.let { u.displayName = it }
                 request.tagline?.let { u.tagline = it }
                 request.avatarType?.let { u.avatarType = it }
-                u.updatedAt = System.currentTimeMillis()
+                u.updatedAt = clock.now().toEpochMilliseconds()
                 AppResult.Success(u.toProfile())
             }
         // Refresh the projection after the user-row write commits — reads back from DB.
@@ -81,6 +83,7 @@ internal class ProfileServiceImpl(
             db = db,
             passwordHasher = passwordHasher,
             publicProfileMaintainer = publicProfileMaintainer,
+            clock = clock,
             principal = principal,
         )
 

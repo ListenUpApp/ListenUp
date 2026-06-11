@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
@@ -17,7 +18,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -81,10 +81,9 @@ class DiscoverViewModel(
             .map<_, CurrentlyListeningUiState> { sessions ->
                 CurrentlyListeningUiState.Ready(sessions = sessions.map { it.toUiModel() })
             }.onStart { emit(CurrentlyListeningUiState.Loading) }
-            .catch { e ->
-                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+            .fallbackTo { e ->
                 logger.error(e) { "Error observing currently listening" }
-                emit(CurrentlyListeningUiState.Error("Failed to load currently listening"))
+                CurrentlyListeningUiState.Error("Failed to load currently listening")
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -127,10 +126,9 @@ class DiscoverViewModel(
                     val books = bookRepository.observeRandomUnstartedBooks(limit = 10).first()
                     emit(DiscoverBooksUiState.Ready(books = books.map { it.toDiscoverUiBook() }))
                 }
-            }.catch { e ->
-                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+            }.fallbackTo { e ->
                 logger.error(e) { "Error loading discover books" }
-                emit(DiscoverBooksUiState.Error("Failed to load discover books"))
+                DiscoverBooksUiState.Error("Failed to load discover books")
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -162,10 +160,9 @@ class DiscoverViewModel(
             .map<_, RecentlyAddedUiState> { books ->
                 RecentlyAddedUiState.Ready(books = books.map { it.toRecentlyAddedUiBook() })
             }.onStart { emit(RecentlyAddedUiState.Loading) }
-            .catch { e ->
-                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+            .fallbackTo { e ->
                 logger.error(e) { "Error observing recently added books" }
-                emit(RecentlyAddedUiState.Error("Failed to load recently added"))
+                RecentlyAddedUiState.Error("Failed to load recently added")
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

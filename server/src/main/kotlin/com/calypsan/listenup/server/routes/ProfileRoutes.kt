@@ -17,6 +17,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.toByteArray
 import java.nio.file.Files
+import kotlin.time.Clock
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -36,6 +37,7 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
 fun Route.profileRoutes(
     db: Database,
     imageStore: ImageStore,
+    clock: Clock = Clock.System,
 ) {
     post("/api/v1/profile/avatar") {
         val principal = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
@@ -68,7 +70,7 @@ fun Route.profileRoutes(
         suspendTransaction(db) {
             UserEntity.findById(userId)?.apply {
                 avatarType = AVATAR_TYPE_IMAGE
-                updatedAt = System.currentTimeMillis()
+                updatedAt = clock.now().toEpochMilliseconds()
             }
         }
         call.respond(HttpStatusCode.NoContent)

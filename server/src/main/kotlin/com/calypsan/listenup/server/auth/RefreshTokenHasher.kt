@@ -33,10 +33,8 @@ class RefreshTokenHasher(
     fun hash(token: String): String {
         val mac = Mac.getInstance(HMAC_ALGORITHM).apply { init(key) }
         val digest = mac.doFinal(token.toByteArray(Charsets.UTF_8))
-        return digest.toHex()
+        return digest.toHexString()
     }
-
-    private fun ByteArray.toHex(): String = joinToString("") { byte -> "%02x".format(byte) }
 
     companion object {
         private const val HMAC_ALGORITHM = "HmacSHA256"
