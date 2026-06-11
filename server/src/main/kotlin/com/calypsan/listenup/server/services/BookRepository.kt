@@ -31,7 +31,6 @@ import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.ManagedCoverFiles
-import com.calypsan.listenup.server.cover.StoredCoverInfo
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SqlFragment
@@ -52,10 +51,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.max
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.batchInsert
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -108,6 +104,9 @@ class BookRepository(
     BookIngestPort {
     /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
     private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
+
+    /** Book-row + child-table write mechanics (transaction-scoped, no revision/bus calls). */
+    private val bookAggregateWriter = BookAggregateWriter()
 
     override val elementSerializer: KSerializer<BookSyncPayload> = BookSyncPayload.serializer()
 
@@ -261,7 +260,7 @@ class BookRepository(
             val isUploadedLocked = existingCoverSource == CoverSource.UPLOADED.name.lowercase()
 
             BookTable.update({ BookTable.id eq value.id }) { stmt ->
-                applyBookFields(stmt, value, preserveCoverColumns = isUploadedLocked, managedCover = managedCover)
+                bookAggregateWriter.applyBookFields(stmt, value, preserveCoverColumns = isUploadedLocked, managedCover = managedCover)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.updatedAt] = now
                 stmt[BookTable.deletedAt] = null
@@ -275,7 +274,7 @@ class BookRepository(
                 // source of truth here.
                 stmt[BookTable.libraryId] = value.libraryId.value
                 stmt[BookTable.folderId] = value.folderId.value
-                applyBookFields(stmt, value, preserveCoverColumns = false, managedCover = managedCover)
+                bookAggregateWriter.applyBookFields(stmt, value, preserveCoverColumns = false, managedCover = managedCover)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now
                 stmt[BookTable.updatedAt] = now
@@ -294,10 +293,10 @@ class BookRepository(
             }
         }
 
-        replaceContributors(value.id, value.contributors)
-        replaceSeries(value.id, value.series)
-        replaceChapters(value.id, value.chapters)
-        replaceAudioFiles(value.id, value.audioFiles)
+        bookAggregateWriter.replaceContributors(value.id, value.contributors)
+        bookAggregateWriter.replaceSeries(value.id, value.series)
+        bookAggregateWriter.replaceChapters(value.id, value.chapters)
+        bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         upsertFtsRow(value)
     }
 
@@ -753,150 +752,6 @@ class BookRepository(
             }
             matches.firstOrNull()?.let { BookId(it) }
         }
-
-    /**
-     * Writes the book's scalar fields to [stmt].
-     *
-     * [preserveCoverColumns] skips writing the three cover columns (source, path, hash) when
-     * true — used by the sticky-upload merge in [writePayload] to protect a user-uploaded cover
-     * from being clobbered on re-scan. For INSERT ([existed] = false) this is always false.
-     *
-     * [managedCover] supplies the cover provenance when a managed file was written at scan time.
-     * When non-null (and [preserveCoverColumns] is false), the managed columns — source, path,
-     * and hash — are written in the same statement, making the scan a single atomic write.
-     * When null, legacy behaviour applies: source/hash come from [p]'s cover payload and
-     * [BookTable.coverPath] is set to null (managed path is handled by [setManagedCover]).
-     */
-    private fun applyBookFields(
-        stmt: UpdateBuilder<*>,
-        p: BookSyncPayload,
-        preserveCoverColumns: Boolean = false,
-        managedCover: StoredCoverInfo? = null,
-    ) {
-        stmt[BookTable.title] = p.title
-        stmt[BookTable.sortTitle] = p.sortTitle
-        stmt[BookTable.subtitle] = p.subtitle
-        stmt[BookTable.description] = p.description
-        stmt[BookTable.publishYear] = p.publishYear
-        stmt[BookTable.publisher] = p.publisher
-        stmt[BookTable.language] = p.language
-        stmt[BookTable.isbn] = p.isbn
-        stmt[BookTable.asin] = p.asin
-        stmt[BookTable.abridged] = p.abridged
-        stmt[BookTable.explicit] = p.explicit
-        stmt[BookTable.hasScanWarning] = p.hasScanWarning
-        stmt[BookTable.totalDuration] = p.totalDuration
-        if (!preserveCoverColumns) {
-            if (managedCover != null) {
-                // Single-write path: scan-time managed cover lands in the same statement.
-                stmt[BookTable.coverSource] = managedCover.source.name.lowercase()
-                stmt[BookTable.coverPath] = managedCover.relPath
-                stmt[BookTable.coverHash] = managedCover.hash
-            } else {
-                stmt[BookTable.coverSource] =
-                    p.cover
-                        ?.source
-                        ?.name
-                        ?.lowercase()
-                // coverPath is managed by setManagedCover (not set here) — the wire DTO
-                // never carries a managed path for scan-produced payloads.
-                stmt[BookTable.coverPath] = null
-                stmt[BookTable.coverHash] = p.cover?.hash
-            }
-        }
-        stmt[BookTable.rootRelPath] = p.rootRelPath
-        stmt[BookTable.inode] = p.inode
-        stmt[BookTable.scannedAt] = p.scannedAt
-    }
-
-    /**
-     * Replaces this book's contributor junction rows. The caller MUST supply a
-     * payload whose contributor ids already exist in [ContributorTable] —
-     * `upsertFromAnalyzed` satisfies this by resolving every contributor through
-     * [ContributorRepository.resolveOrCreate] before calling `upsert`.
-     */
-    private fun replaceContributors(
-        bookId: String,
-        contributors: List<BookContributorPayload>,
-    ) {
-        BookContributorTable.deleteWhere { BookContributorTable.bookId eq bookId }
-        // Two display names can resolve to the same contributor id when sortName deduplication
-        // collapses them (e.g. "Brandon Sanderson" and "B. Sanderson" both map to sortName
-        // "Sanderson, Brandon" via an embedded authorsSort tag). The junction PK is
-        // (book_id, contributor_id, role); inserting both rows would trigger
-        // SQLITE_CONSTRAINT_PRIMARYKEY and abort the whole book ingest. Collapse to one row per
-        // (contributor, role) — first occurrence wins for ordinal and creditedAs.
-        val deduped = contributors.distinctBy { it.id to it.role }
-        BookContributorTable.batchInsert(
-            deduped.withIndex().toList(),
-            shouldReturnGeneratedValues = false,
-        ) { (idx, c) ->
-            this[BookContributorTable.bookId] = bookId
-            this[BookContributorTable.contributorId] = c.id
-            this[BookContributorTable.role] = c.role
-            this[BookContributorTable.creditedAs] = c.creditedAs
-            this[BookContributorTable.ordinal] = idx
-        }
-    }
-
-    /**
-     * Replaces this book's series junction rows. The caller MUST supply a
-     * payload whose series ids already exist in [BookSeriesTable] —
-     * `upsertFromAnalyzed` satisfies this by resolving every series through
-     * [SeriesRepository.resolveOrCreate] before calling `upsert`.
-     */
-    private fun replaceSeries(
-        bookId: String,
-        series: List<BookSeriesPayload>,
-    ) {
-        BookSeriesMembershipTable.deleteWhere { BookSeriesMembershipTable.bookId eq bookId }
-        // A book can be tagged with the same series twice (sloppy "A;A" tags, or two spellings that
-        // normalize to one series). Collapse to one membership per series — the junction PK is
-        // (book_id, series_id) — keeping the first sequence. Without this, a duplicate aborts the
-        // whole book ingest on the PK constraint.
-        val deduped = series.distinctBy { it.id }
-        BookSeriesMembershipTable.batchInsert(
-            deduped.withIndex().toList(),
-            shouldReturnGeneratedValues = false,
-        ) { (idx, s) ->
-            this[BookSeriesMembershipTable.bookId] = bookId
-            this[BookSeriesMembershipTable.seriesId] = s.id
-            this[BookSeriesMembershipTable.sequence] = s.sequence
-            this[BookSeriesMembershipTable.ordinal] = idx
-        }
-    }
-
-    private fun replaceChapters(
-        bookId: String,
-        chapters: List<BookChapterPayload>,
-    ) {
-        BookChapterTable.deleteWhere { BookChapterTable.bookId eq bookId }
-        BookChapterTable.batchInsert(chapters.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, ch) ->
-            this[BookChapterTable.bookId] = bookId
-            this[BookChapterTable.ordinal] = idx
-            this[BookChapterTable.id] = ch.id.ifBlank { UUID.randomUUID().toString() }
-            this[BookChapterTable.title] = ch.title
-            this[BookChapterTable.duration] = ch.duration
-            this[BookChapterTable.startTime] = ch.startTime
-        }
-    }
-
-    private fun replaceAudioFiles(
-        bookId: String,
-        files: List<BookAudioFilePayload>,
-    ) {
-        BookAudioFileTable.deleteWhere { BookAudioFileTable.bookId eq bookId }
-        BookAudioFileTable.batchInsert(files.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, f) ->
-            this[BookAudioFileTable.bookId] = bookId
-            this[BookAudioFileTable.ordinal] = idx
-            this[BookAudioFileTable.id] = f.id.ifBlank { UUID.randomUUID().toString() }
-            this[BookAudioFileTable.filename] = f.filename
-            this[BookAudioFileTable.format] = f.format
-            this[BookAudioFileTable.codec] = f.codec
-            this[BookAudioFileTable.duration] = f.duration
-            this[BookAudioFileTable.size] = f.size
-        }
-    }
 
     /**
      * Returns the full book aggregates for every book that has a junction row for
