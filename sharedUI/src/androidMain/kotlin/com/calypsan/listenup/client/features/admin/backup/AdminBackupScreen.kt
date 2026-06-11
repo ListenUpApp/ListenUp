@@ -20,11 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -59,7 +57,6 @@ import com.calypsan.listenup.client.data.remote.ABSImportSummary
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.BackupInfo
-import com.calypsan.listenup.client.domain.model.BackupValidation
 import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
@@ -153,7 +150,6 @@ fun AdminBackupScreen(
             modifier = Modifier.padding(paddingValues),
             onRestoreClick = onRestoreClick,
             onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
-            onValidateClick = { backupViewModel.validateBackup(it) },
             onABSImportClick = onABSImportHubClick,
             onDeleteImportClick = { deleteConfirmImport = it },
             onUploadABSBackup = {
@@ -226,14 +222,6 @@ fun AdminBackupScreen(
             },
         )
     }
-
-    // Validation result dialog (only meaningful when Ready).
-    readyState?.validationResult?.let { validation ->
-        ValidationResultDialog(
-            validation = validation,
-            onDismiss = { backupViewModel.dismissValidation() },
-        )
-    }
 }
 
 @Composable
@@ -268,7 +256,6 @@ private fun AdminBackupBody(
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
     onDeleteClick: (BackupInfo) -> Unit,
-    onValidateClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ABSImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
@@ -299,7 +286,6 @@ private fun AdminBackupBody(
                 modifier = modifier,
                 onRestoreClick = onRestoreClick,
                 onDeleteClick = onDeleteClick,
-                onValidateClick = onValidateClick,
                 onABSImportClick = onABSImportClick,
                 onDeleteImportClick = onDeleteImportClick,
                 onUploadABSBackup = onUploadABSBackup,
@@ -316,7 +302,6 @@ private fun AdminBackupReadyContent(
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
     onDeleteClick: (BackupInfo) -> Unit,
-    onValidateClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ABSImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
@@ -342,10 +327,8 @@ private fun AdminBackupReadyContent(
             items(state.backups, key = { "backup_${it.id}" }) { backup ->
                 BackupCard(
                     backup = backup,
-                    isValidating = state.validatingBackupId == backup.id,
                     onRestoreClick = { onRestoreClick(backup.id) },
                     onDeleteClick = { onDeleteClick(backup) },
-                    onValidateClick = { onValidateClick(backup) },
                 )
             }
         }
@@ -401,10 +384,8 @@ private fun SectionHeader(title: String) {
 @Composable
 private fun BackupCard(
     backup: BackupInfo,
-    isValidating: Boolean,
     onRestoreClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onValidateClick: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -437,12 +418,8 @@ private fun BackupCard(
                     )
                 }
                 Box {
-                    if (isValidating) {
-                        ListenUpLoadingIndicatorSmall()
-                    } else {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-                        }
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
                     }
                     DropdownMenu(
                         expanded = showMenu,
@@ -455,14 +432,6 @@ private fun BackupCard(
                                 onRestoreClick()
                             },
                             leadingIcon = { Icon(Icons.Default.Restore, contentDescription = null) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Validate") },
-                            onClick = {
-                                showMenu = false
-                                onValidateClick()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Verified, contentDescription = null) },
                         )
                         DropdownMenuItem(
                             text = { Text(LABEL_DELETE) },
@@ -747,77 +716,4 @@ private fun EmptyBackupState(
         Spacer(modifier = Modifier.height(32.dp))
         UploadABSBackupCard(onClick = onUploadABSBackup)
     }
-}
-
-@Composable
-private fun ValidationResultDialog(
-    validation: BackupValidation,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val icon = if (validation.valid) Icons.Default.CheckCircle else Icons.Default.Archive
-                val tint =
-                    if (validation.valid) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    }
-                Icon(icon, contentDescription = null, tint = tint)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (validation.valid) "Backup Valid" else "Backup Invalid")
-            }
-        },
-        text = {
-            Column {
-                validation.serverName?.let {
-                    Text("Server: $it", style = MaterialTheme.typography.bodyMedium)
-                }
-                validation.version?.let {
-                    Text("Version: $it", style = MaterialTheme.typography.bodyMedium)
-                }
-                if (validation.entityCounts.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Contents:", style = MaterialTheme.typography.titleSmall)
-                    validation.entityCounts.forEach { (type, count) ->
-                        Text("  $type: $count", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                if (validation.warnings.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Warnings:",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.tertiary,
-                    )
-                    validation.warnings.forEach {
-                        Text(
-                            "  $it",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
-                }
-                if (validation.errors.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Errors:",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    validation.errors.forEach {
-                        Text(
-                            "  $it",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-    )
 }

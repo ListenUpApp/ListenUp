@@ -24,13 +24,8 @@ import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.data.remote.model.AsyncAnalyzeResponse
-import com.calypsan.listenup.client.data.remote.model.BackupResponse
 import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
 import com.calypsan.listenup.client.data.remote.model.ImportABSResponse
-import com.calypsan.listenup.client.data.remote.model.RebuildProgressResponse
-import com.calypsan.listenup.client.data.remote.model.RestoreRequest
-import com.calypsan.listenup.client.data.remote.model.RestoreResponse
-import com.calypsan.listenup.client.data.remote.model.ValidationResponse
 import com.calypsan.listenup.client.upload.ABSUploadWorker
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -173,23 +168,6 @@ class ListenUpWorkerFactoryRoutingTest {
  * during construction.
  */
 private class StubBackupApi : BackupApiContract {
-    override suspend fun createBackup(
-        includeImages: Boolean,
-        includeEvents: Boolean,
-    ): AppResult<BackupResponse> = notCalled()
-
-    override suspend fun listBackups(): AppResult<List<BackupResponse>> = notCalled()
-
-    override suspend fun getBackup(id: String): AppResult<BackupResponse> = notCalled()
-
-    override suspend fun deleteBackup(id: String): AppResult<Unit> = notCalled()
-
-    override suspend fun validateBackup(backupId: String): AppResult<ValidationResponse> = notCalled()
-
-    override suspend fun restore(request: RestoreRequest): AppResult<RestoreResponse> = notCalled()
-
-    override suspend fun rebuildProgress(): AppResult<RebuildProgressResponse> = notCalled()
-
     override suspend fun browseFilesystem(path: String): AppResult<com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse> = notCalled()
 
     override suspend fun uploadABSBackup(fileSource: FileSource): AppResult<UploadABSBackupResponse> = notCalled()

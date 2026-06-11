@@ -117,7 +117,11 @@ class SyncRepositoryImpl(
 
     override suspend fun refreshListeningHistory(): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun forceFullResync(): AppResult<Unit> = startEngineForCurrentUser()
+    override suspend fun forceFullResync(): AppResult<Unit> =
+        when (val started = startEngineForCurrentUser()) {
+            is AppResult.Success -> suspendRunCatching { syncEngine.forceReconcile() }
+            is AppResult.Failure -> started
+        }
 
     private suspend fun startEngineForCurrentUser(): AppResult<Unit> =
         suspendRunCatching {

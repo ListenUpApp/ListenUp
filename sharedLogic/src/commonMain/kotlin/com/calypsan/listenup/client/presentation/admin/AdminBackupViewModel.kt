@@ -3,18 +3,17 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.domain.model.BackupInfo
-import com.calypsan.listenup.client.domain.model.BackupValidation
+import com.calypsan.listenup.client.domain.model.toDomain
+import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
+import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.calypsan.listenup.core.Timestamp
-import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
@@ -24,9 +23,8 @@ private val logger = KotlinLogging.logger {}
  * Sealed hierarchy:
  * - [Loading] before the first `listBackups()` emission.
  * - [Ready] once the backup list has loaded; carries backups, action overlays
- *   (`isCreating`, `isDeleting`, `validatingBackupId`), dialog state
- *   (`deleteConfirmBackup`, `validationResult`), and a transient `error` for
- *   mutation failures surfaced as a snackbar.
+ *   (`isCreating`, `isDeleting`), dialog state (`deleteConfirmBackup`), and a
+ *   transient `error` for mutation failures surfaced as a snackbar.
  * - [Error] terminal state when the initial load (or a retry from [Error])
  *   fails. Refresh failures after we've reached [Ready] surface via the
  *   transient `error` field on [Ready] instead.
@@ -41,8 +39,6 @@ sealed interface AdminBackupUiState {
         val isDeleting: Boolean = false,
         val error: String? = null,
         val deleteConfirmBackup: BackupInfo? = null,
-        val validationResult: BackupValidation? = null,
-        val validatingBackupId: String? = null,
     ) : AdminBackupUiState
 
     /** Terminal state when the initial backup-list load fails. */
@@ -52,10 +48,11 @@ sealed interface AdminBackupUiState {
 }
 
 /**
- * ViewModel for managing backups.
+ * ViewModel for managing backups, backed by the [BackupService][com.calypsan.listenup.api.BackupService]
+ * RPC via [BackupRepository].
  */
 class AdminBackupViewModel(
-    private val backupApi: BackupApiContract,
+    private val backupRepository: BackupRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminBackupUiState>
@@ -67,12 +64,12 @@ class AdminBackupViewModel(
 
     fun loadBackups() {
         viewModelScope.launch {
-            when (val result = backupApi.listBackups()) {
+            when (val result = backupRepository.listBackups()) {
                 is AppResult.Success -> {
                     val sorted =
                         result.data
-                            .map { b -> b.toDomain() }
-                            .sortedByDescending { b -> b.createdAt }
+                            .map { summary -> summary.toDomain() }
+                            .sortedByDescending { backup -> backup.createdAt }
                     state.update { current ->
                         if (current is AdminBackupUiState.Ready) {
                             current.copy(backups = sorted, error = null)
@@ -102,20 +99,11 @@ class AdminBackupViewModel(
         }
     }
 
-    fun createBackup(
-        includeImages: Boolean,
-        includeEvents: Boolean,
-    ) {
+    fun createBackup(includeImages: Boolean) {
         viewModelScope.launch {
             updateReady { it.copy(isCreating = true, error = null) }
 
-            when (
-                val result =
-                    backupApi.createBackup(
-                        includeImages = includeImages,
-                        includeEvents = includeEvents,
-                    )
-            ) {
+            when (val result = backupRepository.createBackup(includeImages = includeImages)) {
                 is AppResult.Success -> {
                     // Reload list to show new backup
                     loadBackups()
@@ -148,7 +136,7 @@ class AdminBackupViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isDeleting = true, deleteConfirmBackup = null) }
 
-            when (val result = backupApi.deleteBackup(backup.id)) {
+            when (val result = backupRepository.deleteBackup(BackupId(backup.id))) {
                 is AppResult.Success -> {
                     updateReady { ready ->
                         ready.copy(
@@ -172,47 +160,6 @@ class AdminBackupViewModel(
         }
     }
 
-    fun validateBackup(backup: BackupInfo) {
-        viewModelScope.launch {
-            updateReady { it.copy(validatingBackupId = backup.id) }
-
-            when (val result = backupApi.validateBackup(backup.id)) {
-                is AppResult.Success -> {
-                    val response = result.data
-                    updateReady {
-                        it.copy(
-                            validatingBackupId = null,
-                            validationResult =
-                                BackupValidation(
-                                    valid = response.valid,
-                                    version = response.version,
-                                    serverName = response.serverName,
-                                    entityCounts = response.expectedCounts ?: emptyMap(),
-                                    errors = response.errors,
-                                    warnings = response.warnings,
-                                ),
-                        )
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to validate backup: ${result.error.message}" }
-                    updateReady {
-                        it.copy(
-                            validatingBackupId = null,
-                            error = userMessageFor(result.error),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    fun dismissValidation() {
-        updateReady { it.copy(validationResult = null) }
-    }
-
     fun clearError() {
         updateReady { it.copy(error = null) }
     }
@@ -226,23 +173,4 @@ class AdminBackupViewModel(
             if (current is AdminBackupUiState.Ready) transform(current) else current
         }
     }
-
-    private fun com.calypsan.listenup.client.data.remote.model.BackupResponse.toDomain() =
-        BackupInfo(
-            id = id,
-            path = path,
-            size = size,
-            createdAt =
-                try {
-                    Timestamp(Instant.parse(createdAt).toEpochMilliseconds())
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Date parsing is not an API call — keep try/catch for this non-API failure.
-                    // Use epoch as graceful fallback so the backup still appears in list.
-                    logger.warn(e) { "Failed to parse backup date '$createdAt', using epoch" }
-                    Timestamp(0L)
-                },
-            checksum = checksum,
-        )
 }

@@ -176,7 +176,7 @@ val adminPresentationModule =
         // AdminBackupViewModel for backup management
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel(
-                backupApi = get(),
+                backupRepository = get(),
                 errorBus = get(),
             )
         }
@@ -184,7 +184,7 @@ val adminPresentationModule =
         factory { params ->
             com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel(
                 backupId = params.get<String>(0),
-                backupApi = get(),
+                backupRepository = get(),
                 syncRepository = get(),
                 errorBus = get(),
             )
