@@ -1,5 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
+    // Version is declared once at the build-logic root (apply false); applying it here without a
+    // version keeps the Kotlin Gradle plugin from being loaded with an explicit version in more
+    // than one subproject.
+    id("org.jetbrains.kotlin.jvm")
 }
 
 group = "com.calypsan.listenup.build-logic"
