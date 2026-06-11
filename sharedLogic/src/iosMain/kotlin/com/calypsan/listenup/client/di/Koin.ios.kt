@@ -87,6 +87,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getAppStartupViewModel(): com.calypsan.listenup.client.presentation.startup.AppStartupViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.startup.AppStartupViewModel by inject()
+        return viewModel
+    }
+
     fun getAuthSession(): com.calypsan.listenup.client.domain.repository.AuthSession {
         val authSession: com.calypsan.listenup.client.domain.repository.AuthSession by inject()
         return authSession
