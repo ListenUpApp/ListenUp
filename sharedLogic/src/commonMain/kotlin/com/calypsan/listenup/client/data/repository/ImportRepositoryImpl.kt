@@ -52,7 +52,6 @@ class ImportRepositoryImpl(
     private val rpcFactory: ImportRpcFactory,
     private val clientFactory: ApiClientFactory,
 ) : ImportRepository {
-
     override suspend fun upload(fileSource: FileSource): AppResult<ImportSummary> =
         suspendRunCatching {
             clientFactory

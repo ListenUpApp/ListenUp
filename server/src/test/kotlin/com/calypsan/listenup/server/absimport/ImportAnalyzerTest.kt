@@ -106,7 +106,8 @@ class ImportAnalyzerTest :
                     matchingEvents.forEach { it.currentItem.shouldNotBeNull() }
 
                     // The item titles from the fixture are "The Way of Kings" and "Mistborn".
-                    matchingEvents.map { it.currentItem }
+                    matchingEvents
+                        .map { it.currentItem }
                         .shouldContainAll(listOf("The Way of Kings", "Mistborn"))
 
                     // booksMatched grows: after the second event it reflects both resolved books.
