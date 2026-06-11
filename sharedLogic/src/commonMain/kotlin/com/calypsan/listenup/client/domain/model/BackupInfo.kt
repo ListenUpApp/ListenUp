@@ -1,16 +1,17 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.core.Timestamp
 
 /**
- * Domain model for a backup file.
+ * Domain model for a stored backup archive, projected from the server's
+ * [BackupSummary]. Backups are filesystem-truth read from each archive's
+ * manifest, so there is no client-side path or checksum.
  */
 data class BackupInfo(
     val id: String,
-    val path: String,
     val size: Long,
     val createdAt: Timestamp,
-    val checksum: String? = null,
 ) {
     /**
      * Human-readable size string.
@@ -38,8 +39,16 @@ data class BackupInfo(
             }
 }
 
+/** Projects a server [BackupSummary] into the UI-facing [BackupInfo]. */
+fun BackupSummary.toDomain(): BackupInfo =
+    BackupInfo(
+        id = id.value,
+        size = sizeBytes,
+        createdAt = Timestamp(createdAt),
+    )
+
 /**
- * Validation result for a backup.
+ * Validation result for a backup, consumed by the restore wizard.
  */
 data class BackupValidation(
     val valid: Boolean,
