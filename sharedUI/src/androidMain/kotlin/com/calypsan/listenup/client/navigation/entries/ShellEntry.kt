@@ -30,20 +30,26 @@ import org.koin.compose.viewmodel.koinViewModel
 /** Shell (root) navigation entry — the main app scaffold with bottom nav. */
 internal fun EntryProviderScope<NavKey>.shellEntry(
     backStack: NavBackStack<NavKey>,
-    currentShellDestination: ShellDestination,
+    currentShellDestination: () -> ShellDestination,
     onDestinationChange: (ShellDestination) -> Unit,
     nowPlayingViewModel: NowPlayingViewModel,
-    readiness: LibraryReadiness,
+    readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
 ) {
     entry<Shell> {
+        // Read the hoisted state INSIDE the entry content (not as a captured parameter) so the
+        // shell recomposes when the selected tab or readiness changes. NavDisplay does not
+        // re-invoke this entry builder when only those values change (the Shell back-stack key is
+        // unchanged), so a captured snapshot would go stale — bottom-nav taps would no-op.
+        val readinessState = readiness()
+
         // Readiness gate: while the initial library population is running we show a
         // dedicated full-screen progress screen and DO NOT mount the shell — so the
         // user never navigates an empty app, and the Library grid + Coil don't decode
         // a thousand covers while the sync/catch-up is still churning (which exhausted
         // the heap → OOM). Populating spans the server scan AND the client import, so
         // when it clears the books are already in Room (see applyScanEvent).
-        (readiness as? LibraryReadiness.Populating)?.let { populating ->
+        (readinessState as? LibraryReadiness.Populating)?.let { populating ->
             LibraryScanScreen(scanProgress = populating.progress)
             return@entry
         }
@@ -54,7 +60,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
 
         // Get search state for overlay
         AppShell(
-            currentDestination = currentShellDestination,
+            currentDestination = currentShellDestination(),
             onDestinationChange = onDestinationChange,
             nowPlayingContent = {
                 val nowPlayingScreenState by nowPlayingViewModel
