@@ -42,68 +42,46 @@ private val logger = KotlinLogging.logger {}
  *
  * [upload] is the one REST operation: binary multipart transfer cannot ride RPC.
  * It streams the `.audiobookshelf` zip via `submitFormWithBinaryData` to
- * [ImportRoutePaths.ABS_UPLOAD] and parses the [ImportSummary] response. The upload
- * HTTP client is supplied at construction time via [clientFactory] so callers can inject
- * a test double without modifying the upload code path.
+ * [ImportRoutePaths.ABS_UPLOAD] and parses the [ImportSummary] response.
  *
  * [observeProgress] unwraps the server-pushed [Flow]<[RpcEvent]<[ImportEvent]>> into a
  * plain [Flow]<[ImportEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
  */
-class ImportRepositoryImpl
-    /**
-     * Internal constructor used by both the production two-arg constructor and the
-     * secondary test constructor. [uploadFn] is a suspend lambda that takes a [FileSource]
-     * and returns [AppResult]<[ImportSummary]>. Keeping this internal prevents callers
-     * outside this module from constructing instances with arbitrary upload logic.
-     */
-    internal constructor(
-        private val rpcFactory: ImportRpcFactory,
-        private val uploadFn: suspend (FileSource) -> AppResult<ImportSummary>,
-    ) : ImportRepository {
+class ImportRepositoryImpl(
+    private val rpcFactory: ImportRpcFactory,
+    private val clientFactory: ApiClientFactory,
+) : ImportRepository {
 
-    /**
-     * Production constructor. [clientFactory] is used to obtain the authenticated HTTP
-     * client for the multipart upload. Mirrors [BackupApi]'s constructor shape.
-     */
-    constructor(
-        rpcFactory: ImportRpcFactory,
-        clientFactory: ApiClientFactory,
-    ) : this(
-        rpcFactory = rpcFactory,
-        uploadFn = { fileSource ->
-            suspendRunCatching {
-                clientFactory
-                    .getClient()
-                    .submitFormWithBinaryData(
-                        url = ImportRoutePaths.ABS_UPLOAD,
-                        formData =
-                            formData {
-                                // ChannelProvider streams on-demand — never buffers the entire zip.
-                                append(
-                                    key = "file",
-                                    value = ChannelProvider(fileSource.size) { fileSource.openChannel() },
-                                    headers =
-                                        Headers.build {
-                                            append(
-                                                HttpHeaders.ContentDisposition,
-                                                "filename=\"${fileSource.filename}\"",
-                                            )
-                                        },
-                                )
-                            },
-                    ) {
-                        // Large ABS backups can take several minutes to upload.
-                        timeout {
-                            requestTimeoutMillis = 10 * 60 * 1_000
-                            socketTimeoutMillis = 10 * 60 * 1_000
-                        }
-                    }.body<ImportSummary>()
-            }
-        },
-    )
-
-    override suspend fun upload(fileSource: FileSource): AppResult<ImportSummary> = uploadFn(fileSource)
+    override suspend fun upload(fileSource: FileSource): AppResult<ImportSummary> =
+        suspendRunCatching {
+            clientFactory
+                .getClient()
+                .submitFormWithBinaryData(
+                    url = ImportRoutePaths.ABS_UPLOAD,
+                    formData =
+                        formData {
+                            // ChannelProvider streams on-demand — never buffers the entire zip.
+                            append(
+                                key = "file",
+                                value = ChannelProvider(fileSource.size) { fileSource.openChannel() },
+                                headers =
+                                    Headers.build {
+                                        append(
+                                            HttpHeaders.ContentDisposition,
+                                            "filename=\"${fileSource.filename}\"",
+                                        )
+                                    },
+                            )
+                        },
+                ) {
+                    // Large ABS backups can take several minutes to upload.
+                    timeout {
+                        requestTimeoutMillis = 10 * 60 * 1_000
+                        socketTimeoutMillis = 10 * 60 * 1_000
+                    }
+                }.body<ImportSummary>()
+        }
 
     override suspend fun analyze(importId: ImportId): AppResult<ImportAnalysis> =
         rpcCall { rpcFactory.get().analyze(importId) }

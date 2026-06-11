@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.admin
 
-import com.calypsan.listenup.api.ImportRoutePaths
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -9,28 +8,29 @@ import com.calypsan.listenup.api.dto.import.ImportAnalysis
 import com.calypsan.listenup.api.dto.import.ImportResult
 import com.calypsan.listenup.api.dto.import.ImportSummary
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
 import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.server.module
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.auth.Auth
+import io.ktor.client.plugins.auth.providers.BearerTokens
+import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.forms.ChannelProvider
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.formData
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
@@ -56,17 +56,18 @@ import kotlinx.rpc.withService
  * WebSocket transports.
  *
  * This is the regression guard for the 404 bug: the old client POSTed to
- * `/admin/abs/upload` (wrong path). The repository's new [ImportRepositoryImpl.upload]
- * uses the shared [ImportRoutePaths.ABS_UPLOAD] constant which resolves to the
- * correct `/api/v1/admin/imports/abs/upload` route.
+ * `/admin/abs/upload` (wrong path). The repository's [ImportRepositoryImpl.upload]
+ * uses the shared [com.calypsan.listenup.api.ImportRoutePaths.ABS_UPLOAD] constant which
+ * resolves to the correct `/api/v1/admin/imports/abs/upload` route.
  *
  * Harness: the full server [module] boots via [testApplication] with an isolated
  * in-memory SQLite config (same pattern as
  * [com.calypsan.listenup.client.di.e2e.DiWiredClientFixture]). A [TestImportRpcFactory]
- * opens the [ImportService] proxy against `ws://localhost/api/rpc/authed`, and
- * [ImportRepositoryImpl]'s secondary constructor accepts an [uploadFn] lambda that
- * calls the test HTTP client — so the real upload code path is exercised without
- * requiring a full [com.calypsan.listenup.client.data.remote.ApiClientFactory].
+ * opens the [ImportService] proxy against `ws://localhost/api/rpc/authed`. A Mokkery
+ * mock of [ApiClientFactory] is configured so that [ApiClientFactory.getClient] returns
+ * the test application's [HttpClient] — this means [ImportRepositoryImpl.upload] runs
+ * the REAL production `submitFormWithBinaryData` code path against the in-process server,
+ * not a hand-written test double.
  *
  * The upload fixture is a minimal `.audiobookshelf` zip: a valid SQLite file with all
  * required ABS tables but no rows, so analyze/confirm/apply all succeed with empty
@@ -113,44 +114,36 @@ class ImportRpcE2ETest :
                     // Mint a ROOT account so the import admin gate passes.
                     val accessToken = restClient.setupRoot()
 
+                    // An authenticated REST client for upload — mirrors what ApiClientFactory
+                    // produces: ContentNegotiation + a static bearer token. The production
+                    // upload() calls clientFactory.getClient() which in production returns a
+                    // client with auto-bearer; here we supply a pre-authed test client instead.
+                    val authedRestClient =
+                        createClient {
+                            install(ContentNegotiation) { json(contractJson) }
+                            install(Auth) {
+                                bearer {
+                                    loadTokens { BearerTokens(accessToken, "") }
+                                    sendWithoutRequest { true }
+                                }
+                            }
+                        }
+
                     val rpcClient = createClient { installKrpc() }
                     val rpcFactory = TestImportRpcFactory(rpcClient, accessToken)
 
-                    // Construct the real ImportRepositoryImpl via its secondary constructor —
-                    // the uploadFn lambda uses the test HTTP client (testApplication's virtual
-                    // transport) while the RPC methods use the real rpcFactory proxy. Both
-                    // paths hit the same in-process server module.
+                    // Wire up the production ImportRepositoryImpl with a Mokkery mock of
+                    // ApiClientFactory. getClient() returns authedRestClient (testApplication's
+                    // virtual transport + bearer) so upload() runs the REAL production
+                    // submitFormWithBinaryData code path against the in-process server.
+                    val clientFactory =
+                        mock<ApiClientFactory> {
+                            everySuspend { getClient() } returns authedRestClient
+                        }
                     val repository =
                         ImportRepositoryImpl(
                             rpcFactory = rpcFactory,
-                            uploadFn = { fileSource ->
-                                suspendRunCatching {
-                                    restClient
-                                        .post(ImportRoutePaths.ABS_UPLOAD) {
-                                            bearerAuth(accessToken)
-                                            setBody(
-                                                MultiPartFormDataContent(
-                                                    formData {
-                                                        append(
-                                                            "file",
-                                                            ChannelProvider(fileSource.size) { fileSource.openChannel() },
-                                                            Headers.build {
-                                                                append(
-                                                                    HttpHeaders.ContentType,
-                                                                    "application/zip",
-                                                                )
-                                                                append(
-                                                                    HttpHeaders.ContentDisposition,
-                                                                    "filename=\"${fileSource.filename}\"",
-                                                                )
-                                                            },
-                                                        )
-                                                    },
-                                                ),
-                                            )
-                                        }.body<ImportSummary>()
-                                }
-                            },
+                            clientFactory = clientFactory,
                         )
 
                     runTest {

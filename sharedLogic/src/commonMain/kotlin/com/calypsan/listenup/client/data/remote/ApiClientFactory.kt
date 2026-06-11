@@ -83,7 +83,26 @@ internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder):
 }
 
 /**
- * Factory for creating authenticated HTTP clients with automatic token refresh.
+ * Seam for obtaining authenticated HTTP clients.
+ *
+ * Extracted as an interface so that tests can supply a Mokkery mock (or any
+ * lightweight stand-in) instead of constructing the full [KtorApiClientFactory]
+ * with live bearer-token machinery. All production call sites declare this type
+ * so the DI graph can substitute a fake without touching the injection site.
+ */
+interface ApiClientFactory : RemoteCache {
+    /** Authenticated client for request/response API calls. */
+    suspend fun getClient(): HttpClient
+
+    /** Authenticated streaming client for long-lived connections (SSE, WebSocket). */
+    suspend fun getStreamingClient(): HttpClient
+
+    /** Unauthenticated streaming client for public SSE streams. */
+    suspend fun getUnauthenticatedStreamingClient(): HttpClient
+}
+
+/**
+ * Ktor-backed production [ApiClientFactory].
  *
  * Provides a single cached client instance that:
  * - Automatically adds Bearer auth headers
@@ -94,11 +113,11 @@ internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder):
  * The client is lazy-initialized and cached for the lifetime of the factory.
  * Call [close] to release resources when no longer needed.
  */
-class ApiClientFactory(
+class KtorApiClientFactory(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,
-) : RemoteCache {
+) : ApiClientFactory {
     private val mutex = Mutex()
     private var cachedClient: HttpClient? = null
     private var cachedStreamingClient: HttpClient? = null
@@ -114,7 +133,7 @@ class ApiClientFactory(
      *
      * @return Configured HttpClient with auth plugin and timeouts
      */
-    suspend fun getClient(): HttpClient =
+    override suspend fun getClient(): HttpClient =
         mutex.withLock {
             cachedClient ?: createClient().also { cachedClient = it }
         }
@@ -134,7 +153,7 @@ class ApiClientFactory(
      *
      * @return Configured HttpClient with auth but no timeouts
      */
-    suspend fun getStreamingClient(): HttpClient =
+    override suspend fun getStreamingClient(): HttpClient =
         mutex.withLock {
             cachedStreamingClient ?: run {
                 val serverUrl =
@@ -152,7 +171,7 @@ class ApiClientFactory(
      * Cached unauthenticated streaming HTTP client for SSE endpoints that don't require
      * authentication (e.g., the registration status stream for pending users).
      */
-    suspend fun getUnauthenticatedStreamingClient(): HttpClient =
+    override suspend fun getUnauthenticatedStreamingClient(): HttpClient =
         mutex.withLock {
             cachedUnauthenticatedStreamingClient ?: run {
                 val serverUrl =

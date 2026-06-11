@@ -12,13 +12,14 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
+import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -74,13 +75,12 @@ class ImportRepositoryImplTest :
             override suspend fun invalidate() = Unit
         }
 
-        /** upload is not under test here — provide a no-op stub so only RPC paths are exercised. */
-        val noopUpload: suspend (FileSource) -> AppResult<ImportSummary> = {
-            AppResult.Failure(com.calypsan.listenup.api.error.InternalError(debugInfo = "upload not under test"))
-        }
-
+        /** upload is not under test here — a relaxed ApiClientFactory mock stands in. */
         fun buildRepo(service: ImportService): ImportRepositoryImpl =
-            ImportRepositoryImpl(rpcFactory = FakeImportRpcFactory(service), uploadFn = noopUpload)
+            ImportRepositoryImpl(
+                rpcFactory = FakeImportRpcFactory(service),
+                clientFactory = mock(MockMode.autofill),
+            )
 
         // ── analyze ───────────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookApiContract
+import com.calypsan.listenup.client.data.remote.KtorApiClientFactory
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
@@ -29,8 +30,8 @@ val networkModule: Module =
         // If we passed `authRepository = get()` here Koin would recurse during graph
         // construction. The lambda body executes on 401, by which time all three singletons
         // are constructed.
-        single {
-            ApiClientFactory(
+        single<ApiClientFactory> {
+            KtorApiClientFactory(
                 serverConfig = get(),
                 authSession = get(),
                 refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
