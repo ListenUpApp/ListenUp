@@ -456,6 +456,11 @@
     <string name="library_title_sort">Title Sort</string>
     <string name="library_you_dont_have_any_shelves">You don\'t have any shelves yet</string>
     <string name="library_your_audiobooks_will_appear_here">Your audiobooks will appear here once the scan is complete</string>
+    <string name="library_setup_browse_while_building">Browse library while it builds</string>
+    <string name="library_setup_building_progress_a11y">Building library, %1$d percent complete. %2$d books, %3$d authors, %4$d hours.</string>
+    <string name="library_setup_building_starting_a11y">Building library, starting scan.</string>
+    <string name="library_setup_building_subtitle">Scanning your folders and reading audiobook tags. You can start listening right away — it keeps working in the background.</string>
+    <string name="library_setup_building_title">Building your library</string>
     <string name="library_setup_choose_folders_subtitle">Select the folders on your server where your audiobooks are stored.</string>
     <string name="library_setup_choose_folders_title">Choose your folders</string>
     <string name="library_setup_create_library">Create Library</string>
@@ -472,6 +477,10 @@
     <string name="library_setup_no_subfolders">This folder has no subfolders.</string>
     <string name="library_setup_select_at_least_one">Select at least one folder to continue.</string>
     <string name="library_setup_select_this_folder">Select this folder</string>
+    <string name="library_setup_starting_scan">Starting scan...</string>
+    <string name="library_setup_stat_authors">Authors</string>
+    <string name="library_setup_stat_books">Books</string>
+    <string name="library_setup_stat_hours">Hours</string>
     <string name="library_setup_up">Up</string>
     <string name="library_setup_up_hint">Goes to the parent folder</string>
     <string name="metadata_apply_selected_metadata">Apply Selected Metadata</string>

@@ -657,6 +657,15 @@
     "folder_a11y_label": "%1$s, %2$d items",
     "folder_opens_hint": "Opens folder",
     "folder_select_hint": "Double tap to select",
-    "folder_deselect_hint": "Selected, double tap to deselect"
+    "folder_deselect_hint": "Selected, double tap to deselect",
+    "building_title": "Building your library",
+    "building_subtitle": "Scanning your folders and reading audiobook tags. You can start listening right away — it keeps working in the background.",
+    "starting_scan": "Starting scan...",
+    "browse_while_building": "Browse library while it builds",
+    "stat_books": "Books",
+    "stat_authors": "Authors",
+    "stat_hours": "Hours",
+    "building_progress_a11y": "Building library, %1$d percent complete. %2$d books, %3$d authors, %4$d hours.",
+    "building_starting_a11y": "Building library, starting scan."
   }
 }
