@@ -104,6 +104,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveListenupHome
+import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
@@ -119,6 +120,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
+import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.auth.authenticate
 import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.partialcontent.PartialContent
@@ -132,6 +134,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlin.time.Duration
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlinx.rpc.krpc.ktor.server.Krpc
@@ -611,18 +614,27 @@ private fun Application.startBackgroundTasks(
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
     orphanImageCleanupTask.start(scope)
 
+    val rescanOnStartup = environment.config.rescanOnStartup()
     scope.launch {
         runCatching {
             bootstrapLibraries(
                 libraryAdminService = libraryAdminService,
                 scanOrchestrator = orchestrator,
                 libraryPath = libraryPath?.toString(),
+                rescanOnStartup = rescanOnStartup,
             )
         }.onFailure { e ->
             if (e is kotlinx.coroutines.CancellationException) throw e
             logger.error(e) { "library bootstrap failed — server keeps running" }
         }
     }
+
+    RescanScheduler(
+        scope = scope,
+        interval = environment.config.periodicRescanInterval(),
+        libraryIds = { orchestrator.registeredLibraryIds() },
+        rescan = { orchestrator.scanLibraryAsync(it) },
+    ).start()
 
     // mDNS advertisement — best-effort, non-fatal. Resolve the persistent instance id, then start the
     // advertiser; register its stop on shutdown. A failure here must never break startup — manual
@@ -652,6 +664,16 @@ private fun Application.startBackgroundTasks(
     }
 }
 
+private fun ApplicationConfig.rescanOnStartup(): Boolean =
+    propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
+
+private fun ApplicationConfig.periodicRescanInterval(): Duration =
+    propertyOrNull("scan.periodicRescanInterval")
+        ?.getString()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { runCatching { Duration.parse(it) }.getOrNull() }
+        ?: Duration.ZERO
+
 // The synthetic ROOT principal used by [bootstrapLibraries]. Startup library bootstrap
 // has no signed-in caller — it is the system acting as administrator — so it binds the
 // admin-gated LibraryAdminService to this principal to pass the structural-op gate.
@@ -666,7 +688,9 @@ private val SYSTEM_BOOTSTRAP_PRINCIPAL =
  * Rules (Task 18):
  *  - If libraries already exist → register each with [scanOrchestrator] via
  *    [ScanOrchestrator.onLibraryAdded] so the watcher and scanner bundle are
- *    warmed up. No scan is triggered.
+ *    warmed up. When [rescanOnStartup] is true each library is also kicked off
+ *    via [ScanOrchestrator.scanLibraryAsync] to catch changes made while the
+ *    server was down.
  *  - If no libraries exist and [libraryPath] is non-null → create a single
  *    default "My Library" pointing at that path. [LibraryAdminServiceImpl.createLibrary]
  *    internally calls [ScanOrchestrator.onLibraryAdded], so we don't need to.
@@ -674,17 +698,18 @@ private val SYSTEM_BOOTSTRAP_PRINCIPAL =
  *    (e.g. a test fixture seeding the DB) inserts the same root_path between
  *    our `listLibraries` check and the `createLibrary` insert. On any error,
  *    we re-read the table and call `onLibraryAdded` for whatever ended up there.
+ *    When [rescanOnStartup] is true the library is scanned immediately after.
  *  - If no libraries exist and [libraryPath] is null → log and return; the
  *    operator must create a library via the LibraryAdmin REST surface.
  *
- * **No auto-scan is ever triggered.** Scans are user-initiated (POST /scan) or
- * file-watcher-triggered. This keeps startup fast and avoids racing against
- * test fixtures that insert their own library rows.
+ * Startup scans are gated by [rescanOnStartup] so tests can opt out and avoid
+ * racing scanner coroutines against test fixture assertions.
  */
 internal suspend fun bootstrapLibraries(
     libraryAdminService: LibraryAdminService,
     scanOrchestrator: ScanOrchestrator,
     libraryPath: String?,
+    rescanOnStartup: Boolean = true,
 ) {
     // Startup bootstrap is a system operation — it creates the default library from the
     // env var before any user has signed in. Scope the admin-gated service to a synthetic
@@ -700,11 +725,14 @@ internal suspend fun bootstrapLibraries(
     when {
         existing.isNotEmpty() -> {
             logger.info { "bootstrap: ${existing.size} library(s) already configured; env var ignored" }
-            existing.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
+            existing.forEach { library ->
+                scanOrchestrator.onLibraryAdded(library)
+                if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(library.id)
+            }
         }
 
         libraryPath != null -> {
-            bootstrapCreateDefaultLibrary(service, scanOrchestrator, libraryPath)
+            bootstrapCreateDefaultLibrary(service, scanOrchestrator, libraryPath, rescanOnStartup)
         }
 
         else -> {
@@ -712,6 +740,27 @@ internal suspend fun bootstrapLibraries(
                 "bootstrap: no libraries and no env var; awaiting client onboarding via LibraryAdminService.createLibrary"
             }
         }
+    }
+}
+
+/**
+ * Re-reads the library table after a failed [bootstrapCreateDefaultLibrary] attempt
+ * and registers whatever ended up there (handles the concurrent-insert race). When
+ * [rescanOnStartup] is true each library is also kicked off via
+ * [ScanOrchestrator.scanLibraryAsync].
+ */
+private suspend fun bootstrapRecheckAndRegister(
+    libraryAdminService: LibraryAdminService,
+    scanOrchestrator: ScanOrchestrator,
+    rescanOnStartup: Boolean,
+) {
+    val recheck = libraryAdminService.listLibraries()
+    if (recheck is AppResult.Success && recheck.data.isNotEmpty()) {
+        logger.info {
+            "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator"
+        }
+        recheck.data.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
+        if (rescanOnStartup) recheck.data.forEach { library -> scanOrchestrator.scanLibraryAsync(library.id) }
     }
 }
 
@@ -726,6 +775,7 @@ private suspend fun bootstrapCreateDefaultLibrary(
     libraryAdminService: LibraryAdminService,
     scanOrchestrator: ScanOrchestrator,
     libraryPath: String,
+    rescanOnStartup: Boolean = true,
 ) {
     logger.info { "bootstrap: no libraries configured; creating default from env var path=$libraryPath" }
     val created =
@@ -737,6 +787,7 @@ private suspend fun bootstrapCreateDefaultLibrary(
             .getOrNull()
     if (created is AppResult.Success) {
         logger.info { "bootstrap: default library created id=${created.data.id.value}" }
+        if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(created.data.id)
     } else {
         // Either createLibrary returned Failure or threw — re-check the DB.
         // A concurrent insert (test fixture race) may have already added a library.
@@ -745,12 +796,6 @@ private suspend fun bootstrapCreateDefaultLibrary(
         } else {
             logger.warn { "bootstrap: createLibrary threw — re-checking for concurrent inserts" }
         }
-        val recheck = libraryAdminService.listLibraries()
-        if (recheck is AppResult.Success && recheck.data.isNotEmpty()) {
-            logger.info {
-                "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator"
-            }
-            recheck.data.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
-        }
+        bootstrapRecheckAndRegister(libraryAdminService, scanOrchestrator, rescanOnStartup)
     }
 }
