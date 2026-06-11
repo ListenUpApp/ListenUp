@@ -3,14 +3,15 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.admin.absimport.AnalysisDelegate
+import com.calypsan.listenup.client.presentation.admin.absimport.BookMappingDelegate
 import com.calypsan.listenup.client.presentation.admin.absimport.SourceSelectionDelegate
+import com.calypsan.listenup.client.presentation.admin.absimport.UserMappingDelegate
 import com.calypsan.listenup.client.presentation.admin.absimport.updateReady
 import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.FileSource
@@ -22,9 +23,6 @@ import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
-private const val MIN_SEARCH_QUERY_LEN = 2
-private const val SEARCH_LIMIT = 10
-
 /**
  * ViewModel for ABS import flow.
  *
@@ -32,10 +30,13 @@ private const val SEARCH_LIMIT = 10
  * - LOCAL: User picks file from device, uploads to server, then analyzes
  * - REMOTE: User browses server filesystem, selects file, then analyzes
  *
- * TODO: Split into smaller pieces — e.g. extract UserMappingHandler and BookMappingHandler
- *  delegate classes to reduce class size below the detekt LargeClass threshold.
+ * Delegates to focused sub-classes:
+ * - [AnalysisDelegate]: async backup analysis + polling
+ * - [SourceSelectionDelegate]: local/remote file selection and upload
+ * - [UserMappingDelegate]: inline user search and mapping
+ * - [BookMappingDelegate]: inline book search and mapping
  */
-@Suppress("LargeClass", "TooManyFunctions")
+@Suppress("TooManyFunctions")
 class ABSImportViewModel(
     private val backupApi: BackupApiContract,
     private val searchApi: SearchApiContract,
@@ -51,6 +52,8 @@ class ABSImportViewModel(
         viewModelScope, state, errorBus, backupApi,
         onReadyToAnalyze = analysisDelegate::analyze,
     )
+    private val userMappingDelegate = UserMappingDelegate(viewModelScope, state, errorBus, absImportApi)
+    private val bookMappingDelegate = BookMappingDelegate(viewModelScope, state, errorBus, searchApi)
 
     // === Source Selection ===
 
@@ -108,44 +111,15 @@ class ABSImportViewModel(
 
     // === Mapping ===
 
-    fun setUserMapping(
-        absUserId: String,
-        listenupUserId: String?,
-    ) {
-        state.updateReady { current ->
-            val newMappings = current.userMappings.toMutableMap()
-            if (listenupUserId != null) {
-                newMappings[absUserId] = listenupUserId
-            } else {
-                newMappings.remove(absUserId)
-            }
-            current.copy(userMappings = newMappings)
-        }
-    }
-
-    fun setBookMapping(
-        absItemId: String,
-        listenupBookId: String?,
-    ) {
-        state.updateReady { current ->
-            val newMappings = current.bookMappings.toMutableMap()
-            if (listenupBookId != null) {
-                newMappings[absItemId] = listenupBookId
-            } else {
-                newMappings.remove(absItemId)
-            }
-            current.copy(bookMappings = newMappings)
-        }
-    }
+    fun setUserMapping(absUserId: String, listenupUserId: String?) = userMappingDelegate.setUserMapping(absUserId, listenupUserId)
+    fun setBookMapping(absItemId: String, listenupBookId: String?) = bookMappingDelegate.setBookMapping(absItemId, listenupBookId)
 
     // === User Mapping Tab ===
 
     /**
      * Set the active tab in the user mapping step.
      */
-    fun setUserMappingTab(tab: UserMappingTab) {
-        state.updateReady { it.copy(userMappingTab = tab) }
-    }
+    fun setUserMappingTab(tab: UserMappingTab) = userMappingDelegate.setUserMappingTab(tab)
 
     // === Inline User Search ===
 
@@ -153,80 +127,18 @@ class ABSImportViewModel(
      * Called when a user search field gains focus.
      * Activates search for that specific user and clears previous search state.
      */
-    fun activateUserSearch(absUserId: String) {
-        state.updateReady {
-            it.copy(
-                activeSearchAbsUserId = absUserId,
-                userSearchQuery = "",
-                userSearchResults = emptyList(),
-                isSearchingUsers = false,
-            )
-        }
-    }
+    fun activateUserSearch(absUserId: String) = userMappingDelegate.activateUserSearch(absUserId)
 
     /**
      * Called when a user search field loses focus.
      * Clears the active search state.
      */
-    fun deactivateUserSearch() {
-        state.updateReady {
-            it.copy(
-                activeSearchAbsUserId = null,
-                userSearchQuery = "",
-                userSearchResults = emptyList(),
-                isSearchingUsers = false,
-            )
-        }
-    }
+    fun deactivateUserSearch() = userMappingDelegate.deactivateUserSearch()
 
     /**
      * Update search query for the active user search field.
      */
-    fun updateUserSearchQuery(query: String) {
-        state.updateReady { it.copy(userSearchQuery = query) }
-
-        if (query.length < MIN_SEARCH_QUERY_LEN) {
-            state.updateReady { it.copy(userSearchResults = emptyList(), isSearchingUsers = false) }
-            return
-        }
-
-        viewModelScope.launch {
-            state.updateReady { it.copy(isSearchingUsers = true) }
-            try {
-                when (val result = absImportApi.searchUsers(query, limit = SEARCH_LIMIT)) {
-                    is AppResult.Success -> {
-                        state.updateReady {
-                            it.copy(
-                                userSearchResults = result.data,
-                                isSearchingUsers = false,
-                            )
-                        }
-                    }
-
-                    is AppResult.Failure -> {
-                        logger.error { "User search failed: ${null as Exception?}" }
-                        state.updateReady {
-                            it.copy(
-                                userSearchResults = emptyList(),
-                                isSearchingUsers = false,
-                            )
-                        }
-                    }
-                }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "User search failed: ${e.message}" }
-                state.updateReady {
-                    it.copy(
-                        userSearchResults = emptyList(),
-                        isSearchingUsers = false,
-                    )
-                }
-            }
-        }
-    }
+    fun updateUserSearchQuery(query: String) = userMappingDelegate.updateUserSearchQuery(query)
 
     /**
      * Select a user from search results or suggestions and apply the mapping.
@@ -236,65 +148,19 @@ class ABSImportViewModel(
         userId: String,
         email: String,
         displayName: String?,
-    ) {
-        viewModelScope.launch {
-            // Show loading spinner on the tapped result while state propagates
-            state.updateReady { it.copy(loadingUserItemId = userId) }
-
-            // Store display info for the selected user
-            val displayInfo =
-                SelectedUserDisplay(
-                    userId = userId,
-                    email = email,
-                    displayName = displayName,
-                )
-
-            state.updateReady { s ->
-                val newDisplays = s.selectedUserDisplays.toMutableMap()
-                newDisplays[absUserId] = displayInfo
-
-                val newMappings = s.userMappings.toMutableMap()
-                newMappings[absUserId] = userId
-
-                s.copy(
-                    selectedUserDisplays = newDisplays,
-                    userMappings = newMappings,
-                    // Clear search state
-                    activeSearchAbsUserId = null,
-                    userSearchQuery = "",
-                    userSearchResults = emptyList(),
-                    loadingUserItemId = null,
-                )
-            }
-        }
-    }
+    ) = userMappingDelegate.selectUser(absUserId, userId, email, displayName)
 
     /**
      * Clear the user mapping for an ABS user (allows re-searching).
      */
-    fun clearUserMapping(absUserId: String) {
-        state.updateReady { s ->
-            val newDisplays = s.selectedUserDisplays.toMutableMap()
-            newDisplays.remove(absUserId)
-
-            val newMappings = s.userMappings.toMutableMap()
-            newMappings.remove(absUserId)
-
-            s.copy(
-                selectedUserDisplays = newDisplays,
-                userMappings = newMappings,
-            )
-        }
-    }
+    fun clearUserMapping(absUserId: String) = userMappingDelegate.clearUserMapping(absUserId)
 
     // === Book Mapping Tab ===
 
     /**
      * Set the active tab in the book mapping step.
      */
-    fun setBookMappingTab(tab: BookMappingTab) {
-        state.updateReady { it.copy(bookMappingTab = tab) }
-    }
+    fun setBookMappingTab(tab: BookMappingTab) = bookMappingDelegate.setBookMappingTab(tab)
 
     // === Inline Book Search ===
 
@@ -302,77 +168,18 @@ class ABSImportViewModel(
      * Called when a book search field gains focus.
      * Activates search for that specific book and clears previous search state.
      */
-    fun activateBookSearch(absItemId: String) {
-        state.updateReady {
-            it.copy(
-                activeSearchAbsItemId = absItemId,
-                bookSearchQuery = "",
-                bookSearchResults = emptyList(),
-                isSearchingBooks = false,
-            )
-        }
-    }
+    fun activateBookSearch(absItemId: String) = bookMappingDelegate.activateBookSearch(absItemId)
 
     /**
      * Called when a book search field loses focus.
      * Clears the active search state.
      */
-    fun deactivateBookSearch() {
-        state.updateReady {
-            it.copy(
-                activeSearchAbsItemId = null,
-                bookSearchQuery = "",
-                bookSearchResults = emptyList(),
-                isSearchingBooks = false,
-            )
-        }
-    }
+    fun deactivateBookSearch() = bookMappingDelegate.deactivateBookSearch()
 
     /**
      * Update search query for the active book search field.
      */
-    fun updateBookSearchQuery(query: String) {
-        state.updateReady { it.copy(bookSearchQuery = query) }
-
-        if (query.length < MIN_SEARCH_QUERY_LEN) {
-            state.updateReady { it.copy(bookSearchResults = emptyList(), isSearchingBooks = false) }
-            return
-        }
-
-        viewModelScope.launch {
-            state.updateReady { it.copy(isSearchingBooks = true) }
-            try {
-                val response =
-                    searchApi.search(
-                        query = query,
-                        types = "book",
-                        genres = null,
-                        genrePath = null,
-                        minDuration = null,
-                        maxDuration = null,
-                        limit = SEARCH_LIMIT,
-                        offset = 0,
-                    )
-                state.updateReady {
-                    it.copy(
-                        bookSearchResults = response.hits,
-                        isSearchingBooks = false,
-                    )
-                }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Book search failed: ${e.message}" }
-                state.updateReady {
-                    it.copy(
-                        bookSearchResults = emptyList(),
-                        isSearchingBooks = false,
-                    )
-                }
-            }
-        }
-    }
+    fun updateBookSearchQuery(query: String) = bookMappingDelegate.updateBookSearchQuery(query)
 
     /**
      * Select a book from search results or suggestions and apply the mapping.
@@ -383,57 +190,12 @@ class ABSImportViewModel(
         title: String,
         author: String?,
         durationMs: Long?,
-    ) {
-        viewModelScope.launch {
-            // Show loading spinner on the tapped result while state propagates
-            state.updateReady { it.copy(loadingBookItemId = bookId) }
-
-            // Store display info for the selected book
-            val displayInfo =
-                SelectedBookDisplay(
-                    bookId = bookId,
-                    title = title,
-                    author = author,
-                    durationMs = durationMs,
-                )
-
-            state.updateReady { s ->
-                val newDisplays = s.selectedBookDisplays.toMutableMap()
-                newDisplays[absItemId] = displayInfo
-
-                val newMappings = s.bookMappings.toMutableMap()
-                newMappings[absItemId] = bookId
-
-                s.copy(
-                    selectedBookDisplays = newDisplays,
-                    bookMappings = newMappings,
-                    // Clear search state
-                    activeSearchAbsItemId = null,
-                    bookSearchQuery = "",
-                    bookSearchResults = emptyList(),
-                    loadingBookItemId = null,
-                )
-            }
-        }
-    }
+    ) = bookMappingDelegate.selectBook(absItemId, bookId, title, author, durationMs)
 
     /**
      * Clear the book mapping for an ABS item (allows re-searching).
      */
-    fun clearBookMapping(absItemId: String) {
-        state.updateReady { s ->
-            val newDisplays = s.selectedBookDisplays.toMutableMap()
-            newDisplays.remove(absItemId)
-
-            val newMappings = s.bookMappings.toMutableMap()
-            newMappings.remove(absItemId)
-
-            s.copy(
-                selectedBookDisplays = newDisplays,
-                bookMappings = newMappings,
-            )
-        }
-    }
+    fun clearBookMapping(absItemId: String) = bookMappingDelegate.clearBookMapping(absItemId)
 
     // === Import Options ===
 
