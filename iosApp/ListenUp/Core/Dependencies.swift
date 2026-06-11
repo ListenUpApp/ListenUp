@@ -32,6 +32,8 @@ final class Dependencies {
     var librarySetupViewModel: LibrarySetupViewModel { resolve { KoinHelper.shared.getLibrarySetupViewModel() } }
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
     var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
+    var homeViewModel: HomeViewModel { resolve { KoinHelper.shared.getHomeViewModel() } }
+    var homeStatsViewModel: HomeStatsViewModel { resolve { KoinHelper.shared.getHomeStatsViewModel() } }
 
     // MARK: - Settings
 
