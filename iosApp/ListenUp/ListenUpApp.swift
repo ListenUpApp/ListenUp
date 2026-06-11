@@ -26,6 +26,7 @@ struct ListenUpApp: App {
 private struct RootView: View {
     @State private var auth = AuthStateObserver()
     @State private var currentUser = CurrentUserObserver()
+    @State private var readiness = LibraryReadinessObserver()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
 
@@ -56,6 +57,22 @@ private struct RootView: View {
         case .pendingApproval:
             PendingApprovalView()
         case .authenticated:
+            authenticatedContent
+        }
+    }
+
+    /// Gate the authenticated window on library readiness. A first-run admin with no library
+    /// (`needsSetup`) is routed into the setup wizard; on completion the readiness latch flips
+    /// to `ready` and the main app mounts. A returning user with a library is `ready` (or
+    /// `populating`/`checkFailed`) and goes straight to the app — setup is skipped.
+    @ViewBuilder
+    private var authenticatedContent: some View {
+        switch readiness.phase {
+        case .checking:
+            LaunchScreen()
+        case .needsSetup:
+            LibrarySetupFlowCoordinator(onComplete: { readiness.onLibrarySetupComplete() })
+        case .populating, .ready, .checkFailed:
             MainTabView()
         }
     }

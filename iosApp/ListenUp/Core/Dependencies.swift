@@ -29,7 +29,9 @@ final class Dependencies {
     var loginViewModel: LoginViewModel { resolve { KoinHelper.shared.getLoginViewModel() } }
     var registerViewModel: RegisterViewModel { resolve { KoinHelper.shared.getRegisterViewModel() } }
     var serverSelectViewModel: ServerSelectViewModel { resolve { KoinHelper.shared.getServerSelectViewModel() } }
+    var librarySetupViewModel: LibrarySetupViewModel { resolve { KoinHelper.shared.getLibrarySetupViewModel() } }
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
+    var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
 
     // MARK: - Settings
 
