@@ -75,9 +75,10 @@ class ImportAnalyzer internal constructor(
                 val listenupUsers = loadMatchableUsers()
 
                 val userMatches = absData.users.map { userMatcher.match(it, listenupUsers) }
+                val usersMatched = userMatches.count { it.confidence == MatchTier.STRONG }
 
                 val itemsWithProgress = itemsWithProgress(absData.items, absData.progress)
-                val matches = matchItems(itemsWithProgress, libraryId, onEvent)
+                val matches = matchItems(itemsWithProgress, libraryId, usersMatched, onEvent)
 
                 val importableSessionCount = importableSessionCount(absData.sessions, matches)
                 val analysis = assembleAnalysis(userMatches, matches, importableSessionCount)
@@ -125,12 +126,23 @@ class ImportAnalyzer internal constructor(
     private suspend fun matchItems(
         items: List<AbsItem>,
         libraryId: LibraryId,
+        usersMatched: Int,
         onEvent: (ImportEvent) -> Unit,
     ): List<ItemMatch> {
         val total = items.size
+        var booksMatched = 0
         return items.mapIndexed { index, item ->
             val match = bookMatcher.match(item, libraryId)
-            onEvent(ImportEvent.Matching(done = index + 1, total = total))
+            if (match.bookId != null) booksMatched++
+            onEvent(
+                ImportEvent.Matching(
+                    done = index + 1,
+                    total = total,
+                    currentItem = item.title,
+                    usersMatched = usersMatched,
+                    booksMatched = booksMatched,
+                ),
+            )
             ItemMatch(item, match.bookId, match.tier)
         }
     }

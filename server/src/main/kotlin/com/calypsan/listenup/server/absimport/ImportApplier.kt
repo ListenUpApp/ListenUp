@@ -158,7 +158,13 @@ class ImportApplier internal constructor(
                 perUser[targetUser] = (perUser[targetUser] ?: 0) + 1
                 affectedUsers += targetUser.value
             }
-            onEvent(ImportEvent.Applying(done = index + 1, total = total))
+            onEvent(
+                ImportEvent.Applying(
+                    done = index + 1,
+                    total = total,
+                    currentItem = targetBook?.value ?: row.itemId,
+                ),
+            )
         }
 
         return ImportResult(
@@ -199,7 +205,14 @@ class ImportApplier internal constructor(
                 imported++
                 affectedUsers += targetUser.value
             }
-            onEvent(ImportEvent.Applying(done = index + 1, total = total))
+            onEvent(
+                ImportEvent.Applying(
+                    done = index + 1,
+                    total = total,
+                    currentItem = targetBook?.value ?: session.itemId,
+                    sessionsWritten = imported,
+                ),
+            )
         }
 
         return SessionCounts(imported = imported, skipped = skipped)

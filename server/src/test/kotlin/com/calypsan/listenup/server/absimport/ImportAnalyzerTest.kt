@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainKey
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -78,6 +79,42 @@ class ImportAnalyzerTest :
                         .filterIsInstance<ImportEvent.Matching>()
                         .map { it.total }
                         .shouldContainExactlyInAnyOrder(listOf(2, 2))
+                }
+            }
+        }
+
+        test("Matching events carry currentItem title and running booksMatched tally") {
+            withInMemoryDatabase {
+                val db = this
+                val (paths, importId) = stageImport()
+                val analyzer = analyzerFor(db, paths)
+
+                runTest {
+                    val libId = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")).currentLibrary()
+                    transaction(db) {
+                        seedAnalyzerBooks(libId.value)
+                        seedAnalyzerUser()
+                    }
+                    val events = mutableListOf<ImportEvent>()
+                    analyzer.analyze(importId) { events += it }
+
+                    val matchingEvents = events.filterIsInstance<ImportEvent.Matching>()
+                    // Two progress-bearing items → two Matching events.
+                    matchingEvents.size shouldBe 2
+
+                    // Every Matching event must carry a non-null currentItem.
+                    matchingEvents.forEach { it.currentItem.shouldNotBeNull() }
+
+                    // The item titles from the fixture are "The Way of Kings" and "Mistborn".
+                    matchingEvents.map { it.currentItem }
+                        .shouldContainAll(listOf("The Way of Kings", "Mistborn"))
+
+                    // booksMatched grows: after the second event it reflects both resolved books.
+                    val finalMatching = matchingEvents.last()
+                    finalMatching.booksMatched shouldBe 2
+
+                    // usersMatched: 1 user (simon) with STRONG match.
+                    finalMatching.usersMatched shouldBe 1
                 }
             }
         }
