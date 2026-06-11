@@ -256,6 +256,18 @@ class SyncEngine(
     }
 
     /**
+     * Force a digest reconciliation across all registered domains, re-pulling any that
+     * have drifted from the server. Unlike [start], this runs even when the engine is
+     * already active — used after a server-side restore (a wholesale DB swap that is not
+     * announced on the sync firehose, and which [start] cannot detect because it no-ops
+     * when already running). [SyncReconciler.reconcileAll] is non-throwing and is the
+     * same digest re-pull that [start] performs as its final step.
+     */
+    suspend fun forceReconcile() {
+        reconciler.reconcileAll()
+    }
+
+    /**
      * Recover from a server-issued `SyncControl.CursorStale`. The dispatcher
      * invokes this when the SSE firehose announces that the client's
      * `Last-Event-Id` precedes the bus's live-tail replay floor.
