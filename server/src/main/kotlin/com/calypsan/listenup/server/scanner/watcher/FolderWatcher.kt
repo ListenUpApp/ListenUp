@@ -2,9 +2,6 @@ package com.calypsan.listenup.server.scanner.watcher
 
 import com.calypsan.listenup.server.scanner.inference.MultiDiscPattern
 import com.calypsan.listenup.server.scanner.inference.SkipRules
-import io.github.irgaly.kfswatch.KfsDirectoryWatcher
-import io.github.irgaly.kfswatch.KfsDirectoryWatcherEvent
-import io.github.irgaly.kfswatch.KfsEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -29,11 +26,10 @@ private val logger = KotlinLogging.logger {}
  *
  * Implementation notes:
  *
- *  - **Recursive watching is opt-in.** kfswatch's API watches a fixed list
- *    of directories — it doesn't recurse on its own. We walk the library
- *    tree at [start] and register every non-skipped directory. New
- *    directories created during runtime are registered when their `Create`
- *    event arrives.
+ *  - **Recursive watching.** The watcher engine tracks an explicit set of
+ *    directories rather than recursing globally. We walk the library tree at
+ *    [start] and register every non-skipped directory; directories created at
+ *    runtime are picked up when their `Create` event arrives.
  *  - **Per-book coalescing.** Multiple events under the same book root
  *    within the [debouncer]'s settle window collapse to a single emission.
  *    Implementation: a map from book root → pending emission [Job]; a new
@@ -57,7 +53,7 @@ internal class FolderWatcher(
     private val scope: CoroutineScope,
     private val debouncer: StableSizeDebouncer = StableSizeDebouncer(),
     private val skipRules: (Path) -> Boolean = SkipRules::shouldSkip,
-    private val watcher: KfsDirectoryWatcher = KfsDirectoryWatcher(scope),
+    private val watcher: LowLevelDirectoryWatcher = RecursiveDirectoryWatcher(scope),
 ) {
     private val emissions = MutableSharedFlow<Path>(extraBufferCapacity = 64)
     val events: Flow<Path> = emissions.asSharedFlow()
@@ -109,18 +105,19 @@ internal class FolderWatcher(
         return collected
     }
 
-    private suspend fun handle(event: KfsDirectoryWatcherEvent) {
+    private suspend fun handle(event: DirectoryWatchEvent) {
         val fullPath = Path.of(event.targetDirectory).resolve(event.path)
         if (skipRules(fullPath)) return
 
-        // A newly-created directory needs to be added to the watch set so
-        // events on its children surface. kfswatch does not recurse for us.
-        if (event.event == KfsEvent.Create && Files.isDirectory(fullPath)) {
+        // A newly-created directory needs to be added to the watch set so events on
+        // its children surface. The recursive watcher already registers new subtrees
+        // itself, so this is a no-op guard kept for clarity of intent.
+        if (event.kind == DirectoryWatchEventKind.Create && Files.isDirectory(fullPath)) {
             watcher.add(fullPath.toString())
         }
 
         val bookRoot = computeBookRoot(fullPath)
-        scheduleEmission(bookRoot, fullPath, isDelete = event.event == KfsEvent.Delete)
+        scheduleEmission(bookRoot, fullPath, isDelete = event.kind == DirectoryWatchEventKind.Delete)
     }
 
     private fun scheduleEmission(

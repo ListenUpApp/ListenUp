@@ -30,8 +30,6 @@ import kotlin.time.Duration.Companion.seconds
  * **Test pattern:** the directory tree is created BEFORE the watcher is
  * started, so the initial walk-and-register picks up every directory.
  * Tests then write/modify files in the existing tree to trigger events.
- * This sidesteps the inherent race between "newly-created directory" and
- * "kfswatch finishes adding inotify watch on it".
  */
 class FolderWatcherTest :
     FunSpec({
@@ -129,6 +127,26 @@ class FolderWatcherTest :
                             }
 
                             collectorJob.cancel()
+                        }
+                    } finally {
+                        tmp.toFile().deleteRecursively()
+                    }
+                }
+            }
+
+            test("a book under the 100th directory still emits its book root (no 63-dir cap)") {
+                runBlocking {
+                    val tmp = Files.createTempDirectory("listenup-watcher-cap-")
+                    // 99 filler author dirs walked first, then the real one — past kfswatch's 63.
+                    (1..99).forEach { (tmp / "Filler-%03d".format(it) / "Book").createDirectories() }
+                    val bookDir = (tmp / "ZZZ Author/Late Book").apply { createDirectories() }
+                    try {
+                        withWatcher(tmp) { watcher ->
+                            watcher.events.test(timeout = 5.seconds) {
+                                (bookDir / "track.mp3").writeBytes(byteArrayOf(1, 2, 3))
+                                awaitItem() shouldBe bookDir
+                                cancelAndIgnoreRemainingEvents()
+                            }
                         }
                     } finally {
                         tmp.toFile().deleteRecursively()
