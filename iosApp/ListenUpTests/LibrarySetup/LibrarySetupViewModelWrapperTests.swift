@@ -68,14 +68,16 @@ struct ScanProgressItemMappingTests {
         )
     }
 
-    @Test func fractionIsCurrentOverTotal() {
+    @Test func fractionIsCurrentOverTotal() throws {
         let item = ScanProgressItem(from: state(current: 666, filesTotal: 1_647))
-        #expect(abs(item.fraction - (666.0 / 1_647.0)) < 0.0001)
+        let fraction = try #require(item.fraction)
+        #expect(abs(fraction - (666.0 / 1_647.0)) < 0.0001)
     }
 
-    @Test func fractionIsZeroWhenTotalIsZero() {
+    @Test func fractionIsNilWhenTotalIsZero() {
+        // Walking phase: no totals yet → indeterminate, not a fake 0%.
         let item = ScanProgressItem(from: state(current: 5, filesTotal: 0))
-        #expect(item.fraction == 0)
+        #expect(item.fraction == nil)
     }
 
     @Test func fractionClampsToOne() {
@@ -109,5 +111,78 @@ struct ScanProgressItemMappingTests {
     @Test func currentFilePassesThrough() {
         let item = ScanProgressItem(from: state(currentFile: "/media/book/ch01.mp3"))
         #expect(item.currentFile == "/media/book/ch01.mp3")
+    }
+}
+
+@Suite("LibrarySetupViewModelWrapper selection gate")
+@MainActor
+struct LibrarySetupWrapperSelectionTests {
+    /// Build a `LibrarySetupUiState` with explicit `selectedPaths` and `directories` so we
+    /// can assert the gate reads the TOTAL selection, not just the visible rows.
+    private func uiState(
+        directories: [DirectoryEntry] = [],
+        selectedPaths: Set<String> = []
+    ) -> LibrarySetupUiState {
+        LibrarySetupUiState(
+            isCheckingStatus: false,
+            needsSetup: true,
+            currentPath: "/media",
+            parentPath: "/",
+            directories: directories,
+            isLoadingDirectories: false,
+            isRoot: false,
+            selectedPaths: selectedPaths,
+            libraryName: "My Library",
+            isCreatingLibrary: false,
+            createdLibraries: [],
+            setupComplete: false,
+            error: nil
+        )
+    }
+
+    private func entry(path: String, hasChildren: Bool = false) -> DirectoryEntry {
+        DirectoryEntry(
+            name: path.split(separator: "/").last.map(String.init) ?? path,
+            path: path,
+            hasChildren: hasChildren,
+            itemCount: 0
+        )
+    }
+
+    /// The C1 regression: a leaf selected under `/media/A`, then the user navigates Up to
+    /// `/media` (whose visible `directories` no longer contain the selected path). The gate
+    /// must still enable Create because the selection lives in `selectedPaths`, not the rows.
+    @Test func hasSelectionSurvivesNavigatingAwayFromSelectedFolder() {
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.apply(uiState(
+            directories: [entry(path: "/media/B"), entry(path: "/media/C")],
+            selectedPaths: ["/media/A/book"]
+        ))
+
+        #expect(wrapper.hasSelection == true)
+        #expect(wrapper.selectionCount == 1)
+        #expect(wrapper.selectedPaths == ["/media/A/book"])
+        // The selected path is deliberately absent from the visible rows.
+        #expect(wrapper.directories.contains { $0.isSelected } == false)
+    }
+
+    @Test func emptySelectionDisablesGate() {
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.apply(uiState(directories: [entry(path: "/media/B")], selectedPaths: []))
+
+        #expect(wrapper.hasSelection == false)
+        #expect(wrapper.selectionCount == 0)
+    }
+
+    @Test func selectionCountSpansMultipleDirectories() {
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.apply(uiState(
+            directories: [entry(path: "/media/B")],
+            selectedPaths: ["/media/A/book", "/media/B", "/other/D"]
+        ))
+
+        #expect(wrapper.selectionCount == 3)
+        // Only the currently-visible "/media/B" renders as selected.
+        #expect(wrapper.directories.filter { $0.isSelected }.count == 1)
     }
 }

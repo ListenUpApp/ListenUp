@@ -42,7 +42,11 @@ struct LibrarySetupFlowCoordinator: View {
                 }
         }
         .onAppear {
-            viewModel.onLibraryCreated = { path.append(.building) }
+            viewModel.onLibraryCreated = {
+                // `onLibraryCreated` fires on every create; only push if we aren't
+                // already on the building screen so a second create can't stack it.
+                if path.last != .building { path.append(.building) }
+            }
             viewModel.onFinished = onComplete
             viewModel.checkStatus()
         }

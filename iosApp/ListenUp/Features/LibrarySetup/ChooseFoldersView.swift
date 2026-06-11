@@ -19,14 +19,11 @@ struct ChooseFoldersView: View {
     @Bindable var viewModel: LibrarySetupViewModelWrapper
 
     /// True once at least one leaf folder (or the current folder, via "Select this
-    /// folder") has been chosen — the gate for creating the library.
-    private var hasSelection: Bool {
-        viewModel.directories.contains { $0.isSelected }
-    }
+    /// folder") has been chosen — the gate for creating the library. Reads the wrapper's
+    /// total selection set, which spans every visited directory, not just the visible rows.
+    private var hasSelection: Bool { viewModel.hasSelection }
 
-    private var selectionCount: Int {
-        viewModel.directories.lazy.filter { $0.isSelected }.count
-    }
+    private var selectionCount: Int { viewModel.selectionCount }
 
     var body: some View {
         AuthScaffold {

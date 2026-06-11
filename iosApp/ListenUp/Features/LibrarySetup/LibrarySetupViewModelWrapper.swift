@@ -22,8 +22,9 @@ struct DirectoryItem: Identifiable, Equatable {
 
 /// Live scan progress, flattened for the "Building your library" screen.
 struct ScanProgressItem: Equatable {
-    /// Progress over discovered files, clamped to `0...1` (0 when total is unknown).
-    let fraction: Double
+    /// Progress over discovered files, or `nil` during the indeterminate "walking" phase
+    /// (total still unknown). Sourced from the shared contract's `progressFraction`.
+    let fraction: Double?
     /// Human-readable file counter, e.g. `"666 / 1,647 files"`.
     let filesLabel: String
     let currentFile: String?
@@ -35,12 +36,12 @@ struct ScanProgressItem: Equatable {
     init(from state: ScanProgressState) {
         let total = Int(state.filesTotal)
         let current = Int(state.current)
-        fraction = total > 0 ? min(1, max(0, Double(current) / Double(total))) : 0
+        fraction = state.progressFraction.map { Double($0) }
         filesLabel = "\(Self.grouped(current)) / \(Self.grouped(total)) files"
         currentFile = state.currentFile
         books = Int(state.books)
         authors = Int(state.authors)
-        hours = Int((Double(state.durationMs) / 3_600_000).rounded())
+        hours = Int(state.hours)
     }
 
     private static func grouped(_ value: Int) -> String {
@@ -72,6 +73,17 @@ final class LibrarySetupViewModelWrapper {
     private(set) var isLoadingDirectories: Bool = false
     private(set) var directories: [DirectoryItem] = []
 
+    /// The full selection set, spanning every directory the user has visited — not just
+    /// the rows currently on screen. The visible `directories` only carry a per-row
+    /// `isSelected` flag for rendering; this is the authoritative gate for "can create".
+    private(set) var selectedPaths: Set<String> = []
+
+    /// True once at least one folder anywhere in the tree is selected.
+    var hasSelection: Bool { !selectedPaths.isEmpty }
+
+    /// How many folders are selected across the whole tree.
+    var selectionCount: Int { selectedPaths.count }
+
     // Library creation
     private(set) var isCreatingLibrary: Bool = false
 
@@ -93,7 +105,10 @@ final class LibrarySetupViewModelWrapper {
     var onLibraryCreated: (() -> Void)?
     var onFinished: (() -> Void)?
 
-    private let viewModel: LibrarySetupViewModel
+    /// The shared VM. Implicitly-unwrapped because the bridge-free test initializer
+    /// (`init()`) leaves it nil — production always wires it. Action methods touch it;
+    /// the state-mapping path (`apply`) does not, which is what tests exercise.
+    private let viewModel: LibrarySetupViewModel!
     private let bridge = FlowBridge()
 
     init(viewModel: LibrarySetupViewModel, syncRepository: any SyncRepository) {
@@ -103,6 +118,12 @@ final class LibrarySetupViewModelWrapper {
         bridge.bind(syncRepository.scanProgress) { [weak self] state in
             self?.scan = state.map(ScanProgressItem.init(from:))
         }
+    }
+
+    /// Bridge-free initializer for wrapper-level unit tests. Skips flow binding so the
+    /// stateful mapping (`apply`) can be driven directly without a live KMP ViewModel.
+    init() {
+        self.viewModel = nil
     }
 
     func stopObserving() {
@@ -151,7 +172,9 @@ final class LibrarySetupViewModelWrapper {
 
     // MARK: - State mapping
 
-    private func apply(_ state: LibrarySetupUiState) {
+    /// Internal (not private) so wrapper-level tests can drive the stateful selection
+    /// logic directly without a live KMP ViewModel.
+    func apply(_ state: LibrarySetupUiState) {
         isCheckingStatus = state.isCheckingStatus
         needsSetup = state.needsSetup
         currentPath = state.currentPath
@@ -162,6 +185,7 @@ final class LibrarySetupViewModelWrapper {
         errorMessage = state.error
 
         let selected = state.selectedPaths
+        selectedPaths = selected
         directories = state.directories.map {
             DirectoryItem(from: $0, selectedPaths: selected)
         }

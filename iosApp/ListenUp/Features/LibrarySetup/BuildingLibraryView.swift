@@ -55,19 +55,21 @@ struct BuildingLibraryView: View {
     private var progressBlock: some View {
         AuthFieldGroup {
             VStack(alignment: .leading, spacing: 12) {
-                if let scan = viewModel.scan {
+                if let fraction = viewModel.scan?.fraction {
+                    // Totals known — honest determinate bar with a percentage.
                     HStack(alignment: .firstTextBaseline) {
-                        Text(scan.filesLabel)
+                        Text(viewModel.scan?.filesLabel ?? "")
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(.primary)
                         Spacer(minLength: 8)
-                        Text("\(Int((scan.fraction * 100).rounded()))%")
+                        Text("\(Int((fraction * 100).rounded()))%")
                             .font(.subheadline.weight(.semibold).monospacedDigit())
                             .foregroundStyle(Color.listenUpOrange)
                     }
-                    ProgressView(value: scan.fraction)
+                    ProgressView(value: fraction)
                         .tint(Color.listenUpOrange)
                 } else {
+                    // Walking phase (no totals yet) — indeterminate, never a fake 0%.
                     HStack(spacing: 10) {
                         ProgressView().controlSize(.small)
                         Text(String(localized: "library_setup.starting_scan"))
@@ -86,12 +88,12 @@ struct BuildingLibraryView: View {
     }
 
     private var progressAccessibilityLabel: String {
-        guard let scan = viewModel.scan else {
+        guard let scan = viewModel.scan, let fraction = scan.fraction else {
             return String(localized: "library_setup.building_starting_a11y")
         }
         return String(
             format: String(localized: "library_setup.building_progress_a11y"),
-            Int((scan.fraction * 100).rounded()),
+            Int((fraction * 100).rounded()),
             scan.books,
             scan.authors,
             scan.hours
