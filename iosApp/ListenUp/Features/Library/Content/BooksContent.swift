@@ -22,6 +22,7 @@ struct BooksContent: View {
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
+    @State private var sections: [(letter: Character, books: [BookListItem])] = []
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 16)]
 
@@ -45,7 +46,6 @@ struct BooksContent: View {
     // MARK: - Books Grid
 
     private var booksGrid: some View {
-        let sections = buildSections(books: books)
         let letters = sections.map { String($0.letter) }
 
         return ScrollViewReader { proxy in
@@ -127,6 +127,9 @@ struct BooksContent: View {
                     .padding(.leading, 16)
                     .padding(.top, 8)
                 }
+            }
+            .onChange(of: books, initial: true) { _, _ in
+                sections = buildSections(books: books)
             }
         }
     }
