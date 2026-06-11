@@ -2,6 +2,7 @@ package com.calypsan.listenup.gradle
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class LocalizationGeneratorTest {
@@ -92,5 +93,13 @@ class LocalizationGeneratorTest {
         val a = LocalizationGenerator.xcstrings(mapOf("en" to LocalizationGenerator.parse(en)), "en")
         val b = LocalizationGenerator.xcstrings(mapOf("en" to LocalizationGenerator.parse(en)), "en")
         assertEquals(a, b)
+    }
+
+    @Test
+    fun `androidXml throws on snake-case key collision rather than dropping a string`() {
+        // `a.b_c` and `a_b.c` both flatten to the Android resource name `a_b_c`.
+        val colliding = mapOf("a.b_c" to "first", "a_b.c" to "second")
+        val ex = assertFailsWith<IllegalArgumentException> { LocalizationGenerator.androidXml(colliding) }
+        assertTrue(ex.message!!.contains("a_b_c"))
     }
 }

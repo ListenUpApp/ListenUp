@@ -74,8 +74,16 @@ object LocalizationGenerator {
      * Renders a flattened locale map as an Android `strings.xml` document: snake_case resource
      * names, sorted alphabetically, values XML-escaped. Format specifiers are preserved verbatim.
      */
-    fun androidXml(strings: Map<String, String>): String =
-        buildString {
+    fun androidXml(strings: Map<String, String>): String {
+        // Two distinct dotted keys can collapse to the same snake_case resource name
+        // (e.g. `a.b_c` and `a_b.c` both -> `a_b_c`). Fail loudly rather than let
+        // `toSortedMap()` silently drop one — the generated XML must round-trip every key.
+        val collisions = strings.keys.groupBy(::snakeKey).filterValues { it.size > 1 }
+        require(collisions.isEmpty()) {
+            "Snake-case key collision in Android resources: " +
+                collisions.entries.joinToString("; ") { (snake, keys) -> "$snake <- ${keys.sorted()}" }
+        }
+        return buildString {
             appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
             appendLine("<resources>")
             strings.toSortedMap().forEach { (key, value) ->
@@ -83,6 +91,7 @@ object LocalizationGenerator {
             }
             appendLine("</resources>")
         }
+    }
 
     /**
      * Renders every locale as a single iOS String Catalog (`.xcstrings`).

@@ -60,6 +60,8 @@ tasks.register("verifyStrings") {
     group = "localization"
     description = "Fail if the committed string artifacts are out of sync with the shared JSON source"
 
+    // Declares only inputs, no outputs: this is a gate that must always re-verify
+    // (never report UP-TO-DATE). It is pure in-memory I/O, so re-running is cheap.
     inputs.dir(stringsDir)
 
     val sourceDir = stringsDir
