@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -73,7 +74,13 @@ class ImportRepositoryImplTest :
             override suspend fun invalidate() = Unit
         }
 
-        fun buildRepo(service: ImportService): ImportRepositoryImpl = ImportRepositoryImpl(rpcFactory = FakeImportRpcFactory(service))
+        /** upload is not under test here — provide a no-op stub so only RPC paths are exercised. */
+        val noopUpload: suspend (FileSource) -> AppResult<ImportSummary> = {
+            AppResult.Failure(com.calypsan.listenup.api.error.InternalError(debugInfo = "upload not under test"))
+        }
+
+        fun buildRepo(service: ImportService): ImportRepositoryImpl =
+            ImportRepositoryImpl(rpcFactory = FakeImportRpcFactory(service), uploadFn = noopUpload)
 
         // ── analyze ───────────────────────────────────────────────────────────
 

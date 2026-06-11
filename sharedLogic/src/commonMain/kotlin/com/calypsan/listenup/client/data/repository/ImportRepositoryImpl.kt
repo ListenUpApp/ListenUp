@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.ImportRoutePaths
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.import.ImportAnalysis
 import com.calypsan.listenup.api.dto.import.ImportEvent
@@ -9,13 +10,23 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.call.body
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.forms.ChannelProvider
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -29,13 +40,71 @@ private val logger = KotlinLogging.logger {}
  * obtained from [ImportRpcFactory.get] and converts the wire [WireAppResult] to the
  * client-layer [AppResult] at this boundary. [CancellationException] is always re-raised.
  *
+ * [upload] is the one REST operation: binary multipart transfer cannot ride RPC.
+ * It streams the `.audiobookshelf` zip via `submitFormWithBinaryData` to
+ * [ImportRoutePaths.ABS_UPLOAD] and parses the [ImportSummary] response. The upload
+ * HTTP client is supplied at construction time via [clientFactory] so callers can inject
+ * a test double without modifying the upload code path.
+ *
  * [observeProgress] unwraps the server-pushed [Flow]<[RpcEvent]<[ImportEvent]>> into a
  * plain [Flow]<[ImportEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
  */
-class ImportRepositoryImpl(
-    private val rpcFactory: ImportRpcFactory,
-) : ImportRepository {
+class ImportRepositoryImpl
+    /**
+     * Internal constructor used by both the production two-arg constructor and the
+     * secondary test constructor. [uploadFn] is a suspend lambda that takes a [FileSource]
+     * and returns [AppResult]<[ImportSummary]>. Keeping this internal prevents callers
+     * outside this module from constructing instances with arbitrary upload logic.
+     */
+    internal constructor(
+        private val rpcFactory: ImportRpcFactory,
+        private val uploadFn: suspend (FileSource) -> AppResult<ImportSummary>,
+    ) : ImportRepository {
+
+    /**
+     * Production constructor. [clientFactory] is used to obtain the authenticated HTTP
+     * client for the multipart upload. Mirrors [BackupApi]'s constructor shape.
+     */
+    constructor(
+        rpcFactory: ImportRpcFactory,
+        clientFactory: ApiClientFactory,
+    ) : this(
+        rpcFactory = rpcFactory,
+        uploadFn = { fileSource ->
+            suspendRunCatching {
+                clientFactory
+                    .getClient()
+                    .submitFormWithBinaryData(
+                        url = ImportRoutePaths.ABS_UPLOAD,
+                        formData =
+                            formData {
+                                // ChannelProvider streams on-demand — never buffers the entire zip.
+                                append(
+                                    key = "file",
+                                    value = ChannelProvider(fileSource.size) { fileSource.openChannel() },
+                                    headers =
+                                        Headers.build {
+                                            append(
+                                                HttpHeaders.ContentDisposition,
+                                                "filename=\"${fileSource.filename}\"",
+                                            )
+                                        },
+                                )
+                            },
+                    ) {
+                        // Large ABS backups can take several minutes to upload.
+                        timeout {
+                            requestTimeoutMillis = 10 * 60 * 1_000
+                            socketTimeoutMillis = 10 * 60 * 1_000
+                        }
+                    }.body<ImportSummary>()
+            }
+        },
+    )
+
+    override suspend fun upload(fileSource: FileSource): AppResult<ImportSummary> = uploadFn(fileSource)
+
     override suspend fun analyze(importId: ImportId): AppResult<ImportAnalysis> =
         rpcCall { rpcFactory.get().analyze(importId) }
 

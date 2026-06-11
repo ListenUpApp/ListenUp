@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
 import kotlinx.coroutines.flow.Flow
 
@@ -28,6 +29,15 @@ import kotlinx.coroutines.flow.Flow
  * RPC proxy via [com.calypsan.listenup.client.data.remote.ImportRpcFactory].
  */
 interface ImportRepository {
+    /**
+     * Streams a `.audiobookshelf` backup zip to the server, staging a new import job.
+     *
+     * This is the one REST operation in the import domain — binary multipart transfer
+     * cannot ride RPC. Returns the created [ImportSummary] on success; the [ImportSummary.id]
+     * is then used to drive the post-upload lifecycle via the remaining RPC methods.
+     */
+    suspend fun upload(fileSource: FileSource): AppResult<ImportSummary>
+
     /**
      * Reads the staged ABS backup for [importId] and produces a confidence-tiered
      * [ImportAnalysis] previewing the ABS-user → ListenUp-user and ABS-item → book matches.
