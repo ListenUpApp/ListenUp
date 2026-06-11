@@ -257,23 +257,14 @@
     <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Upload your Audiobookshelf backup to migrate listening history and progress."</ID>
     <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Your backup has been uploaded and analyzed."</ID>
     <ID>NoHardcodedUiString:AboutSectionPreviews.kt$text = "Credits go here"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$" $it"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$" $type: $count"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete ${backup.id}? This cannot be undone."</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete \"${import.name}\"? This cannot be undone."</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Backups"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Cancel"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Close"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Contents:"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Delete Backup"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Delete Import"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Errors:"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Open"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Restore"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Server: $it"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Validate"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Version: $it"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Warnings:"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Back"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Create Backup"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Menu"</ID>
@@ -389,34 +380,11 @@
     <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "NOW PLAYING"</ID>
     <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "Now playing"</ID>
     <ID>NoHardcodedUiString:ProgressOverlay.kt$text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Back"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Run Preview"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Skip Preview"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Restore Backup"</ID>
     <ID>NoHardcodedUiString:RestoreBackupScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = " $count $type"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "$count $type will be imported"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "$count $type"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "${error.entityType}: ${error.error}"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "${results.errors.size} potential issues found"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "...and ${r.errors.size - 5} more"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "All existing data will be permanently deleted. This action cannot be undone."</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Choose how to restore from this backup."</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Completed in $it"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Errors"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Full Data Wipe"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "How should conflicts be handled when an item exists in both the backup and your current data?"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Imported"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Mode: ${state.mode?.displayName ?: "Not selected"}"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Please confirm you want to proceed with the restore."</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Preview Results"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Preview what will happen during the restore."</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Restore Configuration"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Running preview..."</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Skipped"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Strategy: ${state.mergeStrategy?.displayName ?: "Not selected"}"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Summary"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Will import:"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Will skip:"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Backup"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Restored from ${result.restoredFrom.value}"</ID>
+    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Schema ${result.schemaMigratedFrom} → ${result.schemaMigratedTo}"</ID>
     <ID>NoHardcodedUiString:ScanComponents.kt$text = "SCANNING"</ID>
     <ID>NoHardcodedUiString:SearchResultsOverlay.kt$contentDescription = "Cover for ${hit.name}"</ID>
     <ID>NoHardcodedUiString:SearchResultsOverlay.kt$text = "$count ${if (count == 1) "book" else "books"}"</ID>

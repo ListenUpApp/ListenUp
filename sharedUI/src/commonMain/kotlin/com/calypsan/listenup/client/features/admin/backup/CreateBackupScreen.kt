@@ -12,9 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,9 +47,6 @@ import listenup.composeapp.generated.resources.admin_cover_images
 import listenup.composeapp.generated.resources.admin_create_a_backup_of_your
 import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_creating_backup
-import listenup.composeapp.generated.resources.admin_events_sessions_and_progress_data
-import listenup.composeapp.generated.resources.admin_listening_history
-import listenup.composeapp.generated.resources.admin_recommended_for_full_restore_capability
 import listenup.composeapp.generated.resources.admin_significantly_increases_backup_size
 import listenup.composeapp.generated.resources.admin_what_to_include
 
@@ -63,7 +58,6 @@ fun CreateBackupScreen(
     onSuccess: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var includeEvents by remember { mutableStateOf(true) }
     var includeImages by remember { mutableStateOf(false) }
     var hasStartedCreation by remember { mutableStateOf(false) }
 
@@ -101,17 +95,12 @@ fun CreateBackupScreen(
             )
         } else {
             CreateBackupForm(
-                includeEvents = includeEvents,
                 includeImages = includeImages,
-                onIncludeEventsChange = { includeEvents = it },
                 onIncludeImagesChange = { includeImages = it },
                 error = error,
                 onCreateClick = {
                     hasStartedCreation = true
-                    viewModel.createBackup(
-                        includeImages = includeImages,
-                        includeEvents = includeEvents,
-                    )
+                    viewModel.createBackup(includeImages = includeImages)
                 },
                 modifier = Modifier.padding(paddingValues),
             )
@@ -122,9 +111,7 @@ fun CreateBackupScreen(
 @Composable
 @Suppress("LongMethod")
 private fun CreateBackupForm(
-    includeEvents: Boolean,
     includeImages: Boolean,
-    onIncludeEventsChange: (Boolean) -> Unit,
     onIncludeImagesChange: (Boolean) -> Unit,
     error: String?,
     onCreateClick: () -> Unit,
@@ -157,58 +144,6 @@ private fun CreateBackupForm(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
-
-                // Events option
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Checkbox(
-                        checked = includeEvents,
-                        onCheckedChange = onIncludeEventsChange,
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                Icons.Outlined.Timeline,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = stringResource(Res.string.admin_listening_history),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                        Text(
-                            text = stringResource(Res.string.admin_events_sessions_and_progress_data),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(top = 4.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.height(16.dp),
-                            )
-                            Text(
-                                text = stringResource(Res.string.admin_recommended_for_full_restore_capability),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 // Images option
                 Row(
