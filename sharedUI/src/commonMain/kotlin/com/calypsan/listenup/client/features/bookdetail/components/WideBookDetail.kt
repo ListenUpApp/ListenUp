@@ -34,6 +34,9 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_show_all_chapters
+import org.jetbrains.compose.resources.stringResource
 
 private const val CHAPTER_PREVIEW_LIMIT = 10
 
@@ -378,7 +381,7 @@ private fun WideChaptersContent(
                     onClick = onExpand,
                     shape = RoundedCornerShape(24.dp),
                 ) {
-                    Text("Show all ${chapters.size} chapters")
+                    Text(stringResource(Res.string.book_show_all_chapters, chapters.size))
                 }
             }
         }

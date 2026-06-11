@@ -207,6 +207,7 @@
     <string name="book_edit_this_will_remove_contributorstoremovecount">This will remove %1$s </string>
     <string name="book_edit_unsaved_changes">Unsaved Changes</string>
     <string name="book_edit_you_have_unsaved_changes_are">You have unsaved changes. Are you sure you want to discard them?</string>
+    <string name="book_show_all_chapters">Show all %1$d chapters</string>
     <string name="common_about">About</string>
     <string name="common_accessibility_loading">Loading</string>
     <string name="common_account">Account</string>

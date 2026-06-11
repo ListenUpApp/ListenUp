@@ -310,7 +310,6 @@
     <ID>NoHardcodedUiString:AuthorsContent.kt$contentDescription = "${contributor.name} profile image"</ID>
     <ID>NoHardcodedUiString:AuthorsContent.kt$text = "${contributorWithCount.bookCount} $bookLabel"</ID>
     <ID>NoHardcodedUiString:BookCard.kt$contentDescription = "Now playing"</ID>
-    <ID>NoHardcodedUiString:BookDetailScreen.kt$"Show all ${state.chapters.size} chapters"</ID>
     <ID>NoHardcodedUiString:BrowseGenreScreen.kt$"Browse by Genre"</ID>
     <ID>NoHardcodedUiString:BrowseGenreScreen.kt$text = "${genre.bookCount}"</ID>
     <ID>NoHardcodedUiString:BrowseGenreScreen.kt$text = "Include subtree"</ID>
@@ -456,7 +455,6 @@
     <ID>NoHardcodedUiString:UpNextQueue.kt$text = "View all $totalChapters chapters"</ID>
     <ID>NoHardcodedUiString:UserAvatarMenu.kt$contentDescription = "${user.displayName} avatar"</ID>
     <ID>NoHardcodedUiString:UserProfileScreen.kt$text = "${shelf.bookCount} books"</ID>
-    <ID>NoHardcodedUiString:WideBookDetail.kt$"Show all ${chapters.size} chapters"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>

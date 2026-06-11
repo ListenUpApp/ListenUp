@@ -276,7 +276,8 @@
     "edit_unsaved_changes": "Unsaved Changes",
     "edit_you_have_unsaved_changes_are": "You have unsaved changes. Are you sure you want to discard them?",
     "delete_download": "Delete Download",
-    "detail_stream_now": "Play Now"
+    "detail_stream_now": "Play Now",
+    "show_all_chapters": "Show all %1$d chapters"
   },
   "series": {
     "book_sequence": "Book %1$s",

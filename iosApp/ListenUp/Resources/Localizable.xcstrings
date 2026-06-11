@@ -2071,6 +2071,16 @@
         }
       }
     },
+    "book.show_all_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %1$d chapters"
+          }
+        }
+      }
+    },
     "common.about": {
       "localizations": {
         "en": {
