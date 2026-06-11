@@ -25,13 +25,10 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.GenreAliasTable
 import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.ManagedCoverFiles
-import com.calypsan.listenup.server.cover.StoredCoverInfo
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SqlFragment
@@ -41,19 +38,16 @@ import com.calypsan.listenup.server.sync.nextRevision
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
 import java.util.UUID
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Clock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.max
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.batchInsert
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -107,6 +101,15 @@ class BookRepository(
     /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
     private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
 
+    /** Book-row + child-table write mechanics (transaction-scoped, no revision/bus calls). */
+    private val bookAggregateWriter = BookAggregateWriter()
+
+    /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
+    private val bookFinder = BookFinder(db)
+
+    /** Genre junction write helpers — `book_genres` and `pending_book_genres` (no revision/bus). */
+    private val bookGenreWriter = BookGenreWriter(db, clock)
+
     override val elementSerializer: KSerializer<BookSyncPayload> = BookSyncPayload.serializer()
 
     override fun idAsString(id: BookId): String = id.value
@@ -115,28 +118,6 @@ class BookRepository(
         get() = BookId(this.id)
 
     override fun BookSyncPayload.revisionOf(): Long = revision
-
-    /**
-     * Per-book managed covers pending write in [writePayload]. Keyed by book-id string.
-     *
-     * [upsertWithManagedCover] inserts an entry for the target book-id, calls [upsert]
-     * (which calls [writePayload] synchronously inside its transaction), then removes the
-     * entry in a `finally` block — so the map is always leak-free even on failure.
-     *
-     * Using a [java.util.concurrent.ConcurrentHashMap] keyed by book-id eliminates the
-     * data-corruption race that the old `@Volatile` single-field approach had: two
-     * concurrent `upsertFromAnalyzed` calls on DIFFERENT books now have distinct keys
-     * and cannot clobber each other's pending cover.
-     */
-    private val pendingManagedCovers = java.util.concurrent.ConcurrentHashMap<String, StoredCoverInfo>()
-
-    /**
-     * Per-book inbox collection ids (book-id → inbox id) pending an atomic membership write in
-     * [writePayload]'s INSERT branch — stashed by [upsertFromAnalyzed] only for a NEW book and
-     * cleared in a `finally`, mirroring [pendingManagedCovers]. Same-transaction membership
-     * closes the TOCTOU firehose leak (a member's delivery-time `canAccess` sees it quarantined).
-     */
-    private val pendingInboxIds = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /**
      * Reads the book aggregate by id — joins child tables for contributors,
@@ -262,9 +243,10 @@ class BookRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        // Read the managed cover registered by upsertWithManagedCover (null for all other callers).
-        // Do NOT remove here — the finally block in upsertWithManagedCover owns the cleanup.
-        val managedCover = pendingManagedCovers[value.id]
+        // Read per-call extras injected via the coroutine context by upsertFromAnalyzed.
+        // Null for all other callers — same semantics as before, but scoped to the call, not the map.
+        val extras = coroutineContext[BookWriteExtras.Key]
+        val managedCover = extras?.managedCover
 
         if (existed) {
             // Sticky-upload merge: if the existing row carries a user-uploaded cover
@@ -280,7 +262,12 @@ class BookRepository(
             val isUploadedLocked = existingCoverSource == CoverSource.UPLOADED.name.lowercase()
 
             BookTable.update({ BookTable.id eq value.id }) { stmt ->
-                applyBookFields(stmt, value, preserveCoverColumns = isUploadedLocked, managedCover = managedCover)
+                bookAggregateWriter.applyBookFields(
+                    stmt,
+                    value,
+                    preserveCoverColumns = isUploadedLocked,
+                    managedCover = managedCover,
+                )
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.updatedAt] = now
                 stmt[BookTable.deletedAt] = null
@@ -294,7 +281,12 @@ class BookRepository(
                 // source of truth here.
                 stmt[BookTable.libraryId] = value.libraryId.value
                 stmt[BookTable.folderId] = value.folderId.value
-                applyBookFields(stmt, value, preserveCoverColumns = false, managedCover = managedCover)
+                bookAggregateWriter.applyBookFields(
+                    stmt,
+                    value,
+                    preserveCoverColumns = false,
+                    managedCover = managedCover,
+                )
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now
                 stmt[BookTable.updatedAt] = now
@@ -304,7 +296,7 @@ class BookRepository(
             // Atomic inbox quarantine: insertInboxMembership's upsert joins THIS transaction.
             // A stashed inbox id without a wired repo is a misconfiguration — fail loudly rather
             // than silently drop the quarantine (which would re-open the firehose leak).
-            pendingInboxIds[value.id]?.let { inboxId ->
+            extras?.inboxCollectionId?.let { inboxId ->
                 val repo =
                     requireNotNull(collectionBookRepository) {
                         "inbox quarantine requested but CollectionBookRepository is not wired"
@@ -313,10 +305,10 @@ class BookRepository(
             }
         }
 
-        replaceContributors(value.id, value.contributors)
-        replaceSeries(value.id, value.series)
-        replaceChapters(value.id, value.chapters)
-        replaceAudioFiles(value.id, value.audioFiles)
+        bookAggregateWriter.replaceContributors(value.id, value.contributors)
+        bookAggregateWriter.replaceSeries(value.id, value.series)
+        bookAggregateWriter.replaceChapters(value.id, value.chapters)
+        bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         upsertFtsRow(value)
     }
 
@@ -361,7 +353,7 @@ class BookRepository(
     ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
-        findByPath(libraryId, rootRelPath)?.let { existing ->
+        bookFinder.findByPath(libraryId, rootRelPath)?.let { existing ->
             return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
                 .map { IngestOutcome(existing, wasNew = false) }
         }
@@ -370,7 +362,7 @@ class BookRepository(
             .firstOrNull()
             ?.inode
             ?.let { inode ->
-                findByInode(libraryId, inode)?.let { existing ->
+                bookFinder.findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
                     return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
@@ -514,61 +506,25 @@ class BookRepository(
             } else {
                 managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
             }
-        // Stash the inbox id ONLY for a new book; writePayload commits the membership atomically.
-        if (isNew && inboxCollectionId != null) pendingInboxIds[bookId.value] = inboxCollectionId
         val result =
-            try {
-                upsertWithManagedCover(payload, managedCover = storedCover)
-            } finally {
-                pendingInboxIds.remove(bookId.value)
+            withContext(
+                BookWriteExtras(
+                    managedCover = storedCover,
+                    inboxCollectionId = if (isNew) inboxCollectionId else null,
+                ),
+            ) {
+                upsert(payload, clientOpId = null)
             }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
-            suspendTransaction(db) { processGenreStrings(bookId, analyzed.genres, now) }
+            suspendTransaction(db) { bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now) }
         }
         return result
     }
 
     /**
-     * Resolves the scanner's raw genre strings for [bookId] through a 3-step
-     * cascade, in precedence order:
-     *  1. **Curator alias** — a [GenreAliasTable] row maps the raw string to a
-     *     genre id (→ `book_genres`). Custom mappings always win.
-     *  2. **Built-in normalization** — [GenreNormalizer] turns the raw string
-     *     into canonical slug(s), each resolved against the live taxonomy via
-     *     [GenreTable.findBySlug] (→ `book_genres`).
-     *  3. **Unresolved** — nothing matched, so the string queues for curator
-     *     mapping in [PendingBookGenreTable].
-     *
-     * Idempotent on rescan — wipes the prior `book_genres` and
-     * `pending_book_genres` rows for the book before re-writing, so a book
-     * whose `metadata.json` lost a string no longer appears as its source.
-     *
-     * Inputs are case-insensitive-deduped (`.lowercase().trim()`) so scanning
-     * `["Fantasy", "fantasy", "FANTASY"]` yields a single junction row even
-     * before the alias's `COLLATE NOCASE` lookup runs. Blank strings are
-     * skipped.
-     *
-     * Must be called inside a `suspendTransaction { }` block.
-     */
-    private fun processGenreStrings(
-        bookId: BookId,
-        rawStrings: List<String>,
-        now: Long,
-    ) {
-        val bookIdStr = bookId.value
-        BookGenreTable.deleteAllForBook(bookIdStr)
-        PendingBookGenreTable.replacePendingForBook(bookIdStr, emptyList(), now)
-
-        for (raw in rawStrings.distinctBy { it.trim().lowercase() }) {
-            if (raw.isBlank()) continue
-            resolveGenreString(bookIdStr, raw, now)
-        }
-    }
-
-    /**
      * Replaces [bookId]'s genres with [rawGenres], resolved through the same 3-step cascade as the
-     * scanner ([processGenreStrings]: curator alias → [GenreNormalizer] → pending). Idempotent —
+     * scanner (curator alias → [GenreNormalizer] → pending). Idempotent —
      * wipes the book's prior `book_genres`/`pending_book_genres` first. Writes the junction only; it
      * does NOT bump the book's revision or publish — pair it with a book `upsert` (which re-reads the
      * junction and emits) so the change propagates. The match-apply wizard calls this immediately
@@ -577,11 +533,7 @@ class BookRepository(
     suspend fun setBookGenres(
         bookId: BookId,
         rawGenres: List<String>,
-    ): AppResult<Unit> =
-        suspendTransaction(db) {
-            processGenreStrings(bookId, rawGenres, clock.now().toEpochMilliseconds())
-            AppResult.Success(Unit)
-        }
+    ): AppResult<Unit> = bookGenreWriter.setBookGenres(bookId, rawGenres)
 
     /**
      * Reads the full book aggregate for [id], or null when absent. Opens its own
@@ -590,31 +542,6 @@ class BookRepository(
      * logging a move; tests assert post-write state).
      */
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
-
-    /**
-     * Calls [upsert] with [managedCover] threaded through [writePayload] via [pendingManagedCovers].
-     *
-     * Inserts the cover into [pendingManagedCovers] under the payload's book-id key, then calls
-     * [upsert] (which calls [writePayload] synchronously within its transaction). The `finally`
-     * block removes the entry unconditionally — guaranteeing no map-entry leak even when [upsert]
-     * throws or is cancelled.
-     *
-     * Using the book-id as key makes concurrent scans of DIFFERENT books safe: each book's cover
-     * lives under its own key and cannot overwrite another book's entry.
-     */
-    private suspend fun upsertWithManagedCover(
-        payload: BookSyncPayload,
-        managedCover: StoredCoverInfo?,
-    ): AppResult<BookSyncPayload> {
-        if (managedCover == null) return upsert(payload, clientOpId = null)
-        val idStr = payload.id
-        pendingManagedCovers[idStr] = managedCover
-        return try {
-            upsert(payload, clientOpId = null)
-        } finally {
-            pendingManagedCovers.remove(idStr)
-        }
-    }
 
     /**
      * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
@@ -742,204 +669,7 @@ class BookRepository(
         query: String,
         limit: Int,
         accessFilter: SqlFragment? = null,
-    ): List<BookId> =
-        suspendTransaction(db) {
-            val results = mutableListOf<BookId>()
-            val accessClause = if (accessFilter != null) " AND m.book_id IN (${accessFilter.sql})" else ""
-            val stmt =
-                "SELECT m.book_id FROM book_search s " +
-                    "JOIN book_search_map m ON s.rowid = m.rowid " +
-                    "WHERE book_search MATCH ?" + accessClause + " ORDER BY rank LIMIT ?"
-            val args =
-                listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to query) +
-                    (accessFilter?.args ?: emptyList()) +
-                    listOf(IntegerColumnType() to limit)
-            TransactionManager.current().exec(stmt = stmt, args = args) { rs ->
-                while (rs.next()) results += BookId(rs.getString(1))
-            }
-            results
-        }
-
-    /** Resolves the natural key `(library_id, root_rel_path)` to a [BookId], or null. */
-    private suspend fun findByPath(
-        libraryId: LibraryId,
-        rootRelPath: String,
-    ): BookId? =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where {
-                    (BookTable.libraryId eq libraryId.value) and (BookTable.rootRelPath eq rootRelPath)
-                }.firstOrNull()
-                ?.get(BookTable.id)
-                ?.let { BookId(it) }
-        }
-
-    /**
-     * Resolves the move-detection key `(library_id, inode)` to a [BookId], or null.
-     *
-     * When two books share an inode (hardlinks), the first match by insertion
-     * order is returned deterministically and a warning is logged — spec §5.3.
-     */
-    private suspend fun findByInode(
-        libraryId: LibraryId,
-        inode: Long,
-    ): BookId? =
-        suspendTransaction(db) {
-            val matches =
-                BookTable
-                    .selectAll()
-                    .where { (BookTable.libraryId eq libraryId.value) and (BookTable.inode eq inode) }
-                    .map { it[BookTable.id] }
-            if (matches.size > 1) {
-                log.warn { "Multiple books share inode $inode in library ${libraryId.value}; picking first" }
-            }
-            matches.firstOrNull()?.let { BookId(it) }
-        }
-
-    /**
-     * Writes the book's scalar fields to [stmt].
-     *
-     * [preserveCoverColumns] skips writing the three cover columns (source, path, hash) when
-     * true — used by the sticky-upload merge in [writePayload] to protect a user-uploaded cover
-     * from being clobbered on re-scan. For INSERT ([existed] = false) this is always false.
-     *
-     * [managedCover] supplies the cover provenance when a managed file was written at scan time.
-     * When non-null (and [preserveCoverColumns] is false), the managed columns — source, path,
-     * and hash — are written in the same statement, making the scan a single atomic write.
-     * When null, legacy behaviour applies: source/hash come from [p]'s cover payload and
-     * [BookTable.coverPath] is set to null (managed path is handled by [setManagedCover]).
-     */
-    private fun applyBookFields(
-        stmt: UpdateBuilder<*>,
-        p: BookSyncPayload,
-        preserveCoverColumns: Boolean = false,
-        managedCover: StoredCoverInfo? = null,
-    ) {
-        stmt[BookTable.title] = p.title
-        stmt[BookTable.sortTitle] = p.sortTitle
-        stmt[BookTable.subtitle] = p.subtitle
-        stmt[BookTable.description] = p.description
-        stmt[BookTable.publishYear] = p.publishYear
-        stmt[BookTable.publisher] = p.publisher
-        stmt[BookTable.language] = p.language
-        stmt[BookTable.isbn] = p.isbn
-        stmt[BookTable.asin] = p.asin
-        stmt[BookTable.abridged] = p.abridged
-        stmt[BookTable.explicit] = p.explicit
-        stmt[BookTable.hasScanWarning] = p.hasScanWarning
-        stmt[BookTable.totalDuration] = p.totalDuration
-        if (!preserveCoverColumns) {
-            if (managedCover != null) {
-                // Single-write path: scan-time managed cover lands in the same statement.
-                stmt[BookTable.coverSource] = managedCover.source.name.lowercase()
-                stmt[BookTable.coverPath] = managedCover.relPath
-                stmt[BookTable.coverHash] = managedCover.hash
-            } else {
-                stmt[BookTable.coverSource] =
-                    p.cover
-                        ?.source
-                        ?.name
-                        ?.lowercase()
-                // coverPath is managed by setManagedCover (not set here) — the wire DTO
-                // never carries a managed path for scan-produced payloads.
-                stmt[BookTable.coverPath] = null
-                stmt[BookTable.coverHash] = p.cover?.hash
-            }
-        }
-        stmt[BookTable.rootRelPath] = p.rootRelPath
-        stmt[BookTable.inode] = p.inode
-        stmt[BookTable.scannedAt] = p.scannedAt
-    }
-
-    /**
-     * Replaces this book's contributor junction rows. The caller MUST supply a
-     * payload whose contributor ids already exist in [ContributorTable] —
-     * `upsertFromAnalyzed` satisfies this by resolving every contributor through
-     * [ContributorRepository.resolveOrCreate] before calling `upsert`.
-     */
-    private fun replaceContributors(
-        bookId: String,
-        contributors: List<BookContributorPayload>,
-    ) {
-        BookContributorTable.deleteWhere { BookContributorTable.bookId eq bookId }
-        // Two display names can resolve to the same contributor id when sortName deduplication
-        // collapses them (e.g. "Brandon Sanderson" and "B. Sanderson" both map to sortName
-        // "Sanderson, Brandon" via an embedded authorsSort tag). The junction PK is
-        // (book_id, contributor_id, role); inserting both rows would trigger
-        // SQLITE_CONSTRAINT_PRIMARYKEY and abort the whole book ingest. Collapse to one row per
-        // (contributor, role) — first occurrence wins for ordinal and creditedAs.
-        val deduped = contributors.distinctBy { it.id to it.role }
-        BookContributorTable.batchInsert(
-            deduped.withIndex().toList(),
-            shouldReturnGeneratedValues = false,
-        ) { (idx, c) ->
-            this[BookContributorTable.bookId] = bookId
-            this[BookContributorTable.contributorId] = c.id
-            this[BookContributorTable.role] = c.role
-            this[BookContributorTable.creditedAs] = c.creditedAs
-            this[BookContributorTable.ordinal] = idx
-        }
-    }
-
-    /**
-     * Replaces this book's series junction rows. The caller MUST supply a
-     * payload whose series ids already exist in [BookSeriesTable] —
-     * `upsertFromAnalyzed` satisfies this by resolving every series through
-     * [SeriesRepository.resolveOrCreate] before calling `upsert`.
-     */
-    private fun replaceSeries(
-        bookId: String,
-        series: List<BookSeriesPayload>,
-    ) {
-        BookSeriesMembershipTable.deleteWhere { BookSeriesMembershipTable.bookId eq bookId }
-        // A book can be tagged with the same series twice (sloppy "A;A" tags, or two spellings that
-        // normalize to one series). Collapse to one membership per series — the junction PK is
-        // (book_id, series_id) — keeping the first sequence. Without this, a duplicate aborts the
-        // whole book ingest on the PK constraint.
-        val deduped = series.distinctBy { it.id }
-        BookSeriesMembershipTable.batchInsert(
-            deduped.withIndex().toList(),
-            shouldReturnGeneratedValues = false,
-        ) { (idx, s) ->
-            this[BookSeriesMembershipTable.bookId] = bookId
-            this[BookSeriesMembershipTable.seriesId] = s.id
-            this[BookSeriesMembershipTable.sequence] = s.sequence
-            this[BookSeriesMembershipTable.ordinal] = idx
-        }
-    }
-
-    private fun replaceChapters(
-        bookId: String,
-        chapters: List<BookChapterPayload>,
-    ) {
-        BookChapterTable.deleteWhere { BookChapterTable.bookId eq bookId }
-        BookChapterTable.batchInsert(chapters.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, ch) ->
-            this[BookChapterTable.bookId] = bookId
-            this[BookChapterTable.ordinal] = idx
-            this[BookChapterTable.id] = ch.id.ifBlank { UUID.randomUUID().toString() }
-            this[BookChapterTable.title] = ch.title
-            this[BookChapterTable.duration] = ch.duration
-            this[BookChapterTable.startTime] = ch.startTime
-        }
-    }
-
-    private fun replaceAudioFiles(
-        bookId: String,
-        files: List<BookAudioFilePayload>,
-    ) {
-        BookAudioFileTable.deleteWhere { BookAudioFileTable.bookId eq bookId }
-        BookAudioFileTable.batchInsert(files.withIndex().toList(), shouldReturnGeneratedValues = false) { (idx, f) ->
-            this[BookAudioFileTable.bookId] = bookId
-            this[BookAudioFileTable.ordinal] = idx
-            this[BookAudioFileTable.id] = f.id.ifBlank { UUID.randomUUID().toString() }
-            this[BookAudioFileTable.filename] = f.filename
-            this[BookAudioFileTable.format] = f.format
-            this[BookAudioFileTable.codec] = f.codec
-            this[BookAudioFileTable.duration] = f.duration
-            this[BookAudioFileTable.size] = f.size
-        }
-    }
+    ): List<BookId> = bookFinder.searchFts(query, limit, accessFilter)
 
     /**
      * Returns the full book aggregates for every book that has a junction row for
@@ -950,14 +680,7 @@ class BookRepository(
      * Opens its own read transaction — independent of the substrate's orchestration.
      */
     suspend fun findByContributor(contributorId: ContributorId): List<BookSyncPayload> =
-        suspendTransaction(db) {
-            val bookIds =
-                BookContributorTable
-                    .select(BookContributorTable.bookId)
-                    .where { BookContributorTable.contributorId eq contributorId.value }
-                    .map { it[BookContributorTable.bookId] }
-            readPayloads(bookIds)
-        }
+        bookFinder.findByContributor(contributorId)
 
     /**
      * Returns the full book aggregates for every book that has a membership row for
@@ -967,16 +690,7 @@ class BookRepository(
      * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
      * Opens its own read transaction — independent of the substrate's orchestration.
      */
-    suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> =
-        suspendTransaction(db) {
-            val bookIds =
-                BookSeriesMembershipTable
-                    .select(BookSeriesMembershipTable.bookId)
-                    .where { BookSeriesMembershipTable.seriesId eq seriesId.value }
-                    .orderBy(BookSeriesMembershipTable.ordinal)
-                    .map { it[BookSeriesMembershipTable.bookId] }
-            readPayloads(bookIds)
-        }
+    suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> = bookFinder.findBySeries(seriesId)
 
     /**
      * Test-only accessor for the protected [idAsString]. Used by
@@ -1076,37 +790,4 @@ private suspend fun insertInboxMembership(
             deletedAt = null,
         ),
     )
-}
-
-/**
- * Resolves a single raw scanner genre [raw] for [bookIdStr] through the 3-step
- * cascade — curator alias → built-in normalization → pending. See
- * [BookRepository.processGenreStrings] for the full contract.
- *
- * Must be called inside a `suspendTransaction { }` block.
- */
-private fun resolveGenreString(
-    bookIdStr: String,
-    raw: String,
-    now: Long,
-) {
-    // 1. Custom curator alias (genre_aliases DB table) wins.
-    val customGenreId = GenreAliasTable.resolve(raw)
-    if (customGenreId != null) {
-        BookGenreTable.insertIfAbsent(bookIdStr, customGenreId)
-        return
-    }
-
-    // 2. Built-in normalization: raw -> canonical slug(s) -> live taxonomy genre id.
-    var resolvedAny = false
-    for (slug in GenreNormalizer.normalizeToSlugs(raw)) {
-        val genreId = GenreTable.findBySlug(slug) ?: continue
-        BookGenreTable.insertIfAbsent(bookIdStr, genreId)
-        resolvedAny = true
-    }
-
-    // 3. Nothing matched -> queue for curator review.
-    if (!resolvedAny) {
-        PendingBookGenreTable.addPending(bookIdStr, raw, now)
-    }
 }
