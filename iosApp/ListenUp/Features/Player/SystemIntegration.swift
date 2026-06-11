@@ -1,5 +1,6 @@
 import Foundation
 import MediaPlayer
+import os
 
 /// Immutable snapshot of what the lock screen should show. The `Now Playing`
 /// info center extrapolates the elapsed clock from `elapsedMs` + `rate`, so this
@@ -38,8 +39,12 @@ final class SystemIntegration {
     /// skip commands.
     nonisolated static let skipIntervalSeconds: Int = 30
 
-    // NSCache is thread-safe; `nonisolated` lets `artwork(forPath:)` access it without hopping actors.
-    nonisolated(unsafe) private static let artworkCache = NSCache<NSString, MPMediaItemArtwork>()
+    /// Single-slot cache for the *current* Now Playing artwork, guarded by an unfair lock
+    /// (iosApp concurrency rule: guard shared mutable state, no `nonisolated(unsafe)`).
+    /// Now Playing shows one book at a time, so a single slot keeps memory bounded to one
+    /// image and the cache deterministic (no `NSCache` pressure eviction).
+    nonisolated private static let artworkCache =
+        OSAllocatedUnfairLock<(path: String, artwork: MPMediaItemArtwork)?>(uncheckedState: nil)
     /// Lock-screen now-playing art is shown near screen-width; cap generously so it stays crisp.
     nonisolated private static let artworkMaxPixels = 1024
 
@@ -79,13 +84,17 @@ final class SystemIntegration {
     }
 
     /// Resolve (and memoize) the downsampled lock-screen artwork for `path`.
-    /// `nonisolated static` + thread-safe `NSCache`, so `dictionary(from:)` stays pure-signature.
+    /// `nonisolated static` + `OSAllocatedUnfairLock`-guarded single slot, so `dictionary(from:)` stays pure-signature.
     nonisolated static func artwork(forPath path: String) -> MPMediaItemArtwork? {
-        if let cached = artworkCache.object(forKey: path as NSString) { return cached }
-        guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: artworkMaxPixels) else { return nil }
-        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-        artworkCache.setObject(artwork, forKey: path as NSString)
-        return artwork
+        artworkCache.withLockUnchecked { cache in
+            if let cache, cache.path == path { return cache.artwork }
+            guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: artworkMaxPixels) else {
+                return nil
+            }
+            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            cache = (path, artwork)
+            return artwork
+        }
     }
 
     private func configureRemoteCommands() {
