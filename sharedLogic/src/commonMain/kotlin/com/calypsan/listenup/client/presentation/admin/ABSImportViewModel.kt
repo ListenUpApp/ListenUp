@@ -2,26 +2,20 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.SearchApiContract
-import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.admin.absimport.AnalysisDelegate
 import com.calypsan.listenup.client.presentation.admin.absimport.BookMappingDelegate
+import com.calypsan.listenup.client.presentation.admin.absimport.ImportDelegate
 import com.calypsan.listenup.client.presentation.admin.absimport.SourceSelectionDelegate
 import com.calypsan.listenup.client.presentation.admin.absimport.UserMappingDelegate
 import com.calypsan.listenup.client.presentation.admin.absimport.updateReady
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.error.ErrorBus
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * ViewModel for ABS import flow.
@@ -35,6 +29,7 @@ private val logger = KotlinLogging.logger {}
  * - [SourceSelectionDelegate]: local/remote file selection and upload
  * - [UserMappingDelegate]: inline user search and mapping
  * - [BookMappingDelegate]: inline book search and mapping
+ * - [ImportDelegate]: import options + performImport execution
  */
 @Suppress("TooManyFunctions")
 class ABSImportViewModel(
@@ -48,12 +43,17 @@ class ABSImportViewModel(
         field = MutableStateFlow<ABSImportUiState>(ABSImportUiState.Ready())
 
     private val analysisDelegate = AnalysisDelegate(viewModelScope, state, errorBus, backupApi)
-    private val sourceDelegate = SourceSelectionDelegate(
-        viewModelScope, state, errorBus, backupApi,
-        onReadyToAnalyze = analysisDelegate::analyze,
-    )
+    private val sourceDelegate =
+        SourceSelectionDelegate(
+            viewModelScope,
+            state,
+            errorBus,
+            backupApi,
+            onReadyToAnalyze = analysisDelegate::analyze,
+        )
     private val userMappingDelegate = UserMappingDelegate(viewModelScope, state, errorBus, absImportApi)
     private val bookMappingDelegate = BookMappingDelegate(viewModelScope, state, errorBus, searchApi)
+    private val importDelegate = ImportDelegate(viewModelScope, state, errorBus, backupApi, syncRepository)
 
     // === Source Selection ===
 
@@ -111,8 +111,15 @@ class ABSImportViewModel(
 
     // === Mapping ===
 
-    fun setUserMapping(absUserId: String, listenupUserId: String?) = userMappingDelegate.setUserMapping(absUserId, listenupUserId)
-    fun setBookMapping(absItemId: String, listenupBookId: String?) = bookMappingDelegate.setBookMapping(absItemId, listenupBookId)
+    fun setUserMapping(
+        absUserId: String,
+        listenupUserId: String?,
+    ) = userMappingDelegate.setUserMapping(absUserId, listenupUserId)
+
+    fun setBookMapping(
+        absItemId: String,
+        listenupBookId: String?,
+    ) = bookMappingDelegate.setBookMapping(absItemId, listenupBookId)
 
     // === User Mapping Tab ===
 
@@ -199,17 +206,11 @@ class ABSImportViewModel(
 
     // === Import Options ===
 
-    fun setImportSessions(value: Boolean) {
-        state.updateReady { it.copy(importSessions = value) }
-    }
+    fun setImportSessions(value: Boolean) = importDelegate.setImportSessions(value)
 
-    fun setImportProgress(value: Boolean) {
-        state.updateReady { it.copy(importProgress = value) }
-    }
+    fun setImportProgress(value: Boolean) = importDelegate.setImportProgress(value)
 
-    fun setRebuildProgress(value: Boolean) {
-        state.updateReady { it.copy(rebuildProgress = value) }
-    }
+    fun setRebuildProgress(value: Boolean) = importDelegate.setRebuildProgress(value)
 
     // === Navigation ===
 
@@ -259,7 +260,7 @@ class ABSImportViewModel(
             }
 
             ABSImportStep.IMPORT_OPTIONS -> {
-                performImport()
+                importDelegate.performImport()
             }
 
             ABSImportStep.IMPORTING -> {
@@ -310,69 +311,6 @@ class ABSImportViewModel(
             ABSImportStep.IMPORTING -> { /* Can't go back during import */ }
 
             ABSImportStep.RESULTS -> { /* Can't go back after complete */ }
-        }
-    }
-
-    // === Import ===
-
-    private fun performImport() {
-        viewModelScope.launch {
-            state.updateReady { it.copy(step = ABSImportStep.IMPORTING, isImporting = true, error = null) }
-
-            val current = state.value as? ABSImportUiState.Ready ?: return@launch
-            when (
-                val result =
-                    backupApi.importABSBackup(
-                        ImportABSRequest(
-                            backupPath = current.backupPath,
-                            userMappings = current.userMappings,
-                            bookMappings = current.bookMappings,
-                            importSessions = current.importSessions,
-                            importProgress = current.importProgress,
-                            rebuildProgress = current.rebuildProgress,
-                        ),
-                    )
-            ) {
-                is AppResult.Success -> {
-                    val importResult = result.data
-                    state.updateReady {
-                        it.copy(
-                            isImporting = false,
-                            step = ABSImportStep.RESULTS,
-                            importResults =
-                                ABSImportResults(
-                                    sessionsImported = importResult.sessionsImported,
-                                    sessionsSkipped = importResult.sessionsSkipped,
-                                    progressImported = importResult.progressImported,
-                                    progressSkipped = importResult.progressSkipped,
-                                    eventsCreated = importResult.eventsCreated,
-                                    affectedUsers = importResult.affectedUsers,
-                                    duration = importResult.duration,
-                                    warnings = importResult.warnings,
-                                    errors = importResult.errors,
-                                ),
-                        )
-                    }
-
-                    // Refresh listening history to pull all imported events and rebuild positions
-                    // This uses a full refresh (ignoring delta sync cursor) because imported
-                    // events have historical timestamps that wouldn't be included in normal sync
-                    logger.info { "Import complete, refreshing listening history" }
-                    syncRepository.refreshListeningHistory()
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to import ABS backup: ${result.error.message}" }
-                    state.updateReady {
-                        it.copy(
-                            isImporting = false,
-                            step = ABSImportStep.IMPORT_OPTIONS,
-                            error = userMessageFor(result.error),
-                        )
-                    }
-                }
-            }
         }
     }
 
