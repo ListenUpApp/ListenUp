@@ -6,8 +6,12 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_retry
+import org.jetbrains.compose.resources.getString
 import org.koin.compose.koinInject
 
 private val logger = KotlinLogging.logger {}
@@ -38,8 +42,8 @@ fun GlobalErrorSnackbar(
 
             val result =
                 snackbarHostState.showSnackbar(
-                    message = error.message,
-                    actionLabel = if (error.isRetryable) "Retry" else null,
+                    message = error.localizedString(),
+                    actionLabel = if (error.isRetryable) getString(Res.string.common_retry) else null,
                     duration =
                         if (error.isRetryable) {
                             SnackbarDuration.Long

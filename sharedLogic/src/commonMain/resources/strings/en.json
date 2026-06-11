@@ -105,6 +105,14 @@
     "website": "Website",
     "yes": "Yes"
   },
+  "error": {
+    "conflict": "That resource is in use or already exists.",
+    "forbidden": "You don't have permission to do that.",
+    "not_found": "Not found.",
+    "transport_network_unavailable": "Can't reach the server. Check your connection.",
+    "transport_timeout": "The request took too long. Please try again.",
+    "auth_session_expired": "Your session expired. Please sign in again."
+  },
   "auth": {
     "admin_account_subtitle": "You're creating the first account on this server.",
     "already_have_account": "Already have an account?",

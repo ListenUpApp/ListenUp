@@ -41,6 +41,8 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreUiState
 import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 
@@ -76,7 +78,7 @@ fun BrowseGenreScreen(
     val readyError = (state as? BrowseGenreUiState.Ready)?.error
     LaunchedEffect(readyError) {
         readyError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
         }
     }
@@ -98,7 +100,7 @@ fun BrowseGenreScreen(
             }
 
             is BrowseGenreUiState.Error -> {
-                ErrorContent(s.message, innerPadding.calculateTopPadding())
+                ErrorContent(s.message.localized(), innerPadding.calculateTopPadding())
             }
 
             is BrowseGenreUiState.Ready -> {

@@ -4081,6 +4081,66 @@
         }
       }
     },
+    "error.auth_session_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your session expired. Please sign in again."
+          }
+        }
+      }
+    },
+    "error.conflict": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That resource is in use or already exists."
+          }
+        }
+      }
+    },
+    "error.forbidden": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You don't have permission to do that."
+          }
+        }
+      }
+    },
+    "error.not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not found."
+          }
+        }
+      }
+    },
+    "error.transport_network_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach the server. Check your connection."
+          }
+        }
+      }
+    },
+    "error.transport_timeout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request took too long. Please try again."
+          }
+        }
+      }
+    },
     "home.best_longeststreak": {
       "localizations": {
         "en": {

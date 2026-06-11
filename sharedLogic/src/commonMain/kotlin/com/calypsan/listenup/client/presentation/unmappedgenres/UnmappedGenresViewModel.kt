@@ -5,8 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.core.fallbackTo
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.GenreRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -33,8 +34,8 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  *
  * Mapping a raw string to a genre dispatches via
  * [GenreRepository.mapUnmappedToGenre]; on success the queue is refreshed.
- * Failures route through [ErrorBus] and surface as a transient `error` string
- * on [UnmappedGenresUiState.Ready].
+ * Failures route through [ErrorBus] and surface as a transient `error`
+ * [AppError] on [UnmappedGenresUiState.Ready].
  */
 class UnmappedGenresViewModel(
     private val genreRepository: GenreRepository,
@@ -50,7 +51,7 @@ class UnmappedGenresViewModel(
                     UnmappedGenresUiState.Ready(genres = genres)
                 }.fallbackTo {
                     logger.error(it) { "Failed to observe genres for unmapped picker" }
-                    UnmappedGenresUiState.Error(it.message ?: "Failed to load genres")
+                    UnmappedGenresUiState.Error(ErrorMapper.map(it))
                 },
             local,
         ) { upstream, l ->
@@ -90,7 +91,7 @@ class UnmappedGenresViewModel(
                     local.update {
                         it.copy(
                             isLoadingUnmapped = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -116,7 +117,7 @@ class UnmappedGenresViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to map '$rawString' to genre: ${result.error.message}" }
-                    local.update { it.copy(error = userMessageFor(result.error)) }
+                    local.update { it.copy(error = result.error) }
                 }
             }
             local.update { it.copy(isSaving = false) }
@@ -133,7 +134,7 @@ class UnmappedGenresViewModel(
         val unmapped: List<UnmappedStringSummary> = emptyList(),
         val isLoadingUnmapped: Boolean = false,
         val isSaving: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
     )
 }
 
@@ -150,11 +151,11 @@ sealed interface UnmappedGenresUiState {
         val unmapped: List<UnmappedStringSummary> = emptyList(),
         val isLoadingUnmapped: Boolean = false,
         val isSaving: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
     ) : UnmappedGenresUiState
 
     /** Terminal state when the observe pipeline fails. */
     data class Error(
-        val message: String,
+        val message: AppError,
     ) : UnmappedGenresUiState
 }

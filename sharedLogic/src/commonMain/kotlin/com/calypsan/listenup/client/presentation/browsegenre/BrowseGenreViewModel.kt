@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.core.fallbackTo
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.GenreRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
@@ -51,7 +52,7 @@ class BrowseGenreViewModel(
                     BrowseGenreUiState.Ready(genres = genres)
                 }.fallbackTo {
                     logger.error(it) { "Failed to observe genres for browse" }
-                    BrowseGenreUiState.Error(it.message ?: "Failed to load genres")
+                    BrowseGenreUiState.Error(ErrorMapper.map(it))
                 },
             local,
         ) { upstream, l ->
@@ -109,7 +110,7 @@ class BrowseGenreViewModel(
                     local.update {
                         it.copy(
                             isFetchingBooks = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -123,7 +124,7 @@ class BrowseGenreViewModel(
         val books: List<BookId> = emptyList(),
         val includeDescendants: Boolean = false,
         val isFetchingBooks: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
     )
 }
 
@@ -141,11 +142,11 @@ sealed interface BrowseGenreUiState {
         val books: List<BookId> = emptyList(),
         val includeDescendants: Boolean = false,
         val isFetchingBooks: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
     ) : BrowseGenreUiState
 
     /** Terminal state when the observe pipeline fails. */
     data class Error(
-        val message: String,
+        val message: AppError,
     ) : BrowseGenreUiState
 }

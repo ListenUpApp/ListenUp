@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -110,7 +109,7 @@ class UnmappedGenresViewModelTest :
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<UnmappedGenresUiState.Ready>()
-                ready.error shouldBe userMessageFor(error)
+                ready.error shouldBe error
                 ready.isLoadingUnmapped shouldBe false
             }
         }
