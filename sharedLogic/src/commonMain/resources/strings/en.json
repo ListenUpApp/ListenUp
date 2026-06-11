@@ -605,6 +605,8 @@
   },
   "player": {
     "now_playing": "Now Playing",
+    "play": "Play",
+    "pause": "Pause",
     "chapter_of": "Chapter %1$s of %2$s",
     "skip_forward": "Skip forward %1$s seconds",
     "skip_backward": "Skip backward %1$s seconds",
