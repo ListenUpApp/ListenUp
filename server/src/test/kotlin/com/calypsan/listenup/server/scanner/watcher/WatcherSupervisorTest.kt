@@ -17,7 +17,7 @@ import java.nio.file.Path
  * Unit tests for [WatcherSupervisor].
  *
  * Uses [FakeFolderWatcher] as the test seam in place of [FolderWatcher] —
- * [FolderWatcher] embeds kfswatch (a native FS-event listener) and cannot
+ * [FolderWatcher] embeds a native WatchService event listener and cannot
  * be easily stubbed at the class level. The fake tracks start/close calls
  * and provides a way to simulate emission callbacks.
  */

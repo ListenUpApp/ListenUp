@@ -100,7 +100,7 @@ internal class WatcherSupervisor(
 
     /**
      * Stops and removes EVERY active watcher across all libraries. Called on server
-     * shutdown so native kfswatch handles are released deterministically — it *closes*
+     * shutdown so the native WatchService handles are released deterministically — it *closes*
      * each handle (releasing the native FS handle) rather than joining its event loop,
      * which would block disposal. Idempotent: a second call is a no-op.
      */
