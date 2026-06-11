@@ -4171,22 +4171,22 @@
         }
       }
     },
-    "home.content_coming_soon": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Content sections coming soon"
-          }
-        }
-      }
-    },
     "home.continue_listening": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Continue listening"
+          }
+        }
+      }
+    },
+    "home.couldnt_load": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We couldn't load your Listen Now."
           }
         }
       }
@@ -4251,26 +4251,6 @@
         }
       }
     },
-    "home.greeting": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hello, %1$@!"
-          }
-        }
-      }
-    },
-    "home.home_screen": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Home Screen"
-          }
-        }
-      }
-    },
     "home.listened": {
       "localizations": {
         "en": {
@@ -4331,6 +4311,26 @@
         }
       }
     },
+    "home.shelf_books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "home.shelf_books_count_duration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books · %2$@"
+          }
+        }
+      }
+    },
     "home.start_listening_to_an_audiobook": {
       "localizations": {
         "en": {
@@ -4377,16 +4377,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Top Genres"
-          }
-        }
-      }
-    },
-    "home.what_to_read": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What you want to read?"
           }
         }
       }
