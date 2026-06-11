@@ -12,9 +12,6 @@ struct MiniPlayerView: View {
     let observer: PlayerCoordinator
     var onTap: () -> Void
 
-    /// Height of the mini player for layout calculations
-    static let height: CGFloat = 72
-
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
 
     var body: some View {
@@ -142,7 +139,7 @@ struct MiniPlayerView: View {
         ZStack {
             Color.clear
         }
-        .frame(height: MiniPlayerView.height)
+        .frame(height: 72)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 16)

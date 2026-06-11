@@ -1,58 +1,45 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
 /// Root tab view for the main authenticated app experience.
 ///
 /// Structure:
-/// - TabView with Home, Library, Discover tabs
-/// - Each tab wraps content in NavigationStack
-/// - iPad gets sidebar-adaptable style
-/// - ZStack overlay for MiniPlayerView (glass mini player)
-/// - fullScreenCover for FullScreenPlayerView
+/// - Native iOS 26 `TabView` with Home, Library, Discover, and a search-role Search tab
+/// - Each tab wraps content in a `NavigationStack`
+/// - iPad gets the sidebar-adaptable style; the tab bar minimizes on scroll
+/// - `tabViewBottomAccessory` hosts the Liquid Glass mini player
+/// - `fullScreenCover` presents the full-screen player
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @State private var selectedTab: Tab = .home
     @State private var showFullScreenPlayer = false
     @State private var playerCoordinator: PlayerCoordinator?
 
-    init() {
-        // Configure tab bar appearance for glass effect with good contrast
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundEffect = UIBlurEffect(style: .systemThinMaterial)
-        appearance.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.7)
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
-    }
-
     var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                tab(.home, icon: "house.fill") { HomeView() }
-                tab(.library, icon: "books.vertical.fill") { LibraryView() }
-                tab(.discover, icon: "sparkles") { DiscoverView() }
-                tab(.search, icon: "magnifyingglass") { SearchView() }
+        TabView(selection: $selectedTab) {
+            SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
+                tabStack { HomeView() }
             }
-            // .tabViewStyle(.sidebarAdaptable) // Removed: causes layout issues on some devices
-
-            // Mini player overlay — floats above tab bar
-            if let observer = playerCoordinator, observer.isVisible {
-                MiniPlayerView(
-                    observer: observer,
-                    onTap: { showFullScreenPlayer = true }
-                )
-                .padding(.bottom, 49) // Standard tab bar height
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
+                tabStack { LibraryView() }
+            }
+            SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
+                tabStack { DiscoverView() }
+            }
+            SwiftUI.Tab(value: Tab.search, role: .search) {
+                tabStack { SearchView() }
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: playerCoordinator?.isVisible ?? false)
+        .tabViewStyle(.sidebarAdaptable)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory {
+            if let coordinator = playerCoordinator, coordinator.isVisible {
+                MiniPlayerView(observer: coordinator, onTap: { showFullScreenPlayer = true })
+            }
+        }
         .fullScreenCover(isPresented: $showFullScreenPlayer) {
-            if let observer = playerCoordinator {
-                FullScreenPlayerView(
-                    observer: observer,
-                    isPresented: $showFullScreenPlayer
-                )
+            if let coordinator = playerCoordinator {
+                FullScreenPlayerView(observer: coordinator, isPresented: $showFullScreenPlayer)
             }
         }
         .onAppear {
@@ -64,23 +51,11 @@ struct MainTabView: View {
 
     // MARK: - Tab Builder
 
-    private func tab<Content: View>(
-        _ tab: Tab,
-        icon: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
+    @ViewBuilder
+    private func tabStack<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         NavigationStack {
             content()
                 .navigationDestinations()
-        }
-        .tabItem {
-            Label(tab.title, systemImage: icon)
-        }
-        .tag(tab)
-        .safeAreaInset(edge: .bottom) {
-            if playerCoordinator?.isVisible == true {
-                Color.clear.frame(height: MiniPlayerView.height)
-            }
         }
     }
 }
