@@ -31,6 +31,7 @@ final class Dependencies {
     var serverSelectViewModel: ServerSelectViewModel { resolve { KoinHelper.shared.getServerSelectViewModel() } }
     var librarySetupViewModel: LibrarySetupViewModel { resolve { KoinHelper.shared.getLibrarySetupViewModel() } }
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
+    var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
 
     // MARK: - Settings
 
