@@ -293,9 +293,7 @@ class ImportFlowViewModel(
             }
 
             // Apply-phase events during analyze — ignore.
-            is ImportEvent.Applying, is ImportEvent.Applied -> {
-                Unit
-            }
+            is ImportEvent.Applying, is ImportEvent.Applied -> {}
         }
     }
 
@@ -328,9 +326,7 @@ class ImportFlowViewModel(
             }
 
             // Analyze-phase events during apply — ignore.
-            is ImportEvent.Parsing, is ImportEvent.Matching, is ImportEvent.Analyzed -> {
-                Unit
-            }
+            is ImportEvent.Parsing, is ImportEvent.Matching, is ImportEvent.Analyzed -> {}
         }
     }
 
