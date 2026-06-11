@@ -70,6 +70,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_abridged
 import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_unabridged
+import listenup.composeapp.generated.resources.book_show_all_chapters
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -624,7 +625,7 @@ private fun ImmersiveBookDetail(
                             onClick = { isChaptersExpanded = true },
                             shape = RoundedCornerShape(24.dp),
                         ) {
-                            Text("Show all ${state.chapters.size} chapters")
+                            Text(stringResource(Res.string.book_show_all_chapters, state.chapters.size))
                         }
                     }
                 }

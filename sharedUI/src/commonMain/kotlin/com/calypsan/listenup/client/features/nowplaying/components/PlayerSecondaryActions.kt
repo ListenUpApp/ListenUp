@@ -18,6 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_chapters
+import listenup.composeapp.generated.resources.player_sleep_timer
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Secondary action row with speed pill, sleep pill, and chapters pill.
@@ -53,13 +57,13 @@ fun PlayerSecondaryActions(
 
         PillIcon(
             icon = Icons.Default.Bedtime,
-            contentDescription = "Sleep timer",
+            contentDescription = stringResource(Res.string.player_sleep_timer),
             onClick = onSleepClick,
         )
 
         PillIcon(
             icon = Icons.AutoMirrored.Filled.List,
-            contentDescription = "Chapters",
+            contentDescription = stringResource(Res.string.player_chapters),
             onClick = onChaptersClick,
         )
     }
