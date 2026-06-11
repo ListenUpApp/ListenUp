@@ -1,6 +1,5 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
 /// Displays overlapping book covers that cycle through all books in a series.
 ///
@@ -56,7 +55,7 @@ struct AnimatedCoverStack: View {
 
             ZStack {
                 ForEach(Array(visibleBooks.enumerated().reversed()), id: \.element.idString) { index, book in
-                    CoverView(book: book)
+                    BookCoverImage(book: book)
                         .frame(width: coverWidth, height: coverHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .shadow(
@@ -100,38 +99,6 @@ struct AnimatedCoverStack: View {
     private func stopCycling() {
         timer?.invalidate()
         timer = nil
-    }
-}
-
-/// Single cover view with local image or BlurHash fallback.
-private struct CoverView: View {
-    let book: BookListItem
-
-    private var cachedImage: UIImage? {
-        guard let path = book.coverPath else { return nil }
-        return UIImage(contentsOfFile: path)
-    }
-
-    var body: some View {
-        if let image = cachedImage {
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else if let blurHash = book.coverBlurHash {
-            BlurHashView(blurHash: blurHash)
-        } else {
-            // Fallback placeholder
-            ZStack {
-                LinearGradient(
-                    colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 }
 
