@@ -69,4 +69,14 @@ sealed interface SyncControl {
     @Serializable
     @SerialName("SyncControl.ActivityChanged")
     data object ActivityChanged : SyncControl
+
+    /**
+     * Content-free broadcast nudge: server-identity settings (display name / remote URL) changed.
+     * Clients re-fetch [com.calypsan.listenup.api.InstanceService.getServerInfo] and silently update
+     * their stored remote-URL fallback — so an admin's new domain reaches connected clients without a
+     * cold start. No payload: the value travels on the existing getServerInfo probe (one source of truth).
+     */
+    @Serializable
+    @SerialName("SyncControl.ServerInfoChanged")
+    data object ServerInfoChanged : SyncControl
 }

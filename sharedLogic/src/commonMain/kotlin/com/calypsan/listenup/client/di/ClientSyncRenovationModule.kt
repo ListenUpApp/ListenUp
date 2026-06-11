@@ -46,6 +46,7 @@ import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -179,6 +180,10 @@ val clientSyncRenovationModule =
                 // The server's content-free activity nudge pings the shared signal so the activity
                 // feed re-fetches its ACL-filtered RPC page.
                 onActivityChanged = { get<ActivityRefreshSignal>().ping() },
+                // The server's content-free server-info nudge (admin changed name / remote URL):
+                // re-fetch getServerInfo, whose persistRemoteUrl side-effect updates the stored
+                // remote-URL fallback so an admin's new domain reaches us without a cold start.
+                onServerInfoChanged = { get<InstanceRepository>().getServerInfo(forceRefresh = true) },
             )
         }
 

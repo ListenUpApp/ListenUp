@@ -9,10 +9,13 @@ import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -42,8 +45,10 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val svc =
-                        AdminSettingsServiceImpl(ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN))
-                            .copyWith(principalFor("root1", UserRole.ROOT))
+                        AdminSettingsServiceImpl(
+                            ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN),
+                            ChangeBus(),
+                        ).copyWith(principalFor("root1", UserRole.ROOT))
                     val settings = svc.getServerSettings().shouldSucceed()
                     settings.serverName shouldBe ServerIdentity.NAME
                     settings.remoteUrl.shouldBeNull()
@@ -56,8 +61,10 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val svc =
-                        AdminSettingsServiceImpl(ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN))
-                            .copyWith(principalFor("a1", UserRole.ADMIN))
+                        AdminSettingsServiceImpl(
+                            ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN),
+                            ChangeBus(),
+                        ).copyWith(principalFor("a1", UserRole.ADMIN))
                     val updated =
                         svc
                             .updateServerSettings(
@@ -79,8 +86,10 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val svc =
-                        AdminSettingsServiceImpl(ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN))
-                            .copyWith(principalFor("m1", UserRole.MEMBER))
+                        AdminSettingsServiceImpl(
+                            ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN),
+                            ChangeBus(),
+                        ).copyWith(principalFor("m1", UserRole.MEMBER))
                     svc.getServerSettings().shouldFail<AuthError.PermissionDenied>()
                 }
             }
@@ -91,8 +100,10 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val svc =
-                        AdminSettingsServiceImpl(ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN))
-                            .copyWith(principalFor("root1", UserRole.ROOT))
+                        AdminSettingsServiceImpl(
+                            ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN),
+                            ChangeBus(),
+                        ).copyWith(principalFor("root1", UserRole.ROOT))
                     svc
                         .updateServerSettings(AdminServerSettingsPatch(serverName = "   "))
                         .shouldFail<AdminError.InvalidInput>()
@@ -105,7 +116,7 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val repo = ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN)
-                    val svc = AdminSettingsServiceImpl(repo).copyWith(principalFor("root1", UserRole.ROOT))
+                    val svc = AdminSettingsServiceImpl(repo, ChangeBus()).copyWith(principalFor("root1", UserRole.ROOT))
 
                     // first set a URL
                     svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://example.com")).shouldSucceed()
@@ -116,6 +127,47 @@ class AdminSettingsServiceImplTest :
                     svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "")).shouldSucceed()
                     val cleared = svc.getServerSettings().shouldSucceed()
                     cleared.remoteUrl.shouldBeNull()
+                }
+            }
+        }
+
+        // (f) a successful change broadcasts a content-free ServerInfoChanged nudge to all clients
+        test("updateServerSettings broadcasts ServerInfoChanged on a successful change") {
+            withInMemoryDatabase {
+                runTest {
+                    val bus = ChangeBus()
+                    val svc =
+                        AdminSettingsServiceImpl(
+                            ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN),
+                            bus,
+                        ).copyWith(principalFor("a1", UserRole.ADMIN))
+
+                    bus.subscribeControl().test {
+                        svc.updateServerSettings(AdminServerSettingsPatch(remoteUrl = "https://new.example.com")).shouldSucceed()
+                        val frame = awaitItem()
+                        frame.control shouldBe SyncControl.ServerInfoChanged
+                        frame.userId shouldBe ChangeBus.BROADCAST
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            }
+        }
+
+        // (g) a no-op patch (no fields) writes nothing and broadcasts nothing
+        test("updateServerSettings with an empty patch broadcasts no nudge") {
+            withInMemoryDatabase {
+                runTest {
+                    val bus = ChangeBus()
+                    val svc =
+                        AdminSettingsServiceImpl(
+                            ServerSettingsRepository(this@withInMemoryDatabase, default = RegistrationPolicy.OPEN),
+                            bus,
+                        ).copyWith(principalFor("a1", UserRole.ADMIN))
+
+                    bus.subscribeControl().test {
+                        svc.updateServerSettings(AdminServerSettingsPatch()).shouldSucceed()
+                        expectNoEvents()
+                    }
                 }
             }
         }

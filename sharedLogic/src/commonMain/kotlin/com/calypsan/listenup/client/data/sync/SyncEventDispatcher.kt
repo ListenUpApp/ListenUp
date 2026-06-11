@@ -25,6 +25,7 @@ class SyncEventDispatcher(
     private val onUserDeleted: suspend (reason: String?) -> Unit = {},
     private val onActiveSessionsChanged: () -> Unit = {},
     private val onActivityChanged: () -> Unit = {},
+    private val onServerInfoChanged: suspend () -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -76,6 +77,11 @@ class SyncEventDispatcher(
             SyncControl.ActivityChanged -> {
                 logger.debug { "activity nudge" }
                 onActivityChanged()
+            }
+
+            SyncControl.ServerInfoChanged -> {
+                logger.debug { "server-info nudge; re-fetching getServerInfo" }
+                onServerInfoChanged()
             }
         }
     }
