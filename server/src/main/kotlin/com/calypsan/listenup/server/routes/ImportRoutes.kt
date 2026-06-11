@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.ImportRoutePaths
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.import.ImportStatus
 import com.calypsan.listenup.api.dto.import.ImportSummary
@@ -61,7 +62,7 @@ fun Route.importRoutes(
     paths: ImportPaths,
     clock: Clock = Clock.System,
 ) {
-    post("/api/v1/admin/imports/abs/upload") {
+    post(ImportRoutePaths.ABS_UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         if (!p.role.isImportAdmin()) return@post call.respondImportAppError(AuthError.PermissionDenied())
         call.handleImportUpload(paths, clock)

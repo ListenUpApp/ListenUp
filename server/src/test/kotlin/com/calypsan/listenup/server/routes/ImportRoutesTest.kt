@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.ImportRoutePaths
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -123,7 +124,7 @@ class ImportRoutesTest :
 private suspend fun HttpClient.uploadAbsBackup(
     token: String,
     zipBytes: ByteArray,
-) = post("/api/v1/admin/imports/abs/upload") {
+) = post(ImportRoutePaths.ABS_UPLOAD) {
     bearerAuth(token)
     setBody(
         MultiPartFormDataContent(
