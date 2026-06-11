@@ -48,14 +48,11 @@ struct BookDetailView: View {
             }
         }
         .task(id: bookId) {
+            guard observer == nil else { return }
             let vm = deps.createBookDetailViewModel()
             let obs = BookDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator, downloadService: deps.downloadService)
             observer = obs
             obs.loadBook(bookId: bookId)
-        }
-        .onDisappear {
-            observer?.stopObserving()
-            observer = nil
         }
     }
 
