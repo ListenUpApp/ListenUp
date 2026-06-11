@@ -69,4 +69,29 @@ class ImportContractTest :
                 )
             events.forEach { contractJson.decodeFromString<ImportEvent>(contractJson.encodeToString(it)) shouldBe it }
         }
+
+        test("ImportEvent.Matching round-trips with currentItem and tallies") {
+            val event: ImportEvent =
+                ImportEvent.Matching(
+                    done = 3,
+                    total = 10,
+                    currentItem = "The Way of Kings",
+                    usersMatched = 2,
+                    booksMatched = 3,
+                )
+            val decoded = contractJson.decodeFromString<ImportEvent>(contractJson.encodeToString(event))
+            decoded shouldBe event
+        }
+
+        test("ImportEvent.Applying round-trips with currentItem and tally") {
+            val event: ImportEvent =
+                ImportEvent.Applying(
+                    done = 5,
+                    total = 8,
+                    currentItem = "alice",
+                    sessionsWritten = 5,
+                )
+            val decoded = contractJson.decodeFromString<ImportEvent>(contractJson.encodeToString(event))
+            decoded shouldBe event
+        }
     })
