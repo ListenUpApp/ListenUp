@@ -2,13 +2,13 @@ package com.calypsan.listenup.client.presentation.admin.absimport
 
 import com.calypsan.listenup.client.presentation.admin.ABSImportUiState
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 
 /** Mutate the state only while it is [ABSImportUiState.Ready] — the one mutation rule, shared by the VM + delegates. */
 internal fun MutableStateFlow<ABSImportUiState>.updateReady(
     transform: (ABSImportUiState.Ready) -> ABSImportUiState.Ready,
 ) {
-    val current = value
-    if (current is ABSImportUiState.Ready) value = transform(current)
+    update { current -> if (current is ABSImportUiState.Ready) transform(current) else current }
 }
 
 /** Current state as [ABSImportUiState.Ready], or null if in another phase. */

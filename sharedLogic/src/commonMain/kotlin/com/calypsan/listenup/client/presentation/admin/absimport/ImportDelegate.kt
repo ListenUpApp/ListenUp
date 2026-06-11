@@ -39,7 +39,7 @@ internal class ImportDelegate(
         scope.launch {
             state.updateReady { it.copy(step = ABSImportStep.IMPORTING, isImporting = true, error = null) }
 
-            val current = state.value as? ABSImportUiState.Ready ?: return@launch
+            val current = state.ready ?: return@launch
             when (
                 val result =
                     backupApi.importABSBackup(
