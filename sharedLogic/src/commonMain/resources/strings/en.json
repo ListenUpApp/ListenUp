@@ -86,6 +86,7 @@
     "series": "Series",
     "server": "Server",
     "settings": "Settings",
+    "something_went_wrong": "Something went wrong",
     "share": "Share",
     "share_book_text": "Check out %1$s on ListenUp!",
     "share_copied_to_clipboard": "Share link copied to clipboard",
@@ -637,5 +638,25 @@
     "go_to_book": "Go to Book",
     "go_to_series": "Go to Series",
     "close_book": "Close Book"
+  },
+  "library_setup": {
+    "choose_folders_title": "Choose your folders",
+    "choose_folders_subtitle": "Select the folders on your server where your audiobooks are stored.",
+    "up": "Up",
+    "up_hint": "Goes to the parent folder",
+    "current_path_label": "Current folder: %1$s",
+    "loading_folders": "Loading folders...",
+    "no_subfolders": "This folder has no subfolders.",
+    "select_this_folder": "Select this folder",
+    "library_name": "Library name",
+    "library_name_placeholder": "My Library",
+    "create_library": "Create Library",
+    "folders_selected": "%1$d folder(s) selected",
+    "select_at_least_one": "Select at least one folder to continue.",
+    "item_count": "%1$d items",
+    "folder_a11y_label": "%1$s, %2$d items",
+    "folder_opens_hint": "Opens folder",
+    "folder_select_hint": "Double tap to select",
+    "folder_deselect_hint": "Selected, double tap to deselect"
   }
 }
