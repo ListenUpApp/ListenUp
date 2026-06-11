@@ -77,9 +77,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.slf4j)
     implementation(libs.micrometer.core)
 
-    // Phase 2 scanner — filesystem watching across Linux/macOS/Windows.
-    implementation(libs.kfswatch)
-
     // Ktor HTTP client — used by AudibleClient to call the Audible catalog API.
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)

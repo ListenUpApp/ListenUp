@@ -334,7 +334,7 @@ fun Application.module() {
  * `testApplication` teardown. Order: unmount watchers (close native FS handles), cancel the
  * background-task [applicationScope] (cleanup loops, the BookPersister scan-result collector,
  * bootstrap), then close the Hikari pool. Each step is best-effort and CANCELS rather than
- * joins: joining the kfswatch native read would time out Ktor's application disposal. Ktor
+ * joins: joining the watcher's blocking read would time out Ktor's application disposal. Ktor
  * drains in-flight requests before firing [ApplicationStopped], so nothing is using the pool.
  */
 private fun Application.installGracefulShutdown(applicationScope: CoroutineScope) {
