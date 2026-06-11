@@ -4271,6 +4271,26 @@
         }
       }
     },
+    "home.opens_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens book"
+          }
+        }
+      }
+    },
+    "home.progress_percent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d percent"
+          }
+        }
+      }
+    },
     "home.start_listening_to_an_audiobook": {
       "localizations": {
         "en": {

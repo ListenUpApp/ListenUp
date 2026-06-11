@@ -406,6 +406,8 @@
     "home_screen": "Home Screen",
     "my_shelves": "My shelves",
     "nothing_playing_yet": "Nothing playing yet",
+    "opens_book": "Opens book",
+    "progress_percent": "%1$d percent",
     "start_listening_to_an_audiobook": "Start listening to an audiobook and it will appear here",
     "start_listening_to_see_your": "Start listening to see your stats here",
     "this_week": "This Week",

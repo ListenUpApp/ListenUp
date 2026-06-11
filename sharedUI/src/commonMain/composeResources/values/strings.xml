@@ -427,6 +427,8 @@
     <string name="home_home_screen">Home Screen</string>
     <string name="home_my_shelves">My shelves</string>
     <string name="home_nothing_playing_yet">Nothing playing yet</string>
+    <string name="home_opens_book">Opens book</string>
+    <string name="home_progress_percent">%1$d percent</string>
     <string name="home_start_listening_to_an_audiobook">Start listening to an audiobook and it will appear here</string>
     <string name="home_start_listening_to_see_your">Start listening to see your stats here</string>
     <string name="home_this_week">This Week</string>
