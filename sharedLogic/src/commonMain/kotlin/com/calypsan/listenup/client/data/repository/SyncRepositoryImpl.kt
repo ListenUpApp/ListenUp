@@ -18,11 +18,11 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -30,6 +30,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
+
+/** Backoff between scan-progress stream re-subscriptions after the stream drops or completes. */
+private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
 
 /**
  * Bridges the domain sync facade to the renovated client sync engine.
@@ -159,41 +162,87 @@ class SyncRepositoryImpl(
         if (!shouldStart) return
         scope.launch {
             try {
-                scannerRpcFactory
-                    .get()
-                    .observeProgress()
-                    .catch { e ->
-                        if (e is kotlin.coroutines.cancellation.CancellationException) throw e
-                        logger.warn(e) { "Scan-progress stream failed; scan UI/reconcile paused" }
-                        resetScanObserver()
-                    }.collect { rpcEvent ->
-                        val event = (rpcEvent as? RpcEvent.Data)?.value ?: return@collect
-                        applyScanEvent(
-                            event = event,
-                            isInitialScanComplete = { hasCompletedInitialScan },
-                            setScanning = { _isServerScanning.value = it },
-                            setProgress = { _scanProgress.value = it },
-                            markInitialScanComplete = { hasCompletedInitialScan = true },
-                            // Awaited, not fire-and-forget: the initial populating gate must stay up
-                            // until this reconcile actually lands the books in Room (see applyScanEvent).
-                            // Parking this collector for the duration is safe — [SyncEngine.handleCursorStale]
-                            // is mutex-guarded + coalescing (no concurrent catch-up spin), Completed is
-                            // already consumed, and the cold RPC stream applies backpressure rather than
-                            // dropping any later event.
-                            reconcile = { syncEngine.handleCursorStale() },
-                            nowMs = { currentEpochMilliseconds() },
-                            getStartedAt = { scanStartedAtMs },
-                            setStartedAt = { scanStartedAtMs = it },
-                        )
-                    }
+                observeScanProgressResiliently()
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Scan-progress observer stopped unexpectedly" }
+            } finally {
                 resetScanObserver()
             }
         }
     }
+
+    /**
+     * Resilient for the process lifetime. The terminal [ScanEvent.Completed] rides a `replay = 0`
+     * bus (see `ScannerServiceImpl.observeProgress`), so a single subscription that drops — or
+     * silently re-establishes — mid-scan can miss it, latching the populating gate forever. So we
+     * re-subscribe on every termination, and on each one run the never-stranded recovery: a missed
+     * Completed must not strand the user on the populating screen (see [recoverFromScanStreamEnd]).
+     */
+    private suspend fun observeScanProgressResiliently() {
+        while (true) {
+            collectScanProgressUntilStreamEnds()
+            recoverFromScanStreamEnd(
+                isInitialScanComplete = { hasCompletedInitialScan },
+                isScanning = { _isServerScanning.value },
+                confirmScanFinished = { isInitialScanFinishedOnServer() },
+                reconcile = { syncEngine.handleCursorStale() },
+                setScanning = { _isServerScanning.value = it },
+                setProgress = { _scanProgress.value = it },
+                markInitialScanComplete = { hasCompletedInitialScan = true },
+            )
+            delay(SCAN_STREAM_RESUBSCRIBE_DELAY_MS)
+        }
+    }
+
+    /** Collects one subscription to the scan-progress stream until it errors or completes. */
+    private suspend fun collectScanProgressUntilStreamEnds() {
+        try {
+            scannerRpcFactory
+                .get()
+                .observeProgress()
+                .collect { rpcEvent ->
+                    val event = (rpcEvent as? RpcEvent.Data)?.value ?: return@collect
+                    applyScanEvent(
+                        event = event,
+                        isInitialScanComplete = { hasCompletedInitialScan },
+                        setScanning = { _isServerScanning.value = it },
+                        setProgress = { _scanProgress.value = it },
+                        markInitialScanComplete = { hasCompletedInitialScan = true },
+                        // Awaited, not fire-and-forget: the initial populating gate must stay up
+                        // until this reconcile actually lands the books in Room (see applyScanEvent).
+                        // Parking this collector for the duration is safe — [SyncEngine.handleCursorStale]
+                        // is mutex-guarded + coalescing (no concurrent catch-up spin), Completed is
+                        // already consumed, and the cold RPC stream applies backpressure rather than
+                        // dropping any later event.
+                        reconcile = { syncEngine.handleCursorStale() },
+                        nowMs = { currentEpochMilliseconds() },
+                        getStartedAt = { scanStartedAtMs },
+                        setStartedAt = { scanStartedAtMs = it },
+                    )
+                }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Scan-progress stream dropped; recovering and re-subscribing" }
+        }
+    }
+
+    /**
+     * Probe the server's authoritative last-scan result to confirm the initial population finished.
+     * The RPC proxy throws (e.g. `WebSocketException`) on transport failure; treat any such failure
+     * as "not finished" so recovery keeps the gate up and re-subscribes rather than latching early.
+     */
+    private suspend fun isInitialScanFinishedOnServer(): Boolean =
+        try {
+            scannerRpcFactory.get().lastScanResult() is AppResult.Success
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "lastScanResult probe failed during scan recovery" }
+            false
+        }
 
     /** Never-stranded reset: a dropped progress stream must not leave the shell blocked. */
     private suspend fun resetScanObserver() {
@@ -292,4 +341,39 @@ internal suspend fun applyScanEvent(
             // No-op: the live tail plus the Completed reconcile cover applied changes.
         }
     }
+}
+
+/**
+ * Never-stranded recovery for the initial-population gate when the scan-progress stream terminates
+ * (drops with an error OR completes) before delivering [ScanEvent.Completed]. That terminal event
+ * rides a `replay = 0` bus (see `ScannerServiceImpl.observeProgress`), so a subscription that drops
+ * or silently re-establishes mid-scan can miss it — which would latch `isServerScanning` forever and
+ * strand the user on the "Building your library" screen.
+ *
+ * **Confirm-then-clear.** Only acts while the initial gate is still up. It confirms the scan really
+ * finished via the server's authoritative last-scan result ([confirmScanFinished]) before doing
+ * anything — during the initial population that result is absent until the books are persisted, so
+ * it is a precise "is the initial scan done?" signal. Only on a confirmed-finished scan does it run
+ * the catch-up [reconcile] (pulling the books the missed Completed would have) and then clear + latch
+ * the gate. An unconfirmed result (scan still running, or the server unreachable) leaves the gate up
+ * so the caller re-subscribes — never latching the shell mid-import, never stranding it after one.
+ *
+ * Extracted as a top-level function — like [applyScanEvent] — so it is testable with recording
+ * lambdas, no [SyncEngine] or RPC mock required.
+ */
+internal suspend fun recoverFromScanStreamEnd(
+    isInitialScanComplete: () -> Boolean,
+    isScanning: () -> Boolean,
+    confirmScanFinished: suspend () -> Boolean,
+    reconcile: suspend () -> Unit,
+    setScanning: (Boolean) -> Unit,
+    setProgress: (ScanProgressState?) -> Unit,
+    markInitialScanComplete: () -> Unit,
+) {
+    if (isInitialScanComplete() || !isScanning()) return
+    if (!confirmScanFinished()) return
+    reconcile()
+    setProgress(null)
+    setScanning(false)
+    markInitialScanComplete()
 }
