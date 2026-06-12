@@ -1371,6 +1371,16 @@
         }
       }
     },
+    "book.detail_all_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %1$d"
+          }
+        }
+      }
+    },
     "book.detail_authors": {
       "localizations": {
         "en": {
@@ -1447,6 +1457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Credits"
+          }
+        }
+      }
+    },
+    "book.detail_details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
           }
         }
       }
@@ -1541,6 +1561,36 @@
         }
       }
     },
+    "book.detail_length": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Length"
+          }
+        }
+      }
+    },
+    "book.detail_mark_as_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as Finished"
+          }
+        }
+      }
+    },
+    "book.detail_mark_as_finished_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as finished?"
+          }
+        }
+      }
+    },
     "book.detail_mark_as_read": {
       "localizations": {
         "en": {
@@ -1587,6 +1637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Narrated by %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_new_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Shelf"
           }
         }
       }
@@ -1661,6 +1721,16 @@
         }
       }
     },
+    "book.detail_publisher": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publisher"
+          }
+        }
+      }
+    },
     "book.detail_queued": {
       "localizations": {
         "en": {
@@ -1717,6 +1787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d listening now"
+          }
+        }
+      }
+    },
+    "book.detail_released": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released"
           }
         }
       }
