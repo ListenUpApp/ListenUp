@@ -640,6 +640,8 @@
     "skip_backward": "Skip backward %1$s seconds",
     "speed": "Speed",
     "chapters": "Chapters",
+    "sleep": "Sleep",
+    "airplay": "AirPlay",
     "sleep_timer": "Sleep timer",
     "bookmark": "Bookmark",
     "timer_active": "Timer Active",

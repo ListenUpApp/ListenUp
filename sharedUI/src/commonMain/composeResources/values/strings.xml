@@ -524,6 +524,7 @@
     <string name="metadata_try_selecting_a_different_region">Try selecting a different region above.</string>
     <string name="metadata_your_book_already_has_all">Your book already has all the available metadata from Audible. No changes to apply.</string>
     <string name="player_add_more_time">Add more time</string>
+    <string name="player_airplay">AirPlay</string>
     <string name="player_bookmark">Bookmark</string>
     <string name="player_cancel_timer">Cancel timer</string>
     <string name="player_cast">Cast</string>
@@ -553,6 +554,7 @@
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
     <string name="player_skip_forward_30s">Skip forward 30 seconds</string>
+    <string name="player_sleep">Sleep</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
     <string name="player_timer_active">Timer Active</string>
