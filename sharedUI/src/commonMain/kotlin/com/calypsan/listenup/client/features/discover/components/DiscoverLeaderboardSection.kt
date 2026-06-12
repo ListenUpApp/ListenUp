@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.discover_could_not_load_leaderboard
 import listenup.composeapp.generated.resources.discover_loading_leaderboard
 import listenup.composeapp.generated.resources.discover_start_listening_to_join_the
 
@@ -107,7 +108,7 @@ fun DiscoverLeaderboardSection(
                         onPeriodSelected = viewModel::selectPeriod,
                     )
                     Text(
-                        text = "Could not load leaderboard.",
+                        text = stringResource(Res.string.discover_could_not_load_leaderboard),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )

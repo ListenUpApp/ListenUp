@@ -52,10 +52,14 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
+import listenup.composeapp.generated.resources.genre_book_count
+import listenup.composeapp.generated.resources.genre_books_count
 import listenup.composeapp.generated.resources.library_books
 import listenup.composeapp.generated.resources.search_count_books
+import listenup.composeapp.generated.resources.search_cover_for
 import listenup.composeapp.generated.resources.search_no_results_for_query
 import listenup.composeapp.generated.resources.search_people
+import listenup.composeapp.generated.resources.search_section_count
 import listenup.composeapp.generated.resources.search_try_a_different_search_term
 
 /**
@@ -324,7 +328,7 @@ private fun SectionHeader(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "($count)",
+            text = stringResource(Res.string.search_section_count, count),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -354,7 +358,7 @@ private fun BookSearchResultCard(
             BookCoverImage(
                 bookId = hit.id,
                 coverPath = hit.coverPath,
-                contentDescription = "Cover for ${hit.name}",
+                contentDescription = stringResource(Res.string.search_cover_for, hit.name),
                 contentScale = ContentScale.Crop,
                 modifier =
                     Modifier
@@ -566,7 +570,12 @@ private fun TagSearchResultCard(
                 )
                 hit.bookCount?.let { count ->
                     Text(
-                        text = "$count ${if (count == 1) "book" else "books"}",
+                        text =
+                            if (count == 1) {
+                                stringResource(Res.string.genre_book_count, count)
+                            } else {
+                                stringResource(Res.string.genre_books_count, count)
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

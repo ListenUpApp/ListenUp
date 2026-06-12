@@ -13,6 +13,9 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.metadata_loading_match
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -71,7 +74,7 @@ fun MetadataSearchRoute(
                 if (current is MetadataUiState.Idle) {
                     ListenUpLoadingIndicator()
                 } else {
-                    Text("Loading match…")
+                    Text(stringResource(Res.string.metadata_loading_match))
                 }
             }
         }

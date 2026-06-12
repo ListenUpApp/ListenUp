@@ -137,6 +137,8 @@
     <string name="auth_enter_password">Please enter your password</string>
     <string name="auth_first_name">First Name</string>
     <string name="auth_first_name_placeholder">First</string>
+    <string name="auth_hero_tagline">Thousands of audiobooks.
+One beautiful library.</string>
     <string name="auth_invalid_credentials">Invalid email or password</string>
     <string name="auth_invalid_email">Please enter a valid email</string>
     <string name="auth_join_listenup">Join ListenUp to start listening</string>
@@ -301,6 +303,7 @@
     <string name="common_inbox">Inbox</string>
     <string name="common_language">Language</string>
     <string name="common_library">Library</string>
+    <string name="common_listenup">ListenUp</string>
     <string name="common_listenup_logo">ListenUp Logo</string>
     <string name="common_loading">Loading...</string>
     <string name="common_loading_item">Loading %1$s...</string>
@@ -319,6 +322,7 @@
     <string name="common_ok">OK</string>
     <string name="common_online">Online</string>
     <string name="common_open">Open</string>
+    <string name="common_percent">%1$d%</string>
     <string name="common_permissions">Permissions</string>
     <string name="common_playback">Playback</string>
     <string name="common_please_wait">Please wait</string>
@@ -445,6 +449,7 @@
     <string name="discover_activity_feed">Activity Feed</string>
     <string name="discover_book_1_of_series">Book 1 of %1$s</string>
     <string name="discover_community_stats">Community Stats</string>
+    <string name="discover_could_not_load_leaderboard">Could not load leaderboard.</string>
     <string name="discover_discover_screen">Discover Screen</string>
     <string name="discover_discover_something_new">Discover Something New</string>
     <string name="discover_find_next_favorite">Find your next favorite audiobook</string>
@@ -453,6 +458,8 @@
     <string name="discover_no_activity_yet_start_listening">No activity yet. Start listening to see what your community is reading!</string>
     <string name="discover_no_shelves_to_discover_yet">No Shelves to Discover Yet</string>
     <string name="discover_recently_added">Recently Added</string>
+    <string name="discover_shelf_count">%1$d shelf</string>
+    <string name="discover_shelves_count">%1$d shelves</string>
     <string name="discover_start_listening_to_join_the">Start listening to join the community rankings</string>
     <string name="discover_total_time">Total Time</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
@@ -477,6 +484,7 @@
     <string name="genre_unmapped_title">Unmapped Genres</string>
     <string name="home_best_day_streak">Best: %1$d day streak</string>
     <string name="home_best_longeststreak">(best: %1$s)</string>
+    <string name="home_best_value">Best: %1$s</string>
     <string name="home_browse_library">Browse Library</string>
     <string name="home_continue_listening">Continue listening</string>
     <string name="home_couldnt_load">We couldn\'t load your Listen Now.</string>
@@ -486,11 +494,13 @@
     <string name="home_cover_3">Cover 3</string>
     <string name="home_cover_4">Cover 4</string>
     <string name="home_day_streak">%1$d day streak</string>
+    <string name="home_hours_minutes">%1$dh %2$dm</string>
     <string name="home_listened">listened</string>
     <string name="home_my_shelves">My shelves</string>
     <string name="home_no_listening">No listening</string>
     <string name="home_nothing_playing_yet">Nothing playing yet</string>
     <string name="home_opens_book">Opens book</string>
+    <string name="home_private_shelf">Private shelf</string>
     <string name="home_progress_percent">%1$d percent</string>
     <string name="home_shelf_books_count">%1$d books</string>
     <string name="home_shelf_books_count_duration">%1$d books · %2$s</string>
@@ -591,6 +601,7 @@
     <string name="library_books">Books</string>
     <string name="library_browse_by_genre">Browse by genre</string>
     <string name="library_collection">Collection</string>
+    <string name="library_count_unit">%1$d %2$s</string>
     <string name="library_create_a_collection_in_the">Create a collection in the Admin section first</string>
     <string name="library_create_add">Create &amp; Add</string>
     <string name="library_create_new_shelf">Create New Shelf</string>
@@ -599,6 +610,7 @@
     <string name="library_empty_title">Your Library is Empty</string>
     <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
+    <string name="library_ignoring_articles"> · ignoring A · An · The</string>
     <string name="library_loading_your_library">Loading your library...</string>
     <string name="library_more_options">More library options</string>
     <string name="library_narrators">Narrators</string>
@@ -607,6 +619,7 @@
     <string name="library_summary">• %1$s</string>
     <string name="library_sync_failed">Sync Failed</string>
     <string name="library_title_sort">Title Sort</string>
+    <string name="library_title_sort_toggle">Title sort</string>
     <string name="library_you_dont_have_any_shelves">You don\'t have any shelves yet</string>
     <string name="library_your_audiobooks_will_appear_here">Your audiobooks will appear here once the scan is complete</string>
     <string name="library_setup_add_another_folder">Add another folder</string>
@@ -648,12 +661,15 @@
     <string name="metadata_apply_selected_metadata">Apply Selected Metadata</string>
     <string name="metadata_audible_catalog_try_a_different">Audible catalog. Try a different region:</string>
     <string name="metadata_book_not_found_on_audible">Book not found on Audible</string>
+    <string name="metadata_by_authors">by %1$s</string>
     <string name="metadata_cover">Cover</string>
     <string name="metadata_current_cover">Current cover</string>
     <string name="metadata_failed_to_load_metadata_preview">Failed to load metadata preview</string>
+    <string name="metadata_loading_match">Loading match…</string>
     <string name="metadata_metadata_is_up_to_date">Metadata is up to date</string>
     <string name="metadata_no_metadata_available">No metadata available</string>
     <string name="metadata_release_date">Release Date</string>
+    <string name="metadata_searching_for">Searching for: %1$s</string>
     <string name="metadata_select_metadata">Select Metadata</string>
     <string name="metadata_title_author_narrator_or_asin">Title, author, narrator, or ASIN...</string>
     <string name="metadata_try_selecting_a_different_region">Try selecting a different region above.</string>
@@ -679,6 +695,8 @@
     <string name="player_more_options">More options</string>
     <string name="player_next_chapter">Next chapter</string>
     <string name="player_now_playing">Now Playing</string>
+    <string name="player_now_playing_overline">NOW PLAYING</string>
+    <string name="player_now_playing_wide">Now playing</string>
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_playback_speed">Playback speed</string>
@@ -688,11 +706,15 @@
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
     <string name="player_skip_forward_30s">Skip forward 30 seconds</string>
+    <string name="player_sleep">Sleep</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
+    <string name="player_speed_value">%1$sx</string>
     <string name="player_timer_active">Timer Active</string>
     <string name="player_until_end_of_chapter">Until end of chapter</string>
     <string name="player_until_end_of_chapter_detail">Playback will pause when this chapter ends</string>
+    <string name="player_up_next">Up next</string>
+    <string name="player_view_all_chapters">View all %1$d chapters</string>
     <string name="profile_avatar">Avatar</string>
     <string name="profile_books_finished">Books Finished</string>
     <string name="profile_change_password">Change Password</string>
@@ -724,12 +746,14 @@
     <string name="scan_scanning">SCANNING</string>
     <string name="search_coming_soon">Search functionality coming soon</string>
     <string name="search_count_books">%1$s books</string>
+    <string name="search_cover_for">Cover for %1$s</string>
     <string name="search_find_description">Find books by title, author, narrator, or series</string>
     <string name="search_no_results_for_query">No results for “%1$s”</string>
     <string name="search_people">People</string>
     <string name="search_results_for">Results for “%1$s”</string>
     <string name="search_search_placeholder">Search books, authors, series...</string>
     <string name="search_search_your_library">Search Your Library</string>
+    <string name="search_section_count">(%1$d)</string>
     <string name="search_try_a_different_search_term">Try a different search term</string>
     <string name="series_book_sequence">Book %1$s</string>
     <string name="series_books_in_series">Books in Series</string>
@@ -802,6 +826,7 @@
     <string name="shell_close_search">Close search</string>
     <string name="shell_dismiss_all">Dismiss all</string>
     <string name="shell_library_changed">Library Changed</string>
+    <string name="shell_logout">Logout</string>
     <string name="shell_no_pending_changes">No pending changes</string>
     <string name="shell_pendingcount_pending">%1$s pending</string>
     <string name="shell_retry_all">Retry all</string>

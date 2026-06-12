@@ -37,6 +37,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.domain.model.Shelf
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.genre_book_count
+import listenup.composeapp.generated.resources.genre_books_count
+import listenup.composeapp.generated.resources.home_private_shelf
+import org.jetbrains.compose.resources.stringResource
 
 private val ShelfCardWidth = 180.dp
 private val ShelfCardHeight = 116.dp
@@ -123,7 +128,7 @@ fun ShelfCard(
                     if (shelf.isPrivate) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "Private shelf",
+                            contentDescription = stringResource(Res.string.home_private_shelf),
                             tint = contentColor.copy(alpha = 0.8f),
                             modifier = Modifier.size(14.dp),
                         )
@@ -138,7 +143,12 @@ fun ShelfCard(
                     )
                 }
                 Text(
-                    text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}",
+                    text =
+                        if (shelf.bookCount == 1) {
+                            stringResource(Res.string.genre_book_count, shelf.bookCount)
+                        } else {
+                            stringResource(Res.string.genre_books_count, shelf.bookCount)
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor.copy(alpha = 0.8f),
                 )

@@ -50,6 +50,9 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_empty_tab_description
 import listenup.composeapp.generated.resources.common_no_items_yet
+import listenup.composeapp.generated.resources.contributor_name_profile_image
+import listenup.composeapp.generated.resources.genre_book_count
+import listenup.composeapp.generated.resources.genre_books_count
 
 /**
  * Content for the Authors tab in the Library screen.
@@ -217,7 +220,11 @@ internal fun ContributorCard(
                     ContributorCoverImage(
                         contributorId = contributor.id.value,
                         imagePath = contributor.imagePath,
-                        contentDescription = "${contributor.name} profile image",
+                        contentDescription =
+                            stringResource(
+                                Res.string.contributor_name_profile_image,
+                                contributor.name,
+                            ),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                         onState = { state ->
@@ -239,9 +246,13 @@ internal fun ContributorCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val bookLabel = if (contributorWithCount.bookCount == 1) "book" else "books"
                 Text(
-                    text = "${contributorWithCount.bookCount} $bookLabel",
+                    text =
+                        if (contributorWithCount.bookCount == 1) {
+                            stringResource(Res.string.genre_book_count, contributorWithCount.bookCount)
+                        } else {
+                            stringResource(Res.string.genre_books_count, contributorWithCount.bookCount)
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
