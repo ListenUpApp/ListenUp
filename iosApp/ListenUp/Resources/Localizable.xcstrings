@@ -6751,12 +6751,32 @@
         }
       }
     },
+    "profile.avatar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avatar"
+          }
+        }
+      }
+    },
     "profile.books_finished": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books Finished"
+          }
+        }
+      }
+    },
+    "profile.change_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change Password"
           }
         }
       }
@@ -6771,12 +6791,32 @@
         }
       }
     },
+    "profile.current_avatar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current avatar"
+          }
+        }
+      }
+    },
     "profile.edit_profile": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Edit profile"
+          }
+        }
+      }
+    },
+    "profile.edit_profile_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Profile"
           }
         }
       }
@@ -6801,12 +6841,52 @@
         }
       }
     },
+    "profile.name_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update your first and last name"
+          }
+        }
+      }
+    },
     "profile.no_shelves_yet_create_one": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No shelves yet. Create one to curate your favorite books!"
+          }
+        }
+      }
+    },
+    "profile.password_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a new password for your account"
+          }
+        }
+      }
+    },
+    "profile.password_min_chars": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Must be at least %1$d characters"
+          }
+        }
+      }
+    },
+    "profile.passwords_do_not_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords do not match"
           }
         }
       }
@@ -6821,12 +6901,102 @@
         }
       }
     },
+    "profile.remove_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Photo"
+          }
+        }
+      }
+    },
+    "profile.save_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Name"
+          }
+        }
+      }
+    },
+    "profile.save_tagline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Tagline"
+          }
+        }
+      }
+    },
+    "profile.shelf_books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
     "profile.shelves": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Shelves"
+          }
+        }
+      }
+    },
+    "profile.tagline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tagline"
+          }
+        }
+      }
+    },
+    "profile.tagline_char_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d/%2$d"
+          }
+        }
+      }
+    },
+    "profile.tagline_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A short bio that appears on your profile"
+          }
+        }
+      }
+    },
+    "profile.tagline_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you listening to?"
+          }
+        }
+      }
+    },
+    "profile.upload_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload Photo"
           }
         }
       }
@@ -7447,6 +7617,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Speed used for new books"
+          }
+        }
+      }
+    },
+    "settings.storage_available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ available"
+          }
+        }
+      }
+    },
+    "settings.storage_size_files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$d files"
           }
         }
       }

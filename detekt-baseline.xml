@@ -198,25 +198,6 @@
     <ID>NoHardcodedUiString:DiscoverLeaderboardSection.kt$text = "Could not load leaderboard."</ID>
     <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
     <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${userShelves.shelves.size} ${if (userShelves.shelves.size == 1) "shelf" else "shelves"}"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Change Password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Edit Profile"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Remove Photo"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Save Name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Save Tagline"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"Upload Photo"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$"What are you listening to?"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$contentDescription = "Current avatar"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "${value.length}/${EditProfileViewModel.MAX_TAGLINE_LENGTH}"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "A short bio that appears on your profile"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Avatar"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Change Password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Must be at least ${PASSWORD_MIN} characters"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Passwords do not match"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Set a new password for your account"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Tagline"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$text = "Update your first and last name"</ID>
     <ID>NoHardcodedUiString:GenreBreakdownBars.kt$text = "$percent%"</ID>
     <ID>NoHardcodedUiString:HomeStatsSection.kt$text = "${hours}h ${minutes}m"</ID>
     <ID>NoHardcodedUiString:HomeStatsSection.kt$text = "listened"</ID>
@@ -269,8 +250,6 @@
     <ID>NoHardcodedUiString:ShelfCard.kt$contentDescription = "Private shelf"</ID>
     <ID>NoHardcodedUiString:ShelfCard.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
     <ID>NoHardcodedUiString:ShelfDetailScreen.kt$text = "Private"</ID>
-    <ID>NoHardcodedUiString:StorageScreen.kt$text = "${formatFileSize(available)} available"</ID>
-    <ID>NoHardcodedUiString:StorageScreen.kt$text = "${formatFileSize(book.sizeBytes)} · ${book.fileCount} files"</ID>
     <ID>NoHardcodedUiString:StreakIndicator.kt$text = "Best: ${dayCount(longestStreak)}"</ID>
     <ID>NoHardcodedUiString:SyncDetailsDropdown.kt$text = "${failedOperations.size} failed"</ID>
     <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add tag..."</ID>
@@ -290,8 +269,6 @@
     <ID>NoHardcodedUiString:UnmappedGenresScreen.kt$text = "Nothing to map."</ID>
     <ID>NoHardcodedUiString:UpNextQueue.kt$text = "Up next"</ID>
     <ID>NoHardcodedUiString:UpNextQueue.kt$text = "View all $totalChapters chapters"</ID>
-    <ID>NoHardcodedUiString:UserAvatarMenu.kt$contentDescription = "${user.displayName} avatar"</ID>
-    <ID>NoHardcodedUiString:UserProfileScreen.kt$text = "${shelf.bookCount} books"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>
