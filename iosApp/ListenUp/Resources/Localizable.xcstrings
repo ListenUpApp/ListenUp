@@ -5241,6 +5241,16 @@
         }
       }
     },
+    "player.airplay": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirPlay"
+          }
+        }
+      }
+    },
     "player.bookmark": {
       "localizations": {
         "en": {
@@ -5287,6 +5297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chapters"
+          }
+        }
+      }
+    },
+    "player.chapters_count_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters · %2$@"
           }
         }
       }
@@ -5527,6 +5547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skip forward 30 seconds"
+          }
+        }
+      }
+    },
+    "player.sleep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep"
           }
         }
       }
