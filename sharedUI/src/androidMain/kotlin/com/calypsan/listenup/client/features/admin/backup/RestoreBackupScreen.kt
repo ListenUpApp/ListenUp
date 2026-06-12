@@ -39,6 +39,13 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_backup
+import listenup.composeapp.generated.resources.admin_restore_backup
+import listenup.composeapp.generated.resources.admin_restored_from
+import listenup.composeapp.generated.resources.admin_schema_migrated
+import listenup.composeapp.generated.resources.common_back
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -61,11 +68,14 @@ fun RestoreBackupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Restore Backup") },
+                title = { Text(stringResource(Res.string.admin_restore_backup)) },
                 navigationIcon = {
                     if (canNavigateBack) {
                         IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.common_back),
+                            )
                         }
                     }
                 },
@@ -169,7 +179,7 @@ private fun IdleContent(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Backup",
+                    text = stringResource(Res.string.admin_backup),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -221,12 +231,17 @@ private fun CompletedContent(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Restored from ${result.restoredFrom.value}",
+                    text = stringResource(Res.string.admin_restored_from, result.restoredFrom.value),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = "Schema ${result.schemaMigratedFrom} → ${result.schemaMigratedTo}",
+                    text =
+                        stringResource(
+                            Res.string.admin_schema_migrated,
+                            result.schemaMigratedFrom,
+                            result.schemaMigratedTo,
+                        ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )

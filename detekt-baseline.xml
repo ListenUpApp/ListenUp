@@ -152,7 +152,6 @@
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$24</ID>
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$8</ID>
     <ID>MagicNumber:WeeklyStats.kt$WeeklyStats.Companion$7</ID>
-    <ID>MaxLineLength:ABSImportHubScreen.kt$text = stringResource(Res.string.import_mapped_to, user.listenUpDisplayName ?: user.listenUpEmail ?: user.listenUpId.orEmpty())</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
     <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
@@ -162,35 +161,6 @@
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
     <ID>NoHardcodedUiString:AboutSectionPreviews.kt$text = "Credits go here"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete ${backup.id}? This cannot be undone."</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete \"${import.name}\"? This cannot be undone."</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Backups"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Cancel"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Delete Backup"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Delete Import"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Open"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Restore"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Create Backup"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$contentDescription = "Menu"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Books: ${import.booksMapped}/${import.totalBooks}"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Create a backup to protect your data"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Created: ${localDateTime.date} at $timeStr"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Migrate listening history from ABS backup"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "No backups yet"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Sessions: ${import.sessionsImported}/${import.totalSessions}"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Size: ${backup.sizeFormatted}"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Upload New Import"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$text = "Users: ${import.usersMapped}/${import.totalUsers}"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Merge \"$sourceName\" into…"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Merge into…"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Move \"$sourceName\" to…"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"Move to…"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$"No other genres available as a merge target."</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "${node.genre.bookCount}"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "${state.genres.size} categories • ${state.totalBookCount} books"</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "No other genres available — only 'Top level' is possible."</ID>
-    <ID>NoHardcodedUiString:AdminCategoriesScreen.kt$text = "Top level"</ID>
     <ID>NoHardcodedUiString:AdminCollectionDetailScreen.kt$text = "$count book${if (count != 1) "s" else ""}"</ID>
     <ID>NoHardcodedUiString:AdminCollectionsScreen.kt$text = "${collection.bookCount} book${if (collection.bookCount != 1) "s" else ""}"</ID>
     <ID>NoHardcodedUiString:AdminCollectionsScreen.kt$text = "${state.collections.size} collection${if (state.collections.size != 1) "s" else ""}"</ID>
@@ -223,7 +193,6 @@
     <ID>NoHardcodedUiString:ContributorDetailScreen.kt$text = "${section.bookCount} ${if (section.bookCount == 1) "book" else "books"}"</ID>
     <ID>NoHardcodedUiString:ContributorDetailScreen.kt$text = "aka ${aliases.joinToString(", ")}"</ID>
     <ID>NoHardcodedUiString:ContributorMetadataSearchScreen.kt$text = "Searching for: ${contributor.name}"</ID>
-    <ID>NoHardcodedUiString:CreateBackupScreen.kt$text = "ℹ️"</ID>
     <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Only you can see this shelf."</ID>
     <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Private shelf"</ID>
     <ID>NoHardcodedUiString:DiscoverLeaderboardSection.kt$text = "Could not load leaderboard."</ID>
@@ -285,11 +254,6 @@
     <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "NOW PLAYING"</ID>
     <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "Now playing"</ID>
     <ID>NoHardcodedUiString:ProgressOverlay.kt$text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$"Restore Backup"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Backup"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Restored from ${result.restoredFrom.value}"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Schema ${result.schemaMigratedFrom} → ${result.schemaMigratedTo}"</ID>
     <ID>NoHardcodedUiString:ScanComponents.kt$text = "SCANNING"</ID>
     <ID>NoHardcodedUiString:SearchResultsOverlay.kt$contentDescription = "Cover for ${hit.name}"</ID>
     <ID>NoHardcodedUiString:SearchResultsOverlay.kt$text = "$count ${if (count == 1) "book" else "books"}"</ID>
