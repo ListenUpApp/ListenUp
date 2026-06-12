@@ -84,6 +84,7 @@ import com.calypsan.listenup.client.presentation.admin.BookMappingTab
 import com.calypsan.listenup.client.presentation.admin.SelectedBookDisplay
 import com.calypsan.listenup.client.presentation.admin.SelectedUserDisplay
 import com.calypsan.listenup.client.presentation.admin.UserMappingTab
+import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
 import org.koin.compose.viewmodel.koinViewModel
@@ -406,7 +407,7 @@ private fun SourceSelectionContent(
         }
 
         state.error?.let { error ->
-            ErrorCard(text = error)
+            ErrorCard(text = error.localized())
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -635,7 +636,7 @@ private fun FileBrowserContent(
 
         state.error?.let { error ->
             ErrorCard(
-                text = error,
+                text = error.localized(),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
@@ -941,7 +942,7 @@ private fun UserMappingContent(
 
         state.error?.let { error ->
             Spacer(modifier = Modifier.height(8.dp))
-            ErrorCard(text = error)
+            ErrorCard(text = error.localized())
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1440,7 +1441,7 @@ private fun BookMappingContent(
 
         state.error?.let { error ->
             Spacer(modifier = Modifier.height(8.dp))
-            ErrorCard(text = error)
+            ErrorCard(text = error.localized())
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -2014,7 +2015,7 @@ private fun ImportOptionsContent(
         }
 
         state.error?.let { error ->
-            ErrorCard(text = error)
+            ErrorCard(text = error.localized())
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -2203,7 +2204,7 @@ private fun ResultsContent(
         }
 
         state.error?.let { error ->
-            ErrorCard(text = error)
+            ErrorCard(text = error.localized())
         }
 
         Spacer(modifier = Modifier.weight(1f))
