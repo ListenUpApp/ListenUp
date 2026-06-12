@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_edit_abridged
+import listenup.composeapp.generated.resources.book_edit_asin
+import listenup.composeapp.generated.resources.book_edit_isbn
 import listenup.composeapp.generated.resources.book_edit_shortened_version_of_the_original
 
 /**
@@ -39,14 +41,14 @@ fun IdentifiersSection(
             ListenUpTextField(
                 value = isbn,
                 onValueChange = onIsbnChange,
-                label = "ISBN",
+                label = stringResource(Res.string.book_edit_isbn),
                 modifier = Modifier.weight(1f),
             )
 
             ListenUpTextField(
                 value = asin,
                 onValueChange = onAsinChange,
-                label = "ASIN",
+                label = stringResource(Res.string.book_edit_asin),
                 modifier = Modifier.weight(1f),
             )
         }

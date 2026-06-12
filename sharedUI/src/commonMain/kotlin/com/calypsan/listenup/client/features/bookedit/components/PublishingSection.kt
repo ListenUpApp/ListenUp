@@ -11,6 +11,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.LanguageDropdown
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_publisher
+import listenup.composeapp.generated.resources.book_edit_year
 
 /**
  * Publishing information section: Publisher, Year, Language.
@@ -28,7 +32,7 @@ fun PublishingSection(
         ListenUpTextField(
             value = publisher,
             onValueChange = onPublisherChange,
-            label = "Publisher",
+            label = stringResource(Res.string.book_detail_publisher),
         )
 
         Row(
@@ -38,7 +42,7 @@ fun PublishingSection(
             ListenUpTextField(
                 value = publishYear,
                 onValueChange = onPublishYearChange,
-                label = "Year",
+                label = stringResource(Res.string.book_edit_year),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f),
             )

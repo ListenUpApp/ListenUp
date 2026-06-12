@@ -421,7 +421,7 @@ private fun SeriesEditContent(
                 ListenUpTextArea(
                     value = state.description,
                     onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
-                    label = "Description",
+                    label = stringResource(Res.string.common_description),
                     placeholder = stringResource(Res.string.series_enter_a_description_for_this),
                 )
             }

@@ -30,7 +30,10 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_detail_tags
+import listenup.composeapp.generated.resources.book_edit_add_collection_placeholder
+import listenup.composeapp.generated.resources.book_edit_add_genre_placeholder
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
+import listenup.composeapp.generated.resources.book_tag_add_placeholder
 import listenup.composeapp.generated.resources.common_collections
 import listenup.composeapp.generated.resources.common_genres
 
@@ -151,7 +154,7 @@ private fun GenresSubsection(
                     onClick = { onGenreSelected(genre) },
                 )
             },
-            placeholder = "Add genre...",
+            placeholder = stringResource(Res.string.book_edit_add_genre_placeholder),
             isLoading = false,
         )
     }
@@ -214,7 +217,7 @@ private fun TagsSubsection(
                     onClick = { onTagSelected(tag) },
                 )
             },
-            placeholder = "Add tag...",
+            placeholder = stringResource(Res.string.book_tag_add_placeholder),
             isLoading = isSearching || isCreating,
         )
 
@@ -290,7 +293,7 @@ private fun CollectionsSubsection(
                     onClick = { onCollectionSelected(collection) },
                 )
             },
-            placeholder = "Add collection...",
+            placeholder = stringResource(Res.string.book_edit_add_collection_placeholder),
             isLoading = false,
         )
     }

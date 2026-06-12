@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_remove_name
+import listenup.composeapp.generated.resources.book_edit_add_series_placeholder
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 
@@ -98,7 +99,7 @@ fun SeriesSection(
                     onClick = { onSeriesSelected(result) },
                 )
             },
-            placeholder = "Add series...",
+            placeholder = stringResource(Res.string.book_edit_add_series_placeholder),
             isLoading = isLoading,
         )
 

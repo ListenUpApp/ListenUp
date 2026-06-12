@@ -64,11 +64,18 @@ import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_authors
+import listenup.composeapp.generated.resources.book_detail_publisher
+import listenup.composeapp.generated.resources.book_edit_subtitle
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_description
 import listenup.composeapp.generated.resources.common_genres
+import listenup.composeapp.generated.resources.common_language
 import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.common_selected
+import listenup.composeapp.generated.resources.common_title
 import listenup.composeapp.generated.resources.contributor_audible_region
+import listenup.composeapp.generated.resources.contributor_current
 import listenup.composeapp.generated.resources.common_loading
 import listenup.composeapp.generated.resources.metadata_apply_selected_metadata
 import listenup.composeapp.generated.resources.metadata_chapter_names
@@ -76,6 +83,7 @@ import listenup.composeapp.generated.resources.metadata_chapters_match_review
 import listenup.composeapp.generated.resources.metadata_cover
 import listenup.composeapp.generated.resources.metadata_cover_from_source
 import listenup.composeapp.generated.resources.metadata_current_cover
+import listenup.composeapp.generated.resources.metadata_narrators
 import listenup.composeapp.generated.resources.metadata_review
 import listenup.composeapp.generated.resources.metadata_metadata_is_up_to_date
 import listenup.composeapp.generated.resources.metadata_no_metadata_available
@@ -297,7 +305,7 @@ private fun LazyListScope.metadataFieldsSection(
     if (newMetadata.title.isNotBlank()) {
         item {
             SimpleFieldItem(
-                label = "Title",
+                label = stringResource(Res.string.common_title),
                 value = newMetadata.title,
                 isSelected = selections.title,
                 onToggle = { onToggleField(MetadataField.TITLE) },
@@ -309,7 +317,7 @@ private fun LazyListScope.metadataFieldsSection(
     newMetadata.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
         item {
             SimpleFieldItem(
-                label = "Subtitle",
+                label = stringResource(Res.string.book_edit_subtitle),
                 value = subtitle,
                 isSelected = selections.subtitle,
                 onToggle = { onToggleField(MetadataField.SUBTITLE) },
@@ -321,7 +329,7 @@ private fun LazyListScope.metadataFieldsSection(
     if (newMetadata.authors.isNotEmpty()) {
         item {
             ContributorListItem(
-                label = "Authors",
+                label = stringResource(Res.string.book_detail_authors),
                 contributors = newMetadata.authors,
                 selectedAsins = selections.selectedAuthors,
                 onToggle = onToggleAuthor,
@@ -333,7 +341,7 @@ private fun LazyListScope.metadataFieldsSection(
     if (newMetadata.narrators.isNotEmpty()) {
         item {
             ContributorListItem(
-                label = "Narrators",
+                label = stringResource(Res.string.metadata_narrators),
                 contributors = newMetadata.narrators,
                 selectedAsins = selections.selectedNarrators,
                 onToggle = onToggleNarrator,
@@ -373,7 +381,7 @@ private fun LazyListScope.metadataFieldsSection(
                     description
                 }
             SimpleFieldItem(
-                label = "Description",
+                label = stringResource(Res.string.common_description),
                 value = displayText,
                 isSelected = selections.description,
                 onToggle = { onToggleField(MetadataField.DESCRIPTION) },
@@ -385,7 +393,7 @@ private fun LazyListScope.metadataFieldsSection(
     newMetadata.publisher?.takeIf { it.isNotBlank() }?.let { publisher ->
         item {
             SimpleFieldItem(
-                label = "Publisher",
+                label = stringResource(Res.string.book_detail_publisher),
                 value = publisher,
                 isSelected = selections.publisher,
                 onToggle = { onToggleField(MetadataField.PUBLISHER) },
@@ -409,7 +417,7 @@ private fun LazyListScope.metadataFieldsSection(
     newMetadata.language?.takeIf { it.isNotBlank() }?.let { language ->
         item {
             SimpleFieldItem(
-                label = "Language",
+                label = stringResource(Res.string.common_language),
                 value = language,
                 isSelected = selections.language,
                 onToggle = { onToggleField(MetadataField.LANGUAGE) },
@@ -573,7 +581,7 @@ private fun CoverSelectionRow(
             if (currentCoverPath != null) {
                 item {
                     CoverOptionCard(
-                        label = "Current",
+                        label = stringResource(Res.string.contributor_current),
                         source = null,
                         width = null,
                         height = null,

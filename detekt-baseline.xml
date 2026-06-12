@@ -165,25 +165,13 @@
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$title = "Audiobookshelf Imports"</ID>
     <ID>NoHardcodedUiString:AdminInboxScreen.kt$text = "${stringResource(Res.string.common_release)} (${ready.selectedCount})"</ID>
     <ID>NoHardcodedUiString:AdminScreen.kt$text = "Are you sure you want to delete ${user.displayName ?: user.email}? This action cannot be undone."</ID>
-    <ID>NoHardcodedUiString:BookEditScreen.kt$label = "Description"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "By Author"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "By Series"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "Downloaded"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "Library"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "Recently Played"</ID>
-    <ID>NoHardcodedUiString:ClassificationSection.kt$placeholder = "Add collection..."</ID>
-    <ID>NoHardcodedUiString:ClassificationSection.kt$placeholder = "Add genre..."</ID>
-    <ID>NoHardcodedUiString:ClassificationSection.kt$placeholder = "Add tag..."</ID>
-    <ID>NoHardcodedUiString:ContributorDetailScreen.kt$label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}"</ID>
-    <ID>NoHardcodedUiString:ContributorEditScreen.kt$label = "Bio"</ID>
-    <ID>NoHardcodedUiString:ContributorEditScreen.kt$label = "Website"</ID>
-    <ID>NoHardcodedUiString:ContributorEditScreen.kt$placeholder = "https://..."</ID>
-    <ID>NoHardcodedUiString:ContributorMetadataPreviewScreen.kt$label = "Biography"</ID>
-    <ID>NoHardcodedUiString:ContributorMetadataPreviewScreen.kt$label = "Name"</ID>
     <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$label = "Name"</ID>
     <ID>NoHardcodedUiString:HomeStatsSection.kt$title = "My stats"</ID>
-    <ID>NoHardcodedUiString:IdentifiersSection.kt$label = "ASIN"</ID>
-    <ID>NoHardcodedUiString:IdentifiersSection.kt$label = "ISBN"</ID>
     <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "All"</ID>
     <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "Month"</ID>
     <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "Week"</ID>
@@ -199,24 +187,8 @@
     <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Select this folder"</ID>
     <ID>NoHardcodedUiString:MarkCompleteDialog.kt$label = "Finished"</ID>
     <ID>NoHardcodedUiString:MarkCompleteDialog.kt$label = "Started"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Authors"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Current"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Description"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Language"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Narrators"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Publisher"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Subtitle"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Title"</ID>
-    <ID>NoHardcodedUiString:PublishingSection.kt$label = "Publisher"</ID>
-    <ID>NoHardcodedUiString:PublishingSection.kt$label = "Year"</ID>
-    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$label = "${state.finishedCount} finished"</ID>
-    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$label = "Total"</ID>
-    <ID>NoHardcodedUiString:SeriesEditScreen.kt$label = "Description"</ID>
-    <ID>NoHardcodedUiString:SeriesSection.kt$placeholder = "Add series..."</ID>
     <ID>NoHardcodedUiString:SettingsScreen.kt$title = "Dynamic colors"</ID>
     <ID>NoHardcodedUiString:ShelfDetailScreen.kt$label = "Total"</ID>
-    <ID>NoHardcodedUiString:TalentSection.kt$placeholder = "Add ${role.displayName.lowercase()}..."</ID>
-    <ID>NoHardcodedUiString:TalentSection.kt$title = "Remove ${role.displayName}s?"</ID>
     <ID>NoHardcodedUiString:WavySeekBar.kt$label = "Seek"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>

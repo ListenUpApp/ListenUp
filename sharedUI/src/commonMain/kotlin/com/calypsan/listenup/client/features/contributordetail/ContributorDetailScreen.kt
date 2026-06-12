@@ -450,7 +450,15 @@ private fun ColumnScope.WideHeroInfoColumn(
 
     // Stat chip
     Spacer(modifier = Modifier.height(16.dp))
-    HeroStatChip(label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}", onColor = true)
+    HeroStatChip(
+        label =
+            if (totalBooks == 1) {
+                stringResource(Res.string.common_book_count, totalBooks)
+            } else {
+                stringResource(Res.string.common_books_count, totalBooks)
+            },
+        onColor = true,
+    )
 
     // Biography
     description?.takeIf { it.isNotBlank() }?.let { desc ->
@@ -568,7 +576,12 @@ private fun NarrowContributorPortfolio(
         item {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
                 HeroStatChip(
-                    label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}",
+                    label =
+                        if (totalBooks == 1) {
+                            stringResource(Res.string.common_book_count, totalBooks)
+                        } else {
+                            stringResource(Res.string.common_books_count, totalBooks)
+                        },
                     onColor = false,
                 )
                 state.contributor.description?.takeIf { it.isNotBlank() }?.let { description ->

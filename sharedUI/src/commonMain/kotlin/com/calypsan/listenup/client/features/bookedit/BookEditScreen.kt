@@ -301,7 +301,7 @@ private fun SingleColumnCardsLayout(
             ListenUpTextArea(
                 value = state.description,
                 onValueChange = { onEvent(BookEditUiEvent.DescriptionChanged(it)) },
-                label = "Description",
+                label = stringResource(Res.string.common_description),
                 placeholder = stringResource(Res.string.book_edit_enter_a_description),
             )
         }
@@ -442,7 +442,7 @@ private fun TwoColumnCardsLayout(
             ListenUpTextArea(
                 value = state.description,
                 onValueChange = { onEvent(BookEditUiEvent.DescriptionChanged(it)) },
-                label = "Description",
+                label = stringResource(Res.string.common_description),
                 placeholder = stringResource(Res.string.book_edit_enter_a_description),
             )
         }

@@ -43,6 +43,8 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_remove
 import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_edit_add_role
+import listenup.composeapp.generated.resources.book_edit_add_role_placeholder
+import listenup.composeapp.generated.resources.book_edit_remove_role_prompt
 import listenup.composeapp.generated.resources.book_edit_remove_role_section
 import listenup.composeapp.generated.resources.book_edit_role_plural
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
@@ -112,7 +114,7 @@ fun TalentSection(
     roleToRemove?.let { role ->
         ListenUpDestructiveDialog(
             onDismissRequest = { roleToRemove = null },
-            title = "Remove ${role.displayName}s?",
+            title = stringResource(Res.string.book_edit_remove_role_prompt, role.displayName),
             text =
                 stringResource(
                     Res.string.book_edit_this_will_remove_contributorstoremovecount,
@@ -224,7 +226,7 @@ private fun RoleContributorSection(
                     onClick = { onResultSelected(result) },
                 )
             },
-            placeholder = "Add ${role.displayName.lowercase()}...",
+            placeholder = stringResource(Res.string.book_edit_add_role_placeholder, role.displayName.lowercase()),
             isLoading = isSearching,
         )
 

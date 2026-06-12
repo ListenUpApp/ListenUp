@@ -44,8 +44,10 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.contributor_apply_selectedcount_of_availablefieldcount
 import listenup.composeapp.generated.resources.contributor_audible
+import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_change_match
 import listenup.composeapp.generated.resources.contributor_current
 import listenup.composeapp.generated.resources.contributor_current_image
@@ -255,7 +257,7 @@ private fun PreviewContent(
                 // Name comparison
                 item {
                     TextComparisonRow(
-                        label = "Name",
+                        label = stringResource(Res.string.common_name),
                         currentValue = currentContributor.name,
                         newValue = profile.name,
                         isSelected = selections.name,
@@ -266,7 +268,7 @@ private fun PreviewContent(
                 // Biography comparison
                 item {
                     TextComparisonRow(
-                        label = "Biography",
+                        label = stringResource(Res.string.contributor_biography),
                         currentValue = currentContributor.description,
                         newValue = profile.description,
                         isSelected = selections.biography,

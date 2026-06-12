@@ -69,9 +69,11 @@ import listenup.composeapp.generated.resources.series_books_in_series
 import listenup.composeapp.generated.resources.series_book_position
 import listenup.composeapp.generated.resources.series_continue_book
 import listenup.composeapp.generated.resources.series_edit_series
+import listenup.composeapp.generated.resources.series_finished_count
 import listenup.composeapp.generated.resources.series_label
 import listenup.composeapp.generated.resources.series_progress_duration
 import listenup.composeapp.generated.resources.series_start_book
+import listenup.composeapp.generated.resources.series_total
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -329,12 +331,12 @@ private fun HeroBody(state: SeriesDetailUiState.Ready) {
             HeroStat(
                 icon = Icons.AutoMirrored.Filled.MenuBook,
                 value = "${state.books.size} books",
-                label = "${state.finishedCount} finished",
+                label = stringResource(Res.string.series_finished_count, state.finishedCount),
             )
             HeroStat(
                 icon = Icons.Default.Schedule,
                 value = state.formatTotalDuration(),
-                label = "Total",
+                label = stringResource(Res.string.series_total),
             )
         }
     }

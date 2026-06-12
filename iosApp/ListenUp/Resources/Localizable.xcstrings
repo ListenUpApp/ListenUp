@@ -2441,12 +2441,52 @@
         }
       }
     },
+    "book.edit_add_collection_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add collection..."
+          }
+        }
+      }
+    },
+    "book.edit_add_genre_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add genre..."
+          }
+        }
+      }
+    },
     "book.edit_add_role": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Add Role"
+          }
+        }
+      }
+    },
+    "book.edit_add_role_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %1$@..."
+          }
+        }
+      }
+    },
+    "book.edit_add_series_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add series..."
           }
         }
       }
@@ -2467,6 +2507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add “%1$@”"
+          }
+        }
+      }
+    },
+    "book.edit_asin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ASIN"
           }
         }
       }
@@ -2551,6 +2601,16 @@
         }
       }
     },
+    "book.edit_isbn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ISBN"
+          }
+        }
+      }
+    },
     "book.edit_keep_editing": {
       "localizations": {
         "en": {
@@ -2587,6 +2647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Publishing"
+          }
+        }
+      }
+    },
+    "book.edit_remove_role_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@s?"
           }
         }
       }
@@ -2677,6 +2747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unsaved Changes"
+          }
+        }
+      }
+    },
+    "book.edit_year": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Year"
           }
         }
       }
@@ -4221,6 +4301,16 @@
         }
       }
     },
+    "contributor.bio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bio"
+          }
+        }
+      }
+    },
     "contributor.biography": {
       "localizations": {
         "en": {
@@ -4607,6 +4697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unmerge"
+          }
+        }
+      }
+    },
+    "contributor.website_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://..."
           }
         }
       }
@@ -7251,6 +7351,16 @@
         }
       }
     },
+    "metadata.narrators": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrators"
+          }
+        }
+      }
+    },
     "metadata.no_metadata_available": {
       "localizations": {
         "en": {
@@ -8341,6 +8451,16 @@
         }
       }
     },
+    "series.finished_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d finished"
+          }
+        }
+      }
+    },
     "series.label": {
       "localizations": {
         "en": {
@@ -8447,6 +8567,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start Book %1$@"
+          }
+        }
+      }
+    },
+    "series.total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
           }
         }
       }

@@ -73,6 +73,8 @@ import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_keep_editing
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
+import listenup.composeapp.generated.resources.common_website
+import listenup.composeapp.generated.resources.contributor_bio
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_birth_date
 import listenup.composeapp.generated.resources.contributor_dates
@@ -82,6 +84,7 @@ import listenup.composeapp.generated.resources.contributor_links
 import listenup.composeapp.generated.resources.contributor_merge_into
 import listenup.composeapp.generated.resources.contributor_select_birth_date
 import listenup.composeapp.generated.resources.contributor_select_death_date
+import listenup.composeapp.generated.resources.contributor_website_placeholder
 
 /**
  * Artist Studio - immersive contributor editing experience.
@@ -498,7 +501,7 @@ private fun BiographyCardContent(
     ListenUpTextArea(
         value = state.description,
         onValueChange = { onEvent(ContributorEditUiEvent.DescriptionChanged(it)) },
-        label = "Bio",
+        label = stringResource(Res.string.contributor_bio),
         placeholder = stringResource(Res.string.contributor_enter_a_biography),
     )
 }
@@ -511,8 +514,8 @@ private fun LinksCardContent(
     ListenUpTextField(
         value = state.website,
         onValueChange = { onEvent(ContributorEditUiEvent.WebsiteChanged(it)) },
-        label = "Website",
-        placeholder = "https://...",
+        label = stringResource(Res.string.common_website),
+        placeholder = stringResource(Res.string.contributor_website_placeholder),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
     )
 }
