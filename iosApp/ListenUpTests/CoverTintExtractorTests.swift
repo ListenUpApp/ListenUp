@@ -1,5 +1,6 @@
 import SwiftUI
 import Testing
+import UIKit
 @testable import ListenUp
 
 @Suite("CoverTintExtractor.clamp")
@@ -24,10 +25,24 @@ struct CoverTintExtractorTests {
         #expect(tint.saturation >= CoverTint.minSaturation - 0.001)
     }
 
-    @Test("a vivid color keeps its hue and is only gently constrained (subtle)")
+    @Test("a vivid color keeps its hue, stays subtle, and lands in the legible band")
     func vividKeepsHue() {
+        var expectedHue: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(red: 0.70, green: 0.18, blue: 0.30, alpha: 1).getHue(&expectedHue, saturation: &s, brightness: &b, alpha: &a)
         let tint = CoverTint.clamp(red: 0.70, green: 0.18, blue: 0.30)
+        // Subtle: saturation constrained into the band, hue preserved (clamp never shifts hue).
         #expect(tint.saturation <= CoverTint.maxSaturation + 0.001)
         #expect(tint.saturation >= CoverTint.minSaturation - 0.001)
+        #expect(abs(tint.hue - Double(expectedHue)) < 0.02)
+        // The convergence loop must land a saturated hue in band too, not just near-black.
+        #expect(tint.luminance >= CoverTint.minLuminance - 0.001)
+        #expect(tint.luminance <= CoverTint.maxLuminance + 0.001)
+    }
+
+    @Test("a pure-blue raw color (lowest luminance weight) still converges into the band")
+    func pureBlueConverges() {
+        let tint = CoverTint.clamp(red: 0.0, green: 0.0, blue: 1.0)
+        #expect(tint.luminance >= CoverTint.minLuminance - 0.001)
+        #expect(tint.luminance <= CoverTint.maxLuminance + 0.001)
     }
 }
