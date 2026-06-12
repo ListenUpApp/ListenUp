@@ -1,20 +1,20 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
-/// Contributor (Author/Narrator) detail screen — Liquid Glass design.
+/// Contributor (Author/Narrator) detail screen — clean-coral design.
 ///
-/// Layout:
-/// - Circular avatar with shadow
-/// - Name, aliases, stats on glass panel
-/// - Expandable biography
-/// - Role sections with horizontal book carousels
+/// Layout (iPhone): hero (avatar + role chips + name + aka + born) → stat strip →
+/// About → per-role book carousels → series grid.
+/// Layout (iPad): left rail (hero + stat strip + About) | right column (carousels + series).
 struct ContributorDetailView: View {
     let contributorId: String
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: ContributorDetailObserver?
+
+    private var isRegular: Bool { hSize == .regular }
 
     var body: some View {
         Group {
@@ -24,7 +24,7 @@ struct ContributorDetailView: View {
                 loadingView
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.luSurface)
         .navigationTitle(observer?.name ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -73,34 +73,61 @@ struct ContributorDetailView: View {
 
     // MARK: - Content
 
+    @ViewBuilder
     private func content(observer: ContributorDetailObserver) -> some View {
+        if isRegular {
+            iPadLayout(observer: observer)
+        } else {
+            iPhoneLayout(observer: observer)
+        }
+    }
+
+    // MARK: - iPhone (single-column)
+
+    private func iPhoneLayout(observer: ContributorDetailObserver) -> some View {
         ScrollView {
             VStack(spacing: 24) {
-                headerSection(observer: observer)
-
-                if let bio = observer.bio, !bio.isEmpty {
-                    ExpandableText(
-                        title: String(localized: "common.about"),
-                        text: bio,
-                        lineLimit: 4,
-                        minimumLengthForToggle: 200
-                    )
-                    .padding(.horizontal)
-                }
-
-                ForEach(observer.roleSections, id: \.role) { section in
-                    roleSectionView(section: section, observer: observer)
-                }
+                heroSection(observer: observer)
+                statSection(observer: observer)
+                aboutSection(observer: observer)
+                roleSections(observer: observer)
+                seriesSection(observer: observer)
             }
             .padding(.bottom, 32)
         }
     }
 
-    // MARK: - Header
+    // MARK: - iPad (two-column)
 
-    private func headerSection(observer: ContributorDetailObserver) -> some View {
-        VStack(spacing: 16) {
-            // Avatar — circular with shadow
+    private func iPadLayout(observer: ContributorDetailObserver) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    heroSection(observer: observer)
+                    statSection(observer: observer)
+                    aboutSection(observer: observer)
+                }
+                .padding(.bottom, 32)
+                .padding(.horizontal)
+            }
+            .frame(width: 320)
+
+            Divider()
+
+            ScrollView {
+                VStack(spacing: 24) {
+                    roleSections(observer: observer)
+                    seriesSection(observer: observer)
+                }
+                .padding(.bottom, 32)
+            }
+        }
+    }
+
+    // MARK: - Hero
+
+    private func heroSection(observer: ContributorDetailObserver) -> some View {
+        VStack(spacing: 6) {
             ContributorAvatar(
                 name: observer.name,
                 imagePath: observer.imagePath,
@@ -108,116 +135,112 @@ struct ContributorDetailView: View {
                 id: contributorId,
                 fontSize: 40
             )
-            .frame(width: 120, height: 120)
+            .frame(width: 132, height: 132)
             .clipShape(Circle())
             .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
 
-            VStack(spacing: 6) {
-                Text(observer.name)
-                    .font(.title2.bold())
-
-                if !observer.aliases.isEmpty {
-                    Text(String(
-                        format: String(localized: "contributor.aka"),
-                        observer.aliases.joined(separator: ", ")
-                    ))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .italic()
-                }
-
-                Text("\(observer.totalBookCount) \(observer.totalBookCount == 1 ? String(localized: "contributor.audiobook_count") : String(localized: "contributor.audiobooks_count"))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                if let dateString = formatDateRange(
-                    birth: observer.birthDate,
-                    death: observer.deathDate
-                ) {
-                    Text(dateString)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-
-                if let website = observer.website, let url = URL(string: website) {
-                    Link(destination: url) {
-                        Label(String(localized: "common.website"), systemImage: "globe")
-                            .font(.caption)
+            if !observer.roles.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(Array(observer.roles.enumerated()), id: \.offset) { _, kind in
+                        RoleChip(kind: kind)
                     }
-                    .foregroundStyle(Color.listenUpOrange)
                 }
+                .padding(.top, 4)
+            }
+
+            Text(observer.name)
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+
+            if !observer.aliases.isEmpty {
+                Text("aka \(observer.aliases.joined(separator: ", "))")
+                    .font(.callout)
+                    .foregroundStyle(Color.luLabel2)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let born = observer.birthDate {
+                Text(String(format: String(localized: "contributor.born_year"), String(born.prefix(4))))
+                    .font(.footnote)
+                    .foregroundStyle(Color.luLabel3)
             }
         }
+        .padding(.horizontal)
         .padding(.top, 16)
     }
 
-    private func formatDateRange(birth: String?, death: String?) -> String? {
-        guard let birth else { return nil }
-        let birthYear = String(birth.prefix(4))
-        if let death {
-            return "\(birthYear) – \(String(death.prefix(4)))"
-        }
-        return String(format: String(localized: "contributor.born_year"), birthYear)
+    // MARK: - Stat Strip
+
+    private func statSection(observer: ContributorDetailObserver) -> some View {
+        StatStrip(stats: [
+            .init(value: "\(observer.bookCount)", label: String(localized: "contributor.stat_books")),
+            .init(value: observer.totalDuration, label: String(localized: "contributor.stat_hours"))
+        ])
+        .padding(.vertical, 20)
     }
 
-    // MARK: - Role Sections
+    // MARK: - About
 
-    private func roleSectionView(section: RoleSection, observer: ContributorDetailObserver) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(section.displayName)
-                    .font(.headline)
-
-                Text("\(section.bookCount)")
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.listenUpOrange.opacity(0.15), in: Capsule())
-                    .foregroundStyle(Color.listenUpOrange)
-
-                Spacer()
-            }
+    @ViewBuilder
+    private func aboutSection(observer: ContributorDetailObserver) -> some View {
+        if let bio = observer.bio, !bio.isEmpty {
+            ExpandableText(
+                title: String(localized: "common.about"),
+                text: bio,
+                lineLimit: 4,
+                minimumLengthForToggle: 200
+            )
             .padding(.horizontal)
+        }
+    }
 
-            // Horizontal book carousel
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(Array(section.previewBooks), id: \.idString) { book in
-                        bookCard(
-                            book: book,
-                            progress: observer.bookProgress[book.idString]
-                        )
+    // MARK: - Role Carousels
+
+    @ViewBuilder
+    private func roleSections(observer: ContributorDetailObserver) -> some View {
+        ForEach(Array(observer.roleSections.enumerated()), id: \.offset) { _, section in
+            VStack(alignment: .leading, spacing: 12) {
+                SectionRow(title: section.displayName)
+                    .padding(.horizontal)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 16) {
+                        ForEach(Array(section.previewBooks), id: \.idString) { book in
+                            NavigationLink(value: BookDestination(id: book.idString)) {
+                                WrittenCard(
+                                    book: book,
+                                    progress: observer.bookProgress[book.idString]
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+
+    // MARK: - Series Grid
+
+    @ViewBuilder
+    private func seriesSection(observer: ContributorDetailObserver) -> some View {
+        if !observer.series.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionRow(title: String(localized: "contributor.series_section"))
+                    .padding(.horizontal)
+
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 12
+                ) {
+                    ForEach(Array(observer.series.enumerated()), id: \.offset) { _, series in
+                        SeriesMiniCard(series: series)
                     }
                 }
                 .padding(.horizontal)
             }
         }
-    }
-
-    private func bookCard(book: BookListItem, progress: Float?) -> some View {
-        NavigationLink(value: BookDestination(id: book.idString)) {
-            VStack(alignment: .leading, spacing: 8) {
-                // Cover with progress overlay — floating, no card
-                ZStack(alignment: .bottom) {
-                    BookCoverImage(book: book)
-                        .frame(width: 110, height: 110)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                    if let progress, progress > 0 {
-                        ProgressBar(progress: progress, style: .overlay)
-                            .frame(height: 4)
-                    }
-                }
-                .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
-
-                Text(book.title)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .frame(width: 110, alignment: .leading)
-            }
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Loading
