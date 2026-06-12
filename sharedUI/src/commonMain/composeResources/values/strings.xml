@@ -465,6 +465,7 @@ One beautiful library.</string>
     <string name="contributor_unmerge_aliasname">Unmerge "%1$s"?</string>
     <string name="contributor_unmerge_body">This will split "%1$s" back into its own contributor. Any books credited as "%1$s" will be re-linked to the new contributor.</string>
     <string name="contributor_unmerge_confirm">Unmerge</string>
+    <string name="contributor_view_details_hint">Double tap to view details</string>
     <string name="devices_empty">No other devices.</string>
     <string name="devices_last_active">Last active %1$s</string>
     <string name="devices_manage_active_sessions">Manage your active sessions</string>

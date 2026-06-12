@@ -51,6 +51,9 @@ struct ContributorsContent: View {
         let groups = isNameSort
             ? ContributorLetterGrouping.group(list, key: { $0.contributor.name })
             : [ContributorLetterGrouping.Group(letter: "", items: list)]
+        // Scrubber letters come from the same `groups` the headers render, so the two
+        // can never drift, and the list is only grouped once per render.
+        let scrubberLetters = isNameSort ? groups.map(\.letter) : []
 
         return ScrollViewReader { proxy in
             ScrollView {
@@ -82,17 +85,14 @@ struct ContributorsContent: View {
                 }
             }
             .overlay(alignment: .trailing) {
-                if isNameSort {
-                    let letters = ContributorLetterGrouping.group(list, key: { $0.contributor.name }).map(\.letter)
-                    if !letters.isEmpty {
-                        SectionIndexBar(
-                            letters: letters,
-                            onLetterSelected: { scrollTarget = "letter-\($0)" },
-                            isVisible: isScrolling
-                        )
-                        .padding(.trailing, 8)
-                        .padding(.vertical, 60)
-                    }
+                if !scrubberLetters.isEmpty {
+                    SectionIndexBar(
+                        letters: scrubberLetters,
+                        onLetterSelected: { scrollTarget = "letter-\($0)" },
+                        isVisible: isScrolling
+                    )
+                    .padding(.trailing, 8)
+                    .padding(.vertical, 60)
                 }
             }
             .background(Color.luSurface)
@@ -134,6 +134,12 @@ struct ContributorsContent: View {
                 .foregroundStyle(.secondary)
             Text(String(localized: "library.contributors_empty"))
                 .font(.title2.bold())
+            Text(String(format: String(localized: "library.empty_tab_description"),
+                        String(localized: segment == .authors ? "library.authors" : "library.narrators")))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

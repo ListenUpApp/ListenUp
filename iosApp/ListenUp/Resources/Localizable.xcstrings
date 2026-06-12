@@ -4641,6 +4641,16 @@
         }
       }
     },
+    "contributor.view_details_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double tap to view details"
+          }
+        }
+      }
+    },
     "devices.empty": {
       "localizations": {
         "en": {

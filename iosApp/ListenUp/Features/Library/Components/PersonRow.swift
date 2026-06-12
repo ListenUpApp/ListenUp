@@ -11,8 +11,10 @@ struct PersonRow: View {
     private var name: String { contributor.contributor.name }
     private var bookCountLabel: String {
         let count = Int(contributor.bookCount)
-        let noun = count == 1 ? String(localized: "common.book") : String(localized: "common.books")
-        return "\(count) \(noun)"
+        let format = count == 1
+            ? String(localized: "common.book_count")
+            : String(localized: "common.books_count")
+        return String(format: format, count)
     }
 
     var body: some View {
@@ -54,5 +56,6 @@ struct PersonRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(name), \(kind.label)")
         .accessibilityValue(bookCountLabel)
+        .accessibilityHint(String(localized: "contributor.view_details_hint"))
     }
 }
