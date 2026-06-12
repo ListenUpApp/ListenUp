@@ -83,12 +83,54 @@ import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.ImportHubTab
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_dismiss
+import listenup.composeapp.generated.resources.common_refresh
+import listenup.composeapp.generated.resources.import_abs_imports
+import listenup.composeapp.generated.resources.import_analysis_in_progress
+import listenup.composeapp.generated.resources.import_analysis_interrupted
+import listenup.composeapp.generated.resources.import_analyzing_backup
+import listenup.composeapp.generated.resources.import_cancel_delete_stuck
+import listenup.composeapp.generated.resources.import_clear
+import listenup.composeapp.generated.resources.import_complete_a11y
+import listenup.composeapp.generated.resources.import_count_number
+import listenup.composeapp.generated.resources.import_create_choose
+import listenup.composeapp.generated.resources.import_create_to_start
+import listenup.composeapp.generated.resources.import_created_at
+import listenup.composeapp.generated.resources.import_delete_confirm
+import listenup.composeapp.generated.resources.import_delete_import
+import listenup.composeapp.generated.resources.import_import_stuck
+import listenup.composeapp.generated.resources.import_imported
+import listenup.composeapp.generated.resources.import_imported_sessions_count
+import listenup.composeapp.generated.resources.import_keep
+import listenup.composeapp.generated.resources.import_mapped_a11y
+import listenup.composeapp.generated.resources.import_mapped_to
+import listenup.composeapp.generated.resources.import_mapped_total
+import listenup.composeapp.generated.resources.import_minutes_listened
+import listenup.composeapp.generated.resources.import_narrator
+import listenup.composeapp.generated.resources.import_new_import
+import listenup.composeapp.generated.resources.import_new_import_a11y
+import listenup.composeapp.generated.resources.import_no_books_found
+import listenup.composeapp.generated.resources.import_no_imports
+import listenup.composeapp.generated.resources.import_no_sessions_found
+import listenup.composeapp.generated.resources.import_no_users_found
+import listenup.composeapp.generated.resources.import_pending
+import listenup.composeapp.generated.resources.import_ready
+import listenup.composeapp.generated.resources.import_search_instead
+import listenup.composeapp.generated.resources.import_select_backup_file_device
+import listenup.composeapp.generated.resources.import_skip_a11y
+import listenup.composeapp.generated.resources.import_status
+import listenup.composeapp.generated.resources.import_upload_from_device
+import listenup.composeapp.generated.resources.import_wizard
+import listenup.composeapp.generated.resources.import_wizard_desc
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 private const val IMPORT_STATUS_ANALYZING = "analyzing"
 private const val IMPORT_STATUS_ACTIVE = "active"
-private const val LABEL_DELETE = "Delete"
-private const val LABEL_CANCEL = "Cancel"
 private const val LABEL_CANCEL_IMPORT = "Cancel Import"
 
 // ============================================================
@@ -130,15 +172,18 @@ fun ABSImportListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ABS Imports") },
+                title = { Text(stringResource(Res.string.import_abs_imports)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(Res.string.common_back),
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.loadImports() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(Res.string.common_refresh))
                     }
                 },
             )
@@ -148,7 +193,7 @@ fun ABSImportListScreen(
                 ListenUpFab(
                     onClick = { showCreateDialog = true },
                     icon = Icons.Default.Add,
-                    contentDescription = "New Import",
+                    contentDescription = stringResource(Res.string.import_new_import_a11y),
                 )
             }
         },
@@ -167,9 +212,9 @@ fun ABSImportListScreen(
         AlertDialog(
             onDismissRequest = { deleteConfirmImport = null },
             shape = MaterialTheme.shapes.large,
-            title = { Text("Delete Import") },
+            title = { Text(stringResource(Res.string.import_delete_import)) },
             text = {
-                Text("Are you sure you want to delete \"${import.name}\"? This cannot be undone.")
+                Text(stringResource(Res.string.import_delete_confirm, import.name))
             },
             confirmButton = {
                 TextButton(
@@ -178,12 +223,12 @@ fun ABSImportListScreen(
                         deleteConfirmImport = null
                     },
                 ) {
-                    Text(LABEL_DELETE, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { deleteConfirmImport = null }) {
-                    Text(LABEL_CANCEL)
+                    Text(stringResource(Res.string.common_cancel))
                 }
             },
         )
@@ -309,12 +354,12 @@ private fun EmptyImportsContent(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No Imports",
+            text = stringResource(Res.string.import_no_imports),
             style = MaterialTheme.typography.titleLarge,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Create a new import from an Audiobookshelf backup to get started.",
+            text = stringResource(Res.string.import_create_to_start),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -401,7 +446,7 @@ private fun ImportSummaryCard(
                         tint = MaterialTheme.colorScheme.error,
                     )
                     Text(
-                        text = "Import appears stuck",
+                        text = stringResource(Res.string.import_import_stuck),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -413,7 +458,7 @@ private fun ImportSummaryCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Analyzing backup…",
+                    text = stringResource(Res.string.import_analyzing_backup),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -434,7 +479,7 @@ private fun ImportSummaryCard(
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = LABEL_DELETE,
+                        contentDescription = stringResource(Res.string.common_delete),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -551,10 +596,10 @@ private fun CreateImportDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
-        title = { Text("New Import") },
+        title = { Text(stringResource(Res.string.import_new_import)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Choose how to create a new import:")
+                Text(stringResource(Res.string.import_create_choose))
 
                 Card(
                     modifier =
@@ -574,11 +619,11 @@ private fun CreateImportDialog(
                         Icon(Icons.Outlined.PhoneAndroid, contentDescription = null)
                         Column {
                             Text(
-                                text = "Upload from device",
+                                text = stringResource(Res.string.import_upload_from_device),
                                 style = MaterialTheme.typography.titleSmall,
                             )
                             Text(
-                                text = "Select a backup file from your device",
+                                text = stringResource(Res.string.import_select_backup_file_device),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -604,11 +649,11 @@ private fun CreateImportDialog(
                         Icon(Icons.Outlined.Dns, contentDescription = null)
                         Column {
                             Text(
-                                text = "Import Wizard",
+                                text = stringResource(Res.string.import_wizard),
                                 style = MaterialTheme.typography.titleSmall,
                             )
                             Text(
-                                text = "Step-by-step import from server file",
+                                text = stringResource(Res.string.import_wizard_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -620,7 +665,7 @@ private fun CreateImportDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(LABEL_CANCEL)
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
@@ -657,7 +702,10 @@ fun ABSImportHubDetailScreen(
                 title = { Text(topBarTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(Res.string.common_back),
+                        )
                     }
                 },
             )
@@ -691,7 +739,7 @@ fun ABSImportHubDetailScreen(
             shape = MaterialTheme.shapes.large,
             title = { Text(LABEL_CANCEL_IMPORT) },
             text = {
-                Text("This will delete the stuck import. You can create a new one afterwards.")
+                Text(stringResource(Res.string.import_cancel_delete_stuck))
             },
             confirmButton = {
                 TextButton(
@@ -701,12 +749,12 @@ fun ABSImportHubDetailScreen(
                         onBackClick()
                     },
                 ) {
-                    Text(LABEL_DELETE, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCancelConfirm = false }) {
-                    Text("Keep")
+                    Text(stringResource(Res.string.import_keep))
                 }
             },
         )
@@ -834,7 +882,7 @@ private fun ABSImportHubReadyContent(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = "Analysis in progress…",
+                        text = stringResource(Res.string.import_analysis_in_progress),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
@@ -865,13 +913,13 @@ private fun ABSImportHubReadyContent(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Import appears stuck",
+                            text = stringResource(Res.string.import_import_stuck),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                         Text(
-                            text = "Analysis was likely interrupted. Cancel and try again.",
+                            text = stringResource(Res.string.import_analysis_interrupted),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -1019,12 +1067,16 @@ private fun OverviewTabContent(
                 )
                 Column {
                     Text(
-                        text = "Status: ${import.status.replaceFirstChar { it.uppercase() }}",
+                        text =
+                            stringResource(
+                                Res.string.import_status,
+                                import.status.replaceFirstChar { it.uppercase() },
+                            ),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Text(
-                        text = "Created: ${import.createdAt.substringBefore('T')}",
+                        text = stringResource(Res.string.import_created_at, import.createdAt.substringBefore('T')),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                     )
@@ -1177,7 +1229,7 @@ private fun ProgressCard(
                 if (isComplete) {
                     Icon(
                         Icons.Outlined.CheckCircle,
-                        contentDescription = "Complete",
+                        contentDescription = stringResource(Res.string.import_complete_a11y),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -1189,7 +1241,7 @@ private fun ProgressCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "$mapped / $total",
+                text = stringResource(Res.string.import_mapped_total, mapped, total),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1243,7 +1295,7 @@ private fun UsersTabContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "No users found",
+                    text = stringResource(Res.string.import_no_users_found),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1343,7 +1395,7 @@ private fun HubUserMappingCard(
                 if (user.isMapped) {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = "Mapped",
+                        contentDescription = stringResource(Res.string.import_mapped_a11y),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -1399,6 +1451,7 @@ private fun HubUserMappingCardState(
 
         user.isMapped -> {
             // STATE 1: Already mapped - show with clear option
+            val mappedDisplay = user.listenUpDisplayName ?: user.listenUpEmail ?: user.listenUpId.orEmpty()
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors =
@@ -1414,7 +1467,7 @@ private fun HubUserMappingCardState(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Mapped to: ${user.listenUpDisplayName ?: user.listenUpEmail ?: user.listenUpId}",
+                        text = stringResource(Res.string.import_mapped_to, mappedDisplay),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -1424,7 +1477,7 @@ private fun HubUserMappingCardState(
                     ) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(Res.string.import_clear),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -1475,7 +1528,7 @@ private fun HubUserMappingCardState(
                             onClick = onShowSearchOverride,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("Search Instead")
+                            Text(stringResource(Res.string.import_search_instead))
                         }
                     }
                 }
@@ -1557,7 +1610,7 @@ private fun BooksTabContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "No books found",
+                    text = stringResource(Res.string.import_no_books_found),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1657,7 +1710,7 @@ private fun HubBookMappingCard(
                     }
                     if (book.absNarrator.isNotBlank()) {
                         Text(
-                            text = "Narr. ${book.absNarrator}",
+                            text = stringResource(Res.string.import_narrator, book.absNarrator),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1675,7 +1728,7 @@ private fun HubBookMappingCard(
                 if (book.isMapped) {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = "Mapped",
+                        contentDescription = stringResource(Res.string.import_mapped_a11y),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -1751,7 +1804,7 @@ private fun HubBookMappingCardState(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Mapped to: $mappedDisplay",
+                        text = stringResource(Res.string.import_mapped_to, mappedDisplay),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                         maxLines = 1,
@@ -1763,7 +1816,7 @@ private fun HubBookMappingCardState(
                     ) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(Res.string.import_clear),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -1814,7 +1867,7 @@ private fun HubBookMappingCardState(
                             onClick = onShowSearchOverride,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("Search Instead")
+                            Text(stringResource(Res.string.import_search_instead))
                         }
                     }
                 }
@@ -1900,31 +1953,31 @@ private fun SessionsTabContent(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "${response.readyCount}",
+                                text = stringResource(Res.string.import_count_number, response.readyCount),
                                 style = MaterialTheme.typography.titleLarge,
                             )
                             Text(
-                                text = "Ready",
+                                text = stringResource(Res.string.import_ready),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "${response.pendingCount}",
+                                text = stringResource(Res.string.import_count_number, response.pendingCount),
                                 style = MaterialTheme.typography.titleLarge,
                             )
                             Text(
-                                text = "Pending",
+                                text = stringResource(Res.string.import_pending),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "${response.importedCount}",
+                                text = stringResource(Res.string.import_count_number, response.importedCount),
                                 style = MaterialTheme.typography.titleLarge,
                             )
                             Text(
-                                text = "Imported",
+                                text = stringResource(Res.string.import_imported),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
@@ -1964,11 +2017,11 @@ private fun SessionsTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Imported ${result.imported} sessions",
+                        text = stringResource(Res.string.import_imported_sessions_count, result.imported),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     IconButton(onClick = onClearImportResult) {
-                        Icon(Icons.Default.Close, contentDescription = "Dismiss")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(Res.string.common_dismiss))
                     }
                 }
             }
@@ -1999,7 +2052,7 @@ private fun SessionsTabContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "No sessions found",
+                    text = stringResource(Res.string.import_no_sessions_found),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2055,7 +2108,7 @@ private fun SessionCard(
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = "${session.duration / 60000}m listened",
+                    text = stringResource(Res.string.import_minutes_listened, session.duration / 60000),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2069,7 +2122,7 @@ private fun SessionCard(
                 IconButton(onClick = onSkip) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Skip",
+                        contentDescription = stringResource(Res.string.import_skip_a11y),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
