@@ -2,11 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,7 +59,7 @@ class UserDetailViewModel(
                     logger.error { "Failed to load user: $userId — ${result.error}" }
                     state.update {
                         UserDetailUiState.Error(
-                            message = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -105,7 +105,7 @@ class UserDetailViewModel(
                         it.copy(
                             isSaving = false,
                             canShare = previousValue,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -154,11 +154,11 @@ sealed interface UserDetailUiState {
         val canShare: Boolean,
         val isProtected: Boolean,
         val isSaving: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
     ) : UserDetailUiState
 
     /** Terminal state when the initial user load fails. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : UserDetailUiState
 }

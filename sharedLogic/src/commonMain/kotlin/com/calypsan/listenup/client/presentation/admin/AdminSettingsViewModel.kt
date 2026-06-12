@@ -2,11 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,8 +14,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
-
-private const val SAVE_SETTINGS_FAILURE_PREFIX = "Failed to save settings: "
 
 /**
  * ViewModel for admin server settings screen.
@@ -64,12 +62,11 @@ class AdminSettingsViewModel(
 
                 is AppResult.Failure -> {
                     logger.error { "Failed to load server settings: ${result.error}" }
-                    val message = userMessageFor(result.error)
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
-                            current.copy(error = message)
+                            current.copy(error = result.error)
                         } else {
-                            AdminSettingsUiState.Error(message)
+                            AdminSettingsUiState.Error(result.error)
                         }
                     }
                 }
@@ -120,7 +117,7 @@ class AdminSettingsViewModel(
                             it
                                 .copy(
                                     isSaving = false,
-                                    error = SAVE_SETTINGS_FAILURE_PREFIX + userMessageFor(result.error),
+                                    error = result.error,
                                 ).withDirty()
                         }
                         return@launch
@@ -143,7 +140,7 @@ class AdminSettingsViewModel(
                             it
                                 .copy(
                                     isSaving = false,
-                                    error = SAVE_SETTINGS_FAILURE_PREFIX + userMessageFor(result.error),
+                                    error = result.error,
                                 ).withDirty()
                         }
                         return@launch
@@ -206,11 +203,11 @@ sealed interface AdminSettingsUiState {
         val remoteUrl: String = "",
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
     ) : AdminSettingsUiState
 
     /** Terminal state when the initial settings load fails. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : AdminSettingsUiState
 }

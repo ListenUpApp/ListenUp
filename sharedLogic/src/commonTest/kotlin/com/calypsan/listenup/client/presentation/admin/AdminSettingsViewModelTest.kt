@@ -134,7 +134,7 @@ class AdminSettingsViewModelTest {
             advanceUntilIdle()
 
             val error = assertIs<AdminSettingsUiState.Error>(viewModel.state.value)
-            assertEquals("Network down", error.message)
+            assertEquals("Network down", error.error.message)
         }
 
     // ========== Edit Buffer Mutations ==========
@@ -205,8 +205,7 @@ class AdminSettingsViewModelTest {
         runTest {
             val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
             // Body-level message convention: pass a typed AppError so the
-            // "Forbidden" text reaches the ViewModel's IllegalStateException
-            // re-throw, which then surfaces in the Ready.error string.
+            // "Forbidden" text surfaces directly as the typed Ready.error.
             everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
                 AppResult.Failure(
                     com.calypsan.listenup.api.error
@@ -221,7 +220,7 @@ class AdminSettingsViewModelTest {
 
             val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
             assertFalse(ready.isSaving)
-            assertTrue(ready.error?.contains("Forbidden") == true)
+            assertTrue(ready.error?.message?.contains("Forbidden") == true)
             // Dirty remains true because buffer diverges from baseline after failed save.
             assertTrue(ready.isDirty)
         }
