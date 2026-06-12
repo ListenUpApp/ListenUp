@@ -4631,6 +4631,126 @@
         }
       }
     },
+    "genre.all_mapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every genre string from your scanner has been mapped or auto-resolved."
+          }
+        }
+      }
+    },
+    "genre.book_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "genre.books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "genre.browse_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse by Genre"
+          }
+        }
+      }
+    },
+    "genre.include_subtree": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include subtree"
+          }
+        }
+      }
+    },
+    "genre.map_arrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map →"
+          }
+        }
+      }
+    },
+    "genre.map_raw_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map \"%1$@\" to…"
+          }
+        }
+      }
+    },
+    "genre.no_books_in_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books in this genre."
+          }
+        }
+      }
+    },
+    "genre.no_genres_yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No genres yet."
+          }
+        }
+      }
+    },
+    "genre.no_live_genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No live genres available. Create one in Admin → Categories first."
+          }
+        }
+      }
+    },
+    "genre.nothing_to_map": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to map."
+          }
+        }
+      }
+    },
+    "genre.unmapped_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unmapped Genres"
+          }
+        }
+      }
+    },
     "home.best_day_streak": {
       "localizations": {
         "en": {
@@ -5971,6 +6091,16 @@
         }
       }
     },
+    "library_setup.add_another_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add another folder"
+          }
+        }
+      }
+    },
     "library_setup.browse_while_building": {
       "localizations": {
         "en": {
@@ -6017,6 +6147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Building your library"
+          }
+        }
+      }
+    },
+    "library_setup.choose_audiobook_folders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose your audiobook folders"
           }
         }
       }
@@ -6121,6 +6261,16 @@
         }
       }
     },
+    "library_setup.library_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library created!"
+          }
+        }
+      }
+    },
     "library_setup.library_name": {
       "localizations": {
         "en": {
@@ -6161,12 +6311,72 @@
         }
       }
     },
+    "library_setup.no_subfolders_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No subfolders here"
+          }
+        }
+      }
+    },
+    "library_setup.no_subfolders_select_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder has no subfolders. You can select it as a library location."
+          }
+        }
+      }
+    },
+    "library_setup.open_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open folder"
+          }
+        }
+      }
+    },
+    "library_setup.point_at_audiobooks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point ListenUp at your audiobooks."
+          }
+        }
+      }
+    },
+    "library_setup.scanned_shortly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your audiobooks will be scanned and available shortly."
+          }
+        }
+      }
+    },
     "library_setup.select_at_least_one": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Select at least one folder to continue."
+          }
+        }
+      }
+    },
+    "library_setup.select_one_or_more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select one or more folders where your audiobooks are stored."
           }
         }
       }
@@ -6967,6 +7177,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Upload Photo"
+          }
+        }
+      }
+    },
+    "scan.building_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building your library."
+          }
+        }
+      }
+    },
+    "scan.files_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "/ %1$d files"
+          }
+        }
+      }
+    },
+    "scan.recently_matched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recently matched"
+          }
+        }
+      }
+    },
+    "scan.scanning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SCANNING"
           }
         }
       }

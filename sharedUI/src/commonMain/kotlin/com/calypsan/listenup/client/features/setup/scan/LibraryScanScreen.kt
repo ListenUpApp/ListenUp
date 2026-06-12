@@ -41,6 +41,12 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.etaMinutes
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_setup_building_title
+import listenup.composeapp.generated.resources.scan_building_subtitle
+import listenup.composeapp.generated.resources.scan_files_total
+import listenup.composeapp.generated.resources.scan_recently_matched
+import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlin.time.Clock
@@ -112,7 +118,7 @@ private fun DesktopLayout(progress: ScanProgressState?) {
                     BrandMark(onColor = true)
                     Spacer(Modifier.height(32.dp))
                     Text(
-                        text = "Building your library.",
+                        text = stringResource(Res.string.scan_building_subtitle),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -183,7 +189,7 @@ private fun ScanHeader(
     ScanLoader(size = if (wide) 158.dp else 146.dp)
     Spacer(Modifier.height(26.dp))
     Text(
-        text = "Building your library",
+        text = stringResource(Res.string.library_setup_building_title),
         style = if (wide) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineLarge,
         fontWeight = FontWeight.ExtraBold,
         letterSpacing = (-1).sp,
@@ -212,7 +218,7 @@ private fun ScanProgressBlock(progress: ScanProgressState) {
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = "/ ${progress.filesTotal} files",
+            text = stringResource(Res.string.scan_files_total, progress.filesTotal),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -276,7 +282,7 @@ private fun ScanStatsBlock(
     }
     Spacer(Modifier.height(22.dp))
     Text(
-        text = "Recently matched",
+        text = stringResource(Res.string.scan_recently_matched),
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp,
