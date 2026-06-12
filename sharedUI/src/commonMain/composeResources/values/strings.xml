@@ -530,6 +530,7 @@
     <string name="player_cast">Cast</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
     <string name="player_chapters">Chapters</string>
+    <string name="player_chapters_count_summary">%1$d chapters · %2$s</string>
     <string name="player_close">Close</string>
     <string name="player_close_book">Close Book</string>
     <string name="player_collapse">Collapse player</string>

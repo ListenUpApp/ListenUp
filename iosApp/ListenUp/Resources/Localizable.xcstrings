@@ -5301,6 +5301,16 @@
         }
       }
     },
+    "player.chapters_count_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters · %2$@"
+          }
+        }
+      }
+    },
     "player.close": {
       "localizations": {
         "en": {

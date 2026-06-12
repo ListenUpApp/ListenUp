@@ -36,53 +36,10 @@ struct FullScreenPlayerView: View {
     @State private var tint: Color = .listenUpOrange
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var hSize
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-
-            Spacer(minLength: 12)
-
-            // Cover art — centered
-            BookCoverImage(
-                coverPath: observer.coverPath,
-                blurHash: observer.coverBlurHash
-            )
-            .frame(width: 286, height: 286)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
-            .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)
-
-            Spacer()
-                .frame(height: 32)
-
-            titleBlock
-
-            Spacer().frame(height: 22)
-
-            // Chapter-scoped progress — isolated so its per-frame position reads
-            // don't re-evaluate the rest of the player.
-            ChapterScrubberSection(observer: observer, tint: tint)
-                .padding(.horizontal, 26)
-
-            Spacer().frame(height: 12)
-
-            // Overall book progress bar (thin)
-            overallProgressBar
-                .padding(.horizontal, 26)
-
-            Spacer(minLength: 20)
-
-            transport
-                .padding(.horizontal, 30)
-
-            Spacer(minLength: 20)
-
-            secondaryControls
-                .padding(.horizontal, 26)
-
-            Spacer().frame(height: 24)
-        }
+        layout
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             LinearGradient(
@@ -124,6 +81,91 @@ struct FullScreenPlayerView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .presentationBackground(.regularMaterial)
+        }
+    }
+
+    // MARK: - Layout
+
+    /// Size-class-driven layout. Compact (iPhone) keeps the single stacked column
+    /// with the chapter *sheet*; regular (iPad / landscape) splits into the player
+    /// column plus an always-visible inline "Up Next" chapters pane.
+    @ViewBuilder
+    private var layout: some View {
+        if hSize == .regular {
+            regularLayout
+        } else {
+            compactLayout
+        }
+    }
+
+    /// iPhone: the single stacked player column. The Chapters control opens the
+    /// modal `ChapterListSheet` (there's no room for an inline pane).
+    private var compactLayout: some View {
+        playerColumn(showChaptersControl: true)
+    }
+
+    /// iPad: a centered player column beside the inline "Up Next" chapters pane.
+    /// The pane replaces the chapter sheet, so the column's Chapters control is
+    /// hidden here.
+    private var regularLayout: some View {
+        HStack(spacing: 0) {
+            playerColumn(showChaptersControl: false)
+                .frame(maxWidth: 620)
+                .frame(maxWidth: .infinity)
+
+            NowPlayingUpNextPanel(observer: observer, tint: tint)
+        }
+    }
+
+    /// The shared player stack — header, cover, title, scrubber, transport, and
+    /// secondary controls. Used by both layouts so the matched-geometry cover and
+    /// the dismiss gesture live in exactly one place. `showChaptersControl` hides
+    /// the Chapters button on iPad, where the inline pane is the primary surface.
+    private func playerColumn(showChaptersControl: Bool) -> some View {
+        VStack(spacing: 0) {
+            header
+
+            Spacer(minLength: 12)
+
+            // Cover art — centered
+            BookCoverImage(
+                coverPath: observer.coverPath,
+                blurHash: observer.coverBlurHash
+            )
+            .frame(width: 286, height: 286)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
+            .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)
+
+            Spacer()
+                .frame(height: 32)
+
+            titleBlock
+
+            Spacer().frame(height: 22)
+
+            // Chapter-scoped progress — isolated so its per-frame position reads
+            // don't re-evaluate the rest of the player.
+            ChapterScrubberSection(observer: observer, tint: tint)
+                .padding(.horizontal, 26)
+
+            Spacer().frame(height: 12)
+
+            // Overall book progress bar (thin)
+            overallProgressBar
+                .padding(.horizontal, 26)
+
+            Spacer(minLength: 20)
+
+            transport
+                .padding(.horizontal, 30)
+
+            Spacer(minLength: 20)
+
+            secondaryControls(showChaptersControl: showChaptersControl)
+                .padding(.horizontal, 26)
+
+            Spacer().frame(height: 24)
         }
     }
 
@@ -305,7 +347,7 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Secondary controls
 
-    private var secondaryControls: some View {
+    private func secondaryControls(showChaptersControl: Bool) -> some View {
         HStack(alignment: .top, spacing: 6) {
             // Speed
             controlItem(label: String(localized: "player.speed")) {
@@ -329,13 +371,15 @@ struct FullScreenPlayerView: View {
                 }
             }
 
-            // Chapters
-            controlItem(label: String(localized: "player.chapters")) {
-                Button(action: { showChapterList = true }) {
-                    Image(systemName: "list.bullet")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .frame(height: 28)
+            // Chapters — hidden on iPad, where the inline "Up Next" pane replaces it.
+            if showChaptersControl {
+                controlItem(label: String(localized: "player.chapters")) {
+                    Button(action: { showChapterList = true }) {
+                        Image(systemName: "list.bullet")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .frame(height: 28)
+                    }
                 }
             }
 

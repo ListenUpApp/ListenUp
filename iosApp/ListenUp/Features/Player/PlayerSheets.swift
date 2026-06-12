@@ -114,11 +114,20 @@ struct SpeedPickerSheet: View {
     }
 }
 
-// MARK: - Chapter List Sheet
+// MARK: - Chapter Row
 
-struct ChapterListSheet: View {
-    let observer: PlayerCoordinator
-    let onDismiss: () -> Void
+/// One chapter line — number · title · duration, with a now-playing glyph on the
+/// current chapter. Shared by `ChapterListSheet` (compact) and the iPad inline
+/// "Up Next" panel so both surfaces render chapters identically. The `tint`
+/// highlights the current chapter (cover accent on iPad, coral in the sheet).
+struct ChapterRow: View {
+    let index: Int
+    let title: String
+    let durationMs: Int64
+    let isCurrent: Bool
+    let isPlaying: Bool
+    let tint: Color
+    let onTap: () -> Void
 
     static func formatMs(_ ms: Int64) -> String {
         let totalSeconds = ms / 1000
@@ -132,44 +141,60 @@ struct ChapterListSheet: View {
     }
 
     var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Chapter number
+                Text("\(index + 1)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
+
+                // Chapter title + duration
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline)
+                        .foregroundStyle(isCurrent ? tint : .primary)
+                        .lineLimit(2)
+                    Text(Self.formatMs(durationMs))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Now playing indicator
+                if isCurrent {
+                    Image(systemName: isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
+                        .font(.caption)
+                        .foregroundStyle(tint)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Chapter List Sheet
+
+struct ChapterListSheet: View {
+    let observer: PlayerCoordinator
+    let onDismiss: () -> Void
+
+    var body: some View {
         NavigationStack {
             List {
                 ForEach(0..<observer.totalChapters, id: \.self) { index in
-                    Button(action: {
-                        observer.selectChapter(index: index)
-                        onDismiss()
-                    }) {
-                        HStack(spacing: 12) {
-                            // Chapter number
-                            Text("\(index + 1)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(width: 24)
-
-                            // Chapter title + duration
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(observer.chapterTitleForIndex(index) ?? "Chapter \(index + 1)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(index == observer.chapterIndex ? Color.listenUpOrange : .primary)
-                                    .lineLimit(2)
-                                if index < observer.chapters.count {
-                                    let durationMs = observer.chapters[index].duration
-                                    Text(Self.formatMs(durationMs))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            // Now playing indicator
-                            if index == observer.chapterIndex {
-                                Image(systemName: observer.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(Color.listenUpOrange)
-                            }
+                    ChapterRow(
+                        index: index,
+                        title: observer.chapterTitleForIndex(index) ?? "Chapter \(index + 1)",
+                        durationMs: index < observer.chapters.count ? observer.chapters[index].duration : 0,
+                        isCurrent: index == observer.chapterIndex,
+                        isPlaying: observer.isPlaying,
+                        tint: .listenUpOrange,
+                        onTap: {
+                            observer.selectChapter(index: index)
+                            onDismiss()
                         }
-                    }
+                    )
                 }
             }
             .navigationTitle(String(localized: "player.chapters"))
