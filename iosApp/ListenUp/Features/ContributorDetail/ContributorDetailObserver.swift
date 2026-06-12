@@ -94,9 +94,9 @@ final class ContributorDetailObserver {
             totalDuration = r.formatTotalDuration()
             bookCount = Int(r.bookCount)
             roles = r.roleSections.map { roleKind(for: $0.role) }
-        case .error(let e):
+        case .error(let err):
             isLoading = false
-            error = e.message
+            error = err.message
         }
     }
 
