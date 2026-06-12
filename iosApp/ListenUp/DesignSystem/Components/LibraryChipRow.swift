@@ -62,27 +62,15 @@ private struct LibraryChip: View {
                 Image(systemName: tab.icon)
                     .font(.subheadline)
                 Text(tab.title)
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline.weight(isSelected ? .semibold : .medium))
             }
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? Color.luOnTint : Color.primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
+            .frame(minHeight: 34)
             .background {
                 Capsule()
-                    .fill(isSelected ? AnyShapeStyle(Color.listenUpOrange) : AnyShapeStyle(.ultraThinMaterial))
-                    .overlay {
-                        if !isSelected {
-                            Capsule()
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 0.5
-                                )
-                        }
-                    }
+                    .fill(isSelected ? AnyShapeStyle(Color.luTint) : AnyShapeStyle(Color.luFill))
             }
         }
         .buttonStyle(ChipButtonStyle())
