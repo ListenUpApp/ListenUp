@@ -628,3 +628,9 @@ listenup-custom:
     active: true
   NoHardcodedUiString:
     active: true
+    # Shipped Compose UI only — the rule is param-name-based (text/title/label/…),
+    # which also matches domain-model constructors (Book(title=…)) in non-UI modules
+    # and test/seed fixtures. Scope to sharedUI main source; preview galleries are
+    # dev-only sample data (not shipped UI).
+    includes: ['**/sharedUI/src/commonMain/**', '**/sharedUI/src/androidMain/**', '**/sharedUI/src/desktopMain/**']
+    excludes: ['**/*PreviewGallery.kt', '**/*Previews.kt']

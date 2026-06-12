@@ -57,4 +57,46 @@ class NoHardcodedUiStringRuleTest {
     fun `does not flag contentDescription null`() {
         assertEquals(0, rule.lint("""@Composable fun S() { Icon(x, contentDescription = null) }""").size)
     }
+
+    @Test
+    fun `flags custom component text named arg`() {
+        assertEquals(1, rule.lint("""@Composable fun S() { ListenUpButton(text = "Save") }""").size)
+    }
+
+    @Test
+    fun `flags dialog title confirmText and dismissText`() {
+        assertEquals(
+            3,
+            rule
+                .lint(
+                    """@Composable fun S() { Dialog(title = "Settings", confirmText = "OK", dismissText = "Cancel") }""",
+                ).size,
+        )
+    }
+
+    @Test
+    fun `flags field label and placeholder`() {
+        assertEquals(
+            2,
+            rule.lint("""@Composable fun S() { MyField(label = "Name", placeholder = "Enter name") }""").size,
+        )
+    }
+
+    @Test
+    fun `flags card subtitle and headline`() {
+        assertEquals(
+            2,
+            rule.lint("""@Composable fun S() { Card(subtitle = "Sub", headline = "Head") }""").size,
+        )
+    }
+
+    @Test
+    fun `flags named text exactly once`() {
+        assertEquals(1, rule.lint("""@Composable fun S() { Text(text = "x") }""").size)
+    }
+
+    @Test
+    fun `does not flag punctuation-only custom component text`() {
+        assertEquals(0, rule.lint("""@Composable fun S() { Button(text = "•") }""").size)
+    }
 }

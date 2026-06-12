@@ -14,9 +14,17 @@ import org.jetbrains.kotlin.psi.KtValueArgument
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 
 /**
- * Forbids hardcoded user-facing string literals in Compose UI: `Text("literal")`,
- * `Text(text = "literal")`, and `contentDescription = "literal"`. Use
+ * Forbids hardcoded user-facing string literals in Compose UI. Use
  * `stringResource(Res.string.…)` (backed by the shared `en.json`) instead.
+ *
+ * Coverage is **param-name-based**, so it catches custom text-bearing components
+ * automatically — not just `Text`. Any call argument whose named parameter is one
+ * of `text`, `title`, `label`, `placeholder`, `subtitle`, `headline`, `confirmText`,
+ * `dismissText`, or `contentDescription` is flagged when it's a hardcoded literal.
+ * This means `ListenUpButton(text = "Save")`, `SectionTitle(title = "…")`, a dialog's
+ * `confirmText`/`dismissText`, and a field's `label`/`placeholder` are all caught,
+ * alongside `Text(text = "literal")` and `contentDescription = "literal"`. The
+ * positional `Text("literal")` form is also flagged.
  *
  * Not flagged: `stringResource(...)` / identifier / call-expression arguments;
  * `testTag`/semantics keys; punctuation-only literals (`Text("•")`); and literals
@@ -25,6 +33,22 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 class NoHardcodedUiStringRule(
     config: Config,
 ) : Rule(config) {
+    private companion object {
+        // Named args that carry user-facing UI text in this Compose codebase.
+        val UI_TEXT_ARG_NAMES =
+            setOf(
+                "contentDescription",
+                "text",
+                "title",
+                "label",
+                "placeholder",
+                "subtitle",
+                "headline",
+                "confirmText",
+                "dismissText",
+            )
+    }
+
     override val issue: Issue =
         Issue(
             id = "NoHardcodedUiString",
@@ -37,17 +61,21 @@ class NoHardcodedUiStringRule(
         super.visitCallExpression(expression)
         val callee = expression.calleeExpression?.text
 
-        // contentDescription = "..." in ANY call (Icon, Image, IconButton, …)
-        expression.valueArguments
-            .firstOrNull { it.getArgumentName()?.asName?.asString() == "contentDescription" }
-            ?.let { flagIfHardcoded(it, "contentDescription") }
+        // Any UI-text named arg in ANY call: text, title, label, placeholder,
+        // subtitle, headline, confirmText, dismissText, contentDescription. This
+        // covers Text(text = …), custom components (ListenUpButton(text = …)),
+        // dialogs (confirmText/dismissText), fields (label/placeholder), etc.
+        for (argument in expression.valueArguments) {
+            val name = argument.getArgumentName()?.asName?.asString() ?: continue
+            if (name in UI_TEXT_ARG_NAMES) flagIfHardcoded(argument, name)
+        }
 
-        // Text("...") positional or Text(text = "...")
+        // Text("...") positional only — the named text= case is handled above, so
+        // requiring an UNNAMED first arg here avoids double-flagging.
         if (callee == "Text") {
-            val textArg =
-                expression.valueArguments.firstOrNull { it.getArgumentName()?.asName?.asString() == "text" }
-                    ?: expression.valueArguments.firstOrNull { it.getArgumentName() == null }
-            textArg?.let { flagIfHardcoded(it, "Text") }
+            expression.valueArguments
+                .firstOrNull { it.getArgumentName() == null }
+                ?.let { flagIfHardcoded(it, "Text") }
         }
     }
 
