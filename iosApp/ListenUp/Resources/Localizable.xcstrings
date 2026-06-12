@@ -1411,6 +1411,16 @@
         }
       }
     },
+    "book.detail_chapter_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters"
+          }
+        }
+      }
+    },
     "book.detail_chapters": {
       "localizations": {
         "en": {
@@ -1511,6 +1521,16 @@
         }
       }
     },
+    "book.detail_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
     "book.detail_full_cast": {
       "localizations": {
         "en": {
@@ -1547,6 +1567,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Narrated by"
+          }
+        }
+      }
+    },
+    "book.detail_narrated_by_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated by "
+          }
+        }
+      }
+    },
+    "book.detail_narrated_by_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated by %1$@"
           }
         }
       }
@@ -1691,6 +1731,26 @@
         }
       }
     },
+    "book.detail_resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "book.detail_resume_progress_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume, %1$d percent"
+          }
+        }
+      }
+    },
     "book.detail_retry": {
       "localizations": {
         "en": {
@@ -1727,6 +1787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "See All %1$d Chapters"
+          }
+        }
+      }
+    },
+    "book.detail_series_pill_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series, %1$@"
           }
         }
       }

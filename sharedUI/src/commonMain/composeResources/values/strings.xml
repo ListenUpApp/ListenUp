@@ -141,6 +141,7 @@
     <string name="book_detail_cancel_download">Cancel download</string>
     <string name="book_detail_cast_count_authors">%1$d authors</string>
     <string name="book_detail_cast_count_narrators">%1$d narrators</string>
+    <string name="book_detail_chapter_count">%1$d chapters</string>
     <string name="book_detail_chapters">Chapters</string>
     <string name="book_detail_chapters_chaptercount">Chapters (%1$s)</string>
     <string name="book_detail_credits">Credits</string>
@@ -151,10 +152,13 @@
     <string name="book_detail_downloaded">Downloaded</string>
     <string name="book_detail_edit_book">Edit Book</string>
     <string name="book_detail_find_metadata">Find Metadata</string>
+    <string name="book_detail_finished">Finished</string>
     <string name="book_detail_full_cast">Full cast</string>
     <string name="book_detail_mark_as_read">Mark as Read</string>
     <string name="book_detail_more_options">More options</string>
     <string name="book_detail_narrated_by">Narrated by</string>
+    <string name="book_detail_narrated_by_prefix">Narrated by </string>
+    <string name="book_detail_narrated_by_value">Narrated by %1$s</string>
     <string name="book_detail_offline_body">Streaming is unavailable. Downloaded books still play.</string>
     <string name="book_detail_offline_title">Server offline</string>
     <string name="book_detail_other_authors">%1$s, %2$d other authors</string>
@@ -169,10 +173,13 @@
     <string name="book_detail_readers_finished">Finished %1$s</string>
     <string name="book_detail_readers_listening_now">%1$d listening now</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
+    <string name="book_detail_resume">Resume</string>
+    <string name="book_detail_resume_progress_a11y">Resume, %1$d percent</string>
     <string name="book_detail_retry">Retry</string>
     <string name="book_detail_retry_download">Retry download</string>
     <string name="book_detail_scan_warning">This book had a scanning error — double-check the files aren’t corrupted.</string>
     <string name="book_detail_see_all_chapters">See All %1$d Chapters</string>
+    <string name="book_detail_series_pill_a11y">Series, %1$s</string>
     <string name="book_detail_show_less">Show Less</string>
     <string name="book_detail_stream_now">Play Now</string>
     <string name="book_detail_synopsis">Synopsis</string>
