@@ -61,7 +61,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-200-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -99,7 +99,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-206-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -137,7 +137,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-403-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -154,7 +154,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-tampered-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -184,7 +184,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-404-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -204,7 +204,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-access-deny-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -242,7 +242,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-access-member-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -281,7 +281,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-access-admin-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -321,7 +321,7 @@ class AudioRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-head-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 

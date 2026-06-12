@@ -61,10 +61,14 @@ private val logger = KotlinLogging.logger {}
  *   precedence (resolved from `LISTENUP_METADATA_PRECEDENCE`), threaded into
  *   the [Scanner] so every [com.calypsan.listenup.server.scanner.pipeline.Analyzer]
  *   it builds honours the configured order.
+ * @param watchEnabled when `false`, the [ScanOrchestrator] skips mounting
+ *   real-time file-system watchers (resolved from `scanner.watchEnabled`,
+ *   default `true`). Tests disable it to stop the watcher racing fixture writes.
  */
 fun scannerModule(
     applicationScope: CoroutineScope,
     metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
+    watchEnabled: Boolean = true,
 ): Module =
     module {
         single { applicationScope }
@@ -170,6 +174,7 @@ fun scannerModule(
                     ScannerBundle(library, scanner, coordinator)
                 },
                 watcherSupervisor = get<WatcherSupervisorPort>(),
+                watchEnabled = watchEnabled,
             )
         }
 

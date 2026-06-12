@@ -27,12 +27,25 @@ import org.koin.ktor.ext.inject
  *   image home (covers / contributor photos / series covers) to this directory
  *   instead of `$LISTENUP_HOME`/`~/ListenUp`. Tests serving metadata images pass
  *   a fresh temp directory here.
+ * @param rescanOnStartup when `false`, sets `scan.rescanOnStartup` so the
+ *   bootstrap skips the startup library scan. Defaults to `true` (production
+ *   behaviour). Tests that write fixtures after boot pair this with
+ *   `watchEnabled = false` as belt-and-suspenders against any boot-time scan.
+ * @param watchEnabled when `true`, leaves the real-time file-system watcher
+ *   mounted; defaults to `false`. Real-time watching is pure overhead for the
+ *   ~all tests that don't assert on it, and a fixture write into the library
+ *   root after boot otherwise triggers a scan that races the test's own seed
+ *   (the flake `AudioRoutesTest`/`BookCoverRouteTest` hit). Tests that genuinely
+ *   exercise the watcher (e.g. the watcher-unmount path) pass `true`. Same
+ *   rationale as the `mdns.enabled = false` default above.
  */
 fun ApplicationTestBuilder.useIsolatedTestConfig(
     registrationPolicy: String = "OPEN",
     libraryPath: String? = null,
     seedProfile: String? = null,
     homeDir: String? = null,
+    rescanOnStartup: Boolean = true,
+    watchEnabled: Boolean = false,
 ) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
@@ -47,6 +60,10 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 // No test should bind multicast sockets or run an mDNS receive loop — pure overhead
                 // and a source of cross-test load that flakes the firehose timeout budget.
                 "mdns.enabled" to "false",
+                // Real-time file-system watching is off by default: it's overhead for tests that
+                // don't assert on it and a fixture-write-vs-seed race for those that do.
+                "scanner.watchEnabled" to watchEnabled.toString(),
+                "scan.rescanOnStartup" to rescanOnStartup.toString(),
             ).apply {
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
                 if (seedProfile != null) put("seed.profile", seedProfile)

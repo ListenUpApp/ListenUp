@@ -49,10 +49,17 @@ private val logger = KotlinLogging.logger {}
  *   expose a [ScanCoordinator] — callers typically return a pre-paired object.
  *   Separated from the constructor to enable testing without real scanner deps.
  * @param watcherSupervisor manages per-folder watcher instances.
+ * @param watchEnabled when `false`, [onLibraryAdded] and [onFolderAdded] skip
+ *   mounting real-time file-system watchers — the library is still registered
+ *   for scanning, only the live `WatchService` is suppressed. Defaults to `true`
+ *   (production behaviour). Tests that write fixture files into the library root
+ *   after boot disable it so the watcher can't race the seed (gated by
+ *   `scanner.watchEnabled`, mirroring the `mdns.enabled` precedent).
  */
 internal class ScanOrchestrator(
     private val scannerFactory: (Library) -> ScannerBundle,
     private val watcherSupervisor: WatcherSupervisorPort,
+    private val watchEnabled: Boolean = true,
 ) {
     private val mutex = Mutex()
     private val bundlesByLibrary = mutableMapOf<LibraryId, ScannerBundle>()
@@ -79,13 +86,16 @@ internal class ScanOrchestrator(
                 libraryByFolder[folder.id] = library.id
             }
         }
-        for (folder in library.folders) {
-            watcherSupervisor.mount(library.id, folder) { libId, path ->
-                onFileChanged(libId, path)
+        if (watchEnabled) {
+            for (folder in library.folders) {
+                watcherSupervisor.mount(library.id, folder) { libId, path ->
+                    onFileChanged(libId, path)
+                }
             }
         }
         logger.info {
-            "Library registered: id=${library.id.value} name='${library.name}' folders=${library.folders.size}"
+            "Library registered: id=${library.id.value} name='${library.name}' folders=${library.folders.size}" +
+                if (watchEnabled) "" else " (real-time watching disabled)"
         }
     }
 
@@ -116,11 +126,14 @@ internal class ScanOrchestrator(
         mutex.withLock {
             libraryByFolder[folder.id] = libraryId
         }
-        watcherSupervisor.mount(libraryId, folder) { libId, path ->
-            onFileChanged(libId, path)
+        if (watchEnabled) {
+            watcherSupervisor.mount(libraryId, folder) { libId, path ->
+                onFileChanged(libId, path)
+            }
         }
         logger.info {
-            "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}"
+            "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}" +
+                if (watchEnabled) "" else " (real-time watching disabled)"
         }
     }
 
