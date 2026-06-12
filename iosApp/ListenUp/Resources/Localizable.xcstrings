@@ -2781,12 +2781,32 @@
         }
       }
     },
+    "common.book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "book"
+          }
+        }
+      }
+    },
     "common.book_count": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "common.books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "books"
           }
         }
       }
@@ -6331,6 +6351,16 @@
         }
       }
     },
+    "library.series_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d series"
+          }
+        }
+      }
+    },
     "library.shelf": {
       "localizations": {
         "en": {
@@ -7891,6 +7921,16 @@
         }
       }
     },
+    "series.complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete"
+          }
+        }
+      }
+    },
     "series.continue": {
       "localizations": {
         "en": {
@@ -8031,6 +8071,16 @@
         }
       }
     },
+    "series.not_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Started"
+          }
+        }
+      }
+    },
     "series.progress_duration": {
       "localizations": {
         "en": {
@@ -8107,6 +8157,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Total"
+          }
+        }
+      }
+    },
+    "series.x_of_y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d of %d"
           }
         }
       }

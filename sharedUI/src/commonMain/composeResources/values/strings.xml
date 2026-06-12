@@ -279,7 +279,9 @@ One beautiful library.</string>
     <string name="common_administration">Administration</string>
     <string name="common_approve">Approve</string>
     <string name="common_back">Back</string>
+    <string name="common_book">book</string>
     <string name="common_book_count">%1$d book</string>
+    <string name="common_books">books</string>
     <string name="common_books_count">%1$d books</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_categories">Categories</string>
@@ -634,6 +636,7 @@ One beautiful library.</string>
     <string name="library_loading_your_library">Loading your library...</string>
     <string name="library_more_options">More library options</string>
     <string name="library_narrators">Narrators</string>
+    <string name="library_series_count">%d series</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_summary">• %1$s</string>
@@ -790,6 +793,7 @@ One beautiful library.</string>
     <string name="series_book_sequence">Book %1$s</string>
     <string name="series_books_header">Books in Series</string>
     <string name="series_books_in_series">Books in Series</string>
+    <string name="series_complete">Complete</string>
     <string name="series_continue">Continue</string>
     <string name="series_continue_book">Continue Book %1$s</string>
     <string name="series_edit_series">Edit series</string>
@@ -804,6 +808,7 @@ One beautiful library.</string>
     <string name="series_merge_title">Merge into…</string>
     <string name="series_narrated_by">Narrated by %1$s</string>
     <string name="series_no_cover">No Cover</string>
+    <string name="series_not_started">Not Started</string>
     <string name="series_progress_duration">%1$d% · %2$s</string>
     <string name="series_series_cover">Series cover</string>
     <string name="series_series_name">Series Name</string>
@@ -812,6 +817,7 @@ One beautiful library.</string>
     <string name="series_stat_books">Books</string>
     <string name="series_stat_finished">Finished</string>
     <string name="series_stat_total">Total</string>
+    <string name="series_x_of_y">%d of %d</string>
     <string name="settings_51_surround_sound_for_immersive">5.1 surround sound for immersive listening</string>
     <string name="settings_app_version">App version</string>
     <string name="settings_appearance">Appearance</string>
