@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.admin.import
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,12 +9,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -21,23 +29,35 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.api.dto.import.ImportAnalysis
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.import.AbsItemRef
+import com.calypsan.listenup.api.dto.import.AbsUserMatch
 import com.calypsan.listenup.api.dto.import.ImportResult
 import com.calypsan.listenup.api.dto.import.MatchTier
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.domain.model.AdminUserInfo
+import com.calypsan.listenup.client.presentation.admin.import.BookSearchState
 import com.calypsan.listenup.client.presentation.admin.import.ImportFlowUiState
 import com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
+import com.calypsan.listenup.core.AbsItemId
+import com.calypsan.listenup.core.AbsUserId
+import com.calypsan.listenup.core.BookId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_try_again
@@ -45,6 +65,11 @@ import listenup.composeapp.generated.resources.import_apply_import
 import listenup.composeapp.generated.resources.import_analyzing_subtitle
 import listenup.composeapp.generated.resources.import_applying_subtitle
 import listenup.composeapp.generated.resources.import_auto_matched
+import listenup.composeapp.generated.resources.import_book_assigned
+import listenup.composeapp.generated.resources.import_book_search_cancel
+import listenup.composeapp.generated.resources.import_book_search_hint
+import listenup.composeapp.generated.resources.import_book_search_no_results
+import listenup.composeapp.generated.resources.import_book_skip
 import listenup.composeapp.generated.resources.import_books_matched
 import listenup.composeapp.generated.resources.import_books_skipped
 import listenup.composeapp.generated.resources.import_choose_backup_file
@@ -56,15 +81,27 @@ import listenup.composeapp.generated.resources.import_idle_subtitle
 import listenup.composeapp.generated.resources.import_idle_title
 import listenup.composeapp.generated.resources.import_items_matched
 import listenup.composeapp.generated.resources.import_matching_current_item
-import listenup.composeapp.generated.resources.import_needs_attention
 import listenup.composeapp.generated.resources.import_no_attention_needed
+import listenup.composeapp.generated.resources.import_no_books_to_review
 import listenup.composeapp.generated.resources.import_records_imported
+import listenup.composeapp.generated.resources.import_review_books_section
+import listenup.composeapp.generated.resources.import_review_users_section
+import listenup.composeapp.generated.resources.import_review_users_unresolved_warning
+import listenup.composeapp.generated.resources.import_search_and_assign
+import listenup.composeapp.generated.resources.import_sessions_importable
 import listenup.composeapp.generated.resources.import_sessions_imported
 import listenup.composeapp.generated.resources.import_sessions_written
-import listenup.composeapp.generated.resources.import_skip_item
 import listenup.composeapp.generated.resources.import_title
 import listenup.composeapp.generated.resources.import_uploading_subtitle
 import listenup.composeapp.generated.resources.import_uploading_title
+import listenup.composeapp.generated.resources.import_user_accept_suggestion
+import listenup.composeapp.generated.resources.import_user_assign
+import listenup.composeapp.generated.resources.import_user_assigned_to
+import listenup.composeapp.generated.resources.import_user_needs_review
+import listenup.composeapp.generated.resources.import_user_pick_user
+import listenup.composeapp.generated.resources.import_user_skip
+import listenup.composeapp.generated.resources.import_user_skipped
+import listenup.composeapp.generated.resources.import_user_suggested
 import listenup.composeapp.generated.resources.import_users_matched
 import listenup.composeapp.generated.resources.import_writing_current_item
 import org.jetbrains.compose.resources.stringResource
@@ -135,12 +172,17 @@ fun ImportFlowScreen(
                 is ImportFlowUiState.Review -> {
                     ReviewContent(
                         state = state,
-                        // setBookOverride(id, null) means "skip this item"; toggling again
-                        // re-calls setBookOverride(id, null) which is idempotent — the admin
-                        // can only skip, not un-skip in this function-first UI.
-                        onBookSkipToggle = { absItemId ->
-                            viewModel.setBookOverride(absItemId, null)
+                        onSetUserMapping = { absUserId, userId ->
+                            viewModel.setUserMapping(absUserId, userId)
                         },
+                        onSkipUser = { viewModel.skipUser(it) },
+                        onOpenBookSearch = { viewModel.openBookSearch(it) },
+                        onCloseBookSearch = { viewModel.closeBookSearch() },
+                        onBookSearchQueryChange = { viewModel.updateBookSearchQuery(it) },
+                        onSelectBook = { absItemId, bookId ->
+                            viewModel.selectBook(absItemId, bookId)
+                        },
+                        onSkipBook = { viewModel.skipBook(it) },
                         onConfirm = { viewModel.confirmAndApply() },
                     )
                 }
@@ -277,158 +319,492 @@ private fun AnalyzingContent(state: ImportFlowUiState.Analyzing) {
 @Composable
 private fun ReviewContent(
     state: ImportFlowUiState.Review,
-    onBookSkipToggle: (com.calypsan.listenup.core.AbsItemId) -> Unit,
+    onSetUserMapping: (AbsUserId, UserId) -> Unit,
+    onSkipUser: (AbsUserId) -> Unit,
+    onOpenBookSearch: (AbsItemId) -> Unit,
+    onCloseBookSearch: () -> Unit,
+    onBookSearchQueryChange: (String) -> Unit,
+    onSelectBook: (AbsItemId, BookId) -> Unit,
+    onSkipBook: (AbsItemId) -> Unit,
     onConfirm: () -> Unit,
 ) {
     val analysis = state.analysis
-    val attentionItems =
-        analysis.ambiguous + analysis.unmatched
+    val attentionItems = analysis.ambiguous + analysis.unmatched
     val autoMatchedCount =
         analysis.bookMatchCounts
             .filterKeys { it != MatchTier.AMBIGUOUS && it != MatchTier.UNMATCHED }
             .values
             .sum()
+    val unresolvedUserCount =
+        analysis.userMatches.count { match ->
+            !state.userMappings.containsKey(match.absUserId) &&
+                !state.skippedUsers.contains(match.absUserId)
+        }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Summary header
-        item(key = "summary") {
-            ReviewSummaryCard(
-                analysis = analysis,
-                autoMatchedCount = autoMatchedCount,
-            )
+        // ── Users section ─────────────────────────────────────────────────────
+        item(key = "users_header") {
+            SectionLabel(stringResource(Res.string.import_review_users_section))
         }
 
-        // Needs-attention items
-        if (attentionItems.isNotEmpty()) {
-            item(key = "attention_header") {
-                SectionLabel(stringResource(Res.string.import_needs_attention))
-            }
-            items(attentionItems, key = { "item_${it.absItemId.value}" }) { item ->
-                val isSkipped = state.bookOverrides.containsKey(item.absItemId)
-                NeedsAttentionCard(
-                    title = item.title,
-                    tier =
-                        if (analysis.unmatched.any { it.absItemId == item.absItemId }) {
-                            MatchTier.UNMATCHED
-                        } else {
-                            MatchTier.AMBIGUOUS
-                        },
-                    isSkipped = isSkipped,
-                    onSkipToggle = { onBookSkipToggle(item.absItemId) },
-                )
-            }
-        } else {
-            item(key = "all_matched") {
+        if (analysis.userMatches.isEmpty()) {
+            item(key = "users_empty") {
                 Text(
                     text = stringResource(Res.string.import_no_attention_needed),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-
-        // Auto-matched summary
-        if (autoMatchedCount > 0) {
-            item(key = "auto_header") {
-                SectionLabel(
-                    stringResource(
-                        Res.string.import_books_matched,
-                        autoMatchedCount.toString(),
-                    ) + " — " + stringResource(Res.string.import_auto_matched),
+        } else {
+            items(analysis.userMatches, key = { "user_${it.absUserId.value}" }) { match ->
+                UserMatchCard(
+                    match = match,
+                    assignedUserId = state.userMappings[match.absUserId],
+                    isSkipped = state.skippedUsers.contains(match.absUserId),
+                    listenupUsers = state.listenupUsers,
+                    onAcceptSuggestion = { suggestedId ->
+                        onSetUserMapping(match.absUserId, suggestedId)
+                    },
+                    onAssign = { pickedUser ->
+                        onSetUserMapping(match.absUserId, UserId(pickedUser.id))
+                    },
+                    onSkip = { onSkipUser(match.absUserId) },
                 )
             }
         }
 
-        // Apply button (sticky at bottom via last item)
+        // ── Books section ─────────────────────────────────────────────────────
+        item(key = "books_header") {
+            SectionLabel(stringResource(Res.string.import_review_books_section))
+        }
+
+        // Auto-match summary line
+        if (autoMatchedCount > 0) {
+            item(key = "auto_summary") {
+                Text(
+                    text =
+                        stringResource(Res.string.import_books_matched, autoMatchedCount.toString()) +
+                            " — " + stringResource(Res.string.import_auto_matched),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (analysis.importableSessionCount > 0) {
+            item(key = "sessions_summary") {
+                Text(
+                    text = stringResource(Res.string.import_sessions_importable, analysis.importableSessionCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (attentionItems.isEmpty()) {
+            item(key = "books_no_review") {
+                Text(
+                    text = stringResource(Res.string.import_no_books_to_review),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            items(attentionItems, key = { "book_${it.absItemId.value}" }) { item ->
+                val isSearchOpen = state.bookSearch?.absItemId == item.absItemId
+                BookReviewCard(
+                    item = item,
+                    isUnmatched = analysis.unmatched.any { it.absItemId == item.absItemId },
+                    bookOverride = state.bookOverrides[item.absItemId],
+                    hasOverrideEntry = state.bookOverrides.containsKey(item.absItemId),
+                    bookSearch = if (isSearchOpen) state.bookSearch else null,
+                    onOpenSearch = { onOpenBookSearch(item.absItemId) },
+                    onCloseSearch = onCloseBookSearch,
+                    onSearchQueryChange = onBookSearchQueryChange,
+                    onSelectBook = { bookId -> onSelectBook(item.absItemId, bookId) },
+                    onSkip = { onSkipBook(item.absItemId) },
+                )
+            }
+        }
+
+        // ── Apply ─────────────────────────────────────────────────────────────
+        item(key = "apply_warning") {
+            if (unresolvedUserCount > 0) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(Res.string.import_review_users_unresolved_warning, unresolvedUserCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+
         item(key = "apply_button") {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             ListenUpButton(
                 text = stringResource(Res.string.import_apply_import),
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
-@Composable
-private fun ReviewSummaryCard(
-    analysis: ImportAnalysis,
-    autoMatchedCount: Int,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = stringResource(Res.string.import_users_matched, analysis.userMatches.size),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = stringResource(Res.string.import_books_matched, autoMatchedCount.toString()),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            if (analysis.ambiguous.isNotEmpty() || analysis.unmatched.isNotEmpty()) {
-                val attentionCount = analysis.ambiguous.size + analysis.unmatched.size
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.import_needs_attention,
-                        ) + ": $attentionCount",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
-    }
-}
+// ─── User match card ──────────────────────────────────────────────────────────
 
 @Composable
-private fun NeedsAttentionCard(
-    title: String,
-    tier: MatchTier,
+private fun UserMatchCard(
+    match: AbsUserMatch,
+    assignedUserId: UserId?,
     isSkipped: Boolean,
-    onSkipToggle: () -> Unit,
+    listenupUsers: List<AdminUserInfo>,
+    onAcceptSuggestion: (UserId) -> Unit,
+    onAssign: (AdminUserInfo) -> Unit,
+    onSkip: () -> Unit,
 ) {
+    val isResolved = assignedUserId != null || isSkipped
+    val assignedUser = assignedUserId?.let { id -> listenupUsers.find { it.id == id.value } }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor =
-                    if (isSkipped) {
-                        MaterialTheme.colorScheme.surfaceContainerLowest
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                    when {
+                        isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
+                        assignedUserId != null -> MaterialTheme.colorScheme.surfaceContainerLow
+                        else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
                     },
             ),
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium,
+            UserIdentityRow(
+                match = match,
+                isResolved = isResolved,
+                isSkipped = isSkipped,
+                assignedUser = assignedUser,
+                assignedUserId = assignedUserId,
+            )
+            val suggestedUserId = match.suggestedUserId
+            if (suggestedUserId != null && assignedUserId == null && !isSkipped) {
+                UserSuggestionRow(
+                    suggestedId = suggestedUserId,
+                    listenupUsers = listenupUsers,
+                    onAccept = onAcceptSuggestion,
                 )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                UserAssignDropdown(listenupUsers = listenupUsers, onAssign = onAssign)
+                OutlinedButton(onClick = onSkip, shape = MaterialTheme.shapes.extraLarge) {
+                    Text(stringResource(Res.string.import_user_skip))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserIdentityRow(
+    match: AbsUserMatch,
+    isResolved: Boolean,
+    isSkipped: Boolean,
+    assignedUser: AdminUserInfo?,
+    assignedUserId: UserId?,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = match.absUsername, style = MaterialTheme.typography.bodyMedium)
+            match.absEmail?.let { email ->
                 Text(
-                    text = tier.name.lowercase().replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.labelSmall,
+                    text = email,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(
-                onClick = onSkipToggle,
-                shape = MaterialTheme.shapes.extraLarge,
-            ) {
-                Text(
-                    text = stringResource(Res.string.import_skip_item),
+        }
+        val badgeText =
+            when {
+                isSkipped -> stringResource(Res.string.import_user_skipped)
+                assignedUser != null -> stringResource(Res.string.import_user_assigned_to, assignedUser.displayableName)
+                assignedUserId != null -> stringResource(Res.string.import_user_assigned_to, assignedUserId.value)
+                else -> stringResource(Res.string.import_user_needs_review)
+            }
+        Text(
+            text = badgeText,
+            style = MaterialTheme.typography.labelSmall,
+            color =
+                if (!isResolved) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun UserSuggestionRow(
+    suggestedId: UserId,
+    listenupUsers: List<AdminUserInfo>,
+    onAccept: (UserId) -> Unit,
+) {
+    val suggestedUser = listenupUsers.find { it.id == suggestedId.value }
+    val suggestionLabel = suggestedUser?.displayableName ?: suggestedId.value
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(Res.string.import_user_suggested, suggestionLabel),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = { onAccept(suggestedId) }) {
+            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(Res.string.import_user_accept_suggestion))
+        }
+    }
+}
+
+@Composable
+private fun UserAssignDropdown(
+    listenupUsers: List<AdminUserInfo>,
+    onAssign: (AdminUserInfo) -> Unit,
+) {
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(
+            onClick = { dropdownExpanded = true },
+            shape = MaterialTheme.shapes.extraLarge,
+        ) {
+            Text(stringResource(Res.string.import_user_assign))
+        }
+        DropdownMenu(
+            expanded = dropdownExpanded,
+            onDismissRequest = { dropdownExpanded = false },
+        ) {
+            if (listenupUsers.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(Res.string.import_user_pick_user),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = { dropdownExpanded = false },
                 )
+            } else {
+                listenupUsers.forEach { user ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(text = user.displayableName, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = user.email,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        onClick = {
+                            dropdownExpanded = false
+                            onAssign(user)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Book review card ─────────────────────────────────────────────────────────
+
+@Composable
+private fun BookReviewCard(
+    item: AbsItemRef,
+    isUnmatched: Boolean,
+    bookOverride: BookId?,
+    hasOverrideEntry: Boolean,
+    bookSearch: BookSearchState?,
+    onOpenSearch: () -> Unit,
+    onCloseSearch: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onSelectBook: (BookId) -> Unit,
+    onSkip: () -> Unit,
+) {
+    val isAssigned = hasOverrideEntry && bookOverride != null
+    val isSkipped = hasOverrideEntry && bookOverride == null
+    val isResolved = isAssigned || isSkipped
+    val tierLabel =
+        if (isUnmatched) {
+            MatchTier.UNMATCHED.name
+                .lowercase()
+                .replaceFirstChar { it.uppercase() }
+        } else {
+            MatchTier.AMBIGUOUS.name
+                .lowercase()
+                .replaceFirstChar { it.uppercase() }
+        }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    when {
+                        isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
+                        isAssigned -> MaterialTheme.colorScheme.surfaceContainerLow
+                        else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                    },
+            ),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            BookTitleRow(
+                item = item,
+                isAssigned = isAssigned,
+                isSkipped = isSkipped,
+                isResolved = isResolved,
+                tierLabel = tierLabel,
+            )
+            if (bookSearch != null) {
+                BookSearchPanel(
+                    bookSearch = bookSearch,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onCloseSearch = onCloseSearch,
+                    onSelectBook = onSelectBook,
+                )
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onOpenSearch, shape = MaterialTheme.shapes.extraLarge) {
+                        Text(stringResource(Res.string.import_search_and_assign))
+                    }
+                    OutlinedButton(onClick = onSkip, shape = MaterialTheme.shapes.extraLarge) {
+                        Text(stringResource(Res.string.import_book_skip))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookTitleRow(
+    item: AbsItemRef,
+    isAssigned: Boolean,
+    isSkipped: Boolean,
+    isResolved: Boolean,
+    tierLabel: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = item.title, style = MaterialTheme.typography.bodyMedium)
+            val identifiers =
+                listOfNotNull(
+                    item.asin?.let { "ASIN: $it" },
+                    item.isbn?.let { "ISBN: $it" },
+                ).joinToString(" · ")
+            if (identifiers.isNotEmpty()) {
+                Text(
+                    text = identifiers,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Text(
+            text =
+                when {
+                    isAssigned -> stringResource(Res.string.import_book_assigned)
+                    isSkipped -> stringResource(Res.string.import_user_skipped)
+                    else -> tierLabel
+                },
+            style = MaterialTheme.typography.labelSmall,
+            color =
+                if (!isResolved) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun BookSearchPanel(
+    bookSearch: BookSearchState,
+    onSearchQueryChange: (String) -> Unit,
+    onCloseSearch: () -> Unit,
+    onSelectBook: (BookId) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = bookSearch.query,
+                onValueChange = onSearchQueryChange,
+                placeholder = {
+                    Text(
+                        text = stringResource(Res.string.import_book_search_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                trailingIcon = {
+                    if (bookSearch.isSearching) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    }
+                },
+            )
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onCloseSearch) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(Res.string.import_book_search_cancel),
+                )
+            }
+        }
+        if (bookSearch.query.isNotBlank() && !bookSearch.isSearching && bookSearch.results.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.import_book_search_no_results),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
+        bookSearch.results.forEach { hit ->
+            TextButton(onClick = { onSelectBook(hit.bookId) }, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(text = hit.title, style = MaterialTheme.typography.bodyMedium)
+                    if (hit.author.isNotBlank()) {
+                        Text(
+                            text = hit.author,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
