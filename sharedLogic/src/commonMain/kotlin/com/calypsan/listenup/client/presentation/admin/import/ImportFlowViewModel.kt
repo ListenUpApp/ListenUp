@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.import.ImportEvent
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.AbsItemId
@@ -16,7 +18,9 @@ import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -62,6 +66,7 @@ class ImportFlowViewModel(
     private val errorBus: ErrorBus,
     private val syncRepository: SyncRepository,
     private val adminRepository: AdminRepository,
+    private val searchRepository: SearchRepository,
 ) : ViewModel() {
     /**
      * Current phase of the import flow. Transitions are always total replacements
@@ -76,6 +81,15 @@ class ImportFlowViewModel(
 
     /** In-flight progress collection job; cancelled on reset or a new start(). */
     private var progressJob: Job? = null
+
+    /**
+     * In-flight book-search debounce+fetch job for the search panel.
+     *
+     * Cancelled and replaced each time [updateBookSearchQuery] is called, ensuring only
+     * the most-recently-typed query's results can land. Also cancelled by [reset] and
+     * [onCleared].
+     */
+    private var bookSearchJob: Job? = null
 
     // ─── public API ───────────────────────────────────────────────────────────
 
@@ -225,6 +239,131 @@ class ImportFlowViewModel(
     }
 
     /**
+     * Open the book-search panel for [absItemId] while in [ImportFlowUiState.Review].
+     *
+     * Sets [ImportFlowUiState.Review.bookSearch] to a blank initial state for the given item.
+     * Opening a panel while another is already open replaces it (only one panel at a time).
+     * No-op when the flow is not in [ImportFlowUiState.Review].
+     */
+    fun openBookSearch(absItemId: AbsItemId) {
+        updateReview {
+            it.copy(
+                bookSearch = BookSearchState(
+                    absItemId = absItemId,
+                    query = "",
+                    results = emptyList(),
+                    isSearching = false,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Close the book-search panel while in [ImportFlowUiState.Review].
+     *
+     * Sets [ImportFlowUiState.Review.bookSearch] to null. Also cancels any in-flight search.
+     * No-op when the flow is not in [ImportFlowUiState.Review].
+     */
+    fun closeBookSearch() {
+        bookSearchJob?.cancel()
+        updateReview { it.copy(bookSearch = null) }
+    }
+
+    /**
+     * Update the book-search query and trigger a debounced search.
+     *
+     * Cancels the previous search job and launches a new one. After a 300 ms debounce,
+     * calls [SearchRepository.search] filtered to [SearchHitType.BOOK] and maps the hits
+     * to [BookSearchHit]s. A blank [query] clears results without triggering a search call.
+     *
+     * Stale-result guard: results are only applied when the current
+     * [ImportFlowUiState.Review.bookSearch]'s [absItemId] and query still match the search
+     * that produced them — superseded queries are silently discarded.
+     *
+     * Re-throws [CancellationException] if the coroutine is cancelled; all other exceptions
+     * are logged and swallowed so a transient search failure never breaks the panel.
+     *
+     * No-op when the flow is not in [ImportFlowUiState.Review] or no panel is open.
+     */
+    fun updateBookSearchQuery(query: String) {
+        val review = uiState.value as? ImportFlowUiState.Review ?: return
+        val currentSearch = review.bookSearch ?: return
+        val absItemId = currentSearch.absItemId
+
+        // Update query immediately so the text field stays responsive
+        updateReview { it.copy(bookSearch = it.bookSearch?.copy(query = query)) }
+
+        bookSearchJob?.cancel()
+
+        if (query.isBlank()) {
+            updateReview { it.copy(bookSearch = it.bookSearch?.copy(results = emptyList(), isSearching = false)) }
+            return
+        }
+
+        bookSearchJob = viewModelScope.launch {
+            // Mark searching BEFORE debounce so the spinner can appear immediately
+            updateReview { it.copy(bookSearch = it.bookSearch?.copy(isSearching = true)) }
+            delay(BOOK_SEARCH_DEBOUNCE_MS)
+
+            try {
+                val result = searchRepository.search(
+                    query = query,
+                    types = listOf(SearchHitType.BOOK),
+                )
+                val hits = result.hits.map { hit ->
+                    BookSearchHit(
+                        bookId = BookId(hit.id),
+                        title = hit.name,
+                        author = hit.author ?: "",
+                    )
+                }
+                // Stale-result guard: only apply if still on the same item and query
+                val currentReview = uiState.value as? ImportFlowUiState.Review
+                val currentBookSearch = currentReview?.bookSearch
+                if (currentBookSearch?.absItemId == absItemId && currentBookSearch.query == query) {
+                    updateReview { it.copy(bookSearch = it.bookSearch?.copy(results = hits, isSearching = false)) }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Book search failed for query '$query'" }
+                updateReview { it.copy(bookSearch = it.bookSearch?.copy(isSearching = false)) }
+            }
+        }
+    }
+
+    /**
+     * Select a book from the search panel for [absItemId] while in [ImportFlowUiState.Review].
+     *
+     * Records [bookId] as the override for [absItemId] and closes the search panel.
+     * Equivalent to calling [setBookOverride] then [closeBookSearch] atomically.
+     * No-op when the flow is not in [ImportFlowUiState.Review].
+     */
+    fun selectBook(
+        absItemId: AbsItemId,
+        bookId: BookId,
+    ) {
+        bookSearchJob?.cancel()
+        updateReview {
+            it.copy(
+                bookOverrides = it.bookOverrides + (absItemId to bookId),
+                bookSearch = null,
+            )
+        }
+    }
+
+    /**
+     * Skip [absItemId] in [ImportFlowUiState.Review], marking it as intentionally excluded.
+     *
+     * Records a null value in [ImportFlowUiState.Review.bookOverrides] for [absItemId].
+     * The server interprets a null override as "skip this item — import no history for it".
+     * No-op when the flow is not in [ImportFlowUiState.Review].
+     */
+    fun skipBook(absItemId: AbsItemId) {
+        setBookOverride(absItemId, null)
+    }
+
+    /**
      * Persist the admin's mappings via [ImportRepository.confirmMapping], then apply
      * the import via [ImportRepository.apply]. Subscribes [ImportRepository.observeProgress]
      * before calling apply so live ticks are not missed.
@@ -304,6 +443,7 @@ class ImportFlowViewModel(
      */
     fun reset() {
         progressJob?.cancel()
+        bookSearchJob?.cancel()
         currentImportId = null
         uiState.value = ImportFlowUiState.Idle
     }
@@ -397,5 +537,11 @@ class ImportFlowViewModel(
     override fun onCleared() {
         super.onCleared()
         progressJob?.cancel()
+        bookSearchJob?.cancel()
+    }
+
+    companion object {
+        /** Debounce delay for book-search queries, in milliseconds. */
+        private const val BOOK_SEARCH_DEBOUNCE_MS = 300L
     }
 }

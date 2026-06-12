@@ -9,6 +9,36 @@ import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 
 /**
+ * A lightweight projection of a library book returned by the book-search panel.
+ *
+ * Carries only what the panel needs to render a result row and let the admin pick.
+ * Mapped from [com.calypsan.listenup.client.domain.model.SearchHit] at the ViewModel layer.
+ */
+data class BookSearchHit(
+    val bookId: BookId,
+    val title: String,
+    val author: String,
+)
+
+/**
+ * State for the book-search panel attached to one ABS item in [ImportFlowUiState.Review].
+ *
+ * Opened by [ImportFlowViewModel.openBookSearch], closed by [ImportFlowViewModel.closeBookSearch]
+ * or [ImportFlowViewModel.selectBook]. [isSearching] is true while the async search call is in
+ * flight. [results] is empty when [query] is blank or when the search has not yet returned.
+ */
+data class BookSearchState(
+    /** ABS item this panel is resolving. */
+    val absItemId: AbsItemId,
+    /** Current search query typed by the admin. */
+    val query: String,
+    /** Search results mapped from the SearchRepository. Empty when [query] is blank. */
+    val results: List<BookSearchHit>,
+    /** True while the repository call is in flight. */
+    val isSearching: Boolean,
+)
+
+/**
  * Per-phase sealed UI state for the rebuilt Audiobookshelf import flow.
  *
  * The flow progresses linearly: [Idle] → [Uploading] → [Analyzing] → [Review] →
@@ -48,9 +78,18 @@ sealed interface ImportFlowUiState {
      * (skipped). Unresolved users are treated as skipped — no history is imported for them.
      * [bookOverrides] accumulates admin-supplied book-match overrides; null value = skip.
      *
+     * An ambiguous/unmatched ABS item is "resolved" iff present in [bookOverrides] —
+     * assigned to a [BookId] value, or null-valued (= skip). Confident auto-matches are
+     * applied server-side and are absent from [ImportAnalysis.ambiguous]/[ImportAnalysis.unmatched];
+     * they never appear here.
+     *
      * [listenupUsers] is the full list of ListenUp users available for the picker. It may
      * be empty if the admin-user-list load failed (graceful degradation — the admin can still
      * skip users; the picker simply shows nothing to pick from).
+     *
+     * [bookSearch] is non-null when the book-search panel is open for a specific ABS item.
+     * It is set by [ImportFlowViewModel.openBookSearch] and cleared by
+     * [ImportFlowViewModel.closeBookSearch] or [ImportFlowViewModel.selectBook].
      */
     data class Review(
         val analysis: ImportAnalysis,
@@ -71,6 +110,11 @@ sealed interface ImportFlowUiState {
          * when entering Review; empty on load failure (non-fatal).
          */
         val listenupUsers: List<AdminUserInfo>,
+        /**
+         * State of the book-search panel, or null when no panel is open.
+         * Only one panel can be open at a time — opening a new one implicitly closes the previous.
+         */
+        val bookSearch: BookSearchState? = null,
     ) : ImportFlowUiState
 
     /** Confirmed mappings are being applied; live progress is shown. */
