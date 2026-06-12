@@ -13,9 +13,12 @@ import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * The apply stage of an ABS import: writes the staged listening progress into ListenUp through
@@ -108,9 +111,11 @@ class ImportApplier internal constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AbsBackupReader.AbsReadException) {
+                logger.error(e) { "ABS import apply failed reading the backup for import ${importId.value}" }
                 onEvent(ImportEvent.Failed(reason = e.message ?: "Failed to read the ABS backup."))
                 AppResult.Failure(ImportError.ApplyFailed(debugInfo = e.message))
             } catch (e: Exception) {
+                logger.error(e) { "ABS import apply failed unexpectedly for import ${importId.value}" }
                 onEvent(ImportEvent.Failed(reason = e.message ?: "Apply failed unexpectedly."))
                 AppResult.Failure(ImportError.ApplyFailed(debugInfo = e.message))
             }
