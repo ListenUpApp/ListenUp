@@ -3,12 +3,13 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.GenreUpdate
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +67,7 @@ class AdminCategoriesViewModel(
                 throw e
             } catch (e: Exception) {
                 logger.error(e) { "Failed to observe genres" }
-                state.value = AdminCategoriesUiState.Error(e.message ?: "Failed to load categories")
+                state.value = AdminCategoriesUiState.Error(ErrorMapper.map(e))
             }
         }
     }
@@ -127,7 +128,7 @@ class AdminCategoriesViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to create genre: ${result.error.message}" }
-                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                    updateReady { it.copy(error = result.error) }
                 }
             }
             updateReady { it.copy(isSaving = false) }
@@ -149,7 +150,7 @@ class AdminCategoriesViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to rename genre: ${result.error.message}" }
-                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                    updateReady { it.copy(error = result.error) }
                 }
             }
             updateReady { it.copy(isSaving = false) }
@@ -168,7 +169,7 @@ class AdminCategoriesViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to delete genre: ${result.error.message}" }
-                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                    updateReady { it.copy(error = result.error) }
                 }
             }
             updateReady { it.copy(isSaving = false) }
@@ -199,7 +200,7 @@ class AdminCategoriesViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to move genre: ${result.error.message}" }
-                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                    updateReady { it.copy(error = result.error) }
                 }
             }
             updateReady { it.copy(isSaving = false) }
@@ -223,7 +224,7 @@ class AdminCategoriesViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge genres: ${result.error.message}" }
-                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                    updateReady { it.copy(error = result.error) }
                 }
             }
             updateReady { it.copy(isSaving = false) }
@@ -321,11 +322,11 @@ sealed interface AdminCategoriesUiState {
         val tree: List<GenreTreeNode> = emptyList(),
         val expandedIds: Set<String> = emptySet(),
         val totalBookCount: Int = 0,
-        val error: String? = null,
+        val error: AppError? = null,
     ) : AdminCategoriesUiState
 
     /** Terminal state when the observe pipeline fails. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : AdminCategoriesUiState
 }
