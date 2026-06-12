@@ -17,19 +17,29 @@ enum PlayerMorph {
 ///
 /// `tabViewBottomAccessory` and `fullScreenCover` each live in their own
 /// presentation context, so a shared-geometry morph can't cross that boundary.
-/// This overlay collapses both surfaces into one view tree: tap the mini bar to
-/// spring up into the full player; tap the header chevron to spring back down.
-/// (Interactive drag gestures land in a follow-up task.)
+/// This overlay collapses both surfaces into one view tree: tap or swipe up on the
+/// mini bar to spring into the full player; tap the chevron, or interactively swipe
+/// the full player's header down, to spring back down. During a dismiss drag the
+/// whole player tracks the finger and the cover-tint wash fades with travel; a
+/// release past the threshold (or a fast fling) commits, otherwise it springs back.
 struct PlayerExpansionOverlay: View {
     let coordinator: PlayerCoordinator
 
     @Namespace private var namespace
     @State private var isExpanded = false
+    /// Live downward travel of the dismiss drag (`0` at rest). Drives the player's
+    /// follow-the-finger offset plus the derived wash fade and shrink.
+    @State private var dragOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The spring that drives both the cover morph and the chrome transition.
     private var morphAnimation: Animation? {
         reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.86)
+    }
+
+    /// `0...1` dismiss progress derived from the current drag offset.
+    private var dismissProgress: CGFloat {
+        PlayerGestureMath.dismissProgress(offset: dragOffset)
     }
 
     var body: some View {
@@ -38,8 +48,13 @@ struct PlayerExpansionOverlay: View {
                 FullScreenPlayerView(
                     observer: coordinator,
                     namespace: namespace,
-                    onCollapse: collapse
+                    onCollapse: collapse,
+                    onDragChanged: handleDragChanged,
+                    onDragEnded: handleDragEnded
                 )
+                .offset(y: reduceMotion ? 0 : dragOffset)
+                .scaleEffect(reduceMotion ? 1 : 1 - dismissProgress / 10, anchor: .center)
+                .opacity(reduceMotion ? 1 : Double(1 - dismissProgress * 0.5))
                 .transition(fullPlayerTransition)
                 .zIndex(2)
             } else {
@@ -69,6 +84,31 @@ struct PlayerExpansionOverlay: View {
     }
 
     private func collapse() {
-        withAnimation(morphAnimation) { isExpanded = false }
+        // Reset the drag offset inside the same animation so the cover morph runs
+        // from the dragged position back to the mini bar without a jump, and a
+        // later re-expand always starts from rest.
+        withAnimation(morphAnimation) {
+            isExpanded = false
+            dragOffset = 0
+        }
+    }
+
+    /// Live dismiss-drag update from the player's header. Reduce Motion skips the
+    /// interactive follow but still tracks travel so the release decision is honest.
+    private func handleDragChanged(_ translation: CGFloat) {
+        dragOffset = PlayerGestureMath.downwardOffset(translation: translation)
+    }
+
+    /// Release decision: commit to dismiss past the threshold / on a fast fling,
+    /// otherwise spring the player back to rest.
+    private func handleDragEnded(_ translation: CGFloat, _ predictedEndTranslation: CGFloat) {
+        if PlayerGestureMath.shouldDismiss(
+            translation: translation,
+            predictedEndTranslation: predictedEndTranslation
+        ) {
+            collapse()
+        } else {
+            withAnimation(morphAnimation) { dragOffset = 0 }
+        }
     }
 }

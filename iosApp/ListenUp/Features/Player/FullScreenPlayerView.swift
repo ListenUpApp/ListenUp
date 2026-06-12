@@ -20,6 +20,14 @@ struct FullScreenPlayerView: View {
     var namespace: Namespace.ID
     var onCollapse: () -> Void
 
+    /// Live drag translation as the user swipes the header down (downward only).
+    /// Attached to the header strip alone so the body's chapter `Slider` and any
+    /// scrolling stay fully interactive — the dismiss drag never covers them.
+    var onDragChanged: (CGFloat) -> Void = { _ in }
+    /// Drag release: the overlay decides commit-to-dismiss vs. spring-back from
+    /// the final translation and predicted-end fling.
+    var onDragEnded: (_ translation: CGFloat, _ predictedEndTranslation: CGFloat) -> Void = { _, _ in }
+
     @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
     @State private var showSleepTimer: Bool = false
@@ -158,6 +166,17 @@ struct FullScreenPlayerView: View {
             }
         }
         .padding(.horizontal, 18)
+        // Interactive swipe-down-to-dismiss lives on the header strip only. The
+        // chevron/menu `Button`s still get their taps (the drag only fires past
+        // its minimum distance); the body's chapter `Slider` is untouched.
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 10)
+                .onChanged { value in onDragChanged(value.translation.height) }
+                .onEnded { value in
+                    onDragEnded(value.translation.height, value.predictedEndTranslation.height)
+                }
+        )
     }
 
     // MARK: - Title block

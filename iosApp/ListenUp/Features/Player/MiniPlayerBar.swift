@@ -7,7 +7,8 @@ import SwiftUI
 /// Liquid Glass surface (it no longer borrows the accessory's). Its cover art
 /// carries the shared `PlayerMorph.coverID` geometry so it morphs into the
 /// full-player hero when the user taps to expand. Tapping anywhere except the
-/// play/pause control invokes `onTap` to expand the player.
+/// play/pause control invokes `onTap` to expand the player; an upward swipe on the
+/// bar also expands (via `onTap`).
 struct MiniPlayerBar: View {
     let observer: PlayerCoordinator
     var namespace: Namespace.ID
@@ -34,6 +35,20 @@ struct MiniPlayerBar: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+        // Swipe up to expand. `simultaneousGesture` keeps both the bar's tap and
+        // the inner play/pause `Button` working — the drag only acts on an
+        // upward release, leaving taps to the buttons.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 10)
+                .onEnded { value in
+                    if PlayerGestureMath.shouldExpand(
+                        translation: value.translation.height,
+                        predictedEndTranslation: value.predictedEndTranslation.height
+                    ) {
+                        onTap()
+                    }
+                }
+        )
     }
 
     // MARK: - Content
