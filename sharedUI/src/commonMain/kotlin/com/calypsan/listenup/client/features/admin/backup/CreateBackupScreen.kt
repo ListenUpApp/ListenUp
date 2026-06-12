@@ -49,6 +49,7 @@ import listenup.composeapp.generated.resources.admin_cover_images
 import listenup.composeapp.generated.resources.admin_create_a_backup_of_your
 import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_creating_backup
+import listenup.composeapp.generated.resources.admin_info_emoji
 import listenup.composeapp.generated.resources.admin_significantly_increases_backup_size
 import listenup.composeapp.generated.resources.admin_what_to_include
 
@@ -212,7 +213,7 @@ private fun CreateBackupForm(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "ℹ️",
+                    text = stringResource(Res.string.admin_info_emoji),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
