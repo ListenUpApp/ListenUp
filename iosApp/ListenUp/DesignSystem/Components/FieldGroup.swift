@@ -52,7 +52,7 @@ private struct DemoRow: Identifiable {
     let rows = [
         DemoRow(id: 1, title: "The Way of Kings", subtitle: "Book 1 · 45h 13m"),
         DemoRow(id: 2, title: "Words of Radiance", subtitle: "Book 2 · 48h 02m"),
-        DemoRow(id: 3, title: "Oathbringer", subtitle: "Book 3 · 55h 06m"),
+        DemoRow(id: 3, title: "Oathbringer", subtitle: "Book 3 · 55h 06m")
     ]
     FieldGroup(rows, separatorInset: 68) { row in
         HStack(spacing: 14) {

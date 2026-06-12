@@ -5,9 +5,10 @@ import SwiftUI
 /// detail header; `centered: false` (leading) for the iPad spotlight.
 struct StatStrip: View {
     struct Stat: Identifiable {
-        let id = UUID()
         let value: String
         let label: String
+        /// Stable identity: the label is unique within a strip (Books/Finished/Total).
+        var id: String { label }
 
         init(value: String, label: String) {
             self.value = value
@@ -18,7 +19,11 @@ struct StatStrip: View {
     let stats: [Stat]
     var centered: Bool = true
 
+    @Environment(\.displayScale) private var displayScale
+    @ScaledMetric private var dividerHeight: CGFloat = 30
+
     private var groupAlignment: HorizontalAlignment { centered ? .center : .leading }
+    private var hairline: CGFloat { 1 / max(displayScale, 1) }
 
     var body: some View {
         HStack(spacing: 20) {
@@ -32,10 +37,13 @@ struct StatStrip: View {
                         .font(.footnote)
                         .foregroundStyle(Color.luLabel2)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(stat.value) \(stat.label)")
                 if index < stats.count - 1 {
                     Rectangle()
                         .fill(Color.luSeparator)
-                        .frame(width: 0.5, height: 30)
+                        .frame(width: hairline, height: dividerHeight)
+                        .accessibilityHidden(true)
                 }
             }
         }
@@ -50,11 +58,11 @@ struct StatStrip: View {
         StatStrip(stats: [
             .init(value: "5", label: "Books"),
             .init(value: "2", label: "Finished"),
-            .init(value: "203h", label: "Total"),
+            .init(value: "203h", label: "Total")
         ])
         StatStrip(stats: [
             .init(value: "42", label: "Books"),
-            .init(value: "318h", label: "Listened"),
+            .init(value: "318h", label: "Listened")
         ], centered: false)
         .padding(.horizontal)
     }

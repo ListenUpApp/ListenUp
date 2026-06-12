@@ -48,7 +48,7 @@ struct CoverStack: View {
 
     private var visible: [CoverArt] { Array(covers.prefix(maxCovers)) }
     private var layout: CoverStackLayout {
-        CoverStackLayout(count: visible.count, size: size, peek: peek)
+        CoverStackLayout(coverCount: visible.count, size: size, peek: peek)
     }
     private var cornerRadius: CGFloat { size * 0.09 }
 
@@ -75,8 +75,9 @@ struct CoverStack: View {
         }
         .frame(width: layout.totalWidth, height: size, alignment: .leading)
         .shadow(color: .black.opacity(0.10), radius: 9, x: 0, y: 5)
-        .accessibilityElement()
-        .accessibilityLabel(Text(visible.count == 1 ? "1 cover" : "\(visible.count) covers"))
+        // Decorative: the enclosing row / hero (a labeled NavigationLink) owns the
+        // accessibility label, so the deck stays hidden to avoid double-spoken covers.
+        .accessibilityHidden(true)
     }
 }
 

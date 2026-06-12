@@ -35,7 +35,7 @@ extension Color {
         ("luTint", .luTint), ("luOnTint", .luOnTint),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
-        ("luLabel2", .luLabel2), ("luLabel3", .luLabel3),
+        ("luLabel2", .luLabel2), ("luLabel3", .luLabel3)
     ]
     return ScrollView {
         VStack(spacing: 12) {

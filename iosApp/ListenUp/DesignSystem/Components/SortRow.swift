@@ -3,6 +3,12 @@ import SwiftUI
 /// Inline count + sort control for list screens (replaces the floating sort button in
 /// Phase B). Leading: a muted count. Trailing: a coral sort affordance backed by a
 /// native `Menu` whose items the caller supplies (sort categories + direction toggle).
+///
+/// Caller contracts:
+/// - `count` is a fully-formatted, **already-localized** string (e.g. `"24 series"`) —
+///   pluralization and number formatting belong to the screen's localized catalog.
+/// - The `menu` actions fire their own selection haptic
+///   (`UISelectionFeedbackGenerator`); `SortRow` only presents the menu.
 struct SortRow<MenuContent: View>: View {
     let count: String
     let sortLabel: String

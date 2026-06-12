@@ -8,16 +8,20 @@ import CoreGraphics
 /// (Mirrors the `PlayerGestureMath` pure-helper precedent.)
 struct CoverStackLayout {
     /// Number of covers actually drawn (already clamped to the deck's max).
-    let count: Int
+    let coverCount: Int
     /// Edge length of the front (largest, index 0) cover.
     let size: CGFloat
     /// Horizontal indent added for each deeper layer.
     let peek: CGFloat
 
     /// Total width the deck occupies: front cover plus one `peek` per extra layer.
+    ///
+    /// This is the *unscaled* bounding width — deeper layers are drawn slightly smaller
+    /// (`scale(at:)`), so the painted deck sits a hair inside the trailing edge. Callers
+    /// align against this width, not the last cover's scaled edge.
     var totalWidth: CGFloat {
-        guard count > 0 else { return size }
-        return size + CGFloat(count - 1) * peek
+        guard coverCount > 0 else { return size }
+        return size + CGFloat(coverCount - 1) * peek
     }
 
     /// Leading x-offset of the cover at `index` (0 = front, drawn flush left).

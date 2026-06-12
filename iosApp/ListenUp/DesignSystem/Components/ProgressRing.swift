@@ -26,9 +26,11 @@ struct ProgressRing: View {
             }
         }
         .frame(width: size, height: size)
+        // Implicit animations honor Reduce Motion automatically; the arc eases on change.
+        .animation(.easeOut(duration: 0.3), value: clamped)
         .accessibilityElement()
         .accessibilityLabel(Text("Progress"))
-        .accessibilityValue(Text("\(Int((clamped * 100).rounded())) percent"))
+        .accessibilityValue(Text(clamped, format: .percent.precision(.fractionLength(0))))
     }
 }
 
