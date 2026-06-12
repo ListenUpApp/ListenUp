@@ -47,6 +47,9 @@ import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.client.design.components.BookCoverFallback
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.scan_scanning
+import org.jetbrains.compose.resources.stringResource
 
 private const val OUTER_ROTATION_MS = 9_000
 private const val INNER_ROTATION_MS = 7_000
@@ -259,7 +262,7 @@ fun ScanFileLine(
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = dotAlpha)),
         )
         Text(
-            text = "SCANNING",
+            text = stringResource(Res.string.scan_scanning),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 0.8.sp,

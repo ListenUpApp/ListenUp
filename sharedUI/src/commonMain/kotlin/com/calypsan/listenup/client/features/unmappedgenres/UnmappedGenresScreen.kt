@@ -47,6 +47,17 @@ import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresUiState
 import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel
 import com.calypsan.listenup.core.GenreId
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.genre_all_mapped
+import listenup.composeapp.generated.resources.genre_book_count
+import listenup.composeapp.generated.resources.genre_books_count
+import listenup.composeapp.generated.resources.genre_map_arrow
+import listenup.composeapp.generated.resources.genre_map_raw_to
+import listenup.composeapp.generated.resources.genre_no_live_genres
+import listenup.composeapp.generated.resources.genre_nothing_to_map
+import listenup.composeapp.generated.resources.genre_unmapped_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Unmapped-genre-strings curator screen.
@@ -118,7 +129,7 @@ private fun UnmappedGenresTopBar(
 ) {
     Column {
         TopAppBar(
-            title = { Text("Unmapped Genres") },
+            title = { Text(stringResource(Res.string.genre_unmapped_title)) },
             navigationIcon = {
                 IconButton(onClick = onBackClick) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
@@ -201,13 +212,18 @@ private fun UnmappedRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = summary.rawString, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = "${summary.bookCount} book${if (summary.bookCount == 1) "" else "s"}",
+                    text =
+                        if (summary.bookCount == 1) {
+                            stringResource(Res.string.genre_book_count, summary.bookCount)
+                        } else {
+                            stringResource(Res.string.genre_books_count, summary.bookCount)
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
-                text = "Map →",
+                text = stringResource(Res.string.genre_map_arrow),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -224,10 +240,10 @@ private fun GenrePickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Map \"$rawString\" to…") },
+        title = { Text(stringResource(Res.string.genre_map_raw_to, rawString)) },
         text = {
             if (genres.isEmpty()) {
-                Text("No live genres available. Create one in Admin → Categories first.")
+                Text(stringResource(Res.string.genre_no_live_genres))
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(genres, key = { it.id }) { genre ->
@@ -253,7 +269,7 @@ private fun GenrePickerDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
         },
     )
 }
@@ -277,12 +293,12 @@ private fun EmptyUnmappedMessage(topPadding: androidx.compose.ui.unit.Dp) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Nothing to map.",
+            text = stringResource(Res.string.genre_nothing_to_map),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = "Every genre string from your scanner has been mapped or auto-resolved.",
+            text = stringResource(Res.string.genre_all_mapped),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

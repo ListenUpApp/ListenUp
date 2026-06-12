@@ -807,6 +807,14 @@
     "close_book": "Close Book"
   },
   "library_setup": {
+    "choose_audiobook_folders": "Choose your audiobook folders",
+    "select_one_or_more": "Select one or more folders where your audiobooks are stored.",
+    "point_at_audiobooks": "Point ListenUp at your audiobooks.",
+    "no_subfolders_here": "No subfolders here",
+    "no_subfolders_select_hint": "This folder has no subfolders. You can select it as a library location.",
+    "library_created": "Library created!",
+    "scanned_shortly": "Your audiobooks will be scanned and available shortly.",
+    "add_another_folder": "Add another folder",
     "choose_folders_title": "Choose your folders",
     "choose_folders_subtitle": "Select the folders on your server where your audiobooks are stored.",
     "up": "Up",
@@ -814,6 +822,7 @@
     "current_path_label": "Current folder: %1$s",
     "loading_folders": "Loading folders...",
     "no_subfolders": "This folder has no subfolders.",
+    "open_folder": "Open folder",
     "select_this_folder": "Select this folder",
     "library_name": "Library name",
     "library_name_placeholder": "My Library",
@@ -834,5 +843,25 @@
     "stat_hours": "Hours",
     "building_progress_a11y": "Building library, %1$d percent complete. %2$d books, %3$d authors, %4$d hours.",
     "building_starting_a11y": "Building library, starting scan."
+  },
+  "scan": {
+    "building_subtitle": "Building your library.",
+    "files_total": "/ %1$d files",
+    "recently_matched": "Recently matched",
+    "scanning": "SCANNING"
+  },
+  "genre": {
+    "browse_title": "Browse by Genre",
+    "include_subtree": "Include subtree",
+    "no_books_in_genre": "No books in this genre.",
+    "no_genres_yet": "No genres yet.",
+    "unmapped_title": "Unmapped Genres",
+    "map_arrow": "Map →",
+    "map_raw_to": "Map \"%1$s\" to…",
+    "no_live_genres": "No live genres available. Create one in Admin → Categories first.",
+    "nothing_to_map": "Nothing to map.",
+    "all_mapped": "Every genre string from your scanner has been mapped or auto-resolved.",
+    "book_count": "%1$d book",
+    "books_count": "%1$d books"
   }
 }

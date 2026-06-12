@@ -58,6 +58,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_setup_add_another_folder
+import listenup.composeapp.generated.resources.library_setup_choose_audiobook_folders
+import listenup.composeapp.generated.resources.library_setup_choose_folders_title
+import listenup.composeapp.generated.resources.library_setup_library_created
+import listenup.composeapp.generated.resources.library_setup_no_subfolders_here
+import listenup.composeapp.generated.resources.library_setup_no_subfolders_select_hint
+import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
+import listenup.composeapp.generated.resources.library_setup_scanned_shortly
+import listenup.composeapp.generated.resources.library_setup_select_one_or_more
+import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -180,14 +191,14 @@ private fun PhoneLayout(
                 BrandMark(onColor = true)
                 Spacer(Modifier.height(18.dp))
                 Text(
-                    text = "Choose your audiobook folders",
+                    text = stringResource(Res.string.library_setup_choose_audiobook_folders),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Select one or more folders where your audiobooks are stored.",
+                    text = stringResource(Res.string.library_setup_select_one_or_more),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
                 )
@@ -298,7 +309,7 @@ private fun DesktopLayout(
                     BrandMark(onColor = true)
                     Spacer(Modifier.height(32.dp))
                     Text(
-                        text = "Point ListenUp at your audiobooks.",
+                        text = stringResource(Res.string.library_setup_point_at_audiobooks),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -352,14 +363,14 @@ private fun DesktopPickerPanel(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "Choose your folders",
+            text = stringResource(Res.string.library_setup_choose_folders_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            text = "Select one or more folders where your audiobooks are stored.",
+            text = stringResource(Res.string.library_setup_select_one_or_more),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -524,13 +535,13 @@ private fun EmptyFolder(
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "No subfolders here",
+            text = stringResource(Res.string.library_setup_no_subfolders_here),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "This folder has no subfolders. You can select it as a library location.",
+            text = stringResource(Res.string.library_setup_no_subfolders_select_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -581,14 +592,14 @@ private fun ConfirmationContent(
         }
         Spacer(Modifier.height(28.dp))
         Text(
-            text = "Library created!",
+            text = stringResource(Res.string.library_setup_library_created),
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "Your audiobooks will be scanned and available shortly.",
+            text = stringResource(Res.string.library_setup_scanned_shortly),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.widthIn(max = 360.dp),
@@ -621,7 +632,7 @@ private fun ConfirmationActions(
                 leadingIcon = Icons.Rounded.CheckCircle,
             )
             ListenUpButton(
-                text = "Add another folder",
+                text = stringResource(Res.string.library_setup_add_another_folder),
                 onClick = onAddAnother,
                 filled = false,
                 fillMaxWidth = false,
@@ -651,7 +662,7 @@ private fun ConfirmationActions(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Add another folder",
+                    text = stringResource(Res.string.library_setup_add_another_folder),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
