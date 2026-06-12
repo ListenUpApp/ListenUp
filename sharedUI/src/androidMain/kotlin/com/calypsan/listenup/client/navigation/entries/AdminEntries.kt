@@ -10,10 +10,12 @@ import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.ABSImportHubDetailScreen
 import com.calypsan.listenup.client.features.admin.backup.ABSImportScreen
+import com.calypsan.listenup.client.features.admin.import.ImportFlowScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.navigation.ABSImport
 import com.calypsan.listenup.client.navigation.ABSImportDetail
+import com.calypsan.listenup.client.navigation.ImportFlow
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.AdminBackups
 import com.calypsan.listenup.client.navigation.AdminCategories
@@ -210,6 +212,9 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
             onABSImportHubClick = { importId ->
                 backStack.add(ABSImportDetail(importId))
             },
+            onNewImportClick = {
+                backStack.add(ImportFlow)
+            },
         )
     }
     entry<CreateBackup> {
@@ -245,6 +250,11 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
                 // Navigate back to backup list after import
                 backStack.removeAt(backStack.lastIndex)
             },
+        )
+    }
+    entry<ImportFlow> {
+        ImportFlowScreen(
+            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
         )
     }
 }

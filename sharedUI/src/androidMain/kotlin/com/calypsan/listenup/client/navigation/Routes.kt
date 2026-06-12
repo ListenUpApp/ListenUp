@@ -348,6 +348,16 @@ data class ABSImportDetail(
 data object ABSImport : Route
 
 /**
+ * Rebuilt ABS import flow screen — single-screen host for the full import pipeline.
+ *
+ * Drives [com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel] through
+ * Idle → Uploading → Analyzing → Review → Applying → Done (or Error). The file picker lives
+ * inside the screen's Idle state, so no [FileSource] argument is needed here.
+ */
+@Serializable
+data object ImportFlow : Route
+
+/**
  * Settings screen - app preferences and configuration.
  */
 @Serializable

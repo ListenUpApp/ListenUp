@@ -79,6 +79,7 @@ fun AdminBackupScreen(
     onCreateClick: () -> Unit,
     onRestoreClick: (String) -> Unit,
     onABSImportHubClick: (String) -> Unit,
+    onNewImportClick: () -> Unit = {},
 ) {
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val absImportListState by absImportViewModel.listState.collectAsStateWithLifecycle()
@@ -152,12 +153,7 @@ fun AdminBackupScreen(
             onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
             onABSImportClick = onABSImportHubClick,
             onDeleteImportClick = { deleteConfirmImport = it },
-            onUploadABSBackup = {
-                uploadSheetState.reset() // Ensure clean state
-                showUploadSheet = true
-                // Auto-launch picker when sheet opens
-                documentPicker.launch()
-            },
+            onUploadABSBackup = onNewImportClick,
         )
     }
 
