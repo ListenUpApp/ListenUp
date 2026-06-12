@@ -180,37 +180,10 @@
     <ID>NoHardcodedUiString:ContributorEditScreen.kt$placeholder = "https://..."</ID>
     <ID>NoHardcodedUiString:ContributorMetadataPreviewScreen.kt$label = "Biography"</ID>
     <ID>NoHardcodedUiString:ContributorMetadataPreviewScreen.kt$label = "Name"</ID>
-    <ID>NoHardcodedUiString:CreateAccountScreen.kt$label = "Email"</ID>
-    <ID>NoHardcodedUiString:CreateAccountScreen.kt$label = "Password"</ID>
     <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$label = "Name"</ID>
-    <ID>NoHardcodedUiString:CreateInviteScreen.kt$label = "Email"</ID>
-    <ID>NoHardcodedUiString:CreateInviteScreen.kt$label = "Name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$label = "Confirm Password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$label = "Current Password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$label = "First Name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$label = "Last Name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$label = "New Password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$placeholder = "Enter current password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$placeholder = "Enter new password"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$placeholder = "Enter your first name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$placeholder = "Enter your last name"</ID>
-    <ID>NoHardcodedUiString:EditProfileScreen.kt$placeholder = "Re-enter new password"</ID>
     <ID>NoHardcodedUiString:HomeStatsSection.kt$title = "My stats"</ID>
     <ID>NoHardcodedUiString:IdentifiersSection.kt$label = "ASIN"</ID>
     <ID>NoHardcodedUiString:IdentifiersSection.kt$label = "ISBN"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$label = "Display name"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$label = "Invite code"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$label = "Invited by"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$label = "Password"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$label = "Server"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$subtitle = "${preview.invitedByName} invited you to ${preview.serverName}. Set a password to finish."</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$subtitle = "Enter your invite code to get started."</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$text = "Continue"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$text = "Dismiss"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$text = "Get started"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$title = "Invite problem"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$title = "Join a library"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$title = "You're invited"</ID>
     <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "All"</ID>
     <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "Month"</ID>
     <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "Week"</ID>
@@ -224,8 +197,6 @@
     <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Continue"</ID>
     <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Done"</ID>
     <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Select this folder"</ID>
-    <ID>NoHardcodedUiString:LoginScreen.kt$label = "Email"</ID>
-    <ID>NoHardcodedUiString:LoginScreen.kt$label = "Password"</ID>
     <ID>NoHardcodedUiString:MarkCompleteDialog.kt$label = "Finished"</ID>
     <ID>NoHardcodedUiString:MarkCompleteDialog.kt$label = "Started"</ID>
     <ID>NoHardcodedUiString:MatchPreviewScreen.kt$label = "Authors"</ID>
@@ -246,10 +217,6 @@
     <ID>NoHardcodedUiString:ShelfDetailScreen.kt$label = "Total"</ID>
     <ID>NoHardcodedUiString:TalentSection.kt$placeholder = "Add ${role.displayName.lowercase()}..."</ID>
     <ID>NoHardcodedUiString:TalentSection.kt$title = "Remove ${role.displayName}s?"</ID>
-    <ID>NoHardcodedUiString:UserProfileScreen.kt$label = "Best"</ID>
-    <ID>NoHardcodedUiString:UserProfileScreen.kt$label = "Finished"</ID>
-    <ID>NoHardcodedUiString:UserProfileScreen.kt$label = "Listened"</ID>
-    <ID>NoHardcodedUiString:UserProfileScreen.kt$label = "Streak"</ID>
     <ID>NoHardcodedUiString:WavySeekBar.kt$label = "Seek"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>

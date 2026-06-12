@@ -63,6 +63,8 @@ import listenup.composeapp.generated.resources.common_n_days
 import listenup.composeapp.generated.resources.common_admin
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_copy
+import listenup.composeapp.generated.resources.common_email
+import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.admin_create_an_invite_to_share
 import listenup.composeapp.generated.resources.admin_create_another
 import listenup.composeapp.generated.resources.admin_create_invite
@@ -228,7 +230,7 @@ private fun CreateInviteForm(
         ListenUpTextField(
             value = name,
             onValueChange = { name = it },
-            label = "Name",
+            label = stringResource(Res.string.common_name),
             enabled = !isSubmitting,
             isError = validationField == CreateInviteField.NAME,
             supportingText =
@@ -252,7 +254,7 @@ private fun CreateInviteForm(
         ListenUpTextField(
             value = email,
             onValueChange = { email = it },
-            label = "Email",
+            label = stringResource(Res.string.common_email),
             enabled = !isSubmitting,
             isError = validationField == CreateInviteField.EMAIL,
             supportingText =

@@ -194,6 +194,16 @@
     "select_server_subtitle": "Choose a ListenUp server on your network — or add one manually.",
     "server_url_hint": "Your server address looks like https://yourname.listenup.app — find it in your server dashboard."
   },
+  "invite": {
+    "join_a_library": "Join a library",
+    "enter_invite_code": "Enter your invite code to get started.",
+    "invite_code": "Invite code",
+    "get_started": "Get started",
+    "youre_invited": "You're invited",
+    "youre_invited_subtitle": "%1$s invited you to %2$s. Set a password to finish.",
+    "invited_by": "Invited by",
+    "invite_problem": "Invite problem"
+  },
   "library": {
     "add_audiobooks_to_your_server": "Add audiobooks to your server to get started",
     "authors": "Authors",
@@ -508,7 +518,18 @@
     "tagline_char_count": "%1$d/%2$d",
     "tagline_description": "A short bio that appears on your profile",
     "tagline_placeholder": "What are you listening to?",
-    "upload_photo": "Upload Photo"
+    "upload_photo": "Upload Photo",
+    "first_name_placeholder": "Enter your first name",
+    "last_name_placeholder": "Enter your last name",
+    "current_password": "Current Password",
+    "new_password": "New Password",
+    "current_password_placeholder": "Enter current password",
+    "new_password_placeholder": "Enter new password",
+    "confirm_new_password_placeholder": "Re-enter new password",
+    "stat_listened": "Listened",
+    "stat_finished": "Finished",
+    "stat_streak": "Streak",
+    "stat_best": "Best"
   },
   "shelf": {
     "add_books_from_the_library": "Add books from the library",
@@ -862,7 +883,6 @@
     "speed": "Speed",
     "chapters": "Chapters",
     "chapters_count_summary": "%1$d chapters · %2$s",
-    "sleep": "Sleep",
     "airplay": "AirPlay",
     "sleep_timer": "Sleep timer",
     "bookmark": "Bookmark",

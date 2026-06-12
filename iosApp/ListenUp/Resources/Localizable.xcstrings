@@ -6401,6 +6401,86 @@
         }
       }
     },
+    "invite.enter_invite_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your invite code to get started."
+          }
+        }
+      }
+    },
+    "invite.get_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get started"
+          }
+        }
+      }
+    },
+    "invite.invite_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite code"
+          }
+        }
+      }
+    },
+    "invite.invite_problem": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite problem"
+          }
+        }
+      }
+    },
+    "invite.invited_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invited by"
+          }
+        }
+      }
+    },
+    "invite.join_a_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join a library"
+          }
+        }
+      }
+    },
+    "invite.youre_invited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're invited"
+          }
+        }
+      }
+    },
+    "invite.youre_invited_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ invited you to %2$@. Set a password to finish."
+          }
+        }
+      }
+    },
     "library.add_audiobooks_to_your_server": {
       "localizations": {
         "en": {
@@ -7721,6 +7801,16 @@
         }
       }
     },
+    "profile.confirm_new_password_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-enter new password"
+          }
+        }
+      }
+    },
     "profile.create_shelf": {
       "localizations": {
         "en": {
@@ -7737,6 +7827,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Current avatar"
+          }
+        }
+      }
+    },
+    "profile.current_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current Password"
+          }
+        }
+      }
+    },
+    "profile.current_password_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter current password"
           }
         }
       }
@@ -7761,6 +7871,16 @@
         }
       }
     },
+    "profile.first_name_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your first name"
+          }
+        }
+      }
+    },
     "profile.hours_listened": {
       "localizations": {
         "en": {
@@ -7781,12 +7901,42 @@
         }
       }
     },
+    "profile.last_name_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your last name"
+          }
+        }
+      }
+    },
     "profile.name_description": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Update your first and last name"
+          }
+        }
+      }
+    },
+    "profile.new_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Password"
+          }
+        }
+      }
+    },
+    "profile.new_password_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter new password"
           }
         }
       }
@@ -7887,6 +8037,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shelves"
+          }
+        }
+      }
+    },
+    "profile.stat_best": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best"
+          }
+        }
+      }
+    },
+    "profile.stat_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "profile.stat_listened": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listened"
+          }
+        }
+      }
+    },
+    "profile.stat_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streak"
           }
         }
       }

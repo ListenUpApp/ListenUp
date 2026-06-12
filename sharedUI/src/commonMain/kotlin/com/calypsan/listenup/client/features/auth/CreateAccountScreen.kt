@@ -58,11 +58,13 @@ import listenup.composeapp.generated.resources.auth_create_admin_account
 import listenup.composeapp.generated.resources.auth_create_an_account_request_an
 import listenup.composeapp.generated.resources.auth_first_name
 import listenup.composeapp.generated.resources.auth_last_name
+import listenup.composeapp.generated.resources.auth_password_label
 import listenup.composeapp.generated.resources.auth_passwords_dont_match
 import listenup.composeapp.generated.resources.auth_request_account
 import listenup.composeapp.generated.resources.auth_server_administrator
 import listenup.composeapp.generated.resources.auth_set_up_your_listenup_server
 import listenup.composeapp.generated.resources.auth_sign_in
+import listenup.composeapp.generated.resources.common_email
 
 /**
  * The two faces of "create an account" share one form — name, email, password, confirm — and differ
@@ -281,7 +283,7 @@ internal fun CreateAccountFields(
     ListenUpTextField(
         value = email,
         onValueChange = { email = it },
-        label = "Email",
+        label = stringResource(Res.string.common_email),
         enabled = !isLoading,
         isError = validationField == SetupField.EMAIL,
         leadingIcon = Icons.Outlined.MailOutline,
@@ -292,7 +294,7 @@ internal fun CreateAccountFields(
     ListenUpTextField(
         value = password,
         onValueChange = { password = it },
-        label = "Password",
+        label = stringResource(Res.string.auth_password_label),
         enabled = !isLoading,
         isError = validationField == SetupField.PASSWORD,
         leadingIcon = Icons.Outlined.Lock,

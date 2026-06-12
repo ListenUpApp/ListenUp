@@ -78,13 +78,23 @@ import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.auth_confirm_password
+import listenup.composeapp.generated.resources.auth_first_name
+import listenup.composeapp.generated.resources.auth_last_name
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.profile_avatar
 import listenup.composeapp.generated.resources.profile_change_password
+import listenup.composeapp.generated.resources.profile_confirm_new_password_placeholder
 import listenup.composeapp.generated.resources.profile_current_avatar
+import listenup.composeapp.generated.resources.profile_current_password
+import listenup.composeapp.generated.resources.profile_current_password_placeholder
 import listenup.composeapp.generated.resources.profile_edit_profile_title
+import listenup.composeapp.generated.resources.profile_first_name_placeholder
+import listenup.composeapp.generated.resources.profile_last_name_placeholder
 import listenup.composeapp.generated.resources.profile_name_description
+import listenup.composeapp.generated.resources.profile_new_password
+import listenup.composeapp.generated.resources.profile_new_password_placeholder
 import listenup.composeapp.generated.resources.profile_password_description
 import listenup.composeapp.generated.resources.profile_password_min_chars
 import listenup.composeapp.generated.resources.profile_passwords_do_not_match
@@ -515,8 +525,8 @@ private fun NameSection(
     ListenUpTextField(
         value = firstName,
         onValueChange = onFirstNameChange,
-        label = "First Name",
-        placeholder = "Enter your first name",
+        label = stringResource(Res.string.auth_first_name),
+        placeholder = stringResource(Res.string.profile_first_name_placeholder),
         enabled = !isSaving,
     )
 
@@ -525,8 +535,8 @@ private fun NameSection(
     ListenUpTextField(
         value = lastName,
         onValueChange = onLastNameChange,
-        label = "Last Name",
-        placeholder = "Enter your last name",
+        label = stringResource(Res.string.auth_last_name),
+        placeholder = stringResource(Res.string.profile_last_name_placeholder),
         enabled = !isSaving,
     )
 
@@ -574,8 +584,8 @@ private fun PasswordSection(
     PasswordField(
         value = currentPassword,
         onValueChange = onCurrentPasswordChange,
-        label = "Current Password",
-        placeholder = "Enter current password",
+        label = stringResource(Res.string.profile_current_password),
+        placeholder = stringResource(Res.string.profile_current_password_placeholder),
         isSaving = isSaving,
     )
 
@@ -584,8 +594,8 @@ private fun PasswordSection(
     PasswordField(
         value = newPassword,
         onValueChange = onNewPasswordChange,
-        label = "New Password",
-        placeholder = "Enter new password",
+        label = stringResource(Res.string.profile_new_password),
+        placeholder = stringResource(Res.string.profile_new_password_placeholder),
         isSaving = isSaving,
         supportingText = {
             if (newPassword.isNotEmpty() && !isPasswordValid) {
@@ -602,8 +612,8 @@ private fun PasswordSection(
     PasswordField(
         value = confirmPassword,
         onValueChange = onConfirmPasswordChange,
-        label = "Confirm Password",
-        placeholder = "Re-enter new password",
+        label = stringResource(Res.string.auth_confirm_password),
+        placeholder = stringResource(Res.string.profile_confirm_new_password_placeholder),
         isSaving = isSaving,
         supportingText = {
             if (confirmPassword.isNotEmpty() && !passwordsMatch) {
