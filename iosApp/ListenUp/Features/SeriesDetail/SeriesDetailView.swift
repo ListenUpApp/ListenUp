@@ -169,6 +169,7 @@ struct SeriesDetailView: View {
         }
         .buttonStyle(.plain)
         .disabled(observer.books.isEmpty)
+        .accessibilityLabel(observer.continueButtonTitle)
     }
 
     // MARK: - Books section
