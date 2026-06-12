@@ -6221,6 +6221,16 @@
         }
       }
     },
+    "library.author_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d authors"
+          }
+        }
+      }
+    },
     "library.authors": {
       "localizations": {
         "en": {
@@ -6267,6 +6277,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collection"
+          }
+        }
+      }
+    },
+    "library.contributors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contributors"
+          }
+        }
+      }
+    },
+    "library.contributors_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No contributors yet"
           }
         }
       }
@@ -6387,6 +6417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "More library options"
+          }
+        }
+      }
+    },
+    "library.narrator_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d narrators"
           }
         }
       }

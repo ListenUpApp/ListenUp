@@ -623,11 +623,14 @@ One beautiful library.</string>
     <string name="import_wizard">Import Wizard</string>
     <string name="import_wizard_desc">Step-by-step import from server file</string>
     <string name="library_add_audiobooks_to_your_server">Add audiobooks to your server to get started</string>
+    <string name="library_author_count">%d authors</string>
     <string name="library_authors">Authors</string>
     <string name="library_bookcount">%1$s</string>
     <string name="library_books">Books</string>
     <string name="library_browse_by_genre">Browse by genre</string>
     <string name="library_collection">Collection</string>
+    <string name="library_contributors">Contributors</string>
+    <string name="library_contributors_empty">No contributors yet</string>
     <string name="library_count_unit">%1$d %2$s</string>
     <string name="library_create_a_collection_in_the">Create a collection in the Admin section first</string>
     <string name="library_create_add">Create &amp; Add</string>
@@ -640,6 +643,7 @@ One beautiful library.</string>
     <string name="library_ignoring_articles"> · ignoring A · An · The</string>
     <string name="library_loading_your_library">Loading your library...</string>
     <string name="library_more_options">More library options</string>
+    <string name="library_narrator_count">%d narrators</string>
     <string name="library_narrators">Narrators</string>
     <string name="library_series_count">%d series</string>
     <string name="library_shelf">Shelf</string>
