@@ -117,6 +117,16 @@ object KoinHelper : KoinComponent {
         return syncRepository
     }
 
+    fun getHomeViewModel(): com.calypsan.listenup.client.presentation.home.HomeViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.home.HomeViewModel by inject()
+        return viewModel
+    }
+
+    fun getHomeStatsViewModel(): com.calypsan.listenup.client.presentation.home.HomeStatsViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.home.HomeStatsViewModel by inject()
+        return viewModel
+    }
+
     fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
         return viewModel
