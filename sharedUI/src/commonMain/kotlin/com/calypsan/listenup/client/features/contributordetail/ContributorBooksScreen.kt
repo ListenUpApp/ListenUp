@@ -54,6 +54,10 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_book_count
+import listenup.composeapp.generated.resources.common_books_count
+import listenup.composeapp.generated.resources.contributor_books_by_count
+import listenup.composeapp.generated.resources.contributor_books_by_s_count
 import listenup.composeapp.generated.resources.contributor_other_books
 
 /**
@@ -328,7 +332,12 @@ private fun CondensedHeader(
                 )
 
                 Text(
-                    text = "$totalBooks ${if (totalBooks == 1) "book" else "books"} by $contributorName",
+                    text =
+                        if (totalBooks == 1) {
+                            stringResource(Res.string.contributor_books_by_count, totalBooks, contributorName)
+                        } else {
+                            stringResource(Res.string.contributor_books_by_s_count, totalBooks, contributorName)
+                        },
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -363,7 +372,12 @@ private fun SeriesCarouselSection(
                     ),
             )
             Text(
-                text = "${seriesGroup.books.size} ${if (seriesGroup.books.size == 1) "book" else "books"}",
+                text =
+                    if (seriesGroup.books.size == 1) {
+                        stringResource(Res.string.common_book_count, seriesGroup.books.size)
+                    } else {
+                        stringResource(Res.string.common_books_count, seriesGroup.books.size)
+                    },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -422,7 +436,12 @@ private fun StandaloneBooksGrid(
                     ),
             )
             Text(
-                text = "${books.size} ${if (books.size == 1) "book" else "books"}",
+                text =
+                    if (books.size == 1) {
+                        stringResource(Res.string.common_book_count, books.size)
+                    } else {
+                        stringResource(Res.string.common_books_count, books.size)
+                    },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

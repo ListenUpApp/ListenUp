@@ -32,8 +32,11 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellNavType
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.brand_mark
+import listenup.composeapp.generated.resources.common_listenup
+import listenup.composeapp.generated.resources.shell_logout
 
 private val RailWidth = 100.dp
 private val BrandTile = 52.dp
@@ -117,8 +120,13 @@ fun AppNavigationSuite(
                 NavigationRailItem(
                     selected = false,
                     onClick = onSignOut,
-                    icon = { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "Logout") },
-                    label = { Text("Logout") },
+                    icon = {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.Logout,
+                            contentDescription = stringResource(Res.string.shell_logout),
+                        )
+                    },
+                    label = { Text(stringResource(Res.string.shell_logout)) },
                     colors = railItemColors(),
                 )
             }
@@ -160,7 +168,7 @@ private fun RailBrandMark() {
             )
         }
         Text(
-            text = "ListenUp",
+            text = stringResource(Res.string.common_listenup),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

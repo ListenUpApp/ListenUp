@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_credits_placeholder
 
 private val PREVIEW_DESCRIPTION =
     """
@@ -43,7 +46,7 @@ private fun PreviewTheme(
 @Composable
 private fun CreditsSlotSample() {
     Text(
-        text = "Credits go here",
+        text = stringResource(Res.string.book_detail_credits_placeholder),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 8.dp),

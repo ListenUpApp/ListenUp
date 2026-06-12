@@ -24,6 +24,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.theme.Spacing
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_count_unit
+import listenup.composeapp.generated.resources.library_ignoring_articles
+import listenup.composeapp.generated.resources.library_title_sort_toggle
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The Library's count + "Title sort" row.
@@ -60,14 +65,14 @@ fun LibrarySortBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "$count $unit",
+                text = stringResource(Res.string.library_count_unit, count, unit),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
             if (ignoreArticles) {
                 Text(
-                    text = " · ignoring A · An · The",
+                    text = stringResource(Res.string.library_ignoring_articles),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                     maxLines = 1,
@@ -114,7 +119,7 @@ private fun TitleSortToggle(
                 modifier = Modifier.size(20.dp),
             )
             Text(
-                text = "Title sort",
+                text = stringResource(Res.string.library_title_sort_toggle),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
             )

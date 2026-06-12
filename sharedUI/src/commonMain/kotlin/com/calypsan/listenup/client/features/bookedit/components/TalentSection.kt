@@ -41,7 +41,10 @@ import com.calypsan.listenup.client.presentation.bookedit.displayName
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_remove
+import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_edit_add_role
+import listenup.composeapp.generated.resources.book_edit_remove_role_section
+import listenup.composeapp.generated.resources.book_edit_role_plural
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_from_this_book
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
@@ -151,7 +154,7 @@ private fun RoleContributorSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "${role.displayName}s",
+                text = stringResource(Res.string.book_edit_role_plural, role.displayName),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
             )
@@ -161,7 +164,7 @@ private fun RoleContributorSection(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Remove ${role.displayName} section",
+                    contentDescription = stringResource(Res.string.book_edit_remove_role_section, role.displayName),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -259,7 +262,7 @@ private fun ContributorChip(
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Remove ${contributor.name}",
+                contentDescription = stringResource(Res.string.common_remove_name, contributor.name),
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)

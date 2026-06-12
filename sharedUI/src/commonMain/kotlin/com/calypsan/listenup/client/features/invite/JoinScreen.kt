@@ -42,7 +42,10 @@ import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.auth_your_email
 
 /**
  * Public invite-claim landing screen — the redeem half of the invite vertical.
@@ -242,7 +245,7 @@ private fun InvitePreviewCard(
             PreviewRow(label = "Server", value = preview.serverName, icon = Icons.Outlined.Storage)
             PreviewRow(label = "Invited by", value = preview.invitedByName, icon = Icons.Outlined.Person)
             Text(
-                text = "Your email: ${preview.email}",
+                text = stringResource(Res.string.auth_your_email, preview.email),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

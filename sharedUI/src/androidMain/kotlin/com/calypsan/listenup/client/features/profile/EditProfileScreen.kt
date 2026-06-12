@@ -76,6 +76,26 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_name
+import listenup.composeapp.generated.resources.profile_avatar
+import listenup.composeapp.generated.resources.profile_change_password
+import listenup.composeapp.generated.resources.profile_current_avatar
+import listenup.composeapp.generated.resources.profile_edit_profile_title
+import listenup.composeapp.generated.resources.profile_name_description
+import listenup.composeapp.generated.resources.profile_password_description
+import listenup.composeapp.generated.resources.profile_password_min_chars
+import listenup.composeapp.generated.resources.profile_passwords_do_not_match
+import listenup.composeapp.generated.resources.profile_remove_photo
+import listenup.composeapp.generated.resources.profile_save_name
+import listenup.composeapp.generated.resources.profile_save_tagline
+import listenup.composeapp.generated.resources.profile_tagline
+import listenup.composeapp.generated.resources.profile_tagline_char_count
+import listenup.composeapp.generated.resources.profile_tagline_description
+import listenup.composeapp.generated.resources.profile_tagline_placeholder
+import listenup.composeapp.generated.resources.profile_upload_photo
 import java.io.ByteArrayOutputStream
 import android.graphics.Color as AndroidColor
 
@@ -133,12 +153,12 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Profile") },
+                title = { Text(stringResource(Res.string.profile_edit_profile_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(Res.string.common_back),
                         )
                     }
                 },
@@ -309,7 +329,7 @@ private fun AvatarSection(
     onRevertAvatar: () -> Unit,
 ) {
     Text(
-        text = "Avatar",
+        text = stringResource(Res.string.profile_avatar),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
     )
@@ -340,7 +360,7 @@ private fun AvatarSection(
                         .memoryCacheKey("$localAvatarPath-$cacheBuster")
                         .diskCacheKey("$localAvatarPath-$cacheBuster")
                         .build(),
-                contentDescription = "Current avatar",
+                contentDescription = stringResource(Res.string.profile_current_avatar),
                 modifier =
                     Modifier
                         .size(80.dp)
@@ -385,7 +405,7 @@ private fun AvatarSection(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Upload Photo")
+                Text(stringResource(Res.string.profile_upload_photo))
             }
 
             if (user.hasImageAvatar) {
@@ -397,7 +417,7 @@ private fun AvatarSection(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Remove Photo")
+                    Text(stringResource(Res.string.profile_remove_photo))
                 }
             }
         }
@@ -413,7 +433,7 @@ private fun TaglineSection(
     onSave: () -> Unit,
 ) {
     Text(
-        text = "Tagline",
+        text = stringResource(Res.string.profile_tagline),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
     )
@@ -421,7 +441,7 @@ private fun TaglineSection(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "A short bio that appears on your profile",
+        text = stringResource(Res.string.profile_tagline_description),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -432,11 +452,16 @@ private fun TaglineSection(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text("What are you listening to?") },
+        placeholder = { Text(stringResource(Res.string.profile_tagline_placeholder)) },
         singleLine = true,
         supportingText = {
             Text(
-                text = "${value.length}/${EditProfileViewModel.MAX_TAGLINE_LENGTH}",
+                text =
+                    stringResource(
+                        Res.string.profile_tagline_char_count,
+                        value.length,
+                        EditProfileViewModel.MAX_TAGLINE_LENGTH,
+                    ),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color =
@@ -457,7 +482,7 @@ private fun TaglineSection(
         enabled = hasChanged && !isSaving,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Save Tagline")
+        Text(stringResource(Res.string.profile_save_tagline))
     }
 }
 
@@ -472,7 +497,7 @@ private fun NameSection(
     onSave: () -> Unit,
 ) {
     Text(
-        text = "Name",
+        text = stringResource(Res.string.common_name),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
     )
@@ -480,7 +505,7 @@ private fun NameSection(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "Update your first and last name",
+        text = stringResource(Res.string.profile_name_description),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -512,7 +537,7 @@ private fun NameSection(
         enabled = hasChanged && !isSaving,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Save Name")
+        Text(stringResource(Res.string.profile_save_name))
     }
 }
 
@@ -531,7 +556,7 @@ private fun PasswordSection(
     onChangePassword: () -> Unit,
 ) {
     Text(
-        text = "Change Password",
+        text = stringResource(Res.string.profile_change_password),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
     )
@@ -539,7 +564,7 @@ private fun PasswordSection(
     Spacer(modifier = Modifier.height(8.dp))
 
     Text(
-        text = "Set a new password for your account",
+        text = stringResource(Res.string.profile_password_description),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -565,7 +590,7 @@ private fun PasswordSection(
         supportingText = {
             if (newPassword.isNotEmpty() && !isPasswordValid) {
                 Text(
-                    text = "Must be at least ${PASSWORD_MIN} characters",
+                    text = stringResource(Res.string.profile_password_min_chars, PASSWORD_MIN),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -583,7 +608,7 @@ private fun PasswordSection(
         supportingText = {
             if (confirmPassword.isNotEmpty() && !passwordsMatch) {
                 Text(
-                    text = "Passwords do not match",
+                    text = stringResource(Res.string.profile_passwords_do_not_match),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -597,7 +622,7 @@ private fun PasswordSection(
         enabled = canSave && !isSaving,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Change Password")
+        Text(stringResource(Res.string.profile_change_password))
     }
 }
 

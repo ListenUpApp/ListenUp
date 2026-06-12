@@ -36,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_setup_open_folder
+import org.jetbrains.compose.resources.stringResource
 
 /** Soft decorative blob echoing the design hero. Purely cosmetic. */
 @Composable
@@ -212,7 +215,7 @@ fun FolderRow(
             if (entry.hasChildren) {
                 Icon(
                     imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = "Open folder",
+                    contentDescription = stringResource(Res.string.library_setup_open_folder),
                     tint = chevronTint,
                     modifier = Modifier.size(24.dp),
                 )

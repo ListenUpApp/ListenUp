@@ -21,6 +21,10 @@ import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
 import com.calypsan.listenup.client.playback.NowPlayingChapter
 import kotlin.time.Duration.Companion.milliseconds
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_up_next
+import listenup.composeapp.generated.resources.player_view_all_chapters
+import org.jetbrains.compose.resources.stringResource
 
 // Maximum number of chapter rows shown in the preview slice before the "View all" footer.
 private const val QUEUE_PREVIEW_SIZE = 8
@@ -67,7 +71,7 @@ fun UpNextQueue(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "Up next",
+                    text = stringResource(Res.string.player_up_next),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -113,7 +117,7 @@ fun UpNextQueue(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "View all $totalChapters chapters",
+                        text = stringResource(Res.string.player_view_all_chapters, totalChapters),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )

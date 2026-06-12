@@ -34,6 +34,7 @@ import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_playback_speed
 import listenup.composeapp.generated.resources.player_reset_to_default
+import listenup.composeapp.generated.resources.player_speed_value
 import org.jetbrains.compose.resources.stringResource
 
 /** Playback speed presets and formatting utilities. */
@@ -160,12 +161,12 @@ private fun SpeedSlider(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = "${PlaybackSpeedPresets.MIN_SPEED}x",
+                text = stringResource(Res.string.player_speed_value, PlaybackSpeedPresets.MIN_SPEED.toString()),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "${PlaybackSpeedPresets.MAX_SPEED}x",
+                text = stringResource(Res.string.player_speed_value, PlaybackSpeedPresets.MAX_SPEED.toString()),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

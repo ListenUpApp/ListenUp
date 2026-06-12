@@ -27,6 +27,11 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.presentation.metadata.ChapterNameRow
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.metadata_apply_chapter_names
+import listenup.composeapp.generated.resources.metadata_chapter_names_replace_note
+import listenup.composeapp.generated.resources.metadata_review_chapter_names
 
 /**
  * Modal sheet for reviewing Audible chapter-name suggestions before applying.
@@ -67,12 +72,12 @@ fun ChapterNameReviewSheet(
                     .padding(horizontal = 24.dp),
         ) {
             Text(
-                text = "Review chapter names",
+                text = stringResource(Res.string.metadata_review_chapter_names),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 4.dp),
             )
             Text(
-                text = "Audible names replace your chapter labels. Timings stay the same.",
+                text = stringResource(Res.string.metadata_chapter_names_replace_note),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp),
@@ -108,7 +113,7 @@ fun ChapterNameReviewSheet(
                 if (available.isApplying) {
                     ListenUpLoadingIndicatorSmall()
                 } else {
-                    Text("Apply chapter names")
+                    Text(stringResource(Res.string.metadata_apply_chapter_names))
                 }
             }
         }

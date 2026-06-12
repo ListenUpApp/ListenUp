@@ -78,6 +78,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_no_items_yet
+import listenup.composeapp.generated.resources.common_private
 import listenup.composeapp.generated.resources.shelf_add_books_from_the_library
 import listenup.composeapp.generated.resources.shelf_books_in_shelf
 import listenup.composeapp.generated.resources.shelf_edit_shelf
@@ -366,7 +367,7 @@ private fun ShelfHeroTexts(
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    text = "Private",
+                    text = stringResource(Res.string.common_private),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                 )

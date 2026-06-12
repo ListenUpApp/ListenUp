@@ -54,6 +54,9 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.contributor_audible_region
 import listenup.composeapp.generated.resources.contributor_find_on_audible
 import listenup.composeapp.generated.resources.common_search
+import listenup.composeapp.generated.resources.book_detail_narrated_by_value
+import listenup.composeapp.generated.resources.metadata_by_authors
+import listenup.composeapp.generated.resources.metadata_searching_for
 import listenup.composeapp.generated.resources.metadata_title_author_narrator_or_asin
 
 /**
@@ -103,7 +106,7 @@ fun MetadataSearchScreen(
         ) {
             if (state.context.currentTitle.isNotBlank()) {
                 Text(
-                    text = "Searching for: ${state.context.currentTitle}",
+                    text = stringResource(Res.string.metadata_searching_for, state.context.currentTitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp),
@@ -310,7 +313,7 @@ private fun MetadataSearchResultItem(
                 // Author
                 if (result.authors.isNotEmpty()) {
                     Text(
-                        text = "by ${result.authors.joinToString { it.name }}",
+                        text = stringResource(Res.string.metadata_by_authors, result.authors.joinToString { it.name }),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -321,7 +324,11 @@ private fun MetadataSearchResultItem(
                 // Narrator - KEY DIFFERENTIATOR from local metadata!
                 if (result.narrators.isNotEmpty()) {
                     Text(
-                        text = "Narrated by ${result.narrators.joinToString { it.name }}",
+                        text =
+                            stringResource(
+                                Res.string.book_detail_narrated_by_value,
+                                result.narrators.joinToString { it.name },
+                            ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,

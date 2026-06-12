@@ -55,6 +55,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.common_completed
+import listenup.composeapp.generated.resources.player_now_playing_wide
 
 /**
  * Data for an avatar overlay on a book cover.
@@ -301,7 +302,7 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = Icons.Rounded.GraphicEq,
-            contentDescription = "Now playing",
+            contentDescription = stringResource(Res.string.player_now_playing_wide),
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(16.dp),
         )
