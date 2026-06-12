@@ -160,7 +160,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let fadeStepDelay: Duration
     private let bridge = FlowBridge()
 
-    private var currentBookId: String?
+    private(set) var currentBookId: String?
     private var lastReportedPositionMs: Int64 = 0
     private var lastSyncedChapterIndex: Int = -1
     private var isFading = false

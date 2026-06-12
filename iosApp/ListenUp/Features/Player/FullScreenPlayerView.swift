@@ -19,6 +19,8 @@ struct FullScreenPlayerView: View {
     let observer: PlayerCoordinator
     var namespace: Namespace.ID
     var onCollapse: () -> Void
+    /// Collapse the player and navigate to the current book's detail screen.
+    var onViewDetails: () -> Void = {}
 
     /// Live drag translation as the user swipes the header down (downward only).
     /// Attached to the header strip alone so the body's chapter `Slider` and any
@@ -152,11 +154,9 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             Menu {
-                // Placeholder — wired in a later task.
-                Button(action: {}) {
+                Button(action: onViewDetails) {
                     Label(String(localized: "player.go_to_book"), systemImage: "book")
                 }
-                .disabled(true)
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body.weight(.semibold))

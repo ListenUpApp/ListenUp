@@ -24,6 +24,8 @@ enum PlayerMorph {
 /// release past the threshold (or a fast fling) commits, otherwise it springs back.
 struct PlayerExpansionOverlay: View {
     let coordinator: PlayerCoordinator
+    /// Navigate to the given book's detail screen (pushed onto the active tab's stack).
+    var onViewBookDetails: (String) -> Void = { _ in }
 
     @Namespace private var namespace
     @State private var isExpanded = false
@@ -49,6 +51,7 @@ struct PlayerExpansionOverlay: View {
                     observer: coordinator,
                     namespace: namespace,
                     onCollapse: collapse,
+                    onViewDetails: viewBookDetails,
                     onDragChanged: handleDragChanged,
                     onDragEnded: handleDragEnded
                 )
@@ -90,6 +93,17 @@ struct PlayerExpansionOverlay: View {
         withAnimation(morphAnimation) {
             isExpanded = false
             dragOffset = 0
+        }
+    }
+
+    /// "View Book Details" from the player's ellipsis menu: collapse the player so the
+    /// cover morphs back down, then push the book's detail screen onto the active tab.
+    /// Collapse runs first so the morph plays before the navigation transition; the push
+    /// is a no-op when no book is loaded (never stranded — the menu item just dismisses).
+    private func viewBookDetails() {
+        collapse()
+        if let bookId = coordinator.currentBookId {
+            onViewBookDetails(bookId)
         }
     }
 

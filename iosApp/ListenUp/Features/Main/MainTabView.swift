@@ -14,6 +14,15 @@ struct MainTabView: View {
     @State private var selectedTab: Tab = .home
     @State private var playerCoordinator: PlayerCoordinator?
 
+    /// Per-tab navigation paths so the player overlay can push a destination onto the
+    /// *active* tab's stack (and so each tab keeps its own independent history).
+    @State private var paths: [Tab: NavigationPath] = [
+        .home: NavigationPath(),
+        .library: NavigationPath(),
+        .discover: NavigationPath(),
+        .search: NavigationPath()
+    ]
+
     /// Height reserved below tab content for the collapsed mini bar (bar + clearance).
     private var miniBarInset: CGFloat {
         MiniPlayerBar.barHeight + MiniPlayerBar.tabBarClearance
@@ -23,23 +32,23 @@ struct MainTabView: View {
         ZStack {
             TabView(selection: $selectedTab) {
                 SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
-                    tabStack { HomeView() }
+                    tabStack(.home) { HomeView() }
                 }
                 SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
-                    tabStack { LibraryView() }
+                    tabStack(.library) { LibraryView() }
                 }
                 SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
-                    tabStack { DiscoverView() }
+                    tabStack(.discover) { DiscoverView() }
                 }
                 SwiftUI.Tab(value: Tab.search, role: .search) {
-                    tabStack { SearchView() }
+                    tabStack(.search) { SearchView() }
                 }
             }
             .tabViewStyle(.sidebarAdaptable)
             .tabBarMinimizeBehavior(.onScrollDown)
 
             if let coordinator = playerCoordinator, coordinator.isVisible {
-                PlayerExpansionOverlay(coordinator: coordinator)
+                PlayerExpansionOverlay(coordinator: coordinator, onViewBookDetails: pushBookDetail)
             }
         }
         .onAppear {
@@ -52,8 +61,8 @@ struct MainTabView: View {
     // MARK: - Tab Builder
 
     @ViewBuilder
-    private func tabStack<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        NavigationStack {
+    private func tabStack<Content: View>(_ tab: Tab, @ViewBuilder _ content: () -> Content) -> some View {
+        NavigationStack(path: pathBinding(tab)) {
             content()
                 .navigationDestinations()
                 .safeAreaInset(edge: .bottom) {
@@ -62,6 +71,21 @@ struct MainTabView: View {
                     }
                 }
         }
+    }
+
+    /// Binding into the per-tab path dictionary, defaulting to an empty path so a
+    /// missing entry never traps.
+    private func pathBinding(_ tab: Tab) -> Binding<NavigationPath> {
+        Binding(
+            get: { paths[tab] ?? NavigationPath() },
+            set: { paths[tab] = $0 }
+        )
+    }
+
+    /// Push the book's detail screen onto the currently selected tab's stack — the
+    /// destination for the player overlay's "View Book Details" action.
+    private func pushBookDetail(_ bookId: String) {
+        paths[selectedTab, default: NavigationPath()].append(BookDestination(id: bookId))
     }
 }
 
