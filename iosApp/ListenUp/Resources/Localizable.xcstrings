@@ -4541,6 +4541,26 @@
         }
       }
     },
+    "contributor.role_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author"
+          }
+        }
+      }
+    },
+    "contributor.role_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrator"
+          }
+        }
+      }
+    },
     "contributor.select_birth_date": {
       "localizations": {
         "en": {
@@ -4557,6 +4577,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select death date"
+          }
+        }
+      }
+    },
+    "contributor.series_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series"
+          }
+        }
+      }
+    },
+    "contributor.stat_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "contributor.stat_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hours"
           }
         }
       }
