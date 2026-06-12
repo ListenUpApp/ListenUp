@@ -44,6 +44,21 @@ class NoHardcodedUiStringRuleTest {
     }
 
     @Test
+    fun `does not flag label on AnimatedContent (animation debug identifier)`() {
+        assertEquals(0, rule.lint("""@Composable fun S() { AnimatedContent(s, label = "upload_state") {} }""").size)
+    }
+
+    @Test
+    fun `does not flag label on animateXAsState`() {
+        assertEquals(0, rule.lint("""@Composable fun S() { val a = animateFloatAsState(1f, label = "fade") }""").size)
+    }
+
+    @Test
+    fun `still flags label on a real UI component`() {
+        assertEquals(1, rule.lint("""@Composable fun S() { StatItem(label = "Books") }""").size)
+    }
+
+    @Test
     fun `does not flag punctuation-only Text`() {
         assertEquals(0, rule.lint("""@Composable fun S() { Text("•") }""").size)
     }

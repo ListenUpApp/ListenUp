@@ -27,8 +27,10 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
  * positional `Text("literal")` form is also flagged.
  *
  * Not flagged: `stringResource(...)` / identifier / call-expression arguments;
- * `testTag`/semantics keys; punctuation-only literals (`Text("•")`); and literals
- * inside `@Preview` functions (dev-only demo code, not shipped UI).
+ * `testTag`/semantics keys; punctuation-only literals (`Text("•")`); the `label`
+ * arg of Compose animation APIs (`AnimatedContent`/`Crossfade`/`animate*AsState` —
+ * a debug identifier, not UI text); and literals inside `@Preview` functions
+ * (dev-only demo code, not shipped UI).
  */
 class NoHardcodedUiStringRule(
     config: Config,
@@ -47,6 +49,12 @@ class NoHardcodedUiStringRule(
                 "confirmText",
                 "dismissText",
             )
+
+        // Compose animation APIs take a `label` arg that is a debug/identifier string
+        // (shown in tooling, never to the user) — not UI text. Exempt it so it doesn't
+        // collide with the genuinely user-facing `label` on fields/stat items.
+        val ANIMATION_LABEL_CALLEES =
+            setOf("AnimatedContent", "Crossfade", "updateTransition", "rememberInfiniteTransition")
     }
 
     override val issue: Issue =
@@ -67,7 +75,10 @@ class NoHardcodedUiStringRule(
         // dialogs (confirmText/dismissText), fields (label/placeholder), etc.
         for (argument in expression.valueArguments) {
             val name = argument.getArgumentName()?.asName?.asString() ?: continue
-            if (name in UI_TEXT_ARG_NAMES) flagIfHardcoded(argument, name)
+            if (name !in UI_TEXT_ARG_NAMES) continue
+            // `label` on a Compose animation API is a debug identifier, not UI text.
+            if (name == "label" && isAnimationCallee(callee)) continue
+            flagIfHardcoded(argument, name)
         }
 
         // Text("...") positional only — the named text= case is handled above, so
@@ -96,6 +107,11 @@ class NoHardcodedUiStringRule(
             ),
         )
     }
+
+    // `AnimatedContent`/`Crossfade`/`updateTransition`/… and the `animate*AsState`
+    // / `animate*` transition family all take a debug `label` — not user-facing text.
+    private fun isAnimationCallee(callee: String?): Boolean =
+        callee != null && (callee in ANIMATION_LABEL_CALLEES || callee.startsWith("animate"))
 
     private fun KtNamedFunction.isInsidePreview(): Boolean =
         annotationEntries.any { it.shortName?.asString() == "Preview" } ||
