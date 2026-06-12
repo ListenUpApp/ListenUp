@@ -1,8 +1,8 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// Observes `SeriesDetailViewModel` — flattens the sealed `SeriesDetailUiState`
-/// into flat `@Observable` properties. Thin over `FlowBridge`.
+/// Observes `SeriesDetailViewModel`, flattening `SeriesDetailUiState` into flat
+/// `@Observable` properties, and drives playback via `PlayerCoordinator`.
 @Observable
 @MainActor
 final class SeriesDetailObserver {
@@ -10,28 +10,73 @@ final class SeriesDetailObserver {
     private(set) var error: String?
     private(set) var seriesName: String = ""
     private(set) var seriesDescription: String?
+    private(set) var seriesAuthor: String?
+    private(set) var seriesNarrator: String?
     private(set) var coverPath: String?
     private(set) var totalDuration: String = ""
     private(set) var books: [BookListItem] = []
+    private(set) var bookProgress: [String: Float] = [:]
+    private(set) var finishedBookIds: Set<String> = []
+    private(set) var finishedCount: Int = 0
+    private(set) var resumeTarget: String?
 
     var bookCount: Int { books.count }
 
+    /// The book the Continue CTA will start, with its sequence (for the title).
+    private var resumeBook: BookListItem? { books.first { $0.idString == resumeTarget } }
+
+    /// Continue-CTA label, derived from resume state.
+    var continueButtonTitle: String {
+        if books.isEmpty { return String(localized: "series.start_listening") }
+        if resumeTarget == nil { return String(localized: "series.listen_again") }
+        if let seq = resumeBook?.series.first?.sequence, !seq.isEmpty {
+            return String(format: String(localized: "series.continue_book"), seq)
+        }
+        return String(localized: "series.continue")
+    }
+
+    /// True when `bookId` is the actively-playing book.
+    func isPlaying(_ bookId: String) -> Bool {
+        playerCoordinator.currentBookId == bookId && playerCoordinator.isPlaying
+    }
+
+    func progress(for bookId: String) -> Float? { bookProgress[bookId] }
+    func isFinished(_ bookId: String) -> Bool { finishedBookIds.contains(bookId) }
+
     private let viewModel: SeriesDetailViewModel
+    private let playerCoordinator: PlayerCoordinator
     private let bridge = FlowBridge()
 
-    init(viewModel: SeriesDetailViewModel) {
+    init(viewModel: SeriesDetailViewModel, playerCoordinator: PlayerCoordinator) {
         self.viewModel = viewModel
+        self.playerCoordinator = playerCoordinator
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    func stopObserving() {
-        bridge.cancelAll()
+    deinit {
+        // Held in SwiftUI `@State` on a `@MainActor` view, so dealloc is main-thread.
+        MainActor.assumeIsolated { bridge.cancelAll() }
     }
+
+    func stopObserving() { bridge.cancelAll() }
 
     // MARK: - Actions
 
-    func loadSeries(seriesId: String) {
-        viewModel.loadSeries(seriesId: seriesId)
+    func loadSeries(seriesId: String) { viewModel.loadSeries(seriesId: seriesId) }
+
+    /// Start/resume the series at its resume target.
+    func continueSeries() {
+        guard let resumeTarget else { return }
+        playerCoordinator.play(bookId: resumeTarget)
+    }
+
+    /// Play `bookId`, or pause/resume it if it's already the current book.
+    func playBook(_ bookId: String) {
+        if playerCoordinator.currentBookId == bookId {
+            playerCoordinator.togglePlayback()
+        } else {
+            playerCoordinator.play(bookId: bookId)
+        }
     }
 
     // MARK: - State mapping
@@ -46,12 +91,34 @@ final class SeriesDetailObserver {
             error = nil
             seriesName = r.seriesName
             seriesDescription = r.seriesDescription
+            seriesAuthor = r.seriesAuthor
+            seriesNarrator = r.seriesNarrator
             coverPath = r.coverPath
             totalDuration = r.formatTotalDuration()
             books = Array(r.books)
+            bookProgress = mapBookProgress(r.bookProgress)
+            finishedBookIds = Set(r.finishedBookIds.map { String(describing: $0) })
+            finishedCount = Int(r.finishedCount)
+            if let raw = r.resumeTarget {
+                resumeTarget = String(describing: raw)
+            } else {
+                resumeTarget = nil
+            }
         case .error(let e):
             isLoading = false
             error = e.message
         }
     }
+
+    /// `Map<BookId, Float>` arrives as `[AnyHashable: KotlinFloat]` over the SKIE
+    /// boundary — the `BookId` value-class key bridges as `AnyHashable`. Keys are
+    /// normalized to the book-id string the UI looks up by.
+    private func mapBookProgress(_ raw: [AnyHashable: KotlinFloat]) -> [String: Float] {
+        var result: [String: Float] = [:]
+        for (key, value) in raw {
+            result[String(describing: key.base)] = value.floatValue
+        }
+        return result
+    }
+
 }
