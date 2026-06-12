@@ -1431,6 +1431,16 @@
         }
       }
     },
+    "book.detail_chapter_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ch. %1$d · %2$@"
+          }
+        }
+      }
+    },
     "book.detail_chapters": {
       "localizations": {
         "en": {
@@ -1481,6 +1491,16 @@
         }
       }
     },
+    "book.detail_discard_progress_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard your listening progress?"
+          }
+        }
+      }
+    },
     "book.detail_done": {
       "localizations": {
         "en": {
@@ -1527,6 +1547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit Book"
+          }
+        }
+      }
+    },
+    "book.detail_error_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load this book"
           }
         }
       }
@@ -1807,6 +1837,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove the downloaded files for “%1$@”? "
+          }
+        }
+      }
+    },
+    "book.detail_restart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        }
+      }
+    },
+    "book.detail_restart_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart from the beginning?"
           }
         }
       }
