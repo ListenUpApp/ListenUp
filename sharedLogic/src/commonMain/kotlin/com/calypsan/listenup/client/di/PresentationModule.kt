@@ -343,6 +343,7 @@ val contributorPresentationModule =
             com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel(
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
                 playbackPositionRepository = get(),
+                seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 deleteContributorUseCase = get(),
             )
         }
