@@ -74,6 +74,7 @@ struct LibraryView: View {
             // Series Tab
             SeriesContent(
                 seriesList: observer.series,
+                seriesProgress: observer.seriesProgress,
                 sortState: observer.seriesSortState,
                 onCategorySelected: { category in
                     observer.setSeriesSortCategory(category)

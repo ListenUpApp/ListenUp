@@ -5,13 +5,14 @@ import UIKit
 /// Content view for the Series tab in the Library.
 ///
 /// Features:
-/// - Adaptive grid of SeriesCard components
-/// - Animated cover stacks that cycle through books
-/// - Floating sort button (Name, Book Count, Added)
+/// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
+/// - iPad: 3-column `LazyVGrid` of `SeriesGridCard` components
+/// - Inline `SortRow` (Name, Book Count, Added)
 /// - Alphabet scrubber when sorted by name
 /// - Empty state when no series
 struct SeriesContent: View {
     let seriesList: [SeriesWithBooks_]
+    let seriesProgress: [String: SeriesProgressState]
     let sortState: SortState?
     let onCategorySelected: (SortCategory) -> Void
     let onDirectionToggle: () -> Void
@@ -21,15 +22,6 @@ struct SeriesContent: View {
     @State private var isScrolling = false
     @State private var scrollTarget: String?
 
-    /// Single column on iPhone (compact), adaptive grid on iPad (regular)
-    private var columns: [GridItem] {
-        if sizeClass == .compact {
-            [GridItem(.flexible())]
-        } else {
-            [GridItem(.adaptive(minimum: 200), spacing: 16)]
-        }
-    }
-
     /// Available sort categories for series
     private let sortCategories: [SortCategory] = [.name, .bookCount, .added]
 
@@ -37,31 +29,29 @@ struct SeriesContent: View {
         if seriesList.isEmpty {
             emptyState
         } else {
-            seriesGrid
+            seriesListView
         }
     }
 
-    // MARK: - Series Grid
+    // MARK: - Series List
 
-    private var seriesGrid: some View {
+    private var seriesListView: some View {
         let letters = buildAlphabetIndex()
 
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    // Spacer for sort button
-                    Color.clear
-                        .frame(height: 32)
-                        .gridCellUnsizedAxes(.horizontal)
+                VStack(spacing: 0) {
+                    sortRow
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                        .padding(.bottom, 12)
 
-                    ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
-                        let seriesId = String(describing: seriesWithBooks.series.id)
-                        SeriesCard(series: seriesWithBooks)
-                            .id("series-\(seriesId)")
+                    if sizeClass == .compact {
+                        iPhoneList
+                    } else {
+                        iPadGrid
                     }
                 }
-                .padding(.horizontal)
-                // Extra padding at bottom so content scrolls above tab bar
                 .padding(.bottom, 100)
             }
             .scrollContentBackground(.hidden)
@@ -96,20 +86,79 @@ struct SeriesContent: View {
                     .padding(.vertical, 60)
                 }
             }
-            // Sort button
-            .overlay(alignment: .topLeading) {
-                if let sortState {
-                    FloatingSortButton(
-                        sortState: sortState,
-                        categories: sortCategories,
-                        onCategorySelected: onCategorySelected,
-                        onDirectionToggle: onDirectionToggle
-                    )
-                    .padding(.leading, 16)
-                    .padding(.top, 8)
+        }
+    }
+
+    // MARK: - Sort Row
+
+    private var sortRow: some View {
+        let count = String(format: String(localized: "library.series_count"), seriesList.count)
+        let sortLabel = sortState?.category.label ?? ""
+        return SortRow(count: count, sortLabel: sortLabel) {
+            ForEach(sortCategories, id: \.name) { cat in
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    onCategorySelected(cat)
+                } label: {
+                    HStack {
+                        Text(cat.label)
+                        if cat == sortState?.category {
+                            Image(systemName: "checkmark")
+                        }
+                    }
                 }
             }
+            Divider()
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                onDirectionToggle()
+            } label: {
+                Text(String(localized: "common.direction"))
+            }
         }
+    }
+
+    // MARK: - iPhone List
+
+    private var iPhoneList: some View {
+        LazyVStack(spacing: 12) {
+            ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
+                let seriesId = String(describing: seriesWithBooks.series.id)
+                SeriesRowCard(
+                    series: seriesWithBooks,
+                    progress: progressFor(seriesId: seriesId, series: seriesWithBooks)
+                )
+                .id("series-\(seriesId)")
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - iPad Grid
+
+    private var iPadGrid: some View {
+        let columns = [
+            GridItem(.flexible()),
+            GridItem(.flexible()),
+            GridItem(.flexible())
+        ]
+        return LazyVGrid(columns: columns, spacing: 22) {
+            ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
+                let seriesId = String(describing: seriesWithBooks.series.id)
+                SeriesGridCard(
+                    series: seriesWithBooks,
+                    progress: progressFor(seriesId: seriesId, series: seriesWithBooks)
+                )
+                .id("series-\(seriesId)")
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Helpers
+
+    private func progressFor(seriesId: String, series: SeriesWithBooks_) -> SeriesProgressState {
+        seriesProgress[seriesId] ?? SeriesProgressState(finishedCount: 0, totalCount: Int(series.books.count))
     }
 
     private var shouldShowAlphabetIndex: Bool {
