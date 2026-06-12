@@ -152,6 +152,7 @@
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$24</ID>
     <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$8</ID>
     <ID>MagicNumber:WeeklyStats.kt$WeeklyStats.Companion$7</ID>
+    <ID>MaxLineLength:ABSImportHubScreen.kt$text = stringResource(Res.string.import_mapped_to, user.listenUpDisplayName ?: user.listenUpEmail ?: user.listenUpId.orEmpty())</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
     <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
@@ -160,102 +161,6 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"ABS Imports"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Are you sure you want to delete \"${import.name}\"? This cannot be undone."</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Choose how to create a new import:"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Delete Import"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Keep"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"New Import"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"Search Instead"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$"This will delete the stuck import. You can create a new one afterwards."</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Clear"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Complete"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Dismiss"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Mapped"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "New Import"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Refresh"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$contentDescription = "Skip"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "$mapped / $total"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${response.importedCount}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${response.pendingCount}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${response.readyCount}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "${session.duration / 60000}m listened"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Analysis in progress…"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Analysis was likely interrupted. Cancel and try again."</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Analyzing backup…"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Create a new import from an Audiobookshelf backup to get started."</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Created: ${import.createdAt.substringBefore('T')}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Import Wizard"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Import appears stuck"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Imported ${result.imported} sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Imported"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Mapped to: $mappedDisplay"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Mapped to: ${user.listenUpDisplayName ?: user.listenUpEmail ?: user.listenUpId}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Narr. ${book.absNarrator}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No Imports"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No books found"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No sessions found"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "No users found"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Pending"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Ready"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Select a backup file from your device"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Status: ${import.status.replaceFirstChar { it.uppercase() }}"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Step-by-step import from server file"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Upload from device"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Clear"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Import from Audiobookshelf"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Matched (${autoMatchedBooks.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Matched (${autoMatchedUsers.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Needs Review (${needsReviewBooks.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Needs Review (${needsReviewUsers.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Parent directory"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Pick Different"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Change selection"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Matched"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "$current / $total"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.affectedUsers} users updated"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.eventsCreated} events created"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.progressImported} progress records imported (${r.progressSkipped} skipped)"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.sessionsImported} sessions imported (${r.sessionsSkipped} skipped)"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${state.progressReady} book progress records"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${state.sessionsReady} listening sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${suggestions.size} suggestion${if (suggestions.size != 1) "s" else ""} available"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "...and ${r.errors.size - 5} more"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "...and ${r.warnings.size - 5} more"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "All books matched automatically!"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "All users matched automatically!"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Choose what to import from the Audiobookshelf backup."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Completed in $it"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Current position and completion status"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Empty directory"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Errors"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "For ${state.usersMatched} users"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "How to export from Audiobookshelf"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import Options"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import Summary"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import book progress"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import listening history from an Audiobookshelf backup."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import listening sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Individual listening events with timestamps"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Match Audiobookshelf books to your ListenUp library."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Match Audiobookshelf users to ListenUp users."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Ready to Import"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Rebuild progress after import"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Recalculate listening stats from events"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Select backup source"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Uploading Backup..."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Warnings"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$"Cancel"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$"Choose Different File"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Import Ready"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Import from Audiobookshelf"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Ready to Upload"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Supports .audiobookshelf, .zip, .tar.gz files"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Upload Failed"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Upload your Audiobookshelf backup to migrate listening history and progress."</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Your backup has been uploaded and analyzed."</ID>
     <ID>NoHardcodedUiString:AboutSectionPreviews.kt$text = "Credits go here"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete ${backup.id}? This cannot be undone."</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$"Are you sure you want to delete \"${import.name}\"? This cannot be undone."</ID>

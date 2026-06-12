@@ -51,6 +51,17 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.upload.ABSUploadWorker
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import io.github.oshai.kotlinlogging.KotlinLogging
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.import_choose_different_file
+import listenup.composeapp.generated.resources.import_import_ready
+import listenup.composeapp.generated.resources.import_ready_to_upload
+import listenup.composeapp.generated.resources.import_supports_formats
+import listenup.composeapp.generated.resources.import_title
+import listenup.composeapp.generated.resources.import_upload_failed
+import listenup.composeapp.generated.resources.import_upload_intro
+import listenup.composeapp.generated.resources.import_uploaded_analyzed
+import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 import java.util.UUID
@@ -207,7 +218,7 @@ private fun SelectFileContent(onPickFile: () -> Unit) {
     ) {
         // Header
         Text(
-            text = "Import from Audiobookshelf",
+            text = stringResource(Res.string.import_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -215,7 +226,7 @@ private fun SelectFileContent(onPickFile: () -> Unit) {
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Upload your Audiobookshelf backup to migrate listening history and progress.",
+            text = stringResource(Res.string.import_upload_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
@@ -251,7 +262,7 @@ private fun SelectFileContent(onPickFile: () -> Unit) {
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "Supports .audiobookshelf, .zip, .tar.gz files",
+            text = stringResource(Res.string.import_supports_formats),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -267,7 +278,7 @@ private fun FileSelectedContent(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Ready to Upload",
+            text = stringResource(Res.string.import_ready_to_upload),
             style = MaterialTheme.typography.titleLarge,
         )
 
@@ -331,7 +342,7 @@ private fun FileSelectedContent(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
         ) {
-            Text("Choose Different File")
+            Text(stringResource(Res.string.import_choose_different_file))
         }
     }
 }
@@ -473,14 +484,14 @@ private fun CompleteContent(
         Spacer(Modifier.height(24.dp))
 
         Text(
-            text = "Import Ready",
+            text = stringResource(Res.string.import_import_ready),
             style = MaterialTheme.typography.titleLarge,
         )
 
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Your backup has been uploaded and analyzed.",
+            text = stringResource(Res.string.import_uploaded_analyzed),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -524,7 +535,7 @@ private fun ErrorContent(
         Spacer(Modifier.height(24.dp))
 
         Text(
-            text = "Upload Failed",
+            text = stringResource(Res.string.import_upload_failed),
             style = MaterialTheme.typography.titleLarge,
         )
 
@@ -551,7 +562,7 @@ private fun ErrorContent(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
         ) {
-            Text("Cancel")
+            Text(stringResource(Res.string.common_cancel))
         }
     }
 }

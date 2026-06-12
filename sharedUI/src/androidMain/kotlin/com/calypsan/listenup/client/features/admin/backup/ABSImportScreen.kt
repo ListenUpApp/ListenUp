@@ -87,6 +87,52 @@ import com.calypsan.listenup.client.presentation.admin.UserMappingTab
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.import_and_more
+import listenup.composeapp.generated.resources.import_book_progress_records_count
+import listenup.composeapp.generated.resources.import_books_all_matched
+import listenup.composeapp.generated.resources.import_books_matched_count
+import listenup.composeapp.generated.resources.import_books_needs_review_count
+import listenup.composeapp.generated.resources.import_change_selection
+import listenup.composeapp.generated.resources.import_clear
+import listenup.composeapp.generated.resources.import_completed_in
+import listenup.composeapp.generated.resources.import_empty_directory
+import listenup.composeapp.generated.resources.import_errors
+import listenup.composeapp.generated.resources.import_events_created
+import listenup.composeapp.generated.resources.import_for_users_count
+import listenup.composeapp.generated.resources.import_how_to_export
+import listenup.composeapp.generated.resources.import_import_options
+import listenup.composeapp.generated.resources.import_import_progress
+import listenup.composeapp.generated.resources.import_import_progress_desc
+import listenup.composeapp.generated.resources.import_import_sessions
+import listenup.composeapp.generated.resources.import_import_sessions_desc
+import listenup.composeapp.generated.resources.import_import_summary
+import listenup.composeapp.generated.resources.import_intro
+import listenup.composeapp.generated.resources.import_listening_sessions_count
+import listenup.composeapp.generated.resources.import_match_books_intro
+import listenup.composeapp.generated.resources.import_match_users_intro
+import listenup.composeapp.generated.resources.import_matched_a11y
+import listenup.composeapp.generated.resources.import_options_intro
+import listenup.composeapp.generated.resources.import_parent_directory
+import listenup.composeapp.generated.resources.import_pick_different
+import listenup.composeapp.generated.resources.import_position_and_total
+import listenup.composeapp.generated.resources.import_progress_imported
+import listenup.composeapp.generated.resources.import_ready_to_import
+import listenup.composeapp.generated.resources.import_rebuild_progress
+import listenup.composeapp.generated.resources.import_rebuild_progress_desc
+import listenup.composeapp.generated.resources.import_select_backup_source
+import listenup.composeapp.generated.resources.import_sessions_imported
+import listenup.composeapp.generated.resources.import_suggestion_available_count
+import listenup.composeapp.generated.resources.import_suggestions_available_count
+import listenup.composeapp.generated.resources.import_title
+import listenup.composeapp.generated.resources.import_uploading_backup
+import listenup.composeapp.generated.resources.import_users_all_matched
+import listenup.composeapp.generated.resources.import_users_matched_count
+import listenup.composeapp.generated.resources.import_users_needs_review_count
+import listenup.composeapp.generated.resources.import_users_updated
+import listenup.composeapp.generated.resources.import_warnings
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,10 +193,13 @@ private fun ABSImportErrorScaffold(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Import from Audiobookshelf") },
+                title = { Text(stringResource(Res.string.import_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(Res.string.common_back),
+                        )
                     }
                 },
             )
@@ -193,7 +242,10 @@ private fun ABSImportReadyContent(
                                 viewModel.previousStep()
                             }
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(Res.string.common_back),
+                            )
                         }
                     }
                 },
@@ -343,7 +395,7 @@ private fun SourceSelectionContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Import listening history from an Audiobookshelf backup.",
+            text = stringResource(Res.string.import_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -358,7 +410,7 @@ private fun SourceSelectionContent(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "How to export from Audiobookshelf",
+                    text = stringResource(Res.string.import_how_to_export),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
@@ -386,7 +438,7 @@ private fun SourceSelectionContent(
         // Source type options (only show if no file selected yet)
         if (state.selectedLocalFile == null) {
             Text(
-                text = "Select backup source",
+                text = stringResource(Res.string.import_select_backup_source),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -519,13 +571,13 @@ private fun SelectedFileCard(
                     onClick = onPickDifferent,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Pick Different")
+                    Text(stringResource(Res.string.import_pick_different))
                 }
                 OutlinedButton(
                     onClick = onClear,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Clear")
+                    Text(stringResource(Res.string.import_clear))
                 }
             }
         }
@@ -588,7 +640,7 @@ private fun FileBrowserContent(
                                 )
                             },
                             supportingContent = {
-                                Text("Parent directory")
+                                Text(stringResource(Res.string.import_parent_directory))
                             },
                             leadingContent = {
                                 Icon(
@@ -624,7 +676,7 @@ private fun FileBrowserContent(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = "Empty directory",
+                                text = stringResource(Res.string.import_empty_directory),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -751,7 +803,7 @@ private fun UploadingContent(
         ListenUpLoadingIndicator()
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Uploading Backup...",
+            text = stringResource(Res.string.import_uploading_backup),
             style = MaterialTheme.typography.titleLarge,
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -833,7 +885,7 @@ private fun AnalyzingContent(
         if (total > 0) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "$current / $total",
+                text = stringResource(Res.string.import_position_and_total, current, total),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -872,7 +924,7 @@ private fun UserMappingContent(
                 .padding(16.dp),
     ) {
         Text(
-            text = "Match Audiobookshelf users to ListenUp users.",
+            text = stringResource(Res.string.import_match_users_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -886,14 +938,14 @@ private fun UserMappingContent(
                 onClick = { onTabChange(UserMappingTab.NEEDS_REVIEW) },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
             ) {
-                Text("Needs Review (${needsReviewUsers.size})")
+                Text(stringResource(Res.string.import_users_needs_review_count, needsReviewUsers.size))
             }
             SegmentedButton(
                 selected = state.userMappingTab == UserMappingTab.AUTO_MATCHED,
                 onClick = { onTabChange(UserMappingTab.AUTO_MATCHED) },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             ) {
-                Text("Matched (${autoMatchedUsers.size})")
+                Text(stringResource(Res.string.import_users_matched_count, autoMatchedUsers.size))
             }
         }
 
@@ -992,7 +1044,7 @@ private fun UserNeedsReviewTabContent(
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = "All users matched automatically!",
+                    text = stringResource(Res.string.import_users_all_matched),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -1120,7 +1172,7 @@ private fun UserMappingCard(
                 if (hasSelection) {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = "Matched",
+                        contentDescription = stringResource(Res.string.import_matched_a11y),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -1213,7 +1265,7 @@ private fun SelectedUserChip(
             ) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Change selection",
+                    contentDescription = stringResource(Res.string.import_change_selection),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(18.dp),
                 )
@@ -1298,7 +1350,12 @@ private fun UserSearchField(
             exit = fadeOut() + shrinkVertically(),
         ) {
             Text(
-                text = "${suggestions.size} suggestion${if (suggestions.size != 1) "s" else ""} available",
+                text =
+                    if (suggestions.size == 1) {
+                        stringResource(Res.string.import_suggestion_available_count, suggestions.size)
+                    } else {
+                        stringResource(Res.string.import_suggestions_available_count, suggestions.size)
+                    },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp, start = 4.dp),
@@ -1371,7 +1428,7 @@ private fun BookMappingContent(
                 .padding(16.dp),
     ) {
         Text(
-            text = "Match Audiobookshelf books to your ListenUp library.",
+            text = stringResource(Res.string.import_match_books_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1385,14 +1442,14 @@ private fun BookMappingContent(
                 onClick = { onTabChange(BookMappingTab.NEEDS_REVIEW) },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
             ) {
-                Text("Needs Review (${needsReviewBooks.size})")
+                Text(stringResource(Res.string.import_books_needs_review_count, needsReviewBooks.size))
             }
             SegmentedButton(
                 selected = state.bookMappingTab == BookMappingTab.AUTO_MATCHED,
                 onClick = { onTabChange(BookMappingTab.AUTO_MATCHED) },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             ) {
-                Text("Matched (${autoMatchedBooks.size})")
+                Text(stringResource(Res.string.import_books_matched_count, autoMatchedBooks.size))
             }
         }
 
@@ -1491,7 +1548,7 @@ private fun NeedsReviewTabContent(
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = "All books matched automatically!",
+                    text = stringResource(Res.string.import_books_all_matched),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -1614,7 +1671,7 @@ private fun BookMappingCard(
                 if (hasSelection) {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = "Matched",
+                        contentDescription = stringResource(Res.string.import_matched_a11y),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
@@ -1705,7 +1762,7 @@ private fun SelectedBookChip(
             ) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Change selection",
+                    contentDescription = stringResource(Res.string.import_change_selection),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(18.dp),
                 )
@@ -1792,7 +1849,12 @@ private fun BookSearchField(
             exit = fadeOut() + shrinkVertically(),
         ) {
             Text(
-                text = "${suggestions.size} suggestion${if (suggestions.size != 1) "s" else ""} available",
+                text =
+                    if (suggestions.size == 1) {
+                        stringResource(Res.string.import_suggestion_available_count, suggestions.size)
+                    } else {
+                        stringResource(Res.string.import_suggestions_available_count, suggestions.size)
+                    },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp, start = 4.dp),
@@ -1869,7 +1931,7 @@ private fun ImportOptionsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Choose what to import from the Audiobookshelf backup.",
+            text = stringResource(Res.string.import_options_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1884,13 +1946,13 @@ private fun ImportOptionsContent(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Ready to Import",
+                    text = stringResource(Res.string.import_ready_to_import),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
-                Text(text = "${state.sessionsReady} listening sessions")
-                Text(text = "${state.progressReady} book progress records")
-                Text(text = "For ${state.usersMatched} users")
+                Text(text = stringResource(Res.string.import_listening_sessions_count, state.sessionsReady))
+                Text(text = stringResource(Res.string.import_book_progress_records_count, state.progressReady))
+                Text(text = stringResource(Res.string.import_for_users_count, state.usersMatched))
             }
         }
 
@@ -1904,7 +1966,7 @@ private fun ImportOptionsContent(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Import Options",
+                    text = stringResource(Res.string.import_import_options),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
@@ -1919,11 +1981,11 @@ private fun ImportOptionsContent(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Import listening sessions",
+                            text = stringResource(Res.string.import_import_sessions),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            text = "Individual listening events with timestamps",
+                            text = stringResource(Res.string.import_import_sessions_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1942,11 +2004,11 @@ private fun ImportOptionsContent(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Import book progress",
+                            text = stringResource(Res.string.import_import_progress),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            text = "Current position and completion status",
+                            text = stringResource(Res.string.import_import_progress_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1965,11 +2027,11 @@ private fun ImportOptionsContent(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Rebuild progress after import",
+                            text = stringResource(Res.string.import_rebuild_progress),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            text = "Recalculate listening stats from events",
+                            text = stringResource(Res.string.import_rebuild_progress_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1997,7 +2059,7 @@ private fun ImportOptionsContent(
                             tint = MaterialTheme.colorScheme.onTertiaryContainer,
                         )
                         Text(
-                            text = "Warnings",
+                            text = stringResource(Res.string.import_warnings),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                         )
@@ -2100,7 +2162,7 @@ private fun ResultsContent(
                     )
                     results?.duration?.let {
                         Text(
-                            text = "Completed in $it",
+                            text = stringResource(Res.string.import_completed_in, it),
                             style = MaterialTheme.typography.bodySmall,
                             color =
                                 if (hasErrors) {
@@ -2125,14 +2187,28 @@ private fun ResultsContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Import Summary",
+                        text = stringResource(Res.string.import_import_summary),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
-                    Text(text = "${r.sessionsImported} sessions imported (${r.sessionsSkipped} skipped)")
-                    Text(text = "${r.progressImported} progress records imported (${r.progressSkipped} skipped)")
-                    Text(text = "${r.eventsCreated} events created")
-                    Text(text = "${r.affectedUsers} users updated")
+                    Text(
+                        text =
+                            stringResource(
+                                Res.string.import_sessions_imported,
+                                r.sessionsImported,
+                                r.sessionsSkipped,
+                            ),
+                    )
+                    Text(
+                        text =
+                            stringResource(
+                                Res.string.import_progress_imported,
+                                r.progressImported,
+                                r.progressSkipped,
+                            ),
+                    )
+                    Text(text = stringResource(Res.string.import_events_created, r.eventsCreated))
+                    Text(text = stringResource(Res.string.import_users_updated, r.affectedUsers))
                 }
             }
 
@@ -2146,7 +2222,7 @@ private fun ResultsContent(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Warnings",
+                            text = stringResource(Res.string.import_warnings),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.padding(bottom = 8.dp),
@@ -2159,8 +2235,9 @@ private fun ResultsContent(
                             )
                         }
                         if (r.warnings.size > 5) {
+                            @Suppress("MagicNumber")
                             Text(
-                                text = "...and ${r.warnings.size - 5} more",
+                                text = stringResource(Res.string.import_and_more, r.warnings.size - 5),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -2179,7 +2256,7 @@ private fun ResultsContent(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Errors",
+                            text = stringResource(Res.string.import_errors),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(bottom = 8.dp),
@@ -2192,8 +2269,9 @@ private fun ResultsContent(
                             )
                         }
                         if (r.errors.size > 5) {
+                            @Suppress("MagicNumber")
                             Text(
-                                text = "...and ${r.errors.size - 5} more",
+                                text = stringResource(Res.string.import_and_more, r.errors.size - 5),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
