@@ -528,4 +528,30 @@ class SeriesDetailViewModelTest :
                 state.resumeTarget shouldBe null
             }
         }
+
+        // ========== seriesNarrator ==========
+
+        test("seriesNarrator surfaces the first book's first narrator") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries(id = "s1")
+                val book =
+                    createBook(id = "b1").copy(
+                        narrators =
+                            listOf(
+                                BookContributor(id = "n1", name = "Robert Glenister", roles = listOf("Narrator")),
+                            ),
+                    )
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("s1")
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(series, listOf(book), mapOf("b1" to "1"))
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.seriesNarrator shouldBe "Robert Glenister"
+            }
+        }
     })
