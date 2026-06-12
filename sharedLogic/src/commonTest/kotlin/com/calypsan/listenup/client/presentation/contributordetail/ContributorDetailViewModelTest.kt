@@ -533,4 +533,40 @@ class ContributorDetailViewModelTest :
                 ready.series.map { it.series.id.value } shouldBe listOf("s1")
             }
         }
+
+        test("series are ordered by the contributor's book count desc, then name asc") {
+            runTest {
+                val fixture = createFixture()
+                val contributor = createContributor(id = "c1")
+
+                // s2 (Beta) has 2 of the contributor's books; s1 (Zeta) and s3 (Alpha)
+                // have 1 each — equal count, broken by name ascending → Alpha before Zeta.
+                val b1 = createBook(id = "b1", series = listOf(BookSeries(seriesId = "s2", seriesName = "Beta", sequence = null)))
+                val b2 = createBook(id = "b2", series = listOf(BookSeries(seriesId = "s2", seriesName = "Beta", sequence = null)))
+                val b3 = createBook(id = "b3", series = listOf(BookSeries(seriesId = "s1", seriesName = "Zeta", sequence = null)))
+                val b4 = createBook(id = "b4", series = listOf(BookSeries(seriesId = "s3", seriesName = "Alpha", sequence = null)))
+
+                every {
+                    fixture.contributorRepository.observeBooksForContributorRole("c1", ContributorRole.AUTHOR.apiValue)
+                } returns flowOf(listOf(b1, b2, b3, b4).map { createBookWithContributorRole(it) })
+
+                every { fixture.seriesRepository.observeSeriesWithBooks("s2") } returns
+                    flowOf(createSeriesWithBooks(id = "s2", name = "Beta", bookIds = listOf("b1", "b2")))
+                every { fixture.seriesRepository.observeSeriesWithBooks("s1") } returns
+                    flowOf(createSeriesWithBooks(id = "s1", name = "Zeta", bookIds = listOf("b3")))
+                every { fixture.seriesRepository.observeSeriesWithBooks("s3") } returns
+                    flowOf(createSeriesWithBooks(id = "s3", name = "Alpha", bookIds = listOf("b4")))
+
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("c1")
+                fixture.contributorFlow.value = contributor
+                fixture.rolesFlow.value = listOf(RoleWithBookCount(role = ContributorRole.AUTHOR.apiValue, bookCount = 4))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value as ContributorDetailUiState.Ready
+                ready.series.map { it.series.id.value } shouldBe listOf("s2", "s3", "s1")
+            }
+        }
     })

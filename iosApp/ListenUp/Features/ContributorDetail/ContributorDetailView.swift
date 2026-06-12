@@ -198,7 +198,7 @@ struct ContributorDetailView: View {
 
     @ViewBuilder
     private func roleSections(observer: ContributorDetailObserver) -> some View {
-        ForEach(Array(observer.roleSections.enumerated()), id: \.offset) { _, section in
+        ForEach(observer.roleSections, id: \.role) { section in
             VStack(alignment: .leading, spacing: 12) {
                 SectionRow(title: section.displayName)
                     .padding(.horizontal)

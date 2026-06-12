@@ -33,8 +33,9 @@ struct RoleChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: kind.icon).font(.caption2.weight(.semibold))
-            Text(kind.label)
+            Text(kind.label).lineLimit(1)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .font(.caption.weight(.semibold))
         .foregroundStyle(kind.isTinted ? Color.luTint : Color.luLabel2)
         .padding(.horizontal, 11)

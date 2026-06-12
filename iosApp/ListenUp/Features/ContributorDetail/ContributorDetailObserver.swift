@@ -35,7 +35,6 @@ final class ContributorDetailObserver {
     var birthDate: String? { contributor?.birthDate }
     var deathDate: String? { contributor?.deathDate }
     var website: String? { contributor?.website }
-    var totalBookCount: Int { roleSections.reduce(0) { $0 + Int($1.bookCount) } }
 
     private let viewModel: ContributorDetailViewModel
     private let bridge = FlowBridge()
