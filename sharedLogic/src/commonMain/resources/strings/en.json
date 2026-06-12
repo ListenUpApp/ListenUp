@@ -224,7 +224,11 @@
     "you_dont_have_any_shelves": "You don't have any shelves yet",
     "your_audiobooks_will_appear_here": "Your audiobooks will appear here once the scan is complete",
     "empty_tab_description": "%1$s will appear here when you have audiobooks in your library",
-    "series_count": "%d series"
+    "series_count": "%d series",
+    "contributors": "Contributors",
+    "author_count": "%d authors",
+    "narrator_count": "%d narrators",
+    "contributors_empty": "No contributors yet"
   },
   "book": {
     "detail_title": "Book details",
