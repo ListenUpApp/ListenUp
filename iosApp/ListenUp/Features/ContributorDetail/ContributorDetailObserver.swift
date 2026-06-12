@@ -15,6 +15,10 @@ final class ContributorDetailObserver {
     private(set) var roleSections: [RoleSection] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
+    private(set) var series: [SeriesWithBooks_] = []
+    private(set) var totalDuration: String = ""
+    private(set) var bookCount: Int = 0
+    private(set) var roles: [RoleChip.Kind] = []
 
     /// Whether the delete-confirmation dialog should show. Wrapper-held input
     /// state — the ViewModel has no "confirming" state; `confirmDelete()` deletes
@@ -86,6 +90,10 @@ final class ContributorDetailObserver {
             roleSections = Array(r.roleSections)
             bookProgress = mapProgress(r.bookProgress)
             isDeleting = r.isDeleting
+            series = Array(r.series)
+            totalDuration = r.formatTotalDuration()
+            bookCount = Int(r.bookCount)
+            roles = r.roleSections.map { roleKind(for: $0.role) }
         case .error(let e):
             isLoading = false
             error = e.message
@@ -96,6 +104,16 @@ final class ContributorDetailObserver {
         switch onEnum(of: action) {
         case .deleted:
             onDeletedCallback?()
+        }
+    }
+
+    /// Maps a role string to its chip kind. Author/narrator get specific chips;
+    /// anything else uses the title-cased role as the label.
+    private func roleKind(for role: String) -> RoleChip.Kind {
+        switch role.lowercased() {
+        case "author": .author
+        case "narrator": .narrator
+        default: .other(role.prefix(1).uppercased() + role.dropFirst().lowercased())
         }
     }
 
