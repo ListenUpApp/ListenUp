@@ -42,6 +42,7 @@ import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_administration
+import listenup.composeapp.generated.resources.common_displayname_avatar
 import listenup.composeapp.generated.resources.common_loading
 import listenup.composeapp.generated.resources.common_my_profile
 import listenup.composeapp.generated.resources.common_settings
@@ -199,7 +200,7 @@ private fun UserAvatarCircle(
                             .memoryCacheKey("${user.id}-avatar")
                             .diskCacheKey("${user.id}-avatar")
                             .build(),
-                    contentDescription = "${user.displayName} avatar",
+                    contentDescription = stringResource(Res.string.common_displayname_avatar, user.displayName),
                     modifier =
                         Modifier
                             .size(48.dp)
@@ -217,7 +218,7 @@ private fun UserAvatarCircle(
                             .memoryCachePolicy(CachePolicy.DISABLED)
                             .diskCachePolicy(CachePolicy.DISABLED)
                             .build(),
-                    contentDescription = "${user.displayName} avatar",
+                    contentDescription = stringResource(Res.string.common_displayname_avatar, user.displayName),
                     modifier =
                         Modifier
                             .size(48.dp)

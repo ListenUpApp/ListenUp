@@ -57,6 +57,8 @@ import listenup.composeapp.generated.resources.settings_clear_all_downloads
 import listenup.composeapp.generated.resources.settings_downloaded_books
 import listenup.composeapp.generated.resources.settings_downloaded_books_will_appear_here
 import listenup.composeapp.generated.resources.settings_no_downloads
+import listenup.composeapp.generated.resources.settings_storage_available
+import listenup.composeapp.generated.resources.settings_storage_size_files
 import listenup.composeapp.generated.resources.common_storage
 import listenup.composeapp.generated.resources.settings_you_can_redownload_books_anytime
 
@@ -243,7 +245,7 @@ private fun StorageSummaryCard(
                     )
                 }
                 Text(
-                    text = "${formatFileSize(available)} available",
+                    text = stringResource(Res.string.settings_storage_available, formatFileSize(available)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -340,7 +342,12 @@ private fun DownloadedBookItem(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${formatFileSize(book.sizeBytes)} · ${book.fileCount} files",
+                    text =
+                        stringResource(
+                            Res.string.settings_storage_size_files,
+                            formatFileSize(book.sizeBytes),
+                            book.fileCount,
+                        ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

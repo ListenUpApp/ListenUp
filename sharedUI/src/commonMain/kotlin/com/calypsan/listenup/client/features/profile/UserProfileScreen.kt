@@ -74,6 +74,7 @@ import listenup.composeapp.generated.resources.common_displayname_avatar
 import listenup.composeapp.generated.resources.profile_create_shelf
 import listenup.composeapp.generated.resources.profile_edit_profile
 import listenup.composeapp.generated.resources.profile_recently_finished
+import listenup.composeapp.generated.resources.profile_shelf_books_count
 import listenup.composeapp.generated.resources.profile_shelves
 
 /**
@@ -567,7 +568,7 @@ private fun ShelfTile(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${shelf.bookCount} books",
+                    text = stringResource(Res.string.profile_shelf_books_count, shelf.bookCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = onContainer.copy(alpha = 0.8f),
                 )
