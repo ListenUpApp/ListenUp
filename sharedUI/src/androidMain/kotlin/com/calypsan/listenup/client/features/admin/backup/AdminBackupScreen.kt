@@ -61,6 +61,7 @@ import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
+import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
@@ -271,7 +272,7 @@ private fun AdminBackupBody(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = state.message,
+                    text = state.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error,
                 )

@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.RestoreResult
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -34,7 +34,7 @@ sealed interface RestoreBackupUiState {
      * `error` set when a prior restore attempt failed.
      */
     data class Idle(
-        val error: String? = null,
+        val error: AppError? = null,
     ) : RestoreBackupUiState
 
     /** The destructive-action confirmation is being shown. */
@@ -105,7 +105,7 @@ class RestoreBackupViewModel(
                         is AppResult.Failure -> {
                             errorBus.emit(resync.error)
                             logger.error { "Restore succeeded but resync failed: ${resync.error.message}" }
-                            state.value = RestoreBackupUiState.Idle(error = userMessageFor(resync.error))
+                            state.value = RestoreBackupUiState.Idle(error = resync.error)
                         }
                     }
                 }
@@ -113,7 +113,7 @@ class RestoreBackupViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to restore backup: ${result.error.message}" }
-                    state.value = RestoreBackupUiState.Idle(error = userMessageFor(result.error))
+                    state.value = RestoreBackupUiState.Idle(error = result.error)
                 }
             }
         }
