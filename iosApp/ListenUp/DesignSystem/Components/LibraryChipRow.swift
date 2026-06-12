@@ -39,11 +39,11 @@ struct LibraryChipRow: View {
     }
 }
 
-/// Individual selectable chip with glass styling.
+/// Individual selectable chip with clean-coral capsule styling.
 ///
 /// Design tokens:
-/// - Unselected: `.ultraThinMaterial` background, `.primary` text
-/// - Selected: `Color.listenUpOrange` background, `.white` text
+/// - Unselected: `Color.luFill` background, `.primary` text
+/// - Selected: `Color.luTint` background, `Color.luOnTint` text
 /// - Pill shape (`.infinity` corner radius)
 /// - Spring animation on state change
 private struct LibraryChip: View {
@@ -76,7 +76,11 @@ private struct LibraryChip: View {
         .buttonStyle(ChipButtonStyle())
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         .accessibilityLabel(String(format: String(localized: "common.tab_label"), tab.title))
-        .accessibilityHint(isSelected ? String(localized: "common.currently_selected") : String(localized: "common.double_tap_select"))
+        .accessibilityHint(
+            isSelected
+                ? String(localized: "common.currently_selected")
+                : String(localized: "common.double_tap_select")
+        )
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

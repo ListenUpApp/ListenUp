@@ -18,7 +18,6 @@ struct SeriesDetailView: View {
 
     @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var hSize
-    @Environment(\.displayScale) private var displayScale
     @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
 
@@ -149,7 +148,7 @@ struct SeriesDetailView: View {
         StatStrip(stats: [
             .init(value: "\(observer.bookCount)", label: String(localized: "series.stat_books")),
             .init(value: "\(observer.finishedCount)", label: String(localized: "series.stat_finished")),
-            .init(value: observer.totalDuration, label: String(localized: "series.stat_total")),
+            .init(value: observer.totalDuration, label: String(localized: "series.stat_total"))
         ])
     }
 
@@ -181,7 +180,7 @@ struct SeriesDetailView: View {
             let displayedBooks = reversed
                 ? Array(observer.books.reversed())
                 : observer.books
-            booksList(books: displayedBooks, observer: observer, scale: displayScale)
+            booksList(books: displayedBooks, observer: observer)
                 .padding(.horizontal)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -205,38 +204,21 @@ struct SeriesDetailView: View {
         }
     }
 
-    private func booksList(books: [BookListItem], observer: SeriesDetailObserver, scale: CGFloat) -> some View {
-        // Use a VStack replicating FieldGroup's visual — books are not Identifiable so we
-        // can't pass them directly to FieldGroup. The visual result is identical.
-        let hairline = 1 / max(scale, 1)
-        return VStack(spacing: 0) {
-            ForEach(Array(books.enumerated()), id: \.element.idString) { index, book in
-                NavigationLink(value: BookDestination(id: book.idString)) {
-                    SeriesBookRow(
-                        book: book,
-                        sequence: book.series.first?.sequence,
-                        progress: observer.progress(for: book.idString),
-                        isFinished: observer.isFinished(book.idString),
-                        isPlaying: observer.isPlaying(book.idString),
-                        onPlayTapped: { observer.playBook(book.idString) }
-                    )
-                }
-                .buttonStyle(.plain)
-                if index < books.count - 1 {
-                    Rectangle()
-                        .fill(Color.luSeparator)
-                        .frame(height: hairline)
-                        .padding(.leading, 76)
-                }
+    private func booksList(books: [BookListItem], observer: SeriesDetailObserver) -> some View {
+        // `BookListItem` (SKIE-exported) isn't `Identifiable`, so key on its id string.
+        FieldGroup(books, id: \.idString, separatorInset: 76) { book in
+            NavigationLink(value: BookDestination(id: book.idString)) {
+                SeriesBookRow(
+                    book: book,
+                    sequence: book.series.first?.sequence,
+                    progress: observer.progress(for: book.idString),
+                    isFinished: observer.isFinished(book.idString),
+                    isPlaying: observer.isPlaying(book.idString),
+                    onPlayTapped: { observer.playBook(book.idString) }
+                )
             }
+            .buttonStyle(.plain)
         }
-        .background(Color.luSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.luSeparator, lineWidth: hairline)
-        )
-        .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
     }
 
     // MARK: - Error

@@ -11,15 +11,15 @@ struct SeriesProgressBadge: View {
         case .complete:
             HStack(spacing: 5) {
                 Image(systemName: "checkmark").font(.caption2.weight(.bold))
-                Text("series.complete")
+                Text(String(localized: "series.complete"))
             }
             .font(.caption.weight(.semibold))
             .foregroundStyle(Color.luTint)
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(Capsule().fill(Color.luTint.opacity(0.12)))
-            .accessibilityLabel(Text("series.complete"))
+            .accessibilityLabel(Text(String(localized: "series.complete")))
         case .notStarted:
-            Text("series.not_started")
+            Text(String(localized: "series.not_started"))
                 .font(.footnote)
                 .foregroundStyle(Color.luLabel3)
         case let .partial(finished, total):
