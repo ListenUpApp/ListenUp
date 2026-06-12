@@ -203,50 +203,6 @@
     <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Status: ${import.status.replaceFirstChar { it.uppercase() }}"</ID>
     <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Step-by-step import from server file"</ID>
     <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Upload from device"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Clear"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Import from Audiobookshelf"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Matched (${autoMatchedBooks.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Matched (${autoMatchedUsers.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Needs Review (${needsReviewBooks.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Needs Review (${needsReviewUsers.size})"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Parent directory"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$"Pick Different"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Change selection"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$contentDescription = "Matched"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "$current / $total"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.affectedUsers} users updated"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.eventsCreated} events created"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.progressImported} progress records imported (${r.progressSkipped} skipped)"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${r.sessionsImported} sessions imported (${r.sessionsSkipped} skipped)"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${state.progressReady} book progress records"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${state.sessionsReady} listening sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "${suggestions.size} suggestion${if (suggestions.size != 1) "s" else ""} available"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "...and ${r.errors.size - 5} more"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "...and ${r.warnings.size - 5} more"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "All books matched automatically!"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "All users matched automatically!"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Choose what to import from the Audiobookshelf backup."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Completed in $it"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Current position and completion status"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Empty directory"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Errors"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "For ${state.usersMatched} users"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "How to export from Audiobookshelf"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import Options"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import Summary"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import book progress"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import listening history from an Audiobookshelf backup."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Import listening sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Individual listening events with timestamps"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Match Audiobookshelf books to your ListenUp library."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Match Audiobookshelf users to ListenUp users."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Ready to Import"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Rebuild progress after import"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Recalculate listening stats from events"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Select backup source"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Uploading Backup..."</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Warnings"</ID>
     <ID>NoHardcodedUiString:ABSUploadSheet.kt$"Cancel"</ID>
     <ID>NoHardcodedUiString:ABSUploadSheet.kt$"Choose Different File"</ID>
     <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Import Ready"</ID>
