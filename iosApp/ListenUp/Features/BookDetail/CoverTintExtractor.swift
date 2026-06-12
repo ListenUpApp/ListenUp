@@ -36,12 +36,23 @@ struct CoverTint: Equatable {
         let clampedSaturation = min(max(Double(sat), minSaturation), maxSaturation)
         var brightness = min(max(Double(bri), minLuminance), maxLuminance)
         var tint = CoverTint(hue: Double(hue), saturation: clampedSaturation, brightness: brightness)
-        if tint.luminance > maxLuminance {
-            brightness = max(minLuminance, brightness - (tint.luminance - maxLuminance))
-        } else if tint.luminance < minLuminance {
-            brightness = min(maxLuminance, brightness + (minLuminance - tint.luminance))
+        // A saturated HSB color's luminance is strictly below its brightness, so a single
+        // additive nudge undershoots the band (e.g. near-black never reaches minLuminance).
+        // Iterate the correction until luminance lands in band, bounded to avoid any cycle.
+        for _ in 0..<24 {
+            let luminance = tint.luminance
+            let next: Double
+            if luminance < minLuminance {
+                next = min(1.0, brightness + (minLuminance - luminance) + 0.005)
+            } else if luminance > maxLuminance {
+                next = max(0.0, brightness - (luminance - maxLuminance) - 0.005)
+            } else {
+                break
+            }
+            if next == brightness { break }
+            brightness = next
+            tint = CoverTint(hue: Double(hue), saturation: clampedSaturation, brightness: brightness)
         }
-        tint = CoverTint(hue: Double(hue), saturation: clampedSaturation, brightness: brightness)
         return tint
     }
 }
