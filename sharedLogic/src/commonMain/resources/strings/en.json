@@ -9,6 +9,8 @@
     "administration": "Administration",
     "approve": "Approve",
     "back": "Back",
+    "book": "book",
+    "books": "books",
     "book_count": "%1$d book",
     "books_count": "%1$d books",
     "cancel": "Cancel",
@@ -221,7 +223,8 @@
     "title_sort_toggle": "Title sort",
     "you_dont_have_any_shelves": "You don't have any shelves yet",
     "your_audiobooks_will_appear_here": "Your audiobooks will appear here once the scan is complete",
-    "empty_tab_description": "%1$s will appear here when you have audiobooks in your library"
+    "empty_tab_description": "%1$s will appear here when you have audiobooks in your library",
+    "series_count": "%d series"
   },
   "book": {
     "detail_title": "Book details",
@@ -355,7 +358,10 @@
     "stat_total": "Total",
     "books_header": "Books in Series",
     "book_number": "Book %1$s",
-    "book_finished": "Finished"
+    "book_finished": "Finished",
+    "complete": "Complete",
+    "not_started": "Not Started",
+    "x_of_y": "%d of %d"
   },
   "contributor": {
     "aka": "aka %1$s",
