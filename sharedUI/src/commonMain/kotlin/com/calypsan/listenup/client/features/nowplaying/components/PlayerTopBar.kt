@@ -46,6 +46,8 @@ import listenup.composeapp.generated.resources.player_collapse
 import listenup.composeapp.generated.resources.player_go_to_book
 import listenup.composeapp.generated.resources.player_go_to_series
 import listenup.composeapp.generated.resources.player_more_options
+import listenup.composeapp.generated.resources.player_now_playing_overline
+import listenup.composeapp.generated.resources.player_now_playing_wide
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -167,7 +169,7 @@ private fun WideTopBar(
         // "Now playing" overline + book/series subtitle.
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Now playing",
+                text = stringResource(Res.string.player_now_playing_wide),
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -220,7 +222,7 @@ private fun CompactTopBar(
         }
 
         Text(
-            text = "NOW PLAYING",
+            text = stringResource(Res.string.player_now_playing_overline),
             style =
                 MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,

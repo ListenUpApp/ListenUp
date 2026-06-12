@@ -167,14 +167,6 @@
     <ID>NoHardcodedUiString:AdminInboxScreen.kt$"${ready.selectedCount} selected"</ID>
     <ID>NoHardcodedUiString:AdminInboxScreen.kt$text = "${state.bookIds.size} book${if (state.bookIds.size != 1) "s" else ""} awaiting review"</ID>
     <ID>NoHardcodedUiString:AdminScreen.kt$"https://audiobooks.example.com"</ID>
-    <ID>NoHardcodedUiString:AppNavigationSuite.kt$"Logout"</ID>
-    <ID>NoHardcodedUiString:AppNavigationSuite.kt$contentDescription = "Logout"</ID>
-    <ID>NoHardcodedUiString:AppNavigationSuite.kt$text = "ListenUp"</ID>
-    <ID>NoHardcodedUiString:AuthScaffold.kt$contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:AuthScaffold.kt$text = "ListenUp"</ID>
-    <ID>NoHardcodedUiString:AuthScaffold.kt$text = "Thousands of audiobooks.\nOne beautiful library."</ID>
-    <ID>NoHardcodedUiString:AuthorsContent.kt$contentDescription = "${contributor.name} profile image"</ID>
-    <ID>NoHardcodedUiString:AuthorsContent.kt$text = "${contributorWithCount.bookCount} $bookLabel"</ID>
     <ID>NoHardcodedUiString:BookCard.kt$contentDescription = "Now playing"</ID>
     <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$"Apply chapter names"</ID>
     <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$text = "Audible names replace your chapter labels. Timings stay the same."</ID>
@@ -190,47 +182,19 @@
     <ID>NoHardcodedUiString:ContributorMetadataSearchScreen.kt$text = "Searching for: ${contributor.name}"</ID>
     <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Only you can see this shelf."</ID>
     <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Private shelf"</ID>
-    <ID>NoHardcodedUiString:DiscoverLeaderboardSection.kt$text = "Could not load leaderboard."</ID>
-    <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
-    <ID>NoHardcodedUiString:DiscoverScreen.kt$text = "${userShelves.shelves.size} ${if (userShelves.shelves.size == 1) "shelf" else "shelves"}"</ID>
-    <ID>NoHardcodedUiString:GenreBreakdownBars.kt$text = "$percent%"</ID>
-    <ID>NoHardcodedUiString:HomeStatsSection.kt$text = "${hours}h ${minutes}m"</ID>
-    <ID>NoHardcodedUiString:HomeStatsSection.kt$text = "listened"</ID>
     <ID>NoHardcodedUiString:JoinScreen.kt$text = "Your email: ${preview.email}"</ID>
-    <ID>NoHardcodedUiString:LibrarySortBar.kt$text = " · ignoring A · An · The"</ID>
-    <ID>NoHardcodedUiString:LibrarySortBar.kt$text = "$count $unit"</ID>
-    <ID>NoHardcodedUiString:LibrarySortBar.kt$text = "Title sort"</ID>
     <ID>NoHardcodedUiString:LicensesScreen.kt$text = "by ${library.author}"</ID>
     <ID>NoHardcodedUiString:MatchPreviewScreen.kt$"Review"</ID>
     <ID>NoHardcodedUiString:MatchPreviewScreen.kt$contentDescription = "Cover from ${cover.label}"</ID>
     <ID>NoHardcodedUiString:MatchPreviewScreen.kt$text = "${suggestion.rows.size} Audible chapters match — review and apply."</ID>
     <ID>NoHardcodedUiString:MatchPreviewScreen.kt$text = "Chapter names"</ID>
-    <ID>NoHardcodedUiString:MetadataSearchRoute.kt$"Loading match…"</ID>
-    <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "Narrated by ${result.narrators.joinToString { it.name }}"</ID>
-    <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "Searching for: ${state.context.currentTitle}"</ID>
-    <ID>NoHardcodedUiString:MetadataSearchScreen.kt$text = "by ${result.authors.joinToString { it.name }}"</ID>
-    <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Chapters"</ID>
-    <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Sleep"</ID>
-    <ID>NoHardcodedUiString:NowPlayingPreviewGallery.kt$"Speed"</ID>
-    <ID>NoHardcodedUiString:PlaybackSpeedSheet.kt$text = "${PlaybackSpeedPresets.MAX_SPEED}x"</ID>
-    <ID>NoHardcodedUiString:PlaybackSpeedSheet.kt$text = "${PlaybackSpeedPresets.MIN_SPEED}x"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "NOW PLAYING"</ID>
-    <ID>NoHardcodedUiString:PlayerTopBar.kt$text = "Now playing"</ID>
-    <ID>NoHardcodedUiString:ProgressOverlay.kt$text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%"</ID>
-    <ID>NoHardcodedUiString:SearchResultsOverlay.kt$contentDescription = "Cover for ${hit.name}"</ID>
-    <ID>NoHardcodedUiString:SearchResultsOverlay.kt$text = "$count ${if (count == 1) "book" else "books"}"</ID>
-    <ID>NoHardcodedUiString:SearchResultsOverlay.kt$text = "($count)"</ID>
-    <ID>NoHardcodedUiString:SectionTitle.kt$text = "See all"</ID>
     <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "$verb Book $positionLabel"</ID>
     <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "${(progress * 100).toInt()}% · ${book.formatDuration()}"</ID>
     <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "Book $positionLabel"</ID>
     <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "SERIES"</ID>
     <ID>NoHardcodedUiString:SeriesSection.kt$contentDescription = "Remove ${series.name}"</ID>
     <ID>NoHardcodedUiString:ServerSelectScreen.kt$text = "v$it"</ID>
-    <ID>NoHardcodedUiString:ShelfCard.kt$contentDescription = "Private shelf"</ID>
-    <ID>NoHardcodedUiString:ShelfCard.kt$text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}"</ID>
     <ID>NoHardcodedUiString:ShelfDetailScreen.kt$text = "Private"</ID>
-    <ID>NoHardcodedUiString:StreakIndicator.kt$text = "Best: ${dayCount(longestStreak)}"</ID>
     <ID>NoHardcodedUiString:SyncDetailsDropdown.kt$text = "${failedOperations.size} failed"</ID>
     <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add tag..."</ID>
     <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add"</ID>
@@ -239,8 +203,6 @@
     <ID>NoHardcodedUiString:TalentSection.kt$contentDescription = "Remove ${contributor.name}"</ID>
     <ID>NoHardcodedUiString:TalentSection.kt$contentDescription = "Remove ${role.displayName} section"</ID>
     <ID>NoHardcodedUiString:TalentSection.kt$text = "${role.displayName}s"</ID>
-    <ID>NoHardcodedUiString:UpNextQueue.kt$text = "Up next"</ID>
-    <ID>NoHardcodedUiString:UpNextQueue.kt$text = "View all $totalChapters chapters"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>

@@ -59,7 +59,11 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_no_shelves_to_discover_yet
+import listenup.composeapp.generated.resources.discover_shelf_count
+import listenup.composeapp.generated.resources.discover_shelves_count
 import listenup.composeapp.generated.resources.discover_when_other_users_create_shelves
+import listenup.composeapp.generated.resources.genre_book_count
+import listenup.composeapp.generated.resources.genre_books_count
 
 /**
  * Discover screen - browse shelves from other users and view community leaderboard.
@@ -316,7 +320,12 @@ private fun UserShelvesSection(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "${userShelves.shelves.size} ${if (userShelves.shelves.size == 1) "shelf" else "shelves"}",
+                    text =
+                        if (userShelves.shelves.size == 1) {
+                            stringResource(Res.string.discover_shelf_count, userShelves.shelves.size)
+                        } else {
+                            stringResource(Res.string.discover_shelves_count, userShelves.shelves.size)
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -390,7 +399,12 @@ private fun DiscoverShelfCard(
 
         // Book count
         Text(
-            text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}",
+            text =
+                if (shelf.bookCount == 1) {
+                    stringResource(Res.string.genre_book_count, shelf.bookCount)
+                } else {
+                    stringResource(Res.string.genre_books_count, shelf.bookCount)
+                },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

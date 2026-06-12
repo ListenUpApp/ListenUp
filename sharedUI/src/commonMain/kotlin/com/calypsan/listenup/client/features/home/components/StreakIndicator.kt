@@ -18,6 +18,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.home_best_value
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Streak indicator \u2014 a scallop badge with a flame, the current streak, and the longest as a subtitle.
@@ -68,7 +71,7 @@ fun StreakIndicator(
             )
             if (longestStreak > 0 && currentStreak > 0) {
                 Text(
-                    text = "Best: ${dayCount(longestStreak)}",
+                    text = stringResource(Res.string.home_best_value, dayCount(longestStreak)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
