@@ -210,15 +210,18 @@ private suspend fun HttpClient.uploadAbsBackupStreamed(
 }
 
 /** An [InputStream] that produces exactly [totalBytes] zero bytes and then signals EOF. */
-private class ZeroInputStream(private val totalBytes: Long) : InputStream() {
+private class ZeroInputStream(
+    private val totalBytes: Long,
+) : InputStream() {
     private var remaining = totalBytes
 
-    override fun read(): Int = if (remaining > 0) {
-        remaining--
-        0
-    } else {
-        -1
-    }
+    override fun read(): Int =
+        if (remaining > 0) {
+            remaining--
+            0
+        } else {
+            -1
+        }
 
     override fun read(
         b: ByteArray,

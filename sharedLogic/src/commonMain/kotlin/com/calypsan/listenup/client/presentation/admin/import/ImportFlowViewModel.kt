@@ -167,6 +167,7 @@ class ImportFlowViewModel(
                                         is AppResult.Success -> {
                                             usersResult.data
                                         }
+
                                         is AppResult.Failure -> {
                                             logger.warn {
                                                 "Failed to load ListenUp users for import picker: " +
@@ -248,12 +249,13 @@ class ImportFlowViewModel(
     fun openBookSearch(absItemId: AbsItemId) {
         updateReview {
             it.copy(
-                bookSearch = BookSearchState(
-                    absItemId = absItemId,
-                    query = "",
-                    results = emptyList(),
-                    isSearching = false,
-                ),
+                bookSearch =
+                    BookSearchState(
+                        absItemId = absItemId,
+                        query = "",
+                        results = emptyList(),
+                        isSearching = false,
+                    ),
             )
         }
     }
@@ -300,36 +302,39 @@ class ImportFlowViewModel(
             return
         }
 
-        bookSearchJob = viewModelScope.launch {
-            // Mark searching BEFORE debounce so the spinner can appear immediately
-            updateReview { it.copy(bookSearch = it.bookSearch?.copy(isSearching = true)) }
-            delay(BOOK_SEARCH_DEBOUNCE_MS)
+        bookSearchJob =
+            viewModelScope.launch {
+                // Mark searching BEFORE debounce so the spinner can appear immediately
+                updateReview { it.copy(bookSearch = it.bookSearch?.copy(isSearching = true)) }
+                delay(BOOK_SEARCH_DEBOUNCE_MS)
 
-            try {
-                val result = searchRepository.search(
-                    query = query,
-                    types = listOf(SearchHitType.BOOK),
-                )
-                val hits = result.hits.map { hit ->
-                    BookSearchHit(
-                        bookId = BookId(hit.id),
-                        title = hit.name,
-                        author = hit.author ?: "",
-                    )
+                try {
+                    val result =
+                        searchRepository.search(
+                            query = query,
+                            types = listOf(SearchHitType.BOOK),
+                        )
+                    val hits =
+                        result.hits.map { hit ->
+                            BookSearchHit(
+                                bookId = BookId(hit.id),
+                                title = hit.name,
+                                author = hit.author ?: "",
+                            )
+                        }
+                    // Stale-result guard: only apply if still on the same item and query
+                    val currentReview = uiState.value as? ImportFlowUiState.Review
+                    val currentBookSearch = currentReview?.bookSearch
+                    if (currentBookSearch?.absItemId == absItemId && currentBookSearch.query == query) {
+                        updateReview { it.copy(bookSearch = it.bookSearch?.copy(results = hits, isSearching = false)) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Book search failed for query '$query'" }
+                    updateReview { it.copy(bookSearch = it.bookSearch?.copy(isSearching = false)) }
                 }
-                // Stale-result guard: only apply if still on the same item and query
-                val currentReview = uiState.value as? ImportFlowUiState.Review
-                val currentBookSearch = currentReview?.bookSearch
-                if (currentBookSearch?.absItemId == absItemId && currentBookSearch.query == query) {
-                    updateReview { it.copy(bookSearch = it.bookSearch?.copy(results = hits, isSearching = false)) }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "Book search failed for query '$query'" }
-                updateReview { it.copy(bookSearch = it.bookSearch?.copy(isSearching = false)) }
             }
-        }
     }
 
     /**

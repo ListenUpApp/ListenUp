@@ -727,7 +727,10 @@ class ImportFlowViewModelTest :
                 val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), FakeSearchRepository())
                 driveToReview(vm, repo)
                 vm.openBookSearch(AbsItemId("abs-item-99"))
-                vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>().bookSearch.shouldNotBeNull()
+                vm.uiState.value
+                    .shouldBeInstanceOf<ImportFlowUiState.Review>()
+                    .bookSearch
+                    .shouldNotBeNull()
 
                 vm.closeBookSearch()
 
@@ -781,7 +784,10 @@ class ImportFlowViewModelTest :
                 vm.updateBookSearchQuery("something")
                 advanceTimeBy(301)
                 advanceUntilIdle()
-                vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>().bookSearch!!.results.size shouldBe 1
+                vm.uiState.value
+                    .shouldBeInstanceOf<ImportFlowUiState.Review>()
+                    .bookSearch!!
+                    .results.size shouldBe 1
 
                 // Now clear the query
                 vm.updateBookSearchQuery("")
@@ -1020,15 +1026,13 @@ private class FakeAdminRepository(
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> = AppResult.Success(emptyList())
 
-    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
-        AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 
     override suspend fun denyUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun deleteUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
-        AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+    override suspend fun getUser(userId: String): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 
     override suspend fun updateUser(
         userId: String,
@@ -1045,19 +1049,20 @@ private class FakeAdminRepository(
         email: String,
         role: String,
         expiresInDays: Int,
-    ): AppResult<InviteInfo> = AppResult.Success(
-        InviteInfo(
-            id = "inv-1",
-            code = "CODE",
-            name = name,
-            email = email,
-            role = role,
-            expiresAt = "",
-            claimedAt = null,
-            url = "",
-            createdAt = "",
-        ),
-    )
+    ): AppResult<InviteInfo> =
+        AppResult.Success(
+            InviteInfo(
+                id = "inv-1",
+                code = "CODE",
+                name = name,
+                email = email,
+                role = role,
+                expiresAt = "",
+                claimedAt = null,
+                url = "",
+                createdAt = "",
+            ),
+        )
 
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -1065,8 +1070,7 @@ private class FakeAdminRepository(
 
     override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun getServerSettings(): AppResult<ServerSettings> =
-        AppResult.Success(ServerSettings(serverName = "Test", remoteUrl = null))
+    override suspend fun getServerSettings(): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = "Test", remoteUrl = null))
 
     override suspend fun updateServerSettings(
         serverName: String?,
@@ -1075,8 +1079,7 @@ private class FakeAdminRepository(
 
     override suspend fun getLibraries(): AppResult<List<Library>> = AppResult.Success(emptyList())
 
-    override suspend fun getLibrary(libraryId: String): AppResult<Library> =
-        AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun getLibrary(libraryId: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
     override suspend fun setInboxEnabled(
         libraryId: String,
@@ -1095,8 +1098,7 @@ private class FakeAdminRepository(
 
     override suspend fun triggerScan(libraryId: String): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
-        AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> = AppResult.Failure(TransportError.NetworkUnavailable())
 }
 
 /**
