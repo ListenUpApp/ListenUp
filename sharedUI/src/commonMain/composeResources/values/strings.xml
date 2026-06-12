@@ -11,6 +11,7 @@
     <string name="admin_all_users_are_already_members">All users are already members of this collection</string>
     <string name="admin_allow_anyone_to_request_an">Allow anyone to request an account</string>
     <string name="admin_allow_sharing_collections_with_other">Allow sharing collections with other users</string>
+    <string name="admin_audiobookshelf_imports">Audiobookshelf Imports</string>
     <string name="admin_backup">Backup</string>
     <string name="admin_backup_created_at">Created: %1$s at %2$s</string>
     <string name="admin_backup_restore">Backup &amp; Restore</string>
@@ -32,6 +33,7 @@
     <string name="admin_collections_count">%1$d collections</string>
     <string name="admin_confirm_delete_backup">Are you sure you want to delete %1$s? This cannot be undone.</string>
     <string name="admin_confirm_delete_item">Are you sure you want to delete “%1$s”? This action cannot be undone.</string>
+    <string name="admin_confirm_delete_user">Are you sure you want to delete %1$s? This action cannot be undone.</string>
     <string name="admin_confirm_deny_registration">Are you sure you want to deny the registration request from </string>
     <string name="admin_confirm_remove_member">Are you sure you want to remove this member from the collection? </string>
     <string name="admin_copy_link">Copy Link</string>
@@ -88,6 +90,7 @@
     <string name="admin_protected_user">Protected User</string>
     <string name="admin_recommended_for_full_restore_capability">Recommended for full restore capability</string>
     <string name="admin_release_anyway">Release Anyway</string>
+    <string name="admin_release_selected_count">Release (%1$d)</string>
     <string name="admin_release_without_collections">Release Without Collections</string>
     <string name="admin_remote_url">Remote URL</string>
     <string name="admin_remote_url_placeholder">https://audiobooks.example.com</string>
@@ -235,6 +238,7 @@ One beautiful library.</string>
     <string name="book_detail_see_all_chapters">See All %1$d Chapters</string>
     <string name="book_detail_series_pill_a11y">Series, %1$s</string>
     <string name="book_detail_show_less">Show Less</string>
+    <string name="book_detail_started">Started</string>
     <string name="book_detail_stream_now">Play Now</string>
     <string name="book_detail_synopsis">Synopsis</string>
     <string name="book_detail_tags">Tags</string>
@@ -491,6 +495,9 @@ One beautiful library.</string>
     <string name="discover_loading_leaderboard">Loading leaderboard...</string>
     <string name="discover_no_activity_yet_start_listening">No activity yet. Start listening to see what your community is reading!</string>
     <string name="discover_no_shelves_to_discover_yet">No Shelves to Discover Yet</string>
+    <string name="discover_period_all">All</string>
+    <string name="discover_period_month">Month</string>
+    <string name="discover_period_week">Week</string>
     <string name="discover_recently_added">Recently Added</string>
     <string name="discover_shelf_count">%1$d shelf</string>
     <string name="discover_shelves_count">%1$d shelves</string>
@@ -531,6 +538,7 @@ One beautiful library.</string>
     <string name="home_hours_minutes">%1$dh %2$dm</string>
     <string name="home_listened">listened</string>
     <string name="home_my_shelves">My shelves</string>
+    <string name="home_my_stats">My stats</string>
     <string name="home_no_listening">No listening</string>
     <string name="home_nothing_playing_yet">Nothing playing yet</string>
     <string name="home_opens_book">Opens book</string>
@@ -776,6 +784,7 @@ One beautiful library.</string>
     <string name="player_playback_speed">Playback speed</string>
     <string name="player_previous_chapter">Previous chapter</string>
     <string name="player_reset_to_default">Reset to default (%1$s)</string>
+    <string name="player_seek_action">Seek</string>
     <string name="player_skip_back_10s">Skip back 10 seconds</string>
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
@@ -825,8 +834,10 @@ One beautiful library.</string>
     <string name="profile_tagline_description">A short bio that appears on your profile</string>
     <string name="profile_tagline_placeholder">What are you listening to?</string>
     <string name="profile_upload_photo">Upload Photo</string>
+    <string name="scan_analyzing_subtitle">Analyzing your audiobooks — this\'ll just take a moment.</string>
     <string name="scan_building_subtitle">Building your library.</string>
     <string name="scan_files_total">/ %1$d files</string>
+    <string name="scan_finishing_subtitle">Finishing up — almost there.</string>
     <string name="scan_recently_matched">Recently matched</string>
     <string name="scan_scanning">SCANNING</string>
     <string name="search_coming_soon">Search functionality coming soon</string>
@@ -878,6 +889,7 @@ One beautiful library.</string>
     <string name="settings_downloaded_books_will_appear_here">Downloaded books will appear here</string>
     <string name="settings_duration_when_pressing_skip_backward">Duration when pressing skip backward</string>
     <string name="settings_duration_when_pressing_skip_forward">Duration when pressing skip forward</string>
+    <string name="settings_dynamic_colors">Dynamic colors</string>
     <string name="settings_haptic_feedback">Haptic Feedback</string>
     <string name="settings_haptic_light">Light</string>
     <string name="settings_hide_series_with_only_one">Hide series with only one book</string>
@@ -915,6 +927,7 @@ One beautiful library.</string>
     <string name="shelf_private_shelf">Private shelf</string>
     <string name="shelf_private_shelf_description">Only you can see this shelf.</string>
     <string name="shelf_this_will_permanently_delete_this">This will permanently delete this shelf. Books in the shelf will not be affected.</string>
+    <string name="shelf_total">Total</string>
     <string name="shelf_whats_this_shelf_for">What\'s this shelf for?</string>
     <string name="shell_all_synced">All synced</string>
     <string name="shell_changes_waiting_to_sync">Changes waiting to sync</string>

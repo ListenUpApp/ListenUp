@@ -154,6 +154,7 @@
     <ID>MagicNumber:WeeklyStats.kt$WeeklyStats.Companion$7</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
+    <ID>MaxLineLength:LibrarySetupScreen.kt$ListenUpButton(text = stringResource(Res.string.library_setup_select_this_folder), onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())</ID>
     <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
@@ -162,34 +163,11 @@
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
     <ID>NoHardcodedUiString:ABSUploadWorker.kt$ABSUploadWorker$text = "Your Audiobookshelf backup has been analysed and is ready to map."</ID>
     <ID>NoHardcodedUiString:ABSUploadWorker.kt$ABSUploadWorker$title = "Backup ready to review"</ID>
-    <ID>NoHardcodedUiString:AdminBackupScreen.kt$title = "Audiobookshelf Imports"</ID>
-    <ID>NoHardcodedUiString:AdminInboxScreen.kt$text = "${stringResource(Res.string.common_release)} (${ready.selectedCount})"</ID>
-    <ID>NoHardcodedUiString:AdminScreen.kt$text = "Are you sure you want to delete ${user.displayName ?: user.email}? This action cannot be undone."</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "By Author"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "By Series"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "Downloaded"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "Library"</ID>
     <ID>NoHardcodedUiString:BrowseTreeProvider.kt$BrowseTreeProvider$title = "Recently Played"</ID>
-    <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$label = "Name"</ID>
-    <ID>NoHardcodedUiString:HomeStatsSection.kt$title = "My stats"</ID>
-    <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "All"</ID>
-    <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "Month"</ID>
-    <ID>NoHardcodedUiString:LeaderboardHeader.kt$label = "Week"</ID>
-    <ID>NoHardcodedUiString:LibraryScanScreen.kt$label = "Authors"</ID>
-    <ID>NoHardcodedUiString:LibraryScanScreen.kt$label = "Books"</ID>
-    <ID>NoHardcodedUiString:LibraryScanScreen.kt$label = "Hours"</ID>
-    <ID>NoHardcodedUiString:LibraryScanScreen.kt$subtitle = "Analyzing your audiobooks — this'll just take a moment."</ID>
-    <ID>NoHardcodedUiString:LibraryScanScreen.kt$subtitle = "Finishing up — almost there."</ID>
-    <ID>NoHardcodedUiString:LibraryScreen.kt$text = "Retry"</ID>
-    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Back"</ID>
-    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Continue"</ID>
-    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Done"</ID>
-    <ID>NoHardcodedUiString:LibrarySetupScreen.kt$text = "Select this folder"</ID>
-    <ID>NoHardcodedUiString:MarkCompleteDialog.kt$label = "Finished"</ID>
-    <ID>NoHardcodedUiString:MarkCompleteDialog.kt$label = "Started"</ID>
-    <ID>NoHardcodedUiString:SettingsScreen.kt$title = "Dynamic colors"</ID>
-    <ID>NoHardcodedUiString:ShelfDetailScreen.kt$label = "Total"</ID>
-    <ID>NoHardcodedUiString:WavySeekBar.kt$label = "Seek"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>

@@ -59,6 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_done
+import listenup.composeapp.generated.resources.connect_continue
 import listenup.composeapp.generated.resources.library_setup_add_another_folder
 import listenup.composeapp.generated.resources.library_setup_choose_audiobook_folders
 import listenup.composeapp.generated.resources.library_setup_choose_folders_title
@@ -68,6 +71,7 @@ import listenup.composeapp.generated.resources.library_setup_no_subfolders_selec
 import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
 import listenup.composeapp.generated.resources.library_setup_scanned_shortly
 import listenup.composeapp.generated.resources.library_setup_select_one_or_more
+import listenup.composeapp.generated.resources.library_setup_select_this_folder
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
@@ -267,7 +271,7 @@ private fun DockedSelectionBar(
                 )
             }
             ListenUpButton(
-                text = "Continue",
+                text = stringResource(Res.string.connect_continue),
                 onClick = onContinue,
                 isLoading = state.isCreatingLibrary,
                 fillMaxWidth = false,
@@ -419,10 +423,15 @@ private fun DesktopPickerPanel(
                 )
             }
             if (!state.isRoot) {
-                ListenUpButton(text = "Back", onClick = onBack, filled = false, fillMaxWidth = false)
+                ListenUpButton(
+                    text = stringResource(Res.string.common_back),
+                    onClick = onBack,
+                    filled = false,
+                    fillMaxWidth = false,
+                )
             }
             ListenUpButton(
-                text = "Continue",
+                text = stringResource(Res.string.connect_continue),
                 onClick = onContinue,
                 enabled = state.selectedPaths.isNotEmpty(),
                 isLoading = state.isCreatingLibrary,
@@ -546,7 +555,11 @@ private fun EmptyFolder(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(24.dp))
-        ListenUpButton(text = "Select this folder", onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
+        ListenUpButton(
+            text = stringResource(Res.string.library_setup_select_this_folder),
+            onClick = onSelectCurrent,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -626,7 +639,7 @@ private fun ConfirmationActions(
     if (wide) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             ListenUpButton(
-                text = "Done",
+                text = stringResource(Res.string.common_done),
                 onClick = onDone,
                 fillMaxWidth = false,
                 leadingIcon = Icons.Rounded.CheckCircle,
@@ -645,7 +658,7 @@ private fun ConfirmationActions(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ListenUpButton(
-                text = "Done",
+                text = stringResource(Res.string.common_done),
                 onClick = onDone,
                 leadingIcon = Icons.Rounded.CheckCircle,
             )

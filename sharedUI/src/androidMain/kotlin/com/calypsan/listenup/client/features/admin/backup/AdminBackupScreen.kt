@@ -67,6 +67,7 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_audiobookshelf_imports
 import listenup.composeapp.generated.resources.admin_backup_created_at
 import listenup.composeapp.generated.resources.admin_backup_size
 import listenup.composeapp.generated.resources.admin_backups
@@ -363,7 +364,7 @@ private fun AdminBackupReadyContent(
             if (state.backups.isNotEmpty()) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
-            SectionHeader(title = "Audiobookshelf Imports")
+            SectionHeader(title = stringResource(Res.string.admin_audiobookshelf_imports))
         }
 
         // Upload new import card

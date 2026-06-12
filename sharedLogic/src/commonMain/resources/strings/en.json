@@ -261,6 +261,7 @@
     "detail_error_title": "Couldn’t load this book",
     "detail_chapter_count": "%1$d chapters",
     "detail_finished": "Finished",
+    "detail_started": "Started",
     "detail_mark_as_finished": "Mark as Finished",
     "detail_mark_as_finished_prompt": "Mark as finished?",
     "detail_new_shelf": "New Shelf",
@@ -473,6 +474,9 @@
     "shelf_count": "%1$d shelf",
     "shelves_count": "%1$d shelves",
     "start_listening_to_join_the": "Start listening to join the community rankings",
+    "period_week": "Week",
+    "period_month": "Month",
+    "period_all": "All",
     "total_time": "Total Time",
     "what_others_are_listening_to": "What Others Are Listening To",
     "when_other_users_create_shelves": "When other users create shelves with books you can access, they'll appear here."
@@ -489,6 +493,7 @@
     "cover_3": "Cover 3",
     "cover_4": "Cover 4",
     "best_value": "Best: %1$s",
+    "my_stats": "My stats",
     "day_streak": "%1$d day streak",
     "hours_minutes": "%1$dh %2$dm",
     "listened": "listened",
@@ -553,6 +558,7 @@
     "private_shelf": "Private shelf",
     "private_shelf_description": "Only you can see this shelf.",
     "this_will_permanently_delete_this": "This will permanently delete this shelf. Books in the shelf will not be affected.",
+    "total": "Total",
     "whats_this_shelf_for": "What's this shelf for?"
   },
   "shell": {
@@ -596,6 +602,7 @@
     "devices": "Devices",
     "downloaded_books": "Downloaded Books",
     "downloaded_books_will_appear_here": "Downloaded books will appear here",
+    "dynamic_colors": "Dynamic colors",
     "duration_when_pressing_skip_backward": "Duration when pressing skip backward",
     "duration_when_pressing_skip_forward": "Duration when pressing skip forward",
     "haptic_feedback": "Haptic Feedback",
@@ -648,6 +655,8 @@
     "add_this_folder": "Add This Folder",
     "administrator": "Administrator",
     "all_users_are_already_members": "All users are already members of this collection",
+    "audiobookshelf_imports": "Audiobookshelf Imports",
+    "confirm_delete_user": "Are you sure you want to delete %1$s? This action cannot be undone.",
     "allow_anyone_to_request_an": "Allow anyone to request an account",
     "allow_sharing_collections_with_other": "Allow sharing collections with other users",
     "backup": "Backup",
@@ -728,6 +737,7 @@
     "protected_user": "Protected User",
     "recommended_for_full_restore_capability": "Recommended for full restore capability",
     "release_anyway": "Release Anyway",
+    "release_selected_count": "Release (%1$d)",
     "release_without_collections": "Release Without Collections",
     "remote_url": "Remote URL",
     "remote_url_placeholder": "https://audiobooks.example.com",
@@ -923,7 +933,8 @@
     "cast": "Cast",
     "go_to_book": "Go to Book",
     "go_to_series": "Go to Series",
-    "close_book": "Close Book"
+    "close_book": "Close Book",
+    "seek_action": "Seek"
   },
   "library_setup": {
     "choose_audiobook_folders": "Choose your audiobook folders",
@@ -967,7 +978,9 @@
     "building_subtitle": "Building your library.",
     "files_total": "/ %1$d files",
     "recently_matched": "Recently matched",
-    "scanning": "SCANNING"
+    "scanning": "SCANNING",
+    "analyzing_subtitle": "Analyzing your audiobooks — this'll just take a moment.",
+    "finishing_subtitle": "Finishing up — almost there."
   },
   "genre": {
     "browse_title": "Browse by Genre",

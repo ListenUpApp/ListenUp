@@ -43,8 +43,13 @@ import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_setup_building_title
+import listenup.composeapp.generated.resources.library_setup_stat_authors
+import listenup.composeapp.generated.resources.library_setup_stat_books
+import listenup.composeapp.generated.resources.library_setup_stat_hours
+import listenup.composeapp.generated.resources.scan_analyzing_subtitle
 import listenup.composeapp.generated.resources.scan_building_subtitle
 import listenup.composeapp.generated.resources.scan_files_total
+import listenup.composeapp.generated.resources.scan_finishing_subtitle
 import listenup.composeapp.generated.resources.scan_recently_matched
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
@@ -168,11 +173,11 @@ private fun ScanBody(
             // "Finishing up" tail: the scan's Completed event has cleared granular progress while
             // books reconcile into Room. Show only the loader, headline and an indeterminate bar —
             // never a reset-looking 0/0 count, empty stats and a bar pinned at zero.
-            ScanHeader(wide = wide, subtitle = "Finishing up — almost there.")
+            ScanHeader(wide = wide, subtitle = stringResource(Res.string.scan_finishing_subtitle))
             Spacer(Modifier.height(26.dp))
             LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
-            ScanHeader(wide = wide, subtitle = "Analyzing your audiobooks — this'll just take a moment.")
+            ScanHeader(wide = wide, subtitle = stringResource(Res.string.scan_analyzing_subtitle))
             Spacer(Modifier.height(26.dp))
             ScanProgressBlock(progress = progress)
             Spacer(Modifier.height(26.dp))
@@ -264,19 +269,19 @@ private fun ScanStatsBlock(
         StatChip(
             icon = Icons.AutoMirrored.Rounded.MenuBook,
             value = progress.books,
-            label = "Books",
+            label = stringResource(Res.string.library_setup_stat_books),
             modifier = Modifier.weight(1f),
         )
         StatChip(
             icon = Icons.Rounded.Person,
             value = progress.authors,
-            label = "Authors",
+            label = stringResource(Res.string.library_setup_stat_authors),
             modifier = Modifier.weight(1f),
         )
         StatChip(
             icon = Icons.Rounded.Schedule,
             value = progress.hours,
-            label = "Hours",
+            label = stringResource(Res.string.library_setup_stat_hours),
             modifier = Modifier.weight(1f),
         )
     }

@@ -34,6 +34,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_seek_action
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * M3 Expressive wavy progress bar with seek functionality.
@@ -68,6 +71,7 @@ fun WavySeekBar(
     stateDescription: String = "",
 ) {
     val density = LocalDensity.current
+    val seekLabel = stringResource(Res.string.player_seek_action)
 
     // Track width for calculating drag position
     var trackWidth by remember { mutableFloatStateOf(0f) }
@@ -92,6 +96,7 @@ fun WavySeekBar(
                     progress = progress,
                     stateDescription = stateDescription,
                     enabled = enabled,
+                    seekLabel = seekLabel,
                     onSeek = onSeek,
                 ).onSizeChanged { size ->
                     trackWidth = size.width.toFloat()
@@ -173,6 +178,7 @@ private fun Modifier.seekBarSemantics(
     progress: Float,
     stateDescription: String,
     enabled: Boolean,
+    seekLabel: String,
     onSeek: (Float) -> Unit,
 ): Modifier =
     semantics {
@@ -185,7 +191,7 @@ private fun Modifier.seekBarSemantics(
             this.stateDescription = stateDescription
         }
         if (enabled) {
-            setProgress(label = "Seek") { targetValue ->
+            setProgress(label = seekLabel) { targetValue ->
                 onSeek(targetValue.coerceIn(0f, 1f))
                 true
             }

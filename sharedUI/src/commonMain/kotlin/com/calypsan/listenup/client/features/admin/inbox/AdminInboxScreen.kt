@@ -58,13 +58,13 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_inbox_empty
 import listenup.composeapp.generated.resources.admin_newly_scanned_books_will_appear
 import listenup.composeapp.generated.resources.admin_release_anyway
+import listenup.composeapp.generated.resources.admin_release_selected_count
 import listenup.composeapp.generated.resources.admin_release_without_collections
 import listenup.composeapp.generated.resources.admin_these_books_will_become_visible
 import listenup.composeapp.generated.resources.admin_books_awaiting_review_count
 import listenup.composeapp.generated.resources.admin_books_awaiting_review_s_count
 import listenup.composeapp.generated.resources.admin_selected_count
 import listenup.composeapp.generated.resources.common_inbox
-import listenup.composeapp.generated.resources.common_release
 
 /**
  * Admin review-and-release queue for the collection inbox (Layout A).
@@ -122,7 +122,7 @@ fun AdminInboxScreen(
                 ListenUpExtendedFab(
                     onClick = { showReleaseConfirmation = true },
                     icon = Icons.Outlined.Publish,
-                    text = "${stringResource(Res.string.common_release)} (${ready.selectedCount})",
+                    text = stringResource(Res.string.admin_release_selected_count, ready.selectedCount),
                     isLoading = ready.isReleasing,
                 )
             }

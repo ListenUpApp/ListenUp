@@ -82,6 +82,7 @@ import listenup.composeapp.generated.resources.common_private
 import listenup.composeapp.generated.resources.shelf_add_books_from_the_library
 import listenup.composeapp.generated.resources.shelf_books_in_shelf
 import listenup.composeapp.generated.resources.shelf_edit_shelf
+import listenup.composeapp.generated.resources.shelf_total
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -394,7 +395,7 @@ private fun ShelfHeroTexts(
             ShelfStatChip(
                 icon = Icons.Default.Schedule,
                 value = totalDuration,
-                label = "Total",
+                label = stringResource(Res.string.shelf_total),
             )
         }
     }

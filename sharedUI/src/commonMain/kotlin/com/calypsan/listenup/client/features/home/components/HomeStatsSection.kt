@@ -33,6 +33,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_loading_item
 import listenup.composeapp.generated.resources.home_hours_minutes
 import listenup.composeapp.generated.resources.home_listened
+import listenup.composeapp.generated.resources.home_my_stats
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -55,7 +56,7 @@ fun HomeStatsSection(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = modifier.fillMaxWidth()) {
-        SectionTitle(title = "My stats")
+        SectionTitle(title = stringResource(Res.string.home_my_stats))
         Spacer(Modifier.height(Spacing.titleGap))
         Card(
             modifier = Modifier.fillMaxWidth(),

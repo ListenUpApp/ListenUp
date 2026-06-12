@@ -78,6 +78,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_admin
 import listenup.composeapp.generated.resources.admin_allow_anyone_to_request_an
 import listenup.composeapp.generated.resources.common_approve
+import listenup.composeapp.generated.resources.admin_confirm_delete_user
 import listenup.composeapp.generated.resources.admin_confirm_deny_registration
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.admin_backup_restore
@@ -254,7 +255,11 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { userToDelete = null },
             title = stringResource(Res.string.common_delete_name, "User"),
-            text = "Are you sure you want to delete ${user.displayName ?: user.email}? This action cannot be undone.",
+            text =
+                stringResource(
+                    Res.string.admin_confirm_delete_user,
+                    user.displayName ?: user.email,
+                ),
             confirmText = stringResource(Res.string.common_delete),
             onConfirm = {
                 viewModel.deleteUser(user.id)

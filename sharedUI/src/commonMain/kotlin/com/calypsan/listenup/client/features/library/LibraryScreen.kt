@@ -50,6 +50,9 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.library.SelectionMode
 import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_retry
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -158,7 +161,7 @@ private fun LibraryErrorContent(
                 modifier = Modifier.padding(top = 8.dp),
             )
             ListenUpButton(
-                text = "Retry",
+                text = stringResource(Res.string.common_retry),
                 onClick = onRetry,
                 modifier = Modifier.padding(top = 16.dp),
             )

@@ -52,6 +52,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.shelf_delete_shelf
 import listenup.composeapp.generated.resources.shelf_description_optional
 import listenup.composeapp.generated.resources.shelf_private_shelf
@@ -228,7 +229,7 @@ private fun CreateEditShelfFormBody(
         ListenUpTextField(
             value = name,
             onValueChange = onNameChange,
-            label = "Name",
+            label = stringResource(Res.string.common_name),
             placeholder = stringResource(Res.string.common_shelf_name_hint),
         )
 

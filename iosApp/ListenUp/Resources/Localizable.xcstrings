@@ -111,6 +111,16 @@
         }
       }
     },
+    "admin.audiobookshelf_imports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audiobookshelf Imports"
+          }
+        }
+      }
+    },
     "admin.backup": {
       "localizations": {
         "en": {
@@ -317,6 +327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Are you sure you want to delete “%1$@”? This action cannot be undone."
+          }
+        }
+      }
+    },
+    "admin.confirm_delete_user": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to delete %1$@? This action cannot be undone."
           }
         }
       }
@@ -877,6 +897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Release Anyway"
+          }
+        }
+      }
+    },
+    "admin.release_selected_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release (%1$d)"
           }
         }
       }
@@ -2337,6 +2367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show Less"
+          }
+        }
+      }
+    },
+    "book.detail_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Started"
           }
         }
       }
@@ -4901,6 +4941,36 @@
         }
       }
     },
+    "discover.period_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "discover.period_month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Month"
+          }
+        }
+      }
+    },
+    "discover.period_week": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Week"
+          }
+        }
+      }
+    },
     "discover.recently_added": {
       "localizations": {
         "en": {
@@ -5297,6 +5367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "My shelves"
+          }
+        }
+      }
+    },
+    "home.my_stats": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My stats"
           }
         }
       }
@@ -7751,6 +7831,16 @@
         }
       }
     },
+    "player.seek_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seek"
+          }
+        }
+      }
+    },
     "player.skip_back_10s": {
       "localizations": {
         "en": {
@@ -8241,6 +8331,16 @@
         }
       }
     },
+    "scan.analyzing_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing your audiobooks — this'll just take a moment."
+          }
+        }
+      }
+    },
     "scan.building_subtitle": {
       "localizations": {
         "en": {
@@ -8257,6 +8357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "/ %1$d files"
+          }
+        }
+      }
+    },
+    "scan.finishing_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing up — almost there."
           }
         }
       }
@@ -8771,6 +8881,16 @@
         }
       }
     },
+    "settings.dynamic_colors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dynamic colors"
+          }
+        }
+      }
+    },
     "settings.haptic_feedback": {
       "localizations": {
         "en": {
@@ -9137,6 +9257,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This will permanently delete this shelf. Books in the shelf will not be affected."
+          }
+        }
+      }
+    },
+    "shelf.total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
           }
         }
       }

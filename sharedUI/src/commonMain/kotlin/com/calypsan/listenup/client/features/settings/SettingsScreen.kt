@@ -66,6 +66,7 @@ import listenup.composeapp.generated.resources.settings_default_speed
 import listenup.composeapp.generated.resources.settings_default_timer
 import listenup.composeapp.generated.resources.settings_desktop
 import listenup.composeapp.generated.resources.settings_devices
+import listenup.composeapp.generated.resources.settings_dynamic_colors
 import listenup.composeapp.generated.resources.devices_manage_active_sessions
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_backward
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_forward
@@ -291,7 +292,7 @@ private fun ColumnScope.AppearanceSection(
         )
         if (showDynamicColors) {
             SettingsToggleItem(
-                title = "Dynamic colors",
+                title = stringResource(Res.string.settings_dynamic_colors),
                 description = "Use colors from your wallpaper (Material You)",
                 checked = state.dynamicColorsEnabled,
                 onCheckedChange = viewModel::setDynamicColorsEnabled,

@@ -14,6 +14,9 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_leaderboard
+import listenup.composeapp.generated.resources.discover_period_all
+import listenup.composeapp.generated.resources.discover_period_month
+import listenup.composeapp.generated.resources.discover_period_week
 
 /**
  * Leaderboard header with title and period selector.
@@ -44,17 +47,17 @@ fun LeaderboardHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             PeriodChip(
-                label = "Week",
+                label = stringResource(Res.string.discover_period_week),
                 selected = selectedPeriod == LeaderboardPeriod.Week,
                 onClick = { onPeriodSelected(LeaderboardPeriod.Week) },
             )
             PeriodChip(
-                label = "Month",
+                label = stringResource(Res.string.discover_period_month),
                 selected = selectedPeriod == LeaderboardPeriod.Month,
                 onClick = { onPeriodSelected(LeaderboardPeriod.Month) },
             )
             PeriodChip(
-                label = "All",
+                label = stringResource(Res.string.discover_period_all),
                 selected = selectedPeriod == LeaderboardPeriod.AllTime,
                 onClick = { onPeriodSelected(LeaderboardPeriod.AllTime) },
             )

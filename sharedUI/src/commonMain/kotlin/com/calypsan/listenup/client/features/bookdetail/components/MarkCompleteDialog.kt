@@ -34,7 +34,9 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_finished
 import listenup.composeapp.generated.resources.book_detail_mark_as_read
+import listenup.composeapp.generated.resources.book_detail_started
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 import listenup.composeapp.generated.resources.common_select_date
@@ -77,12 +79,12 @@ fun MarkCompleteDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 DateField(
-                    label = "Started",
+                    label = stringResource(Res.string.book_detail_started),
                     millis = startDateMillis,
                     onClick = { showStartDatePicker = true },
                 )
                 DateField(
-                    label = "Finished",
+                    label = stringResource(Res.string.book_detail_finished),
                     millis = finishDateMillis,
                     onClick = { showFinishDatePicker = true },
                 )
