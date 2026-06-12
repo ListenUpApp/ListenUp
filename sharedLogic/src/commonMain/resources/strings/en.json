@@ -344,7 +344,18 @@
     "merge_title": "Merge into…",
     "no_cover": "No Cover",
     "series_cover": "Series cover",
-    "series_name": "Series Name"
+    "series_name": "Series Name",
+    "start_listening": "Start Listening",
+    "listen_again": "Listen Again",
+    "continue": "Continue",
+    "narrated_by": "Narrated by %1$s",
+    "eyebrow": "SERIES",
+    "stat_books": "Books",
+    "stat_finished": "Finished",
+    "stat_total": "Total",
+    "books_header": "Books in Series",
+    "book_number": "Book %1$s",
+    "book_finished": "Finished"
   },
   "contributor": {
     "aka": "aka %1$s",

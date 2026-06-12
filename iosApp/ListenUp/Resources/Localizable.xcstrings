@@ -7831,6 +7831,26 @@
         }
       }
     },
+    "series.book_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "series.book_number": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@"
+          }
+        }
+      }
+    },
     "series.book_position": {
       "localizations": {
         "en": {
@@ -7851,12 +7871,32 @@
         }
       }
     },
+    "series.books_header": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books in Series"
+          }
+        }
+      }
+    },
     "series.books_in_series": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books in Series"
+          }
+        }
+      }
+    },
+    "series.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
           }
         }
       }
@@ -7891,12 +7931,32 @@
         }
       }
     },
+    "series.eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SERIES"
+          }
+        }
+      }
+    },
     "series.label": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "SERIES"
+          }
+        }
+      }
+    },
+    "series.listen_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen Again"
           }
         }
       }
@@ -7947,6 +8007,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Merge into…"
+          }
+        }
+      }
+    },
+    "series.narrated_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated by %1$@"
           }
         }
       }
@@ -8011,46 +8081,6 @@
         }
       }
     },
-    "series.listen_again": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Listen Again"
-          }
-        }
-      }
-    },
-    "series.continue": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continue"
-          }
-        }
-      }
-    },
-    "series.narrated_by": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Narrated by %@"
-          }
-        }
-      }
-    },
-    "series.eyebrow": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SERIES"
-          }
-        }
-      }
-    },
     "series.stat_books": {
       "localizations": {
         "en": {
@@ -8077,36 +8107,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Total"
-          }
-        }
-      }
-    },
-    "series.books_header": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books in Series"
-          }
-        }
-      }
-    },
-    "series.book_number": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book %@"
-          }
-        }
-      }
-    },
-    "series.book_finished": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finished"
           }
         }
       }
