@@ -30,7 +30,7 @@ data class RefreshLibraryResult(
  * ```kotlin
  * when (val result = refreshLibraryUseCase()) {
  *     is AppResult.Success -> showSuccess(result.data.message)
- *     is AppResult.Failure -> showError(userMessageFor(result.error)) // presentation translator
+ *     is AppResult.Failure -> _state.value = State.Error(result.error) // carry the typed AppError; render via AppError.localized()
  * }
  * ```
  */
