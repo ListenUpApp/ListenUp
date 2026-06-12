@@ -36,6 +36,14 @@ import kotlin.io.path.writeText
 import kotlin.time.Clock
 
 /**
+ * Max accepted size for an uploaded `.audiobookshelf` backup. ABS backups for large libraries
+ * routinely reach hundreds of MB; this endpoint is admin-only and streams the file straight to a
+ * temp file (never buffered in memory), so a generous cap is safe. Ktor's default [formFieldLimit]
+ * is 50 MiB (52_428_800 bytes), which rejected real backups before they could be streamed.
+ */
+private const val MAX_BACKUP_UPLOAD_BYTES: Long = 5L * 1024 * 1024 * 1024 // 5 GiB
+
+/**
  * REST route for binary Audiobookshelf-backup upload (staging only).
  *
  * Complements the RPC surface ([com.calypsan.listenup.api.ImportService]) — binary transfer
@@ -83,7 +91,7 @@ private suspend fun ApplicationCall.handleImportUpload(
     val tmpZip = Files.createTempFile(paths.tmpDir, "abs-upload-", ".audiobookshelf")
     try {
         var received = false
-        receiveMultipart().forEachPart { part ->
+        receiveMultipart(formFieldLimit = MAX_BACKUP_UPLOAD_BYTES).forEachPart { part ->
             if (part is PartData.FileItem && !received) {
                 received = true
                 tmpZip.outputStream().use { out -> part.provider().copyTo(out) }
