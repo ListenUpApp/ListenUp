@@ -441,7 +441,7 @@
     <string name="import_book_search_no_results">No books found.</string>
     <string name="import_book_search_placeholder">Search for a ListenUp book to assign</string>
     <string name="import_book_skip">Skip book</string>
-    <string name="import_books_matched">Books matched: %1$s</string>
+    <string name="import_books_matched">Listened books matched: %1$s</string>
     <string name="import_books_needs_review">Books needing review: %1$s</string>
     <string name="import_books_skipped">Books skipped: %1$s</string>
     <string name="import_choose_backup_file">Choose Backup File</string>

@@ -614,7 +614,7 @@
     "book_search_no_results": "No books found.",
     "book_search_placeholder": "Search for a ListenUp book to assign",
     "book_skip": "Skip book",
-    "books_matched": "Books matched: %1$s",
+    "books_matched": "Listened books matched: %1$s",
     "books_needs_review": "Books needing review: %1$s",
     "books_skipped": "Books skipped: %1$s",
     "choose_backup_file": "Choose Backup File",

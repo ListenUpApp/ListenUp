@@ -4351,12 +4351,82 @@
         }
       }
     },
+    "import.book_assigned": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assigned"
+          }
+        }
+      }
+    },
+    "import.book_search_cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel search"
+          }
+        }
+      }
+    },
+    "import.book_search_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search books…"
+          }
+        }
+      }
+    },
+    "import.book_search_no_results": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books found."
+          }
+        }
+      }
+    },
+    "import.book_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search for a ListenUp book to assign"
+          }
+        }
+      }
+    },
+    "import.book_skip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip book"
+          }
+        }
+      }
+    },
     "import.books_matched": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Books matched: %1$@"
+            "value": "Listened books matched: %1$@"
+          }
+        }
+      }
+    },
+    "import.books_needs_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books needing review: %1$@"
           }
         }
       }
@@ -4491,12 +4561,72 @@
         }
       }
     },
+    "import.no_books_to_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All books matched automatically."
+          }
+        }
+      }
+    },
     "import.records_imported": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Records imported: %1$@"
+          }
+        }
+      }
+    },
+    "import.review_books_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "import.review_users_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Users"
+          }
+        }
+      }
+    },
+    "import.review_users_unresolved_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ user(s) still need review — their history will be skipped."
+          }
+        }
+      }
+    },
+    "import.search_and_assign": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search & assign"
+          }
+        }
+      }
+    },
+    "import.sessions_importable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importable sessions: %1$@"
           }
         }
       }
@@ -4561,12 +4691,92 @@
         }
       }
     },
+    "import.user_accept_suggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept"
+          }
+        }
+      }
+    },
+    "import.user_assign": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign"
+          }
+        }
+      }
+    },
+    "import.user_assigned_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assigned to %1$@"
+          }
+        }
+      }
+    },
     "import.user_label": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "import.user_needs_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs review"
+          }
+        }
+      }
+    },
+    "import.user_pick_user": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a user"
+          }
+        }
+      }
+    },
+    "import.user_skip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip user"
+          }
+        }
+      }
+    },
+    "import.user_skipped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skipped"
+          }
+        }
+      }
+    },
+    "import.user_suggested": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestion: %1$@"
           }
         }
       }
