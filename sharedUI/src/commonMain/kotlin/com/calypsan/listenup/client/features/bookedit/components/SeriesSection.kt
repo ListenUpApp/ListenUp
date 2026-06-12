@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 
@@ -137,7 +138,7 @@ private fun SeriesChipWithSequence(
             trailingIcon = {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Remove ${series.name}",
+                    contentDescription = stringResource(Res.string.common_remove_name, series.name),
                     modifier =
                         Modifier
                             .size(InputChipDefaults.AvatarSize)

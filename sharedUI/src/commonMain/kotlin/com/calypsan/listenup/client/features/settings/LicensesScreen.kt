@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.settings_licenses_by_author
 import listenup.composeapp.generated.resources.settings_listenup_uses_the_following_open
 import listenup.composeapp.generated.resources.settings_open_source_licenses
 
@@ -200,7 +201,7 @@ private fun LibraryCard(library: Library) {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = "by ${library.author}",
+                text = stringResource(Res.string.settings_licenses_by_author, library.author),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

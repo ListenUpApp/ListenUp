@@ -40,6 +40,7 @@ import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.shell_all_synced
 import listenup.composeapp.generated.resources.shell_changes_waiting_to_sync
 import listenup.composeapp.generated.resources.shell_dismiss_all
+import listenup.composeapp.generated.resources.shell_failed_count
 import listenup.composeapp.generated.resources.shell_no_pending_changes
 import listenup.composeapp.generated.resources.shell_pendingcount_pending
 import listenup.composeapp.generated.resources.shell_retry_all
@@ -237,7 +238,7 @@ private fun FailedOperationsSection(
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "${failedOperations.size} failed",
+                text = stringResource(Res.string.shell_failed_count, failedOperations.size),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.error,
             )

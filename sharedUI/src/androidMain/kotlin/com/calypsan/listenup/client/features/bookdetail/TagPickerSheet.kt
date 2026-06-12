@@ -30,6 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.Tag
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_add
+import listenup.composeapp.generated.resources.book_tag_add
+import listenup.composeapp.generated.resources.book_tag_add_placeholder
+import listenup.composeapp.generated.resources.book_tag_popular
 
 /**
  * Bottom sheet for selecting or creating tags.
@@ -63,7 +69,7 @@ fun TagPickerSheet(
                     .padding(16.dp),
         ) {
             Text(
-                text = "Add Tag",
+                text = stringResource(Res.string.book_tag_add),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 16.dp),
             )
@@ -76,7 +82,7 @@ fun TagPickerSheet(
                 OutlinedTextField(
                     value = newTagName,
                     onValueChange = { newTagName = it },
-                    placeholder = { Text("Add tag...") },
+                    placeholder = { Text(stringResource(Res.string.book_tag_add_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -90,7 +96,7 @@ fun TagPickerSheet(
                     enabled = newTagName.isNotBlank(),
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Add")
+                    Text(stringResource(Res.string.common_add))
                 }
             }
 
@@ -99,7 +105,7 @@ fun TagPickerSheet(
                 HorizontalDivider()
 
                 Text(
-                    text = "Popular Tags",
+                    text = stringResource(Res.string.book_tag_popular),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp),

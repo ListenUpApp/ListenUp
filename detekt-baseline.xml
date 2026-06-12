@@ -160,49 +160,6 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
-    <ID>NoHardcodedUiString:AboutSectionPreviews.kt$text = "Credits go here"</ID>
-    <ID>NoHardcodedUiString:AdminCollectionDetailScreen.kt$text = "$count book${if (count != 1) "s" else ""}"</ID>
-    <ID>NoHardcodedUiString:AdminCollectionsScreen.kt$text = "${collection.bookCount} book${if (collection.bookCount != 1) "s" else ""}"</ID>
-    <ID>NoHardcodedUiString:AdminCollectionsScreen.kt$text = "${state.collections.size} collection${if (state.collections.size != 1) "s" else ""}"</ID>
-    <ID>NoHardcodedUiString:AdminInboxScreen.kt$"${ready.selectedCount} selected"</ID>
-    <ID>NoHardcodedUiString:AdminInboxScreen.kt$text = "${state.bookIds.size} book${if (state.bookIds.size != 1) "s" else ""} awaiting review"</ID>
-    <ID>NoHardcodedUiString:AdminScreen.kt$"https://audiobooks.example.com"</ID>
-    <ID>NoHardcodedUiString:BookCard.kt$contentDescription = "Now playing"</ID>
-    <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$"Apply chapter names"</ID>
-    <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$text = "Audible names replace your chapter labels. Timings stay the same."</ID>
-    <ID>NoHardcodedUiString:ChapterNameReviewSheet.kt$text = "Review chapter names"</ID>
-    <ID>NoHardcodedUiString:ClassificationSection.kt$contentDescription = "Remove ${collection.name}"</ID>
-    <ID>NoHardcodedUiString:ClassificationSection.kt$contentDescription = "Remove ${genre.name}"</ID>
-    <ID>NoHardcodedUiString:ClassificationSection.kt$contentDescription = "Remove ${tag.displayName()}"</ID>
-    <ID>NoHardcodedUiString:ContributorBooksScreen.kt$text = "$totalBooks ${if (totalBooks == 1) "book" else "books"} by $contributorName"</ID>
-    <ID>NoHardcodedUiString:ContributorBooksScreen.kt$text = "${books.size} ${if (books.size == 1) "book" else "books"}"</ID>
-    <ID>NoHardcodedUiString:ContributorBooksScreen.kt$text = "${seriesGroup.books.size} ${if (seriesGroup.books.size == 1) "book" else "books"}"</ID>
-    <ID>NoHardcodedUiString:ContributorDetailScreen.kt$text = "${section.bookCount} ${if (section.bookCount == 1) "book" else "books"}"</ID>
-    <ID>NoHardcodedUiString:ContributorDetailScreen.kt$text = "aka ${aliases.joinToString(", ")}"</ID>
-    <ID>NoHardcodedUiString:ContributorMetadataSearchScreen.kt$text = "Searching for: ${contributor.name}"</ID>
-    <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Only you can see this shelf."</ID>
-    <ID>NoHardcodedUiString:CreateEditShelfScreen.kt$text = "Private shelf"</ID>
-    <ID>NoHardcodedUiString:JoinScreen.kt$text = "Your email: ${preview.email}"</ID>
-    <ID>NoHardcodedUiString:LicensesScreen.kt$text = "by ${library.author}"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$"Review"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$contentDescription = "Cover from ${cover.label}"</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$text = "${suggestion.rows.size} Audible chapters match — review and apply."</ID>
-    <ID>NoHardcodedUiString:MatchPreviewScreen.kt$text = "Chapter names"</ID>
-    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "$verb Book $positionLabel"</ID>
-    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "${(progress * 100).toInt()}% · ${book.formatDuration()}"</ID>
-    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "Book $positionLabel"</ID>
-    <ID>NoHardcodedUiString:SeriesDetailScreen.kt$text = "SERIES"</ID>
-    <ID>NoHardcodedUiString:SeriesSection.kt$contentDescription = "Remove ${series.name}"</ID>
-    <ID>NoHardcodedUiString:ServerSelectScreen.kt$text = "v$it"</ID>
-    <ID>NoHardcodedUiString:ShelfDetailScreen.kt$text = "Private"</ID>
-    <ID>NoHardcodedUiString:SyncDetailsDropdown.kt$text = "${failedOperations.size} failed"</ID>
-    <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add tag..."</ID>
-    <ID>NoHardcodedUiString:TagPickerSheet.kt$"Add"</ID>
-    <ID>NoHardcodedUiString:TagPickerSheet.kt$text = "Add Tag"</ID>
-    <ID>NoHardcodedUiString:TagPickerSheet.kt$text = "Popular Tags"</ID>
-    <ID>NoHardcodedUiString:TalentSection.kt$contentDescription = "Remove ${contributor.name}"</ID>
-    <ID>NoHardcodedUiString:TalentSection.kt$contentDescription = "Remove ${role.displayName} section"</ID>
-    <ID>NoHardcodedUiString:TalentSection.kt$text = "${role.displayName}s"</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>

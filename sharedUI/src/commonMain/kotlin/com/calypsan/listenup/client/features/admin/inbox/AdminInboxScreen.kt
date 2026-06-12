@@ -60,6 +60,9 @@ import listenup.composeapp.generated.resources.admin_newly_scanned_books_will_ap
 import listenup.composeapp.generated.resources.admin_release_anyway
 import listenup.composeapp.generated.resources.admin_release_without_collections
 import listenup.composeapp.generated.resources.admin_these_books_will_become_visible
+import listenup.composeapp.generated.resources.admin_books_awaiting_review_count
+import listenup.composeapp.generated.resources.admin_books_awaiting_review_s_count
+import listenup.composeapp.generated.resources.admin_selected_count
 import listenup.composeapp.generated.resources.common_inbox
 import listenup.composeapp.generated.resources.common_release
 
@@ -165,7 +168,7 @@ private fun AdminInboxTopBar(
     TopAppBar(
         title = {
             if (ready != null && ready.hasSelection) {
-                Text("${ready.selectedCount} selected")
+                Text(stringResource(Res.string.admin_selected_count, ready.selectedCount))
             } else {
                 Text(stringResource(Res.string.common_inbox))
             }
@@ -251,7 +254,12 @@ private fun AdminInboxReadyContent(
         ) {
             item {
                 Text(
-                    text = "${state.bookIds.size} book${if (state.bookIds.size != 1) "s" else ""} awaiting review",
+                    text =
+                        if (state.bookIds.size == 1) {
+                            stringResource(Res.string.admin_books_awaiting_review_count, state.bookIds.size)
+                        } else {
+                            stringResource(Res.string.admin_books_awaiting_review_s_count, state.bookIds.size)
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp),
