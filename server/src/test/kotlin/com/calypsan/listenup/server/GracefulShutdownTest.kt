@@ -31,7 +31,7 @@ class GracefulShutdownTest :
             lateinit var handle: DatabaseHandle
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), watchEnabled = true)
                     application { module() }
                     val client =
                         createClient { install(ContentNegotiation) { json(contractJson) } }
