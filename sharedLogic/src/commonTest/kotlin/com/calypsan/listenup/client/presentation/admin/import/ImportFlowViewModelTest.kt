@@ -201,8 +201,88 @@ class ImportFlowViewModelTest :
 
                 val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
                 review.analysis shouldBe analysis
-                review.userMappings shouldBe emptyMap()
+                // STRONG match from importAnalysis() is auto-seeded; bookOverrides still empty
+                review.userMappings shouldBe mapOf(AbsUserId("abs-user-1") to UserId("lu-user-1"))
                 review.bookOverrides shouldBe emptyMap()
+            }
+        }
+
+        // ─── auto-seeding of userMappings from STRONG matches ─────────────────
+
+        test("Review.userMappings is seeded from STRONG matches; UNMATCHED users are excluded") {
+            runTest(testDispatcher) {
+                // Analysis with one STRONG match and one UNMATCHED user.
+                val strongAbsUserId = AbsUserId("abs-strong")
+                val strongLuUserId = UserId("lu-strong")
+                val unmatchedAbsUserId = AbsUserId("abs-unmatched")
+
+                val analysis =
+                    ImportAnalysis(
+                        userMatches =
+                            listOf(
+                                AbsUserMatch(
+                                    absUserId = strongAbsUserId,
+                                    absUsername = "strong-user",
+                                    absEmail = null,
+                                    suggestedUserId = strongLuUserId,
+                                    confidence = MatchTier.STRONG,
+                                ),
+                                AbsUserMatch(
+                                    absUserId = unmatchedAbsUserId,
+                                    absUsername = "nobody",
+                                    absEmail = null,
+                                    suggestedUserId = null,
+                                    confidence = MatchTier.UNMATCHED,
+                                ),
+                            ),
+                        bookMatchCounts = emptyMap(),
+                        ambiguous = emptyList(),
+                        unmatched = emptyList(),
+                        importableSessionCount = 0,
+                    )
+
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(analysis),
+                    )
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                vm.start(StubFileSource("backup.audiobookshelf"))
+                advanceUntilIdle()
+                repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
+                advanceUntilIdle()
+
+                val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
+                // Only the STRONG match is seeded; the UNMATCHED user is absent.
+                review.userMappings shouldBe mapOf(strongAbsUserId to strongLuUserId)
+                review.userMappings.containsKey(unmatchedAbsUserId) shouldBe false
+            }
+        }
+
+        test("confirmAndApply sends auto-seeded userMappings to confirmMapping (non-empty)") {
+            runTest(testDispatcher) {
+                // importAnalysis() has one STRONG match: abs-user-1 → lu-user-1
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(importAnalysis()),
+                        confirmMappingResult = AppResult.Success(Unit),
+                        applyResult = AppResult.Success(importResult()),
+                    )
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                vm.start(StubFileSource("backup.audiobookshelf"))
+                advanceUntilIdle()
+                repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
+                advanceUntilIdle()
+
+                // The admin makes no explicit setUserMapping calls — relies on auto-seed.
+                vm.confirmAndApply()
+                advanceUntilIdle()
+                repo.progressFlow.emit(ImportEvent.Applied(result = importResult()))
+                advanceUntilIdle()
+
+                // The auto-seeded mapping must have been passed to confirmMapping — NOT empty.
+                repo.confirmedUserMappings shouldBe mapOf(AbsUserId("abs-user-1") to UserId("lu-user-1"))
             }
         }
 

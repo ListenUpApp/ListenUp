@@ -31,7 +31,10 @@ private val logger = KotlinLogging.logger {}
  *     [ImportRepository.analyze] so no early events are missed, then exposes
  *     live [ImportFlowUiState.Analyzing] ticks while the server processes.
  *  3. [ImportFlowUiState.Review] — exposes the full [ImportAnalysis] for the admin
- *     to inspect and optionally supply manual user/book mappings.
+ *     to inspect. [ImportFlowUiState.Review.userMappings] is pre-seeded from STRONG
+ *     (non-null [AbsUserMatch.suggestedUserId]) matches; the admin can still override
+ *     or add mappings via [setUserMapping]. [ImportFlowUiState.Review.bookOverrides]
+ *     starts empty — the server auto-applies confident book matches.
  *  4. [confirmAndApply] — persists the mappings then applies them, again subscribing
  *     observeProgress before apply so live [ImportFlowUiState.Applying] ticks are seen.
  *  5. [ImportFlowUiState.Done] — carries the [ImportResult]; triggers a
@@ -134,10 +137,18 @@ class ImportFlowViewModel(
                             // return is the definitive path to Review.
                             if (uiState.value !is ImportFlowUiState.Error) {
                                 progressJob?.cancel()
+                                // Seed userMappings from STRONG (non-null suggestedUserId) matches
+                                // so that history records are imported for auto-matched users even
+                                // when the admin makes no explicit setUserMapping calls. The admin
+                                // can still override or extend mappings after Review is shown.
+                                val autoUserMappings: Map<AbsUserId, UserId> =
+                                    analyzeResult.data.userMatches
+                                        .mapNotNull { match -> match.suggestedUserId?.let { match.absUserId to it } }
+                                        .toMap()
                                 uiState.value =
                                     ImportFlowUiState.Review(
                                         analysis = analyzeResult.data,
-                                        userMappings = emptyMap(),
+                                        userMappings = autoUserMappings,
                                         bookOverrides = emptyMap(),
                                     )
                             }
