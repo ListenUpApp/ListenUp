@@ -53,11 +53,17 @@ import com.calypsan.listenup.client.util.DocumentPickerResult
 import io.github.oshai.kotlinlogging.KotlinLogging
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_try_again
 import listenup.composeapp.generated.resources.import_choose_different_file
+import listenup.composeapp.generated.resources.import_continue_to_import
 import listenup.composeapp.generated.resources.import_import_ready
+import listenup.composeapp.generated.resources.import_phase_analyze
+import listenup.composeapp.generated.resources.import_phase_upload
 import listenup.composeapp.generated.resources.import_ready_to_upload
+import listenup.composeapp.generated.resources.import_select_backup_file
 import listenup.composeapp.generated.resources.import_supports_formats
 import listenup.composeapp.generated.resources.import_title
+import listenup.composeapp.generated.resources.import_upload_and_analyze
 import listenup.composeapp.generated.resources.import_upload_failed
 import listenup.composeapp.generated.resources.import_upload_intro
 import listenup.composeapp.generated.resources.import_uploaded_analyzed
@@ -254,7 +260,7 @@ private fun SelectFileContent(onPickFile: () -> Unit) {
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Select Backup File",
+            text = stringResource(Res.string.import_select_backup_file),
             onClick = onPickFile,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -330,7 +336,7 @@ private fun FileSelectedContent(
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Upload & Analyze",
+            text = stringResource(Res.string.import_upload_and_analyze),
             onClick = onUpload,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -396,12 +402,12 @@ private fun UploadingContent(
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             PhaseIndicator(
-                label = "Upload",
+                label = stringResource(Res.string.import_phase_upload),
                 isActive = phase == UploadPhase.UPLOADING,
                 isComplete = phase == UploadPhase.ANALYZING,
             )
             PhaseIndicator(
-                label = "Analyze",
+                label = stringResource(Res.string.import_phase_analyze),
                 isActive = phase == UploadPhase.ANALYZING,
                 isComplete = false,
             )
@@ -499,7 +505,7 @@ private fun CompleteContent(
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Continue to Import",
+            text = stringResource(Res.string.import_continue_to_import),
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -550,7 +556,7 @@ private fun ErrorContent(
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Try Again",
+            text = stringResource(Res.string.common_try_again),
             onClick = onRetry,
             modifier = Modifier.fillMaxWidth(),
         )

@@ -43,10 +43,16 @@ import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_backup
+import listenup.composeapp.generated.resources.admin_restore
 import listenup.composeapp.generated.resources.admin_restore_backup
+import listenup.composeapp.generated.resources.admin_restore_backup_confirm_title
+import listenup.composeapp.generated.resources.admin_restore_complete
+import listenup.composeapp.generated.resources.admin_restore_destructive_action
+import listenup.composeapp.generated.resources.admin_restore_this_backup
 import listenup.composeapp.generated.resources.admin_restored_from
 import listenup.composeapp.generated.resources.admin_schema_migrated
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_done
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -105,11 +111,11 @@ fun RestoreBackupScreen(
                 )
                 ListenUpDestructiveDialog(
                     onDismissRequest = viewModel::cancelRestore,
-                    title = "Restore Backup?",
+                    title = stringResource(Res.string.admin_restore_backup_confirm_title),
                     text =
                         "This will replace all current data on the server with the contents of " +
                             "this backup. Existing data cannot be recovered afterwards.",
-                    confirmText = "Restore",
+                    confirmText = stringResource(Res.string.admin_restore),
                     onConfirm = viewModel::confirmRestore,
                     icon = Icons.Default.Warning,
                 )
@@ -158,7 +164,7 @@ private fun IdleContent(
             Column(modifier = Modifier.padding(16.dp)) {
                 HeaderRow(
                     icon = Icons.Default.Warning,
-                    title = "Destructive action",
+                    title = stringResource(Res.string.admin_restore_destructive_action),
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -198,7 +204,7 @@ private fun IdleContent(
 
         ListenUpButton(
             onClick = onRestoreClick,
-            text = "Restore this backup",
+            text = stringResource(Res.string.admin_restore_this_backup),
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -228,7 +234,7 @@ private fun CompletedContent(
             Column(modifier = Modifier.padding(16.dp)) {
                 HeaderRow(
                     icon = Icons.Default.CheckCircle,
-                    title = "Restore complete",
+                    title = stringResource(Res.string.admin_restore_complete),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -264,7 +270,7 @@ private fun CompletedContent(
 
         ListenUpButton(
             onClick = onDone,
-            text = "Done",
+            text = stringResource(Res.string.common_done),
             modifier = Modifier.fillMaxWidth(),
         )
     }

@@ -1001,6 +1001,46 @@
         }
       }
     },
+    "admin.restore_backup_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Backup?"
+          }
+        }
+      }
+    },
+    "admin.restore_complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore complete"
+          }
+        }
+      }
+    },
+    "admin.restore_destructive_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destructive action"
+          }
+        }
+      }
+    },
+    "admin.restore_this_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore this backup"
+          }
+        }
+      }
+    },
     "admin.restored_from": {
       "localizations": {
         "en": {
@@ -5331,12 +5371,52 @@
         }
       }
     },
+    "import.backup_filename_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup filename"
+          }
+        }
+      }
+    },
+    "import.backup_filename_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g., backup-2024-01-15.audiobookshelf"
+          }
+        }
+      }
+    },
+    "import.book_need_mapping_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book needs mapping"
+          }
+        }
+      }
+    },
     "import.book_progress_records_count": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$d book progress records"
+          }
+        }
+      }
+    },
+    "import.books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
           }
         }
       }
@@ -5357,6 +5437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Matched (%1$d)"
+          }
+        }
+      }
+    },
+    "import.books_need_mapping_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books need mapping"
           }
         }
       }
@@ -5427,6 +5517,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Completed in %1$@"
+          }
+        }
+      }
+    },
+    "import.confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm"
+          }
+        }
+      }
+    },
+    "import.continue_mapped_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue (%1$d/%2$d mapped)"
+          }
+        }
+      }
+    },
+    "import.continue_to_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue to Import"
           }
         }
       }
@@ -5811,6 +5931,16 @@
         }
       }
     },
+    "import.of_total_mapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d mapped"
+          }
+        }
+      }
+    },
     "import.options_intro": {
       "localizations": {
         "en": {
@@ -5837,6 +5967,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pending"
+          }
+        }
+      }
+    },
+    "import.phase_analyze": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyze"
+          }
+        }
+      }
+    },
+    "import.phase_upload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload"
           }
         }
       }
@@ -5921,12 +6071,52 @@
         }
       }
     },
+    "import.search_books_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search books..."
+          }
+        }
+      }
+    },
     "import.search_instead": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Search Instead"
+          }
+        }
+      }
+    },
+    "import.search_users_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search users..."
+          }
+        }
+      }
+    },
+    "import.select_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Backup"
+          }
+        }
+      }
+    },
+    "import.select_backup_file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Backup File"
           }
         }
       }
@@ -5951,6 +6141,16 @@
         }
       }
     },
+    "import.sessions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions"
+          }
+        }
+      }
+    },
     "import.sessions_imported": {
       "localizations": {
         "en": {
@@ -5967,6 +6167,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skip"
+          }
+        }
+      }
+    },
+    "import.source_from_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From this device"
+          }
+        }
+      }
+    },
+    "import.source_from_server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From server"
+          }
+        }
+      }
+    },
+    "import.start_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Import"
           }
         }
       }
@@ -6021,6 +6251,16 @@
         }
       }
     },
+    "import.upload_and_analyze": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload & Analyze"
+          }
+        }
+      }
+    },
     "import.upload_failed": {
       "localizations": {
         "en": {
@@ -6071,6 +6311,16 @@
         }
       }
     },
+    "import.user_need_mapping_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d user needs mapping"
+          }
+        }
+      }
+    },
     "import.users_all_matched": {
       "localizations": {
         "en": {
@@ -6087,6 +6337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Matched (%1$d)"
+          }
+        }
+      }
+    },
+    "import.users_need_mapping_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d users need mapping"
           }
         }
       }

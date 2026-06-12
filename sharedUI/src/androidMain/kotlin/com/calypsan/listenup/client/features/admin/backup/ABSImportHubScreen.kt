@@ -89,13 +89,18 @@ import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.common_refresh
+import listenup.composeapp.generated.resources.common_users
 import listenup.composeapp.generated.resources.import_abs_imports
 import listenup.composeapp.generated.resources.import_analysis_in_progress
 import listenup.composeapp.generated.resources.import_analysis_interrupted
 import listenup.composeapp.generated.resources.import_analyzing_backup
+import listenup.composeapp.generated.resources.import_book_need_mapping_count
+import listenup.composeapp.generated.resources.import_books
+import listenup.composeapp.generated.resources.import_books_need_mapping_count
 import listenup.composeapp.generated.resources.import_cancel_delete_stuck
 import listenup.composeapp.generated.resources.import_clear
 import listenup.composeapp.generated.resources.import_complete_a11y
+import listenup.composeapp.generated.resources.import_confirm
 import listenup.composeapp.generated.resources.import_count_number
 import listenup.composeapp.generated.resources.import_create_choose
 import listenup.composeapp.generated.resources.import_create_to_start
@@ -117,12 +122,18 @@ import listenup.composeapp.generated.resources.import_no_books_found
 import listenup.composeapp.generated.resources.import_no_imports
 import listenup.composeapp.generated.resources.import_no_sessions_found
 import listenup.composeapp.generated.resources.import_no_users_found
+import listenup.composeapp.generated.resources.import_of_total_mapped
 import listenup.composeapp.generated.resources.import_pending
 import listenup.composeapp.generated.resources.import_ready
+import listenup.composeapp.generated.resources.import_search_books_placeholder
 import listenup.composeapp.generated.resources.import_search_instead
+import listenup.composeapp.generated.resources.import_search_users_placeholder
 import listenup.composeapp.generated.resources.import_select_backup_file_device
+import listenup.composeapp.generated.resources.import_sessions
 import listenup.composeapp.generated.resources.import_skip_a11y
 import listenup.composeapp.generated.resources.import_status
+import listenup.composeapp.generated.resources.import_user_need_mapping_count
+import listenup.composeapp.generated.resources.import_users_need_mapping_count
 import listenup.composeapp.generated.resources.import_upload_from_device
 import listenup.composeapp.generated.resources.import_wizard
 import listenup.composeapp.generated.resources.import_wizard_desc
@@ -414,17 +425,17 @@ private fun ImportSummaryCard(
             ) {
                 StatItem(
                     icon = Icons.Outlined.Person,
-                    label = "Users",
+                    label = stringResource(Res.string.common_users),
                     value = "${import.usersMapped}/${import.totalUsers}",
                 )
                 StatItem(
                     icon = Icons.AutoMirrored.Outlined.MenuBook,
-                    label = "Books",
+                    label = stringResource(Res.string.import_books),
                     value = "${import.booksMapped}/${import.totalBooks}",
                 )
                 StatItem(
                     icon = Icons.Outlined.History,
-                    label = "Sessions",
+                    label = stringResource(Res.string.import_sessions),
                     value = "${import.sessionsImported}/${import.totalSessions}",
                 )
             }
@@ -1087,8 +1098,13 @@ private fun OverviewTabContent(
         // Action cards for unmapped items (prominent when work needed)
         if (unmappedUsers > 0) {
             ActionNeededCard(
-                title = "$unmappedUsers user${if (unmappedUsers != 1) "s" else ""} need mapping",
-                subtitle = "${import.usersMapped} of ${import.totalUsers} mapped",
+                title =
+                    if (unmappedUsers == 1) {
+                        stringResource(Res.string.import_user_need_mapping_count, unmappedUsers)
+                    } else {
+                        stringResource(Res.string.import_users_need_mapping_count, unmappedUsers)
+                    },
+                subtitle = stringResource(Res.string.import_of_total_mapped, import.usersMapped, import.totalUsers),
                 icon = Icons.Outlined.Person,
                 buttonText = "Map Users",
                 onClick = onNavigateToUsers,
@@ -1097,8 +1113,13 @@ private fun OverviewTabContent(
 
         if (unmappedBooks > 0) {
             ActionNeededCard(
-                title = "$unmappedBooks book${if (unmappedBooks != 1) "s" else ""} need mapping",
-                subtitle = "${import.booksMapped} of ${import.totalBooks} mapped",
+                title =
+                    if (unmappedBooks == 1) {
+                        stringResource(Res.string.import_book_need_mapping_count, unmappedBooks)
+                    } else {
+                        stringResource(Res.string.import_books_need_mapping_count, unmappedBooks)
+                    },
+                subtitle = stringResource(Res.string.import_of_total_mapped, import.booksMapped, import.totalBooks),
                 icon = Icons.AutoMirrored.Outlined.MenuBook,
                 buttonText = "Map Books",
                 onClick = onNavigateToBooks,
@@ -1107,7 +1128,7 @@ private fun OverviewTabContent(
 
         // Progress cards (clickable to navigate)
         ProgressCard(
-            title = "Users",
+            title = stringResource(Res.string.common_users),
             icon = Icons.Outlined.Person,
             mapped = import.usersMapped,
             total = import.totalUsers,
@@ -1115,7 +1136,7 @@ private fun OverviewTabContent(
         )
 
         ProgressCard(
-            title = "Books",
+            title = stringResource(Res.string.import_books),
             icon = Icons.AutoMirrored.Outlined.MenuBook,
             mapped = import.booksMapped,
             total = import.totalBooks,
@@ -1123,7 +1144,7 @@ private fun OverviewTabContent(
         )
 
         ProgressCard(
-            title = "Sessions",
+            title = stringResource(Res.string.import_sessions),
             icon = Icons.Outlined.History,
             mapped = import.sessionsImported,
             total = import.totalSessions,
@@ -1521,7 +1542,7 @@ private fun HubUserMappingCardState(
                     ) {
                         ListenUpButton(
                             onClick = { onMapUser(user.suggestions.first()) },
-                            text = "Confirm",
+                            text = stringResource(Res.string.import_confirm),
                             modifier = Modifier.weight(1f),
                         )
                         OutlinedButton(
@@ -1557,7 +1578,7 @@ private fun HubUserMappingCardState(
                         },
                     )
                 },
-                placeholder = "Search users...",
+                placeholder = stringResource(Res.string.import_search_users_placeholder),
                 isLoading = isSearching,
             )
         }
@@ -1860,7 +1881,7 @@ private fun HubBookMappingCardState(
                     ) {
                         ListenUpButton(
                             onClick = { onMapBook(book.suggestions.first()) },
-                            text = "Confirm",
+                            text = stringResource(Res.string.import_confirm),
                             modifier = Modifier.weight(1f),
                         )
                         OutlinedButton(
@@ -1910,7 +1931,7 @@ private fun HubBookMappingCardState(
                         },
                     )
                 },
-                placeholder = "Search books...",
+                placeholder = stringResource(Res.string.import_search_books_placeholder),
                 isLoading = isSearching,
             )
         }

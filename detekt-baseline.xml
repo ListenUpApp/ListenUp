@@ -160,40 +160,12 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$label = "Books"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$label = "Sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$label = "Users"</ID>
     <ID>NoHardcodedUiString:ABSImportHubScreen.kt$label = "hub_tab_content"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$placeholder = "Search books..."</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$placeholder = "Search users..."</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$subtitle = "${import.booksMapped} of ${import.totalBooks} mapped"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$subtitle = "${import.usersMapped} of ${import.totalUsers} mapped"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$text = "Confirm"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$title = "$unmappedBooks book${if (unmappedBooks != 1) "s" else ""} need mapping"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$title = "$unmappedUsers user${if (unmappedUsers != 1) "s" else ""} need mapping"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$title = "Books"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$title = "Sessions"</ID>
-    <ID>NoHardcodedUiString:ABSImportHubScreen.kt$title = "Users"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$label = "Backup filename"</ID>
     <ID>NoHardcodedUiString:ABSImportScreen.kt$label = "book_mapping_tab"</ID>
     <ID>NoHardcodedUiString:ABSImportScreen.kt$label = "selection_state"</ID>
     <ID>NoHardcodedUiString:ABSImportScreen.kt$label = "user_mapping_tab"</ID>
     <ID>NoHardcodedUiString:ABSImportScreen.kt$label = "user_selection_state"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$placeholder = "e.g., backup-2024-01-15.audiobookshelf"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Continue ($mappedCount/$totalCount mapped)"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Done"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Select Backup"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Start Import"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$text = "Upload &amp; Analyze"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$title = "From server"</ID>
-    <ID>NoHardcodedUiString:ABSImportScreen.kt$title = "From this device"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$label = "Analyze"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$label = "Upload"</ID>
     <ID>NoHardcodedUiString:ABSUploadSheet.kt$label = "upload_state"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Continue to Import"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Select Backup File"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Try Again"</ID>
-    <ID>NoHardcodedUiString:ABSUploadSheet.kt$text = "Upload &amp; Analyze"</ID>
     <ID>NoHardcodedUiString:ABSUploadWorker.kt$ABSUploadWorker$text = "Your Audiobookshelf backup has been analysed and is ready to map."</ID>
     <ID>NoHardcodedUiString:ABSUploadWorker.kt$ABSUploadWorker$title = "Backup ready to review"</ID>
     <ID>NoHardcodedUiString:AdminBackupScreen.kt$title = "Audiobookshelf Imports"</ID>
@@ -300,12 +272,6 @@
     <ID>NoHardcodedUiString:NowPlayingScreen.kt$label = "ambientAlpha"</ID>
     <ID>NoHardcodedUiString:PublishingSection.kt$label = "Publisher"</ID>
     <ID>NoHardcodedUiString:PublishingSection.kt$label = "Year"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$confirmText = "Restore"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Done"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$text = "Restore this backup"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$title = "Destructive action"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$title = "Restore Backup?"</ID>
-    <ID>NoHardcodedUiString:RestoreBackupScreen.kt$title = "Restore complete"</ID>
     <ID>NoHardcodedUiString:ScanComponents.kt$label = "dotAlpha"</ID>
     <ID>NoHardcodedUiString:ScanComponents.kt$label = "inner"</ID>
     <ID>NoHardcodedUiString:ScanComponents.kt$label = "marquee"</ID>

@@ -89,7 +89,10 @@ import com.calypsan.listenup.client.util.DocumentPickerResult
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.import_and_more
+import listenup.composeapp.generated.resources.import_backup_filename_label
+import listenup.composeapp.generated.resources.import_backup_filename_placeholder
 import listenup.composeapp.generated.resources.import_book_progress_records_count
 import listenup.composeapp.generated.resources.import_books_all_matched
 import listenup.composeapp.generated.resources.import_books_matched_count
@@ -97,6 +100,7 @@ import listenup.composeapp.generated.resources.import_books_needs_review_count
 import listenup.composeapp.generated.resources.import_change_selection
 import listenup.composeapp.generated.resources.import_clear
 import listenup.composeapp.generated.resources.import_completed_in
+import listenup.composeapp.generated.resources.import_continue_mapped_count
 import listenup.composeapp.generated.resources.import_empty_directory
 import listenup.composeapp.generated.resources.import_errors
 import listenup.composeapp.generated.resources.import_events_created
@@ -121,11 +125,16 @@ import listenup.composeapp.generated.resources.import_progress_imported
 import listenup.composeapp.generated.resources.import_ready_to_import
 import listenup.composeapp.generated.resources.import_rebuild_progress
 import listenup.composeapp.generated.resources.import_rebuild_progress_desc
+import listenup.composeapp.generated.resources.import_select_backup
 import listenup.composeapp.generated.resources.import_select_backup_source
 import listenup.composeapp.generated.resources.import_sessions_imported
+import listenup.composeapp.generated.resources.import_source_from_device
+import listenup.composeapp.generated.resources.import_source_from_server
+import listenup.composeapp.generated.resources.import_start_import
 import listenup.composeapp.generated.resources.import_suggestion_available_count
 import listenup.composeapp.generated.resources.import_suggestions_available_count
 import listenup.composeapp.generated.resources.import_title
+import listenup.composeapp.generated.resources.import_upload_and_analyze
 import listenup.composeapp.generated.resources.import_uploading_backup
 import listenup.composeapp.generated.resources.import_users_all_matched
 import listenup.composeapp.generated.resources.import_users_matched_count
@@ -445,14 +454,14 @@ private fun SourceSelectionContent(
 
             SourceOptionCard(
                 icon = Icons.Outlined.PhoneAndroid,
-                title = "From this device",
+                title = stringResource(Res.string.import_source_from_device),
                 description = "Select a backup file downloaded to your phone or tablet",
                 onClick = onSelectLocal,
             )
 
             SourceOptionCard(
                 icon = Icons.Outlined.Dns,
-                title = "From server",
+                title = stringResource(Res.string.import_source_from_server),
                 description = "Browse and select a backup file on the ListenUp server",
                 onClick = onSelectRemote,
             )
@@ -468,7 +477,7 @@ private fun SourceSelectionContent(
         if (state.selectedLocalFile != null) {
             ListenUpButton(
                 onClick = onProceed,
-                text = "Upload & Analyze",
+                text = stringResource(Res.string.import_upload_and_analyze),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -704,8 +713,8 @@ private fun FileBrowserContent(
             ListenUpTextField(
                 value = filename,
                 onValueChange = { filename = it },
-                label = "Backup filename",
-                placeholder = "e.g., backup-2024-01-15.audiobookshelf",
+                label = stringResource(Res.string.import_backup_filename_label),
+                placeholder = stringResource(Res.string.import_backup_filename_placeholder),
             )
 
             ListenUpButton(
@@ -719,7 +728,7 @@ private fun FileBrowserContent(
                         }
                     onFileSelect(fullPath)
                 },
-                text = "Select Backup",
+                text = stringResource(Res.string.import_select_backup),
                 enabled = filename.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -1004,7 +1013,7 @@ private fun UserMappingContent(
         val totalCount = state.userMatches.size
         ListenUpButton(
             onClick = onNext,
-            text = "Continue ($mappedCount/$totalCount mapped)",
+            text = stringResource(Res.string.import_continue_mapped_count, mappedCount, totalCount),
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -1508,7 +1517,7 @@ private fun BookMappingContent(
         val totalCount = state.bookMatches.size
         ListenUpButton(
             onClick = onNext,
-            text = "Continue ($mappedCount/$totalCount mapped)",
+            text = stringResource(Res.string.import_continue_mapped_count, mappedCount, totalCount),
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -2084,7 +2093,7 @@ private fun ImportOptionsContent(
 
         ListenUpButton(
             onClick = onImport,
-            text = "Start Import",
+            text = stringResource(Res.string.import_start_import),
             enabled = state.importSessions || state.importProgress,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -2289,7 +2298,7 @@ private fun ResultsContent(
 
         ListenUpButton(
             onClick = onDone,
-            text = "Done",
+            text = stringResource(Res.string.common_done),
             modifier = Modifier.fillMaxWidth(),
         )
     }
