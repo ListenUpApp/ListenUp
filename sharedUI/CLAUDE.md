@@ -42,13 +42,20 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
    entry decorators for per-entry VM scoping.
 10. **VM failure-branch shape** (the Compose error-presentation pattern — iOS maps errors its own way per
     `iosApp/CLAUDE.md` rule 10): on `AppResult.Failure`, `errorBus.emit(result.error)` for the global
-    snackbar and set the screen's `State.Error(userMessageFor(result.error))`:
+    snackbar and carry the **typed `AppError`** in the screen's `State.Error` — never a pre-rendered string.
+    ViewModels stay free of UI copy; the screen renders the error via `AppError.localized()` (`@Composable`)
+    or `AppError.localizedString()` (suspend, e.g. inside a snackbar `LaunchedEffect`), which resolve
+    `error_<code>` from the string catalog and fall back to `AppError.message`:
     ```kotlin
+    // ViewModel — carry the typed AppError, no copy
     when (val result = repo.foo()) {
         is AppResult.Success -> _state.value = State.Loaded(result.data)
         is AppResult.Failure -> {
             errorBus.emit(result.error)
-            _state.value = State.Error(userMessageFor(result.error))
+            _state.value = State.Error(result.error)
         }
     }
+
+    // Screen — render at the UI edge
+    is State.Error -> Text(state.error.localized())
     ```

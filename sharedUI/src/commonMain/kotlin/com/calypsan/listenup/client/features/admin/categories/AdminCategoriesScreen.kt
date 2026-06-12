@@ -76,6 +76,8 @@ import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.GenreTreeNode
 import com.calypsan.listenup.client.presentation.admin.genreMoveCandidates
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_genre
@@ -134,7 +136,7 @@ fun AdminCategoriesScreen(
     val readyError = (state as? AdminCategoriesUiState.Ready)?.error
     LaunchedEffect(readyError) {
         readyError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
         }
     }
@@ -302,7 +304,7 @@ private fun CategoriesScreenBody(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = s.message,
+                    text = s.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error,
                 )

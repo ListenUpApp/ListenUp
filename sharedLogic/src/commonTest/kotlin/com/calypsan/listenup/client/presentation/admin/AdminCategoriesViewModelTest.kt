@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -167,9 +167,11 @@ class AdminCategoriesViewModelTest {
             val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
             advanceUntilIdle()
 
-            // Then
+            // Then — the thrown Throwable is mapped to a typed AppError (InternalError),
+            // with the original message preserved in debugInfo for diagnostics.
             val err = assertIs<AdminCategoriesUiState.Error>(viewModel.state.value)
-            assertEquals("db broken", err.message)
+            val internal = assertIs<InternalError>(err.error)
+            assertTrue(internal.debugInfo?.contains("db broken") == true)
         }
 
     // ========== Expand / Collapse ==========
@@ -233,9 +235,9 @@ class AdminCategoriesViewModelTest {
             viewModel.createGenre(name = "Fiction", parentId = null)
             advanceUntilIdle()
 
-            // Then
+            // Then — the typed AppError itself is carried in state (no longer flattened to a string).
             val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertEquals(userMessageFor(failureError), ready.error)
+            assertEquals(failureError, ready.error)
             assertEquals(false, ready.isSaving)
         }
 
@@ -253,7 +255,7 @@ class AdminCategoriesViewModelTest {
             viewModel.createGenre(name = "X", parentId = null)
             advanceUntilIdle()
             assertEquals(
-                userMessageFor(failureError),
+                failureError,
                 assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value).error,
             )
 

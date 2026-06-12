@@ -37,8 +37,10 @@ import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
+import com.calypsan.listenup.client.presentation.error.localized
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -124,7 +126,7 @@ fun RestoreBackupScreen(
 @Composable
 private fun IdleContent(
     backupId: String,
-    error: String?,
+    error: AppError?,
     onRestoreClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -180,7 +182,7 @@ private fun IdleContent(
             }
         }
 
-        error?.let { ErrorCard(text = it) }
+        error?.let { ErrorCard(text = it.localized()) }
 
         Spacer(modifier = Modifier.weight(1f))
 

@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
+import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -77,8 +78,10 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             isDirty = readySettings?.isDirty == true,
             onSave = { settingsViewModel.saveAll() },
             settingsError =
-                readySettings?.error
-                    ?: (settingsState as? AdminSettingsUiState.Error)?.message,
+                (
+                    readySettings?.error
+                        ?: (settingsState as? AdminSettingsUiState.Error)?.error
+                )?.localized(),
             onClearSettingsError = { settingsViewModel.clearError() },
         )
     }

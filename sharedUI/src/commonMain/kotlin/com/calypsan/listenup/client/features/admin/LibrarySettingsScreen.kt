@@ -52,6 +52,8 @@ import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_folder
 import listenup.composeapp.generated.resources.admin_add_this_folder
@@ -93,7 +95,7 @@ fun LibrarySettingsScreen(
     val readyError = (state as? LibrarySettingsUiState.Ready)?.error
     LaunchedEffect(readyError) {
         readyError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
         }
     }
@@ -139,7 +141,7 @@ private fun LibrarySettingsBody(
 
         is LibrarySettingsUiState.Error -> {
             ErrorContent(
-                message = state.message,
+                message = state.error.localized(),
                 modifier = Modifier.padding(innerPadding),
             )
         }
