@@ -50,7 +50,7 @@ struct FullScreenPlayerView: View {
             .ignoresSafeArea()
         )
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
-        .task(id: observer.coverPath) { resolveTint() }
+        .task(id: observer.currentBookId) { resolveTint() }
         .statusBarHidden(false)
         .sheet(isPresented: $showSpeedPicker) {
             SpeedPickerSheet(
@@ -180,6 +180,7 @@ struct FullScreenPlayerView: View {
                     .frame(width: 36, height: 36)
                     .background(Color(.tertiarySystemFill), in: Circle())
             }
+            .accessibilityLabel(String(localized: "player.collapse"))
 
             Spacer()
 
@@ -206,6 +207,7 @@ struct FullScreenPlayerView: View {
                     .frame(width: 36, height: 36)
                     .background(Color(.tertiarySystemFill), in: Circle())
             }
+            .accessibilityLabel(String(localized: "player.more_options"))
         }
         .padding(.horizontal, 18)
         // Interactive swipe-down-to-dismiss lives on the header strip only. The
@@ -290,6 +292,7 @@ struct FullScreenPlayerView: View {
                     .frame(width: 44, height: 44)
             }
             .disabled(observer.chapterIndex <= 0)
+            .accessibilityLabel(String(localized: "player.previous_chapter"))
 
             Spacer()
 
@@ -300,6 +303,7 @@ struct FullScreenPlayerView: View {
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
             }
+            .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "10"))
 
             Spacer()
 
@@ -317,6 +321,7 @@ struct FullScreenPlayerView: View {
                         .foregroundStyle(.white)
                 }
             }
+            .accessibilityLabel(String(localized: observer.isPlaying ? "player.pause" : "player.play"))
 
             Spacer()
 
@@ -327,6 +332,7 @@ struct FullScreenPlayerView: View {
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
             }
+            .accessibilityLabel(String(format: String(localized: "player.skip_forward"), "30"))
 
             Spacer()
 
@@ -342,6 +348,7 @@ struct FullScreenPlayerView: View {
                     .frame(width: 44, height: 44)
             }
             .disabled(observer.chapterIndex >= observer.totalChapters - 1)
+            .accessibilityLabel(String(localized: "player.next_chapter"))
         }
     }
 
@@ -383,15 +390,22 @@ struct FullScreenPlayerView: View {
                 }
             }
 
-            // AirPlay
-            controlItem(label: String(localized: "player.airplay")) {
+            // AirPlay — self-voicing route picker; keep it as its own interactive element.
+            controlItem(label: String(localized: "player.airplay"), combineForVoiceOver: false) {
                 RoutePickerView(tint: Color(.secondaryLabel), activeTint: tint)
                     .frame(width: 28, height: 28)
             }
         }
     }
 
-    private func controlItem(label: String, @ViewBuilder _ control: () -> some View) -> some View {
+    /// One secondary-row control with its caption. `combineForVoiceOver` merges the
+    /// control and its visible caption into one VoiceOver element ("Speed, 1×" once,
+    /// not the raw symbol name plus a duplicate). Off for AirPlay's self-voicing picker.
+    private func controlItem(
+        label: String,
+        combineForVoiceOver: Bool = true,
+        @ViewBuilder _ control: () -> some View
+    ) -> some View {
         VStack(spacing: 5) {
             control()
             Text(label)
@@ -399,20 +413,23 @@ struct FullScreenPlayerView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: combineForVoiceOver ? .combine : .contain)
     }
 
     // MARK: - Tint
 
     /// Resolves the cover accent. Coral until extraction lands; coral on any failure
-    /// (never stranded). Keyed on `coverPath` so re-entry never re-flickers.
+    /// (never stranded). Keyed on the book id so the cache entry is shared with Book
+    /// Detail (placeholder `coverPath`s never collide); falls back to `coverPath` only
+    /// when the id is unknown.
     private func resolveTint() {
-        guard let coverPath = observer.coverPath else { return }
-        if let cached = CoverTintExtractor.shared.cached(bookId: coverPath) {
+        guard let cacheKey = observer.currentBookId ?? observer.coverPath else { return }
+        if let cached = CoverTintExtractor.shared.cached(bookId: cacheKey) {
             tint = cached.color
             return
         }
         Task {
-            if let resolved = await CoverTintExtractor.shared.resolve(bookId: coverPath, coverPath: coverPath) {
+            if let resolved = await CoverTintExtractor.shared.resolve(bookId: cacheKey, coverPath: observer.coverPath) {
                 tint = resolved.color
             }
         }
