@@ -215,6 +215,7 @@ val adminPresentationModule =
                 importRepository = get(),
                 errorBus = get(),
                 syncRepository = get(),
+                adminRepository = get(),
             )
         }
     }

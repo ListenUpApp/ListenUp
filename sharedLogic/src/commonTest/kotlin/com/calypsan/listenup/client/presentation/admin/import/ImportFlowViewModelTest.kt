@@ -12,8 +12,15 @@ import com.calypsan.listenup.api.dto.import.MatchTier
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.AdminUserInfo
+import com.calypsan.listenup.client.domain.model.InviteInfo
+import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ScanProgressState
+import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.client.domain.model.UserPermissions
+import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
+import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.AbsItemId
@@ -25,7 +32,10 @@ import com.calypsan.listenup.core.error.ErrorBus
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CompletableDeferred
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -114,7 +124,7 @@ class ImportFlowViewModelTest :
 
         test("initial state is Idle") {
             val repo = FakeImportRepository()
-            val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+            val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
 
             vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Idle>()
         }
@@ -128,7 +138,7 @@ class ImportFlowViewModelTest :
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
 
                 vm.start(StubFileSource("backup.audiobookshelf"))
 
@@ -160,7 +170,7 @@ class ImportFlowViewModelTest :
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeDeferred = analyzeDeferred,
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 // Advance past upload; analyze() is now suspended
                 advanceUntilIdle()
@@ -187,12 +197,14 @@ class ImportFlowViewModelTest :
         test("analyze result lands in Review with the analysis") {
             runTest(testDispatcher) {
                 val analysis = importAnalysis()
+                val luUsers = listOf(fakeAdminUser("lu-user-1", "alice@example.com"))
                 val repo =
                     FakeImportRepository(
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeResult = AppResult.Success(analysis),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val adminRepo = FakeAdminRepository(getUsersResult = AppResult.Success(luUsers))
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), adminRepo)
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
 
@@ -201,67 +213,120 @@ class ImportFlowViewModelTest :
 
                 val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
                 review.analysis shouldBe analysis
-                // STRONG match from importAnalysis() is auto-seeded; bookOverrides still empty
-                review.userMappings shouldBe mapOf(AbsUserId("abs-user-1") to UserId("lu-user-1"))
+                // No auto-seeding: mappings start empty
+                review.userMappings.shouldBeEmpty()
+                review.skippedUsers.shouldBeEmpty()
                 review.bookOverrides shouldBe emptyMap()
+                review.listenupUsers shouldBe luUsers
             }
         }
 
-        // ─── auto-seeding of userMappings from STRONG matches ─────────────────
+        // ─── explicit user matching (replaces auto-seeding) ───────────────────
 
-        test("Review.userMappings is seeded from STRONG matches; UNMATCHED users are excluded") {
+        test("Review starts with empty userMappings, empty skippedUsers, and listenupUsers from AdminRepository") {
             runTest(testDispatcher) {
-                // Analysis with one STRONG match and one UNMATCHED user.
-                val strongAbsUserId = AbsUserId("abs-strong")
-                val strongLuUserId = UserId("lu-strong")
-                val unmatchedAbsUserId = AbsUserId("abs-unmatched")
-
-                val analysis =
-                    ImportAnalysis(
-                        userMatches =
-                            listOf(
-                                AbsUserMatch(
-                                    absUserId = strongAbsUserId,
-                                    absUsername = "strong-user",
-                                    absEmail = null,
-                                    suggestedUserId = strongLuUserId,
-                                    confidence = MatchTier.STRONG,
-                                ),
-                                AbsUserMatch(
-                                    absUserId = unmatchedAbsUserId,
-                                    absUsername = "nobody",
-                                    absEmail = null,
-                                    suggestedUserId = null,
-                                    confidence = MatchTier.UNMATCHED,
-                                ),
-                            ),
-                        bookMatchCounts = emptyMap(),
-                        ambiguous = emptyList(),
-                        unmatched = emptyList(),
-                        importableSessionCount = 0,
+                val luUsers =
+                    listOf(
+                        fakeAdminUser("lu-1", "alice@example.com"),
+                        fakeAdminUser("lu-2", "bob@example.com"),
                     )
-
                 val repo =
                     FakeImportRepository(
                         uploadResult = AppResult.Success(importSummary()),
-                        analyzeResult = AppResult.Success(analysis),
+                        analyzeResult = AppResult.Success(importAnalysis()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val adminRepo = FakeAdminRepository(getUsersResult = AppResult.Success(luUsers))
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), adminRepo)
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
                 advanceUntilIdle()
 
                 val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
-                // Only the STRONG match is seeded; the UNMATCHED user is absent.
-                review.userMappings shouldBe mapOf(strongAbsUserId to strongLuUserId)
-                review.userMappings.containsKey(unmatchedAbsUserId) shouldBe false
+                review.userMappings.shouldBeEmpty()
+                review.skippedUsers.shouldBeEmpty()
+                review.listenupUsers shouldBe luUsers
             }
         }
 
-        test("confirmAndApply sends auto-seeded userMappings to confirmMapping (non-empty)") {
+        test("setUserMapping assigns the mapping and removes absUserId from skippedUsers if present") {
             runTest(testDispatcher) {
-                // importAnalysis() has one STRONG match: abs-user-1 → lu-user-1
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(importAnalysis()),
+                    )
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
+                vm.start(StubFileSource("backup.audiobookshelf"))
+                advanceUntilIdle()
+                repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
+                advanceUntilIdle()
+
+                val absUser = AbsUserId("abs-user-1")
+                val luUser = UserId("lu-user-1")
+
+                // First skip the user, then assign — assign should un-skip
+                vm.skipUser(absUser)
+                vm.setUserMapping(absUser, luUser)
+
+                val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
+                review.userMappings[absUser] shouldBe luUser
+                review.skippedUsers.contains(absUser).shouldBeFalse()
+            }
+        }
+
+        test("skipUser adds absUserId to skippedUsers and removes any existing mapping") {
+            runTest(testDispatcher) {
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(importAnalysis()),
+                    )
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
+                vm.start(StubFileSource("backup.audiobookshelf"))
+                advanceUntilIdle()
+                repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
+                advanceUntilIdle()
+
+                val absUser = AbsUserId("abs-user-1")
+                val luUser = UserId("lu-user-1")
+
+                // First assign, then skip — skip should remove the mapping
+                vm.setUserMapping(absUser, luUser)
+                vm.skipUser(absUser)
+
+                val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
+                review.skippedUsers.contains(absUser).shouldBeTrue()
+                review.userMappings.containsKey(absUser).shouldBeFalse()
+            }
+        }
+
+        test("adminRepository.getUsers() failure → Review entered with listenupUsers empty, error emitted to bus") {
+            runTest(testDispatcher) {
+                val error = TransportError.NetworkUnavailable()
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(importAnalysis()),
+                    )
+                val bus = ErrorBus()
+                val adminRepo = FakeAdminRepository(getUsersResult = AppResult.Failure(error))
+                val vm = ImportFlowViewModel(repo, bus, FakeSyncRepository(), adminRepo)
+                vm.start(StubFileSource("backup.audiobookshelf"))
+                advanceUntilIdle()
+                repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
+                advanceUntilIdle()
+
+                // Review is still entered — getUsers failure is non-fatal
+                val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
+                review.listenupUsers.shouldBeEmpty()
+            }
+        }
+
+        test("confirmAndApply sends only explicit userMappings; skipped/unresolved users are absent") {
+            runTest(testDispatcher) {
+                // importAnalysis() has one STRONG-suggested abs-user-1 → lu-user-1, but we
+                // do NOT auto-seed. Only an explicit setUserMapping call gets sent.
                 val repo =
                     FakeImportRepository(
                         uploadResult = AppResult.Success(importSummary()),
@@ -269,20 +334,24 @@ class ImportFlowViewModelTest :
                         confirmMappingResult = AppResult.Success(Unit),
                         applyResult = AppResult.Success(importResult()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
                 advanceUntilIdle()
 
-                // The admin makes no explicit setUserMapping calls — relies on auto-seed.
+                // Explicitly assign one user
+                val absUser = AbsUserId("abs-user-1")
+                val luUser = UserId("lu-user-1")
+                vm.setUserMapping(absUser, luUser)
+
                 vm.confirmAndApply()
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Applied(result = importResult()))
                 advanceUntilIdle()
 
-                // The auto-seeded mapping must have been passed to confirmMapping — NOT empty.
-                repo.confirmedUserMappings shouldBe mapOf(AbsUserId("abs-user-1") to UserId("lu-user-1"))
+                // Only the one explicit mapping is sent — no auto-seeded extras
+                repo.confirmedUserMappings shouldBe mapOf(absUser to luUser)
             }
         }
 
@@ -295,7 +364,7 @@ class ImportFlowViewModelTest :
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -317,7 +386,7 @@ class ImportFlowViewModelTest :
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -339,7 +408,7 @@ class ImportFlowViewModelTest :
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeResult = AppResult.Success(importAnalysis()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -367,7 +436,7 @@ class ImportFlowViewModelTest :
                         applyResult = AppResult.Success(result),
                     )
                 val sync = FakeSyncRepository()
-                val vm = ImportFlowViewModel(repo, ErrorBus(), sync)
+                val vm = ImportFlowViewModel(repo, ErrorBus(), sync, FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -399,7 +468,7 @@ class ImportFlowViewModelTest :
                         confirmMappingResult = AppResult.Success(Unit),
                         applyResult = AppResult.Success(importResult()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -430,7 +499,7 @@ class ImportFlowViewModelTest :
                         confirmMappingResult = AppResult.Success(Unit),
                         applyDeferred = applyDeferred,
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 // analyze() completed immediately; VM is in Review
@@ -463,7 +532,7 @@ class ImportFlowViewModelTest :
                 val error = TransportError.NetworkUnavailable()
                 val repo = FakeImportRepository(uploadResult = AppResult.Failure(error))
                 val bus = ErrorBus()
-                val vm = ImportFlowViewModel(repo, bus, FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, bus, FakeSyncRepository(), FakeAdminRepository())
 
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
@@ -481,7 +550,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Failure(error),
                     )
                 val bus = ErrorBus()
-                val vm = ImportFlowViewModel(repo, bus, FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, bus, FakeSyncRepository(), FakeAdminRepository())
 
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
@@ -500,7 +569,7 @@ class ImportFlowViewModelTest :
                         uploadResult = AppResult.Success(importSummary()),
                         analyzeDeferred = analyzeDeferred,
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 // Advance past upload; analyze() is now suspended
                 advanceUntilIdle()
@@ -529,7 +598,7 @@ class ImportFlowViewModelTest :
                         analyzeResult = AppResult.Success(importAnalysis()),
                         confirmMappingResult = AppResult.Failure(TransportError.NetworkUnavailable()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -550,7 +619,7 @@ class ImportFlowViewModelTest :
                         confirmMappingResult = AppResult.Success(Unit),
                         applyResult = AppResult.Failure(TransportError.NetworkUnavailable()),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -567,7 +636,7 @@ class ImportFlowViewModelTest :
         test("reset from Error returns to Idle") {
             runTest(testDispatcher) {
                 val repo = FakeImportRepository(uploadResult = AppResult.Failure(TransportError.NetworkUnavailable()))
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Error>()
@@ -588,7 +657,7 @@ class ImportFlowViewModelTest :
                         confirmMappingResult = AppResult.Success(Unit),
                         applyResult = AppResult.Success(result),
                     )
-                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository())
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository())
                 vm.start(StubFileSource("backup.audiobookshelf"))
                 advanceUntilIdle()
                 repo.progressFlow.emit(ImportEvent.Analyzed(summary = importSummary()))
@@ -605,6 +674,24 @@ class ImportFlowViewModelTest :
             }
         }
     })
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+private fun fakeAdminUser(
+    id: String,
+    email: String,
+) = AdminUserInfo(
+    id = id,
+    email = email,
+    displayName = null,
+    firstName = null,
+    lastName = null,
+    isRoot = false,
+    role = "member",
+    status = "active",
+    permissions = UserPermissions(),
+    createdAt = "2024-01-01T00:00:00Z",
+)
 
 // ─── fakes ────────────────────────────────────────────────────────────────────
 
@@ -701,4 +788,95 @@ private class StubFileSource(
     override val size: Long = 0L
 
     override fun openChannel() = ByteReadChannel(ByteArray(0))
+}
+
+/**
+ * In-memory fake of [AdminRepository] for the import VM seam.
+ *
+ * Only [getUsers] is relevant here; all other methods return safe no-op [AppResult.Success]s.
+ */
+private class FakeAdminRepository(
+    private val getUsersResult: AppResult<List<AdminUserInfo>> = AppResult.Success(emptyList()),
+) : AdminRepository {
+    override suspend fun getUsers(): AppResult<List<AdminUserInfo>> = getUsersResult
+
+    override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> = AppResult.Success(emptyList())
+
+    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
+        AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+
+    override suspend fun denyUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun deleteUser(userId: String): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
+        AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+
+    override suspend fun updateUser(
+        userId: String,
+        firstName: String?,
+        lastName: String?,
+        role: String?,
+        canShare: Boolean?,
+    ): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+
+    override suspend fun getInvites(): AppResult<List<InviteInfo>> = AppResult.Success(emptyList())
+
+    override suspend fun createInvite(
+        name: String,
+        email: String,
+        role: String,
+        expiresInDays: Int,
+    ): AppResult<InviteInfo> = AppResult.Success(
+        InviteInfo(
+            id = "inv-1",
+            code = "CODE",
+            name = name,
+            email = email,
+            role = role,
+            expiresAt = "",
+            claimedAt = null,
+            url = "",
+            createdAt = "",
+        ),
+    )
+
+    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun getRegistrationPolicy(): AppResult<Boolean> = AppResult.Success(false)
+
+    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun getServerSettings(): AppResult<ServerSettings> =
+        AppResult.Success(ServerSettings(serverName = "Test", remoteUrl = null))
+
+    override suspend fun updateServerSettings(
+        serverName: String?,
+        remoteUrl: String?,
+    ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
+
+    override suspend fun getLibraries(): AppResult<List<Library>> = AppResult.Success(emptyList())
+
+    override suspend fun getLibrary(libraryId: String): AppResult<Library> =
+        AppResult.Failure(TransportError.NetworkUnavailable())
+
+    override suspend fun setInboxEnabled(
+        libraryId: String,
+        enabled: Boolean,
+    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+
+    override suspend fun addScanPath(
+        libraryId: String,
+        path: String,
+    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+
+    override suspend fun removeFolder(
+        libraryId: String,
+        folderId: String,
+    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+
+    override suspend fun triggerScan(libraryId: String): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
+        AppResult.Failure(TransportError.NetworkUnavailable())
 }

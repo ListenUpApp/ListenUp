@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.import.ImportEvent
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
@@ -30,13 +31,18 @@ private val logger = KotlinLogging.logger {}
  *  2. Analyze — subscribes [ImportRepository.observeProgress] *before* calling
  *     [ImportRepository.analyze] so no early events are missed, then exposes
  *     live [ImportFlowUiState.Analyzing] ticks while the server processes.
- *  3. [ImportFlowUiState.Review] — exposes the full [ImportAnalysis] for the admin
- *     to inspect. [ImportFlowUiState.Review.userMappings] is pre-seeded from STRONG
- *     (non-null [AbsUserMatch.suggestedUserId]) matches; the admin can still override
- *     or add mappings via [setUserMapping]. [ImportFlowUiState.Review.bookOverrides]
- *     starts empty — the server auto-applies confident book matches.
- *  4. [confirmAndApply] — persists the mappings then applies them, again subscribing
- *     observeProgress before apply so live [ImportFlowUiState.Applying] ticks are seen.
+ *  3. [ImportFlowUiState.Review] — exposes the full [ImportAnalysis] for the admin to
+ *     inspect. [ImportFlowUiState.Review.userMappings] starts **empty** — the admin must
+ *     explicitly assign each ABS user via [setUserMapping] or skip them via [skipUser].
+ *     Analysis suggestions ([ImportFlowUiState.Review.analysis] `userMatches[].suggestedUserId`)
+ *     remain visible for one-tap acceptance in the UI, but nothing is pre-applied.
+ *     [ImportFlowUiState.Review.listenupUsers] is loaded from [AdminRepository.getUsers] on
+ *     entering Review; a load failure is non-fatal (logs a warning, uses empty list, emits
+ *     to [ErrorBus]).
+ *  4. [confirmAndApply] — persists the admin's explicit mappings then applies them, again
+ *     subscribing observeProgress before apply so live [ImportFlowUiState.Applying] ticks
+ *     are seen. Only [ImportFlowUiState.Review.userMappings] (explicit assignments) are sent;
+ *     skipped and unresolved ABS users are simply absent, so the server imports nothing for them.
  *  5. [ImportFlowUiState.Done] — carries the [ImportResult]; triggers a
  *     [SyncRepository.refreshListeningHistory] to pull the written events into Room.
  *
@@ -55,6 +61,7 @@ class ImportFlowViewModel(
     private val importRepository: ImportRepository,
     private val errorBus: ErrorBus,
     private val syncRepository: SyncRepository,
+    private val adminRepository: AdminRepository,
 ) : ViewModel() {
     /**
      * Current phase of the import flow. Transitions are always total replacements
@@ -137,19 +144,31 @@ class ImportFlowViewModel(
                             // return is the definitive path to Review.
                             if (uiState.value !is ImportFlowUiState.Error) {
                                 progressJob?.cancel()
-                                // Seed userMappings from STRONG (non-null suggestedUserId) matches
-                                // so that history records are imported for auto-matched users even
-                                // when the admin makes no explicit setUserMapping calls. The admin
-                                // can still override or extend mappings after Review is shown.
-                                val autoUserMappings: Map<AbsUserId, UserId> =
-                                    analyzeResult.data.userMatches
-                                        .mapNotNull { match -> match.suggestedUserId?.let { match.absUserId to it } }
-                                        .toMap()
+                                // Load ListenUp users for the user picker. A failure is non-fatal:
+                                // log a warning, emit to the error bus, and continue with an empty
+                                // list so the admin can still skip users. CancellationException
+                                // from the suspend call propagates naturally (not caught here).
+                                val listenupUsers =
+                                    when (val usersResult = adminRepository.getUsers()) {
+                                        is AppResult.Success -> {
+                                            usersResult.data
+                                        }
+                                        is AppResult.Failure -> {
+                                            logger.warn {
+                                                "Failed to load ListenUp users for import picker: " +
+                                                    usersResult.error.message
+                                            }
+                                            errorBus.emit(usersResult.error)
+                                            emptyList()
+                                        }
+                                    }
                                 uiState.value =
                                     ImportFlowUiState.Review(
                                         analysis = analyzeResult.data,
-                                        userMappings = autoUserMappings,
+                                        userMappings = emptyMap(),
+                                        skippedUsers = emptySet(),
                                         bookOverrides = emptyMap(),
+                                        listenupUsers = listenupUsers,
                                     )
                             }
                         }
@@ -160,14 +179,37 @@ class ImportFlowViewModel(
     }
 
     /**
-     * Update the ABS-user → ListenUp-user mapping for [absUserId] while in [ImportFlowUiState.Review].
-     * No-op when the flow is not in [ImportFlowUiState.Review].
+     * Explicitly assign [absUserId] to [userId] while in [ImportFlowUiState.Review].
+     *
+     * Assigning un-skips the ABS user: [absUserId] is removed from
+     * [ImportFlowUiState.Review.skippedUsers] if present. No-op when not in Review.
      */
     fun setUserMapping(
         absUserId: AbsUserId,
         userId: UserId,
     ) {
-        updateReview { it.copy(userMappings = it.userMappings + (absUserId to userId)) }
+        updateReview {
+            it.copy(
+                userMappings = it.userMappings + (absUserId to userId),
+                skippedUsers = it.skippedUsers - absUserId,
+            )
+        }
+    }
+
+    /**
+     * Mark [absUserId] as explicitly skipped while in [ImportFlowUiState.Review].
+     *
+     * Skipping removes any existing mapping for [absUserId] from
+     * [ImportFlowUiState.Review.userMappings]. No history is imported for skipped users.
+     * No-op when not in Review.
+     */
+    fun skipUser(absUserId: AbsUserId) {
+        updateReview {
+            it.copy(
+                skippedUsers = it.skippedUsers + absUserId,
+                userMappings = it.userMappings - absUserId,
+            )
+        }
     }
 
     /**

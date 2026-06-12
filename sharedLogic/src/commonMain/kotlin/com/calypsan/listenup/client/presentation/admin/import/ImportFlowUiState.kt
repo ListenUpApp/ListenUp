@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin.import
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.import.ImportAnalysis
 import com.calypsan.listenup.api.dto.import.ImportResult
+import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
@@ -40,15 +41,36 @@ sealed interface ImportFlowUiState {
     ) : ImportFlowUiState
 
     /**
-     * Analysis complete; the admin reviews low-confidence / unmatched items before
-     * applying. [userMappings] and [bookOverrides] accumulate the admin's selections.
+     * Analysis complete; the admin reviews each ABS user and low-confidence / unmatched
+     * book items before applying. The admin must EXPLICITLY assign or skip each ABS user.
+     *
+     * A user is "resolved" iff present in [userMappings] (assigned) OR [skippedUsers]
+     * (skipped). Unresolved users are treated as skipped — no history is imported for them.
+     * [bookOverrides] accumulates admin-supplied book-match overrides; null value = skip.
+     *
+     * [listenupUsers] is the full list of ListenUp users available for the picker. It may
+     * be empty if the admin-user-list load failed (graceful degradation — the admin can still
+     * skip users; the picker simply shows nothing to pick from).
      */
     data class Review(
         val analysis: ImportAnalysis,
-        /** Admin-selected ABS-user → ListenUp-user mappings. */
+        /**
+         * Admin-selected ABS-user → ListenUp-user mappings. Starts empty; the admin assigns
+         * each ABS user explicitly. [setUserMapping] also removes the user from [skippedUsers].
+         */
         val userMappings: Map<AbsUserId, UserId>,
+        /**
+         * ABS users the admin explicitly chose to skip. Starts empty. [skipUser] also removes
+         * any existing [userMappings] entry for the same ABS user.
+         */
+        val skippedUsers: Set<AbsUserId>,
         /** Admin-supplied ABS-item → ListenUp-book overrides. Null value = skip. */
         val bookOverrides: Map<AbsItemId, BookId?>,
+        /**
+         * ListenUp users available for the user picker. Populated from [AdminRepository.getUsers]
+         * when entering Review; empty on load failure (non-fatal).
+         */
+        val listenupUsers: List<AdminUserInfo>,
     ) : ImportFlowUiState
 
     /** Confirmed mappings are being applied; live progress is shown. */
