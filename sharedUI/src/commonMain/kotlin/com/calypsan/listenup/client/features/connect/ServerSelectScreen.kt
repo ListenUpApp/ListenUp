@@ -50,6 +50,7 @@ import listenup.composeapp.generated.resources.common_no_items_found
 import listenup.composeapp.generated.resources.common_refresh
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.connect_add_server_manually
+import listenup.composeapp.generated.resources.connect_version_prefix
 import listenup.composeapp.generated.resources.connect_enter_server_url_directly
 import listenup.composeapp.generated.resources.connect_make_sure_your_listenup_server
 import listenup.composeapp.generated.resources.connect_on_your_network
@@ -319,7 +320,7 @@ private fun StatusRow(
         )
         version.takeIf { it != "unknown" }?.let {
             Text(
-                text = "v$it",
+                text = stringResource(Res.string.connect_version_prefix, it),
                 style = MaterialTheme.typography.bodySmall,
                 color = onRowMuted.copy(alpha = 0.8f),
             )

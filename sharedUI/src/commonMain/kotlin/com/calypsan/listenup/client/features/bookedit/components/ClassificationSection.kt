@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.presentation.bookedit.displayName
 import com.calypsan.listenup.client.presentation.bookedit.parentPath
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.common_collections
@@ -307,7 +308,7 @@ private fun GenreChip(
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Remove ${genre.name}",
+                contentDescription = stringResource(Res.string.common_remove_name, genre.name),
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)
@@ -329,7 +330,7 @@ private fun TagChip(
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Remove ${tag.displayName()}",
+                contentDescription = stringResource(Res.string.common_remove_name, tag.displayName()),
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)
@@ -351,7 +352,7 @@ private fun CollectionChip(
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Remove ${collection.name}",
+                contentDescription = stringResource(Res.string.common_remove_name, collection.name),
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)

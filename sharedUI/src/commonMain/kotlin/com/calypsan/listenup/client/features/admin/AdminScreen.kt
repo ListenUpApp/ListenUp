@@ -101,6 +101,7 @@ import listenup.composeapp.generated.resources.admin_pending_invites
 import listenup.composeapp.generated.resources.admin_pending_registrations
 import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.admin_remote_url
+import listenup.composeapp.generated.resources.admin_remote_url_placeholder
 import listenup.composeapp.generated.resources.common_revoke
 import listenup.composeapp.generated.resources.admin_revoke_invite
 import listenup.composeapp.generated.resources.common_role
@@ -672,7 +673,7 @@ private fun SettingsRemoteUrlRow(
             value = remoteUrl,
             onValueChange = onRemoteUrlChange,
             label = { Text(stringResource(Res.string.admin_remote_url)) },
-            placeholder = { Text("https://audiobooks.example.com") },
+            placeholder = { Text(stringResource(Res.string.admin_remote_url_placeholder)) },
             singleLine = true,
             modifier = Modifier.weight(1f),
         )

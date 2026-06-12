@@ -66,7 +66,12 @@ import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.series_books_in_series
+import listenup.composeapp.generated.resources.series_book_position
+import listenup.composeapp.generated.resources.series_continue_book
 import listenup.composeapp.generated.resources.series_edit_series
+import listenup.composeapp.generated.resources.series_label
+import listenup.composeapp.generated.resources.series_progress_duration
+import listenup.composeapp.generated.resources.series_start_book
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -298,7 +303,7 @@ private fun HeroBody(state: SeriesDetailUiState.Ready) {
         )
         Spacer(Modifier.height(22.dp))
         Text(
-            text = "SERIES",
+            text = stringResource(Res.string.series_label),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -389,7 +394,12 @@ private fun ContinueButton(
     val target = state.books.firstOrNull { it.id == targetId } ?: return
     val index = state.books.indexOfFirst { it.id == targetId }
     val positionLabel = target.seriesSequence ?: (index + 1).toString()
-    val verb = if (state.bookProgress[targetId] != null) "Continue" else "Start"
+    val continueLabel =
+        if (state.bookProgress[targetId] != null) {
+            stringResource(Res.string.series_continue_book, positionLabel)
+        } else {
+            stringResource(Res.string.series_start_book, positionLabel)
+        }
 
     Row(
         modifier =
@@ -405,7 +415,7 @@ private fun ContinueButton(
         Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary)
         Spacer(Modifier.width(10.dp))
         Text(
-            text = "$verb Book $positionLabel",
+            text = continueLabel,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimary,
         )
@@ -511,7 +521,7 @@ private fun SeriesBookRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Book $positionLabel",
+                text = stringResource(Res.string.series_book_position, positionLabel),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
@@ -532,7 +542,7 @@ private fun SeriesBookRow(
                         modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape),
                     )
                     Text(
-                        text = "${(progress * 100).toInt()}% · ${book.formatDuration()}",
+                        text = stringResource(Res.string.series_progress_duration, (progress * 100).toInt(), book.formatDuration()),
                         style = MaterialTheme.typography.labelMedium,
                         color = subColor,
                         maxLines = 1,

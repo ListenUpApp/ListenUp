@@ -71,8 +71,12 @@ import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.contributor_audible_region
 import listenup.composeapp.generated.resources.common_loading
 import listenup.composeapp.generated.resources.metadata_apply_selected_metadata
+import listenup.composeapp.generated.resources.metadata_chapter_names
+import listenup.composeapp.generated.resources.metadata_chapters_match_review
 import listenup.composeapp.generated.resources.metadata_cover
+import listenup.composeapp.generated.resources.metadata_cover_from_source
 import listenup.composeapp.generated.resources.metadata_current_cover
+import listenup.composeapp.generated.resources.metadata_review
 import listenup.composeapp.generated.resources.metadata_metadata_is_up_to_date
 import listenup.composeapp.generated.resources.metadata_no_metadata_available
 import listenup.composeapp.generated.resources.metadata_release_date
@@ -457,7 +461,7 @@ private fun ChapterNamesItem(
                         .padding(vertical = 8.dp),
             ) {
                 Text(
-                    text = "Chapter names",
+                    text = stringResource(Res.string.metadata_chapter_names),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -481,16 +485,16 @@ private fun ChapterNamesItem(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Chapter names",
+                        text = stringResource(Res.string.metadata_chapter_names),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = "${suggestion.rows.size} Audible chapters match — review and apply.",
+                        text = stringResource(Res.string.metadata_chapters_match_review, suggestion.rows.size),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                TextButton(onClick = onReview) { Text("Review") }
+                TextButton(onClick = onReview) { Text(stringResource(Res.string.metadata_review)) }
             }
         }
     }
@@ -597,7 +601,7 @@ private fun CoverSelectionRow(
                 ) {
                     AsyncImage(
                         model = cover.url,
-                        contentDescription = "Cover from ${cover.label}",
+                        contentDescription = stringResource(Res.string.metadata_cover_from_source, cover.label),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )

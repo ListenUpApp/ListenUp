@@ -55,6 +55,10 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.admin_collection_count
+import listenup.composeapp.generated.resources.admin_collections_count
+import listenup.composeapp.generated.resources.common_book_count
+import listenup.composeapp.generated.resources.common_books_count
 import listenup.composeapp.generated.resources.admin_collection_name
 import listenup.composeapp.generated.resources.common_collections
 import listenup.composeapp.generated.resources.common_create
@@ -235,7 +239,12 @@ private fun AdminCollectionsReadyContent(
         ) {
             item {
                 Text(
-                    text = "${state.collections.size} collection${if (state.collections.size != 1) "s" else ""}",
+                    text =
+                        if (state.collections.size == 1) {
+                            stringResource(Res.string.admin_collection_count, state.collections.size)
+                        } else {
+                            stringResource(Res.string.admin_collections_count, state.collections.size)
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -292,7 +301,12 @@ private fun CollectionRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${collection.bookCount} book${if (collection.bookCount != 1) "s" else ""}",
+                text =
+                    if (collection.bookCount == 1) {
+                        stringResource(Res.string.common_book_count, collection.bookCount)
+                    } else {
+                        stringResource(Res.string.common_books_count, collection.bookCount)
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

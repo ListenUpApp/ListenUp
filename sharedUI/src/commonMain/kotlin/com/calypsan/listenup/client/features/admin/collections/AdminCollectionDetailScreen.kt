@@ -68,6 +68,8 @@ import listenup.composeapp.generated.resources.admin_add_member
 import listenup.composeapp.generated.resources.admin_add_members_to_share_this
 import listenup.composeapp.generated.resources.admin_administrator
 import listenup.composeapp.generated.resources.admin_all_users_are_already_members
+import listenup.composeapp.generated.resources.common_book_count
+import listenup.composeapp.generated.resources.common_books_count
 import listenup.composeapp.generated.resources.admin_books_can_be_added_from
 import listenup.composeapp.generated.resources.admin_books_in_collection
 import listenup.composeapp.generated.resources.admin_collection_details
@@ -388,7 +390,12 @@ private fun CollectionInfoCard(
                 Column {
                     val count = state.collection.bookCount
                     Text(
-                        text = "$count book${if (count != 1) "s" else ""}",
+                        text =
+                            if (count == 1) {
+                                stringResource(Res.string.common_book_count, count)
+                            } else {
+                                stringResource(Res.string.common_books_count, count)
+                            },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
