@@ -7,39 +7,39 @@ import SwiftUI
 /// - Native iOS 26 `TabView` with Home, Library, Discover, and a search-role Search tab
 /// - Each tab wraps content in a `NavigationStack`
 /// - iPad gets the sidebar-adaptable style; the tab bar minimizes on scroll
-/// - `tabViewBottomAccessory` hosts the Liquid Glass mini player
-/// - `fullScreenCover` presents the full-screen player
+/// - `PlayerExpansionOverlay` hosts the mini player and morphs it into the full
+///   player under a shared `@Namespace` (replacing the accessory + fullScreenCover)
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @State private var selectedTab: Tab = .home
-    @State private var showFullScreenPlayer = false
     @State private var playerCoordinator: PlayerCoordinator?
 
+    /// Height reserved below tab content for the collapsed mini bar (bar + clearance).
+    private var miniBarInset: CGFloat {
+        MiniPlayerBar.barHeight + MiniPlayerBar.tabBarClearance
+    }
+
     var body: some View {
-        TabView(selection: $selectedTab) {
-            SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
-                tabStack { HomeView() }
+        ZStack {
+            TabView(selection: $selectedTab) {
+                SwiftUI.Tab(Tab.home.title, systemImage: "house.fill", value: Tab.home) {
+                    tabStack { HomeView() }
+                }
+                SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
+                    tabStack { LibraryView() }
+                }
+                SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
+                    tabStack { DiscoverView() }
+                }
+                SwiftUI.Tab(value: Tab.search, role: .search) {
+                    tabStack { SearchView() }
+                }
             }
-            SwiftUI.Tab(Tab.library.title, systemImage: "books.vertical.fill", value: Tab.library) {
-                tabStack { LibraryView() }
-            }
-            SwiftUI.Tab(Tab.discover.title, systemImage: "sparkles", value: Tab.discover) {
-                tabStack { DiscoverView() }
-            }
-            SwiftUI.Tab(value: Tab.search, role: .search) {
-                tabStack { SearchView() }
-            }
-        }
-        .tabViewStyle(.sidebarAdaptable)
-        .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewBottomAccessory {
+            .tabViewStyle(.sidebarAdaptable)
+            .tabBarMinimizeBehavior(.onScrollDown)
+
             if let coordinator = playerCoordinator, coordinator.isVisible {
-                MiniPlayerView(observer: coordinator, onTap: { showFullScreenPlayer = true })
-            }
-        }
-        .fullScreenCover(isPresented: $showFullScreenPlayer) {
-            if let coordinator = playerCoordinator {
-                FullScreenPlayerView(observer: coordinator, isPresented: $showFullScreenPlayer)
+                PlayerExpansionOverlay(coordinator: coordinator)
             }
         }
         .onAppear {
@@ -56,6 +56,11 @@ struct MainTabView: View {
         NavigationStack {
             content()
                 .navigationDestinations()
+                .safeAreaInset(edge: .bottom) {
+                    if playerCoordinator?.isVisible == true {
+                        Color.clear.frame(height: miniBarInset)
+                    }
+                }
         }
     }
 }

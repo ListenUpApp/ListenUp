@@ -17,7 +17,8 @@ import UIKit
 /// resolves; coral on any failure — never stranded).
 struct FullScreenPlayerView: View {
     let observer: PlayerCoordinator
-    @Binding var isPresented: Bool
+    var namespace: Namespace.ID
+    var onCollapse: () -> Void
 
     @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
@@ -40,6 +41,7 @@ struct FullScreenPlayerView: View {
             .frame(width: 286, height: 286)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
+            .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)
 
             Spacer()
                 .frame(height: 32)
@@ -119,7 +121,7 @@ struct FullScreenPlayerView: View {
 
     private var header: some View {
         HStack {
-            Button(action: { isPresented = false }) {
+            Button(action: onCollapse) {
                 Image(systemName: "chevron.down")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
