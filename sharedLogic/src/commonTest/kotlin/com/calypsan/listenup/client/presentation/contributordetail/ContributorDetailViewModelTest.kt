@@ -92,20 +92,21 @@ class ContributorDetailViewModelTest :
         ): SeriesWithBooks =
             SeriesWithBooks(
                 series = Series(id = SeriesId(id), name = name),
-                books = bookIds.map { bookId ->
-                    BookListItem(
-                        id = BookId(bookId),
-                        libraryId = LibraryId("test-library"),
-                        folderId = FolderId("test-folder"),
-                        title = "Book $bookId",
-                        duration = 3_600_000L,
-                        authors = emptyList(),
-                        narrators = emptyList(),
-                        coverPath = null,
-                        addedAt = Timestamp(1704067200000L),
-                        updatedAt = Timestamp(1704067200000L),
-                    )
-                },
+                books =
+                    bookIds.map { bookId ->
+                        BookListItem(
+                            id = BookId(bookId),
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            title = "Book $bookId",
+                            duration = 3_600_000L,
+                            authors = emptyList(),
+                            narrators = emptyList(),
+                            coverPath = null,
+                            addedAt = Timestamp(1704067200000L),
+                            updatedAt = Timestamp(1704067200000L),
+                        )
+                    },
                 bookSequences = bookIds.mapIndexed { i, bookId -> bookId to "${i + 1}" }.toMap(),
             )
 
