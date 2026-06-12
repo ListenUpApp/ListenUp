@@ -164,6 +164,15 @@ struct ContributorDetailView: View {
                     .font(.footnote)
                     .foregroundStyle(Color.luLabel3)
             }
+
+            if let website = observer.website, let url = URL(string: website) {
+                Link(destination: url) {
+                    Label(String(localized: "website"), systemImage: "globe")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(Color.luTint)
+                }
+                .padding(.top, 2)
+            }
         }
         .padding(.horizontal)
         .padding(.top, 16)
