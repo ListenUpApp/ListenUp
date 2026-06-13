@@ -1,0 +1,75 @@
+import SwiftUI
+
+/// Grouped inset-list container — the clean-coral surface for stacked rows (series book
+/// lists, contributor person rows). Renders each item via `row`, draws a hairline
+/// `luSeparator` between non-last rows (inset `separatorInset` from the leading edge),
+/// and wraps the stack in a rounded `luSurface2` card.
+struct FieldGroup<Item: Identifiable, Row: View>: View {
+    let items: [Item]
+    var separatorInset: CGFloat = 0
+    @ViewBuilder var row: (Item) -> Row
+
+    init(_ items: [Item], separatorInset: CGFloat = 0, @ViewBuilder row: @escaping (Item) -> Row) {
+        self.items = items
+        self.separatorInset = separatorInset
+        self.row = row
+    }
+
+    @Environment(\.displayScale) private var displayScale
+    private var hairline: CGFloat { 1 / max(displayScale, 1) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                row(item)
+                if index < items.count - 1 {
+                    Rectangle()
+                        .fill(Color.luSeparator)
+                        .frame(height: hairline)
+                        .padding(.leading, separatorInset)
+                }
+            }
+        }
+        .background(Color.luSurface2)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.luSeparator, lineWidth: hairline)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+    }
+}
+
+// MARK: - Preview
+
+private struct DemoRow: Identifiable {
+    let id: Int
+    let title: String
+    let subtitle: String
+}
+
+#Preview("FieldGroup") {
+    let rows = [
+        DemoRow(id: 1, title: "The Way of Kings", subtitle: "Book 1 · 45h 13m"),
+        DemoRow(id: 2, title: "Words of Radiance", subtitle: "Book 2 · 48h 02m"),
+        DemoRow(id: 3, title: "Oathbringer", subtitle: "Book 3 · 55h 06m")
+    ]
+    FieldGroup(rows, separatorInset: 68) { row in
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.luFill)
+                .frame(width: 54, height: 54)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.title).foregroundStyle(.primary)
+                Text(row.subtitle).font(.footnote).foregroundStyle(Color.luLabel2)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Color.luLabel3)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+    .padding()
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.luSurface)
+}
