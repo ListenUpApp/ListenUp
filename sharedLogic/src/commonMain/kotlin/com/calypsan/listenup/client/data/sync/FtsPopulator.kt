@@ -61,6 +61,19 @@ class FtsPopulator(
         }
 
     /**
+     * Rebuild the index only if it is empty. Detects an install whose library is already in Room but
+     * whose FTS index was never populated (e.g. it pre-dates index population) and heals it; a no-op
+     * once the index has rows, so it is cheap to call on every engine start.
+     */
+    override suspend fun rebuildIfEmpty() =
+        withContext(IODispatcher) {
+            if (searchDao.countBooksFts() == 0) {
+                logger.info { "Search index empty — rebuilding from local tables" }
+                rebuildAll()
+            }
+        }
+
+    /**
      * Rebuild book FTS entries.
      *
      * Denormalizes author, narrator, and series name into the FTS table

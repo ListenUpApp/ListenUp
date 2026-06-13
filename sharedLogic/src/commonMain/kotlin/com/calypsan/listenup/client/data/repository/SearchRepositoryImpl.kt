@@ -1,19 +1,13 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.TagEntity
-import com.calypsan.listenup.client.data.remote.SearchApiContract
-import com.calypsan.listenup.client.data.remote.SearchFacetsResponse
-import com.calypsan.listenup.client.data.remote.SearchHitResponse
-import com.calypsan.listenup.client.data.remote.SearchResponse
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
-import com.calypsan.listenup.client.domain.model.FacetCount
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -27,38 +21,31 @@ import kotlin.time.measureTimedValue
 private val logger = KotlinLogging.logger {}
 
 /**
- * Repository for search operations.
+ * Repository for search operations, backed entirely by the local Room FTS5 index.
  *
- * Implements "never stranded" pattern:
- * - Primary: Use server Bleve search (fuzzy, faceted, hierarchical)
- * - Fallback: Local Room FTS5 (simpler but always works)
+ * The server runs the identical FTS5 algorithm over the same library, so for a client that already
+ * holds the library in Room there is nothing to gain from a network round-trip — search reads the
+ * local index directly. This is faster, works offline by construction, and is correctly scoped to
+ * the books this client can see. (The server's REST search endpoint remains for data-less clients,
+ * e.g. web, that have no local index.)
  *
- * Always tries server first because the server may be on a local network
- * without internet access. Falls back to local search on any error.
+ * The local index is kept in sync by [com.calypsan.listenup.client.data.sync.FtsPopulator], which
+ * rebuilds it after each catch-up/scan and self-heals an empty index on startup.
  *
- * The caller doesn't need to know which path was taken—both return
- * the same SearchResult type. The `isOfflineResult` flag indicates
- * which was used (for optional UI indication).
- *
- * @property searchApi Server search API client
  * @property searchDao Local FTS5 search DAO
  * @property imageStorage For resolving local cover paths
  */
 class SearchRepositoryImpl(
-    private val searchApi: SearchApiContract,
     private val searchDao: SearchDao,
     private val imageStorage: ImageStorage,
 ) : com.calypsan.listenup.client.domain.repository.SearchRepository {
     /**
-     * Search across books, contributors, and series.
-     *
-     * Tries server search first if online. Falls back to local FTS
-     * on network error or if offline.
+     * Search across books, contributors, series, and tags against the local FTS5 index.
      *
      * @param query Search query string
      * @param types Types to search (null = all)
-     * @param genres Genre slugs to filter by
-     * @param genrePath Genre path prefix for hierarchical filtering
+     * @param genres Unused locally (server-only genre faceting); accepted for interface parity
+     * @param genrePath Unused locally; accepted for interface parity
      * @param limit Max results per type
      */
     override suspend fun search(
@@ -68,7 +55,6 @@ class SearchRepositoryImpl(
         genrePath: String?,
         limit: Int,
     ): SearchResult {
-        // Sanitize query
         val sanitizedQuery = QueryUtils.sanitize(query)
         if (sanitizedQuery.isBlank()) {
             return SearchResult(
@@ -78,47 +64,8 @@ class SearchRepositoryImpl(
                 hits = emptyList(),
             )
         }
-
-        // Always try server search first, fall back to local on failure
-        // We don't check isOnline() because the server may be on a local network
-        // without internet access, which would cause isOnline() to return false
-        // even though the server is reachable.
-        return try {
-            searchServer(sanitizedQuery, types, genres, genrePath, limit)
-        } catch (e: CancellationException) {
-            // Preserve structured concurrency - re-throw cancellation
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Server search failed for '$sanitizedQuery', falling back to local search" }
-            searchLocal(sanitizedQuery, types, limit)
-        }
+        return searchLocal(sanitizedQuery, types, limit)
     }
-
-    /**
-     * Server-side Bleve search.
-     */
-    private suspend fun searchServer(
-        query: String,
-        types: List<SearchHitType>?,
-        genres: List<String>?,
-        genrePath: String?,
-        limit: Int,
-    ): SearchResult =
-        withContext(IODispatcher) {
-            val typesParam = types?.joinToString(",") { it.name.lowercase() }
-            val genresParam = genres?.joinToString(",")
-
-            val response =
-                searchApi.search(
-                    query = query,
-                    types = typesParam,
-                    genres = genresParam,
-                    genrePath = genrePath,
-                    limit = limit,
-                )
-
-            response.toDomain(imageStorage)
-        }
 
     /**
      * Local Room FTS5 search.
@@ -177,7 +124,7 @@ class SearchRepositoryImpl(
                 tookMs = duration.inWholeMilliseconds,
                 hits = result,
                 facets = SearchFacets(), // No facets in local search
-                isOfflineResult = true,
+                isOfflineResult = false,
             )
         }
 
@@ -201,61 +148,6 @@ class SearchRepositoryImpl(
 }
 
 // --- Extension functions for mapping ---
-
-private fun SearchResponse.toDomain(imageStorage: ImageStorage): SearchResult =
-    SearchResult(
-        query = query,
-        total = total.toInt(),
-        tookMs = tookMs,
-        hits = hits.map { it.toDomain(imageStorage) },
-        facets = facets?.toDomain() ?: SearchFacets(),
-        isOfflineResult = false,
-    )
-
-private fun SearchHitResponse.toDomain(imageStorage: ImageStorage): SearchHit {
-    val hitType =
-        when (type.lowercase()) {
-            "book" -> SearchHitType.BOOK
-            "contributor" -> SearchHitType.CONTRIBUTOR
-            "series" -> SearchHitType.SERIES
-            "tag" -> SearchHitType.TAG
-            else -> SearchHitType.BOOK
-        }
-
-    // Resolve cover path for books (convert String to BookId)
-    val coverPath =
-        if (hitType == SearchHitType.BOOK && id.isNotBlank()) {
-            val bookId = BookId(id)
-            if (imageStorage.exists(bookId)) imageStorage.getCoverPath(bookId) else null
-        } else {
-            null
-        }
-
-    return SearchHit(
-        id = id,
-        type = hitType,
-        name = name,
-        subtitle = subtitle,
-        author = author,
-        narrator = narrator,
-        seriesName = seriesName,
-        duration = duration,
-        bookCount = bookCount,
-        genreSlugs = genreSlugs,
-        tags = tags,
-        coverPath = coverPath,
-        score = score,
-        highlight = highlights?.values?.firstOrNull(),
-    )
-}
-
-private fun SearchFacetsResponse.toDomain(): SearchFacets =
-    SearchFacets(
-        types = types?.map { FacetCount(it.value, it.count) } ?: emptyList(),
-        genres = genres?.map { FacetCount(it.value, it.count) } ?: emptyList(),
-        authors = authors?.map { FacetCount(it.value, it.count) } ?: emptyList(),
-        narrators = narrators?.map { FacetCount(it.value, it.count) } ?: emptyList(),
-    )
 
 private fun BookSearchResult.toSearchHit(imageStorage: ImageStorage): SearchHit {
     val coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null

@@ -39,10 +39,9 @@ val searchModule: Module =
             )
         } bind FtsPopulatorContract::class
 
-        // SearchRepository for offline-first search
+        // SearchRepository — local FTS5 search (no network round-trip; server runs the same algorithm)
         single<SearchRepository> {
             SearchRepositoryImpl(
-                searchApi = get(),
                 searchDao = get(),
                 imageStorage = get(),
             )

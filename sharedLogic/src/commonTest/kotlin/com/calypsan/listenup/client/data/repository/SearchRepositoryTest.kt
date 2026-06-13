@@ -1,19 +1,16 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.remote.SearchApiContract
-import com.calypsan.listenup.client.data.remote.SearchException
-import com.calypsan.listenup.client.data.remote.SearchFacetsResponse
-import com.calypsan.listenup.client.data.remote.SearchHitResponse
-import com.calypsan.listenup.client.data.remote.SearchResponse
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.MockMode
@@ -23,35 +20,29 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.booleans.shouldBeFalse
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 /**
- * Tests for SearchRepository.
+ * Tests for [SearchRepositoryImpl] — local FTS5 search.
  *
- * Tests the "never stranded" pattern:
- * - Primary: Use server Bleve search
- * - Fallback: Local Room FTS5 on server failure
+ * Search is served entirely from the local Room index (the server runs the same FTS5 algorithm, so a
+ * client holding the library locally has nothing to gain from a round-trip). These tests verify the
+ * blank-query short-circuit, the federated mapping across the four hit types, that results are not
+ * flagged as a degraded "offline" fallback, and that one failing per-type query can't sink the rest.
  */
-class SearchRepositoryTest {
-    // --- Helper functions for creating mocks ---
+class SearchRepositoryTest :
+    FunSpec({
 
-    private fun createMockSearchApi(): SearchApiContract = mock<SearchApiContract>()
-
-    private fun createMockSearchDao(): SearchDao = mock<SearchDao>(MockMode.autoUnit)
-
-    private fun createMockImageStorage(): ImageStorage = mock<ImageStorage>()
-
-    private fun createTestBookSearchResult(
-        id: String = "book-1",
-        title: String = "Test Book",
-        authorName: String? = "Test Author",
-    ): BookSearchResult =
-        BookSearchResult(
+        fun bookResult(
+            id: String = "book-1",
+            title: String = "Test Book",
+            authorName: String? = "Test Author",
+        ) = BookSearchResult(
             book =
                 BookEntity(
                     id = BookId(id),
@@ -60,7 +51,7 @@ class SearchRepositoryTest {
                     title = title,
                     subtitle = null,
                     coverHash = null,
-                    totalDuration = 3600000,
+                    totalDuration = 3_600_000,
                     description = null,
                     publishYear = null,
                     createdAt = Timestamp(0),
@@ -69,399 +60,88 @@ class SearchRepositoryTest {
             authorName = authorName,
         )
 
-    private fun createSearchResponse(
-        query: String = "test",
-        hits: List<SearchHitResponse> = emptyList(),
-    ): SearchResponse =
-        SearchResponse(
-            query = query,
-            total = hits.size.toLong(),
-            tookMs = 10,
-            hits = hits,
-            facets = SearchFacetsResponse(),
-        )
-
-    private fun createSearchHitResponse(
-        id: String = "book-1",
-        type: String = "book",
-        name: String = "Test Book",
-    ): SearchHitResponse =
-        SearchHitResponse(
-            id = id,
-            type = type,
-            score = 1.0f,
+        fun contributor(
+            id: String = "c1",
+            name: String = "Author",
+        ) = ContributorEntity(
+            id = ContributorId(id),
             name = name,
-            subtitle = null,
-            author = "Test Author",
-            narrator = "Test Narrator",
+            description = null,
+            imagePath = null,
+            createdAt = Timestamp(0),
+            updatedAt = Timestamp(0),
         )
 
-    // --- Empty/blank query tests ---
+        fun series(
+            id: String = "s1",
+            name: String = "Series",
+        ) = SeriesEntity(
+            id = SeriesId(id),
+            name = name,
+            description = null,
+            createdAt = Timestamp(0),
+            updatedAt = Timestamp(0),
+        )
 
-    @Test
-    fun `empty query returns empty result`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            // When
-            val result = repository.search("")
-
-            // Then
-            assertEquals(0, result.total)
-            assertTrue(result.hits.isEmpty())
+        fun repository(configure: SearchDao.() -> Unit): SearchRepositoryImpl {
+            val imageStorage = mock<ImageStorage> { every { exists(any()) } returns false }
+            val searchDao = mock<SearchDao>(MockMode.autoUnit) { configure() }
+            return SearchRepositoryImpl(searchDao, imageStorage)
         }
 
-    @Test
-    fun `whitespace-only query returns empty result`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            // When
-            val result = repository.search("   ")
-
-            // Then
-            assertEquals(0, result.total)
-            assertTrue(result.hits.isEmpty())
-        }
-
-    // --- Server search tests ---
-
-    @Test
-    fun `search calls server API first`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            every { imageStorage.exists(any()) } returns false
-
-            val serverResponse =
-                createSearchResponse(
-                    query = "sanderson",
-                    hits =
-                        listOf(
-                            createSearchHitResponse(id = "book-1", name = "Mistborn"),
-                            createSearchHitResponse(id = "book-2", name = "Elantris"),
-                        ),
-                )
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } returns serverResponse
-
-            // When
-            val result = repository.search("sanderson")
-
-            // Then
-            assertEquals(2, result.hits.size)
-            assertEquals("Mistborn", result.hits[0].name)
-            assertEquals("Elantris", result.hits[1].name)
-            assertFalse(result.isOfflineResult)
-        }
-
-    @Test
-    fun `search with types parameter filters correctly`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            every { imageStorage.exists(any()) } returns false
-
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } returns createSearchResponse()
-
-            // When
-            repository.search("test", types = listOf(SearchHitType.BOOK))
-
-            // Then - verify API was called (with types param passed)
-            verifySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
+        test("blank query short-circuits to an empty result without touching the index") {
+            runTest {
+                val result = repository { }.search("   ")
+                result.total shouldBe 0
+                result.hits.shouldBeEmpty()
             }
         }
 
-    // --- Fallback tests ---
+        test("federates across books, contributors, series, and tags") {
+            runTest {
+                val repo =
+                    repository {
+                        everySuspend { searchBooks(any(), any()) } returns listOf(bookResult(title = "Mistborn"))
+                        everySuspend { searchContributors(any(), any()) } returns listOf(contributor(name = "Sanderson"))
+                        everySuspend { searchSeries(any(), any()) } returns listOf(series(name = "Stormlight"))
+                        everySuspend { searchTags(any(), any()) } returns emptyList()
+                    }
 
-    @Test
-    fun `server error falls back to local FTS`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
+                val result = repo.search("brandon")
 
-            every { imageStorage.exists(any()) } returns false
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } throws SearchException("Server error")
-            everySuspend { searchDao.searchBooks(any(), any()) } returns
-                listOf(createTestBookSearchResult(id = "book-1", title = "Fallback Book"))
-            everySuspend { searchDao.searchContributors(any(), any()) } returns emptyList()
-            everySuspend { searchDao.searchSeries(any(), any()) } returns emptyList()
-            everySuspend { searchDao.searchTags(any(), any()) } returns emptyList()
-
-            // When
-            val result = repository.search("fallback")
-
-            // Then
-            assertEquals(1, result.hits.size)
-            assertEquals("Fallback Book", result.hits[0].name)
-            assertTrue(result.isOfflineResult)
+                result.hits.map { it.type } shouldContainExactlyInAnyOrder
+                    listOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR, SearchHitType.SERIES)
+                result.hits.first { it.type == SearchHitType.BOOK }.name shouldBe "Mistborn"
+            }
         }
 
-    @Test
-    fun `network error falls back to local FTS`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
+        test("local results are not flagged as an offline fallback") {
+            runTest {
+                val repo =
+                    repository {
+                        everySuspend { searchBooks(any(), any()) } returns listOf(bookResult())
+                        everySuspend { searchContributors(any(), any()) } returns emptyList()
+                        everySuspend { searchSeries(any(), any()) } returns emptyList()
+                        everySuspend { searchTags(any(), any()) } returns emptyList()
+                    }
 
-            every { imageStorage.exists(any()) } returns false
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } throws RuntimeException("No network")
-            everySuspend { searchDao.searchBooks(any(), any()) } returns
-                listOf(createTestBookSearchResult(id = "book-1", title = "Local Book"))
-            everySuspend { searchDao.searchContributors(any(), any()) } returns emptyList()
-            everySuspend { searchDao.searchSeries(any(), any()) } returns emptyList()
-            everySuspend { searchDao.searchTags(any(), any()) } returns emptyList()
-
-            // When
-            val result = repository.search("local")
-
-            // Then
-            assertEquals(1, result.hits.size)
-            assertEquals("Local Book", result.hits[0].name)
-            assertTrue(result.isOfflineResult)
+                repo.search("test").isOfflineResult.shouldBeFalse()
+            }
         }
 
-    // --- Query sanitization tests ---
+        test("a failing per-type query does not sink the rest of the search") {
+            runTest {
+                val repo =
+                    repository {
+                        everySuspend { searchBooks(any(), any()) } throws RuntimeException("FTS boom")
+                        everySuspend { searchContributors(any(), any()) } returns listOf(contributor(name = "Survivor"))
+                        everySuspend { searchSeries(any(), any()) } returns emptyList()
+                        everySuspend { searchTags(any(), any()) } returns emptyList()
+                    }
 
-    @Test
-    fun `query with special characters is sanitized`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
+                val result = repo.search("test", types = listOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR))
 
-            every { imageStorage.exists(any()) } returns false
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } returns createSearchResponse()
-
-            // When - query with FTS special chars that should be stripped
-            val result = repository.search("test*()\":")
-
-            // Then - should not throw, search executes
-            // The special chars are sanitized before API call
+                result.hits.map { it.name } shouldBe listOf("Survivor")
+            }
         }
-
-    @Test
-    fun `very long query is truncated`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            every { imageStorage.exists(any()) } returns false
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } returns createSearchResponse()
-
-            // When - query longer than 100 chars
-            val longQuery = "a".repeat(200)
-            val result = repository.search(longQuery)
-
-            // Then - should not throw, search executes with truncated query
-        }
-
-    // --- Result mapping tests ---
-
-    @Test
-    fun `server response maps hit types correctly`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            every { imageStorage.exists(any()) } returns false
-
-            val serverResponse =
-                createSearchResponse(
-                    query = "test",
-                    hits =
-                        listOf(
-                            createSearchHitResponse(id = "book-1", type = "book", name = "Book"),
-                            createSearchHitResponse(id = "contrib-1", type = "contributor", name = "Author"),
-                            createSearchHitResponse(id = "series-1", type = "series", name = "Series"),
-                        ),
-                )
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } returns serverResponse
-
-            // When
-            val result = repository.search("test")
-
-            // Then
-            assertEquals(3, result.hits.size)
-            assertEquals(SearchHitType.BOOK, result.hits[0].type)
-            assertEquals(SearchHitType.CONTRIBUTOR, result.hits[1].type)
-            assertEquals(SearchHitType.SERIES, result.hits[2].type)
-        }
-
-    @Test
-    fun `local search returns correct hit types`() =
-        runTest {
-            // Given
-            val searchApi = createMockSearchApi()
-            val searchDao = createMockSearchDao()
-            val imageStorage = createMockImageStorage()
-            val repository = SearchRepositoryImpl(searchApi, searchDao, imageStorage)
-
-            every { imageStorage.exists(any()) } returns false
-            // Server throws to trigger local fallback
-            everySuspend {
-                searchApi.search(
-                    query = any(),
-                    types = any(),
-                    genres = any(),
-                    genrePath = any(),
-                    minDuration = any(),
-                    maxDuration = any(),
-                    limit = any(),
-                    offset = any(),
-                )
-            } throws SearchException("Server unavailable")
-            everySuspend { searchDao.searchBooks(any(), any()) } returns
-                listOf(createTestBookSearchResult(title = "Book"))
-            everySuspend { searchDao.searchContributors(any(), any()) } returns
-                listOf(
-                    ContributorEntity(
-                        id =
-                            com.calypsan.listenup.core
-                                .ContributorId("c1"),
-                        name = "Author",
-                        description = null,
-                        imagePath = null,
-                        createdAt = Timestamp(0),
-                        updatedAt = Timestamp(0),
-                    ),
-                )
-            everySuspend { searchDao.searchSeries(any(), any()) } returns
-                listOf(
-                    SeriesEntity(
-                        id =
-                            com.calypsan.listenup.core
-                                .SeriesId("s1"),
-                        name = "Series",
-                        description = null,
-                        createdAt = Timestamp(0),
-                        updatedAt = Timestamp(0),
-                    ),
-                )
-            everySuspend { searchDao.searchTags(any(), any()) } returns emptyList()
-
-            // When
-            val result = repository.search("test")
-
-            // Then
-            assertEquals(3, result.hits.size)
-            assertTrue(result.hits.any { it.type == SearchHitType.BOOK })
-            assertTrue(result.hits.any { it.type == SearchHitType.CONTRIBUTOR })
-            assertTrue(result.hits.any { it.type == SearchHitType.SERIES })
-        }
-}
+    })

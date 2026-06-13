@@ -126,6 +126,14 @@ interface SearchDao {
     // ==================== FTS POPULATION ====================
 
     /**
+     * Count the rows in the book FTS index. Drives the startup self-heal: a populated library
+     * with an empty index (e.g. an install that pre-dates index population) triggers a rebuild.
+     */
+    @SkipQueryVerification
+    @Query("SELECT COUNT(*) FROM books_fts")
+    suspend fun countBooksFts(): Int
+
+    /**
      * Clear all book FTS entries.
      */
     @SkipQueryVerification

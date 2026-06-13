@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.ScanProgressState
@@ -60,6 +61,7 @@ class SyncRepositoryImpl(
     private val listeningEventRecorder: ListeningEventRecorder,
     private val scannerRpcFactory: ScannerRpcFactory,
     private val bookDao: BookDao,
+    private val ftsPopulator: FtsPopulatorContract,
     private val scope: CoroutineScope,
 ) : SyncRepository {
     /** Ensures [ListeningEventRecorder.recoverOrphan] runs at most once per process lifetime. */
@@ -128,15 +130,48 @@ class SyncRepositoryImpl(
 
     override suspend fun forceFullResync(): AppResult<Unit> =
         when (val started = startEngineForCurrentUser()) {
-            is AppResult.Success -> suspendRunCatching { syncEngine.forceReconcile() }
-            is AppResult.Failure -> started
+            is AppResult.Success -> {
+                suspendRunCatching {
+                    syncEngine.forceReconcile()
+                    // The resync pulled fresh rows; refresh the search index so search reflects them.
+                    refreshSearchIndex()
+                }
+            }
+
+            is AppResult.Failure -> {
+                started
+            }
         }
+
+    /**
+     * Rebuild the local search index, isolating failure — a search-index hiccup must never fail or
+     * strand a sync. Used after a catch-up/reconcile lands fresh rows into Room.
+     */
+    private suspend fun refreshSearchIndex() {
+        try {
+            ftsPopulator.rebuildAll()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Search index rebuild failed; search may be stale until the next sync" }
+        }
+    }
 
     private suspend fun startEngineForCurrentUser(): AppResult<Unit> =
         suspendRunCatching {
             val userId = authSession.getUserId() ?: return@suspendRunCatching Unit
             syncEngine.start(userId)
             startScanProgressObserver()
+            // Self-heal: an install whose library is already in Room but whose search index was
+            // never populated rebuilds it here. A no-op once the index has rows, so it is safe on
+            // every start. Isolated — a failure here must not fail engine startup.
+            try {
+                ftsPopulator.rebuildIfEmpty()
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Search index self-heal failed; will retry on next startup" }
+            }
             if (!orphanRecovered) {
                 orphanRecovered = true
                 try {
@@ -200,7 +235,10 @@ class SyncRepositoryImpl(
                 isInitialScanComplete = { hasCompletedInitialScan },
                 isScanning = { _isServerScanning.value },
                 confirmScanFinished = { isInitialScanFinishedOnServer() },
-                reconcile = { syncEngine.handleCursorStale() },
+                reconcile = {
+                    syncEngine.handleCursorStale()
+                    refreshSearchIndex()
+                },
                 setScanning = { _isServerScanning.value = it },
                 setProgress = { _scanProgress.value = it },
                 markInitialScanComplete = { hasCompletedInitialScan = true },
@@ -228,8 +266,12 @@ class SyncRepositoryImpl(
                         // Parking this collector for the duration is safe — [SyncEngine.handleCursorStale]
                         // is mutex-guarded + coalescing (no concurrent catch-up spin), Completed is
                         // already consumed, and the cold RPC stream applies backpressure rather than
-                        // dropping any later event.
-                        reconcile = { syncEngine.handleCursorStale() },
+                        // dropping any later event. The freshly-scanned books then feed the search
+                        // index so search works without an app restart.
+                        reconcile = {
+                            syncEngine.handleCursorStale()
+                            refreshSearchIndex()
+                        },
                         nowMs = { currentEpochMilliseconds() },
                         getStartedAt = { scanStartedAtMs },
                         setStartedAt = { scanStartedAtMs = it },

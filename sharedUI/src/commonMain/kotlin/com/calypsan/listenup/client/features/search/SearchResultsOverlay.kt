@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Card
@@ -53,7 +52,6 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.common_series
-import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.genre_book_count
 import listenup.composeapp.generated.resources.genre_books_count
 import listenup.composeapp.generated.resources.library_books
@@ -101,10 +99,6 @@ fun SearchResultsOverlay(
                     onToggle = onTypeFilterToggle,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
-
-                if (state is SearchUiState.Results && state.result.isOfflineResult) {
-                    OfflineIndicator(modifier = Modifier.padding(horizontal = 16.dp))
-                }
 
                 when (state) {
                     is SearchUiState.Idle -> {
@@ -248,33 +242,6 @@ private fun TypeFilterRow(
                     modifier = Modifier.size(18.dp),
                 )
             },
-        )
-    }
-}
-
-@Composable
-private fun OfflineIndicator(modifier: Modifier = Modifier) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.secondaryContainer,
-                    RoundedCornerShape(8.dp),
-                ).padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            Icons.Default.CloudOff,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = stringResource(Res.string.book_edit_showing_offline_results),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
         )
     }
 }

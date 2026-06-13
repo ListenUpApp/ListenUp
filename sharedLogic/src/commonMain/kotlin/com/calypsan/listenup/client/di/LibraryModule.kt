@@ -97,6 +97,7 @@ val libraryModule: Module =
                 listeningEventRecorder = get(),
                 scannerRpcFactory = get(),
                 bookDao = get(),
+                ftsPopulator = get(),
                 scope =
                     get(
                         qualifier =
