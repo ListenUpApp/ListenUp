@@ -21,6 +21,7 @@ struct UserProfileView: View {
                 actionsSection
             }
             .padding()
+            .readableWidth()
         }
         .background(Color(.systemBackground))
         .navigationTitle(String(localized: "common.profile"))
