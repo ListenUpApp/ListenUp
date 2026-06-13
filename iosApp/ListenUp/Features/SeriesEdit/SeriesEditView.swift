@@ -33,21 +33,24 @@ struct SeriesEditView: View {
                         }
                         .padding(.top, 8)
 
-                        EditField(
-                            label: String(localized: "series.edit_name"),
-                            text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) })
+                        AppTextField(
+                            placeholder: "",
+                            text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                            label: String(localized: "series.edit_name")
                         )
+                        .fieldCard()
                         .padding(.horizontal)
 
-                        EditField(
-                            label: String(localized: "series.edit_description"),
+                        AppTextField(
+                            placeholder: String(localized: "series.edit_description_placeholder"),
                             text: Binding(
                                 get: { observer.seriesDescription },
                                 set: { observer.onDescriptionChanged($0) }
                             ),
-                            axis: .vertical,
-                            placeholder: String(localized: "series.edit_description_placeholder")
+                            label: String(localized: "series.edit_description"),
+                            axis: .vertical
                         )
+                        .fieldCard()
                         .padding(.horizontal)
                     }
                 }

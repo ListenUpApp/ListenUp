@@ -39,20 +39,25 @@ struct ContributorEditView: View {
                         .padding(.top, 8)
 
                         Group {
-                            EditField(
-                                label: String(localized: "contributor.edit_name"),
-                                text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) })
+                            AppTextField(
+                                placeholder: "",
+                                text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                                label: String(localized: "contributor.edit_name")
                             )
-                            EditField(
-                                label: String(localized: "contributor.edit_bio"),
+                            .fieldCard()
+                            AppTextField(
+                                placeholder: String(localized: "contributor.edit_bio_placeholder"),
                                 text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
-                                axis: .vertical,
-                                placeholder: String(localized: "contributor.edit_bio_placeholder")
+                                label: String(localized: "contributor.edit_bio"),
+                                axis: .vertical
                             )
-                            EditField(
-                                label: String(localized: "contributor.edit_website"),
-                                text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) })
+                            .fieldCard()
+                            AppTextField(
+                                placeholder: "",
+                                text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
+                                label: String(localized: "contributor.edit_website")
                             )
+                            .fieldCard()
                             EditDateField(
                                 label: String(localized: "contributor.edit_born"),
                                 isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) })
