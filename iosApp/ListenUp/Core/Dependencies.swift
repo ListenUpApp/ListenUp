@@ -71,6 +71,7 @@ final class Dependencies {
     func createSeriesDetailViewModel() -> SeriesDetailViewModel { KoinHelper.shared.getSeriesDetailViewModel() }
     func createSeriesEditViewModel() -> SeriesEditViewModel { KoinHelper.shared.getSeriesEditViewModel() }
     func createContributorDetailViewModel() -> ContributorDetailViewModel { KoinHelper.shared.getContributorDetailViewModel() }
+    func createContributorEditViewModel() -> ContributorEditViewModel { KoinHelper.shared.getContributorEditViewModel() }
 }
 
 // MARK: - Locked cache
