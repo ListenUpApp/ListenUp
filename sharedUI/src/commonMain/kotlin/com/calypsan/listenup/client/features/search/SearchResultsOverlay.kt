@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,9 +19,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
@@ -29,24 +34,32 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
+import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -69,6 +82,10 @@ import listenup.composeapp.generated.resources.shell_close_search
  * Displays federated results grouped by type (Books, Authors, Series, Tags).
  * [isExpanded] is owned by the enclosing screen (search bar) and combined here
  * with `state.query` to drive entry/exit animation.
+ *
+ * Layout is width-adaptive: at compact width the groups stack in a single column;
+ * at medium-or-wider width Books move into a multi-column cover grid beside a
+ * People / Series / Tags rail — mirroring the iPad search design.
  */
 @Composable
 fun SearchResultsOverlay(
@@ -145,14 +162,32 @@ private fun ResultsContent(
     val contributors = grouped[SearchHitType.CONTRIBUTOR].orEmpty().distinctBy { it.id }
     val series = grouped[SearchHitType.SERIES].orEmpty().distinctBy { it.id }
     val tags = grouped[SearchHitType.TAG].orEmpty().distinctBy { it.id }
-    SearchResultsList(
-        books = books,
-        contributors = contributors,
-        series = series,
-        tags = tags,
-        onResultClick = onResultClick,
-        modifier = modifier,
-    )
+
+    // Width signal: at medium+ width Books get a cover grid beside a People/Series/Tags rail.
+    val isWide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+
+    if (isWide) {
+        WideSearchResults(
+            books = books,
+            contributors = contributors,
+            series = series,
+            tags = tags,
+            onResultClick = onResultClick,
+            modifier = modifier,
+        )
+    } else {
+        SearchResultsList(
+            books = books,
+            contributors = contributors,
+            series = series,
+            tags = tags,
+            onResultClick = onResultClick,
+            modifier = modifier,
+        )
+    }
 }
 
 @Composable
@@ -176,7 +211,7 @@ private fun SearchOverlayTopBar(
         }
         Text(
             text = query,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLargeEmphasized,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -191,61 +226,68 @@ private fun TypeFilterRow(
     onToggle: (SearchHitType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier) {
-        FilterChip(
-            selected = SearchHitType.BOOK in selectedTypes || selectedTypes.isEmpty(),
-            onClick = { onToggle(SearchHitType.BOOK) },
-            label = { Text(stringResource(Res.string.library_books)) },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Book,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SearchScopeChip(
+            type = SearchHitType.BOOK,
+            selectedTypes = selectedTypes,
+            onToggle = onToggle,
+            label = stringResource(Res.string.library_books),
+            icon = Icons.Default.Book,
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        FilterChip(
-            selected = SearchHitType.CONTRIBUTOR in selectedTypes || selectedTypes.isEmpty(),
-            onClick = { onToggle(SearchHitType.CONTRIBUTOR) },
-            label = { Text(stringResource(Res.string.search_people)) },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
+        SearchScopeChip(
+            type = SearchHitType.CONTRIBUTOR,
+            selectedTypes = selectedTypes,
+            onToggle = onToggle,
+            label = stringResource(Res.string.search_people),
+            icon = Icons.Default.Person,
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        FilterChip(
-            selected = SearchHitType.SERIES in selectedTypes || selectedTypes.isEmpty(),
-            onClick = { onToggle(SearchHitType.SERIES) },
-            label = { Text(stringResource(Res.string.common_series)) },
-            leadingIcon = {
-                Icon(
-                    Icons.AutoMirrored.Filled.PlaylistPlay,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
+        SearchScopeChip(
+            type = SearchHitType.SERIES,
+            selectedTypes = selectedTypes,
+            onToggle = onToggle,
+            label = stringResource(Res.string.common_series),
+            icon = Icons.AutoMirrored.Filled.PlaylistPlay,
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        FilterChip(
-            selected = SearchHitType.TAG in selectedTypes || selectedTypes.isEmpty(),
-            onClick = { onToggle(SearchHitType.TAG) },
-            label = { Text(stringResource(Res.string.book_detail_tags)) },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Tag,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
+        SearchScopeChip(
+            type = SearchHitType.TAG,
+            selectedTypes = selectedTypes,
+            onToggle = onToggle,
+            label = stringResource(Res.string.book_detail_tags),
+            icon = Icons.Default.Tag,
         )
     }
 }
 
+/**
+ * A single multi-select scope chip. Empty selection means "all", so each chip reads as
+ * selected when its type is chosen or when nothing is filtered.
+ */
+@Composable
+private fun SearchScopeChip(
+    type: SearchHitType,
+    selectedTypes: Set<SearchHitType>,
+    onToggle: (SearchHitType) -> Unit,
+    label: String,
+    icon: ImageVector,
+) {
+    FilterChip(
+        selected = type in selectedTypes || selectedTypes.isEmpty(),
+        onClick = { onToggle(type) },
+        label = { Text(label) },
+        shape = MaterialTheme.shapes.large,
+        leadingIcon = {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+    )
+}
+
+/**
+ * Compact (phone) layout: every group stacked in one scrolling column.
+ */
 @Composable
 private fun SearchResultsList(
     books: List<SearchHit>,
@@ -313,6 +355,105 @@ private fun SearchResultsList(
     }
 }
 
+/**
+ * Medium/expanded layout: Books fill a responsive cover grid on the left, with People,
+ * Series and Tags stacked in a narrower rail on the right (mirrors the iPad design).
+ * Each pane scrolls independently so a long Books list doesn't bury the people rail.
+ */
+@Composable
+private fun WideSearchResults(
+    books: List<SearchHit>,
+    contributors: List<SearchHit>,
+    series: List<SearchHit>,
+    tags: List<SearchHit>,
+    onResultClick: (SearchHit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(32.dp),
+    ) {
+        if (books.isNotEmpty()) {
+            BooksGrid(
+                books = books,
+                onResultClick = onResultClick,
+                modifier = Modifier.weight(1.4f),
+            )
+        }
+
+        // People / Series / Tags rail. Capped width keeps rows comfortable on very wide windows.
+        if (contributors.isNotEmpty() || series.isNotEmpty() || tags.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f).widthIn(max = 420.dp),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                if (contributors.isNotEmpty()) {
+                    item(key = "contributors_header") {
+                        SectionHeader(title = stringResource(Res.string.search_people), count = contributors.size)
+                    }
+                    items(contributors, key = { "contributor_${it.id}" }) { hit ->
+                        ContributorSearchResultCard(hit = hit, onClick = { onResultClick(hit) })
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                if (series.isNotEmpty()) {
+                    item(key = "series_header") {
+                        SectionHeader(title = stringResource(Res.string.common_series), count = series.size)
+                    }
+                    items(series, key = { "series_${it.id}" }) { hit ->
+                        SeriesSearchResultCard(hit = hit, onClick = { onResultClick(hit) })
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                if (tags.isNotEmpty()) {
+                    item(key = "tags_header") {
+                        SectionHeader(title = stringResource(Res.string.book_detail_tags), count = tags.size)
+                    }
+                    items(tags, key = { "tag_${it.id}" }) { hit ->
+                        TagSearchResultCard(hit = hit, onClick = { onResultClick(hit) })
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Responsive cover grid of book hits, reusing the canonical library [BookCard].
+ * `GridCells.Adaptive` keeps the column count fluid with available width.
+ */
+@Composable
+private fun BooksGrid(
+    books: List<SearchHit>,
+    onResultClick: (SearchHit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 160.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item(key = "books_header", span = { GridItemSpan(maxLineSpan) }) {
+            SectionHeader(title = stringResource(Res.string.library_books), count = books.size)
+        }
+        gridItems(books, key = { "book_${it.id}" }) { hit ->
+            BookCard(
+                bookId = hit.id,
+                title = hit.name,
+                coverPath = hit.coverPath,
+                blurHash = null,
+                onClick = { onResultClick(hit) },
+                authorName = hit.author,
+                subtitle = hit.seriesName,
+                duration = hit.formatDuration(),
+            )
+        }
+    }
+}
+
 @Composable
 private fun SectionHeader(
     title: String,
@@ -328,13 +469,14 @@ private fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLargeEmphasized,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = stringResource(Res.string.search_section_count, count),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -351,6 +493,7 @@ private fun BookSearchResultCard(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -368,7 +511,7 @@ private fun BookSearchResultCard(
                 modifier =
                     Modifier
                         .size(56.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                        .clip(MaterialTheme.shapes.small),
             )
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -422,6 +565,7 @@ private fun ContributorSearchResultCard(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -431,22 +575,11 @@ private fun ContributorSearchResultCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            RoundedCornerShape(24.dp),
-                        ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
+            SearchAvatarTile(
+                icon = Icons.Default.Person,
+                container = MaterialTheme.colorScheme.primaryContainer,
+                onContainer = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -480,6 +613,7 @@ private fun SeriesSearchResultCard(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -489,22 +623,11 @@ private fun SeriesSearchResultCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .background(
-                            MaterialTheme.colorScheme.tertiaryContainer,
-                            RoundedCornerShape(8.dp),
-                        ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.PlaylistPlay,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-            }
+            SearchAvatarTile(
+                icon = Icons.AutoMirrored.Filled.PlaylistPlay,
+                container = MaterialTheme.colorScheme.tertiaryContainer,
+                onContainer = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -538,6 +661,7 @@ private fun TagSearchResultCard(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -547,22 +671,11 @@ private fun TagSearchResultCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .background(
-                            MaterialTheme.colorScheme.secondaryContainer,
-                            RoundedCornerShape(24.dp),
-                        ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.Tag,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
+            SearchAvatarTile(
+                icon = Icons.Default.Tag,
+                container = MaterialTheme.colorScheme.secondaryContainer,
+                onContainer = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -587,6 +700,33 @@ private fun TagSearchResultCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * The Expressive scalloped "cookie" tile used as the leading glyph for non-book hits
+ * (People / Series / Tags), tinted to its container role.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SearchAvatarTile(
+    icon: ImageVector,
+    container: Color,
+    onContainer: Color,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(48.dp)
+                .clip(cookieScallopShape())
+                .background(container),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = onContainer,
+        )
     }
 }
 
