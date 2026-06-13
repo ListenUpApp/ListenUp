@@ -161,6 +161,9 @@ kotlin {
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<Test>("jvmTest") {
     useJUnitPlatform()
+    // The jvmTest suite boots many in-process Ktor servers (Flyway + Room + RPC e2e tests) in a
+    // single non-forked worker. Gradle's default Test heap (512m) is too small for that and OOMs.
+    maxHeapSize = "2g"
 }
 
 // Define Room Schema location (optional but good practice)
