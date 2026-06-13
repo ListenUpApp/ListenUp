@@ -94,8 +94,7 @@ struct SearchView: View {
         case .book(let id): path.append(BookDestination(id: id))
         case .contributor(let id): path.append(ContributorDestination(id: id))
         case .series(let id): path.append(SeriesDestination(id: id))
-        // Tags have no detail screen in the app today — searchable, not navigable.
-        case .tag: break
+        case .tag(let id): path.append(TagDestination(id: id))
         }
     }
 }

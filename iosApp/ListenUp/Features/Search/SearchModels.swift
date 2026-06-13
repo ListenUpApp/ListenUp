@@ -78,8 +78,7 @@ struct SearchHitGroups: Equatable {
     }
 }
 
-/// A resolved navigation target from a tapped search hit. `tag` has no detail screen
-/// in the app today, so the view drops it — tags remain searchable, just not navigable.
+/// A resolved navigation target from a tapped search hit.
 enum SearchRoute: Hashable {
     case book(id: String)
     case contributor(id: String)

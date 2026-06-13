@@ -1014,6 +1014,12 @@
     "book_count": "%1$d book",
     "books_count": "%1$d books"
   },
+  "tag": {
+    "book_count": "%1$d book",
+    "books_count": "%1$d books",
+    "no_books": "No books with this tag.",
+    "unavailable_title": "Tag unavailable"
+  },
   "edit": {
     "remove_image": "Remove image",
     "change_image": "Change image",
