@@ -9,12 +9,14 @@ private fun profile(
     avatarType: String = "auto",
     displayName: String = "Ada Lovelace",
     avatarColor: String = "#3949AB",
+    updatedAt: Long = 100L,
 ) = CachedUserProfile(
     id = "u1",
     displayName = displayName,
     avatarType = avatarType,
     avatarValue = null,
     avatarColor = avatarColor,
+    updatedAt = updatedAt,
 )
 
 class UserAvatarStateTest :
@@ -24,18 +26,34 @@ class UserAvatarStateTest :
                 UserAvatarUiState.Loading
         }
 
-        test("image type with a local file maps to Image with the avatar cache key") {
+        test("image type with a local file maps to Image with a version-stamped avatar cache key") {
             val state =
                 userAvatarUiState(
-                    profile = profile(avatarType = "image", displayName = "Ada Lovelace"),
+                    profile = profile(avatarType = "image", displayName = "Ada Lovelace", updatedAt = 100L),
                     hasLocalAvatar = true,
                     localPath = "/avatars/u1.webp",
                     userId = "u1",
                 )
             state.shouldBeInstanceOf<UserAvatarUiState.Image>()
             state.localPath shouldBe "/avatars/u1.webp"
-            state.cacheKey shouldBe "u1-avatar"
+            // The profile's updatedAt is folded into the key so a re-uploaded avatar (server bumps
+            // updatedAt) busts the cached bitmap instead of rendering the stale one.
+            state.cacheKey shouldBe "u1-avatar-100"
             state.contentDescription shouldBe "Ada Lovelace"
+        }
+
+        test("a changed updatedAt yields a different avatar cache key (busts the stale bitmap)") {
+            fun keyAt(updatedAt: Long) =
+                (
+                    userAvatarUiState(
+                        profile = profile(avatarType = "image", updatedAt = updatedAt),
+                        hasLocalAvatar = true,
+                        localPath = "/avatars/u1.webp",
+                        userId = "u1",
+                    ) as UserAvatarUiState.Image
+                ).cacheKey
+            keyAt(100L) shouldBe "u1-avatar-100"
+            keyAt(200L) shouldBe "u1-avatar-200"
         }
 
         test("image content description falls back when display name is blank") {

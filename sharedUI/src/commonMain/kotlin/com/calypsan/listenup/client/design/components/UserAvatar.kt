@@ -289,7 +289,10 @@ internal fun userAvatarUiState(
         profile.avatarType == "image" && hasLocalAvatar -> {
             UserAvatarUiState.Image(
                 localPath = localPath,
-                cacheKey = "$userId-avatar",
+                // Version the key on the profile's updatedAt: the server bumps it on avatar upload,
+                // so a re-uploaded avatar gets a fresh key and Coil re-decodes the new local file
+                // instead of serving the stale cached bitmap.
+                cacheKey = "$userId-avatar-${profile.updatedAt}",
                 contentDescription = profile.displayName.ifBlank { "User avatar" },
             )
         }
