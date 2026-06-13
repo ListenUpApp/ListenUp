@@ -1,30 +1,27 @@
 package com.calypsan.listenup.client.data.local.db
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
-class SyncableTest {
-    @Test
-    fun syncState_hasExpectedValues() {
-        // Verify all sync states exist
-        val states = SyncState.entries.toList()
-        assertEquals(4, states.size)
-        assertTrue(states.contains(SyncState.SYNCED))
-        assertTrue(states.contains(SyncState.NOT_SYNCED))
-        assertTrue(states.contains(SyncState.SYNCING))
-        assertTrue(states.contains(SyncState.CONFLICT))
-    }
+class SyncableTest :
+    FunSpec({
+        test("syncState_hasExpectedValues") {
+            // Verify all sync states exist
+            val states = SyncState.entries.toList()
+            states.size shouldBe 4
+            states.contains(SyncState.SYNCED) shouldBe true
+            states.contains(SyncState.NOT_SYNCED) shouldBe true
+            states.contains(SyncState.SYNCING) shouldBe true
+            states.contains(SyncState.CONFLICT) shouldBe true
+        }
 
-    @Test
-    fun syncState_synced_representsCleanState() {
-        val state = SyncState.SYNCED
-        assertEquals("SYNCED", state.name)
-    }
+        test("syncState_synced_representsCleanState") {
+            val state = SyncState.SYNCED
+            state.name shouldBe "SYNCED"
+        }
 
-    @Test
-    fun syncState_notSynced_representsLocalChanges() {
-        val state = SyncState.NOT_SYNCED
-        assertEquals("NOT_SYNCED", state.name)
-    }
-}
+        test("syncState_notSynced_representsLocalChanges") {
+            val state = SyncState.NOT_SYNCED
+            state.name shouldBe "NOT_SYNCED"
+        }
+    })

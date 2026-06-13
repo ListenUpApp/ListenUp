@@ -1,131 +1,98 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
-import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
-class SubtitleFilterTest {
-    @Test
-    fun `subtitle with just series name and book number is redundant`() {
-        assertTrue(
+class SubtitleFilterTest :
+    FunSpec({
+        test("subtitle with just series name and book number is redundant") {
             testIsSubtitleRedundant(
                 subtitle = "The Stormlight Archive, Book 1",
                 seriesName = "The Stormlight Archive",
                 seriesSequence = "1",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `subtitle with series name and hash number is redundant`() {
-        assertTrue(
+        test("subtitle with series name and hash number is redundant") {
             testIsSubtitleRedundant(
                 subtitle = "Mistborn #3",
                 seriesName = "Mistborn",
                 seriesSequence = "3",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `subtitle with Book X of Series is redundant`() {
-        assertTrue(
+        test("subtitle with Book X of Series is redundant") {
             testIsSubtitleRedundant(
                 subtitle = "Book 2 of The Wheel of Time",
                 seriesName = "The Wheel of Time",
                 seriesSequence = "2",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `subtitle with meaningful content is not redundant`() {
-        assertFalse(
+        test("subtitle with meaningful content is not redundant") {
             testIsSubtitleRedundant(
                 subtitle = "A Novel of the First Law",
                 seriesName = "The First Law",
                 seriesSequence = "1",
-            ),
-        )
-    }
+            ) shouldBe false
+        }
 
-    @Test
-    fun `subtitle without series name is not redundant`() {
-        assertFalse(
+        test("subtitle without series name is not redundant") {
             testIsSubtitleRedundant(
                 subtitle = "An Epic Fantasy Adventure",
                 seriesName = "The Stormlight Archive",
                 seriesSequence = "1",
-            ),
-        )
-    }
+            ) shouldBe false
+        }
 
-    @Test
-    fun `subtitle when no series info is not redundant`() {
-        assertFalse(
+        test("subtitle when no series info is not redundant") {
             testIsSubtitleRedundant(
                 subtitle = "Book 1",
                 seriesName = null,
                 seriesSequence = null,
-            ),
-        )
-    }
+            ) shouldBe false
+        }
 
-    @Test
-    fun `subtitle with volume pattern is redundant`() {
-        assertTrue(
+        test("subtitle with volume pattern is redundant") {
             testIsSubtitleRedundant(
                 subtitle = "Cosmere Collection, Volume 1",
                 seriesName = "Cosmere Collection",
                 seriesSequence = "1",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `subtitle with part pattern is redundant`() {
-        assertTrue(
+        test("subtitle with part pattern is redundant") {
             testIsSubtitleRedundant(
                 subtitle = "The Dark Tower, Part 3",
                 seriesName = "The Dark Tower",
                 seriesSequence = "3",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `subtitle with roman numerals is redundant`() {
-        assertTrue(
+        test("subtitle with roman numerals is redundant") {
             testIsSubtitleRedundant(
                 subtitle = "The Chronicles of Narnia, Book III",
                 seriesName = "The Chronicles of Narnia",
                 seriesSequence = "3",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `case insensitive matching works`() {
-        assertTrue(
+        test("case insensitive matching works") {
             testIsSubtitleRedundant(
                 subtitle = "THE STORMLIGHT ARCHIVE: BOOK ONE",
                 seriesName = "The Stormlight Archive",
                 seriesSequence = "1",
-            ),
-        )
-    }
+            ) shouldBe true
+        }
 
-    @Test
-    fun `subtitle with extra meaningful text is not redundant`() {
-        assertFalse(
+        test("subtitle with extra meaningful text is not redundant") {
             testIsSubtitleRedundant(
                 subtitle = "The Stormlight Archive, Book 1: The Epic Beginning",
                 seriesName = "The Stormlight Archive",
                 seriesSequence = "1",
-            ),
-        )
-    }
-}
+            ) shouldBe false
+        }
+    })
 
 // Test wrapper that uses the same logic as the private function
 private fun testIsSubtitleRedundant(

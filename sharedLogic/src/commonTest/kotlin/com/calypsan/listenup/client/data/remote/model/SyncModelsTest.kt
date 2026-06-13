@@ -1,90 +1,87 @@
 package com.calypsan.listenup.client.data.remote.model
 
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import kotlinx.serialization.json.Json
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
-class SyncModelsTest {
-    private val json = Json { ignoreUnknownKeys = true }
+class SyncModelsTest :
+    FunSpec({
+        val json = Json { ignoreUnknownKeys = true }
 
-    @Test
-    fun syncManifestResponse_deserializesFromJson() {
-        val jsonString =
-            """
-            {
-                "library_version": "2025-11-22T14:30:45Z",
-                "checkpoint": "2025-11-22T14:30:45Z",
-                "book_ids": ["book-123", "book-456"],
-                "counts": {
-                    "books": 2,
-                    "contributors": 5,
-                    "series": 1
+        test("syncManifestResponse_deserializesFromJson") {
+            val jsonString =
+                """
+                {
+                    "library_version": "2025-11-22T14:30:45Z",
+                    "checkpoint": "2025-11-22T14:30:45Z",
+                    "book_ids": ["book-123", "book-456"],
+                    "counts": {
+                        "books": 2,
+                        "contributors": 5,
+                        "series": 1
+                    }
                 }
-            }
-            """.trimIndent()
+                """.trimIndent()
 
-        val response = json.decodeFromString<SyncManifestResponse>(jsonString)
+            val response = json.decodeFromString<SyncManifestResponse>(jsonString)
 
-        assertEquals("2025-11-22T14:30:45Z", response.libraryVersion)
-        assertEquals("2025-11-22T14:30:45Z", response.checkpoint)
-        assertEquals(2, response.bookIds.size)
-        assertEquals(2, response.counts.books)
-    }
+            response.libraryVersion shouldBe "2025-11-22T14:30:45Z"
+            response.checkpoint shouldBe "2025-11-22T14:30:45Z"
+            response.bookIds.size shouldBe 2
+            response.counts.books shouldBe 2
+        }
 
-    @Test
-    fun bookResponse_deserializesFromJson() {
-        val jsonString =
-            """
-            {
-                "id": "book-123",
-                "created_at": "2025-11-22T10:00:00Z",
-                "updated_at": "2025-11-22T14:30:45Z",
-                "deleted_at": null,
-                "title": "Test Book",
-                "author": "Test Author",
-                "total_duration": 3600000
-            }
-            """.trimIndent()
+        test("bookResponse_deserializesFromJson") {
+            val jsonString =
+                """
+                {
+                    "id": "book-123",
+                    "created_at": "2025-11-22T10:00:00Z",
+                    "updated_at": "2025-11-22T14:30:45Z",
+                    "deleted_at": null,
+                    "title": "Test Book",
+                    "author": "Test Author",
+                    "total_duration": 3600000
+                }
+                """.trimIndent()
 
-        val book = json.decodeFromString<BookResponse>(jsonString)
+            val book = json.decodeFromString<BookResponse>(jsonString)
 
-        assertEquals("book-123", book.id)
-        assertEquals("Test Book", book.title)
-        assertNotNull(book.updatedAt)
-    }
+            book.id shouldBe "book-123"
+            book.title shouldBe "Test Book"
+            book.updatedAt shouldNotBe null
+        }
 
-    @Test
-    fun syncBooksResponse_deserializesFromJson() {
-        val jsonString =
-            """
-            {
-                "next_cursor": "abc123",
-                "books": [],
-                "has_more": true
-            }
-            """.trimIndent()
+        test("syncBooksResponse_deserializesFromJson") {
+            val jsonString =
+                """
+                {
+                    "next_cursor": "abc123",
+                    "books": [],
+                    "has_more": true
+                }
+                """.trimIndent()
 
-        val response = json.decodeFromString<SyncBooksResponse>(jsonString)
+            val response = json.decodeFromString<SyncBooksResponse>(jsonString)
 
-        assertEquals("abc123", response.nextCursor)
-        assertEquals(true, response.hasMore)
-    }
+            response.nextCursor shouldBe "abc123"
+            response.hasMore shouldBe true
+        }
 
-    @Test
-    fun syncBooksResponse_deserializesFromJsonWithMissingCursor() {
-        // Server uses omitempty on next_cursor, so it won't be present when empty
-        val jsonString =
-            """
-            {
-                "books": [],
-                "has_more": false
-            }
-            """.trimIndent()
+        test("syncBooksResponse_deserializesFromJsonWithMissingCursor") {
+            // Server uses omitempty on next_cursor, so it won't be present when empty
+            val jsonString =
+                """
+                {
+                    "books": [],
+                    "has_more": false
+                }
+                """.trimIndent()
 
-        val response = json.decodeFromString<SyncBooksResponse>(jsonString)
+            val response = json.decodeFromString<SyncBooksResponse>(jsonString)
 
-        assertEquals(null, response.nextCursor)
-        assertEquals(false, response.hasMore)
-    }
-}
+            response.nextCursor shouldBe null
+            response.hasMore shouldBe false
+        }
+    })

@@ -3,10 +3,10 @@ package com.calypsan.listenup.client.data.local.db
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ChapterId
 import com.calypsan.listenup.core.Timestamp
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
@@ -19,143 +19,126 @@ import kotlin.time.Duration.Companion.milliseconds
  * - toString behavior
  * - Timestamp arithmetic and comparison
  */
-class ValueClassesTest {
-    // ========== BookId Tests ==========
+class ValueClassesTest :
+    FunSpec({
+        // ========== BookId Tests ==========
 
-    @Test
-    fun `BookId stores value correctly`() {
-        val bookId = BookId("book-123")
-        assertEquals("book-123", bookId.value)
-    }
-
-    @Test
-    fun `BookId toString returns value`() {
-        val bookId = BookId("book-abc")
-        assertEquals("book-abc", bookId.toString())
-    }
-
-    @Test
-    fun `BookId rejects blank value`() {
-        assertFailsWith<IllegalArgumentException> {
-            BookId("")
+        test("BookId stores value correctly") {
+            val bookId = BookId("book-123")
+            bookId.value shouldBe "book-123"
         }
-    }
 
-    @Test
-    fun `BookId rejects whitespace-only value`() {
-        assertFailsWith<IllegalArgumentException> {
-            BookId("   ")
+        test("BookId toString returns value") {
+            val bookId = BookId("book-abc")
+            bookId.toString() shouldBe "book-abc"
         }
-    }
 
-    @Test
-    fun `BookId fromString creates valid id`() {
-        val bookId = BookId.fromString("book-456")
-        assertEquals("book-456", bookId.value)
-    }
-
-    @Test
-    fun `BookId equality works correctly`() {
-        val id1 = BookId("book-1")
-        val id2 = BookId("book-1")
-        val id3 = BookId("book-2")
-
-        assertEquals(id1, id2)
-        assertTrue(id1 != id3)
-    }
-
-    // ========== ChapterId Tests ==========
-
-    @Test
-    fun `ChapterId stores value correctly`() {
-        val chapterId = ChapterId("chapter-1")
-        assertEquals("chapter-1", chapterId.value)
-    }
-
-    @Test
-    fun `ChapterId toString returns value`() {
-        val chapterId = ChapterId("ch-abc")
-        assertEquals("ch-abc", chapterId.toString())
-    }
-
-    @Test
-    fun `ChapterId rejects blank value`() {
-        assertFailsWith<IllegalArgumentException> {
-            ChapterId("")
+        test("BookId rejects blank value") {
+            shouldThrow<IllegalArgumentException> {
+                BookId("")
+            }
         }
-    }
 
-    @Test
-    fun `ChapterId rejects whitespace-only value`() {
-        assertFailsWith<IllegalArgumentException> {
-            ChapterId("   ")
+        test("BookId rejects whitespace-only value") {
+            shouldThrow<IllegalArgumentException> {
+                BookId("   ")
+            }
         }
-    }
 
-    // ========== Timestamp Tests ==========
+        test("BookId fromString creates valid id") {
+            val bookId = BookId.fromString("book-456")
+            bookId.value shouldBe "book-456"
+        }
 
-    @Test
-    fun `Timestamp stores epoch millis correctly`() {
-        val ts = Timestamp(1_700_000_000_000L)
-        assertEquals(1_700_000_000_000L, ts.epochMillis)
-    }
+        test("BookId equality works correctly") {
+            val id1 = BookId("book-1")
+            val id2 = BookId("book-1")
+            val id3 = BookId("book-2")
 
-    @Test
-    fun `Timestamp toString returns epoch millis string`() {
-        val ts = Timestamp(1_234_567_890L)
-        assertEquals("1234567890", ts.toString())
-    }
+            id1 shouldBe id2
+            id3 shouldNotBe id1
+        }
 
-    @Test
-    fun `Timestamp now returns current time`() {
-        val before = Clock.System.now().toEpochMilliseconds()
-        val ts = Timestamp.now()
-        val after = Clock.System.now().toEpochMilliseconds()
+        // ========== ChapterId Tests ==========
 
-        assertTrue(ts.epochMillis >= before)
-        assertTrue(ts.epochMillis <= after)
-    }
+        test("ChapterId stores value correctly") {
+            val chapterId = ChapterId("chapter-1")
+            chapterId.value shouldBe "chapter-1"
+        }
 
-    @Test
-    fun `Timestamp compareTo works correctly`() {
-        val earlier = Timestamp(1_000L)
-        val later = Timestamp(2_000L)
+        test("ChapterId toString returns value") {
+            val chapterId = ChapterId("ch-abc")
+            chapterId.toString() shouldBe "ch-abc"
+        }
 
-        assertTrue(earlier < later)
-        assertTrue(later > earlier)
-        assertEquals(0, Timestamp(1_000L).compareTo(Timestamp(1_000L)))
-    }
+        test("ChapterId rejects blank value") {
+            shouldThrow<IllegalArgumentException> {
+                ChapterId("")
+            }
+        }
 
-    @Test
-    fun `Timestamp minus calculates duration between timestamps`() {
-        val earlier = Timestamp(1_000_000L)
-        val later = Timestamp(1_000_000L + 3_600_000L) // 1 hour later (3,600,000ms = 1 hour)
+        test("ChapterId rejects whitespace-only value") {
+            shouldThrow<IllegalArgumentException> {
+                ChapterId("   ")
+            }
+        }
 
-        val duration = later - earlier
-        assertEquals(1.hours, duration)
-    }
+        // ========== Timestamp Tests ==========
 
-    @Test
-    fun `Timestamp plus adds duration`() {
-        val ts = Timestamp(1_000_000L)
-        val result = ts + 1.hours
+        test("Timestamp stores epoch millis correctly") {
+            val ts = Timestamp(1_700_000_000_000L)
+            ts.epochMillis shouldBe 1_700_000_000_000L
+        }
 
-        // 1_000_000 + 3_600_000 = 4_600_000
-        assertEquals(4_600_000L, result.epochMillis)
-    }
+        test("Timestamp toString returns epoch millis string") {
+            val ts = Timestamp(1_234_567_890L)
+            ts.toString() shouldBe "1234567890"
+        }
 
-    @Test
-    fun `Timestamp plus handles milliseconds`() {
-        val ts = Timestamp(1_000_000L)
-        val result = ts + 500.milliseconds
+        test("Timestamp now returns current time") {
+            val before = Clock.System.now().toEpochMilliseconds()
+            val ts = Timestamp.now()
+            val after = Clock.System.now().toEpochMilliseconds()
 
-        assertEquals(1_000_500L, result.epochMillis)
-    }
+            (ts.epochMillis >= before) shouldBe true
+            (ts.epochMillis <= after) shouldBe true
+        }
 
-    @Test
-    fun `Timestamp toIsoString formats correctly`() {
-        // Unix timestamp 0 should format to epoch
-        val ts = Timestamp(0L)
-        assertEquals("1970-01-01T00:00:00Z", ts.toIsoString())
-    }
-}
+        test("Timestamp compareTo works correctly") {
+            val earlier = Timestamp(1_000L)
+            val later = Timestamp(2_000L)
+
+            (earlier < later) shouldBe true
+            (later > earlier) shouldBe true
+            Timestamp(1_000L).compareTo(Timestamp(1_000L)) shouldBe 0
+        }
+
+        test("Timestamp minus calculates duration between timestamps") {
+            val earlier = Timestamp(1_000_000L)
+            val later = Timestamp(1_000_000L + 3_600_000L) // 1 hour later (3,600,000ms = 1 hour)
+
+            val duration = later - earlier
+            duration shouldBe 1.hours
+        }
+
+        test("Timestamp plus adds duration") {
+            val ts = Timestamp(1_000_000L)
+            val result = ts + 1.hours
+
+            // 1_000_000 + 3_600_000 = 4_600_000
+            result.epochMillis shouldBe 4_600_000L
+        }
+
+        test("Timestamp plus handles milliseconds") {
+            val ts = Timestamp(1_000_000L)
+            val result = ts + 500.milliseconds
+
+            result.epochMillis shouldBe 1_000_500L
+        }
+
+        test("Timestamp toIsoString formats correctly") {
+            // Unix timestamp 0 should format to epoch
+            val ts = Timestamp(0L)
+            ts.toIsoString() shouldBe "1970-01-01T00:00:00Z"
+        }
+    })

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.util
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 /**
  * Tests for TitleSortUtils.
@@ -11,176 +11,128 @@ import kotlin.test.assertEquals
  * - Natural number sorting (zero-padding)
  * - Sort letter extraction for section headers
  */
-class TitleSortUtilsTest {
-    // ========== Article Stripping Tests ==========
+class TitleSortUtilsTest :
+    FunSpec({
+        // ========== Article Stripping Tests ==========
 
-    @Test
-    fun `sortableTitle strips leading The when ignoring articles`() {
-        assertEquals(
-            "alchemist",
-            TitleSortUtils.sortableTitle("The Alchemist", ignoreArticles = true),
-        )
-    }
+        test("sortableTitle strips leading The when ignoring articles") {
+            TitleSortUtils.sortableTitle("The Alchemist", ignoreArticles = true) shouldBe "alchemist"
+        }
 
-    @Test
-    fun `sortableTitle strips leading A when ignoring articles`() {
-        assertEquals(
-            "wrinkle in time",
-            TitleSortUtils.sortableTitle("A Wrinkle in Time", ignoreArticles = true),
-        )
-    }
+        test("sortableTitle strips leading A when ignoring articles") {
+            TitleSortUtils.sortableTitle("A Wrinkle in Time", ignoreArticles = true) shouldBe "wrinkle in time"
+        }
 
-    @Test
-    fun `sortableTitle strips leading An when ignoring articles`() {
-        assertEquals(
-            "american tragedy",
-            TitleSortUtils.sortableTitle("An American Tragedy", ignoreArticles = true),
-        )
-    }
+        test("sortableTitle strips leading An when ignoring articles") {
+            TitleSortUtils.sortableTitle("An American Tragedy", ignoreArticles = true) shouldBe "american tragedy"
+        }
 
-    @Test
-    fun `sortableTitle preserves title when not ignoring articles`() {
-        assertEquals(
-            "the alchemist",
-            TitleSortUtils.sortableTitle("The Alchemist", ignoreArticles = false),
-        )
-    }
+        test("sortableTitle preserves title when not ignoring articles") {
+            TitleSortUtils.sortableTitle("The Alchemist", ignoreArticles = false) shouldBe "the alchemist"
+        }
 
-    @Test
-    fun `sortableTitle preserves AI without space after A`() {
-        // "A.I." should not be stripped because there's no space after "A"
-        assertEquals(
-            "a.i.",
-            TitleSortUtils.sortableTitle("A.I.", ignoreArticles = true),
-        )
-    }
+        test("sortableTitle preserves AI without space after A") {
+            // "A.I." should not be stripped because there's no space after "A"
+            TitleSortUtils.sortableTitle("A.I.", ignoreArticles = true) shouldBe "a.i."
+        }
 
-    @Test
-    fun `sortableTitle is case insensitive for articles`() {
-        assertEquals(
-            "hobbit",
-            TitleSortUtils.sortableTitle("THE Hobbit", ignoreArticles = true),
-        )
-    }
+        test("sortableTitle is case insensitive for articles") {
+            TitleSortUtils.sortableTitle("THE Hobbit", ignoreArticles = true) shouldBe "hobbit"
+        }
 
-    @Test
-    fun `sortableTitle handles lowercase articles`() {
-        assertEquals(
-            "lord of the rings",
-            TitleSortUtils.sortableTitle("the Lord of the Rings", ignoreArticles = true),
-        )
-    }
+        test("sortableTitle handles lowercase articles") {
+            TitleSortUtils.sortableTitle("the Lord of the Rings", ignoreArticles = true) shouldBe "lord of the rings"
+        }
 
-    // ========== Natural Number Sorting Tests ==========
+        // ========== Natural Number Sorting Tests ==========
 
-    @Test
-    fun `sortableTitle pads leading numbers for natural sort`() {
-        val result = TitleSortUtils.sortableTitle("1984", ignoreArticles = false)
-        assertEquals("0000001984", result)
-    }
+        test("sortableTitle pads leading numbers for natural sort") {
+            val result = TitleSortUtils.sortableTitle("1984", ignoreArticles = false)
+            result shouldBe "0000001984"
+        }
 
-    @Test
-    fun `sortableTitle pads smaller numbers`() {
-        val result = TitleSortUtils.sortableTitle("12 Rules for Life", ignoreArticles = false)
-        assertEquals("0000000012 rules for life", result)
-    }
+        test("sortableTitle pads smaller numbers") {
+            val result = TitleSortUtils.sortableTitle("12 Rules for Life", ignoreArticles = false)
+            result shouldBe "0000000012 rules for life"
+        }
 
-    @Test
-    fun `sortableTitle ensures 2 sorts before 12`() {
-        val sort2 = TitleSortUtils.sortableTitle("2001: A Space Odyssey", ignoreArticles = false)
-        val sort12 = TitleSortUtils.sortableTitle("12 Angry Men", ignoreArticles = false)
+        test("sortableTitle ensures 2 sorts before 12") {
+            val sort2 = TitleSortUtils.sortableTitle("2001: A Space Odyssey", ignoreArticles = false)
+            val sort12 = TitleSortUtils.sortableTitle("12 Angry Men", ignoreArticles = false)
 
-        // 0000002001 < 0000000012 is false, but sorted numerically 2001 > 12
-        // Actually we're checking padding - let me verify the comparison
-        // "0000002001" > "0000000012" because 2001 > 12 when padded
-        // But the test should be that single-digit numbers sort before double-digit
-        val sort1 = TitleSortUtils.sortableTitle("1 Fish 2 Fish", ignoreArticles = false)
-        val sort100 = TitleSortUtils.sortableTitle("100 Years of Solitude", ignoreArticles = false)
+            // 0000002001 < 0000000012 is false, but sorted numerically 2001 > 12
+            // Actually we're checking padding - let me verify the comparison
+            // "0000002001" > "0000000012" because 2001 > 12 when padded
+            // But the test should be that single-digit numbers sort before double-digit
+            val sort1 = TitleSortUtils.sortableTitle("1 Fish 2 Fish", ignoreArticles = false)
+            val sort100 = TitleSortUtils.sortableTitle("100 Years of Solitude", ignoreArticles = false)
 
-        // With padding: "0000000001" < "0000000100"
-        assertTrue(sort1 < sort100)
-    }
+            // With padding: "0000000001" < "0000000100"
+            (sort1 < sort100) shouldBe true
+        }
 
-    @Test
-    fun `sortableTitle handles title starting with number after article strip`() {
-        // "The 39 Steps" -> "39 Steps" -> "0000000039 steps"
-        val result = TitleSortUtils.sortableTitle("The 39 Steps", ignoreArticles = true)
-        assertEquals("0000000039 steps", result)
-    }
+        test("sortableTitle handles title starting with number after article strip") {
+            // "The 39 Steps" -> "39 Steps" -> "0000000039 steps"
+            val result = TitleSortUtils.sortableTitle("The 39 Steps", ignoreArticles = true)
+            result shouldBe "0000000039 steps"
+        }
 
-    @Test
-    fun `sortableTitle does not pad numbers in middle of title`() {
-        // Only leading numbers are padded
-        val result = TitleSortUtils.sortableTitle("Fahrenheit 451", ignoreArticles = false)
-        assertEquals("fahrenheit 451", result)
-    }
+        test("sortableTitle does not pad numbers in middle of title") {
+            // Only leading numbers are padded
+            val result = TitleSortUtils.sortableTitle("Fahrenheit 451", ignoreArticles = false)
+            result shouldBe "fahrenheit 451"
+        }
 
-    // ========== Sort Letter Tests ==========
+        // ========== Sort Letter Tests ==========
 
-    @Test
-    fun `sortLetter returns first letter uppercase`() {
-        assertEquals('B', TitleSortUtils.sortLetter("Battle Royale", ignoreArticles = false))
-    }
+        test("sortLetter returns first letter uppercase") {
+            TitleSortUtils.sortLetter("Battle Royale", ignoreArticles = false) shouldBe 'B'
+        }
 
-    @Test
-    fun `sortLetter returns hash for numeric titles`() {
-        assertEquals('#', TitleSortUtils.sortLetter("1984", ignoreArticles = false))
-    }
+        test("sortLetter returns hash for numeric titles") {
+            TitleSortUtils.sortLetter("1984", ignoreArticles = false) shouldBe '#'
+        }
 
-    @Test
-    fun `sortLetter ignores articles when enabled`() {
-        // "The Alchemist" -> sortable "alchemist" -> first letter 'A'
-        assertEquals('A', TitleSortUtils.sortLetter("The Alchemist", ignoreArticles = true))
-    }
+        test("sortLetter ignores articles when enabled") {
+            // "The Alchemist" -> sortable "alchemist" -> first letter 'A'
+            TitleSortUtils.sortLetter("The Alchemist", ignoreArticles = true) shouldBe 'A'
+        }
 
-    @Test
-    fun `sortLetter returns T for The when not ignoring articles`() {
-        assertEquals('T', TitleSortUtils.sortLetter("The Alchemist", ignoreArticles = false))
-    }
+        test("sortLetter returns T for The when not ignoring articles") {
+            TitleSortUtils.sortLetter("The Alchemist", ignoreArticles = false) shouldBe 'T'
+        }
 
-    @Test
-    fun `sortLetter returns hash for special characters`() {
-        assertEquals('#', TitleSortUtils.sortLetter("@War", ignoreArticles = false))
-    }
+        test("sortLetter returns hash for special characters") {
+            TitleSortUtils.sortLetter("@War", ignoreArticles = false) shouldBe '#'
+        }
 
-    // ========== Extension Function Tests ==========
+        // ========== Extension Function Tests ==========
 
-    @Test
-    fun `String extension sortableTitle works`() {
-        assertEquals("mistborn", "Mistborn".sortableTitle(ignoreArticles = false))
-    }
+        test("String extension sortableTitle works") {
+            "Mistborn".sortableTitle(ignoreArticles = false) shouldBe "mistborn"
+        }
 
-    @Test
-    fun `String extension sortLetter works`() {
-        assertEquals('M', "Mistborn".sortLetter(ignoreArticles = false))
-    }
+        test("String extension sortLetter works") {
+            "Mistborn".sortLetter(ignoreArticles = false) shouldBe 'M'
+        }
 
-    // ========== Edge Cases ==========
+        // ========== Edge Cases ==========
 
-    @Test
-    fun `sortableTitle handles empty string`() {
-        assertEquals("", TitleSortUtils.sortableTitle("", ignoreArticles = true))
-    }
+        test("sortableTitle handles empty string") {
+            TitleSortUtils.sortableTitle("", ignoreArticles = true) shouldBe ""
+        }
 
-    @Test
-    fun `sortableTitle handles whitespace only`() {
-        assertEquals("", TitleSortUtils.sortableTitle("   ", ignoreArticles = true).trim())
-    }
+        test("sortableTitle handles whitespace only") {
+            TitleSortUtils.sortableTitle("   ", ignoreArticles = true).trim() shouldBe ""
+        }
 
-    @Test
-    fun `sortableTitle handles title that is just article`() {
-        // "The " with trailing space would be stripped to empty
-        // "The" without space is preserved
-        assertEquals("the", TitleSortUtils.sortableTitle("The", ignoreArticles = true))
-    }
+        test("sortableTitle handles title that is just article") {
+            // "The " with trailing space would be stripped to empty
+            // "The" without space is preserved
+            TitleSortUtils.sortableTitle("The", ignoreArticles = true) shouldBe "the"
+        }
 
-    @Test
-    fun `sortLetter returns hash for empty string`() {
-        assertEquals('#', TitleSortUtils.sortLetter("", ignoreArticles = false))
-    }
-
-    // Helper function for comparison tests
-    private fun assertTrue(condition: Boolean) {
-        kotlin.test.assertTrue(condition)
-    }
-}
+        test("sortLetter returns hash for empty string") {
+            TitleSortUtils.sortLetter("", ignoreArticles = false) shouldBe '#'
+        }
+    })

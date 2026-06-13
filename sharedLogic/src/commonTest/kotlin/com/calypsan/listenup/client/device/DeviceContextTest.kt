@@ -1,139 +1,118 @@
 package com.calypsan.listenup.client.device
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
-class DeviceContextTest {
-    @Test
-    fun phoneHasTouch() {
-        assertTrue(DeviceContext(DeviceType.Phone).hasTouch)
-    }
-
-    @Test
-    fun phoneCanEdit() {
-        assertTrue(DeviceContext(DeviceType.Phone).canEdit)
-    }
-
-    @Test
-    fun phoneSupportsFullLibrary() {
-        assertTrue(DeviceContext(DeviceType.Phone).supportsFullLibrary)
-    }
-
-    @Test
-    fun phoneHasNoDpad() {
-        assertFalse(DeviceContext(DeviceType.Phone).hasDpad)
-    }
-
-    @Test
-    fun phoneIsNotLeanback() {
-        assertFalse(DeviceContext(DeviceType.Phone).isLeanback)
-    }
-
-    @Test
-    fun tvIsLeanback() {
-        val ctx = DeviceContext(DeviceType.Tv)
-        assertTrue(ctx.isLeanback)
-        assertTrue(ctx.hasDpad)
-        assertTrue(ctx.prefersLargeTargets)
-        assertFalse(ctx.hasTouch)
-        assertFalse(ctx.canEdit)
-        assertTrue(ctx.supportsFullLibrary)
-    }
-
-    @Test
-    fun desktopCanEditButNoDpad() {
-        val ctx = DeviceContext(DeviceType.Desktop)
-        assertTrue(ctx.canEdit)
-        assertFalse(ctx.hasDpad)
-        assertFalse(ctx.hasTouch)
-        assertTrue(ctx.supportsFullLibrary)
-    }
-
-    @Test
-    fun watchIsWearable() {
-        val ctx = DeviceContext(DeviceType.Watch)
-        assertTrue(ctx.isWearable)
-        assertTrue(ctx.hasTouch)
-        assertFalse(ctx.canEdit)
-        assertFalse(ctx.supportsFullLibrary)
-    }
-
-    @Test
-    fun autoHasDpadAndLargeTargets() {
-        val ctx = DeviceContext(DeviceType.Auto)
-        assertTrue(ctx.hasDpad)
-        assertTrue(ctx.prefersLargeTargets)
-        assertFalse(ctx.hasTouch)
-        assertFalse(ctx.canEdit)
-    }
-
-    @Test
-    fun xrHasTouchAndLargeTargets() {
-        val ctx = DeviceContext(DeviceType.Xr)
-        assertTrue(ctx.hasTouch)
-        assertTrue(ctx.prefersLargeTargets)
-        assertFalse(ctx.hasDpad)
-    }
-
-    @Test
-    fun tabletCapabilities() {
-        val ctx = DeviceContext(DeviceType.Tablet)
-        assertTrue(ctx.hasTouch)
-        assertTrue(ctx.canEdit)
-        assertTrue(ctx.supportsFullLibrary)
-        assertFalse(ctx.hasDpad)
-        assertFalse(ctx.isLeanback)
-    }
-
-    @Test
-    fun allDeviceTypes() {
-        // Ensure every DeviceType creates a valid DeviceContext
-        DeviceType.entries.forEach { type ->
-            val ctx = DeviceContext(type)
-            assertEquals(type, ctx.type)
+class DeviceContextTest :
+    FunSpec({
+        test("phoneHasTouch") {
+            DeviceContext(DeviceType.Phone).hasTouch shouldBe true
         }
-    }
 
-    @Test
-    fun `supportsDownloads true for Phone`() {
-        assertTrue(DeviceContext(DeviceType.Phone).supportsDownloads)
-    }
+        test("phoneCanEdit") {
+            DeviceContext(DeviceType.Phone).canEdit shouldBe true
+        }
 
-    @Test
-    fun `supportsDownloads true for Tablet`() {
-        assertTrue(DeviceContext(DeviceType.Tablet).supportsDownloads)
-    }
+        test("phoneSupportsFullLibrary") {
+            DeviceContext(DeviceType.Phone).supportsFullLibrary shouldBe true
+        }
 
-    @Test
-    fun `supportsDownloads true for Watch`() {
-        assertTrue(DeviceContext(DeviceType.Watch).supportsDownloads)
-    }
+        test("phoneHasNoDpad") {
+            DeviceContext(DeviceType.Phone).hasDpad shouldBe false
+        }
 
-    @Test
-    fun `supportsDownloads false for Desktop downloads not implemented UI hides affordance per W8 Phase A`() {
-        assertFalse(DeviceContext(DeviceType.Desktop).supportsDownloads)
-    }
+        test("phoneIsNotLeanback") {
+            DeviceContext(DeviceType.Phone).isLeanback shouldBe false
+        }
 
-    @Test
-    fun `supportsDownloads false for Tv`() {
-        assertFalse(DeviceContext(DeviceType.Tv).supportsDownloads)
-    }
+        test("tvIsLeanback") {
+            val ctx = DeviceContext(DeviceType.Tv)
+            ctx.isLeanback shouldBe true
+            ctx.hasDpad shouldBe true
+            ctx.prefersLargeTargets shouldBe true
+            ctx.hasTouch shouldBe false
+            ctx.canEdit shouldBe false
+            ctx.supportsFullLibrary shouldBe true
+        }
 
-    @Test
-    fun `supportsDownloads false for Auto`() {
-        assertFalse(DeviceContext(DeviceType.Auto).supportsDownloads)
-    }
+        test("desktopCanEditButNoDpad") {
+            val ctx = DeviceContext(DeviceType.Desktop)
+            ctx.canEdit shouldBe true
+            ctx.hasDpad shouldBe false
+            ctx.hasTouch shouldBe false
+            ctx.supportsFullLibrary shouldBe true
+        }
 
-    @Test
-    fun `supportsDownloads false for Xr`() {
-        assertFalse(DeviceContext(DeviceType.Xr).supportsDownloads)
-    }
+        test("watchIsWearable") {
+            val ctx = DeviceContext(DeviceType.Watch)
+            ctx.isWearable shouldBe true
+            ctx.hasTouch shouldBe true
+            ctx.canEdit shouldBe false
+            ctx.supportsFullLibrary shouldBe false
+        }
 
-    @Test
-    fun `supportsDownloads coverage exactly one outcome per DeviceType`() {
-        val all = DeviceType.entries.associateWith { DeviceContext(it).supportsDownloads }
-        assertEquals(DeviceType.entries.size, all.size)
-    }
-}
+        test("autoHasDpadAndLargeTargets") {
+            val ctx = DeviceContext(DeviceType.Auto)
+            ctx.hasDpad shouldBe true
+            ctx.prefersLargeTargets shouldBe true
+            ctx.hasTouch shouldBe false
+            ctx.canEdit shouldBe false
+        }
+
+        test("xrHasTouchAndLargeTargets") {
+            val ctx = DeviceContext(DeviceType.Xr)
+            ctx.hasTouch shouldBe true
+            ctx.prefersLargeTargets shouldBe true
+            ctx.hasDpad shouldBe false
+        }
+
+        test("tabletCapabilities") {
+            val ctx = DeviceContext(DeviceType.Tablet)
+            ctx.hasTouch shouldBe true
+            ctx.canEdit shouldBe true
+            ctx.supportsFullLibrary shouldBe true
+            ctx.hasDpad shouldBe false
+            ctx.isLeanback shouldBe false
+        }
+
+        test("allDeviceTypes") {
+            // Ensure every DeviceType creates a valid DeviceContext
+            DeviceType.entries.forEach { type ->
+                val ctx = DeviceContext(type)
+                ctx.type shouldBe type
+            }
+        }
+
+        test("supportsDownloads true for Phone") {
+            DeviceContext(DeviceType.Phone).supportsDownloads shouldBe true
+        }
+
+        test("supportsDownloads true for Tablet") {
+            DeviceContext(DeviceType.Tablet).supportsDownloads shouldBe true
+        }
+
+        test("supportsDownloads true for Watch") {
+            DeviceContext(DeviceType.Watch).supportsDownloads shouldBe true
+        }
+
+        test("supportsDownloads false for Desktop downloads not implemented UI hides affordance per W8 Phase A") {
+            DeviceContext(DeviceType.Desktop).supportsDownloads shouldBe false
+        }
+
+        test("supportsDownloads false for Tv") {
+            DeviceContext(DeviceType.Tv).supportsDownloads shouldBe false
+        }
+
+        test("supportsDownloads false for Auto") {
+            DeviceContext(DeviceType.Auto).supportsDownloads shouldBe false
+        }
+
+        test("supportsDownloads false for Xr") {
+            DeviceContext(DeviceType.Xr).supportsDownloads shouldBe false
+        }
+
+        test("supportsDownloads coverage exactly one outcome per DeviceType") {
+            val all = DeviceType.entries.associateWith { DeviceContext(it).supportsDownloads }
+            all.size shouldBe DeviceType.entries.size
+        }
+    })

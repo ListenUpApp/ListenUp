@@ -1,57 +1,49 @@
 package com.calypsan.listenup.client.data.local.db
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
-class TypeConvertersTest {
-    private val converters = Converters()
+class TypeConvertersTest :
+    FunSpec({
+        val converters = Converters()
 
-    @Test
-    fun fromSyncState_synced_returnsName() {
-        assertEquals("SYNCED", converters.fromSyncState(SyncState.SYNCED))
-    }
-
-    @Test
-    fun fromSyncState_notSynced_returnsName() {
-        assertEquals("NOT_SYNCED", converters.fromSyncState(SyncState.NOT_SYNCED))
-    }
-
-    @Test
-    fun fromSyncState_syncing_returnsName() {
-        assertEquals("SYNCING", converters.fromSyncState(SyncState.SYNCING))
-    }
-
-    @Test
-    fun fromSyncState_conflict_returnsName() {
-        assertEquals("CONFLICT", converters.fromSyncState(SyncState.CONFLICT))
-    }
-
-    @Test
-    fun toSyncState_syncedName_returnsSynced() {
-        assertEquals(SyncState.SYNCED, converters.toSyncState("SYNCED"))
-    }
-
-    @Test
-    fun toSyncState_notSyncedName_returnsNotSynced() {
-        assertEquals(SyncState.NOT_SYNCED, converters.toSyncState("NOT_SYNCED"))
-    }
-
-    @Test
-    fun toSyncState_syncingName_returnsSyncing() {
-        assertEquals(SyncState.SYNCING, converters.toSyncState("SYNCING"))
-    }
-
-    @Test
-    fun toSyncState_conflictName_returnsConflict() {
-        assertEquals(SyncState.CONFLICT, converters.toSyncState("CONFLICT"))
-    }
-
-    @Test
-    fun syncStateConversion_roundTrip_preservesValue() {
-        SyncState.entries.forEach { state ->
-            val name = converters.fromSyncState(state)
-            val restored = converters.toSyncState(name)
-            assertEquals(state, restored)
+        test("fromSyncState_synced_returnsName") {
+            converters.fromSyncState(SyncState.SYNCED) shouldBe "SYNCED"
         }
-    }
-}
+
+        test("fromSyncState_notSynced_returnsName") {
+            converters.fromSyncState(SyncState.NOT_SYNCED) shouldBe "NOT_SYNCED"
+        }
+
+        test("fromSyncState_syncing_returnsName") {
+            converters.fromSyncState(SyncState.SYNCING) shouldBe "SYNCING"
+        }
+
+        test("fromSyncState_conflict_returnsName") {
+            converters.fromSyncState(SyncState.CONFLICT) shouldBe "CONFLICT"
+        }
+
+        test("toSyncState_syncedName_returnsSynced") {
+            converters.toSyncState("SYNCED") shouldBe SyncState.SYNCED
+        }
+
+        test("toSyncState_notSyncedName_returnsNotSynced") {
+            converters.toSyncState("NOT_SYNCED") shouldBe SyncState.NOT_SYNCED
+        }
+
+        test("toSyncState_syncingName_returnsSyncing") {
+            converters.toSyncState("SYNCING") shouldBe SyncState.SYNCING
+        }
+
+        test("toSyncState_conflictName_returnsConflict") {
+            converters.toSyncState("CONFLICT") shouldBe SyncState.CONFLICT
+        }
+
+        test("syncStateConversion_roundTrip_preservesValue") {
+            SyncState.entries.forEach { state ->
+                val name = converters.fromSyncState(state)
+                val restored = converters.toSyncState(name)
+                restored shouldBe state
+            }
+        }
+    })

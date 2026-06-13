@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.presentation.library
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 /**
  * Tests for SortState, SortDirection, and SortCategory.
@@ -14,251 +12,223 @@ import kotlin.test.assertTrue
  * - Persistence key encoding/decoding
  * - State transitions
  */
-class SortStateTest {
-    // ========== SortDirection Tests ==========
+class SortStateTest :
+    FunSpec({
+        // ========== SortDirection Tests ==========
 
-    @Test
-    fun `SortDirection toggle switches ascending to descending`() {
-        assertEquals(SortDirection.DESCENDING, SortDirection.ASCENDING.toggle())
-    }
+        test("SortDirection toggle switches ascending to descending") {
+            SortDirection.ASCENDING.toggle() shouldBe SortDirection.DESCENDING
+        }
 
-    @Test
-    fun `SortDirection toggle switches descending to ascending`() {
-        assertEquals(SortDirection.ASCENDING, SortDirection.DESCENDING.toggle())
-    }
+        test("SortDirection toggle switches descending to ascending") {
+            SortDirection.DESCENDING.toggle() shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortDirection key returns lowercase name`() {
-        assertEquals("ascending", SortDirection.ASCENDING.key)
-        assertEquals("descending", SortDirection.DESCENDING.key)
-    }
+        test("SortDirection key returns lowercase name") {
+            SortDirection.ASCENDING.key shouldBe "ascending"
+            SortDirection.DESCENDING.key shouldBe "descending"
+        }
 
-    @Test
-    fun `SortDirection fromKey parses valid keys`() {
-        assertEquals(SortDirection.ASCENDING, SortDirection.fromKey("ascending"))
-        assertEquals(SortDirection.DESCENDING, SortDirection.fromKey("descending"))
-    }
+        test("SortDirection fromKey parses valid keys") {
+            SortDirection.fromKey("ascending") shouldBe SortDirection.ASCENDING
+            SortDirection.fromKey("descending") shouldBe SortDirection.DESCENDING
+        }
 
-    @Test
-    fun `SortDirection fromKey returns null for invalid key`() {
-        assertNull(SortDirection.fromKey("invalid"))
-        assertNull(SortDirection.fromKey(""))
-        assertNull(SortDirection.fromKey("ASCENDING"))
-    }
+        test("SortDirection fromKey returns null for invalid key") {
+            SortDirection.fromKey("invalid") shouldBe null
+            SortDirection.fromKey("") shouldBe null
+            SortDirection.fromKey("ASCENDING") shouldBe null
+        }
 
-    // ========== SortCategory Tests ==========
+        // ========== SortCategory Tests ==========
 
-    @Test
-    fun `SortCategory key returns lowercase name`() {
-        assertEquals("title", SortCategory.TITLE.key)
-        assertEquals("author", SortCategory.AUTHOR.key)
-        assertEquals("duration", SortCategory.DURATION.key)
-    }
+        test("SortCategory key returns lowercase name") {
+            SortCategory.TITLE.key shouldBe "title"
+            SortCategory.AUTHOR.key shouldBe "author"
+            SortCategory.DURATION.key shouldBe "duration"
+        }
 
-    @Test
-    fun `SortCategory fromKey parses valid keys`() {
-        assertEquals(SortCategory.TITLE, SortCategory.fromKey("title"))
-        assertEquals(SortCategory.AUTHOR, SortCategory.fromKey("author"))
-        assertEquals(SortCategory.DURATION, SortCategory.fromKey("duration"))
-        assertEquals(SortCategory.YEAR, SortCategory.fromKey("year"))
-        assertEquals(SortCategory.ADDED, SortCategory.fromKey("added"))
-        assertEquals(SortCategory.SERIES, SortCategory.fromKey("series"))
-        assertEquals(SortCategory.NAME, SortCategory.fromKey("name"))
-        assertEquals(SortCategory.BOOK_COUNT, SortCategory.fromKey("book_count"))
-    }
+        test("SortCategory fromKey parses valid keys") {
+            SortCategory.fromKey("title") shouldBe SortCategory.TITLE
+            SortCategory.fromKey("author") shouldBe SortCategory.AUTHOR
+            SortCategory.fromKey("duration") shouldBe SortCategory.DURATION
+            SortCategory.fromKey("year") shouldBe SortCategory.YEAR
+            SortCategory.fromKey("added") shouldBe SortCategory.ADDED
+            SortCategory.fromKey("series") shouldBe SortCategory.SERIES
+            SortCategory.fromKey("name") shouldBe SortCategory.NAME
+            SortCategory.fromKey("book_count") shouldBe SortCategory.BOOK_COUNT
+        }
 
-    @Test
-    fun `SortCategory fromKey returns null for invalid key`() {
-        assertNull(SortCategory.fromKey("invalid"))
-        assertNull(SortCategory.fromKey(""))
-    }
+        test("SortCategory fromKey returns null for invalid key") {
+            SortCategory.fromKey("invalid") shouldBe null
+            SortCategory.fromKey("") shouldBe null
+        }
 
-    @Test
-    fun `SortCategory text sorts default to ascending`() {
-        assertEquals(SortDirection.ASCENDING, SortCategory.TITLE.defaultDirection)
-        assertEquals(SortDirection.ASCENDING, SortCategory.AUTHOR.defaultDirection)
-        assertEquals(SortDirection.ASCENDING, SortCategory.NAME.defaultDirection)
-    }
+        test("SortCategory text sorts default to ascending") {
+            SortCategory.TITLE.defaultDirection shouldBe SortDirection.ASCENDING
+            SortCategory.AUTHOR.defaultDirection shouldBe SortDirection.ASCENDING
+            SortCategory.NAME.defaultDirection shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortCategory numeric sorts default to descending`() {
-        assertEquals(SortDirection.DESCENDING, SortCategory.DURATION.defaultDirection)
-        assertEquals(SortDirection.DESCENDING, SortCategory.YEAR.defaultDirection)
-        assertEquals(SortDirection.DESCENDING, SortCategory.BOOK_COUNT.defaultDirection)
-        assertEquals(SortDirection.DESCENDING, SortCategory.ADDED.defaultDirection)
-    }
+        test("SortCategory numeric sorts default to descending") {
+            SortCategory.DURATION.defaultDirection shouldBe SortDirection.DESCENDING
+            SortCategory.YEAR.defaultDirection shouldBe SortDirection.DESCENDING
+            SortCategory.BOOK_COUNT.defaultDirection shouldBe SortDirection.DESCENDING
+            SortCategory.ADDED.defaultDirection shouldBe SortDirection.DESCENDING
+        }
 
-    @Test
-    fun `SortCategory directionLabel returns correct labels`() {
-        assertEquals("A → Z", SortCategory.TITLE.directionLabel(SortDirection.ASCENDING))
-        assertEquals("Z → A", SortCategory.TITLE.directionLabel(SortDirection.DESCENDING))
+        test("SortCategory directionLabel returns correct labels") {
+            SortCategory.TITLE.directionLabel(SortDirection.ASCENDING) shouldBe "A → Z"
+            SortCategory.TITLE.directionLabel(SortDirection.DESCENDING) shouldBe "Z → A"
 
-        assertEquals("Shortest", SortCategory.DURATION.directionLabel(SortDirection.ASCENDING))
-        assertEquals("Longest", SortCategory.DURATION.directionLabel(SortDirection.DESCENDING))
+            SortCategory.DURATION.directionLabel(SortDirection.ASCENDING) shouldBe "Shortest"
+            SortCategory.DURATION.directionLabel(SortDirection.DESCENDING) shouldBe "Longest"
 
-        assertEquals("Oldest", SortCategory.YEAR.directionLabel(SortDirection.ASCENDING))
-        assertEquals("Newest", SortCategory.YEAR.directionLabel(SortDirection.DESCENDING))
+            SortCategory.YEAR.directionLabel(SortDirection.ASCENDING) shouldBe "Oldest"
+            SortCategory.YEAR.directionLabel(SortDirection.DESCENDING) shouldBe "Newest"
 
-        assertEquals("First", SortCategory.ADDED.directionLabel(SortDirection.ASCENDING))
-        assertEquals("Recent", SortCategory.ADDED.directionLabel(SortDirection.DESCENDING))
+            SortCategory.ADDED.directionLabel(SortDirection.ASCENDING) shouldBe "First"
+            SortCategory.ADDED.directionLabel(SortDirection.DESCENDING) shouldBe "Recent"
 
-        assertEquals("Fewest", SortCategory.BOOK_COUNT.directionLabel(SortDirection.ASCENDING))
-        assertEquals("Most", SortCategory.BOOK_COUNT.directionLabel(SortDirection.DESCENDING))
-    }
+            SortCategory.BOOK_COUNT.directionLabel(SortDirection.ASCENDING) shouldBe "Fewest"
+            SortCategory.BOOK_COUNT.directionLabel(SortDirection.DESCENDING) shouldBe "Most"
+        }
 
-    @Test
-    fun `SortCategory booksCategories contains expected categories`() {
-        val categories = SortCategory.booksCategories
-        assertTrue(SortCategory.TITLE in categories)
-        assertTrue(SortCategory.AUTHOR in categories)
-        assertTrue(SortCategory.DURATION in categories)
-        assertTrue(SortCategory.YEAR in categories)
-        assertTrue(SortCategory.ADDED in categories)
-        assertTrue(SortCategory.SERIES in categories)
-    }
+        test("SortCategory booksCategories contains expected categories") {
+            val categories = SortCategory.booksCategories
+            (SortCategory.TITLE in categories) shouldBe true
+            (SortCategory.AUTHOR in categories) shouldBe true
+            (SortCategory.DURATION in categories) shouldBe true
+            (SortCategory.YEAR in categories) shouldBe true
+            (SortCategory.ADDED in categories) shouldBe true
+            (SortCategory.SERIES in categories) shouldBe true
+        }
 
-    @Test
-    fun `SortCategory seriesCategories contains expected categories`() {
-        val categories = SortCategory.seriesCategories
-        assertTrue(SortCategory.NAME in categories)
-        assertTrue(SortCategory.BOOK_COUNT in categories)
-        assertTrue(SortCategory.ADDED in categories)
-    }
+        test("SortCategory seriesCategories contains expected categories") {
+            val categories = SortCategory.seriesCategories
+            (SortCategory.NAME in categories) shouldBe true
+            (SortCategory.BOOK_COUNT in categories) shouldBe true
+            (SortCategory.ADDED in categories) shouldBe true
+        }
 
-    @Test
-    fun `SortCategory contributorCategories contains expected categories`() {
-        val categories = SortCategory.contributorCategories
-        assertTrue(SortCategory.NAME in categories)
-        assertTrue(SortCategory.BOOK_COUNT in categories)
-    }
+        test("SortCategory contributorCategories contains expected categories") {
+            val categories = SortCategory.contributorCategories
+            (SortCategory.NAME in categories) shouldBe true
+            (SortCategory.BOOK_COUNT in categories) shouldBe true
+        }
 
-    // ========== SortState Tests ==========
+        // ========== SortState Tests ==========
 
-    @Test
-    fun `SortState persistenceKey format is correct`() {
-        val state = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
-        assertEquals("title:ascending", state.persistenceKey)
-    }
+        test("SortState persistenceKey format is correct") {
+            val state = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
+            state.persistenceKey shouldBe "title:ascending"
+        }
 
-    @Test
-    fun `SortState persistenceKey with descending direction`() {
-        val state = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
-        assertEquals("duration:descending", state.persistenceKey)
-    }
+        test("SortState persistenceKey with descending direction") {
+            val state = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
+            state.persistenceKey shouldBe "duration:descending"
+        }
 
-    @Test
-    fun `SortState fromPersistenceKey parses valid key`() {
-        val state = SortState.fromPersistenceKey("title:ascending")
-        assertEquals(SortCategory.TITLE, state?.category)
-        assertEquals(SortDirection.ASCENDING, state?.direction)
-    }
+        test("SortState fromPersistenceKey parses valid key") {
+            val state = SortState.fromPersistenceKey("title:ascending")
+            state?.category shouldBe SortCategory.TITLE
+            state?.direction shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortState fromPersistenceKey parses all category-direction combinations`() {
-        val state = SortState.fromPersistenceKey("duration:descending")
-        assertEquals(SortCategory.DURATION, state?.category)
-        assertEquals(SortDirection.DESCENDING, state?.direction)
-    }
+        test("SortState fromPersistenceKey parses all category-direction combinations") {
+            val state = SortState.fromPersistenceKey("duration:descending")
+            state?.category shouldBe SortCategory.DURATION
+            state?.direction shouldBe SortDirection.DESCENDING
+        }
 
-    @Test
-    fun `SortState fromPersistenceKey returns null for invalid format`() {
-        assertNull(SortState.fromPersistenceKey("invalid"))
-        assertNull(SortState.fromPersistenceKey(""))
-        assertNull(SortState.fromPersistenceKey("title"))
-        assertNull(SortState.fromPersistenceKey("title:"))
-        assertNull(SortState.fromPersistenceKey(":ascending"))
-        assertNull(SortState.fromPersistenceKey("title:invalid"))
-        assertNull(SortState.fromPersistenceKey("invalid:ascending"))
-    }
+        test("SortState fromPersistenceKey returns null for invalid format") {
+            SortState.fromPersistenceKey("invalid") shouldBe null
+            SortState.fromPersistenceKey("") shouldBe null
+            SortState.fromPersistenceKey("title") shouldBe null
+            SortState.fromPersistenceKey("title:") shouldBe null
+            SortState.fromPersistenceKey(":ascending") shouldBe null
+            SortState.fromPersistenceKey("title:invalid") shouldBe null
+            SortState.fromPersistenceKey("invalid:ascending") shouldBe null
+        }
 
-    @Test
-    fun `SortState toggleDirection creates new state with toggled direction`() {
-        val original = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
-        val toggled = original.toggleDirection()
+        test("SortState toggleDirection creates new state with toggled direction") {
+            val original = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
+            val toggled = original.toggleDirection()
 
-        assertEquals(SortCategory.TITLE, toggled.category)
-        assertEquals(SortDirection.DESCENDING, toggled.direction)
-    }
+            toggled.category shouldBe SortCategory.TITLE
+            toggled.direction shouldBe SortDirection.DESCENDING
+        }
 
-    @Test
-    fun `SortState toggleDirection preserves category`() {
-        val original = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
-        val toggled = original.toggleDirection()
+        test("SortState toggleDirection preserves category") {
+            val original = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
+            val toggled = original.toggleDirection()
 
-        assertEquals(SortCategory.DURATION, toggled.category)
-        assertEquals(SortDirection.ASCENDING, toggled.direction)
-    }
+            toggled.category shouldBe SortCategory.DURATION
+            toggled.direction shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortState withCategory changes category and uses default direction`() {
-        val original = SortState(SortCategory.TITLE, SortDirection.DESCENDING)
-        val changed = original.withCategory(SortCategory.DURATION)
+        test("SortState withCategory changes category and uses default direction") {
+            val original = SortState(SortCategory.TITLE, SortDirection.DESCENDING)
+            val changed = original.withCategory(SortCategory.DURATION)
 
-        assertEquals(SortCategory.DURATION, changed.category)
-        // DURATION defaults to DESCENDING
-        assertEquals(SortDirection.DESCENDING, changed.direction)
-    }
+            changed.category shouldBe SortCategory.DURATION
+            // DURATION defaults to DESCENDING
+            changed.direction shouldBe SortDirection.DESCENDING
+        }
 
-    @Test
-    fun `SortState withCategory uses new category default direction`() {
-        val original = SortState(SortCategory.DURATION, SortDirection.ASCENDING)
-        val changed = original.withCategory(SortCategory.TITLE)
+        test("SortState withCategory uses new category default direction") {
+            val original = SortState(SortCategory.DURATION, SortDirection.ASCENDING)
+            val changed = original.withCategory(SortCategory.TITLE)
 
-        assertEquals(SortCategory.TITLE, changed.category)
-        // TITLE defaults to ASCENDING
-        assertEquals(SortDirection.ASCENDING, changed.direction)
-    }
+            changed.category shouldBe SortCategory.TITLE
+            // TITLE defaults to ASCENDING
+            changed.direction shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortState directionLabel delegates to category`() {
-        val state = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
-        assertEquals("A → Z", state.directionLabel)
+        test("SortState directionLabel delegates to category") {
+            val state = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
+            state.directionLabel shouldBe "A → Z"
 
-        val state2 = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
-        assertEquals("Longest", state2.directionLabel)
-    }
+            val state2 = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
+            state2.directionLabel shouldBe "Longest"
+        }
 
-    // ========== Default States Tests ==========
+        // ========== Default States Tests ==========
 
-    @Test
-    fun `SortState booksDefault is title ascending`() {
-        assertEquals(SortCategory.TITLE, SortState.booksDefault.category)
-        assertEquals(SortDirection.ASCENDING, SortState.booksDefault.direction)
-    }
+        test("SortState booksDefault is title ascending") {
+            SortState.booksDefault.category shouldBe SortCategory.TITLE
+            SortState.booksDefault.direction shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortState seriesDefault is name ascending`() {
-        assertEquals(SortCategory.NAME, SortState.seriesDefault.category)
-        assertEquals(SortDirection.ASCENDING, SortState.seriesDefault.direction)
-    }
+        test("SortState seriesDefault is name ascending") {
+            SortState.seriesDefault.category shouldBe SortCategory.NAME
+            SortState.seriesDefault.direction shouldBe SortDirection.ASCENDING
+        }
 
-    @Test
-    fun `SortState contributorDefault is name ascending`() {
-        assertEquals(SortCategory.NAME, SortState.contributorDefault.category)
-        assertEquals(SortDirection.ASCENDING, SortState.contributorDefault.direction)
-    }
+        test("SortState contributorDefault is name ascending") {
+            SortState.contributorDefault.category shouldBe SortCategory.NAME
+            SortState.contributorDefault.direction shouldBe SortDirection.ASCENDING
+        }
 
-    // ========== Round-Trip Tests ==========
+        // ========== Round-Trip Tests ==========
 
-    @Test
-    fun `SortState persistence roundtrip works`() {
-        val original = SortState(SortCategory.YEAR, SortDirection.DESCENDING)
-        val key = original.persistenceKey
-        val restored = SortState.fromPersistenceKey(key)
-
-        assertEquals(original, restored)
-    }
-
-    @Test
-    fun `SortState all defaults can be persisted and restored`() {
-        listOf(
-            SortState.booksDefault,
-            SortState.seriesDefault,
-            SortState.contributorDefault,
-        ).forEach { original ->
+        test("SortState persistence roundtrip works") {
+            val original = SortState(SortCategory.YEAR, SortDirection.DESCENDING)
             val key = original.persistenceKey
             val restored = SortState.fromPersistenceKey(key)
-            assertEquals(original, restored)
+
+            restored shouldBe original
         }
-    }
-}
+
+        test("SortState all defaults can be persisted and restored") {
+            listOf(
+                SortState.booksDefault,
+                SortState.seriesDefault,
+                SortState.contributorDefault,
+            ).forEach { original ->
+                val key = original.persistenceKey
+                val restored = SortState.fromPersistenceKey(key)
+                restored shouldBe original
+            }
+        }
+    })
