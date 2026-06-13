@@ -7,10 +7,12 @@ final class FakePlaybackController: PlaybackControlling {
     var toggled = false
     var skippedForward = false
     var skippedBackward = false
+    var playedBookId: String?
 
     func togglePlayPause() { toggled = true }
     func skipForward() { skippedForward = true }
     func skipBackward() { skippedBackward = true }
+    func playBook(id: String) { playedBookId = id }
 }
 
 /// Run serialized so parallel tests don't race on the shared AppDependencyManager

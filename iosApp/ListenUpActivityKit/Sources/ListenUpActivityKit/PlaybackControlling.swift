@@ -6,4 +6,8 @@ public protocol PlaybackControlling: Sendable {
     func togglePlayPause()
     func skipForward()
     func skipBackward()
+
+    /// Start playback of a specific book by id — the "Play <book> in ListenUp"
+    /// App Intent / Siri path. Forwards to the app's `PlayerCoordinator`.
+    func playBook(id: String)
 }
