@@ -13,6 +13,7 @@ struct ContributorDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: ContributorDetailObserver?
+    @State private var showEdit = false
 
     private var isRegular: Bool { hSize == .regular }
 
@@ -31,6 +32,11 @@ struct ContributorDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if observer != nil {
                     Menu {
+                        Button {
+                            showEdit = true
+                        } label: {
+                            Label(String(localized: "common.edit"), systemImage: "pencil")
+                        }
                         Button(role: .destructive, action: {
                             observer?.onDeleteContributor()
                         }) {
@@ -58,6 +64,9 @@ struct ContributorDetailView: View {
             Button(String(localized: "common.cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "contributor.remove_from_library"))
+        }
+        .sheet(isPresented: $showEdit) {
+            ContributorEditView(contributorId: contributorId)
         }
         .task(id: contributorId) {
             let vm = deps.createContributorDetailViewModel()
