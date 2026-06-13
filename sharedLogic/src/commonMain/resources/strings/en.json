@@ -950,5 +950,8 @@
     "all_mapped": "Every genre string from your scanner has been mapped or auto-resolved.",
     "book_count": "%1$d book",
     "books_count": "%1$d books"
+  },
+  "edit": {
+    "remove_image": "Remove image"
   }
 }
