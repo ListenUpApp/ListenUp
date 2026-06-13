@@ -4,13 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.import.ImportEvent
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
@@ -113,7 +113,7 @@ class ImportFlowViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(uploadResult.error)
                     logger.error { "Import upload failed: ${uploadResult.error.message}" }
-                    uiState.value = ImportFlowUiState.Error(userMessageFor(uploadResult.error))
+                    uiState.value = ImportFlowUiState.Error(uploadResult.error)
                     return@launch
                 }
 
@@ -147,7 +147,7 @@ class ImportFlowViewModel(
                                 progressJob?.cancel()
                                 errorBus.emit(analyzeResult.error)
                                 logger.error { "Import analyze failed: ${analyzeResult.error.message}" }
-                                uiState.value = ImportFlowUiState.Error(userMessageFor(analyzeResult.error))
+                                uiState.value = ImportFlowUiState.Error(analyzeResult.error)
                             }
                         }
 
@@ -395,7 +395,7 @@ class ImportFlowViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(confirmResult.error)
                     logger.error { "Import confirmMapping failed: ${confirmResult.error.message}" }
-                    uiState.value = ImportFlowUiState.Error(userMessageFor(confirmResult.error))
+                    uiState.value = ImportFlowUiState.Error(confirmResult.error)
                     return@launch
                 }
 
@@ -423,7 +423,7 @@ class ImportFlowViewModel(
                                 progressJob?.cancel()
                                 errorBus.emit(applyResult.error)
                                 logger.error { "Import apply failed: ${applyResult.error.message}" }
-                                uiState.value = ImportFlowUiState.Error(userMessageFor(applyResult.error))
+                                uiState.value = ImportFlowUiState.Error(applyResult.error)
                             }
                         }
 
@@ -487,7 +487,7 @@ class ImportFlowViewModel(
                 // returned. This handles the case where the server signals failure via SSE
                 // before (or after) the RPC method returns.
                 logger.error { "Import analysis failed via event: ${event.reason}" }
-                uiState.value = ImportFlowUiState.Error(event.reason)
+                uiState.value = ImportFlowUiState.Error(ImportError.AnalysisFailed(debugInfo = event.reason))
             }
 
             // Apply-phase events during analyze — ignore.
@@ -520,7 +520,7 @@ class ImportFlowViewModel(
 
             is ImportEvent.Failed -> {
                 logger.error { "Import apply failed via event: ${event.reason}" }
-                uiState.value = ImportFlowUiState.Error(event.reason)
+                uiState.value = ImportFlowUiState.Error(ImportError.ApplyFailed(debugInfo = event.reason))
             }
 
             // Analyze-phase events during apply — ignore.

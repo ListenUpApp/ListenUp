@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin.import
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.dto.import.ImportAnalysis
 import com.calypsan.listenup.api.dto.import.ImportResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -130,8 +131,8 @@ sealed interface ImportFlowUiState {
         val result: ImportResult,
     ) : ImportFlowUiState
 
-    /** A phase failed; [message] is a user-facing explanation. */
+    /** A phase failed; [error] is the typed cause, rendered via `AppError.localized()`. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : ImportFlowUiState
 }

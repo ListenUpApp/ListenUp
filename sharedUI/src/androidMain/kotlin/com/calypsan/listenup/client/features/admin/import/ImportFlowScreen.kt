@@ -49,6 +49,7 @@ import com.calypsan.listenup.api.dto.import.AbsUserMatch
 import com.calypsan.listenup.api.dto.import.ImportResult
 import com.calypsan.listenup.api.dto.import.MatchTier
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.import.BookSearchState
 import com.calypsan.listenup.client.presentation.admin.import.ImportFlowUiState
@@ -203,7 +204,7 @@ fun ImportFlowScreen(
 
                 is ImportFlowUiState.Error -> {
                     ErrorContent(
-                        message = state.message,
+                        message = state.error.localized(),
                         onTryAgain = { viewModel.reset() },
                     )
                 }

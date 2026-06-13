@@ -587,7 +587,7 @@ class ImportFlowViewModelTest :
                 advanceUntilIdle()
 
                 val errorState = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Error>()
-                errorState.message.shouldNotBeNull()
+                errorState.error.shouldNotBeNull()
 
                 // Complete the deferred (returns success, but Error wins since the event set it first)
                 analyzeDeferred.complete(AppResult.Success(importAnalysis()))
