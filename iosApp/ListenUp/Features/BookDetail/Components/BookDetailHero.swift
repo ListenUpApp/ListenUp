@@ -70,7 +70,7 @@ struct BookDetailHero: View {
     // MARK: - Cover
 
     private var cover: some View {
-        BookCoverImage(coverPath: book?.coverPath, blurHash: book?.coverBlurHash)
+        BookCoverImage(bookId: book?.idString, coverPath: book?.coverPath, blurHash: book?.coverBlurHash)
             .frame(width: coverSize, height: coverSize)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)

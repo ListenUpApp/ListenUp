@@ -60,7 +60,7 @@ struct CoverStack: View {
                     .frame(width: size, height: size)
             } else {
                 ForEach(Array(visible.enumerated()).reversed(), id: \.element.id) { index, art in
-                    BookCoverImage(coverPath: art.coverPath, blurHash: art.blurHash)
+                    BookCoverImage(bookId: art.id, coverPath: art.coverPath, blurHash: art.blurHash)
                         .frame(width: size, height: size)
                         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                         .overlay(
