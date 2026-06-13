@@ -425,7 +425,14 @@
     "merge_title": "Merge into…",
     "unmerge_aliasname": "Unmerge \"%1$s\"?",
     "unmerge_body": "This will split \"%1$s\" back into its own contributor. Any books credited as \"%1$s\" will be re-linked to the new contributor.",
-    "unmerge_confirm": "Unmerge"
+    "unmerge_confirm": "Unmerge",
+    "edit_title": "Edit Contributor",
+    "edit_name": "Name",
+    "edit_bio": "Bio",
+    "edit_bio_placeholder": "Add a bio",
+    "edit_website": "Website",
+    "edit_born": "Born",
+    "edit_died": "Died"
   },
   "metadata": {
     "apply_selected_metadata": "Apply Selected Metadata",
