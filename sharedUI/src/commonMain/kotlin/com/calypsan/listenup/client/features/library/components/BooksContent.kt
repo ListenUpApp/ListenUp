@@ -366,6 +366,14 @@ private fun BookGrid(
                         is BookGridItem.BookItem -> gridItem.book.id.value
                     }
                 },
+                // Distinct content types so Compose reuses the right slot on scroll instead of
+                // re-creating layouts when a header and a book swap positions.
+                contentType = { gridItem ->
+                    when (gridItem) {
+                        is BookGridItem.Header -> "header"
+                        is BookGridItem.BookItem -> "book"
+                    }
+                },
                 span = { gridItem ->
                     when (gridItem) {
                         is BookGridItem.Header -> GridItemSpan(maxLineSpan)
