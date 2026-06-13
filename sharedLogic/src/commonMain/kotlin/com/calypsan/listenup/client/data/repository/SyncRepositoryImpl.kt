@@ -126,7 +126,11 @@ class SyncRepositoryImpl(
 
     override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = startEngineForCurrentUser()
 
-    override suspend fun refreshListeningHistory(): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun refreshListeningHistory(): AppResult<Unit> =
+        // Import completion writes playback positions server-side under `FirehoseSuppressed` (no live
+        // push), so a full reconcile is what lands the freshly-imported listening progress in Room —
+        // without it the data only surfaces after an app restart.
+        forceFullResync()
 
     override suspend fun forceFullResync(): AppResult<Unit> =
         when (val started = startEngineForCurrentUser()) {
