@@ -4,14 +4,8 @@ extension View {
     /// Applies the system Liquid Glass control material clipped to `shape`. When the
     /// user has Reduce Transparency on, falls back to an opaque tinted fill so controls
     /// stay legible (HIG accessibility requirement).
-    @ViewBuilder
     func authGlassControl(in shape: some InsettableShape, reduceTransparency: Bool) -> some View {
-        if reduceTransparency {
-            self.background(Color(.secondarySystemBackground), in: shape)
-                .overlay(shape.strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
-        } else {
-            self.glassEffect(.regular, in: shape)
-        }
+        glassControl(in: shape, reduceTransparency: reduceTransparency)
     }
 }
 

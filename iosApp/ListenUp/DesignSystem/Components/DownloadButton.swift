@@ -9,7 +9,7 @@ import SwiftUI
 /// - Completed: Checkmark, tap to delete
 /// - Failed/Partial: Retry icon
 ///
-/// Liquid Glass: Uses `.regularMaterial` background with gradient stroke.
+/// Liquid Glass: Uses the system `glassEffect` chrome material via `.glassControl(in:)`.
 struct DownloadButton: View {
     let state: DownloadUIState
     let progress: Float
@@ -24,27 +24,9 @@ struct DownloadButton: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack {
-                // Glass background
-                Circle()
-                    .fill(.regularMaterial)
-                    .overlay {
-                        Circle()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
-                    }
-                    .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-
-                // Icon / progress
-                iconView
-            }
-            .frame(width: 44, height: 44)
+            iconView
+                .frame(width: 44, height: 44)
+                .glassControl(in: .circle)
         }
         .buttonStyle(.plain)
         .onChange(of: state) { oldValue, newValue in
@@ -144,22 +126,7 @@ struct DownloadButtonExpanded: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.regularMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
-                    }
-                    .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-            }
+            .glassControl(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }

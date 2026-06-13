@@ -26,11 +26,7 @@ struct MiniPlayerBar: View {
                 progressLine
             }
             .frame(maxWidth: .infinity)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-            )
+            .glassControl(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
