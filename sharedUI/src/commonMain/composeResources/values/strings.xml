@@ -435,6 +435,13 @@ One beautiful library.</string>
     <string name="contributor_dates">Dates</string>
     <string name="contributor_death_date">Death Date</string>
     <string name="contributor_download_metadata">Download Metadata</string>
+    <string name="contributor_edit_bio">Bio</string>
+    <string name="contributor_edit_bio_placeholder">Add a bio</string>
+    <string name="contributor_edit_born">Born</string>
+    <string name="contributor_edit_died">Died</string>
+    <string name="contributor_edit_name">Name</string>
+    <string name="contributor_edit_title">Edit Contributor</string>
+    <string name="contributor_edit_website">Website</string>
     <string name="contributor_enter_a_biography">Enter a biography...</string>
     <string name="contributor_failed_to_load_profile">Failed to load profile</string>
     <string name="contributor_find_on_audible">Find on Audible</string>
@@ -493,7 +500,10 @@ One beautiful library.</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
     <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they\'ll appear here.</string>
     <string name="edit_change_image">Change image</string>
+    <string name="edit_clear_date">Clear</string>
+    <string name="edit_not_set">Not set</string>
     <string name="edit_remove_image">Remove image</string>
+    <string name="edit_set_date">Set date</string>
     <string name="edit_uploading_image">Uploading image</string>
     <string name="error_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="error_conflict">That resource is in use or already exists.</string>

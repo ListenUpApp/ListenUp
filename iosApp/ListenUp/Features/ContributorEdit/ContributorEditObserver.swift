@@ -34,12 +34,25 @@ final class ContributorEditObserver {
 
     func loadContributor(contributorId: String) { viewModel.loadContributor(contributorId: contributorId) }
 
-    func onNameChanged(_ v: String) { viewModel.onEvent(event: ContributorEditUiEventNameChanged(name: v)) }
-    func onBioChanged(_ v: String) { viewModel.onEvent(event: ContributorEditUiEventDescriptionChanged(description: v)) }
-    func onWebsiteChanged(_ v: String) { viewModel.onEvent(event: ContributorEditUiEventWebsiteChanged(website: v)) }
-    func onBirthDateChanged(_ v: String) { viewModel.onEvent(event: ContributorEditUiEventBirthDateChanged(date: v)) }
-    func onDeathDateChanged(_ v: String) { viewModel.onEvent(event: ContributorEditUiEventDeathDateChanged(date: v)) }
-    func onImagePicked(_ data: Data) { viewModel.onEvent(event: ContributorEditUiEventUploadImage(imageData: data.toKotlinByteArray(), filename: "avatar.jpg")) }
+    func onNameChanged(_ value: String) { viewModel.onEvent(event: ContributorEditUiEventNameChanged(name: value)) }
+    func onBioChanged(_ value: String) {
+        viewModel.onEvent(event: ContributorEditUiEventDescriptionChanged(description: value))
+    }
+    func onWebsiteChanged(_ value: String) {
+        viewModel.onEvent(event: ContributorEditUiEventWebsiteChanged(website: value))
+    }
+    func onBirthDateChanged(_ value: String) {
+        viewModel.onEvent(event: ContributorEditUiEventBirthDateChanged(date: value))
+    }
+    func onDeathDateChanged(_ value: String) {
+        viewModel.onEvent(event: ContributorEditUiEventDeathDateChanged(date: value))
+    }
+    func onImagePicked(_ data: Data) {
+        viewModel.onEvent(event: ContributorEditUiEventUploadImage(
+            imageData: data.toKotlinByteArray(),
+            filename: "avatar.jpg"
+        ))
+    }
     func onSave() { viewModel.onEvent(event: ContributorEditUiEventSave.shared) }
     func onCancel() { viewModel.onEvent(event: ContributorEditUiEventCancel.shared) }
     func onDismissError() { viewModel.onEvent(event: ContributorEditUiEventDismissError.shared) }

@@ -28,23 +28,39 @@ struct ContributorEditView: View {
                             onPicked: { observer.onImagePicked($0) },
                             onRemove: {}
                         ) {
-                            ContributorAvatar(name: observer.name, imagePath: observer.imagePath, blurHash: nil, id: contributorId, fontSize: 40)
+                            ContributorAvatar(
+                                name: observer.name,
+                                imagePath: observer.imagePath,
+                                blurHash: nil,
+                                id: contributorId,
+                                fontSize: 40
+                            )
                         }
                         .padding(.top, 8)
 
                         Group {
-                            EditField(label: String(localized: "contributor.edit_name"),
-                                      text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }))
-                            EditField(label: String(localized: "contributor.edit_bio"),
-                                      text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
-                                      axis: .vertical,
-                                      placeholder: String(localized: "contributor.edit_bio_placeholder"))
-                            EditField(label: String(localized: "contributor.edit_website"),
-                                      text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }))
-                            EditDateField(label: String(localized: "contributor.edit_born"),
-                                          isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) }))
-                            EditDateField(label: String(localized: "contributor.edit_died"),
-                                          isoDate: Binding(get: { observer.deathDate }, set: { observer.onDeathDateChanged($0) }))
+                            EditField(
+                                label: String(localized: "contributor.edit_name"),
+                                text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) })
+                            )
+                            EditField(
+                                label: String(localized: "contributor.edit_bio"),
+                                text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
+                                axis: .vertical,
+                                placeholder: String(localized: "contributor.edit_bio_placeholder")
+                            )
+                            EditField(
+                                label: String(localized: "contributor.edit_website"),
+                                text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) })
+                            )
+                            EditDateField(
+                                label: String(localized: "contributor.edit_born"),
+                                isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) })
+                            )
+                            EditDateField(
+                                label: String(localized: "contributor.edit_died"),
+                                isoDate: Binding(get: { observer.deathDate }, set: { observer.onDeathDateChanged($0) })
+                            )
                         }
                         .padding(.horizontal)
                     }

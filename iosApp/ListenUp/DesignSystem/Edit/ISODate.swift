@@ -4,13 +4,13 @@ import Foundation
 /// lenient-off so malformed input is rejected.
 enum ISODate {
     private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.calendar = Calendar(identifier: .iso8601)
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.dateFormat = "yyyy-MM-dd"
-        f.isLenient = false
-        return f
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .iso8601)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = TimeZone(identifier: "UTC")
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.isLenient = false
+        return fmt
     }()
 
     static func parse(_ iso: String) -> Date? {

@@ -4341,6 +4341,76 @@
         }
       }
     },
+    "contributor.edit_bio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bio"
+          }
+        }
+      }
+    },
+    "contributor.edit_bio_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a bio"
+          }
+        }
+      }
+    },
+    "contributor.edit_born": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Born"
+          }
+        }
+      }
+    },
+    "contributor.edit_died": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Died"
+          }
+        }
+      }
+    },
+    "contributor.edit_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "contributor.edit_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Contributor"
+          }
+        }
+      }
+    },
+    "contributor.edit_website": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Website"
+          }
+        }
+      }
+    },
     "contributor.enter_a_biography": {
       "localizations": {
         "en": {
@@ -4921,12 +4991,42 @@
         }
       }
     },
+    "edit.clear_date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "edit.not_set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not set"
+          }
+        }
+      }
+    },
     "edit.remove_image": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Remove image"
+          }
+        }
+      }
+    },
+    "edit.set_date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set date"
           }
         }
       }
