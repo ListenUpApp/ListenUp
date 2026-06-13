@@ -15,6 +15,10 @@ final class ContributorDetailObserver {
     private(set) var roleSections: [RoleSection] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
+    private(set) var series: [SeriesWithBooks_] = []
+    private(set) var totalDuration: String = ""
+    private(set) var bookCount: Int = 0
+    private(set) var roles: [RoleChip.Kind] = []
 
     /// Whether the delete-confirmation dialog should show. Wrapper-held input
     /// state — the ViewModel has no "confirming" state; `confirmDelete()` deletes
@@ -31,7 +35,6 @@ final class ContributorDetailObserver {
     var birthDate: String? { contributor?.birthDate }
     var deathDate: String? { contributor?.deathDate }
     var website: String? { contributor?.website }
-    var totalBookCount: Int { roleSections.reduce(0) { $0 + Int($1.bookCount) } }
 
     private let viewModel: ContributorDetailViewModel
     private let bridge = FlowBridge()
@@ -86,9 +89,13 @@ final class ContributorDetailObserver {
             roleSections = Array(r.roleSections)
             bookProgress = mapProgress(r.bookProgress)
             isDeleting = r.isDeleting
-        case .error(let e):
+            series = Array(r.series)
+            totalDuration = r.formatTotalDuration()
+            bookCount = Int(r.bookCount)
+            roles = r.roleSections.map { roleKind(for: $0.role) }
+        case .error(let err):
             isLoading = false
-            error = e.message
+            error = err.message
         }
     }
 
@@ -96,6 +103,16 @@ final class ContributorDetailObserver {
         switch onEnum(of: action) {
         case .deleted:
             onDeletedCallback?()
+        }
+    }
+
+    /// Maps a role string to its chip kind. Author/narrator get specific chips;
+    /// anything else uses the title-cased role as the label.
+    private func roleKind(for role: String) -> RoleChip.Kind {
+        switch role.lowercased() {
+        case "author": .author
+        case "narrator": .narrator
+        default: .other(role.prefix(1).uppercased() + role.dropFirst().lowercased())
         }
     }
 

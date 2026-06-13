@@ -110,6 +110,12 @@ class SeriesDetailViewModel(
                     ?.authors
                     ?.firstOrNull()
                     ?.name,
+            seriesNarrator =
+                books
+                    .firstOrNull()
+                    ?.narrators
+                    ?.firstOrNull()
+                    ?.name,
             coverPath = resolveCoverPath(seriesWithBooks.series, seriesId, books),
             featuredBookId = books.firstOrNull()?.id?.value,
             totalDuration = totalDuration,
@@ -162,6 +168,8 @@ sealed interface SeriesDetailUiState {
         val seriesDescription: String?,
         /** Primary author for the series, derived from its books. Null when unknown. */
         val seriesAuthor: String?,
+        /** Primary narrator for the series, derived from its books. Null when unknown. */
+        val seriesNarrator: String?,
         val coverPath: String?,
         val featuredBookId: String?,
         val totalDuration: Duration,

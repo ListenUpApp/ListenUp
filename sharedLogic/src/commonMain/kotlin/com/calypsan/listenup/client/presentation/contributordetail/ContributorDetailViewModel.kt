@@ -9,8 +9,10 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.RoleWithBookCount
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
 import com.calypsan.listenup.client.util.calculateProgressMap
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -30,6 +32,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -48,6 +52,7 @@ private val logger = KotlinLogging.logger {}
 class ContributorDetailViewModel(
     private val contributorRepository: ContributorRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
+    private val seriesRepository: SeriesRepository,
     private val deleteContributorUseCase: DeleteContributorUseCase,
 ) : ViewModel() {
     private val contributorIdFlow = MutableStateFlow<String?>(null)
@@ -133,11 +138,13 @@ class ContributorDetailViewModel(
         rolesWithCount: List<RoleWithBookCount>,
     ): ContributorDetailUiState.Ready {
         val allCreditedAs = mutableMapOf<String, String>()
+        val roleBooksFull = mutableListOf<List<BookListItem>>()
 
         val roleSections =
             rolesWithCount.map { roleWithCount ->
                 val result = loadBooksForRole(contributorId, contributor.name, roleWithCount.role)
                 allCreditedAs.putAll(result.creditedAsMap)
+                roleBooksFull += result.books
                 RoleSection(
                     role = roleWithCount.role,
                     displayName = roleToDisplayName(roleWithCount.role),
@@ -145,6 +152,19 @@ class ContributorDetailViewModel(
                     previewBooks = result.books.take(PREVIEW_BOOK_COUNT),
                 )
             }
+
+        val distinctBooks = roleBooksFull.flatten().distinctBy { it.id }
+        val totalDuration = distinctBooks.sumOf { it.duration }.milliseconds
+
+        val seriesIds = distinctBooks.flatMap { it.series }.map { it.seriesId }.distinct()
+        val series =
+            seriesIds
+                .mapNotNull { seriesId -> seriesRepository.observeSeriesWithBooks(seriesId).first() }
+                .sortedWith(
+                    compareByDescending<SeriesWithBooks> { sb ->
+                        distinctBooks.count { b -> b.series.any { it.seriesId == sb.series.id.value } }
+                    }.thenBy { it.series.name },
+                )
 
         val allPreviewBooks = roleSections.flatMap { it.previewBooks }
         val bookProgress = playbackPositionRepository.calculateProgressMap(allPreviewBooks)
@@ -154,6 +174,9 @@ class ContributorDetailViewModel(
             roleSections = roleSections,
             bookProgress = bookProgress,
             bookCreditedAs = allCreditedAs,
+            series = series,
+            bookCount = distinctBooks.size,
+            totalDuration = totalDuration,
             isDeleting = false,
             deleteError = null,
         )
@@ -227,11 +250,24 @@ sealed interface ContributorDetailUiState {
         val bookProgress: Map<BookId, Float>,
         /** Maps bookId to creditedAs name when different from contributor's name. */
         val bookCreditedAs: Map<String, String>,
+        /** Series this contributor's books belong to (full series, for the grid). */
+        val series: List<SeriesWithBooks>,
+        /** Distinct book count across all roles (a book counts once even if author+narrator). */
+        val bookCount: Int,
+        /** Total duration of the distinct books, for the "Hours" stat. */
+        val totalDuration: Duration,
         /** True while a delete is in flight. Screen shows an overlay spinner. */
         val isDeleting: Boolean,
         /** Non-null when the last delete attempt failed. Screen shows a snackbar. */
         val deleteError: String?,
-    ) : ContributorDetailUiState
+    ) : ContributorDetailUiState {
+        /** Formats the total duration as "${hours}h ${minutes}m" or "${minutes}m". */
+        fun formatTotalDuration(): String {
+            val totalHours = totalDuration.inWholeHours
+            val minutes = totalDuration.inWholeMinutes % 60
+            return if (totalHours > 0) "${totalHours}h ${minutes}m" else "${minutes}m"
+        }
+    }
 
     /** Load failed. */
     data class Error(
