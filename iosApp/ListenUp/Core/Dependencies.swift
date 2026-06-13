@@ -34,6 +34,7 @@ final class Dependencies {
     var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
     var homeViewModel: HomeViewModel { resolve { KoinHelper.shared.getHomeViewModel() } }
     var homeStatsViewModel: HomeStatsViewModel { resolve { KoinHelper.shared.getHomeStatsViewModel() } }
+    var searchViewModel: SearchViewModel { resolve { KoinHelper.shared.getSearchViewModel() } }
 
     // MARK: - Settings
 

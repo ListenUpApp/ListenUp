@@ -133,6 +133,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getSearchViewModel(): com.calypsan.listenup.client.presentation.search.SearchViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.search.SearchViewModel by inject()
+        return viewModel
+    }
+
     fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
         return viewModel
