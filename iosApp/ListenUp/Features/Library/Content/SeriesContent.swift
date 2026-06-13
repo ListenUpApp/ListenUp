@@ -140,11 +140,9 @@ struct SeriesContent: View {
     // MARK: - iPad Grid
 
     private var iPadGrid: some View {
-        let columns = [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ]
+        // Responsive, not fixed-3-up: columns flow from the actual available width, so the
+        // grid stays right across full-screen iPad, Split View, and Stage Manager widths.
+        let columns = [GridItem(.adaptive(minimum: 260), spacing: 22)]
         return LazyVGrid(columns: columns, spacing: 22) {
             ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
                 let seriesId = String(describing: seriesWithBooks.series.id)
