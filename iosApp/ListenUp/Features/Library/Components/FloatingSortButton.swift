@@ -61,22 +61,7 @@ struct FloatingSortButton: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
-                    }
-                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-            }
+            .glassControl(in: .capsule)
         }
         .accessibilityLabel("Sort by \(sortState.category.label)")
         .accessibilityHint("Double tap to change sort options")
@@ -145,22 +130,7 @@ private struct FloatingSortButtonPreview: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
-                    }
-                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-            }
+            .glassControl(in: .capsule)
         }
     }
 }

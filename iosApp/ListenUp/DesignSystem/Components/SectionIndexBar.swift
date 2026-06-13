@@ -47,7 +47,7 @@ struct SectionIndexBar: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 8)
                 .frame(width: 20)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .glassControl(in: RoundedRectangle(cornerRadius: 10))
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
