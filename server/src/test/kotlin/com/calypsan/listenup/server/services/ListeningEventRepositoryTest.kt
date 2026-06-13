@@ -168,6 +168,27 @@ class ListeningEventRepositoryTest :
                 }
             }
         }
+
+        // Regression: ABS-imported events carry "abs:<uuid>" ids (40 chars). ListeningEventTable.id
+        // was varchar(36), causing Exposed to throw "Value can't be stored to database column because
+        // exceeds length (40 > 36)" on every session import — apply always returned ApplyFailed.
+        test("upsert accepts a 40-char abs:<uuid> id produced by SessionConverter") {
+            withInMemoryDatabase {
+                val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    // "abs:" (4) + 36-char UUID = 40 chars — the real id shape emitted by SessionConverter.
+                    val absId = "abs:11111111-1111-1111-1111-111111111111"
+                    val payload = listeningEventPayload(absId, "book-abs-regression")
+                    val result = repo.upsert(payload, clientOpId = null, userId = "u-abs")
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    // Confirm the row landed — pullSince returns all rows at revision >= 0.
+                    val page = repo.pullSince(userId = "u-abs", cursor = 0L, limit = 50)
+                    page.items.shouldHaveSize(1)
+                    page.items.single().id shouldBe absId
+                }
+            }
+        }
     })
 
 private fun listeningEventPayload(

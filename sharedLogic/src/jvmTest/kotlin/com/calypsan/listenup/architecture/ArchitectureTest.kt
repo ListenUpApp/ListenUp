@@ -31,9 +31,38 @@ import kotlinx.serialization.Serializable
 class ArchitectureTest :
     FunSpec({
 
+        // Scope from the explicit module directories rather than `Konsist.scopeFromProject()`.
+        // `scopeFromProject()` walks the entire repo tree from the root — including nested git
+        // worktrees under `.worktrees/`. Those are gitignored, but Konsist scans the filesystem,
+        // not git, so a stack of worktrees multiplies the scan by their count (50k+ files) and
+        // hangs `:sharedLogic:jvmTest` for hours. Listing the real modules keeps every rule sound
+        // (all modules are still scanned) while ignoring `.worktrees/`. Built once and shared
+        // across rules — also avoids re-parsing the tree per test.
+        // NOTE: a new Gradle module must be added here or it escapes these architectural checks.
+        val moduleDirs =
+            listOf(
+                "androidApp",
+                "baselineprofile",
+                "contract",
+                "desktopApp",
+                "rpc-guard-ksp",
+                "server",
+                "sharedLogic",
+                "sharedUI",
+            )
+        // Scope each module's `src/` (not its root): unlike `scopeFromProject()`,
+        // `scopeFromDirectories()` does NOT skip `build/`, and scanning module roots would pull
+        // in generated KSP output (e.g. `contract/build/generated/.../rpcguard/*Guarded.kt`, which
+        // legitimately references server symbols) and trip these rules. `src/` is hand-written only.
+        val projectScope = Konsist.scopeFromDirectories(moduleDirs.map { "$it/src" })
+        // Guard against a misconfigured (empty) scope, which would make every `assertTrue`
+        // rule pass vacuously and silently disable the architecture checks.
+        require(projectScope.files.toList().isNotEmpty()) {
+            "ArchitectureTest scope is empty — check moduleDirs against settings.gradle.kts"
+        }
+
         test("@Serializable DTOs in the api package live in commonMain") {
-            Konsist
-                .scopeFromProject()
+            projectScope
                 .classes()
                 .filter { it.resideInPackage("com.calypsan.listenup.api..") }
                 .withoutValueModifier()
@@ -44,8 +73,7 @@ class ArchitectureTest :
         }
 
         test("client domain code has no transport-layer imports") {
-            Konsist
-                .scopeFromProject()
+            projectScope
                 .files
                 .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.client.domain") == true }
                 .assertFalse { file ->
@@ -57,8 +85,7 @@ class ArchitectureTest :
         }
 
         test("no :server symbols are imported outside the :server module") {
-            Konsist
-                .scopeFromProject()
+            projectScope
                 .files
                 .filter { "/server/src/main/" !in it.path && "/server/src/test/" !in it.path }
                 // C3 e2e fixture intentionally drives the real `:server` testApplication
@@ -90,8 +117,7 @@ class ArchitectureTest :
         }
 
         test("ScanEvent variants live in commonMain") {
-            Konsist
-                .scopeFromProject()
+            projectScope
                 .classes()
                 .filter { it.resideInPackage("com.calypsan.listenup.api.event..") }
                 .withoutValueModifier()
@@ -104,8 +130,7 @@ class ArchitectureTest :
             // The scanner core stays transport-agnostic. Ktor only enters via
             // `routes/ScannerRoutes.kt` (REST + SSE) and `di/ScannerModule.kt`
             // (Koin's ApplicationConfig binding) — both outside `scanner/`.
-            Konsist
-                .scopeFromProject()
+            projectScope
                 .files
                 .filter { "/server/src/main/" in it.path }
                 .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.server.scanner") == true }

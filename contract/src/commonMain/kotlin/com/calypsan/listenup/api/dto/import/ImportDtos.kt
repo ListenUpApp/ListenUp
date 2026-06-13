@@ -137,6 +137,12 @@ sealed interface ImportEvent {
     data class Matching(
         val done: Int,
         val total: Int,
+        /** Title of the ABS item currently being matched, sampled onto this tick. */
+        val currentItem: String? = null,
+        /** Running count of ABS users matched to ListenUp users so far. */
+        val usersMatched: Int = 0,
+        /** Running count of ABS items matched to ListenUp books so far. */
+        val booksMatched: Int = 0,
     ) : ImportEvent
 
     /** Analysis is complete; the preview summary is ready for admin review. */
@@ -152,6 +158,10 @@ sealed interface ImportEvent {
     data class Applying(
         val done: Int,
         val total: Int,
+        /** User/book whose sessions are currently being written, sampled onto this tick. */
+        val currentItem: String? = null,
+        /** Running count of listening sessions written to the DB so far. */
+        val sessionsWritten: Int = 0,
     ) : ImportEvent
 
     /** Apply completed successfully; all eligible progress records have been written. */

@@ -209,6 +209,16 @@ val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        // ImportFlowViewModel for the rebuilt single-screen ABS import flow
+        factory {
+            com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel(
+                importRepository = get(),
+                errorBus = get(),
+                syncRepository = get(),
+                adminRepository = get(),
+                searchRepository = get(),
+            )
+        }
     }
 
 /**

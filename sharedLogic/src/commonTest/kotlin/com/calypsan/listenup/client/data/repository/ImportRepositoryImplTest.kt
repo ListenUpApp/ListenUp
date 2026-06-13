@@ -12,12 +12,14 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
+import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -73,7 +75,12 @@ class ImportRepositoryImplTest :
             override suspend fun invalidate() = Unit
         }
 
-        fun buildRepo(service: ImportService): ImportRepositoryImpl = ImportRepositoryImpl(rpcFactory = FakeImportRpcFactory(service))
+        /** upload is not under test here — a relaxed ApiClientFactory mock stands in. */
+        fun buildRepo(service: ImportService): ImportRepositoryImpl =
+            ImportRepositoryImpl(
+                rpcFactory = FakeImportRpcFactory(service),
+                clientFactory = mock(MockMode.autofill),
+            )
 
         // ── analyze ───────────────────────────────────────────────────────────
 

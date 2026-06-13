@@ -106,9 +106,9 @@ val adminModule: Module =
             BackupRepositoryImpl(rpcFactory = get())
         }
 
-        // ImportRepository — admin Audiobookshelf import via ImportService RPC proxy.
+        // ImportRepository — admin Audiobookshelf import via ImportService RPC proxy + REST upload.
         single<ImportRepository> {
-            ImportRepositoryImpl(rpcFactory = get())
+            ImportRepositoryImpl(rpcFactory = get(), clientFactory = get())
         }
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)

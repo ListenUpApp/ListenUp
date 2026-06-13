@@ -12,7 +12,7 @@ import com.calypsan.listenup.server.sync.UserScopedSyncableTable
  * idempotent re-upsert from the pending-op queue).
  */
 internal object ListeningEventTable : UserScopedSyncableTable("listening_events") {
-    val id = varchar("id", 36)
+    val id = varchar("id", 64) // 64, not 36: ABS-imported events use an "abs:<uuid>" id (40 chars); see SessionConverter.
     val bookId = varchar("book_id", 36)
     val startPositionMs = long("start_position_ms")
     val endPositionMs = long("end_position_ms")

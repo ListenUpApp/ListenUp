@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.MetadataLookupService
-import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -18,10 +15,8 @@ import kotlinx.coroutines.test.runTest
  *  - A second call returns the same instance (cached, per [Mutex] contract)
  *  - 16 concurrent calls all resolve to the same instance (Mutex correctness)
  *
- * [KtorMetadataLookupRpcFactory] cannot be unit-tested with a live Ktor client because
- * [ApiClientFactory] is a final class (not mockable) and `rpc(url)` requires a running
- * WebSocket engine. The caching invariant is tested via a test-only anonymous subclass
- * that overrides [KtorMetadataLookupRpcFactory.connect] to return a stub service — the
+ * [KtorMetadataLookupRpcFactory] is tested via a test-only anonymous subclass that
+ * overrides [KtorMetadataLookupRpcFactory.connect] to return a stub service — the
  * minimum override needed to exercise the Mutex logic without network infrastructure.
  *
  * This is the canonical approach per the `test_at_invariant_layer` principle: the
@@ -43,14 +38,8 @@ class KtorMetadataLookupRpcFactoryTest :
          */
         fun factory(): KtorMetadataLookupRpcFactory {
             val stubService = mock<MetadataLookupService>()
-            val dummyApiClientFactory =
-                ApiClientFactory(
-                    serverConfig = mock<ServerConfig>(),
-                    authSession = mock<AuthSession>(),
-                    refreshAccessToken = { AppResult.Failure(InternalError()) },
-                )
             return object : KtorMetadataLookupRpcFactory(
-                apiClientFactory = dummyApiClientFactory,
+                apiClientFactory = mock<ApiClientFactory>(),
                 serverConfig = mock<ServerConfig>(),
             ) {
                 override suspend fun connect(): MetadataLookupService = stubService

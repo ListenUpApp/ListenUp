@@ -16,10 +16,15 @@ import io.kotest.matchers.shouldBe
  * rule fails. Documented limitation, acceptable trade-off vs the value of
  * pinning the convention.
  *
- * Legacy exclusions: the 28 ViewModels below were present before P3 and do not
- * yet use `WhileSubscribed`. They are tracked for future migration in
- * `docs/superpowers/followups.md` ("From Playback P3 — WhileSubscribed backlog").
- * Do NOT add P3-touched ViewModels to this list — fix the ViewModel instead.
+ * Exclusions fall into two kinds:
+ *  - Legacy backlog: ViewModels present before P3 that do not yet use `WhileSubscribed`,
+ *    tracked for future migration in `docs/superpowers/followups.md`
+ *    ("From Playback P3 — WhileSubscribed backlog"). Do NOT add P3-touched *reactive*
+ *    ViewModels here — fix the ViewModel instead.
+ *  - By-design: imperative command-pipeline ViewModels (the ABS, import, and backup admin flows)
+ *    whose state is driven by user actions + progress events, not projected from an upstream
+ *    flow. `stateIn(WhileSubscribed)` is the wrong tool there; a `MutableStateFlow` with
+ *    imperative transitions is correct, so they are excluded deliberately.
  */
 class ViewModelUsesStateInWhileSubscribedRule :
     FunSpec({
@@ -55,6 +60,11 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 "BookEditViewModel",
                 "ServerConnectViewModel",
                 "MetadataViewModel",
+                // By-design (not migration debt): imperative command-pipeline VM
+                // (upload → analyze → apply, driven by user actions + progress events), same
+                // shape as the ABS*/AdminBackup admin VMs above. No upstream flow to project, so
+                // stateIn(WhileSubscribed) doesn't apply — MutableStateFlow is the right pattern.
+                "ImportFlowViewModel",
             )
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {

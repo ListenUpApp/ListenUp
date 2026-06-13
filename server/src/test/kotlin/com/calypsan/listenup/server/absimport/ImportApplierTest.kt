@@ -217,6 +217,33 @@ class ImportApplierTest :
             }
         }
 
+        test("Applying events carry currentItem and a growing sessionsWritten tally") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    val events = mutableListOf<com.calypsan.listenup.api.dto.import.ImportEvent>()
+                    applier.apply(staged.importId) { events += it }
+
+                    val applyingEvents =
+                        events.filterIsInstance<com.calypsan.listenup.api.dto.import.ImportEvent.Applying>()
+                    // The fixture has 2 progress rows + 4 book sessions (podcast excluded) = 6 Applying events total.
+                    applyingEvents.size shouldBe 6
+
+                    // Every Applying event must carry a non-null currentItem.
+                    applyingEvents.forEach { it.currentItem.shouldNotBeNull() }
+
+                    // The final Applying event emitted during the sessions pass reflects the
+                    // cumulative sessionsWritten count (3 resolvable sessions in the fixture).
+                    val lastApplying = applyingEvents.last()
+                    lastApplying.sessionsWritten shouldBe 3
+                }
+            }
+        }
+
         test("apply without a confirmed mapping returns ApplyFailed") {
             withInMemoryDatabase {
                 val db = this
