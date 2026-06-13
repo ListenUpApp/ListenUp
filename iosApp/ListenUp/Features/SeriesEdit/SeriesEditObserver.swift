@@ -9,7 +9,9 @@ import SwiftUI
 final class SeriesEditObserver {
     private(set) var isLoading: Bool = true
     private(set) var name: String = ""
-    private(set) var description_: String = ""
+    /// The series description — stored as `seriesDescription` to avoid the NSObject
+    /// `description` property clash that SKIE bridges as `description_`.
+    private(set) var seriesDescription: String = ""
     private(set) var displayCoverPath: String?
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
@@ -30,9 +32,21 @@ final class SeriesEditObserver {
 
     func loadSeries(seriesId: String) { viewModel.loadSeries(seriesId: seriesId) }
 
-    func onNameChanged(_ value: String) { viewModel.onEvent(event: SeriesEditUiEventNameChanged(name: value)) }
-    func onDescriptionChanged(_ value: String) { viewModel.onEvent(event: SeriesEditUiEventDescriptionChanged(description: value)) }
-    func onCoverSelected(_ data: Data) { viewModel.onEvent(event: SeriesEditUiEventCoverSelected(imageData: data.toKotlinByteArray(), filename: "cover.jpg")) }
+    func onNameChanged(_ value: String) {
+        viewModel.onEvent(event: SeriesEditUiEventNameChanged(name: value))
+    }
+
+    func onDescriptionChanged(_ value: String) {
+        viewModel.onEvent(event: SeriesEditUiEventDescriptionChanged(description: value))
+    }
+
+    func onCoverSelected(_ data: Data) {
+        viewModel.onEvent(event: SeriesEditUiEventCoverSelected(
+            imageData: data.toKotlinByteArray(),
+            filename: "cover.jpg"
+        ))
+    }
+
     func onCoverRemoved() { viewModel.onEvent(event: SeriesEditUiEventCoverRemoved.shared) }
     func onSave() { viewModel.onEvent(event: SeriesEditUiEventSaveClicked.shared) }
     func onCancel() { viewModel.onEvent(event: SeriesEditUiEventCancelClicked.shared) }
@@ -41,7 +55,7 @@ final class SeriesEditObserver {
     private func apply(_ state: SeriesEditUiState) {
         isLoading = state.isLoading
         name = state.name
-        description_ = state.description_
+        seriesDescription = state.description_
         displayCoverPath = state.displayCoverPath
         hasChanges = state.hasChanges
         isSaving = state.isSaving

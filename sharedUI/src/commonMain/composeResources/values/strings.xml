@@ -492,6 +492,7 @@ One beautiful library.</string>
     <string name="discover_total_time">Total Time</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
     <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they\'ll appear here.</string>
+    <string name="edit_remove_image">Remove image</string>
     <string name="error_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="error_conflict">That resource is in use or already exists.</string>
     <string name="error_forbidden">You don\'t have permission to do that.</string>
@@ -806,7 +807,11 @@ One beautiful library.</string>
     <string name="series_complete">Complete</string>
     <string name="series_continue">Continue</string>
     <string name="series_continue_book">Continue Book %1$s</string>
+    <string name="series_edit_description">Description</string>
+    <string name="series_edit_description_placeholder">Add a description</string>
+    <string name="series_edit_name">Name</string>
     <string name="series_edit_series">Edit series</string>
+    <string name="series_edit_title">Edit Series</string>
     <string name="series_enter_a_description_for_this">Enter a description for this series...</string>
     <string name="series_eyebrow">SERIES</string>
     <string name="series_label">SERIES</string>

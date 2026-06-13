@@ -41,7 +41,10 @@ struct SeriesEditView: View {
 
                         EditField(
                             label: String(localized: "series.edit_description"),
-                            text: Binding(get: { observer.description_ }, set: { observer.onDescriptionChanged($0) }),
+                            text: Binding(
+                                get: { observer.seriesDescription },
+                                set: { observer.onDescriptionChanged($0) }
+                            ),
                             axis: .vertical,
                             placeholder: String(localized: "series.edit_description_placeholder")
                         )
