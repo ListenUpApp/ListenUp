@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CloudOff
@@ -31,6 +32,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,6 +63,7 @@ import listenup.composeapp.generated.resources.search_no_results_for_query
 import listenup.composeapp.generated.resources.search_people
 import listenup.composeapp.generated.resources.search_section_count
 import listenup.composeapp.generated.resources.search_try_a_different_search_term
+import listenup.composeapp.generated.resources.shell_close_search
 
 /**
  * Full-screen overlay for search results.
@@ -73,6 +76,7 @@ import listenup.composeapp.generated.resources.search_try_a_different_search_ter
 fun SearchResultsOverlay(
     state: SearchUiState,
     isExpanded: Boolean,
+    onClose: () -> Unit,
     onResultClick: (SearchHit) -> Unit,
     onTypeFilterToggle: (SearchHitType) -> Unit,
     modifier: Modifier = Modifier,
@@ -88,6 +92,10 @@ fun SearchResultsOverlay(
             color = MaterialTheme.colorScheme.background,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                // The overlay covers the shell header (and its back arrow), so it carries its own
+                // back affordance — the visible counterpart to the system-back handler in AppShell.
+                SearchOverlayTopBar(query = state.query, onClose = onClose)
+
                 TypeFilterRow(
                     selectedTypes = state.selectedTypes,
                     onToggle = onTypeFilterToggle,
@@ -151,6 +159,36 @@ private fun ResultsContent(
         onResultClick = onResultClick,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun SearchOverlayTopBar(
+    query: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 16.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClose) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(Res.string.shell_close_search),
+            )
+        }
+        Text(
+            text = query,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+    }
 }
 
 @Composable
