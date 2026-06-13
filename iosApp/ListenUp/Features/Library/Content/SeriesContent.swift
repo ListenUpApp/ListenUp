@@ -190,24 +190,10 @@ struct SeriesContent: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-
-            Image(systemName: "books.vertical")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-
-            Text(String(format: String(localized: "common.no_items_yet"), "series"))
-                .font(.title2.bold())
-
-            Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        ContentUnavailableView(
+            String(format: String(localized: "common.no_items_yet"), "series"),
+            systemImage: "books.vertical",
+            description: Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
+        )
     }
 }

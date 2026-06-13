@@ -59,25 +59,11 @@ struct SearchView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-
-            Text(String(localized: "search.search_your_library"))
-                .font(.title2.bold())
-
-            Text(String(localized: "search.find_description"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        ContentUnavailableView(
+            String(localized: "search.search_your_library"),
+            systemImage: "magnifyingglass",
+            description: Text(String(localized: "search.find_description"))
+        )
     }
 
     // MARK: - Search Results (Placeholder)

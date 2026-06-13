@@ -34,16 +34,12 @@ struct BookActionPills: View {
     // MARK: - Add to Shelf
 
     private var addToShelfPill: some View {
-        Button(action: onAddToShelf) {
-            pillLabel(
-                systemImage: "bookmark",
-                title: String(localized: "book.detail_add_to_shelf"),
-                iconColor: tint,
-                titleColor: .primary
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(String(localized: "book.detail_add_to_shelf")))
+        IconLabelButton(
+            icon: "bookmark",
+            title: String(localized: "book.detail_add_to_shelf"),
+            tint: tint,
+            action: onAddToShelf
+        )
     }
 
     // MARK: - Mark as Finished
@@ -58,18 +54,11 @@ struct BookActionPills: View {
     }
 
     private var markFinishedButton: some View {
-        Button { showFinishConfirmation = true } label: {
-            pillLabel(
-                systemImage: "checkmark",
-                title: String(localized: "book.detail_mark_as_finished"),
-                iconColor: tint,
-                titleColor: .primary
-            )
+        IconLabelButton(icon: "checkmark", title: String(localized: "book.detail_mark_as_finished"), tint: tint) {
+            showFinishConfirmation = true
         }
-        .buttonStyle(.plain)
         .disabled(isMarkingComplete)
         .opacity(isMarkingComplete ? 0.5 : 1)
-        .accessibilityLabel(Text(String(localized: "book.detail_mark_as_finished")))
         .confirmationDialog(
             String(localized: "book.detail_mark_as_finished_prompt"),
             isPresented: $showFinishConfirmation,

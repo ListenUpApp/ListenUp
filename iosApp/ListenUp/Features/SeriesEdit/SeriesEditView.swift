@@ -61,7 +61,7 @@ struct SeriesEditView: View {
                 }
                 .onChange(of: observer.didFinish) { _, finished in if finished { dismiss() } }
             } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingStateView()
             }
         }
         .task(id: seriesId) {

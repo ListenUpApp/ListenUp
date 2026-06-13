@@ -127,22 +127,14 @@ struct ContributorsContent: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: segment == .authors ? "person.fill" : "waveform.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-            Text(String(localized: "library.contributors_empty"))
-                .font(.title2.bold())
-            Text(String(format: String(localized: "library.empty_tab_description"),
-                        String(localized: segment == .authors ? "library.authors" : "library.narrators")))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ContentUnavailableView(
+            String(localized: "library.contributors_empty"),
+            systemImage: segment == .authors ? "person.fill" : "waveform.circle.fill",
+            description: Text(String(
+                format: String(localized: "library.empty_tab_description"),
+                String(localized: segment == .authors ? "library.authors" : "library.narrators")
+            ))
+        )
     }
 }
 

@@ -80,13 +80,8 @@ struct HomeView: View {
     }
 
     private var loadingContent: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .controlSize(.large)
-                .tint(Color.listenUpOrange)
-        }
-        .frame(maxWidth: .infinity, minHeight: 320)
-        .accessibilityLabel(String(localized: "common.loading"))
+        LoadingStateView()
+            .frame(minHeight: 320)
     }
 
     @ViewBuilder
@@ -114,9 +109,12 @@ struct HomeView: View {
         } description: {
             Text(message)
         } actions: {
-            Button(String(localized: "common.try_again")) { home.refresh() }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.listenUpOrange)
+            PrimaryButton(
+                title: String(localized: "common.try_again"),
+                icon: "arrow.clockwise",
+                action: { home.refresh() }
+            )
+            .frame(maxWidth: 240)
         }
         .frame(maxWidth: .infinity, minHeight: 320)
     }

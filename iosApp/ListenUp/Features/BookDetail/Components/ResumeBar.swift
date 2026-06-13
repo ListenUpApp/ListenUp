@@ -54,21 +54,8 @@ struct ResumeBar: View {
     // MARK: - Resume button
 
     private var resumeButton: some View {
-        Button(action: onResume) {
-            HStack(spacing: 9) {
-                Image(systemName: "play.fill")
-                    .font(.body.weight(.semibold))
-                Text(resumeTitle)
-                    .font(.headline)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: controlHeight)
-            .foregroundStyle(.white)
-            .background(tint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: tint.opacity(0.4), radius: 12, x: 0, y: 6)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(resumeAccessibilityLabel)
+        PrimaryButton(title: resumeTitle, icon: "play.fill", tint: tint, action: onResume)
+            .accessibilityLabel(resumeAccessibilityLabel)
     }
 
     private var resumeTitle: String {

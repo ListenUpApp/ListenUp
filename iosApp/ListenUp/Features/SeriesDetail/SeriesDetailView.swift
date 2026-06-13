@@ -172,20 +172,8 @@ struct SeriesDetailView: View {
     // MARK: - Continue CTA
 
     private func continueButton(observer: SeriesDetailObserver) -> some View {
-        Button(action: { observer.continueSeries() }) {
-            HStack(spacing: 9) {
-                Image(systemName: "play.fill")
-                Text(observer.continueButtonTitle).fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity, minHeight: 52)
-            .foregroundStyle(Color.luOnTint)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.luTint)
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(observer.books.isEmpty)
-        .accessibilityLabel(observer.continueButtonTitle)
+        PrimaryButton(title: observer.continueButtonTitle, icon: "play.fill", action: { observer.continueSeries() })
+            .disabled(observer.books.isEmpty)
     }
 
     // MARK: - Books section
@@ -241,29 +229,17 @@ struct SeriesDetailView: View {
     // MARK: - Error
 
     private func errorView(message: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(Color.luLabel2)
+        ContentUnavailableView {
+            Label(String(localized: "common.error"), systemImage: "exclamationmark.triangle")
+        } description: {
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(Color.luLabel2)
-                .multilineTextAlignment(.center)
         }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Loading
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text(String(localized: "common.loading"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        LoadingStateView()
     }
 }
 

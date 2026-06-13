@@ -264,13 +264,7 @@ struct ContributorDetailView: View {
     // MARK: - Loading
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text(String(localized: "common.loading"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        LoadingStateView()
     }
 }
 
