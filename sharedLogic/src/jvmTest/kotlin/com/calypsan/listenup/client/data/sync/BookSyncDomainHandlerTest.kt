@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -19,7 +21,15 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -136,7 +146,7 @@ class BookSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), registry)
+                val handler = BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
                 handler.domainName shouldBe "books"
                 registry.lookup("books") shouldBe handler
             } finally {
@@ -159,6 +169,7 @@ class BookSyncDomainHandlerTest :
                             db,
                             BookEntityMapper(),
                             throwingRunner,
+                            stubImageStorage(),
                             ClientSyncDomainRegistry(),
                         )
 
@@ -185,6 +196,7 @@ class BookSyncDomainHandlerTest :
                             db,
                             BookEntityMapper(),
                             cancellingRunner,
+                            stubImageStorage(),
                             ClientSyncDomainRegistry(),
                         )
 
@@ -196,6 +208,62 @@ class BookSyncDomainHandlerTest :
                     }
 
                     threw.shouldBeInstanceOf<CancellationException>()
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        // The cover-staleness fix: a re-covered book gets a new content hash on the wire. The local
+        // cover file is id-named and never otherwise re-downloaded, so it must be dropped here, or the
+        // UI keeps rendering the old image even across a restart.
+        test("a changed cover hash drops the stale local cover file") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                        isOwnEcho = false,
+                    )
+                    handler.onEvent(
+                        updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                        isOwnEcho = false,
+                    )
+
+                    verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteCover(BookId("b1")) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("an unchanged cover hash leaves the local cover in place") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                        isOwnEcho = false,
+                    )
+                    // Same cover hash, different title — a real update that must NOT touch the cover file.
+                    handler.onEvent(
+                        updatedEvent(
+                            bookPayload(id = "b1").copy(title = "Renamed", cover = CoverPayload(CoverSource.ENRICHED, "h1")),
+                        ),
+                        isOwnEcho = false,
+                    )
+
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteCover(any()) }
                 } finally {
                     db.close()
                 }
@@ -217,6 +285,7 @@ private fun withTestHandler(block: suspend (BookSyncDomainHandler, ListenUpDatab
                     db,
                     BookEntityMapper(),
                     RoomTransactionRunner(db),
+                    stubImageStorage(),
                     ClientSyncDomainRegistry(),
                 )
             block(handler, db)

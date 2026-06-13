@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.TagRepository
+import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -166,7 +167,7 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
 
     val transactionRunner = RoomTransactionRunner(database)
     val syncHandler =
-        BookSyncDomainHandler(database, BookEntityMapper(), transactionRunner, ClientSyncDomainRegistry())
+        BookSyncDomainHandler(database, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
 
     return BookRepositoryImpl(
         bookDao = database.bookDao(),

@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.error.ErrorBus
@@ -65,6 +66,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         Function2::class,
                         Function3::class,
                         Boolean::class,
+                        ImageStorage::class,
                     ),
             )
         }

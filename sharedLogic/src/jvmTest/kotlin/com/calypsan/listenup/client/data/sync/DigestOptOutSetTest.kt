@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomai
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -50,6 +51,7 @@ class DigestOptOutSetTest :
                         database = clientDb,
                         mapper = BookEntityMapper(),
                         transactionRunner = txRunner,
+                        imageStorage = stubImageStorage(),
                         registry = registry,
                     )
                     ContributorSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)

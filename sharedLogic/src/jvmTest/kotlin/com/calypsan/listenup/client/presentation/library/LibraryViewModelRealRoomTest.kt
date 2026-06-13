@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -167,7 +168,7 @@ private suspend fun seedBook(
     db: ListenUpDatabase,
     id: String,
 ) {
-    val handler = BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), ClientSyncDomainRegistry())
+    val handler = BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry())
     handler.onCatchUpItem(
         BookSyncPayload(
             id = id,
@@ -224,7 +225,7 @@ private fun bookRepositoryWith(
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
-            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, ClientSyncDomainRegistry()),
+            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry()),
     )
 }
 
@@ -254,7 +255,7 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
-            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, ClientSyncDomainRegistry()),
+            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry()),
     )
 }
 
