@@ -29,18 +29,24 @@ struct AppTextField: View {
     var keyboardType: UIKeyboardType = .default
     var textContentType: UITextContentType?
     var autocapitalization: TextInputAutocapitalization = .never
-    var submitLabel: SubmitLabel = .return
+    var submitLabel: SubmitLabel?
     var onSubmit: () -> Void = {}
 
     @State private var isSecure = true
     @Environment(\.displayScale) private var displayScale
     private var hairline: CGFloat { 1 / max(displayScale, 1) }
 
+    /// Search fields default the return key to `.search`; otherwise an explicit value wins,
+    /// falling back to `.return`.
+    private var effectiveSubmitLabel: SubmitLabel {
+        Self.defaultsToSearchSubmitLabel(explicit: submitLabel, kind: kind) ? .search : (submitLabel ?? .return)
+    }
+
     // MARK: - Pure layout helpers (unit-tested)
 
     /// The leading SF Symbol to render: an explicit `icon` always wins; otherwise the
     /// `Kind` supplies a sensible default (lock for secure, magnifyingglass for search).
-    static func leadingIcon(explicit: String?, kind: Kind) -> String? {
+    nonisolated static func leadingIcon(explicit: String?, kind: Kind) -> String? {
         if let explicit { return explicit }
         switch kind {
         case .secure: return "lock"
@@ -50,13 +56,20 @@ struct AppTextField: View {
     }
 
     /// The trailing clear button appears only for a search field with text to clear.
-    static func showsClearButton(kind: Kind, text: String) -> Bool {
+    nonisolated static func showsClearButton(kind: Kind, text: String) -> Bool {
         kind == .search && !text.isEmpty
     }
 
     /// A stable a11y/UI-test identifier derived from the placeholder.
-    static func accessibilityIdentifier(placeholder: String) -> String {
+    nonisolated static func accessibilityIdentifier(placeholder: String) -> String {
         "\(placeholder.lowercased().replacingOccurrences(of: " ", with: "_"))_field"
+    }
+
+    /// Whether the keyboard return key should default to the `.search` label: true only
+    /// for a search field with no explicit `submitLabel`. (`SubmitLabel` isn't `Equatable`,
+    /// so the decision is exposed as a predicate the view and tests share.)
+    nonisolated static func defaultsToSearchSubmitLabel(explicit: SubmitLabel?, kind: Kind) -> Bool {
+        explicit == nil && kind == .search
     }
 
     // MARK: - Body
@@ -103,9 +116,8 @@ struct AppTextField: View {
         }
     }
 
-    @ViewBuilder
     private var control: some View {
-        let configured = AnyView(rawControl
+        rawControl
             .font(.body)
             .foregroundStyle(.primary)
             .lineLimit(axis == .vertical ? 3 ... 8 : 1 ... 1)
@@ -113,10 +125,8 @@ struct AppTextField: View {
             .textContentType(textContentType)
             .textInputAutocapitalization(autocapitalization)
             .autocorrectionDisabled()
-            .submitLabel(submitLabel)
-            .onSubmit(onSubmit))
-
-        configured
+            .submitLabel(effectiveSubmitLabel)
+            .onSubmit(onSubmit)
             .accessibilityLabel(placeholder)
             .accessibilityIdentifier(Self.accessibilityIdentifier(placeholder: placeholder))
     }
@@ -177,6 +187,7 @@ struct AppTextField: View {
         .padding(.bottom, 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Error: \(message)")
+        .accessibilityAddTraits(.isStaticText)
     }
 }
 

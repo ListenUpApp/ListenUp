@@ -21,4 +21,10 @@ struct AppTextFieldTests {
         #expect(AppTextField.accessibilityIdentifier(placeholder: "Email Address") == "email_address_field")
         #expect(AppTextField.accessibilityIdentifier(placeholder: "Password") == "password_field")
     }
+    @Test func submitLabelDefaultsToSearchForSearchKind() {
+        #expect(AppTextField.defaultsToSearchSubmitLabel(explicit: nil, kind: .search) == true)
+        #expect(AppTextField.defaultsToSearchSubmitLabel(explicit: nil, kind: .text) == false)
+        #expect(AppTextField.defaultsToSearchSubmitLabel(explicit: nil, kind: .secure) == false)
+        #expect(AppTextField.defaultsToSearchSubmitLabel(explicit: .done, kind: .search) == false)
+    }
 }
