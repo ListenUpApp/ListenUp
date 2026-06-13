@@ -1,0 +1,20 @@
+package com.calypsan.listenup.client.util
+
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.usePinned
+import platform.Foundation.NSData
+import platform.posix.memcpy
+
+/** Copies an `NSData` into a Kotlin `ByteArray` in one bulk `memcpy` (no per-byte bridge). */
+@OptIn(ExperimentalForeignApi::class)
+fun byteArrayFromNSData(data: NSData): ByteArray {
+    val length = data.length.toInt()
+    if (length == 0) return ByteArray(0)
+    val bytes = ByteArray(length)
+    bytes.usePinned { pinned ->
+        memcpy(pinned.addressOf(0), data.bytes, data.length.convert())
+    }
+    return bytes
+}
