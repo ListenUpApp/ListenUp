@@ -123,6 +123,9 @@ private extension View {
             .navigationDestination(for: ContributorDestination.self) { destination in
                 ContributorDetailView(contributorId: destination.id)
             }
+            .navigationDestination(for: TagDestination.self) { destination in
+                TagDetailView(tagId: destination.id)
+            }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }

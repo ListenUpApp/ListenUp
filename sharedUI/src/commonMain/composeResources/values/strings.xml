@@ -974,4 +974,8 @@ One beautiful library.</string>
     <string name="shell_your_library_is_up_to">Your library is up to date</string>
     <string name="startup_setup_check_failed_message">We couldn\'t reach your server to check your library setup. Check your connection and try again.</string>
     <string name="startup_setup_check_failed_title">Couldn\'t check library setup</string>
+    <string name="tag_book_count">%1$d book</string>
+    <string name="tag_books_count">%1$d books</string>
+    <string name="tag_no_books">No books with this tag.</string>
+    <string name="tag_unavailable_title">Tag unavailable</string>
 </resources>

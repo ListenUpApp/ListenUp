@@ -19,6 +19,11 @@ struct ContributorDestination: Hashable {
     let id: String
 }
 
+/// Tag detail screen — the books carrying a given tag.
+struct TagDestination: Hashable {
+    let id: String
+}
+
 /// The current user's profile.
 struct UserProfileDestination: Hashable {}
 

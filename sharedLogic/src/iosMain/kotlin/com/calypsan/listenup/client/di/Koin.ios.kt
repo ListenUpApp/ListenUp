@@ -153,6 +153,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getTagDetailViewModel(): com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel by inject()
+        return viewModel
+    }
+
     fun getSeriesEditViewModel(): com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel by inject()
         return viewModel
