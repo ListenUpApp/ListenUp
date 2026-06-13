@@ -170,11 +170,10 @@ struct ChooseFoldersView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             AuthFieldGroup {
-                AuthFieldRow(
-                    icon: "books.vertical",
+                AppTextField(
                     placeholder: String(localized: "library_setup.library_name_placeholder"),
                     text: $viewModel.libraryName,
-                    isLast: true,
+                    icon: "books.vertical",
                     autocapitalization: .words
                 )
             }

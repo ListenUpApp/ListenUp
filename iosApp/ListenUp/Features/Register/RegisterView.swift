@@ -76,30 +76,32 @@ struct RegisterView: View {
 
     private var nameFields: some View {
         AuthFieldGroup {
-            AuthFieldRow(icon: "person", placeholder: String(localized: "auth.first_name"),
-                         text: $firstName, textContentType: .givenName, autocapitalization: .words)
-            AuthFieldRow(placeholder: String(localized: "auth.last_name"),
-                         text: $lastName, isLast: true, textContentType: .familyName,
+            AppTextField(placeholder: String(localized: "auth.first_name"),
+                         text: $firstName, icon: "person", isLast: false,
+                         textContentType: .givenName, autocapitalization: .words)
+            AppTextField(placeholder: String(localized: "auth.last_name"),
+                         text: $lastName, textContentType: .familyName,
                          autocapitalization: .words)
         }
     }
 
     private var emailField: some View {
         AuthFieldGroup {
-            AuthFieldRow(icon: "envelope", placeholder: String(localized: "common.email"),
-                         text: $email, isLast: true, keyboardType: .emailAddress,
+            AppTextField(placeholder: String(localized: "common.email"),
+                         text: $email, icon: "envelope", keyboardType: .emailAddress,
                          textContentType: .emailAddress)
         }
     }
 
     private var passwordFields: some View {
         AuthFieldGroup {
-            AuthSecureFieldRow(placeholder: String(localized: "auth.password_label"),
-                               text: $password, textContentType: .newPassword)
-            AuthSecureFieldRow(placeholder: String(localized: "auth.confirm_password"),
-                               text: $confirmPassword,
-                               error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil,
-                               isLast: true, textContentType: .newPassword)
+            AppTextField(placeholder: String(localized: "auth.password_label"),
+                         text: $password, kind: .secure, isLast: false,
+                         textContentType: .newPassword)
+            AppTextField(placeholder: String(localized: "auth.confirm_password"),
+                         text: $confirmPassword, kind: .secure,
+                         error: passwordMismatch ? String(localized: "auth.passwords_dont_match") : nil,
+                         textContentType: .newPassword)
         }
         .onChange(of: confirmPassword) { _, new in
             passwordMismatch = !new.isEmpty && new != password
