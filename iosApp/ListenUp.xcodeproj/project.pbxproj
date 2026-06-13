@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18665732FDF66A450597598C /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = 3055848B06D3ADDFD57B313F /* Nuke */; };
+		3CC921F8A5BA6208AC236A64 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = A6A0CF445C4387329B59B8EA /* NukeUI */; };
 		F42CD9A62FBF6648008B9D90 /* ListenUpActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = F42CD9A52FBF6648008B9D90 /* ListenUpActivityKit */; };
 		F42CD9A82FBF664E008B9D90 /* ListenUpActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = F42CD9A72FBF664E008B9D90 /* ListenUpActivityKit */; };
 		F4A6DB422F3EC7F200F9C38D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F4A6DB412F3EC7F200F9C38D /* WidgetKit.framework */; };
@@ -113,6 +115,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F42CD9A62FBF6648008B9D90 /* ListenUpActivityKit in Frameworks */,
+				18665732FDF66A450597598C /* Nuke in Frameworks */,
+				3CC921F8A5BA6208AC236A64 /* NukeUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,6 +213,8 @@
 			name = ListenUp;
 			packageProductDependencies = (
 				F42CD9A52FBF6648008B9D90 /* ListenUpActivityKit */,
+				3055848B06D3ADDFD57B313F /* Nuke */,
+				A6A0CF445C4387329B59B8EA /* NukeUI */,
 			);
 			productName = ListenUp;
 			productReference = E757F5D28662E4BCC0992649 /* listenup.app */;
@@ -270,6 +276,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F42CD9A42FBF6648008B9D90 /* XCLocalSwiftPackageReference "ListenUpActivityKit" */,
+				EF6DB00BE5D7C371DEADA76A /* XCRemoteSwiftPackageReference "Nuke" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EEAD733FF191DDE1E49EE100 /* Products */;
@@ -730,7 +737,28 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		EF6DB00BE5D7C371DEADA76A /* XCRemoteSwiftPackageReference "Nuke" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Nuke";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		3055848B06D3ADDFD57B313F /* Nuke */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EF6DB00BE5D7C371DEADA76A /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = Nuke;
+		};
+		A6A0CF445C4387329B59B8EA /* NukeUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EF6DB00BE5D7C371DEADA76A /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = NukeUI;
+		};
 		F42CD9A52FBF6648008B9D90 /* ListenUpActivityKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ListenUpActivityKit;

@@ -25,7 +25,7 @@ struct ContinueRow: View {
 
     private var content: some View {
         HStack(spacing: 12) {
-            BookCoverImage(coverPath: item.coverPath, blurHash: item.blurHash)
+            BookCoverImage(bookId: item.id, coverPath: item.coverPath, blurHash: item.blurHash)
                 .frame(width: coverSize, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)

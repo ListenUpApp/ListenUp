@@ -1,122 +1,103 @@
+import NukeUI
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
-/// In-memory image cache shared across all BookCoverImage instances.
-/// Uses NSCache for automatic memory pressure eviction.
-private final class CoverImageCache {
-    nonisolated(unsafe) static let shared = CoverImageCache()
-    private let cache = NSCache<NSString, UIImage>()
-
-    init() {
-        cache.countLimit = 200
-    }
-
-    func image(forKey key: String) -> UIImage? {
-        cache.object(forKey: key as NSString)
-    }
-
-    func setImage(_ image: UIImage, forKey key: String) {
-        cache.setObject(image, forKey: key as NSString)
-    }
-}
-
-/// Reusable book cover image component with async loading and BlurHash placeholders.
+/// Reusable book cover image component with authenticated loading and BlurHash placeholders.
 ///
 /// Display priority:
-/// 1. Cached in-memory image (instant)
-/// 2. BlurHash placeholder while loading from disk
-/// 3. Gradient placeholder with book icon (no blurHash available)
+/// 1. Downloaded local cover file (`coverPath`), when present — the offline fast path.
+/// 2. The authenticated server URL `{activeUrl}/api/v1/covers/{bookId}`, when a `bookId` is known.
+/// 3. A BlurHash placeholder, or a gradient placeholder with a book icon, while loading or
+///    when no source resolves.
 ///
-/// Images are loaded off the main thread and cached in memory via NSCache
-/// (auto-evicts under memory pressure).
+/// Loading, downsampling, and memory + disk caching are owned by Nuke (`LazyImage`). The
+/// request is built off the main work by `CoverImageRequest`, which keys the cache on the
+/// cover URL so covers survive token refresh.
 ///
 /// Usage:
 /// ```swift
-/// BookCoverImage(coverPath: book.coverPath, blurHash: book.coverBlurHash)
+/// BookCoverImage(book: book)
 ///     .frame(width: 100, height: 100)
 ///     .clipShape(RoundedRectangle(cornerRadius: 8))
 /// ```
 struct BookCoverImage: View {
+    let bookId: String?
     let coverPath: String?
     let blurHash: String?
 
     @Environment(\.displayScale) private var displayScale
-    @State private var loadedImage: UIImage?
-    @State private var loadTask: Task<Void, Never>?
-    @State private var targetMaxPixels: Int = 0
+    @State private var request: ImageRequest?
+    @State private var targetMaxPixels: CGFloat = 0
 
     /// Convenience initializer from a BookListItem
     init(book: BookListItem) {
+        self.bookId = book.idString
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
     }
 
     /// Convenience initializer from a BookDetail
     init(book: BookDetail) {
+        self.bookId = book.idString
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
     }
 
-    /// Direct initializer for custom sources
+    /// Direct initializer with a book id, so the authenticated server URL can resolve.
+    init(bookId: String?, coverPath: String?, blurHash: String? = nil) {
+        self.bookId = bookId
+        self.coverPath = coverPath
+        self.blurHash = blurHash
+    }
+
+    /// Local-only initializer (no `bookId`): renders the downloaded file or a placeholder.
     init(coverPath: String?, blurHash: String? = nil) {
+        self.bookId = nil
         self.coverPath = coverPath
         self.blurHash = blurHash
     }
 
     var body: some View {
-        ZStack {
-            // Layer 1: Placeholder (always behind)
-            if blurHash != nil {
-                BlurHashView(blurHash: blurHash)
-            } else {
-                gradientPlaceholder
-            }
+        LazyImage(request: request) { state in
+            ZStack {
+                // Layer 1: Placeholder (always behind)
+                if blurHash != nil {
+                    BlurHashView(blurHash: blurHash)
+                } else {
+                    gradientPlaceholder
+                }
 
-            // Layer 2: Loaded image (fades in on top)
-            if let loadedImage {
-                Image(uiImage: loadedImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .transition(.opacity)
+                // Layer 2: Loaded image (fades in on top)
+                if let image = state.image {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeIn(duration: 0.2), value: state.image != nil)
         }
-        .animation(.easeIn(duration: 0.2), value: loadedImage != nil)
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
-            let px = Int((max(size.width, size.height) * displayScale).rounded())
+            let px = (max(size.width, size.height) * displayScale).rounded()
             if px > 0, px != targetMaxPixels {
                 targetMaxPixels = px
-                loadImage()
             }
         }
-        .onDisappear { loadTask?.cancel() }
-        .onChange(of: coverPath) {
-            loadedImage = nil
-            loadImage()
+        .task(id: TaskKey(bookId: bookId, coverPath: coverPath, targetPixels: targetMaxPixels)) {
+            guard targetMaxPixels > 0 else { return }
+            request = await CoverImageRequest.book(
+                bookId: bookId,
+                coverPath: coverPath,
+                targetPixels: targetMaxPixels
+            )
         }
     }
 
-    private func loadImage() {
-        guard let path = coverPath, targetMaxPixels > 0 else { return }
-
-        let cacheKey = "\(path)@\(targetMaxPixels)"
-        // Check cache first (instant, no async needed)
-        if let cached = CoverImageCache.shared.image(forKey: cacheKey) {
-            loadedImage = cached
-            return
-        }
-
-        // Decode downsampled (to the displayed pixel size) on a background thread.
-        loadTask?.cancel()
-        let maxPixels = targetMaxPixels
-        loadTask = Task.detached(priority: .utility) {
-            guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxPixels) else { return }
-            CoverImageCache.shared.setImage(image, forKey: cacheKey)
-            await MainActor.run {
-                guard !Task.isCancelled else { return }
-                loadedImage = image
-            }
-        }
+    /// Identity for the request-building task: any change re-resolves the cover source.
+    private struct TaskKey: Equatable {
+        let bookId: String?
+        let coverPath: String?
+        let targetPixels: CGFloat
     }
 
     private var gradientPlaceholder: some View {
