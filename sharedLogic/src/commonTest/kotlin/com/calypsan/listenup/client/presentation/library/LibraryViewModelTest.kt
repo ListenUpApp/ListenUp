@@ -994,4 +994,61 @@ class LibraryViewModelTest :
                 loaded.bookIsFinished.size shouldBe 0
             }
         }
+
+        // ========== SeriesProgress Tests ==========
+
+        test("seriesProgress aggregates finished books per series") {
+            runTest {
+                // Given - 3-book series with 1 finished book
+                val books =
+                    listOf(
+                        createTestBook(id = "b1", seriesId = "s1", seriesName = "Test Series", seriesSequence = "1"),
+                        createTestBook(id = "b2", seriesId = "s1", seriesName = "Test Series", seriesSequence = "2"),
+                        createTestBook(id = "b3", seriesId = "s1", seriesName = "Test Series", seriesSequence = "3"),
+                    )
+                val seriesList =
+                    listOf(
+                        SeriesWithBooks(
+                            series = createTestSeries(id = "s1"),
+                            books = books,
+                            bookSequences = mapOf("b1" to "1", "b2" to "2", "b3" to "3"),
+                        ),
+                    )
+                val positions =
+                    mapOf(
+                        BookId("b1") to
+                            PlaybackPosition(
+                                bookId = "b1",
+                                positionMs = 0L,
+                                playbackSpeed = 1.0f,
+                                hasCustomSpeed = false,
+                                updatedAtMs = 0L,
+                                syncedAtMs = null,
+                                lastPlayedAtMs = null,
+                                isFinished = true,
+                            ),
+                    )
+                val fixture = createFixture()
+                // hideSingleBookSeries is true by default; override to false or use 3-book series
+                // The 3-book series is already > 1, so it passes the filter.
+                every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(seriesList)
+                every { fixture.playbackPositionRepository.observeAll() } returns flowOf(positions)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                // Then
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                val progress =
+                    loaded.seriesProgress[
+                        com.calypsan.listenup.core
+                            .SeriesId("s1"),
+                    ]
+                        ?: error("Expected seriesProgress entry for s1")
+                progress.finishedCount shouldBe 1
+                progress.totalCount shouldBe 3
+                progress.isComplete shouldBe false
+                progress.isNotStarted shouldBe false
+            }
+        }
     })

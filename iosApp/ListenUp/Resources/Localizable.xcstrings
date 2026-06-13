@@ -2781,12 +2781,32 @@
         }
       }
     },
+    "common.book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "book"
+          }
+        }
+      }
+    },
     "common.book_count": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "common.books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "books"
           }
         }
       }
@@ -4521,6 +4541,26 @@
         }
       }
     },
+    "contributor.role_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author"
+          }
+        }
+      }
+    },
+    "contributor.role_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrator"
+          }
+        }
+      }
+    },
     "contributor.select_birth_date": {
       "localizations": {
         "en": {
@@ -4537,6 +4577,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select death date"
+          }
+        }
+      }
+    },
+    "contributor.series_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series"
+          }
+        }
+      }
+    },
+    "contributor.stat_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "contributor.stat_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hours"
           }
         }
       }
@@ -4567,6 +4637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unmerge"
+          }
+        }
+      }
+    },
+    "contributor.view_details_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double tap to view details"
           }
         }
       }
@@ -6151,6 +6231,16 @@
         }
       }
     },
+    "library.author_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d authors"
+          }
+        }
+      }
+    },
     "library.authors": {
       "localizations": {
         "en": {
@@ -6197,6 +6287,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collection"
+          }
+        }
+      }
+    },
+    "library.contributors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contributors"
+          }
+        }
+      }
+    },
+    "library.contributors_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No contributors yet"
           }
         }
       }
@@ -6321,12 +6431,32 @@
         }
       }
     },
+    "library.narrator_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d narrators"
+          }
+        }
+      }
+    },
     "library.narrators": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Narrators"
+          }
+        }
+      }
+    },
+    "library.series_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d series"
           }
         }
       }
@@ -7831,6 +7961,26 @@
         }
       }
     },
+    "series.book_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "series.book_number": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@"
+          }
+        }
+      }
+    },
     "series.book_position": {
       "localizations": {
         "en": {
@@ -7851,12 +8001,42 @@
         }
       }
     },
+    "series.books_header": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books in Series"
+          }
+        }
+      }
+    },
     "series.books_in_series": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books in Series"
+          }
+        }
+      }
+    },
+    "series.complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete"
+          }
+        }
+      }
+    },
+    "series.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
           }
         }
       }
@@ -7891,12 +8071,32 @@
         }
       }
     },
+    "series.eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SERIES"
+          }
+        }
+      }
+    },
     "series.label": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "SERIES"
+          }
+        }
+      }
+    },
+    "series.listen_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen Again"
           }
         }
       }
@@ -7951,12 +8151,32 @@
         }
       }
     },
+    "series.narrated_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated by %1$@"
+          }
+        }
+      }
+    },
     "series.no_cover": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No Cover"
+          }
+        }
+      }
+    },
+    "series.not_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Started"
           }
         }
       }
@@ -7997,6 +8217,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start Book %1$@"
+          }
+        }
+      }
+    },
+    "series.start_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Listening"
+          }
+        }
+      }
+    },
+    "series.stat_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "series.stat_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "series.stat_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        }
+      }
+    },
+    "series.x_of_y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d of %d"
           }
         }
       }

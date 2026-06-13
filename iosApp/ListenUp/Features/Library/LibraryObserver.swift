@@ -12,6 +12,7 @@ final class LibraryObserver {
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var booksSortState: SortState?
     private(set) var series: [SeriesWithBooks_] = []
+    private(set) var seriesProgress: [String: SeriesProgressState] = [:]
     private(set) var seriesSortState: SortState?
     private(set) var authors: [ContributorWithBookCount_] = []
     private(set) var authorsSortState: SortState?
@@ -90,6 +91,7 @@ final class LibraryObserver {
             bookProgress = mapProgress(l.bookProgress)
             booksSortState = l.booksSortState
             series = Array(l.series)
+            seriesProgress = mapSeriesProgress(l.seriesProgress)
             seriesSortState = l.seriesSortState
             authors = Array(l.authors)
             authorsSortState = l.authorsSortState
@@ -110,6 +112,19 @@ final class LibraryObserver {
         var result: [String: Float] = [:]
         for (key, value) in raw {
             result[String(describing: key.base)] = value.floatValue
+        }
+        return result
+    }
+
+    /// Bridge `Map<SeriesId, SeriesProgress>` → `[String: SeriesProgressState]`.
+    /// The `SeriesId` value-class key bridges as `AnyHashable`, matching `mapProgress`.
+    private func mapSeriesProgress(_ raw: [AnyHashable: SeriesProgress]) -> [String: SeriesProgressState] {
+        var result: [String: SeriesProgressState] = [:]
+        for (key, value) in raw {
+            result[String(describing: key.base)] = SeriesProgressState(
+                finishedCount: Int(value.finishedCount),
+                totalCount: Int(value.totalCount)
+            )
         }
         return result
     }

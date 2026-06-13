@@ -4,13 +4,25 @@ import SwiftUI
 /// lists, contributor person rows). Renders each item via `row`, draws a hairline
 /// `luSeparator` between non-last rows (inset `separatorInset` from the leading edge),
 /// and wraps the stack in a rounded `luSurface2` card.
-struct FieldGroup<Item: Identifiable, Row: View>: View {
+///
+/// The primary initializer takes an explicit `id` KeyPath (mirroring SwiftUI's
+/// `ForEach(_:id:)`), so it works with the SKIE-exported Kotlin domain types that
+/// cannot conform to `Identifiable`. A convenience initializer defaults `id` to
+/// `\.id` for native `Identifiable` items.
+struct FieldGroup<Item, ID: Hashable, Row: View>: View {
     let items: [Item]
+    let id: KeyPath<Item, ID>
     var separatorInset: CGFloat = 0
     @ViewBuilder var row: (Item) -> Row
 
-    init(_ items: [Item], separatorInset: CGFloat = 0, @ViewBuilder row: @escaping (Item) -> Row) {
+    init(
+        _ items: [Item],
+        id: KeyPath<Item, ID>,
+        separatorInset: CGFloat = 0,
+        @ViewBuilder row: @escaping (Item) -> Row
+    ) {
         self.items = items
+        self.id = id
         self.separatorInset = separatorInset
         self.row = row
     }
@@ -20,9 +32,9 @@ struct FieldGroup<Item: Identifiable, Row: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            ForEach(items, id: id) { item in
                 row(item)
-                if index < items.count - 1 {
+                if item[keyPath: id] != items.last?[keyPath: id] {
                     Rectangle()
                         .fill(Color.luSeparator)
                         .frame(height: hairline)
@@ -37,6 +49,13 @@ struct FieldGroup<Item: Identifiable, Row: View>: View {
                 .stroke(Color.luSeparator, lineWidth: hairline)
         )
         .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
+    }
+}
+
+extension FieldGroup where ID == Item.ID, Item: Identifiable {
+    /// Convenience for `Identifiable` items: keys on `\.id`.
+    init(_ items: [Item], separatorInset: CGFloat = 0, @ViewBuilder row: @escaping (Item) -> Row) {
+        self.init(items, id: \.id, separatorInset: separatorInset, row: row)
     }
 }
 

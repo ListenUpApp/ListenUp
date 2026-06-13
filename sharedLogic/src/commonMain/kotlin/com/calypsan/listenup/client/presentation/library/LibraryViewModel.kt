@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -383,6 +384,14 @@ class LibraryViewModel(
         val sortedSeries = sortSeries(visibleSeries, intent.seriesSortState)
         val sortedAuthors = sortContributors(content.authors, intent.authorsSortState)
         val sortedNarrators = sortContributors(content.narrators, intent.narratorsSortState)
+        val seriesProgress =
+            sortedSeries.associate { sb ->
+                sb.series.id to
+                    SeriesProgress(
+                        finishedCount = sb.books.count { progress.finishedMap[it.id] == true },
+                        totalCount = sb.books.size,
+                    )
+            }
 
         return LibraryUiState.Loaded(
             booksSortState = intent.booksSortState,
@@ -397,6 +406,7 @@ class LibraryViewModel(
             narrators = sortedNarrators,
             bookProgress = progress.progressMap,
             bookIsFinished = progress.finishedMap,
+            seriesProgress = seriesProgress,
             syncState = sync.syncState,
             isServerScanning = sync.isServerScanning,
             scanProgress = sync.scanProgress,

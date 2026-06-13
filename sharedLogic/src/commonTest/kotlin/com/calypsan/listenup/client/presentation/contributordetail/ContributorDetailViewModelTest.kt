@@ -4,15 +4,20 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.RoleWithBookCount
+import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -34,6 +39,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 
 /**
  * Tests for ContributorDetailViewModel.
@@ -52,6 +58,7 @@ class ContributorDetailViewModelTest :
         class TestFixture {
             val contributorRepository: ContributorRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
+            val seriesRepository: SeriesRepository = mock()
             val deleteContributorUseCase: DeleteContributorUseCase = mock()
 
             val contributorFlow = MutableStateFlow<Contributor?>(null)
@@ -61,6 +68,7 @@ class ContributorDetailViewModelTest :
                 ContributorDetailViewModel(
                     contributorRepository = contributorRepository,
                     playbackPositionRepository = playbackPositionRepository,
+                    seriesRepository = seriesRepository,
                     deleteContributorUseCase = deleteContributorUseCase,
                 )
         }
@@ -71,10 +79,36 @@ class ContributorDetailViewModelTest :
             every { fixture.contributorRepository.observeById(any()) } returns fixture.contributorFlow
             every { fixture.contributorRepository.observeRolesWithCountForContributor(any()) } returns fixture.rolesFlow
             every { fixture.contributorRepository.observeBooksForContributorRole(any(), any()) } returns flowOf(emptyList())
+            every { fixture.seriesRepository.observeSeriesWithBooks(any()) } returns flowOf(null)
             everySuspend { fixture.playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
 
             return fixture
         }
+
+        fun createSeriesWithBooks(
+            id: String,
+            name: String,
+            bookIds: List<String>,
+        ): SeriesWithBooks =
+            SeriesWithBooks(
+                series = Series(id = SeriesId(id), name = name),
+                books =
+                    bookIds.map { bookId ->
+                        BookListItem(
+                            id = BookId(bookId),
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            title = "Book $bookId",
+                            duration = 3_600_000L,
+                            authors = emptyList(),
+                            narrators = emptyList(),
+                            coverPath = null,
+                            addedAt = Timestamp(1704067200000L),
+                            updatedAt = Timestamp(1704067200000L),
+                        )
+                    },
+                bookSequences = bookIds.mapIndexed { i, bookId -> bookId to "${i + 1}" }.toMap(),
+            )
 
         fun createContributor(
             id: String = "contributor-1",
@@ -100,6 +134,7 @@ class ContributorDetailViewModelTest :
             title: String = "Test Book",
             duration: Long = 3_600_000L,
             coverPath: String? = null,
+            series: List<BookSeries> = emptyList(),
         ): BookListItem =
             BookListItem(
                 id = BookId(id),
@@ -112,6 +147,7 @@ class ContributorDetailViewModelTest :
                 narrators = emptyList(),
                 addedAt = Timestamp(1704067200000L),
                 updatedAt = Timestamp(1704067200000L),
+                series = series,
             )
 
         fun createBookWithContributorRole(
@@ -450,6 +486,87 @@ class ContributorDetailViewModelTest :
 
                 val second = viewModel.state.value as ContributorDetailUiState.Ready
                 second.contributor.name shouldBe "Updated Name"
+            }
+        }
+
+        // ========== Series + Catalog Stats ==========
+
+        test("Ready exposes distinct book count, total hours, and derived series") {
+            runTest {
+                val fixture = createFixture()
+                val contributor = createContributor(id = "c1")
+
+                // b1 is authored AND narrated; b2 is authored only.
+                // Both are in series "s1". b1 must be counted once despite two roles.
+                val seriesEntry = BookSeries(seriesId = "s1", seriesName = "Series One", sequence = null)
+                val b1 = createBook(id = "b1", duration = 3_600_000L, series = listOf(seriesEntry))
+                val b2 = createBook(id = "b2", duration = 3_600_000L, series = listOf(seriesEntry))
+
+                val authorRole = RoleWithBookCount(role = ContributorRole.AUTHOR.apiValue, bookCount = 2)
+                val narratorRole = RoleWithBookCount(role = ContributorRole.NARRATOR.apiValue, bookCount = 1)
+
+                every {
+                    fixture.contributorRepository.observeBooksForContributorRole("c1", ContributorRole.AUTHOR.apiValue)
+                } returns flowOf(listOf(createBookWithContributorRole(b1), createBookWithContributorRole(b2)))
+                every {
+                    fixture.contributorRepository.observeBooksForContributorRole("c1", ContributorRole.NARRATOR.apiValue)
+                } returns flowOf(listOf(createBookWithContributorRole(b1)))
+
+                every {
+                    fixture.seriesRepository.observeSeriesWithBooks("s1")
+                } returns flowOf(createSeriesWithBooks(id = "s1", name = "Series One", bookIds = listOf("b1", "b2")))
+
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("c1")
+                fixture.contributorFlow.value = contributor
+                fixture.rolesFlow.value = listOf(authorRole, narratorRole)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value as ContributorDetailUiState.Ready
+                // b1 counted once despite appearing in two roles
+                ready.bookCount shouldBe 2
+                // 2 distinct books × 1 hour each
+                ready.totalDuration shouldBe 2.hours
+                // exactly one series derived
+                ready.series.map { it.series.id.value } shouldBe listOf("s1")
+            }
+        }
+
+        test("series are ordered by the contributor's book count desc, then name asc") {
+            runTest {
+                val fixture = createFixture()
+                val contributor = createContributor(id = "c1")
+
+                // s2 (Beta) has 2 of the contributor's books; s1 (Zeta) and s3 (Alpha)
+                // have 1 each — equal count, broken by name ascending → Alpha before Zeta.
+                val b1 = createBook(id = "b1", series = listOf(BookSeries(seriesId = "s2", seriesName = "Beta", sequence = null)))
+                val b2 = createBook(id = "b2", series = listOf(BookSeries(seriesId = "s2", seriesName = "Beta", sequence = null)))
+                val b3 = createBook(id = "b3", series = listOf(BookSeries(seriesId = "s1", seriesName = "Zeta", sequence = null)))
+                val b4 = createBook(id = "b4", series = listOf(BookSeries(seriesId = "s3", seriesName = "Alpha", sequence = null)))
+
+                every {
+                    fixture.contributorRepository.observeBooksForContributorRole("c1", ContributorRole.AUTHOR.apiValue)
+                } returns flowOf(listOf(b1, b2, b3, b4).map { createBookWithContributorRole(it) })
+
+                every { fixture.seriesRepository.observeSeriesWithBooks("s2") } returns
+                    flowOf(createSeriesWithBooks(id = "s2", name = "Beta", bookIds = listOf("b1", "b2")))
+                every { fixture.seriesRepository.observeSeriesWithBooks("s1") } returns
+                    flowOf(createSeriesWithBooks(id = "s1", name = "Zeta", bookIds = listOf("b3")))
+                every { fixture.seriesRepository.observeSeriesWithBooks("s3") } returns
+                    flowOf(createSeriesWithBooks(id = "s3", name = "Alpha", bookIds = listOf("b4")))
+
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("c1")
+                fixture.contributorFlow.value = contributor
+                fixture.rolesFlow.value = listOf(RoleWithBookCount(role = ContributorRole.AUTHOR.apiValue, bookCount = 4))
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value as ContributorDetailUiState.Ready
+                ready.series.map { it.series.id.value } shouldBe listOf("s2", "s3", "s1")
             }
         }
     })

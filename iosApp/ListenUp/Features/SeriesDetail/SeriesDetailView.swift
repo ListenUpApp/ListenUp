@@ -1,34 +1,44 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
-/// Series detail screen — Liquid Glass design.
+/// Series detail screen — clean-coral design.
 ///
-/// Layout:
-/// - Hero cover with shadow (no card container)
-/// - Title + stats on glass panel
-/// - Expandable description
-/// - Ordered book list with glass row cards
+/// Layout (iPhone, scrolling):
+/// 1. Hero — `CoverStack` + "SERIES" eyebrow + title + author + narrator
+/// 2. `StatStrip` — Books / Finished / Total
+/// 3. Full-width Continue CTA
+/// 4. Optional expandable description
+/// 5. "Books in Series" header + order toggle
+/// 6. `FieldGroup` of `SeriesBookRow` entries
+///
+/// iPad (`horizontalSizeClass == .regular`) splits hero + meta into a fixed left
+/// column beside a right column with the book list.
 struct SeriesDetailView: View {
     let seriesId: String
 
     @Environment(\.dependencies) private var deps
+    @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: SeriesDetailObserver?
+    @State private var reversed: Bool = false
 
     var body: some View {
         Group {
             if let observer, !observer.isLoading {
-                content(observer: observer)
+                if let errorMessage = observer.error {
+                    errorView(message: errorMessage)
+                } else {
+                    content(observer: observer)
+                }
             } else {
                 loadingView
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.luSurface)
         .navigationTitle(observer?.seriesName ?? String(localized: "common.series"))
         .navigationBarTitleDisplayMode(.inline)
         .task(id: seriesId) {
             let vm = deps.createSeriesDetailViewModel()
-            let obs = SeriesDetailObserver(viewModel: vm)
+            let obs = SeriesDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator)
             observer = obs
             obs.loadSeries(seriesId: seriesId)
         }
@@ -40,11 +50,24 @@ struct SeriesDetailView: View {
 
     // MARK: - Content
 
+    @ViewBuilder
     private func content(observer: SeriesDetailObserver) -> some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                headerSection(observer: observer)
+        if hSize == .regular {
+            iPadLayout(observer: observer)
+        } else {
+            iPhoneLayout(observer: observer)
+        }
+    }
 
+    private func iPhoneLayout(observer: SeriesDetailObserver) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                heroSection(observer: observer)
+                    .padding(.top, 16)
+                statStripSection(observer: observer)
+                    .padding(.vertical, 20)
+                continueButton(observer: observer)
+                    .padding(.horizontal)
                 if let description = observer.seriesDescription, !description.isEmpty {
                     ExpandableText(
                         title: String(localized: "common.about"),
@@ -52,122 +75,166 @@ struct SeriesDetailView: View {
                         lineLimit: 3
                     )
                     .padding(.horizontal)
+                    .padding(.top, 20)
                 }
-
                 booksSection(observer: observer)
+                    .padding(.top, 20)
             }
             .padding(.bottom, 32)
         }
     }
 
-    // MARK: - Header
-
-    private func headerSection(observer: SeriesDetailObserver) -> some View {
-        VStack(spacing: 16) {
-            // Cover — floating with shadow, no card
-            BookCoverImage(coverPath: observer.coverPath, blurHash: nil)
-                .frame(width: 200, height: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .shadow(color: .black.opacity(0.2), radius: 16, x: 0, y: 8)
-
-            VStack(spacing: 8) {
-                Text(observer.seriesName)
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
-
-                HStack(spacing: 16) {
-                    Label(
-                        "\(observer.bookCount) \(observer.bookCount == 1 ? String(localized: "contributor.audiobook_count") : String(localized: "contributor.audiobooks_count"))",
-                        systemImage: "books.vertical"
-                    )
-                    Label(observer.totalDuration, systemImage: "clock")
+    private func iPadLayout(observer: SeriesDetailObserver) -> some View {
+        ScrollView {
+            HStack(alignment: .top, spacing: 40) {
+                // Left column — hero + stats + CTA
+                VStack(spacing: 0) {
+                    heroSection(observer: observer)
+                    statStripSection(observer: observer)
+                        .padding(.vertical, 20)
+                    continueButton(observer: observer)
+                    if let description = observer.seriesDescription, !description.isEmpty {
+                        ExpandableText(
+                            title: String(localized: "common.about"),
+                            text: description,
+                            lineLimit: 3
+                        )
+                        .padding(.top, 20)
+                    }
                 }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .frame(width: 340, alignment: .top)
+                // Right column — books list
+                VStack(spacing: 0) {
+                    booksSection(observer: observer)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal)
+            .padding(.vertical, 24)
         }
-        .padding(.top, 16)
     }
 
-    // MARK: - Books
+    // MARK: - Hero
+
+    private func heroSection(observer: SeriesDetailObserver) -> some View {
+        VStack(spacing: 8) {
+            CoverStack(books: observer.books, size: 150, peek: 34)
+                .accessibilityHidden(true)
+            Text(String(localized: "series.eyebrow"))
+                .font(.caption.weight(.semibold))
+                .kerning(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.luTint)
+            Text(observer.seriesName)
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+            if let author = observer.seriesAuthor {
+                Text(author)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+            }
+            if let narrator = observer.seriesNarrator {
+                Text(verbatim: String(format: String(localized: "series.narrated_by"), narrator))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.luLabel2)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Stat strip
+
+    private func statStripSection(observer: SeriesDetailObserver) -> some View {
+        StatStrip(stats: [
+            .init(value: "\(observer.bookCount)", label: String(localized: "series.stat_books")),
+            .init(value: "\(observer.finishedCount)", label: String(localized: "series.stat_finished")),
+            .init(value: observer.totalDuration, label: String(localized: "series.stat_total"))
+        ])
+    }
+
+    // MARK: - Continue CTA
+
+    private func continueButton(observer: SeriesDetailObserver) -> some View {
+        Button(action: { observer.continueSeries() }) {
+            HStack(spacing: 9) {
+                Image(systemName: "play.fill")
+                Text(observer.continueButtonTitle).fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .foregroundStyle(Color.luOnTint)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.luTint)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(observer.books.isEmpty)
+        .accessibilityLabel(observer.continueButtonTitle)
+    }
+
+    // MARK: - Books section
 
     private func booksSection(observer: SeriesDetailObserver) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "series.books_in_series"))
-                .font(.headline)
+            booksHeader(observer: observer)
                 .padding(.horizontal)
-
-            ForEach(Array(observer.books.enumerated()), id: \.element.idString) { index, book in
-                bookRow(book: book, sequence: book.seriesSequence ?? "\(index + 1)")
-                    .padding(.horizontal)
-            }
+            let displayedBooks = reversed
+                ? Array(observer.books.reversed())
+                : observer.books
+            booksList(books: displayedBooks, observer: observer)
+                .padding(.horizontal)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func bookRow(book: BookListItem, sequence: String) -> some View {
-        NavigationLink(value: BookDestination(id: book.idString)) {
-            HStack(spacing: 16) {
-                // Sequence badge
-                Text("#\(sequence)")
-                    .font(.caption.bold())
-                    .foregroundStyle(Color.listenUpOrange)
-                    .frame(width: 36)
-
-                // Cover thumbnail
-                BookCoverImage(book: book)
-                    .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-
-                // Info
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(book.title)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-
-                    HStack(spacing: 8) {
-                        Text(book.authorNames)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-
-                        Text("•")
-                            .foregroundStyle(.tertiary)
-
-                        Text(book.formatDuration())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+    private func booksHeader(observer: SeriesDetailObserver) -> some View {
+        HStack {
+            Text(String(localized: "series.books_header"))
+                .font(.title2.bold())
+            Text("(\(observer.bookCount))")
+                .font(.title2)
+                .foregroundStyle(Color.luLabel2)
+            Spacer()
+            Button(action: { reversed.toggle() }) {
+                Image(systemName: reversed ? "arrow.up" : "arrow.down")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.luTint)
             }
-            .padding(12)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.regularMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
-                    }
-                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(reversed ? "Sort ascending" : "Sort descending")
         }
-        .buttonStyle(.plain)
+    }
+
+    private func booksList(books: [BookListItem], observer: SeriesDetailObserver) -> some View {
+        // `BookListItem` (SKIE-exported) isn't `Identifiable`, so key on its id string.
+        FieldGroup(books, id: \.idString, separatorInset: 76) { book in
+            NavigationLink(value: BookDestination(id: book.idString)) {
+                SeriesBookRow(
+                    book: book,
+                    sequence: book.series.first?.sequence,
+                    progress: observer.progress(for: book.idString),
+                    isFinished: observer.isFinished(book.idString),
+                    isPlaying: observer.isPlaying(book.idString),
+                    onPlayTapped: { observer.playBook(book.idString) }
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Error
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(Color.luLabel2)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(Color.luLabel2)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Loading
