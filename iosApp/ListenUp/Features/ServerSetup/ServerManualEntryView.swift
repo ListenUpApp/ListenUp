@@ -34,13 +34,12 @@ struct ServerManualEntryView: View {
                         .font(.subheadline).foregroundStyle(.secondary)
 
                     AuthFieldGroup {
-                        AuthFieldRow(
-                            icon: "globe",
+                        AppTextField(
                             placeholder: String(localized: "connect.server_url_placeholder"),
                             text: Binding(get: { viewModel.serverUrl },
                                           set: { viewModel.onUrlChanged($0) }),
+                            icon: "globe",
                             error: viewModel.error,
-                            isLast: true,
                             keyboardType: .URL,
                             textContentType: .URL,
                             onSubmit: { if viewModel.isConnectEnabled { viewModel.onConnectClicked() } }

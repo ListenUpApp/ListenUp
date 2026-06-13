@@ -66,19 +66,20 @@ struct LoginView: View {
 
     private var fields: some View {
         AuthFieldGroup {
-            AuthFieldRow(
-                icon: "envelope",
+            AppTextField(
                 placeholder: String(localized: "common.email"),
                 text: $email,
+                icon: "envelope",
                 error: viewModel.emailError,
+                isLast: false,
                 keyboardType: .emailAddress,
                 textContentType: .emailAddress
             )
-            AuthSecureFieldRow(
+            AppTextField(
                 placeholder: String(localized: "auth.password_label"),
                 text: $password,
+                kind: .secure,
                 error: viewModel.passwordError,
-                isLast: true,
                 textContentType: .password
             )
         }
