@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,7 +58,6 @@ import org.jetbrains.compose.resources.stringResource
 private const val OUTER_ROTATION_MS = 9_000
 private const val INNER_ROTATION_MS = 7_000
 private const val CORE_PULSE_MS = 1_100
-private const val MARQUEE_SCROLL_MS = 14_000
 private const val FILE_LINE_PULSE_MS = 700
 private const val PATH_TAIL_LENGTH = 48
 
@@ -170,10 +173,13 @@ fun StatChip(
 }
 
 /**
- * An infinite, seamless left-scrolling strip of [BookCoverFallback] tiles for the books matched so
- * far. Covers aren't available mid-scan, so each tile is a deterministic title/author placeholder.
- * The list is duplicated end-to-end so the wrap is invisible, and the edges fade via a [BlendMode.DstIn]
- * gradient mask. Renders nothing when [books] is empty.
+ * A growing strip of [BookCoverFallback] tiles for the books matched so far, newest at the end. As
+ * the accumulated [books] list grows, the row auto-scrolls to follow the tail, so each freshly-matched
+ * book slides in from the right while older covers drift off the left — it never loops or resets. Each
+ * tile is keyed by the book it shows, so an already-displayed title keeps its exact place and contents;
+ * a newly-scanned book is appended, never swapped in over an existing tile. Covers aren't available
+ * mid-scan, so each tile is a deterministic title/author placeholder. The edges fade via a
+ * [BlendMode.DstIn] gradient mask. Renders nothing when [books] is empty.
  */
 @Composable
 fun ScanCoversMarquee(
@@ -182,14 +188,13 @@ fun ScanCoversMarquee(
     tile: Dp = 54.dp,
 ) {
     if (books.isEmpty()) return
-    val loop = books + books
-    val transition = rememberInfiniteTransition(label = "marquee")
-    val shift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(MARQUEE_SCROLL_MS, easing = LinearEasing)),
-        label = "shift",
-    )
+    val listState = rememberLazyListState()
+    // Follow the newest match: scrolling to the last index clamps to the end of the content, keeping
+    // the tail in view so new covers enter from the right. Keyed on the list so it advances on every
+    // append but stays put when an event carries no new book (idle = still).
+    LaunchedEffect(books) {
+        listState.animateScrollToItem(books.lastIndex)
+    }
     val fade =
         Brush.horizontalGradient(
             0f to Color.Transparent,
@@ -197,7 +202,8 @@ fun ScanCoversMarquee(
             0.92f to Color.Black,
             1f to Color.Transparent,
         )
-    Box(
+    LazyRow(
+        state = listState,
         modifier =
             modifier
                 .fillMaxWidth()
@@ -207,22 +213,16 @@ fun ScanCoversMarquee(
                     drawContent()
                     drawRect(brush = fade, blendMode = BlendMode.DstIn)
                 },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        userScrollEnabled = false,
     ) {
-        Row(
-            modifier =
-                Modifier.graphicsLayer {
-                    translationX = -shift * (tile.toPx() + 10.dp.toPx()) * books.size
-                },
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            loop.forEach { book ->
-                BookCoverFallback(
-                    title = book.title,
-                    author = book.author,
-                    modifier = Modifier.size(tile),
-                    seed = book.title + book.author,
-                )
-            }
+        items(items = books, key = { "${it.title} ${it.author}" }) { book ->
+            BookCoverFallback(
+                title = book.title,
+                author = book.author,
+                modifier = Modifier.size(tile),
+                seed = book.title + book.author,
+            )
         }
     }
 }

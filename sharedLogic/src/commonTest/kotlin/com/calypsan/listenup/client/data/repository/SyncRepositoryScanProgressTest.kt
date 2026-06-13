@@ -29,6 +29,7 @@ class SyncRepositoryScanProgressTest :
         fun progressEvent(
             booksAnalyzed: Int,
             filesWalked: Int,
+            recentBooks: List<ScanBookRef> = emptyList(),
         ) = ScanEvent.Progress(
             correlationId = "c1",
             libraryId = LibraryId("lib-1"),
@@ -36,6 +37,7 @@ class SyncRepositoryScanProgressTest :
             filesWalked = filesWalked,
             booksAnalyzed = booksAnalyzed,
             errors = 0,
+            recentBooks = recentBooks,
         )
 
         fun completedEvent() =
@@ -181,6 +183,64 @@ class SyncRepositoryScanProgressTest :
                 scanning shouldBe false
                 apply(progressEvent(booksAnalyzed = 1, filesWalked = 1))
                 scanning shouldBe false
+            }
+        }
+
+        // The "Building your library" carousel bug: the server streams a small ROLLING WINDOW of
+        // recentBooks (capped per event), so rendering only the latest window showed ~8 books that
+        // changed in place and looped. The client must ACCUMULATE across Progress events — dedupe by
+        // (title, author), append new ones at the end — so the strip grows and never resets.
+        test("Progress accumulates recentBooks across events — deduped, appended at the end") {
+            runTest {
+                var progress: ScanProgressState? = null
+                val apply: suspend (List<ScanBookRef>) -> Unit = { window ->
+                    applyScanEvent(
+                        event = progressEvent(booksAnalyzed = 1, filesWalked = 1, recentBooks = window),
+                        isInitialScanComplete = { false },
+                        setScanning = {},
+                        setProgress = { progress = it },
+                        markInitialScanComplete = {},
+                        reconcile = {},
+                        getProgress = { progress },
+                    )
+                }
+
+                apply(listOf(ScanBookRef("Dune", "Herbert"), ScanBookRef("Hyperion", "Simmons")))
+                apply(listOf(ScanBookRef("Hyperion", "Simmons"), ScanBookRef("Neuromancer", "Gibson")))
+
+                // The overlapping "Hyperion" is not duplicated; the new "Neuromancer" appends at the end.
+                progress!!.recentBooks shouldBe
+                    listOf(
+                        ScanBookRef("Dune", "Herbert"),
+                        ScanBookRef("Hyperion", "Simmons"),
+                        ScanBookRef("Neuromancer", "Gibson"),
+                    )
+            }
+        }
+
+        test("recentBooks accumulation caps at MAX_ACCUMULATED_RECENT_BOOKS, dropping the oldest") {
+            runTest {
+                var progress: ScanProgressState? = null
+                val apply: suspend (ScanBookRef) -> Unit = { book ->
+                    applyScanEvent(
+                        event = progressEvent(booksAnalyzed = 1, filesWalked = 1, recentBooks = listOf(book)),
+                        isInitialScanComplete = { false },
+                        setScanning = {},
+                        setProgress = { progress = it },
+                        markInitialScanComplete = {},
+                        reconcile = {},
+                        getProgress = { progress },
+                    )
+                }
+
+                val total = MAX_ACCUMULATED_RECENT_BOOKS + 5
+                repeat(total) { i -> apply(ScanBookRef("Book $i", "Author")) }
+
+                val recent = progress!!.recentBooks
+                recent.size shouldBe MAX_ACCUMULATED_RECENT_BOOKS
+                // Oldest five dropped; the newest is last.
+                recent.first() shouldBe ScanBookRef("Book 5", "Author")
+                recent.last() shouldBe ScanBookRef("Book ${total - 1}", "Author")
             }
         }
 
