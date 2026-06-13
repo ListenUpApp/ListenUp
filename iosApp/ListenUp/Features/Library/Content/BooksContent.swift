@@ -171,60 +171,23 @@ struct BooksContent: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-
-            Image(systemName: "books.vertical")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-
-            Text(String(localized: "library.empty_title"))
-                .font(.title2.bold())
-
-            Text(String(localized: "library.empty_description"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        ContentUnavailableView(
+            String(localized: "library.empty_title"),
+            systemImage: "books.vertical",
+            description: Text(String(localized: "library.empty_description"))
+        )
     }
 
     // MARK: - Error State
 
     private func errorState(message: String) -> some View {
-        VStack(spacing: 16) {
-            Spacer()
-
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
-
-            Text(String(localized: "library.sync_failed"))
-                .font(.title2.bold())
-
+        ContentUnavailableView {
+            Label(String(localized: "library.sync_failed"), systemImage: "exclamationmark.triangle")
+        } description: {
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            Button {
-                onRefresh()
-            } label: {
-                Label(String(localized: "library.try_again"), systemImage: "arrow.clockwise")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.listenUpOrange, in: Capsule())
-            }
-            .padding(.top, 8)
-
-            Spacer()
+        } actions: {
+            PrimaryButton(title: String(localized: "library.try_again"), action: onRefresh)
+                .frame(maxWidth: 240)
         }
-        .frame(maxWidth: .infinity)
     }
 }
