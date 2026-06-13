@@ -958,6 +958,9 @@
   "edit": {
     "remove_image": "Remove image",
     "change_image": "Change image",
-    "uploading_image": "Uploading image"
+    "uploading_image": "Uploading image",
+    "not_set": "Not set",
+    "set_date": "Set date",
+    "clear_date": "Clear"
   }
 }
