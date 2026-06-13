@@ -11,4 +11,7 @@ final class PlaybackController: PlaybackControlling {
     func togglePlayPause() { coordinator.remoteTogglePlayPause() }
     func skipForward() { coordinator.remoteSkipForward() }
     func skipBackward() { coordinator.remoteSkipBackward() }
+
+    /// Resolves the "Play <book> in ListenUp" App Intent to playback start.
+    func playBook(id: String) { coordinator.play(bookId: id) }
 }
