@@ -191,14 +191,16 @@ private fun UserAvatarCircle(
                 }
 
             if (localPath != null) {
-                // Cache key matches the canonical UserAvatar key so Coil shares the cache entry.
+                // Version the key on updatedAtMs (bumped on avatar upload) so a re-uploaded avatar
+                // busts the stale cached bitmap — mirrors the canonical UserAvatar key shape.
+                val avatarKey = "${user.id.value}-avatar-${user.updatedAtMs}"
                 AsyncImage(
                     model =
                         ImageRequest
                             .Builder(platformContext)
                             .data(localPath)
-                            .memoryCacheKey("${user.id}-avatar")
-                            .diskCacheKey("${user.id}-avatar")
+                            .memoryCacheKey(avatarKey)
+                            .diskCacheKey(avatarKey)
                             .build(),
                     contentDescription = stringResource(Res.string.common_displayname_avatar, user.displayName),
                     modifier =

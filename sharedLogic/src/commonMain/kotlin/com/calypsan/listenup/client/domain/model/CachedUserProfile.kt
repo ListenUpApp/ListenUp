@@ -13,4 +13,11 @@ data class CachedUserProfile(
     val avatarType: String,
     val avatarValue: String?,
     val avatarColor: String,
+    /**
+     * Last-update timestamp (epoch ms). The server bumps it whenever the profile changes —
+     * including on avatar upload — so it doubles as the avatar's content version: folded into
+     * the Coil cache key, a re-uploaded avatar busts the stale cached bitmap instead of
+     * rendering the old one.
+     */
+    val updatedAt: Long,
 )

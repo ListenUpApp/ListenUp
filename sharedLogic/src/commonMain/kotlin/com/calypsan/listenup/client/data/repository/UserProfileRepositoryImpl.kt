@@ -29,4 +29,5 @@ private fun UserProfileEntity.toDomain(): CachedUserProfile =
         avatarType = avatarType,
         avatarValue = avatarValue,
         avatarColor = avatarColor,
+        updatedAt = updatedAt,
     )
