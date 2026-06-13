@@ -27,6 +27,7 @@ private struct RootView: View {
     @State private var auth = AuthStateObserver()
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
+    @State private var syncSession: SyncSessionController?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
 
@@ -34,7 +35,17 @@ private struct RootView: View {
         content
             .environment(currentUser)
             .animation(.smooth(duration: 0.3), value: auth.state)
+            // Start realtime sync once authenticated (initial pull + SSE firehose), mirroring the
+            // Compose `MainActivity`/`AppShell`. Without this the library never populates on iOS.
+            .onChange(of: auth.state, initial: true) { _, _ in
+                activateSyncIfAuthenticated()
+            }
             .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    // Reconnect realtime sync on every foreground (single-flight, so safe).
+                    activateSyncIfAuthenticated()
+                    return
+                }
                 guard newPhase == .background || newPhase == .inactive else { return }
                 let coordinator = dependencies.playerCoordinator
                 let taskId = UIApplication.shared.beginBackgroundTask(withName: "save-position")
@@ -43,6 +54,18 @@ private struct RootView: View {
                     UIApplication.shared.endBackgroundTask(taskId)
                 }
             }
+    }
+
+    /// Connect realtime sync + resume downloads when authenticated. Lazily builds the controller
+    /// from the shared `SyncRepository`/`DownloadService` on first use.
+    private func activateSyncIfAuthenticated() {
+        guard auth.state == .authenticated else { return }
+        let controller = syncSession ?? SyncSessionController(
+            connectRealtime: { try? await dependencies.syncRepository.connectRealtime() },
+            resumeDownloads: { _ = try? await dependencies.downloadService.resumeIncompleteDownloads() }
+        )
+        syncSession = controller
+        controller.activate()
     }
 
     @ViewBuilder
