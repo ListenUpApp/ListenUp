@@ -553,6 +553,7 @@ private fun registerClientSyncHandlers(
     ContributorSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
+        imageStorage = stubImageStorage(),
         registry = registry,
     )
     SeriesSyncDomainHandler(

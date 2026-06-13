@@ -216,6 +216,7 @@ val clientSyncRenovationModule =
             ContributorSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
+                imageStorage = get(),
                 registry = get(),
             )
         }

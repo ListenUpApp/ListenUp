@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -45,6 +46,7 @@ private val logger = KotlinLogging.logger {}
 class ContributorSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
+    private val imageStorage: ImageStorage,
     registry: ClientSyncDomainRegistry,
 ) : SyncDomainHandler<ContributorSyncPayload> {
     override val domainName: String = "contributors"
@@ -133,6 +135,13 @@ class ContributorSyncDomainHandler(
      */
     private suspend fun upsert(payload: ContributorSyncPayload) {
         val existing = database.contributorDao().getById(payload.id)
+        val newImagePath = payload.imagePath ?: existing?.imagePath
+        // The server stores contributor photos content-addressed, so a re-scrape changes imagePath.
+        // The local copy is otherwise never re-downloaded (the downloader skips when a file exists),
+        // so drop it on change: the render then re-fetches the new photo. Best-effort.
+        if (existing != null && existing.imagePath != newImagePath) {
+            imageStorage.deleteContributorImage(payload.id)
+        }
         database.contributorDao().upsert(
             ContributorEntity(
                 id = ContributorId(payload.id),
@@ -140,7 +149,7 @@ class ContributorSyncDomainHandler(
                 sortName = payload.sortName,
                 asin = payload.asin ?: existing?.asin,
                 description = payload.description ?: existing?.description,
-                imagePath = payload.imagePath ?: existing?.imagePath,
+                imagePath = newImagePath,
                 imageBlurHash = payload.imageBlurHash ?: existing?.imageBlurHash,
                 website = payload.website ?: existing?.website,
                 birthDate = payload.birthDate ?: existing?.birthDate,

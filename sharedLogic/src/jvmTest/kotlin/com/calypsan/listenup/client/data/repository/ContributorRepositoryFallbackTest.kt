@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHand
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -132,7 +133,7 @@ private fun withTestRepo(
         every { imageStorage.exists(any()) } returns false
 
         val transactionRunner = RoomTransactionRunner(db)
-        val syncHandler = ContributorSyncDomainHandler(db, transactionRunner, ClientSyncDomainRegistry())
+        val syncHandler = ContributorSyncDomainHandler(db, transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
 
         val repo =
             ContributorRepositoryImpl(
@@ -158,7 +159,7 @@ private suspend fun seedRoom(
     id: String,
     name: String,
 ) {
-    val handler = ContributorSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+    val handler = ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry())
     handler.onCatchUpItem(payload(id = id, name = name), isTombstone = false)
 }
 

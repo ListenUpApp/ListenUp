@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.services.MetadataService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
+import java.security.MessageDigest
 
 private val log = KotlinLogging.logger {}
 
@@ -85,13 +86,17 @@ internal class ContributorMetadataApplier(
      */
     private suspend fun AudibleContributorProfile.downloadImage(contributorId: ContributorId): String? {
         val url = imageUrl.takeIf { it.isNotBlank() } ?: return null
-        val relPath = "contributors/${contributorId.value}.jpg"
         val dir = Path(imageHome.toString(), "contributors")
         return try {
             kotlinx.io.files.SystemFileSystem
                 .createDirectories(dir)
-            val dest = Path(imageHome.toString(), relPath)
-            imageStorage.download(url, dest)
+            val bytes = imageStorage.downloadBytes(url)
+            // Content-addressed filename: a re-scrape with a different photo yields a new `imagePath`,
+            // which is what the client keys its image cache on (the path is the version). With a stable
+            // id-based name the path never changes and clients keep rendering the old photo.
+            val sha = MessageDigest.getInstance("SHA-256").digest(bytes).toHexString()
+            val relPath = "contributors/$sha.jpg"
+            imageStorage.writeBytes(bytes, Path(imageHome.toString(), relPath))
             relPath
         } catch (e: CancellationException) {
             throw e

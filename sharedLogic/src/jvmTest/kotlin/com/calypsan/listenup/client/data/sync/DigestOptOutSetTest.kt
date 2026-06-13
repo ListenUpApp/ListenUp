@@ -54,7 +54,12 @@ class DigestOptOutSetTest :
                         imageStorage = stubImageStorage(),
                         registry = registry,
                     )
-                    ContributorSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    ContributorSyncDomainHandler(
+                        database = clientDb,
+                        transactionRunner = txRunner,
+                        imageStorage = stubImageStorage(),
+                        registry = registry,
+                    )
                     SeriesSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     GenreSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     PlaybackPositionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
