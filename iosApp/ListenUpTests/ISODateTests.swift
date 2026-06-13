@@ -18,4 +18,15 @@ struct ISODateTests {
         #expect(ISODate.parse("not-a-date") == nil)
         #expect(ISODate.parse("2024-13-40") == nil)
     }
+
+    /// A `.date` `DatePicker` hands back local-midnight; formatting it must yield the same
+    /// day (a UTC formatter would shift it back a day east of UTC). Regression for that bug.
+    @Test func formatsLocalMidnightToTheSameDay() {
+        var comps = DateComponents()
+        comps.year = 2024
+        comps.month = 3
+        comps.day = 15
+        let localMidnight = Calendar.current.date(from: comps)!
+        #expect(ISODate.format(localMidnight) == "2024-03-15")
+    }
 }
