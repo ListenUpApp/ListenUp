@@ -16,10 +16,10 @@ struct HomeStatsCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: 20))
         .overlay {
             RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(Color.glassBorder, lineWidth: 0.5)
+                .strokeBorder(Color.luSeparator, lineWidth: 0.5)
         }
     }
 
