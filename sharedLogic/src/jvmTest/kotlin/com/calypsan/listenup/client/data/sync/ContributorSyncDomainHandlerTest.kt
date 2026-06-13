@@ -10,6 +10,14 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.test.stubImageStorage
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -186,20 +194,72 @@ class ContributorSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = ContributorSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
                 handler.domainName shouldBe "contributors"
                 registry.lookup("contributors") shouldBe handler
             } finally {
                 db.close()
             }
         }
+
+        // The server stores contributor photos content-addressed, so a re-scrape changes imagePath. The
+        // local copy is id-named and never otherwise re-downloaded, so it must be dropped on change.
+        test("a changed contributor imagePath drops the stale local photo") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteContributorImage(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+
+                    handler.onEvent(created(photo("c1", "h1")), isOwnEcho = false)
+                    handler.onEvent(updated(photo("c1", "h2", revision = 2)), isOwnEcho = false)
+
+                    verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteContributorImage("c1") }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("an unchanged contributor imagePath leaves the local photo in place") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteContributorImage(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+
+                    handler.onEvent(created(photo("c1", "h1")), isOwnEcho = false)
+                    handler.onEvent(updated(photo("c1", "h1", name = "Renamed", revision = 2)), isOwnEcho = false)
+
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteContributorImage(any()) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })
+
+private fun updated(p: ContributorSyncPayload) =
+    SyncEvent.Updated(
+        id = p.id,
+        revision = p.revision,
+        occurredAt = p.updatedAt,
+        clientOpId = null,
+        payload = p,
+    )
 
 private fun withHandler(block: suspend (ContributorSyncDomainHandler, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(ContributorSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(
+                ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry()),
+                db,
+            )
         } finally {
             db.close()
         }
@@ -213,6 +273,13 @@ private fun created(p: ContributorSyncPayload) =
         clientOpId = null,
         payload = p,
     )
+
+private fun photo(
+    id: String,
+    hash: String,
+    name: String = "Sanderson",
+    revision: Long = 1L,
+) = payload(id, name, revision = revision).copy(imagePath = "contributors/$hash.jpg")
 
 private fun payload(
     id: String,

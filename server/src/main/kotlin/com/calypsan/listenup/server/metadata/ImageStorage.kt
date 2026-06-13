@@ -42,14 +42,25 @@ class ImageStorage(
         url: String,
         destination: Path,
     ): ByteArray {
-        val tmp = Path(destination.parent!!.toString(), "${destination.name}.tmp")
         val bytes = httpClient.get(url).bodyAsBytes()
+        writeBytes(bytes, destination)
+        return bytes
+    }
+
+    /**
+     * Writes [bytes] to [destination] via a sibling temp file + atomic rename — readers never see a
+     * half-written file. The destination directory must already exist. Cleans up the temp on failure.
+     */
+    fun writeBytes(
+        bytes: ByteArray,
+        destination: Path,
+    ) {
+        val tmp = Path(destination.parent!!.toString(), "${destination.name}.tmp")
         try {
             SystemFileSystem.sink(tmp).buffered().use { sink ->
                 sink.write(bytes)
             }
             SystemFileSystem.atomicMove(tmp, destination)
-            return bytes
         } catch (e: Throwable) {
             SystemFileSystem.delete(tmp, mustExist = false)
             throw e

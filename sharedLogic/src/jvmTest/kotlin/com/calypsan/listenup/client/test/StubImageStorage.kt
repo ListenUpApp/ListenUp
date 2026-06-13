@@ -12,4 +12,9 @@ import dev.mokkery.mock
  * cover-cache-invalidation side effect. The handler only calls [ImageStorage.deleteCover]; that is
  * stubbed to succeed. Tests that assert on the deletion build their own recording mock instead.
  */
-fun stubImageStorage(): ImageStorage = mock { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+fun stubImageStorage(): ImageStorage =
+    mock {
+        everySuspend { deleteCover(any()) } returns AppResult.Success(Unit)
+        everySuspend { deleteContributorImage(any()) } returns AppResult.Success(Unit)
+        everySuspend { deleteSeriesCover(any()) } returns AppResult.Success(Unit)
+    }

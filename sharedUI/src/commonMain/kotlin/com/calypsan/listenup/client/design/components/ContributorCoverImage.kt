@@ -21,7 +21,12 @@ import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
 
-private fun contributorCacheKey(contributorId: String) = "$contributorId:contributor"
+// Folds the content-addressed [imagePath] into the key so a re-scraped photo (new path) busts the
+// Coil cache instead of serving the cached old one. Null path → the legacy per-contributor key.
+private fun contributorCacheKey(
+    contributorId: String,
+    imagePath: String?,
+) = "$contributorId:${imagePath ?: "contributor"}"
 
 /**
  * Smart contributor image with server URL fallback.
@@ -50,8 +55,8 @@ fun ContributorCoverImage(
                 ImageRequest
                     .Builder(context)
                     .data(it)
-                    .memoryCacheKey(contributorCacheKey(contributorId))
-                    .diskCacheKey(contributorCacheKey(contributorId))
+                    .memoryCacheKey(contributorCacheKey(contributorId, imagePath))
+                    .diskCacheKey(contributorCacheKey(contributorId, imagePath))
                     .build()
             }
         }
@@ -86,8 +91,8 @@ fun ContributorCoverImage(
                     ImageRequest
                         .Builder(context)
                         .data(localPath)
-                        .memoryCacheKey(contributorCacheKey(contributorId))
-                        .diskCacheKey(contributorCacheKey(contributorId))
+                        .memoryCacheKey(contributorCacheKey(contributorId, imagePath))
+                        .diskCacheKey(contributorCacheKey(contributorId, imagePath))
                         .build()
                 } else {
                     val baseUrl = serverConfig.getActiveUrl()?.value

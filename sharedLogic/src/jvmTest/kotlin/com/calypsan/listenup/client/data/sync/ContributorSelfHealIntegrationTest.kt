@@ -43,7 +43,7 @@ class ContributorSelfHealIntegrationTest :
                     val bookHandler =
                         BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
                     val contributorHandler =
-                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
 
                     // 1. Book event arrives first — contributor "c1" is not yet in Room.
                     bookHandler.onEvent(
@@ -87,7 +87,7 @@ class ContributorSelfHealIntegrationTest :
                     val bookHandler =
                         BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
                     val contributorHandler =
-                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
 
                     // 1. Real contributor event arrives first.
                     contributorHandler.onEvent(
