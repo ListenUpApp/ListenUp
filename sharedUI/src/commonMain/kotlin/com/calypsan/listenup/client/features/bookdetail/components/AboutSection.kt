@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.TagsSection
+import com.calypsan.listenup.client.util.toPlainTextPreview
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_about_this_book
 import listenup.composeapp.generated.resources.book_detail_credits
@@ -36,21 +37,6 @@ import org.jetbrains.compose.resources.stringResource
 
 private const val DESCRIPTION_PREVIEW_MAX_LINES = 4
 private const val DESCRIPTION_EXPAND_THRESHOLD = 200
-
-private val MARKUP_TAG_REGEX = Regex("<[^>]+>")
-private val WHITESPACE_RUN_REGEX = Regex("\\s+")
-private val SPACE_BEFORE_PUNCTUATION_REGEX = Regex(" ([,.;:!?])")
-
-/**
- * Strips HTML/markdown tags (e.g. `<em>`, `<p>`), collapses whitespace runs, and removes spaces
- * left before punctuation, so the collapsed description teaser reads as clean plain text. The
- * expanded view renders full markdown via [MarkdownText].
- */
-private fun String.toPlainPreview(): String =
-    replace(MARKUP_TAG_REGEX, " ")
-        .replace(WHITESPACE_RUN_REGEX, " ")
-        .replace(SPACE_BEFORE_PUNCTUATION_REGEX, "$1")
-        .trim()
 
 /**
  * Grouped "About" section combining description, optional credits, genres, and tags.
@@ -163,7 +149,7 @@ private fun AboutDescriptionBlock(
         // the markdown renderer can't clamp by line, so the teaser renders as plain text with
         // HTML/markdown markup stripped.
         Text(
-            text = description.toPlainPreview(),
+            text = description.toPlainTextPreview(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = DESCRIPTION_PREVIEW_MAX_LINES,
