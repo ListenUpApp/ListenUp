@@ -317,6 +317,7 @@ private fun InboxBookRow(
         BookCoverImage(
             bookId = book.id,
             coverPath = book.coverPath,
+            coverHash = book.coverHash,
             contentDescription = book.title,
             modifier =
                 Modifier

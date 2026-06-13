@@ -392,6 +392,7 @@ private fun BookGrid(
                             bookId = bookId,
                             title = gridItem.book.title,
                             coverPath = gridItem.book.coverPath,
+                            coverHash = gridItem.book.coverHash,
                             blurHash = gridItem.book.coverBlurHash,
                             onClick = { onBookClick(bookId) },
                             authorName = gridItem.book.authorNames,

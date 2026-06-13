@@ -156,6 +156,7 @@ fun CompactNowPlaying(
                 size = coverSize,
                 title = state.title,
                 author = state.author,
+                coverHash = state.coverHash,
             )
 
             Spacer(Modifier.height(24.dp))

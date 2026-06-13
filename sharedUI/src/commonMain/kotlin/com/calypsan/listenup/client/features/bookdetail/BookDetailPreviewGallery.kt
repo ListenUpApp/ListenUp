@@ -182,6 +182,7 @@ private fun HeroSection() {
     GalleryLabel("Hero — compact (phone)")
     CompactHero(
         coverPath = null,
+        coverHash = null,
         bookId = MOCK_BOOK_ID,
         title = MOCK_TITLE,
         overline = MOCK_OVERLINE,
@@ -200,6 +201,7 @@ private fun HeroSection() {
     WidePreview {
         WideHeroBand(
             coverPath = null,
+            coverHash = null,
             bookId = MOCK_BOOK_ID,
             title = MOCK_TITLE,
             overline = MOCK_OVERLINE,

@@ -77,6 +77,7 @@ open class LoadBookForEditUseCase(
                     allGenres = allGenres,
                     allTags = allTags,
                     coverPath = book.coverPath,
+                    coverHash = book.coverHash,
                 )
 
             logger.debug {

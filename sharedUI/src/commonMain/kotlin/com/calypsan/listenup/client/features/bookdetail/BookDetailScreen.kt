@@ -516,6 +516,7 @@ private fun ImmersiveBookDetail(
             item {
                 CompactHero(
                     coverPath = book.coverPath,
+                    coverHash = book.coverHash,
                     bookId = bookId,
                     title = book.title,
                     overline = heroOverline,

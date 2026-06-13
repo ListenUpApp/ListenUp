@@ -78,6 +78,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun CompactHero(
     coverPath: String?,
+    coverHash: String?,
     bookId: String,
     title: String,
     overline: String?,
@@ -104,6 +105,7 @@ fun CompactHero(
         ElevatedCoverCard(
             path = coverPath,
             bookId = bookId,
+            coverHash = coverHash,
             contentDescription = title,
             title = title,
             author = authors.firstOrNull()?.name.orEmpty(),
@@ -238,6 +240,7 @@ fun CompactHero(
 @Composable
 fun WideHeroBand(
     coverPath: String?,
+    coverHash: String?,
     bookId: String,
     title: String,
     overline: String?,
@@ -294,6 +297,7 @@ fun WideHeroBand(
                 ElevatedCoverCard(
                     path = coverPath,
                     bookId = bookId,
+                    coverHash = coverHash,
                     contentDescription = title,
                     title = title,
                     author = authors.firstOrNull()?.name.orEmpty(),

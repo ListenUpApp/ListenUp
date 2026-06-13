@@ -87,6 +87,7 @@ private val mockActiveState =
         title = MOCK_TITLE,
         author = "Brandon Sanderson",
         coverPath = null,
+        coverHash = null,
         coverBlurHash = null,
         authors = mockAuthors,
         narrators = mockNarrators,

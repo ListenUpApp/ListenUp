@@ -108,6 +108,7 @@ fun BookCard(
     coverPath: String?,
     blurHash: String?,
     onClick: () -> Unit,
+    coverHash: String? = null,
     authorName: String? = null,
     duration: String? = null,
     subtitle: String? = null,
@@ -199,6 +200,7 @@ fun BookCard(
             BookCardCover(
                 bookId = bookId,
                 coverPath = coverPath,
+                coverHash = coverHash,
                 blurHash = blurHash,
                 contentDescription = title,
                 title = title,
@@ -323,6 +325,7 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
 private fun BookCardCover(
     bookId: String,
     coverPath: String?,
+    coverHash: String? = null,
     blurHash: String?,
     contentDescription: String?,
     title: String,
@@ -363,6 +366,7 @@ private fun BookCardCover(
             BookCoverImage(
                 bookId = bookId,
                 coverPath = coverPath,
+                coverHash = coverHash,
                 blurHash = blurHash,
                 contentDescription = contentDescription,
                 title = title,

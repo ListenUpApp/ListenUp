@@ -41,6 +41,7 @@ fun PlayerArtwork(
     title: String,
     author: String,
     modifier: Modifier = Modifier,
+    coverHash: String? = null,
 ) {
     // The glow extends beyond the cover so the gradient has room to fade to nothing. It is an overlay
     // only — the Box footprint stays at [size], so the glow overflows without reserving layout space.
@@ -69,6 +70,7 @@ fun PlayerArtwork(
         ElevatedCoverCard(
             path = coverPath,
             bookId = bookId,
+            coverHash = coverHash,
             blurHash = coverBlurHash,
             contentDescription = null,
             title = title,

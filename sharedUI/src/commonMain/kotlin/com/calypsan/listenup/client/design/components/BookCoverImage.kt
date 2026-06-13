@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.design.util.decodeBlurHash
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.util.bookCoverCacheKey
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -52,10 +53,11 @@ fun BookCoverImage(
     author: String? = null,
     modifier: Modifier = Modifier,
     blurHash: String? = null,
+    coverHash: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
 ) {
-    val imageRequest = rememberCoverRequest(bookId, coverPath)
+    val imageRequest = rememberCoverRequest(bookId, coverPath, coverHash)
 
     var showFallback by remember(bookId, coverPath) { mutableStateOf(false) }
     var imageLoaded by remember(bookId, coverPath) { mutableStateOf(false) }
@@ -121,26 +123,28 @@ fun BookCoverImage(
 private fun rememberCoverRequest(
     bookId: String,
     coverPath: String?,
+    coverHash: String?,
 ): ImageRequest? {
     val context = LocalPlatformContext.current
+    val cacheKey = bookCoverCacheKey(bookId, coverHash)
 
     // Fast path: coverPath provided means the file exists locally.
     // Build the request synchronously — no IO dispatch, no frame delay.
     val syncRequest =
-        remember(bookId, coverPath) {
+        remember(bookId, coverPath, coverHash) {
             coverPath?.let {
                 ImageRequest
                     .Builder(context)
                     .data(it)
-                    .memoryCacheKey("$bookId:cover")
-                    .diskCacheKey("$bookId:cover")
+                    .memoryCacheKey(cacheKey)
+                    .diskCacheKey(cacheKey)
                     .build()
             }
         }
 
     // Slow path: no coverPath, need async resolution (check disk, fallback to server).
     val asyncRequest: State<ImageRequest?> =
-        produceState(initialValue = null, key1 = bookId, key2 = coverPath) {
+        produceState(initialValue = null, key1 = bookId, key2 = coverPath, key3 = coverHash) {
             if (coverPath != null || bookId.isBlank()) return@produceState
 
             val imageRepository: ImageRepository =
@@ -163,8 +167,8 @@ private fun rememberCoverRequest(
                         ImageRequest
                             .Builder(context)
                             .data(localPath)
-                            .memoryCacheKey("$bookId:cover")
-                            .diskCacheKey("$bookId:cover")
+                            .memoryCacheKey(cacheKey)
+                            .diskCacheKey(cacheKey)
                             .build()
                     } else {
                         serverCoverRequest(context, bookId, serverConfig, authSession, localPath)

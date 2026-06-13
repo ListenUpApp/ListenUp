@@ -16,6 +16,7 @@ data class BookEditData(
     val allGenres: List<EditableGenre>,
     val allTags: List<EditableTag>,
     val coverPath: String?,
+    val coverHash: String? = null,
 )
 
 /**

@@ -141,6 +141,7 @@ fun WideBookDetail(
             // Identity — full-width color band: title, independent subtitle, series chips, talent.
             WideHeroBand(
                 coverPath = book.coverPath,
+                coverHash = book.coverHash,
                 bookId = bookId,
                 title = book.title,
                 overline = heroOverline,
