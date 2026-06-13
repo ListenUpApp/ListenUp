@@ -249,7 +249,7 @@ struct ContributorDetailView: View {
                     .padding(.horizontal)
 
                 LazyVGrid(
-                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    columns: [GridItem(.adaptive(minimum: 165), spacing: 12)],
                     spacing: 12
                 ) {
                     ForEach(Array(observer.series.enumerated()), id: \.offset) { _, series in
