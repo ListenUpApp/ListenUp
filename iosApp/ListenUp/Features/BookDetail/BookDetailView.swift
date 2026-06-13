@@ -267,22 +267,14 @@ struct BookDetailView: View {
         } description: {
             Text(message)
         } actions: {
-            Button(String(localized: "common.retry")) {
-                observer?.loadBook(bookId: bookId)
-            }
-            .buttonStyle(.borderedProminent)
+            PrimaryButton(title: String(localized: "common.retry"), action: { observer?.loadBook(bookId: bookId) })
+                .frame(maxWidth: 240)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text(String(localized: "common.loading"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        LoadingStateView()
     }
 }
 
