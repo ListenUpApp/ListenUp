@@ -20,6 +20,7 @@ struct SeriesDetailView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
+    @State private var showEdit: Bool = false
 
     var body: some View {
         Group {
@@ -36,6 +37,22 @@ struct SeriesDetailView: View {
         .background(Color.luSurface)
         .navigationTitle(observer?.seriesName ?? String(localized: "common.series"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showEdit = true
+                    } label: {
+                        Label(String(localized: "common.edit"), systemImage: "pencil")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showEdit) {
+            SeriesEditView(seriesId: seriesId)
+        }
         .task(id: seriesId) {
             let vm = deps.createSeriesDetailViewModel()
             let obs = SeriesDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator)
