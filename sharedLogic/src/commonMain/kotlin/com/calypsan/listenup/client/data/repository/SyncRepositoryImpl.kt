@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -33,6 +34,14 @@ private val logger = KotlinLogging.logger {}
 
 /** Backoff between scan-progress stream re-subscriptions after the stream drops or completes. */
 private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
+
+/**
+ * Upper bound on the accumulated "recently matched" carousel. The server streams a small rolling
+ * window per [ScanEvent.Progress]; the client accumulates across events (see [mergeRecentBooks]) so
+ * the strip grows instead of looping the same few titles. This cap keeps that growth bounded on a
+ * large library — the oldest matches scroll off and are dropped.
+ */
+internal const val MAX_ACCUMULATED_RECENT_BOOKS = 60
 
 /**
  * Bridges the domain sync facade to the renovated client sync engine.
@@ -224,6 +233,7 @@ class SyncRepositoryImpl(
                         nowMs = { currentEpochMilliseconds() },
                         getStartedAt = { scanStartedAtMs },
                         setStartedAt = { scanStartedAtMs = it },
+                        getProgress = { _scanProgress.value },
                     )
                 }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
@@ -291,6 +301,7 @@ internal suspend fun applyScanEvent(
     nowMs: () -> Long = { 0L },
     getStartedAt: () -> Long = { 0L },
     setStartedAt: (Long) -> Unit = {},
+    getProgress: () -> ScanProgressState? = { null },
 ) {
     when (event) {
         is ScanEvent.Started -> {
@@ -317,7 +328,10 @@ internal suspend fun applyScanEvent(
                         authors = event.authorsMatched,
                         durationMs = event.totalDurationMs,
                         currentFile = event.currentFile,
-                        recentBooks = event.recentBooks,
+                        // Accumulate across events rather than render the server's rolling window:
+                        // the carousel grows and an already-shown title keeps its place — it never
+                        // gets swapped out by a freshly-matched book.
+                        recentBooks = mergeRecentBooks(getProgress()?.recentBooks.orEmpty(), event.recentBooks),
                         startedAtMs = getStartedAt(),
                     ),
                 )
@@ -344,6 +358,28 @@ internal suspend fun applyScanEvent(
         is ScanEvent.Change -> {
             // No-op: the live tail plus the Completed reconcile cover applied changes.
         }
+    }
+}
+
+/**
+ * Merge a freshly-streamed [incoming] window of matched books into the already-accumulated
+ * [existing] strip for the "recently matched" carousel. New titles append at the end; books already
+ * present keep their position (dedupe by [ScanBookRef] value — title + author), so a tile never gets
+ * its contents swapped for a different book just because that book was just scanned. The result is
+ * trimmed to the newest [MAX_ACCUMULATED_RECENT_BOOKS], dropping the oldest off the front.
+ */
+internal fun mergeRecentBooks(
+    existing: List<ScanBookRef>,
+    incoming: List<ScanBookRef>,
+): List<ScanBookRef> {
+    if (incoming.isEmpty()) return existing
+    val seen = existing.toHashSet()
+    val merged = existing.toMutableList()
+    for (book in incoming) if (seen.add(book)) merged += book
+    return if (merged.size > MAX_ACCUMULATED_RECENT_BOOKS) {
+        merged.subList(merged.size - MAX_ACCUMULATED_RECENT_BOOKS, merged.size).toList()
+    } else {
+        merged
     }
 }
 
