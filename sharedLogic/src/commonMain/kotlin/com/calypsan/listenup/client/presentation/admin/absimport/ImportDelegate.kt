@@ -7,7 +7,6 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.admin.ABSImportResults
 import com.calypsan.listenup.client.presentation.admin.ABSImportStep
 import com.calypsan.listenup.client.presentation.admin.ABSImportUiState
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -88,7 +87,7 @@ internal class ImportDelegate(
                         it.copy(
                             isImporting = false,
                             step = ABSImportStep.IMPORT_OPTIONS,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }

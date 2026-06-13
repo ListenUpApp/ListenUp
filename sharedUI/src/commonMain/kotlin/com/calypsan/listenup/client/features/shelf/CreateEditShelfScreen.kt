@@ -54,6 +54,8 @@ import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.shelf_delete_shelf
 import listenup.composeapp.generated.resources.shelf_description_optional
+import listenup.composeapp.generated.resources.shelf_private_shelf
+import listenup.composeapp.generated.resources.shelf_private_shelf_description
 import listenup.composeapp.generated.resources.common_shelf_name_hint
 import listenup.composeapp.generated.resources.shelf_this_will_permanently_delete_this
 import listenup.composeapp.generated.resources.shelf_whats_this_shelf_for
@@ -251,11 +253,11 @@ private fun CreateEditShelfFormBody(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Private shelf",
+                    text = stringResource(Res.string.shelf_private_shelf),
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    text = "Only you can see this shelf.",
+                    text = stringResource(Res.string.shelf_private_shelf_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

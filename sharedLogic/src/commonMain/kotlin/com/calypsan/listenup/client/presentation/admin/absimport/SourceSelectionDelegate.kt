@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.presentation.admin.ABSImportStep
 import com.calypsan.listenup.client.presentation.admin.ABSImportUiState
 import com.calypsan.listenup.client.presentation.admin.ABSSourceType
 import com.calypsan.listenup.client.presentation.admin.SelectedLocalFile
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -97,7 +96,7 @@ internal class SourceSelectionDelegate(
                         it.copy(
                             step = ABSImportStep.SOURCE_SELECTION,
                             isUploading = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -132,7 +131,7 @@ internal class SourceSelectionDelegate(
                     state.updateReady {
                         it.copy(
                             isLoadingDirectories = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }

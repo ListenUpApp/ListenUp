@@ -30,6 +30,11 @@ import com.calypsan.listenup.client.playback.NowPlayingChapter
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.playback.SleepTimerState
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_chapters
+import listenup.composeapp.generated.resources.player_sleep
+import listenup.composeapp.generated.resources.player_speed
+import org.jetbrains.compose.resources.stringResource
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
 
@@ -309,9 +314,9 @@ private fun PanelsSection() {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Button(onClick = { open = "speed" }) { Text("Speed") }
-        Button(onClick = { open = "chapters" }) { Text("Chapters") }
-        Button(onClick = { open = "sleep" }) { Text("Sleep") }
+        Button(onClick = { open = "speed" }) { Text(stringResource(Res.string.player_speed)) }
+        Button(onClick = { open = "chapters" }) { Text(stringResource(Res.string.player_chapters)) }
+        Button(onClick = { open = "sleep" }) { Text(stringResource(Res.string.player_sleep)) }
     }
     when (open) {
         "speed" -> {

@@ -35,9 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
+import com.calypsan.listenup.client.presentation.error.localized
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -47,6 +49,7 @@ import listenup.composeapp.generated.resources.admin_cover_images
 import listenup.composeapp.generated.resources.admin_create_a_backup_of_your
 import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_creating_backup
+import listenup.composeapp.generated.resources.admin_info_emoji
 import listenup.composeapp.generated.resources.admin_significantly_increases_backup_size
 import listenup.composeapp.generated.resources.admin_what_to_include
 
@@ -113,7 +116,7 @@ fun CreateBackupScreen(
 private fun CreateBackupForm(
     includeImages: Boolean,
     onIncludeImagesChange: (Boolean) -> Unit,
-    error: String?,
+    error: AppError?,
     onCreateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -210,7 +213,7 @@ private fun CreateBackupForm(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "ℹ️",
+                    text = stringResource(Res.string.admin_info_emoji),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
@@ -236,7 +239,7 @@ private fun CreateBackupForm(
                     ),
             ) {
                 Text(
-                    text = it,
+                    text = it.localized(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(16.dp),

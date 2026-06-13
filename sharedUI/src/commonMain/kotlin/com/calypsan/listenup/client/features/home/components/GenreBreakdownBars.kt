@@ -20,6 +20,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.GenreShare
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_percent
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Genre breakdown showing top genres with progress bars.
@@ -96,7 +99,7 @@ private fun GenreBar(
         }
 
         Text(
-            text = "$percent%",
+            text = stringResource(Res.string.common_percent, percent),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -2,11 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.BackupRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -37,13 +37,13 @@ sealed interface AdminBackupUiState {
         val backups: List<BackupInfo> = emptyList(),
         val isCreating: Boolean = false,
         val isDeleting: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
         val deleteConfirmBackup: BackupInfo? = null,
     ) : AdminBackupUiState
 
     /** Terminal state when the initial backup-list load fails. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : AdminBackupUiState
 }
 
@@ -88,10 +88,10 @@ class AdminBackupViewModel(
                         if (current is AdminBackupUiState.Ready) {
                             // Transient refresh failure once already loaded: keep
                             // backups and surface error to the snackbar.
-                            current.copy(error = userMessageFor(result.error))
+                            current.copy(error = result.error)
                         } else {
                             // Initial load (or post-Error retry) failed: terminal Error state.
-                            AdminBackupUiState.Error(userMessageFor(result.error))
+                            AdminBackupUiState.Error(result.error)
                         }
                     }
                 }
@@ -116,7 +116,7 @@ class AdminBackupViewModel(
                     updateReady {
                         it.copy(
                             isCreating = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -152,7 +152,7 @@ class AdminBackupViewModel(
                     updateReady {
                         it.copy(
                             isDeleting = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }

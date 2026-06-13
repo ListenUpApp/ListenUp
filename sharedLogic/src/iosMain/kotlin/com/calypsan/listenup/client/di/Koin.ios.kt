@@ -82,6 +82,16 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getLibrarySetupViewModel(): com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel by inject()
+        return viewModel
+    }
+
+    fun getAppStartupViewModel(): com.calypsan.listenup.client.presentation.startup.AppStartupViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.startup.AppStartupViewModel by inject()
+        return viewModel
+    }
+
     fun getAuthSession(): com.calypsan.listenup.client.domain.repository.AuthSession {
         val authSession: com.calypsan.listenup.client.domain.repository.AuthSession by inject()
         return authSession
@@ -99,6 +109,21 @@ object KoinHelper : KoinComponent {
 
     fun getLibraryViewModel(): com.calypsan.listenup.client.presentation.library.LibraryViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.library.LibraryViewModel by inject()
+        return viewModel
+    }
+
+    fun getSyncRepository(): com.calypsan.listenup.client.domain.repository.SyncRepository {
+        val syncRepository: com.calypsan.listenup.client.domain.repository.SyncRepository by inject()
+        return syncRepository
+    }
+
+    fun getHomeViewModel(): com.calypsan.listenup.client.presentation.home.HomeViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.home.HomeViewModel by inject()
+        return viewModel
+    }
+
+    fun getHomeStatsViewModel(): com.calypsan.listenup.client.presentation.home.HomeStatsViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.home.HomeStatsViewModel by inject()
         return viewModel
     }
 

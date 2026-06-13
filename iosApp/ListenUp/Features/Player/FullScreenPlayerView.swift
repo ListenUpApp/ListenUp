@@ -2,205 +2,55 @@ import SwiftUI
 @preconcurrency import Shared
 import UIKit
 
-/// Full-screen audiobook player with blurred cover art background
-/// and Liquid Glass controls card.
+/// Full-screen audiobook player on a soft cover-tint wash.
 ///
 /// Layout:
-/// - Blurred cover art background (full-bleed)
-/// - Top bar: dismiss chevron + ellipsis menu
-/// - Centered cover art at 65% screen width
-/// - Chapter info below cover
-/// - Bottom-anchored glass controls card with slider, transport, and actions
+/// - A linear tint wash over `systemBackground` (light/dark adaptive, fades by mid-screen)
+/// - Header: system-fill chevron-down · "Chapter N of M" · ellipsis menu
+/// - Centered cover art
+/// - Leading-aligned title block (title / chapter / narrator)
+/// - Tint-accented chapter scrubber + thin overall-book progress bar
+/// - Transport (prev-ch · back-10 · play/pause · fwd-30 · next-ch)
+/// - Secondary row: Speed · Sleep · Chapters · AirPlay
+///
+/// The accent is a legibility-clamped tint derived from the cover (coral until it
+/// resolves; coral on any failure — never stranded).
 struct FullScreenPlayerView: View {
     let observer: PlayerCoordinator
-    @Binding var isPresented: Bool
+    var namespace: Namespace.ID
+    var onCollapse: () -> Void
+    /// Collapse the player and navigate to the current book's detail screen.
+    var onViewDetails: () -> Void = {}
+
+    /// Live drag translation as the user swipes the header down (downward only).
+    /// Attached to the header strip alone so the body's chapter `Slider` and any
+    /// scrolling stay fully interactive — the dismiss drag never covers them.
+    var onDragChanged: (CGFloat) -> Void = { _ in }
+    /// Drag release: the overlay decides commit-to-dismiss vs. spring-back from
+    /// the final translation and predicted-end fling.
+    var onDragEnded: (_ translation: CGFloat, _ predictedEndTranslation: CGFloat) -> Void = { _, _ in }
 
     @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
     @State private var showSleepTimer: Bool = false
+    @State private var tint: Color = .listenUpOrange
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var hSize
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Top bar
-            HStack {
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "chevron.down")
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 8)
-
-            Spacer()
-
-            // Cover art — centered
-            BookCoverImage(
-                coverPath: observer.coverPath,
-                blurHash: observer.coverBlurHash
-            )
-            .frame(width: 250, height: 250)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
-
-            Spacer()
-                .frame(height: 20)
-
-            // Chapter info
-            VStack(spacing: 6) {
-                if observer.totalChapters > 0 {
-                    Text("Chapter \(observer.chapterIndex + 1) of \(observer.totalChapters)")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-                Text(observer.chapterTitle ?? observer.bookTitle)
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                Text(observer.authorName)
-                    .font(.subheadline)
-                    .foregroundStyle(.gray)
-            }
-            .padding(.horizontal, 24)
-
-            Spacer()
-
-            // Controls
-            VStack(spacing: 20) {
-                // Chapter-scoped progress — isolated so its per-frame position reads
-                // don't re-evaluate the rest of the player (incl. the blur background).
-                ChapterScrubberSection(observer: observer)
-
-                // Overall book progress bar (thin)
-                VStack(spacing: 4) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule()
-                                .fill(Color.white.opacity(0.15))
-                                .frame(height: 3)
-                            Capsule()
-                                .fill(Color.listenUpOrange.opacity(0.6))
-                                .frame(width: geo.size.width * CGFloat(observer.displayBookProgress), height: 3)
-                        }
-                    }
-                    .frame(height: 3)
-
-                    HStack {
-                        Text(formatTime(observer.displayBookPositionMs))
-                            .font(.system(size: 10))
-                            .foregroundStyle(.gray.opacity(0.6))
-                            .monospacedDigit()
-                        Spacer()
-                        Text(formatTime(observer.bookDurationMs))
-                            .font(.system(size: 10))
-                            .foregroundStyle(.gray.opacity(0.6))
-                            .monospacedDigit()
-                    }
-                }
-
-                // Transport
-                HStack(spacing: 0) {
-                    // Previous chapter
-                    Button {
-                        if observer.chapterIndex > 0 {
-                            observer.selectChapter(index: observer.chapterIndex - 1)
-                        }
-                    } label: {
-                        Image(systemName: "backward.end.fill")
-                            .font(.body)
-                            .foregroundStyle(observer.chapterIndex > 0 ? .white : .gray.opacity(0.4))
-                            .frame(width: 44, height: 44)
-                    }
-                    .disabled(observer.chapterIndex <= 0)
-
-                    Spacer()
-
-                    // Skip back
-                    Button { observer.skipBackward(seconds: 10) } label: {
-                        Image(systemName: "gobackward.10")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                    }
-
-                    Spacer()
-
-                    // Play/Pause
-                    Button {
-                        observer.togglePlayback()
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(.white)
-                                .frame(width: 64, height: 64)
-                            Image(systemName: observer.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.title)
-                                .foregroundStyle(Color.listenUpOrange)
-                        }
-                    }
-
-                    Spacer()
-
-                    // Skip forward
-                    Button { observer.skipForward(seconds: 30) } label: {
-                        Image(systemName: "goforward.30")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                    }
-
-                    Spacer()
-
-                    // Next chapter
-                    Button {
-                        if observer.chapterIndex < observer.totalChapters - 1 {
-                            observer.selectChapter(index: observer.chapterIndex + 1)
-                        }
-                    } label: {
-                        Image(systemName: "forward.end.fill")
-                            .font(.body)
-                            .foregroundStyle(observer.chapterIndex < observer.totalChapters - 1 ? .white : .gray.opacity(0.4))
-                            .frame(width: 44, height: 44)
-                    }
-                    .disabled(observer.chapterIndex >= observer.totalChapters - 1)
-                }
-                .padding(.horizontal, 8)
-
-                // Bottom actions
-                HStack(spacing: 32) {
-                    Button(action: { showSleepTimer = true }) {
-                        Image(systemName: observer.sleepTimerActive ? "moon.zzz.fill" : "moon.zzz")
-                            .foregroundStyle(observer.sleepTimerActive ? Color.listenUpOrange : .gray)
-                    }
-                    Button(action: { showSpeedPicker = true }) {
-                        Text(formatSpeed(observer.playbackSpeed))
-                            .foregroundStyle(.gray)
-                    }
-                    Button(action: { showChapterList = true }) {
-                        Image(systemName: "list.bullet")
-                            .foregroundStyle(.gray)
-                    }
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 40)
-        }
+        layout
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            ZStack {
-                BookCoverImage(
-                    coverPath: observer.coverPath,
-                    blurHash: observer.coverBlurHash
-                )
-                .blur(radius: 50)
-                .scaleEffect(1.2)
-                .ignoresSafeArea()
-
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-            }
-        }
+        .background(
+            LinearGradient(
+                colors: [tint.opacity(0.18), Color(.systemBackground)],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .ignoresSafeArea()
+        )
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
+        .task(id: observer.currentBookId) { resolveTint() }
         .statusBarHidden(false)
         .sheet(isPresented: $showSpeedPicker) {
             SpeedPickerSheet(
@@ -231,6 +81,357 @@ struct FullScreenPlayerView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .presentationBackground(.regularMaterial)
+        }
+    }
+
+    // MARK: - Layout
+
+    /// Size-class-driven layout. Compact (iPhone) keeps the single stacked column
+    /// with the chapter *sheet*; regular (iPad / landscape) splits into the player
+    /// column plus an always-visible inline "Up Next" chapters pane.
+    @ViewBuilder
+    private var layout: some View {
+        if hSize == .regular {
+            regularLayout
+        } else {
+            compactLayout
+        }
+    }
+
+    /// iPhone: the single stacked player column. The Chapters control opens the
+    /// modal `ChapterListSheet` (there's no room for an inline pane).
+    private var compactLayout: some View {
+        playerColumn(showChaptersControl: true)
+    }
+
+    /// iPad: a centered player column beside the inline "Up Next" chapters pane.
+    /// The pane replaces the chapter sheet, so the column's Chapters control is
+    /// hidden here.
+    private var regularLayout: some View {
+        HStack(spacing: 0) {
+            playerColumn(showChaptersControl: false)
+                .frame(maxWidth: 620)
+                .frame(maxWidth: .infinity)
+
+            NowPlayingUpNextPanel(observer: observer, tint: tint)
+        }
+    }
+
+    /// The shared player stack — header, cover, title, scrubber, transport, and
+    /// secondary controls. Used by both layouts so the matched-geometry cover and
+    /// the dismiss gesture live in exactly one place. `showChaptersControl` hides
+    /// the Chapters button on iPad, where the inline pane is the primary surface.
+    private func playerColumn(showChaptersControl: Bool) -> some View {
+        VStack(spacing: 0) {
+            header
+
+            Spacer(minLength: 12)
+
+            // Cover art — centered
+            BookCoverImage(
+                coverPath: observer.coverPath,
+                blurHash: observer.coverBlurHash
+            )
+            .frame(width: 286, height: 286)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
+            .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)
+
+            Spacer()
+                .frame(height: 32)
+
+            titleBlock
+
+            Spacer().frame(height: 22)
+
+            // Chapter-scoped progress — isolated so its per-frame position reads
+            // don't re-evaluate the rest of the player.
+            ChapterScrubberSection(observer: observer, tint: tint)
+                .padding(.horizontal, 26)
+
+            Spacer().frame(height: 12)
+
+            // Overall book progress bar (thin)
+            overallProgressBar
+                .padding(.horizontal, 26)
+
+            Spacer(minLength: 20)
+
+            transport
+                .padding(.horizontal, 30)
+
+            Spacer(minLength: 20)
+
+            secondaryControls(showChaptersControl: showChaptersControl)
+                .padding(.horizontal, 26)
+
+            Spacer().frame(height: 24)
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Button(action: onCollapse) {
+                Image(systemName: "chevron.down")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 36, height: 36)
+                    .background(Color(.tertiarySystemFill), in: Circle())
+            }
+            .accessibilityLabel(String(localized: "player.collapse"))
+
+            Spacer()
+
+            if observer.totalChapters > 0 {
+                Text(String(
+                    format: String(localized: "player.chapter_of"),
+                    "\(observer.chapterIndex + 1)",
+                    "\(observer.totalChapters)"
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Menu {
+                Button(action: onViewDetails) {
+                    Label(String(localized: "player.go_to_book"), systemImage: "book")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 36, height: 36)
+                    .background(Color(.tertiarySystemFill), in: Circle())
+            }
+            .accessibilityLabel(String(localized: "player.more_options"))
+        }
+        .padding(.horizontal, 18)
+        // Interactive swipe-down-to-dismiss lives on the header strip only. The
+        // chevron/menu `Button`s still get their taps (the drag only fires past
+        // its minimum distance); the body's chapter `Slider` is untouched.
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 10)
+                .onChanged { value in onDragChanged(value.translation.height) }
+                .onEnded { value in
+                    onDragEnded(value.translation.height, value.predictedEndTranslation.height)
+                }
+        )
+    }
+
+    // MARK: - Title block
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(observer.bookTitle)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Text("Ch. \(observer.chapterIndex + 1) · \(observer.chapterTitle ?? "")")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Text(String(format: String(localized: "books.detail_narrated_by_value"), observer.authorName))
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 26)
+    }
+
+    // MARK: - Overall progress
+
+    private var overallProgressBar: some View {
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color(.systemFill))
+                        .frame(height: 3)
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: geo.size.width * CGFloat(observer.displayBookProgress), height: 3)
+                }
+            }
+            .frame(height: 3)
+
+            HStack {
+                Text(formatTime(observer.displayBookPositionMs))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+                Spacer()
+                Text(formatTime(observer.bookDurationMs))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    // MARK: - Transport
+
+    private var transport: some View {
+        HStack(spacing: 0) {
+            // Previous chapter
+            Button {
+                if observer.chapterIndex > 0 {
+                    observer.selectChapter(index: observer.chapterIndex - 1)
+                }
+            } label: {
+                Image(systemName: "backward.end.fill")
+                    .font(.title3)
+                    .foregroundStyle(observer.chapterIndex > 0 ? .primary : .tertiary)
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(observer.chapterIndex <= 0)
+            .accessibilityLabel(String(localized: "player.previous_chapter"))
+
+            Spacer()
+
+            // Skip back
+            Button { observer.skipBackward(seconds: 10) } label: {
+                Image(systemName: "gobackward.10")
+                    .font(.title2)
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "10"))
+
+            Spacer()
+
+            // Play/Pause
+            Button {
+                observer.togglePlayback()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: 76, height: 76)
+                        .shadow(color: tint.opacity(0.45), radius: 12, x: 0, y: 8)
+                    Image(systemName: observer.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.title)
+                        .foregroundStyle(.white)
+                }
+            }
+            .accessibilityLabel(String(localized: observer.isPlaying ? "player.pause" : "player.play"))
+
+            Spacer()
+
+            // Skip forward
+            Button { observer.skipForward(seconds: 30) } label: {
+                Image(systemName: "goforward.30")
+                    .font(.title2)
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(String(format: String(localized: "player.skip_forward"), "30"))
+
+            Spacer()
+
+            // Next chapter
+            Button {
+                if observer.chapterIndex < observer.totalChapters - 1 {
+                    observer.selectChapter(index: observer.chapterIndex + 1)
+                }
+            } label: {
+                Image(systemName: "forward.end.fill")
+                    .font(.title3)
+                    .foregroundStyle(observer.chapterIndex < observer.totalChapters - 1 ? .primary : .tertiary)
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(observer.chapterIndex >= observer.totalChapters - 1)
+            .accessibilityLabel(String(localized: "player.next_chapter"))
+        }
+    }
+
+    // MARK: - Secondary controls
+
+    private func secondaryControls(showChaptersControl: Bool) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            // Speed
+            controlItem(label: String(localized: "player.speed")) {
+                Button(action: { showSpeedPicker = true }) {
+                    Text(formatSpeed(observer.playbackSpeed))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                }
+            }
+
+            // Sleep
+            controlItem(label: String(localized: "player.sleep")) {
+                Button(action: { showSleepTimer = true }) {
+                    Image(systemName: observer.sleepTimerActive ? "moon.zzz.fill" : "moon.zzz")
+                        .font(.title3)
+                        .foregroundStyle(observer.sleepTimerActive ? tint : .secondary)
+                        .frame(height: 28)
+                }
+            }
+
+            // Chapters — hidden on iPad, where the inline "Up Next" pane replaces it.
+            if showChaptersControl {
+                controlItem(label: String(localized: "player.chapters")) {
+                    Button(action: { showChapterList = true }) {
+                        Image(systemName: "list.bullet")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .frame(height: 28)
+                    }
+                }
+            }
+
+            // AirPlay — self-voicing route picker; keep it as its own interactive element.
+            controlItem(label: String(localized: "player.airplay"), combineForVoiceOver: false) {
+                RoutePickerView(tint: Color(.secondaryLabel), activeTint: tint)
+                    .frame(width: 28, height: 28)
+            }
+        }
+    }
+
+    /// One secondary-row control with its caption. `combineForVoiceOver` merges the
+    /// control and its visible caption into one VoiceOver element ("Speed, 1×" once,
+    /// not the raw symbol name plus a duplicate). Off for AirPlay's self-voicing picker.
+    private func controlItem(
+        label: String,
+        combineForVoiceOver: Bool = true,
+        @ViewBuilder _ control: () -> some View
+    ) -> some View {
+        VStack(spacing: 5) {
+            control()
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: combineForVoiceOver ? .combine : .contain)
+    }
+
+    // MARK: - Tint
+
+    /// Resolves the cover accent. Coral until extraction lands; coral on any failure
+    /// (never stranded). Keyed on the book id so the cache entry is shared with Book
+    /// Detail (placeholder `coverPath`s never collide); falls back to `coverPath` only
+    /// when the id is unknown.
+    private func resolveTint() {
+        guard let cacheKey = observer.currentBookId ?? observer.coverPath else { return }
+        if let cached = CoverTintExtractor.shared.cached(bookId: cacheKey) {
+            tint = cached.color
+            return
+        }
+        Task {
+            if let resolved = await CoverTintExtractor.shared.resolve(bookId: cacheKey, coverPath: observer.coverPath) {
+                tint = resolved.color
+            }
         }
     }
 
@@ -279,6 +480,7 @@ struct FullScreenPlayerView: View {
 /// cover background, which now re-evaluate at most ~1×/sec.
 private struct ChapterScrubberSection: View {
     let observer: PlayerCoordinator
+    let tint: Color
 
     @State private var sliderPosition: Double = 0
     @State private var isDraggingSlider: Bool = false
@@ -299,17 +501,18 @@ private struct ChapterScrubberSection: View {
                     }
                 }
             )
+            .tint(tint)
 
             HStack {
                 let elapsed = isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs
                 Text(formatTime(elapsed))
                     .font(.caption)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Spacer()
                 Text("-" + formatTime(observer.chapterDurationMs - elapsed))
                     .font(.caption)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
         }
@@ -332,183 +535,6 @@ private struct ChapterScrubberSection: View {
             return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         } else {
             return String(format: "%d:%02d", minutes, seconds)
-        }
-    }
-}
-
-// MARK: - Sleep Timer Sheet
-
-private struct SleepTimerSheet: View {
-    let observer: PlayerCoordinator
-    let onDismiss: () -> Void
-
-    private let durations = [15, 30, 45, 60, 120]
-
-    var body: some View {
-        NavigationStack {
-            List {
-                if observer.sleepTimerActive {
-                    Section {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(String(localized: "player.timer_active"))
-                                    .font(.subheadline.bold())
-                                Text(observer.sleepTimerLabel)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button(String(localized: "common.cancel")) {
-                                observer.cancelSleepTimer()
-                                onDismiss()
-                            }
-                            .foregroundStyle(.red)
-                        }
-                    }
-                }
-
-                Section(String(localized: "player.duration")) {
-                    ForEach(durations, id: \.self) { minutes in
-                        Button(action: {
-                            observer.setSleepTimer(minutes: minutes)
-                            onDismiss()
-                        }) {
-                            HStack {
-                                Text(formatDuration(minutes))
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                            }
-                        }
-                    }
-                }
-
-                Section {
-                    Button(action: {
-                        observer.setSleepTimerEndOfChapter()
-                        onDismiss()
-                    }) {
-                        HStack {
-                            Text(String(localized: "player.end_of_chapter"))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                        }
-                    }
-                }
-            }
-            .navigationTitle(String(localized: "player.sleep_timer"))
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-
-    private func formatDuration(_ minutes: Int) -> String {
-        if minutes < 60 { return "\(minutes) minutes" }
-        if minutes == 60 { return "1 hour" }
-        return "\(minutes / 60) hours"
-    }
-}
-
-// MARK: - Speed Picker Sheet
-
-private struct SpeedPickerSheet: View {
-    let currentSpeed: Float
-    let onSpeedSelected: (Float) -> Void
-
-    private let speeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(speeds, id: \.self) { speed in
-                    Button(action: { onSpeedSelected(speed) }) {
-                        HStack {
-                            Text(formatSpeed(speed))
-                                .foregroundStyle(.primary)
-
-                            Spacer()
-
-                            if abs(speed - currentSpeed) < 0.01 {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.listenUpOrange)
-                                    .fontWeight(.semibold)
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle(String(localized: "player.playback_speed"))
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-
-    private func formatSpeed(_ speed: Float) -> String {
-        if speed == Float(Int(speed)) {
-            return "\(Int(speed))x"
-        } else {
-            return String(format: "%.2gx", speed)
-        }
-    }
-}
-
-// MARK: - Chapter List Sheet
-
-private struct ChapterListSheet: View {
-    let observer: PlayerCoordinator
-    let onDismiss: () -> Void
-
-    static func formatMs(_ ms: Int64) -> String {
-        let totalSeconds = ms / 1000
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(0..<observer.totalChapters, id: \.self) { index in
-                    Button(action: {
-                        observer.selectChapter(index: index)
-                        onDismiss()
-                    }) {
-                        HStack(spacing: 12) {
-                            // Chapter number
-                            Text("\(index + 1)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(width: 24)
-
-                            // Chapter title + duration
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(observer.chapterTitleForIndex(index) ?? "Chapter \(index + 1)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(index == observer.chapterIndex ? Color.listenUpOrange : .primary)
-                                    .lineLimit(2)
-                                if index < observer.chapters.count {
-                                    let durationMs = observer.chapters[index].duration
-                                    Text(Self.formatMs(durationMs))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            // Now playing indicator
-                            if index == observer.chapterIndex {
-                                Image(systemName: observer.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(Color.listenUpOrange)
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle(String(localized: "player.chapters"))
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

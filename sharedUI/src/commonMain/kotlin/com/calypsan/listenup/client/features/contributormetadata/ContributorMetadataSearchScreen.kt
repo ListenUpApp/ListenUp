@@ -52,6 +52,7 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.contributor_audible_region
 import listenup.composeapp.generated.resources.contributor_author_or_narrator_name
 import listenup.composeapp.generated.resources.contributor_contributor_name
+import listenup.composeapp.generated.resources.metadata_searching_for
 import listenup.composeapp.generated.resources.contributor_find_on_audible
 import listenup.composeapp.generated.resources.common_search
 
@@ -99,7 +100,7 @@ fun ContributorMetadataSearchScreen(
             // Context - who we're searching for
             state.currentContributor?.let { contributor ->
                 Text(
-                    text = "Searching for: ${contributor.name}",
+                    text = stringResource(Res.string.metadata_searching_for, contributor.name),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp),

@@ -6,6 +6,13 @@ enum DownloadUIState {
     case notDownloaded, queued, downloading, completed, partial, failed
 }
 
+/// A user shelf flattened for the shelf-picker sheet, with this book's membership.
+struct ShelfRow: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let containsBook: Bool
+}
+
 /// Observes `BookDetailViewModel` — flattens the sealed `BookDetailUiState` into
 /// flat `@Observable` properties, plus a download-status secondary flow. Thin over `FlowBridge`.
 @Observable
@@ -44,6 +51,19 @@ final class BookDetailObserver {
     private(set) var isDownloaded: Bool = false
     private(set) var downloadError: String?
 
+    // MARK: - Curation & progress state
+
+    /// Per-book accent, derived from cover art. Coral until extraction resolves.
+    private(set) var tint: Color = .listenUpOrange
+    private(set) var showShelfPicker: Bool = false
+    private(set) var isAddingToShelf: Bool = false
+    private(set) var shelfError: String?
+    private(set) var myShelves: [ShelfRow] = []
+    private(set) var startedAtMs: Int64?
+    private(set) var isMarkingComplete: Bool = false
+    private(set) var isDiscardingProgress: Bool = false
+    private(set) var isRestarting: Bool = false
+
     // MARK: - Dependencies
 
     private let viewModel: BookDetailViewModel
@@ -51,6 +71,11 @@ final class BookDetailObserver {
     private let downloadService: DownloadService
     private let bridge = FlowBridge()
     private var observingDownloadForBookId: String?
+    private var tintForBookId: String?
+
+    // Latest raw shelf inputs; `myShelves` is recomputed when either updates.
+    private var allShelves: [ShelfRow] = []
+    private var shelfIdsContainingBook: Set<String> = []
 
     init(
         viewModel: BookDetailViewModel,
@@ -61,6 +86,21 @@ final class BookDetailObserver {
         self.playerCoordinator = playerCoordinator
         self.downloadService = downloadService
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.myShelves) { [weak self] shelves in
+            self?.allShelves = shelves.map { ShelfRow(id: $0.id, name: $0.name, containsBook: false) }
+            self?.recomputeShelfRows()
+        }
+        bridge.bind(viewModel.shelvesContainingBook) { [weak self] shelves in
+            self?.shelfIdsContainingBook = Set(shelves.map { $0.id })
+            self?.recomputeShelfRows()
+        }
+    }
+
+    /// Fold the latest `myShelves` + containing-book membership into `[ShelfRow]`.
+    private func recomputeShelfRows() {
+        myShelves = allShelves.map {
+            ShelfRow(id: $0.id, name: $0.name, containsBook: shelfIdsContainingBook.contains($0.id))
+        }
     }
 
     deinit {
@@ -108,6 +148,49 @@ final class BookDetailObserver {
         Task { try? await downloadService.deleteDownload(bookId: book.id) }
     }
 
+    // MARK: - Shelf picker
+
+    func openShelfPicker() { viewModel.showShelfPicker() }
+    func closeShelfPicker() { viewModel.hideShelfPicker() }
+    func addToShelf(shelfId: String) { viewModel.addBookToShelf(shelfId: shelfId) }
+    func createShelfAndAdd(name: String) { viewModel.createShelfAndAddBook(name: name) }
+    func clearShelfError() { viewModel.clearShelfError() }
+
+    // MARK: - Progress
+
+    func restart() { viewModel.restartBook() }
+    func discardProgress() { viewModel.discardProgress() }
+
+    func markFinished() {
+        let ts = Self.markCompleteTimestamps(
+            startedAtMs: startedAtMs,
+            now: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        viewModel.markComplete(startedAt: KotlinLong(value: ts.start), finishedAt: KotlinLong(value: ts.finish))
+    }
+
+    /// Pure: started defaults to `now` when unknown; finished is always `now`.
+    nonisolated static func markCompleteTimestamps(startedAtMs: Int64?, now: Int64) -> (start: Int64, finish: Int64) {
+        (start: startedAtMs ?? now, finish: now)
+    }
+
+    // MARK: - Tint extraction
+
+    /// Resolve the per-book accent. Uses the synchronous cache when warm; otherwise
+    /// launches an off-actor decode and sets `tint` when it lands. Leaves coral on nil.
+    private func resolveTint(bookId: String, coverPath: String?) {
+        if let cached = CoverTintExtractor.shared.cached(bookId: bookId) {
+            tint = cached.color
+            return
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            if let resolved = await CoverTintExtractor.shared.resolve(bookId: bookId, coverPath: coverPath) {
+                self.tint = resolved.color
+            }
+        }
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: BookDetailUiState) {
@@ -130,9 +213,20 @@ final class BookDetailObserver {
             isComplete = r.isComplete
             chapters = Array(r.chapters)
             genres = Array(r.genresList)
+            showShelfPicker = r.showShelfPicker
+            isAddingToShelf = r.isAddingToShelf
+            shelfError = r.shelfError
+            startedAtMs = r.startedAtMs?.int64Value
+            isMarkingComplete = r.isMarkingComplete
+            isDiscardingProgress = r.isDiscardingProgress
+            isRestarting = r.isRestarting
             if observingDownloadForBookId != r.book.idString {
                 observingDownloadForBookId = r.book.idString
                 observeDownloadStatus(bookId: r.book.idString)
+            }
+            if tintForBookId != r.book.idString {
+                tintForBookId = r.book.idString
+                resolveTint(bookId: r.book.idString, coverPath: r.book.coverPath)
             }
         case .error(let e):
             isLoading = false

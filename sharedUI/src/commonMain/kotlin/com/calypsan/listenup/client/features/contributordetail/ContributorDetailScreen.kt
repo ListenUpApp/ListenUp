@@ -83,6 +83,9 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_book_count
+import listenup.composeapp.generated.resources.common_books_count
+import listenup.composeapp.generated.resources.contributor_aka
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.book_detail_more_options
@@ -418,7 +421,7 @@ private fun ColumnScope.WideHeroInfoColumn(
     if (aliases.isNotEmpty()) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "aka ${aliases.joinToString(", ")}",
+            text = stringResource(Res.string.contributor_aka, aliases.joinToString(", ")),
             style = MaterialTheme.typography.bodyLarge,
             color = ink.copy(alpha = 0.85f),
         )
@@ -495,7 +498,12 @@ private fun WorkSectionHeader(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "${section.bookCount} ${if (section.bookCount == 1) "book" else "books"}",
+                text =
+                    if (section.bookCount == 1) {
+                        stringResource(Res.string.common_book_count, section.bookCount)
+                    } else {
+                        stringResource(Res.string.common_books_count, section.bookCount)
+                    },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -644,7 +652,7 @@ private fun NarrowColorHero(
                 state.contributor.aliases.takeIf { it.isNotEmpty() }?.let { aliases ->
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "aka ${aliases.joinToString(", ")}",
+                        text = stringResource(Res.string.contributor_aka, aliases.joinToString(", ")),
                         style = MaterialTheme.typography.titleMedium,
                         color = ink.copy(alpha = 0.85f),
                         textAlign = TextAlign.Center,

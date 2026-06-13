@@ -61,13 +61,35 @@ import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
 import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
+import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_backup_created_at
+import listenup.composeapp.generated.resources.admin_backup_size
+import listenup.composeapp.generated.resources.admin_backups
+import listenup.composeapp.generated.resources.admin_confirm_delete_backup
+import listenup.composeapp.generated.resources.admin_create_backup
+import listenup.composeapp.generated.resources.admin_create_backup_to_protect
+import listenup.composeapp.generated.resources.admin_delete_backup
+import listenup.composeapp.generated.resources.admin_import_books_progress
+import listenup.composeapp.generated.resources.admin_import_sessions_progress
+import listenup.composeapp.generated.resources.admin_import_users_progress
+import listenup.composeapp.generated.resources.admin_migrate_listening_history
+import listenup.composeapp.generated.resources.admin_no_backups_yet
+import listenup.composeapp.generated.resources.admin_restore
+import listenup.composeapp.generated.resources.admin_upload_new_import
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_menu
+import listenup.composeapp.generated.resources.common_open
+import listenup.composeapp.generated.resources.import_delete_confirm
+import listenup.composeapp.generated.resources.import_delete_import
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-
-private const val LABEL_DELETE = "Delete"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,10 +147,13 @@ fun AdminBackupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Backups") },
+                title = { Text(stringResource(Res.string.admin_backups)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(Res.string.common_back),
+                        )
                     }
                 },
             )
@@ -138,7 +163,7 @@ fun AdminBackupScreen(
                 ListenUpFab(
                     onClick = onCreateClick,
                     icon = Icons.Default.Add,
-                    contentDescription = "Create Backup",
+                    contentDescription = stringResource(Res.string.admin_create_backup),
                 )
             }
         },
@@ -197,9 +222,9 @@ fun AdminBackupScreen(
         AlertDialog(
             onDismissRequest = { deleteConfirmImport = null },
             shape = MaterialTheme.shapes.large,
-            title = { Text("Delete Import") },
+            title = { Text(stringResource(Res.string.import_delete_import)) },
             text = {
-                Text("Are you sure you want to delete \"${import.name}\"? This cannot be undone.")
+                Text(stringResource(Res.string.import_delete_confirm, import.name))
             },
             confirmButton = {
                 TextButton(
@@ -208,12 +233,12 @@ fun AdminBackupScreen(
                         deleteConfirmImport = null
                     },
                 ) {
-                    Text(LABEL_DELETE, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { deleteConfirmImport = null }) {
-                    Text("Cancel")
+                    Text(stringResource(Res.string.common_cancel))
                 }
             },
         )
@@ -229,16 +254,16 @@ private fun DeleteBackupDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
-        title = { Text("Delete Backup") },
-        text = { Text("Are you sure you want to delete ${backup.id}? This cannot be undone.") },
+        title = { Text(stringResource(Res.string.admin_delete_backup)) },
+        text = { Text(stringResource(Res.string.admin_confirm_delete_backup, backup.id)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(LABEL_DELETE, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
@@ -267,7 +292,7 @@ private fun AdminBackupBody(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = state.message,
+                    text = state.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -318,7 +343,7 @@ private fun AdminBackupReadyContent(
         // Backups section
         if (state.backups.isNotEmpty()) {
             item(key = "backups_header") {
-                SectionHeader(title = "Backups")
+                SectionHeader(title = stringResource(Res.string.admin_backups))
             }
             items(state.backups, key = { "backup_${it.id}" }) { backup ->
                 BackupCard(
@@ -415,14 +440,14 @@ private fun BackupCard(
                 }
                 Box {
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.common_menu))
                     }
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Restore") },
+                            text = { Text(stringResource(Res.string.admin_restore)) },
                             onClick = {
                                 showMenu = false
                                 onRestoreClick()
@@ -430,7 +455,7 @@ private fun BackupCard(
                             leadingIcon = { Icon(Icons.Default.Restore, contentDescription = null) },
                         )
                         DropdownMenuItem(
-                            text = { Text(LABEL_DELETE) },
+                            text = { Text(stringResource(Res.string.common_delete)) },
                             onClick = {
                                 showMenu = false
                                 onDeleteClick()
@@ -453,13 +478,13 @@ private fun BackupCard(
                     .toLocalDateTime(TimeZone.currentSystemDefault())
             val timeStr = "${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')}"
             Text(
-                text = "Created: ${localDateTime.date} at $timeStr",
+                text = stringResource(Res.string.admin_backup_created_at, localDateTime.date.toString(), timeStr),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Size: ${backup.sizeFormatted}",
+                text = stringResource(Res.string.admin_backup_size, backup.sizeFormatted),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -502,12 +527,12 @@ private fun UploadABSBackupCard(onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = "Upload New Import",
+                    text = stringResource(Res.string.admin_upload_new_import),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = "Migrate listening history from ABS backup",
+                    text = stringResource(Res.string.admin_migrate_listening_history),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                 )
@@ -559,21 +584,21 @@ private fun ABSImportSummaryCard(
                     StatusBadge(status = import.status)
                     Box {
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.common_menu))
                         }
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Open") },
+                                text = { Text(stringResource(Res.string.common_open)) },
                                 onClick = {
                                     showMenu = false
                                     onClick()
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(LABEL_DELETE) },
+                                text = { Text(stringResource(Res.string.common_delete)) },
                                 onClick = {
                                     showMenu = false
                                     onDeleteClick()
@@ -598,17 +623,32 @@ private fun ABSImportSummaryCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
-                    text = "Users: ${import.usersMapped}/${import.totalUsers}",
+                    text =
+                        stringResource(
+                            Res.string.admin_import_users_progress,
+                            import.usersMapped,
+                            import.totalUsers,
+                        ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "Books: ${import.booksMapped}/${import.totalBooks}",
+                    text =
+                        stringResource(
+                            Res.string.admin_import_books_progress,
+                            import.booksMapped,
+                            import.totalBooks,
+                        ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "Sessions: ${import.sessionsImported}/${import.totalSessions}",
+                    text =
+                        stringResource(
+                            Res.string.admin_import_sessions_progress,
+                            import.sessionsImported,
+                            import.totalSessions,
+                        ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -700,12 +740,12 @@ private fun EmptyBackupState(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No backups yet",
+            text = stringResource(Res.string.admin_no_backups_yet),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = "Create a backup to protect your data",
+            text = stringResource(Res.string.admin_create_backup_to_protect),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )

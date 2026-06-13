@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin.absimport
 
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
@@ -7,7 +8,6 @@ import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.presentation.admin.ABSImportStep
 import com.calypsan.listenup.client.presentation.admin.ABSImportUiState
 import com.calypsan.listenup.client.presentation.admin.SelectedBookDisplay
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -65,7 +65,7 @@ internal class AnalysisDelegate(
                             it.copy(
                                 isAnalyzing = false,
                                 step = ABSImportStep.SOURCE_SELECTION,
-                                error = userMessageFor(asyncResult.error),
+                                error = asyncResult.error,
                             )
                         }
                         return@launch
@@ -88,7 +88,7 @@ internal class AnalysisDelegate(
                                 it.copy(
                                     isAnalyzing = false,
                                     step = ABSImportStep.SOURCE_SELECTION,
-                                    error = userMessageFor(result.error),
+                                    error = result.error,
                                 )
                             }
                             null
@@ -114,13 +114,13 @@ internal class AnalysisDelegate(
             }
 
             if (statusResponse.status == "failed") {
-                val errorMessage = statusResponse.error ?: "Analysis failed"
-                logger.error { "Analysis reported failed status: $errorMessage" }
+                val failureDetail = statusResponse.error ?: "Analysis failed"
+                logger.error { "Analysis reported failed status: $failureDetail" }
                 state.updateReady {
                     it.copy(
                         isAnalyzing = false,
                         step = ABSImportStep.SOURCE_SELECTION,
-                        error = errorMessage,
+                        error = ImportError.AnalysisFailed(debugInfo = failureDetail),
                     )
                 }
                 return@launch

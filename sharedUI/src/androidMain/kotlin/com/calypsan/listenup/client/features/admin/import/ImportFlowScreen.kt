@@ -89,9 +89,9 @@ import listenup.composeapp.generated.resources.import_review_users_section
 import listenup.composeapp.generated.resources.import_review_users_unresolved_warning
 import listenup.composeapp.generated.resources.import_search_and_assign
 import listenup.composeapp.generated.resources.import_sessions_importable
-import listenup.composeapp.generated.resources.import_sessions_imported
+import listenup.composeapp.generated.resources.import_flow_sessions_imported
+import listenup.composeapp.generated.resources.import_flow_title
 import listenup.composeapp.generated.resources.import_sessions_written
-import listenup.composeapp.generated.resources.import_title
 import listenup.composeapp.generated.resources.import_uploading_subtitle
 import listenup.composeapp.generated.resources.import_uploading_title
 import listenup.composeapp.generated.resources.import_user_accept_suggestion
@@ -137,7 +137,7 @@ fun ImportFlowScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.import_title)) },
+                title = { Text(stringResource(Res.string.import_flow_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -266,7 +266,7 @@ private fun UploadingContent(state: ImportFlowUiState.Uploading) {
 private fun AnalyzingContent(state: ImportFlowUiState.Analyzing) {
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
         Text(
-            text = stringResource(Res.string.import_title),
+            text = stringResource(Res.string.import_flow_title),
             style = MaterialTheme.typography.headlineMedium,
         )
         Spacer(Modifier.height(8.dp))
@@ -905,7 +905,7 @@ private fun DoneContent(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = stringResource(Res.string.import_sessions_imported, result.sessionsImported),
+                    text = stringResource(Res.string.import_flow_sessions_imported, result.sessionsImported),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(

@@ -76,11 +76,22 @@ import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.GenreTreeNode
 import com.calypsan.listenup.client.presentation.admin.genreMoveCandidates
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_genre
 import listenup.composeapp.generated.resources.admin_add_subgenre
+import listenup.composeapp.generated.resources.admin_book_count
+import listenup.composeapp.generated.resources.admin_categories_books_count
 import listenup.composeapp.generated.resources.admin_confirm_delete_item
+import listenup.composeapp.generated.resources.admin_merge_into
+import listenup.composeapp.generated.resources.admin_merge_into_named
+import listenup.composeapp.generated.resources.admin_move_to
+import listenup.composeapp.generated.resources.admin_move_to_named
+import listenup.composeapp.generated.resources.admin_no_merge_target_available
+import listenup.composeapp.generated.resources.admin_no_move_target_top_level_only
+import listenup.composeapp.generated.resources.admin_top_level
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_categories
 import listenup.composeapp.generated.resources.common_delete
@@ -134,7 +145,7 @@ fun AdminCategoriesScreen(
     val readyError = (state as? AdminCategoriesUiState.Ready)?.error
     LaunchedEffect(readyError) {
         readyError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
         }
     }
@@ -302,7 +313,7 @@ private fun CategoriesScreenBody(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = s.message,
+                    text = s.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -608,7 +619,12 @@ private fun CategoriesContent(
         ) {
             item {
                 Text(
-                    text = "${state.genres.size} categories • ${state.totalBookCount} books",
+                    text =
+                        stringResource(
+                            Res.string.admin_categories_books_count,
+                            state.genres.size,
+                            state.totalBookCount,
+                        ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -876,7 +892,7 @@ private fun CategoryRowContent(
         // Book count badge
         if (node.genre.bookCount > 0) {
             Text(
-                text = "${node.genre.bookCount}",
+                text = stringResource(Res.string.admin_book_count, node.genre.bookCount),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -915,7 +931,7 @@ private fun CategoryContextMenu(
             leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
         )
         DropdownMenuItem(
-            text = { Text("Merge into…") },
+            text = { Text(stringResource(Res.string.admin_merge_into)) },
             onClick = {
                 onDismiss()
                 onMerge()
@@ -923,7 +939,7 @@ private fun CategoryContextMenu(
             leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
         )
         DropdownMenuItem(
-            text = { Text("Move to…") },
+            text = { Text(stringResource(Res.string.admin_move_to)) },
             onClick = {
                 onDismiss()
                 onMove()
@@ -990,10 +1006,10 @@ private fun MergeGenreDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Merge \"$sourceName\" into…") },
+        title = { Text(stringResource(Res.string.admin_merge_into_named, sourceName)) },
         text = {
             if (candidates.isEmpty()) {
-                Text("No other genres available as a merge target.")
+                Text(stringResource(Res.string.admin_no_merge_target_available))
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(candidates, key = { it.id }) { candidate ->
@@ -1039,7 +1055,7 @@ private fun MoveGenreDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Move \"$sourceName\" to…") },
+        title = { Text(stringResource(Res.string.admin_move_to_named, sourceName)) },
         text = {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 item(key = "__top_level__") {
@@ -1050,13 +1066,16 @@ private fun MoveGenreDialog(
                                 .clickable { onConfirmTopLevel() }
                                 .padding(vertical = 12.dp),
                     ) {
-                        Text(text = "Top level", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = stringResource(Res.string.admin_top_level),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
                     }
                 }
                 if (candidates.isEmpty()) {
                     item(key = "__no_candidates__") {
                         Text(
-                            text = "No other genres available — only 'Top level' is possible.",
+                            text = stringResource(Res.string.admin_no_move_target_top_level_only),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 12.dp),

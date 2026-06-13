@@ -12,6 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_see_all
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Canonical section header: a bold title with an optional coral "See all" action on the trailing
@@ -48,7 +51,7 @@ fun SectionTitle(
         if (onSeeAll != null) {
             Text(
                 // Never wrap — the title yields space (above) so "See all" stays a single line.
-                text = "See all",
+                text = stringResource(Res.string.common_see_all),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,

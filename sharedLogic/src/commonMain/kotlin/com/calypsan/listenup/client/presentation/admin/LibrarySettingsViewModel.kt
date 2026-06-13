@@ -2,12 +2,12 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,12 +66,11 @@ class LibrarySettingsViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to load library: $libraryId — ${result.error}" }
-                    val message = userMessageFor(result.error)
                     state.update { current ->
                         if (current is LibrarySettingsUiState.Ready) {
-                            current.copy(error = message)
+                            current.copy(error = result.error)
                         } else {
-                            LibrarySettingsUiState.Error(message)
+                            LibrarySettingsUiState.Error(result.error)
                         }
                     }
                 }
@@ -116,7 +115,7 @@ class LibrarySettingsViewModel(
                         it.copy(
                             isSaving = false,
                             inboxEnabled = previousValue,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -150,7 +149,7 @@ class LibrarySettingsViewModel(
                     updateReady {
                         it.copy(
                             isSaving = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -184,7 +183,7 @@ class LibrarySettingsViewModel(
                     updateReady {
                         it.copy(
                             isSaving = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -212,7 +211,7 @@ class LibrarySettingsViewModel(
                     updateReady {
                         it.copy(
                             isScanning = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -266,7 +265,7 @@ class LibrarySettingsViewModel(
                     updateReady {
                         it.copy(
                             isBrowserLoading = false,
-                            error = userMessageFor(result.error),
+                            error = result.error,
                         )
                     }
                 }
@@ -329,7 +328,7 @@ sealed interface LibrarySettingsUiState {
         val inboxEnabled: Boolean = false,
         val isSaving: Boolean = false,
         val isScanning: Boolean = false,
-        val error: String? = null,
+        val error: AppError? = null,
         // Folder browser state
         val showFolderBrowser: Boolean = false,
         val isBrowserLoading: Boolean = false,
@@ -341,6 +340,6 @@ sealed interface LibrarySettingsUiState {
 
     /** Terminal state when the initial library load fails. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : LibrarySettingsUiState
 }

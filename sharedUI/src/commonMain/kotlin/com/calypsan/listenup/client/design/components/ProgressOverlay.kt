@@ -20,6 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_percent
+import org.jetbrains.compose.resources.stringResource
 
 /** Scrim behind the progress pill — a translucent dark wash standing in for the design's blur. */
 private val ProgressScrim = Color.Black.copy(alpha = 0.42f)
@@ -56,7 +59,7 @@ fun ProgressOverlay(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                    text = stringResource(Res.string.common_percent, (progress.coerceIn(0f, 1f) * 100).toInt()),
                     fontSize = 12.5.sp,
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.ExtraBold,

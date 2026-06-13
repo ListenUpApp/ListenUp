@@ -111,6 +111,26 @@
         }
       }
     },
+    "admin.backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup"
+          }
+        }
+      }
+    },
+    "admin.backup_created_at": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created: %1$@ at %2$@"
+          }
+        }
+      }
+    },
     "admin.backup_restore": {
       "localizations": {
         "en": {
@@ -121,12 +141,62 @@
         }
       }
     },
+    "admin.backup_size": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Size: %1$@"
+          }
+        }
+      }
+    },
+    "admin.backups": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backups"
+          }
+        }
+      }
+    },
+    "admin.book_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d"
+          }
+        }
+      }
+    },
     "admin.book_covers_and_user_avatars": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Book covers and user avatars"
+          }
+        }
+      }
+    },
+    "admin.books_awaiting_review_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book awaiting review"
+          }
+        }
+      }
+    },
+    "admin.books_awaiting_review_s_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books awaiting review"
           }
         }
       }
@@ -157,6 +227,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can Share"
+          }
+        }
+      }
+    },
+    "admin.categories_books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d categories • %2$d books"
+          }
+        }
+      }
+    },
+    "admin.collection_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d collection"
           }
         }
       }
@@ -197,6 +287,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collection updated"
+          }
+        }
+      }
+    },
+    "admin.collections_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d collections"
+          }
+        }
+      }
+    },
+    "admin.confirm_delete_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to delete %1$@? This cannot be undone."
           }
         }
       }
@@ -301,6 +411,16 @@
         }
       }
     },
+    "admin.create_backup_to_protect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a backup to protect your data"
+          }
+        }
+      }
+    },
     "admin.create_backups_and_restore_server": {
       "localizations": {
         "en": {
@@ -337,6 +457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Creating Backup..."
+          }
+        }
+      }
+    },
+    "admin.delete_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Backup"
           }
         }
       }
@@ -391,6 +521,36 @@
         }
       }
     },
+    "admin.import_books_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books: %1$d/%2$d"
+          }
+        }
+      }
+    },
+    "admin.import_sessions_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions: %1$d/%2$d"
+          }
+        }
+      }
+    },
+    "admin.import_users_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Users: %1$d/%2$d"
+          }
+        }
+      }
+    },
     "admin.in_this_collection": {
       "localizations": {
         "en": {
@@ -437,6 +597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inbox Workflow"
+          }
+        }
+      }
+    },
+    "admin.info_emoji": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ℹ️"
           }
         }
       }
@@ -511,6 +681,56 @@
         }
       }
     },
+    "admin.merge_into": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge into…"
+          }
+        }
+      }
+    },
+    "admin.merge_into_named": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge “%1$@” into…"
+          }
+        }
+      }
+    },
+    "admin.migrate_listening_history": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Migrate listening history from ABS backup"
+          }
+        }
+      }
+    },
+    "admin.move_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to…"
+          }
+        }
+      }
+    },
+    "admin.move_to_named": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move “%1$@” to…"
+          }
+        }
+      }
+    },
     "admin.new_books_in_this_library": {
       "localizations": {
         "en": {
@@ -531,12 +751,42 @@
         }
       }
     },
+    "admin.no_backups_yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No backups yet"
+          }
+        }
+      }
+    },
     "admin.no_books_in_this_collection": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No books in this collection"
+          }
+        }
+      }
+    },
+    "admin.no_merge_target_available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No other genres available as a merge target."
+          }
+        }
+      }
+    },
+    "admin.no_move_target_top_level_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No other genres available — only 'Top level' is possible."
           }
         }
       }
@@ -651,6 +901,16 @@
         }
       }
     },
+    "admin.remote_url_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://audiobooks.example.com"
+          }
+        }
+      }
+    },
     "admin.remove_book": {
       "localizations": {
         "en": {
@@ -721,6 +981,36 @@
         }
       }
     },
+    "admin.restore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
+    "admin.restore_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Backup"
+          }
+        }
+      }
+    },
+    "admin.restored_from": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restored from %1$@"
+          }
+        }
+      }
+    },
     "admin.review_new_books_before_they": {
       "localizations": {
         "en": {
@@ -781,12 +1071,32 @@
         }
       }
     },
+    "admin.schema_migrated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schema %1$@ → %2$@"
+          }
+        }
+      }
+    },
     "admin.select_folder": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Select Folder"
+          }
+        }
+      }
+    },
+    "admin.selected_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d selected"
           }
         }
       }
@@ -901,12 +1211,32 @@
         }
       }
     },
+    "admin.top_level": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Top level"
+          }
+        }
+      }
+    },
     "admin.unmapped_genres": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Unmapped Genres"
+          }
+        }
+      }
+    },
+    "admin.upload_new_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload New Import"
           }
         }
       }
@@ -1097,6 +1427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "First"
+          }
+        }
+      }
+    },
+    "auth.hero_tagline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thousands of audiobooks.\nOne beautiful library."
           }
         }
       }
@@ -1311,6 +1651,16 @@
         }
       }
     },
+    "auth.your_email": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your email: %1$@"
+          }
+        }
+      }
+    },
     "auth.your_registration_request_has_been": {
       "localizations": {
         "en": {
@@ -1371,6 +1721,16 @@
         }
       }
     },
+    "book.detail_all_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %1$d"
+          }
+        }
+      }
+    },
     "book.detail_authors": {
       "localizations": {
         "en": {
@@ -1411,6 +1771,26 @@
         }
       }
     },
+    "book.detail_chapter_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters"
+          }
+        }
+      }
+    },
+    "book.detail_chapter_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ch. %1$d · %2$@"
+          }
+        }
+      }
+    },
     "book.detail_chapters": {
       "localizations": {
         "en": {
@@ -1441,12 +1821,42 @@
         }
       }
     },
+    "book.detail_credits_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credits go here"
+          }
+        }
+      }
+    },
+    "book.detail_details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        }
+      }
+    },
     "book.detail_discard_progress": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Discard Progress"
+          }
+        }
+      }
+    },
+    "book.detail_discard_progress_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard your listening progress?"
           }
         }
       }
@@ -1501,6 +1911,16 @@
         }
       }
     },
+    "book.detail_error_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t load this book"
+          }
+        }
+      }
+    },
     "book.detail_find_metadata": {
       "localizations": {
         "en": {
@@ -1511,12 +1931,52 @@
         }
       }
     },
+    "book.detail_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
     "book.detail_full_cast": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Full cast"
+          }
+        }
+      }
+    },
+    "book.detail_length": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Length"
+          }
+        }
+      }
+    },
+    "book.detail_mark_as_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as Finished"
+          }
+        }
+      }
+    },
+    "book.detail_mark_as_finished_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as finished?"
           }
         }
       }
@@ -1547,6 +2007,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Narrated by"
+          }
+        }
+      }
+    },
+    "book.detail_narrated_by_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated by "
+          }
+        }
+      }
+    },
+    "book.detail_narrated_by_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrated by %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_new_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Shelf"
           }
         }
       }
@@ -1621,6 +2111,16 @@
         }
       }
     },
+    "book.detail_publisher": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publisher"
+          }
+        }
+      }
+    },
     "book.detail_queued": {
       "localizations": {
         "en": {
@@ -1681,12 +2181,62 @@
         }
       }
     },
+    "book.detail_released": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released"
+          }
+        }
+      }
+    },
     "book.detail_remove_the_downloaded_files_for": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Remove the downloaded files for “%1$@”? "
+          }
+        }
+      }
+    },
+    "book.detail_restart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        }
+      }
+    },
+    "book.detail_restart_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart from the beginning?"
+          }
+        }
+      }
+    },
+    "book.detail_resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "book.detail_resume_progress_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume, %1$d percent"
           }
         }
       }
@@ -1727,6 +2277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "See All %1$d Chapters"
+          }
+        }
+      }
+    },
+    "book.detail_series_pill_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series, %1$@"
           }
         }
       }
@@ -1991,6 +2551,26 @@
         }
       }
     },
+    "book.edit_remove_role_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@ section"
+          }
+        }
+      }
+    },
+    "book.edit_role_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@s"
+          }
+        }
+      }
+    },
     "book.edit_shortened_version_of_the_original": {
       "localizations": {
         "en": {
@@ -2081,6 +2661,36 @@
         }
       }
     },
+    "book.tag_add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Tag"
+          }
+        }
+      }
+    },
+    "book.tag_add_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add tag..."
+          }
+        }
+      }
+    },
+    "book.tag_popular": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Popular Tags"
+          }
+        }
+      }
+    },
     "common.about": {
       "localizations": {
         "en": {
@@ -2167,6 +2777,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back"
+          }
+        }
+      }
+    },
+    "common.book_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "common.books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
           }
         }
       }
@@ -2541,6 +3171,16 @@
         }
       }
     },
+    "common.listenup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp"
+          }
+        }
+      }
+    },
     "common.listenup_logo": {
       "localizations": {
         "en": {
@@ -2587,6 +3227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Members"
+          }
+        }
+      }
+    },
+    "common.menu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu"
           }
         }
       }
@@ -2711,6 +3361,16 @@
         }
       }
     },
+    "common.percent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d%"
+          }
+        }
+      }
+    },
     "common.permissions": {
       "localizations": {
         "en": {
@@ -2737,6 +3397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Please wait"
+          }
+        }
+      }
+    },
+    "common.private": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private"
           }
         }
       }
@@ -2777,6 +3447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove"
+          }
+        }
+      }
+    },
+    "common.remove_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@"
           }
         }
       }
@@ -2987,6 +3667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign Out"
+          }
+        }
+      }
+    },
+    "common.something_went_wrong": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong"
           }
         }
       }
@@ -3391,6 +4081,16 @@
         }
       }
     },
+    "connect.version_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%1$@"
+          }
+        }
+      }
+    },
     "contributor.aka": {
       "localizations": {
         "en": {
@@ -3497,6 +4197,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Birth Date"
+          }
+        }
+      }
+    },
+    "contributor.books_by_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book by %2$@"
+          }
+        }
+      }
+    },
+    "contributor.books_by_s_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books by %2$@"
           }
         }
       }
@@ -3961,6 +4681,16 @@
         }
       }
     },
+    "discover.could_not_load_leaderboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not load leaderboard."
+          }
+        }
+      }
+    },
     "discover.discover_screen": {
       "localizations": {
         "en": {
@@ -4037,6 +4767,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recently Added"
+          }
+        }
+      }
+    },
+    "discover.shelf_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d shelf"
+          }
+        }
+      }
+    },
+    "discover.shelves_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d shelves"
           }
         }
       }
@@ -4141,12 +4891,152 @@
         }
       }
     },
+    "genre.all_mapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every genre string from your scanner has been mapped or auto-resolved."
+          }
+        }
+      }
+    },
+    "genre.book_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "genre.books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "genre.browse_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse by Genre"
+          }
+        }
+      }
+    },
+    "genre.include_subtree": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include subtree"
+          }
+        }
+      }
+    },
+    "genre.map_arrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map →"
+          }
+        }
+      }
+    },
+    "genre.map_raw_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map \"%1$@\" to…"
+          }
+        }
+      }
+    },
+    "genre.no_books_in_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books in this genre."
+          }
+        }
+      }
+    },
+    "genre.no_genres_yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No genres yet."
+          }
+        }
+      }
+    },
+    "genre.no_live_genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No live genres available. Create one in Admin → Categories first."
+          }
+        }
+      }
+    },
+    "genre.nothing_to_map": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to map."
+          }
+        }
+      }
+    },
+    "genre.unmapped_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unmapped Genres"
+          }
+        }
+      }
+    },
+    "home.best_day_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best: %1$d day streak"
+          }
+        }
+      }
+    },
     "home.best_longeststreak": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "(best: %1$@)"
+          }
+        }
+      }
+    },
+    "home.best_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best: %1$@"
           }
         }
       }
@@ -4161,22 +5051,32 @@
         }
       }
     },
-    "home.content_coming_soon": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Content sections coming soon"
-          }
-        }
-      }
-    },
     "home.continue_listening": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Continue listening"
+          }
+        }
+      }
+    },
+    "home.couldnt_load": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We couldn't load your Listen Now."
+          }
+        }
+      }
+    },
+    "home.couldnt_load_stats": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load your stats."
           }
         }
       }
@@ -4221,22 +5121,32 @@
         }
       }
     },
-    "home.greeting": {
+    "home.day_streak": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hello, %1$@!"
+            "value": "%1$d day streak"
           }
         }
       }
     },
-    "home.home_screen": {
+    "home.hours_minutes": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Home Screen"
+            "value": "%1$dh %2$dm"
+          }
+        }
+      }
+    },
+    "home.listened": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "listened"
           }
         }
       }
@@ -4251,12 +5161,72 @@
         }
       }
     },
+    "home.no_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No listening"
+          }
+        }
+      }
+    },
     "home.nothing_playing_yet": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Nothing playing yet"
+          }
+        }
+      }
+    },
+    "home.opens_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens book"
+          }
+        }
+      }
+    },
+    "home.private_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private shelf"
+          }
+        }
+      }
+    },
+    "home.progress_percent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d percent"
+          }
+        }
+      }
+    },
+    "home.shelf_books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "home.shelf_books_count_duration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books · %2$@"
           }
         }
       }
@@ -4291,6 +5261,16 @@
         }
       }
     },
+    "home.today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        }
+      }
+    },
     "home.top_genres": {
       "localizations": {
         "en": {
@@ -4301,12 +5281,42 @@
         }
       }
     },
-    "home.what_to_read": {
+    "import.abs_imports": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What you want to read?"
+            "value": "ABS Imports"
+          }
+        }
+      }
+    },
+    "import.analysis_in_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis in progress…"
+          }
+        }
+      }
+    },
+    "import.analysis_interrupted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis was likely interrupted. Cancel and try again."
+          }
+        }
+      }
+    },
+    "import.analyzing_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing backup…"
           }
         }
       }
@@ -4317,6 +5327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Matching your Audiobookshelf library against ListenUp..."
+          }
+        }
+      }
+    },
+    "import.and_more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "...and %1$d more"
           }
         }
       }
@@ -4357,6 +5377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Assigned"
+          }
+        }
+      }
+    },
+    "import.book_progress_records_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book progress records"
           }
         }
       }
@@ -4411,12 +5441,32 @@
         }
       }
     },
+    "import.books_all_matched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All books matched automatically!"
+          }
+        }
+      }
+    },
     "import.books_matched": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Listened books matched: %1$@"
+          }
+        }
+      }
+    },
+    "import.books_matched_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched (%1$d)"
           }
         }
       }
@@ -4431,12 +5481,42 @@
         }
       }
     },
+    "import.books_needs_review_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs Review (%1$d)"
+          }
+        }
+      }
+    },
     "import.books_skipped": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books skipped: %1$@"
+          }
+        }
+      }
+    },
+    "import.cancel_delete_stuck": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This will delete the stuck import. You can create a new one afterwards."
+          }
+        }
+      }
+    },
+    "import.change_selection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change selection"
           }
         }
       }
@@ -4451,12 +5531,112 @@
         }
       }
     },
+    "import.choose_different_file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Different File"
+          }
+        }
+      }
+    },
     "import.choose_file": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Choose file"
+          }
+        }
+      }
+    },
+    "import.clear": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "import.complete_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete"
+          }
+        }
+      }
+    },
+    "import.completed_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed in %1$@"
+          }
+        }
+      }
+    },
+    "import.count_number": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d"
+          }
+        }
+      }
+    },
+    "import.create_choose": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose how to create a new import:"
+          }
+        }
+      }
+    },
+    "import.create_to_start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a new import from an Audiobookshelf backup to get started."
+          }
+        }
+      }
+    },
+    "import.created_at": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created: %1$@"
+          }
+        }
+      }
+    },
+    "import.delete_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to delete \"%1$@\"? This cannot be undone."
+          }
+        }
+      }
+    },
+    "import.delete_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Import"
           }
         }
       }
@@ -4481,6 +5661,16 @@
         }
       }
     },
+    "import.empty_directory": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty directory"
+          }
+        }
+      }
+    },
     "import.error_title": {
       "localizations": {
         "en": {
@@ -4491,12 +5681,72 @@
         }
       }
     },
+    "import.errors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Errors"
+          }
+        }
+      }
+    },
+    "import.events_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d events created"
+          }
+        }
+      }
+    },
     "import.finish": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Finish"
+          }
+        }
+      }
+    },
+    "import.flow_sessions_imported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions imported: %1$@"
+          }
+        }
+      }
+    },
+    "import.flow_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABS Import"
+          }
+        }
+      }
+    },
+    "import.for_users_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For %1$d users"
+          }
+        }
+      }
+    },
+    "import.how_to_export": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How to export from Audiobookshelf"
           }
         }
       }
@@ -4521,12 +5771,202 @@
         }
       }
     },
+    "import.import_options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Options"
+          }
+        }
+      }
+    },
+    "import.import_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import book progress"
+          }
+        }
+      }
+    },
+    "import.import_progress_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current position and completion status"
+          }
+        }
+      }
+    },
+    "import.import_ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Ready"
+          }
+        }
+      }
+    },
+    "import.import_sessions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import listening sessions"
+          }
+        }
+      }
+    },
+    "import.import_sessions_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Individual listening events with timestamps"
+          }
+        }
+      }
+    },
+    "import.import_stuck": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import appears stuck"
+          }
+        }
+      }
+    },
+    "import.import_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Summary"
+          }
+        }
+      }
+    },
+    "import.imported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported"
+          }
+        }
+      }
+    },
+    "import.imported_sessions_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported %1$d sessions"
+          }
+        }
+      }
+    },
+    "import.intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import listening history from an Audiobookshelf backup."
+          }
+        }
+      }
+    },
     "import.items_matched": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ / %2$@ items"
+          }
+        }
+      }
+    },
+    "import.keep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep"
+          }
+        }
+      }
+    },
+    "import.listening_sessions_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d listening sessions"
+          }
+        }
+      }
+    },
+    "import.mapped_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mapped"
+          }
+        }
+      }
+    },
+    "import.mapped_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mapped to: %1$@"
+          }
+        }
+      }
+    },
+    "import.mapped_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d"
+          }
+        }
+      }
+    },
+    "import.match_books_intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match Audiobookshelf books to your ListenUp library."
+          }
+        }
+      }
+    },
+    "import.match_users_intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match Audiobookshelf users to ListenUp users."
+          }
+        }
+      }
+    },
+    "import.matched_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched"
           }
         }
       }
@@ -4541,12 +5981,52 @@
         }
       }
     },
+    "import.minutes_listened": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$dm listened"
+          }
+        }
+      }
+    },
+    "import.narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narr. %1$@"
+          }
+        }
+      }
+    },
     "import.needs_attention": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Needs Attention"
+          }
+        }
+      }
+    },
+    "import.new_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Import"
+          }
+        }
+      }
+    },
+    "import.new_import_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Import"
           }
         }
       }
@@ -4561,12 +6041,162 @@
         }
       }
     },
+    "import.no_books_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books found"
+          }
+        }
+      }
+    },
     "import.no_books_to_review": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "All books matched automatically."
+          }
+        }
+      }
+    },
+    "import.no_imports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Imports"
+          }
+        }
+      }
+    },
+    "import.no_sessions_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sessions found"
+          }
+        }
+      }
+    },
+    "import.no_users_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No users found"
+          }
+        }
+      }
+    },
+    "import.options_intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose what to import from the Audiobookshelf backup."
+          }
+        }
+      }
+    },
+    "import.parent_directory": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parent directory"
+          }
+        }
+      }
+    },
+    "import.pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending"
+          }
+        }
+      }
+    },
+    "import.pick_different": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick Different"
+          }
+        }
+      }
+    },
+    "import.position_and_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d"
+          }
+        }
+      }
+    },
+    "import.progress_imported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d progress records imported (%2$d skipped)"
+          }
+        }
+      }
+    },
+    "import.ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        }
+      }
+    },
+    "import.ready_to_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready to Import"
+          }
+        }
+      }
+    },
+    "import.ready_to_upload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready to Upload"
+          }
+        }
+      }
+    },
+    "import.rebuild_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuild progress after import"
+          }
+        }
+      }
+    },
+    "import.rebuild_progress_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recalculate listening stats from events"
           }
         }
       }
@@ -4621,6 +6251,36 @@
         }
       }
     },
+    "import.search_instead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Instead"
+          }
+        }
+      }
+    },
+    "import.select_backup_file_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a backup file from your device"
+          }
+        }
+      }
+    },
+    "import.select_backup_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select backup source"
+          }
+        }
+      }
+    },
     "import.sessions_importable": {
       "localizations": {
         "en": {
@@ -4636,7 +6296,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sessions imported: %1$@"
+            "value": "%1$d sessions imported (%2$d skipped)"
           }
         }
       }
@@ -4651,6 +6311,16 @@
         }
       }
     },
+    "import.skip_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        }
+      }
+    },
     "import.skip_item": {
       "localizations": {
         "en": {
@@ -4661,12 +6331,102 @@
         }
       }
     },
+    "import.status": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status: %1$@"
+          }
+        }
+      }
+    },
+    "import.suggestion_available_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d suggestion available"
+          }
+        }
+      }
+    },
+    "import.suggestions_available_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d suggestions available"
+          }
+        }
+      }
+    },
+    "import.supports_formats": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports .audiobookshelf, .zip, .tar.gz files"
+          }
+        }
+      }
+    },
     "import.title": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ABS Import"
+            "value": "Import from Audiobookshelf"
+          }
+        }
+      }
+    },
+    "import.upload_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload Failed"
+          }
+        }
+      }
+    },
+    "import.upload_from_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload from device"
+          }
+        }
+      }
+    },
+    "import.upload_intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload your Audiobookshelf backup to migrate listening history and progress."
+          }
+        }
+      }
+    },
+    "import.uploaded_analyzed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your backup has been uploaded and analyzed."
+          }
+        }
+      }
+    },
+    "import.uploading_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading Backup..."
           }
         }
       }
@@ -4781,12 +6541,82 @@
         }
       }
     },
+    "import.users_all_matched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All users matched automatically!"
+          }
+        }
+      }
+    },
     "import.users_matched": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Users matched: %1$@"
+          }
+        }
+      }
+    },
+    "import.users_matched_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched (%1$d)"
+          }
+        }
+      }
+    },
+    "import.users_needs_review_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs Review (%1$d)"
+          }
+        }
+      }
+    },
+    "import.users_updated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d users updated"
+          }
+        }
+      }
+    },
+    "import.warnings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warnings"
+          }
+        }
+      }
+    },
+    "import.wizard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Wizard"
+          }
+        }
+      }
+    },
+    "import.wizard_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step-by-step import from server file"
           }
         }
       }
@@ -4857,6 +6687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collection"
+          }
+        }
+      }
+    },
+    "library.count_unit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d %2$@"
           }
         }
       }
@@ -4941,6 +6781,16 @@
         }
       }
     },
+    "library.ignoring_articles": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · ignoring A · An · The"
+          }
+        }
+      }
+    },
     "library.loading_your_library": {
       "localizations": {
         "en": {
@@ -5021,6 +6871,16 @@
         }
       }
     },
+    "library.title_sort_toggle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title sort"
+          }
+        }
+      }
+    },
     "library.you_dont_have_any_shelves": {
       "localizations": {
         "en": {
@@ -5037,6 +6897,376 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your audiobooks will appear here once the scan is complete"
+          }
+        }
+      }
+    },
+    "library_setup.add_another_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add another folder"
+          }
+        }
+      }
+    },
+    "library_setup.browse_while_building": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse library while it builds"
+          }
+        }
+      }
+    },
+    "library_setup.building_progress_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building library, %1$d percent complete. %2$d books, %3$d authors, %4$d hours."
+          }
+        }
+      }
+    },
+    "library_setup.building_starting_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building library, starting scan."
+          }
+        }
+      }
+    },
+    "library_setup.building_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning your folders and reading audiobook tags. You can start listening right away — it keeps working in the background."
+          }
+        }
+      }
+    },
+    "library_setup.building_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building your library"
+          }
+        }
+      }
+    },
+    "library_setup.choose_audiobook_folders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose your audiobook folders"
+          }
+        }
+      }
+    },
+    "library_setup.choose_folders_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select the folders on your server where your audiobooks are stored."
+          }
+        }
+      }
+    },
+    "library_setup.choose_folders_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose your folders"
+          }
+        }
+      }
+    },
+    "library_setup.create_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Library"
+          }
+        }
+      }
+    },
+    "library_setup.current_path_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current folder: %1$@"
+          }
+        }
+      }
+    },
+    "library_setup.folder_a11y_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$d items"
+          }
+        }
+      }
+    },
+    "library_setup.folder_deselect_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected, double tap to deselect"
+          }
+        }
+      }
+    },
+    "library_setup.folder_opens_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens folder"
+          }
+        }
+      }
+    },
+    "library_setup.folder_select_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double tap to select"
+          }
+        }
+      }
+    },
+    "library_setup.folders_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d folder(s) selected"
+          }
+        }
+      }
+    },
+    "library_setup.item_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d items"
+          }
+        }
+      }
+    },
+    "library_setup.library_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library created!"
+          }
+        }
+      }
+    },
+    "library_setup.library_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library name"
+          }
+        }
+      }
+    },
+    "library_setup.library_name_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My Library"
+          }
+        }
+      }
+    },
+    "library_setup.loading_folders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading folders..."
+          }
+        }
+      }
+    },
+    "library_setup.no_subfolders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder has no subfolders."
+          }
+        }
+      }
+    },
+    "library_setup.no_subfolders_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No subfolders here"
+          }
+        }
+      }
+    },
+    "library_setup.no_subfolders_select_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder has no subfolders. You can select it as a library location."
+          }
+        }
+      }
+    },
+    "library_setup.open_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open folder"
+          }
+        }
+      }
+    },
+    "library_setup.point_at_audiobooks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point ListenUp at your audiobooks."
+          }
+        }
+      }
+    },
+    "library_setup.scanned_shortly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your audiobooks will be scanned and available shortly."
+          }
+        }
+      }
+    },
+    "library_setup.select_at_least_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select at least one folder to continue."
+          }
+        }
+      }
+    },
+    "library_setup.select_one_or_more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select one or more folders where your audiobooks are stored."
+          }
+        }
+      }
+    },
+    "library_setup.select_this_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select this folder"
+          }
+        }
+      }
+    },
+    "library_setup.starting_scan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting scan..."
+          }
+        }
+      }
+    },
+    "library_setup.stat_authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authors"
+          }
+        }
+      }
+    },
+    "library_setup.stat_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "library_setup.stat_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hours"
+          }
+        }
+      }
+    },
+    "library_setup.up": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up"
+          }
+        }
+      }
+    },
+    "library_setup.up_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goes to the parent folder"
+          }
+        }
+      }
+    },
+    "metadata.apply_chapter_names": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply chapter names"
           }
         }
       }
@@ -5071,12 +7301,62 @@
         }
       }
     },
+    "metadata.by_authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by %1$@"
+          }
+        }
+      }
+    },
+    "metadata.chapter_names": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter names"
+          }
+        }
+      }
+    },
+    "metadata.chapter_names_replace_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audible names replace your chapter labels. Timings stay the same."
+          }
+        }
+      }
+    },
+    "metadata.chapters_match_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d Audible chapters match — review and apply."
+          }
+        }
+      }
+    },
     "metadata.cover": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Cover"
+          }
+        }
+      }
+    },
+    "metadata.cover_from_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover from %1$@"
           }
         }
       }
@@ -5097,6 +7377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Failed to load metadata preview"
+          }
+        }
+      }
+    },
+    "metadata.loading_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading match…"
           }
         }
       }
@@ -5127,6 +7417,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Release Date"
+          }
+        }
+      }
+    },
+    "metadata.review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review"
+          }
+        }
+      }
+    },
+    "metadata.review_chapter_names": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review chapter names"
+          }
+        }
+      }
+    },
+    "metadata.searching_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching for: %1$@"
           }
         }
       }
@@ -5181,6 +7501,16 @@
         }
       }
     },
+    "player.airplay": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirPlay"
+          }
+        }
+      }
+    },
     "player.bookmark": {
       "localizations": {
         "en": {
@@ -5227,6 +7557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chapters"
+          }
+        }
+      }
+    },
+    "player.chapters_count_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters · %2$@"
           }
         }
       }
@@ -5381,6 +7721,46 @@
         }
       }
     },
+    "player.now_playing_overline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOW PLAYING"
+          }
+        }
+      }
+    },
+    "player.now_playing_wide": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now playing"
+          }
+        }
+      }
+    },
+    "player.pause": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "player.play": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play"
+          }
+        }
+      }
+    },
     "player.playback_speed": {
       "localizations": {
         "en": {
@@ -5451,6 +7831,16 @@
         }
       }
     },
+    "player.sleep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep"
+          }
+        }
+      }
+    },
     "player.sleep_timer": {
       "localizations": {
         "en": {
@@ -5467,6 +7857,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Speed"
+          }
+        }
+      }
+    },
+    "player.speed_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@x"
           }
         }
       }
@@ -5501,12 +7901,52 @@
         }
       }
     },
+    "player.up_next": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up next"
+          }
+        }
+      }
+    },
+    "player.view_all_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View all %1$d chapters"
+          }
+        }
+      }
+    },
+    "profile.avatar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avatar"
+          }
+        }
+      }
+    },
     "profile.books_finished": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books Finished"
+          }
+        }
+      }
+    },
+    "profile.change_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change Password"
           }
         }
       }
@@ -5521,12 +7961,32 @@
         }
       }
     },
+    "profile.current_avatar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current avatar"
+          }
+        }
+      }
+    },
     "profile.edit_profile": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Edit profile"
+          }
+        }
+      }
+    },
+    "profile.edit_profile_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Profile"
           }
         }
       }
@@ -5551,12 +8011,52 @@
         }
       }
     },
+    "profile.name_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update your first and last name"
+          }
+        }
+      }
+    },
     "profile.no_shelves_yet_create_one": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No shelves yet. Create one to curate your favorite books!"
+          }
+        }
+      }
+    },
+    "profile.password_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a new password for your account"
+          }
+        }
+      }
+    },
+    "profile.password_min_chars": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Must be at least %1$d characters"
+          }
+        }
+      }
+    },
+    "profile.passwords_do_not_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords do not match"
           }
         }
       }
@@ -5571,12 +8071,142 @@
         }
       }
     },
+    "profile.remove_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Photo"
+          }
+        }
+      }
+    },
+    "profile.save_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Name"
+          }
+        }
+      }
+    },
+    "profile.save_tagline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Tagline"
+          }
+        }
+      }
+    },
+    "profile.shelf_books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
     "profile.shelves": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Shelves"
+          }
+        }
+      }
+    },
+    "profile.tagline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tagline"
+          }
+        }
+      }
+    },
+    "profile.tagline_char_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d/%2$d"
+          }
+        }
+      }
+    },
+    "profile.tagline_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A short bio that appears on your profile"
+          }
+        }
+      }
+    },
+    "profile.tagline_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you listening to?"
+          }
+        }
+      }
+    },
+    "profile.upload_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload Photo"
+          }
+        }
+      }
+    },
+    "scan.building_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building your library."
+          }
+        }
+      }
+    },
+    "scan.files_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "/ %1$d files"
+          }
+        }
+      }
+    },
+    "scan.recently_matched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recently matched"
+          }
+        }
+      }
+    },
+    "scan.scanning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SCANNING"
           }
         }
       }
@@ -5597,6 +8227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ books"
+          }
+        }
+      }
+    },
+    "search.cover_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover for %1$@"
           }
         }
       }
@@ -5661,12 +8301,32 @@
         }
       }
     },
+    "search.section_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(%1$d)"
+          }
+        }
+      }
+    },
     "search.try_a_different_search_term": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Try a different search term"
+          }
+        }
+      }
+    },
+    "series.book_position": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@"
           }
         }
       }
@@ -5691,6 +8351,16 @@
         }
       }
     },
+    "series.continue_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Book %1$@"
+          }
+        }
+      }
+    },
     "series.edit_series": {
       "localizations": {
         "en": {
@@ -5707,6 +8377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter a description for this series..."
+          }
+        }
+      }
+    },
+    "series.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SERIES"
           }
         }
       }
@@ -5771,6 +8451,16 @@
         }
       }
     },
+    "series.progress_duration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d% · %2$@"
+          }
+        }
+      }
+    },
     "series.series_cover": {
       "localizations": {
         "en": {
@@ -5787,6 +8477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Series Name"
+          }
+        }
+      }
+    },
+    "series.start_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Book %1$@"
           }
         }
       }
@@ -6071,6 +8771,16 @@
         }
       }
     },
+    "settings.licenses_by_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by %1$@"
+          }
+        }
+      }
+    },
     "settings.listenup_uses_the_following_open": {
       "localizations": {
         "en": {
@@ -6201,6 +8911,26 @@
         }
       }
     },
+    "settings.storage_available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ available"
+          }
+        }
+      }
+    },
+    "settings.storage_size_files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$d files"
+          }
+        }
+      }
+    },
     "settings.use_bookshelf_view": {
       "localizations": {
         "en": {
@@ -6291,6 +9021,26 @@
         }
       }
     },
+    "shelf.private_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private shelf"
+          }
+        }
+      }
+    },
+    "shelf.private_shelf_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only you can see this shelf."
+          }
+        }
+      }
+    },
     "shelf.this_will_permanently_delete_this": {
       "localizations": {
         "en": {
@@ -6351,12 +9101,32 @@
         }
       }
     },
+    "shell.failed_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d failed"
+          }
+        }
+      }
+    },
     "shell.library_changed": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Library Changed"
+          }
+        }
+      }
+    },
+    "shell.logout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logout"
           }
         }
       }

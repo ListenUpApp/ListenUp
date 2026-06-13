@@ -247,10 +247,11 @@ private fun Application.installDependencies(
     homeDir: Path,
     metadataPrecedence: MetadataPrecedence,
     embeddedCoverCacheSize: Int,
+    watchEnabled: Boolean,
 ) {
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
-        modules += scannerModule(applicationScope, metadataPrecedence)
+        modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(kotlinx.io.files.Path(homeDir.toString()))
         modules += playbackModule()
@@ -311,6 +312,7 @@ fun Application.module() {
         homeDir,
         metadataPrecedence,
         embeddedCoverCacheSize,
+        environment.config.watchEnabled(),
     )
 
     backfillPublicProfiles()
@@ -666,6 +668,15 @@ private fun Application.startBackgroundTasks(
 
 private fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
+
+/**
+ * Reads `scanner.watchEnabled` — gates whether [ScanOrchestrator.onLibraryAdded]
+ * mounts real-time file-system watchers. Defaults to `true` (production keeps the
+ * live `WatchService`). Tests set it `false` so a fixture write into the library
+ * root can't trigger a scan that races the seed (mirrors the `mdns.enabled` gate).
+ */
+private fun ApplicationConfig.watchEnabled(): Boolean =
+    propertyOrNull("scanner.watchEnabled")?.getString()?.toBoolean() ?: true
 
 private fun ApplicationConfig.periodicRescanInterval(): Duration =
     propertyOrNull("scan.periodicRescanInterval")

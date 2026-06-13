@@ -43,6 +43,8 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_allow_sharing_collections_with_other
 import listenup.composeapp.generated.resources.admin_can_share
@@ -76,7 +78,7 @@ fun UserDetailScreen(
     val readyError = (state as? UserDetailUiState.Ready)?.error
     LaunchedEffect(readyError) {
         readyError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
         }
     }
@@ -128,7 +130,7 @@ private fun UserDetailBody(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = state.message,
+                    text = state.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error,
                 )

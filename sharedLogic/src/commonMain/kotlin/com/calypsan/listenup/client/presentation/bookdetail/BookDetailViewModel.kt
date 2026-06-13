@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -174,16 +175,10 @@ class BookDetailViewModel(
             emit(BookDetailUiState.Loading)
 
             // One-shot reads — these don't reactively update during a single
-            // book viewing.
-            val chapters =
-                bookRepository.getChapters(bookId).map { domainChapter ->
-                    ChapterUiModel(
-                        id = domainChapter.id,
-                        title = domainChapter.title,
-                        duration = domainChapter.formatDuration(),
-                        imageUrl = null, // Placeholder
-                    )
-                }
+            // book viewing. Domain chapters are mapped to UI models inside
+            // buildReady, where the playback position is known and the
+            // current-chapter highlight can be resolved.
+            val domainChapters = bookRepository.getChapters(bookId)
             val position =
                 when (val r = playbackPositionRepository.get(BookId(bookId))) {
                     is AppResult.Success -> {
@@ -204,7 +199,7 @@ class BookDetailViewModel(
                     if (detail == null) {
                         BookDetailUiState.Error("Book not found")
                     } else {
-                        buildReady(detail, chapters, position).copy(
+                        buildReady(detail, domainChapters, position).copy(
                             downloadStatus = availability.downloadStatus,
                             isPlaybackAvailable = availability.isPlaybackAvailable,
                             canPlay = availability.canPlay,
@@ -224,7 +219,7 @@ class BookDetailViewModel(
      */
     private fun buildReady(
         detail: BookDetail,
-        chapters: List<ChapterUiModel>,
+        domainChapters: List<Chapter>,
         position: PlaybackPosition?,
     ): BookDetailUiState.Ready {
         // Filter out subtitles that just restate a series the book belongs to (name, or name + book
@@ -245,6 +240,26 @@ class BookDetailViewModel(
         val isComplete = position?.isFinished ?: false
 
         val hasMeaningfulProgress = progress != null && progress > 0f && !isComplete
+
+        // Resolve the current-chapter highlight only once the position is known.
+        // An un-started book (no meaningful progress) highlights nothing.
+        val currentIdx =
+            if (hasMeaningfulProgress) {
+                currentChapterIndex(domainChapters.map { it.startTime }, position?.positionMs ?: 0L)
+            } else {
+                null
+            }
+
+        val chapters =
+            domainChapters.mapIndexed { index, domainChapter ->
+                ChapterUiModel(
+                    id = domainChapter.id,
+                    title = domainChapter.title,
+                    duration = domainChapter.formatDuration(),
+                    imageUrl = null, // Placeholder
+                    isCurrent = index == currentIdx,
+                )
+            }
 
         val timeRemaining =
             if (hasMeaningfulProgress) {
@@ -575,13 +590,29 @@ sealed interface BookDetailUiState {
 /**
  * Per-chapter row data for the book detail screen's chapter list. Pre-formatted
  * for direct display so the Composable layer does no formatting work.
+ *
+ * [isCurrent] marks the chapter the saved playback position currently sits in,
+ * derived in the ViewModel from the position and each chapter's start time. It
+ * drives the current-chapter highlight; it is `false` for every chapter when the
+ * book has no meaningful progress.
  */
 data class ChapterUiModel(
     val id: String,
     val title: String,
     val duration: String,
     val imageUrl: String?,
+    val isCurrent: Boolean = false,
 )
+
+/**
+ * Index of the chapter currently playing: the last chapter whose start time is at or
+ * before [positionMs], or null when there are no chapters. Pure — drives the
+ * current-chapter highlight from playback position.
+ */
+internal fun currentChapterIndex(
+    chapterStartTimesMs: List<Long>,
+    positionMs: Long,
+): Int? = chapterStartTimesMs.indexOfLast { it <= positionMs }.takeIf { it >= 0 }
 
 /**
  * Format milliseconds as human-readable time remaining.

@@ -45,6 +45,13 @@ import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.genre_browse_title
+import listenup.composeapp.generated.resources.genre_include_subtree
+import listenup.composeapp.generated.resources.genre_no_books_in_genre
+import listenup.composeapp.generated.resources.genre_no_genres_yet
+import listenup.composeapp.generated.resources.library_bookcount
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Browse-by-Genre screen.
@@ -124,7 +131,7 @@ private fun BrowseGenreTopBar(
 ) {
     Column {
         TopAppBar(
-            title = { Text("Browse by Genre") },
+            title = { Text(stringResource(Res.string.genre_browse_title)) },
             navigationIcon = {
                 IconButton(onClick = onBackClick) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
@@ -135,7 +142,7 @@ private fun BrowseGenreTopBar(
                 if (ready != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Include subtree",
+                            text = stringResource(Res.string.genre_include_subtree),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(end = 8.dp),
                         )
@@ -237,7 +244,7 @@ private fun GenreRow(
         )
         if (genre.bookCount > 0) {
             Text(
-                text = "${genre.bookCount}",
+                text = stringResource(Res.string.library_bookcount, genre.bookCount),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -253,7 +260,7 @@ private fun BookListForGenre(
     if (books.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
             Text(
-                text = "No books in this genre.",
+                text = stringResource(Res.string.genre_no_books_in_genre),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -290,7 +297,7 @@ private fun EmptyGenresMessage() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No genres yet.",
+            text = stringResource(Res.string.genre_no_genres_yet),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )

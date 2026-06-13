@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.SearchHitResponse
 import com.calypsan.listenup.client.data.remote.UserSearchResult
@@ -190,8 +191,8 @@ sealed interface ABSImportUiState {
         // Import results
         val isImporting: Boolean = false,
         val importResults: ABSImportResults? = null,
-        // Transient mutation-failure error (snackbar/banner).
-        val error: String? = null,
+        // Transient mutation-failure error (snackbar/banner), rendered via AppError.localized().
+        val error: AppError? = null,
     ) : ABSImportUiState
 
     /** Terminal failure state declared for parity with other W5 migrations; not currently reached. */

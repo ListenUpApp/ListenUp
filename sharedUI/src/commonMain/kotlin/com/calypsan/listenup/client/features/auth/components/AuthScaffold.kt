@@ -42,8 +42,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.auth_hero_tagline
 import listenup.composeapp.generated.resources.brand_mark
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_listenup
 
 /** A tertiary-container pill shown in the hero (e.g. "Server administrator"). */
 data class AuthBadge(
@@ -161,7 +165,7 @@ private fun AuthSplitLayout(
                 BrandMark(onColor = true)
                 Spacer(Modifier.height(32.dp))
                 Text(
-                    text = "Thousands of audiobooks.\nOne beautiful library.",
+                    text = stringResource(Res.string.auth_hero_tagline),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -260,7 +264,7 @@ private fun BackButton(onBack: () -> Unit) {
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
     ) {
-        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(Res.string.common_back))
     }
 }
 
@@ -294,7 +298,7 @@ fun BrandMark(
             )
         }
         Text(
-            text = "ListenUp",
+            text = stringResource(Res.string.common_listenup),
             style = MaterialTheme.typography.headlineSmall,
             color = if (onColor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
         )

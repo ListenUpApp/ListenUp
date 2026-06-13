@@ -31,6 +31,8 @@ import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_loading_item
+import listenup.composeapp.generated.resources.home_hours_minutes
+import listenup.composeapp.generated.resources.home_listened
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -107,7 +109,7 @@ internal fun HomeStatsContent(state: HomeStatsUiState.Data) {
             Column {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "${hours}h ${minutes}m",
+                        text = stringResource(Res.string.home_hours_minutes, hours.toInt(), minutes.toInt()),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = (-1.5).sp,
@@ -115,7 +117,7 @@ internal fun HomeStatsContent(state: HomeStatsUiState.Data) {
                         maxLines = 1,
                     )
                     Text(
-                        text = "listened",
+                        text = stringResource(Res.string.home_listened),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
