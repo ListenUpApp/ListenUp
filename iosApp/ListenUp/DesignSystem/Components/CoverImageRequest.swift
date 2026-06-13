@@ -20,15 +20,12 @@ enum CoverImageRequest {
 
         guard let bookId, !bookId.isEmpty else { return nil }
 
-        let deps = Dependencies.shared
-        // SKIE unboxes the Kotlin `ServerUrl`/`AccessToken` value classes to their
-        // underlying `String`, bridged as `Any?` — hence the `as? String` cast.
-        guard let base = (try? await deps.serverConfig.getActiveUrl()) as? String, !base.isEmpty,
+        guard let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
               let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
         else { return nil }
 
         var urlRequest = URLRequest(url: url)
-        if let token = (try? await deps.authSession.getAccessToken()) as? String {
+        if let token = try? await KoinHelper.shared.accessToken() {
             urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         return ImageRequest(urlRequest: urlRequest, processors: processors)

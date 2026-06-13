@@ -35,7 +35,7 @@ struct ContributorAvatar: View {
         self.name = contributor.name
         self.imagePath = contributor.imagePath
         self.blurHash = contributor.imageBlurHash
-        self.id = String(describing: contributor.id)
+        self.id = contributor.idString
         self.initialsFontSize = fontSize
     }
 

@@ -48,6 +48,9 @@ data class BookDetail(
     val tags: List<Tag> = emptyList(),
     val hasScanWarning: Boolean = false,
 ) : BookSummaryFields {
+    /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+
     fun toListItem(): BookListItem =
         BookListItem(
             id = id,

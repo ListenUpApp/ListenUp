@@ -102,6 +102,12 @@ object KoinHelper : KoinComponent {
         return serverConfig
     }
 
+    /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
+    suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
+
+    /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */
+    suspend fun activeServerUrl(): String? = getServerConfig().getActiveUrl()?.raw
+
     fun getUserRepository(): com.calypsan.listenup.client.domain.repository.UserRepository {
         val userRepository: com.calypsan.listenup.client.domain.repository.UserRepository by inject()
         return userRepository

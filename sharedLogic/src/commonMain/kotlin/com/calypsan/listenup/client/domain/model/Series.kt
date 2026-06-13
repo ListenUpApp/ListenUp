@@ -25,4 +25,7 @@ data class Series(
     val coverBlurHash: String? = null,
     /** Audible ASIN for this series, set when metadata has been applied. */
     val asin: String? = null,
-)
+) {
+    /** The series id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+}

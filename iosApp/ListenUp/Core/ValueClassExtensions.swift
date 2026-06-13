@@ -1,38 +1,9 @@
 import SwiftUI
 @preconcurrency import Shared
 
-// Kotlin value classes (BookId, SeriesId, etc.) are opaque in Swift. Their value
-// is the Kotlin toString() — surfaced via String(describing:). These extensions
-// give type-safe String accessors.
-//
-// `User_` is the SKIE name for the domain `User` (the `api.dto.auth.User` DTO
-// keeps the bare `User`). If the compiler reports `User` for the domain model at
-// build time, the SKIE collision resolved the other way — swap `User_` → `User`.
-
-extension User_ {
-    /// The user's ID as a Swift String.
-    var idString: String { String(describing: id) }
-}
-
-extension BookListItem {
-    /// The book's ID as a Swift String.
-    var idString: String { String(describing: id) }
-}
-
-extension BookDetail {
-    /// The book's ID as a Swift String.
-    var idString: String { String(describing: id) }
-}
-
-extension Series {
-    /// The series ID as a Swift String.
-    var idString: String { String(describing: id) }
-}
-
-extension Contributor {
-    /// The contributor's ID as a Swift String.
-    var idString: String { String(describing: id) }
-}
+// Domain models that Swift consumes by id expose `idString` from Kotlin (the
+// value class is unboxed at the SKIE boundary), so no Swift-side extension is
+// needed. See the `idString` computed properties on the Kotlin domain models.
 
 /// A consistent avatar colour derived from a user ID, via hue rotation.
 func avatarColorForUserId(_ userId: String) -> Color {
