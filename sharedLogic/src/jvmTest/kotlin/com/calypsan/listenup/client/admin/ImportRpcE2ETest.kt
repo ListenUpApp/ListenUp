@@ -43,7 +43,6 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.test.runTest
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -146,37 +145,41 @@ class ImportRpcE2ETest :
                             clientFactory = clientFactory,
                         )
 
-                    runTest {
-                        // 1. upload — must return a non-blank importId (proves the route is reachable
-                        //    and the correct path constant is used — not the old 404 path).
-                        val summary =
-                            repository
-                                .upload(buildMinimalAbsZipSource())
-                                .shouldBeInstanceOf<AppResult.Success<ImportSummary>>()
-                                .data
-                        summary.id.value.shouldNotBeBlank()
+                    // Drive the flow directly in the testApplication suspend scope — do NOT wrap in
+                    // runTest. runTest installs a virtual-time TestScope whose completion/cancellation
+                    // races the real-dispatcher HTTP transport: under load it tears down the multipart
+                    // upload's body coroutine mid-write, surfacing as an intermittent
+                    // ClosedWriteChannelException on step 1. The plain suspend scope has no such clock.
 
-                        val importId: ImportId = summary.id
-
-                        // 2. analyze — proves the RPC route is reachable post-upload.
+                    // 1. upload — must return a non-blank importId (proves the route is reachable
+                    //    and the correct path constant is used — not the old 404 path).
+                    val summary =
                         repository
-                            .analyze(importId)
-                            .shouldBeInstanceOf<AppResult.Success<ImportAnalysis>>()
+                            .upload(buildMinimalAbsZipSource())
+                            .shouldBeInstanceOf<AppResult.Success<ImportSummary>>()
+                            .data
+                    summary.id.value.shouldNotBeBlank()
 
-                        // 3. confirmMapping — empty maps are valid for a zero-row ABS backup.
+                    val importId: ImportId = summary.id
+
+                    // 2. analyze — proves the RPC route is reachable post-upload.
+                    repository
+                        .analyze(importId)
+                        .shouldBeInstanceOf<AppResult.Success<ImportAnalysis>>()
+
+                    // 3. confirmMapping — empty maps are valid for a zero-row ABS backup.
+                    repository
+                        .confirmMapping(importId, emptyMap(), emptyMap())
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // 4. apply — proves the full lifecycle completes end-to-end.
+                    val applyResult =
                         repository
-                            .confirmMapping(importId, emptyMap(), emptyMap())
-                            .shouldBeInstanceOf<AppResult.Success<Unit>>()
-
-                        // 4. apply — proves the full lifecycle completes end-to-end.
-                        val applyResult =
-                            repository
-                                .apply(importId)
-                                .shouldBeInstanceOf<AppResult.Success<ImportResult>>()
-                                .data
-                        applyResult.importedCount shouldBe 0
-                        applyResult.skippedCount shouldBe 0
-                    }
+                            .apply(importId)
+                            .shouldBeInstanceOf<AppResult.Success<ImportResult>>()
+                            .data
+                    applyResult.importedCount shouldBe 0
+                    applyResult.skippedCount shouldBe 0
                 }
             } finally {
                 homeDir.toFile().deleteRecursively()
