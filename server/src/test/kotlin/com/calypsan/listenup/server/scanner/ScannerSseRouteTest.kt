@@ -13,6 +13,7 @@ import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.transformWhile
@@ -53,10 +54,16 @@ class ScannerSseRouteTest :
 
                 // Subscribe to the SSE stream, collect events as they arrive.
                 val collected = mutableListOf<ScanEvent>()
+                // Completes the instant the SSE block runs — i.e. the connection is established and the
+                // handler is about to collect the (replay = 0) event stream. Awaiting this instead of a
+                // blind delay removes the race that dropped the Started frame when the subscription
+                // wasn't yet registered on a loaded CI runner.
+                val subscribed = CompletableDeferred<Unit>()
                 val sseJob =
                     async {
                         withTimeoutOrNull(10.seconds) {
                             fix.client.sse("${fix.baseUrl}/sse/scan") {
+                                subscribed.complete(Unit)
                                 incoming
                                     .transformWhile { frame ->
                                         val data = frame.data
@@ -76,9 +83,11 @@ class ScannerSseRouteTest :
                         }
                     }
 
-                // Pause so the SSE subscription is established before the scan
-                // fires — otherwise we miss the Started frame.
-                delay(500)
+                // Wait for the SSE connection to actually be established — bounded so a failed connect
+                // surfaces as a failed assertion rather than a hang — then a brief settle for the
+                // server-side collector to register before the scan fires.
+                withTimeoutOrNull(10.seconds) { subscribed.await() }
+                delay(200)
 
                 // Trigger a manual scan to generate fresh events.
                 fix.client.post("${fix.baseUrl}/api/v1/scan")
