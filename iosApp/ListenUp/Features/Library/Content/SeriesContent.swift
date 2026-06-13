@@ -25,6 +25,9 @@ struct SeriesContent: View {
     /// Available sort categories for series
     private let sortCategories: [SortCategory] = [.name, .bookCount, .added]
 
+    /// Generous side margins at regular width (matching `SeriesPad`); phone margins at compact.
+    private var horizontalMargin: CGFloat { sizeClass == .regular ? 36 : 16 }
+
     var body: some View {
         if seriesList.isEmpty {
             emptyState
@@ -42,7 +45,7 @@ struct SeriesContent: View {
             ScrollView {
                 VStack(spacing: 0) {
                     sortRow
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, horizontalMargin)
                         .padding(.top, 4)
                         .padding(.bottom, 12)
 
@@ -70,9 +73,9 @@ struct SeriesContent: View {
                     }
                 }
             }
-            // Alphabet scrubber (only for name sort)
+            // Alphabet scrubber (only for name sort, compact width — the wide iPad grid omits it)
             .overlay(alignment: .trailing) {
-                if shouldShowAlphabetIndex, !letters.isEmpty {
+                if sizeClass == .compact, shouldShowAlphabetIndex, !letters.isEmpty {
                     SectionIndexBar(
                         letters: letters.map { $0.letter },
                         onLetterSelected: { letter in
@@ -152,7 +155,7 @@ struct SeriesContent: View {
                 .id("series-\(seriesId)")
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, horizontalMargin)
     }
 
     // MARK: - Helpers
