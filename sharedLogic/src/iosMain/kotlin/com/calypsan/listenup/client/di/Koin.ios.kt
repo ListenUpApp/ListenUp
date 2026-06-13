@@ -147,6 +147,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getContributorEditViewModel(): com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel by inject()
+        return viewModel
+    }
+
     fun getProgressTracker(): ProgressTracker {
         val instance: ProgressTracker by inject()
         return instance
