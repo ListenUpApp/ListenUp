@@ -146,6 +146,7 @@ fun BookEditScreen(
                 coverColors = coverColors,
                 surfaceColor = surfaceColor,
                 bookId = bookId,
+                coverHash = state.coverHash,
             )
 
             // Content
@@ -270,6 +271,7 @@ private fun BookEditContent(
             onCoverClick = { imagePicker.launch() },
             onBackClick = onBackClick,
             bookId = bookId,
+            coverHash = state.coverHash,
         )
 
         // Cards section - responsive layout

@@ -51,6 +51,7 @@ fun mapToNowPlayingState(
         title = book.title,
         author = book.authorNames,
         coverPath = book.coverPath,
+        coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
         authors = book.authors,
         narrators = book.narrators,

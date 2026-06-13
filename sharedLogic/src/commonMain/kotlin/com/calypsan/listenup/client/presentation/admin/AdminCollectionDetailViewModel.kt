@@ -139,6 +139,7 @@ class AdminCollectionDetailViewModel(
                                     author = item.authors.firstOrNull()?.name,
                                     coverPath = item.coverPath,
                                     durationMs = item.duration,
+                                    coverHash = item.coverHash,
                                 )
                             }
                         }

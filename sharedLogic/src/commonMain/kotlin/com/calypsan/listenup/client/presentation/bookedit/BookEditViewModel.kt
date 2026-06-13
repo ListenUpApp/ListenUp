@@ -159,6 +159,7 @@ class BookEditViewModel(
                         it.copy(
                             isLoading = false,
                             coverPath = editData.coverPath,
+                            coverHash = editData.coverHash,
                             title = editData.metadata.title,
                             sortTitle = editData.metadata.sortTitle,
                             subtitle = editData.metadata.subtitle,

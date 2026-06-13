@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -62,6 +63,7 @@ class BookSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val mapper: BookEntityMapper,
     private val transactionRunner: TransactionRunner,
+    private val imageStorage: ImageStorage,
     registry: ClientSyncDomainRegistry,
 ) : SyncDomainHandler<BookSyncPayload>,
     AccessFilteredSyncHandler {
@@ -145,7 +147,16 @@ class BookSyncDomainHandler(
             return
         }
 
-        database.bookDao().upsert(mapper.toBookEntity(payload, existing))
+        val updatedEntity = mapper.toBookEntity(payload, existing)
+        database.bookDao().upsert(updatedEntity)
+
+        // The cover was replaced server-side when the content hash changes. The local cover file is
+        // id-named and otherwise never re-downloaded (the downloader skips when a file exists), so it
+        // would keep rendering the stale image. Drop it: the render then re-fetches the new cover and
+        // the downloader repopulates it. Best-effort — a failed delete must not fail the sync write.
+        if (existing != null && existing.coverHash != updatedEntity.coverHash) {
+            imageStorage.deleteCover(bookId)
+        }
 
         applyContributors(bookId, payload.contributors)
         applySeries(bookId, payload.series)

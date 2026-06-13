@@ -74,6 +74,7 @@ data class BookEditUiState(
     val error: String? = null,
     // Book identity (for immersive header)
     val coverPath: String? = null,
+    val coverHash: String? = null,
     // Book metadata fields
     val bookId: String = "",
     val title: String = "",

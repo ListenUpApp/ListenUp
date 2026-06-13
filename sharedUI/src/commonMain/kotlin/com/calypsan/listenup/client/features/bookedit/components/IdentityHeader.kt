@@ -74,6 +74,7 @@ fun IdentityHeader(
     onCoverClick: () -> Unit,
     onBackClick: () -> Unit,
     bookId: String? = null,
+    coverHash: String? = null,
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
 
@@ -113,6 +114,7 @@ fun IdentityHeader(
             ElevatedCoverCard(
                 path = coverPath,
                 bookId = bookId,
+                coverHash = coverHash,
                 contentDescription = stringResource(Res.string.book_edit_book_cover),
                 modifier =
                     Modifier

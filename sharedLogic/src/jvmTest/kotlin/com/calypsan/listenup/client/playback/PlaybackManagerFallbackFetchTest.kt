@@ -25,6 +25,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -196,6 +197,7 @@ class PlaybackManagerFallbackFetchTest {
                         database = db,
                         mapper = BookEntityMapper(),
                         transactionRunner = txRunner,
+                        imageStorage = stubImageStorage(),
                         registry = ClientSyncDomainRegistry(),
                     ),
             )

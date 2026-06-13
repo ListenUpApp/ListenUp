@@ -36,6 +36,7 @@ data class FannedDeckCover(
     val coverPath: String?,
     val title: String,
     val author: String?,
+    val coverHash: String? = null,
 )
 
 /**
@@ -128,6 +129,7 @@ fun FannedDeck(
                     contentDescription = cover.title,
                     title = cover.title,
                     author = cover.author,
+                    coverHash = cover.coverHash,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(size),
                 )

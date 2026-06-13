@@ -50,6 +50,7 @@ private val previewSeries =
 private fun CompactHeroPreviewBody() {
     CompactHero(
         coverPath = null,
+        coverHash = null,
         bookId = PREVIEW_BOOK_ID,
         title = PREVIEW_TITLE,
         overline = PREVIEW_OVERLINE,
@@ -81,6 +82,7 @@ private fun CompactHeroDark() {
 private fun WideHeroBandPreviewBody() {
     WideHeroBand(
         coverPath = null,
+        coverHash = null,
         bookId = PREVIEW_BOOK_ID,
         title = PREVIEW_TITLE,
         overline = PREVIEW_OVERLINE,

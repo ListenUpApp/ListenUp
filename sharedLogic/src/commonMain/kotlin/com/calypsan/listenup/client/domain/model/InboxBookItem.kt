@@ -11,6 +11,7 @@ package com.calypsan.listenup.client.domain.model
  * @property title The book's display title.
  * @property author The primary author display name, or `null` when the book has no author credit.
  * @property coverPath Local cover file path when the cover exists on disk, else `null`.
+ * @property coverHash Content hash of the current cover, used to bust the image cache on re-cover.
  * @property durationMs Total audiobook duration in milliseconds.
  */
 data class InboxBookItem(
@@ -19,4 +20,5 @@ data class InboxBookItem(
     val author: String?,
     val coverPath: String?,
     val durationMs: Long,
+    val coverHash: String? = null,
 )

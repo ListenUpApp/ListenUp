@@ -27,6 +27,7 @@ fun ImmersiveBackdrop(
     coverColors: CoverColors,
     surfaceColor: Color,
     bookId: String? = null,
+    coverHash: String? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         // Blurred cover image
@@ -34,6 +35,7 @@ fun ImmersiveBackdrop(
             BookCoverImage(
                 bookId = bookId,
                 coverPath = coverPath,
+                coverHash = coverHash,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier =

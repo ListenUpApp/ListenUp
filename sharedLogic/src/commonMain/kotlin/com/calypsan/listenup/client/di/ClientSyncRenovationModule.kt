@@ -208,6 +208,7 @@ val clientSyncRenovationModule =
                 database = get(),
                 mapper = get(),
                 transactionRunner = get(),
+                imageStorage = get(),
                 registry = get(),
             )
         }

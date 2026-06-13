@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomai
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
@@ -180,6 +181,7 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                 database = clientDb,
                 mapper = BookEntityMapper(),
                 transactionRunner = RoomTransactionRunner(clientDb),
+                imageStorage = stubImageStorage(),
                 registry = registry,
             )
             ContributorSyncDomainHandler(

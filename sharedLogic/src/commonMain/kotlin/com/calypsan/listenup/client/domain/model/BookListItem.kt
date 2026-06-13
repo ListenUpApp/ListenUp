@@ -27,6 +27,7 @@ data class BookListItem(
     override val narrators: List<BookContributor>,
     override val duration: Long,
     override val coverPath: String?,
+    override val coverHash: String? = null,
     val coverBlurHash: String? = null,
     val dominantColor: Int? = null,
     val darkMutedColor: Int? = null,

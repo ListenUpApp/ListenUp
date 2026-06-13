@@ -52,6 +52,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -546,6 +547,7 @@ private fun registerClientSyncHandlers(
         database = clientDb,
         mapper = BookEntityMapper(),
         transactionRunner = RoomTransactionRunner(clientDb),
+        imageStorage = stubImageStorage(),
         registry = registry,
     )
     ContributorSyncDomainHandler(

@@ -269,6 +269,7 @@ private fun TagBookItem(
                     BookCoverImage(
                         bookId = book.id.value,
                         coverPath = book.coverPath,
+                        coverHash = book.coverHash,
                         contentDescription = book.title,
                         contentScale = ContentScale.Crop,
                         modifier =

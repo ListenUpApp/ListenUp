@@ -38,6 +38,7 @@ fun ElevatedCoverCard(
     title: String? = null,
     author: String? = null,
     blurHash: String? = null,
+    coverHash: String? = null,
     cornerRadius: Dp = 16.dp,
     elevation: Dp = 16.dp,
     refreshKey: Any? = null,
@@ -61,6 +62,7 @@ fun ElevatedCoverCard(
                 title = title,
                 author = author,
                 blurHash = blurHash,
+                coverHash = coverHash,
                 refreshKey = refreshKey,
                 overlay = overlay,
             )
@@ -78,6 +80,7 @@ fun ElevatedCoverCard(
                 title = title,
                 author = author,
                 blurHash = blurHash,
+                coverHash = coverHash,
                 refreshKey = refreshKey,
                 overlay = overlay,
             )
@@ -93,6 +96,7 @@ private fun CoverContent(
     title: String?,
     author: String?,
     blurHash: String?,
+    coverHash: String?,
     refreshKey: Any?,
     overlay: @Composable (BoxScope.() -> Unit)?,
 ) {
@@ -105,6 +109,7 @@ private fun CoverContent(
                 title = title,
                 author = author,
                 blurHash = blurHash,
+                coverHash = coverHash,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

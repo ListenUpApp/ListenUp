@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -40,7 +41,7 @@ class ContributorSelfHealIntegrationTest :
                 try {
                     val registry = ClientSyncDomainRegistry()
                     val bookHandler =
-                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), registry)
+                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
                     val contributorHandler =
                         ContributorSyncDomainHandler(db, RoomTransactionRunner(db), registry)
 
@@ -84,7 +85,7 @@ class ContributorSelfHealIntegrationTest :
                 try {
                     val registry = ClientSyncDomainRegistry()
                     val bookHandler =
-                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), registry)
+                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
                     val contributorHandler =
                         ContributorSyncDomainHandler(db, RoomTransactionRunner(db), registry)
 

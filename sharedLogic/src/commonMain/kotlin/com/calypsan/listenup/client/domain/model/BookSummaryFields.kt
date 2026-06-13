@@ -15,6 +15,7 @@ package com.calypsan.listenup.client.domain.model
 interface BookSummaryFields {
     val series: List<BookSeries>
     val coverPath: String?
+    val coverHash: String? get() = null
     val authors: List<BookContributor>
     val narrators: List<BookContributor>
     val duration: Long

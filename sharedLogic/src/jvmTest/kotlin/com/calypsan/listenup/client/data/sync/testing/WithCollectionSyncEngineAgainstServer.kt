@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainH
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.collectionServiceScopedTo
 import com.calypsan.listenup.server.api.createCollectionService
@@ -260,6 +261,7 @@ private fun buildMemberSyncEngine(
         database = clientDb,
         mapper = BookEntityMapper(),
         transactionRunner = txn,
+        imageStorage = stubImageStorage(),
         registry = registry,
     )
     CollectionSyncDomainHandler(clientDb, txn, registry)
