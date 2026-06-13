@@ -8,6 +8,7 @@ struct AuthPrimaryButton: View {
     var action: () -> Void
 
     var body: some View {
-        PrimaryButton(title: title, isLoading: isLoading, action: action)
+        // Auth keeps the deliberately flat fill (no glow) over the aurora backdrop.
+        PrimaryButton(title: title, isLoading: isLoading, hasShadow: false, action: action)
     }
 }

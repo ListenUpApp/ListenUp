@@ -5,8 +5,6 @@ enum AuthMetrics {
     static let cardCornerRadius: CGFloat = 28
     static let cardMaxWidth: CGFloat = 420
     static let fieldGroupCornerRadius: CGFloat = 12
-    static let primaryButtonHeight: CGFloat = 52
-    static let primaryButtonCornerRadius: CGFloat = 14
     static let contentHorizontalPadding: CGFloat = 20
 }
 

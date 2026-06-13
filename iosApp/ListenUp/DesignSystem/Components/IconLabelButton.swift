@@ -29,7 +29,7 @@ struct IconLabelButton: View {
                     .strokeBorder(Color.luSeparator, lineWidth: 1.5)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressScaleChip)
         .accessibilityLabel(Text(title))
     }
 }

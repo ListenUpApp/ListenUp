@@ -37,25 +37,15 @@ struct DiscoverView: View {
     // MARK: - Content Placeholder
 
     private var contentPlaceholder: some View {
-        VStack(spacing: 16) {
-            Spacer()
-                .frame(height: 60)
-
-            Image(systemName: "sparkles")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.listenUpOrange)
-
-            Text(String(localized: "discover.discover_screen"))
-                .font(.title2.bold())
-
+        ContentUnavailableView {
+            Label {
+                Text(String(localized: "discover.discover_screen"))
+            } icon: {
+                Image(systemName: "sparkles").foregroundStyle(Color.luTint)
+            }
+        } description: {
             Text(String(localized: "discover.find_next_favorite"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 40)
     }
 }
 

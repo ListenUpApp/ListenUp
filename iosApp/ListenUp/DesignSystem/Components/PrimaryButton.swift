@@ -7,6 +7,9 @@ struct PrimaryButton: View {
     var icon: String?
     var tint: Color = .luTint
     var isLoading: Bool = false
+    /// The soft coral glow under the fill. On by default; auth passes `false` to keep its
+    /// deliberately flat look over the aurora backdrop.
+    var hasShadow: Bool = true
     let action: () -> Void
 
     var body: some View {
@@ -25,7 +28,12 @@ struct PrimaryButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(tint))
-            .shadow(color: tint.opacity(0.32), radius: 12, x: 0, y: 6)
+            .shadow(
+                color: hasShadow ? tint.opacity(0.32) : .clear,
+                radius: hasShadow ? 12 : 0,
+                x: 0,
+                y: hasShadow ? 6 : 0
+            )
         }
         .buttonStyle(PrimaryPressStyle())
         .disabled(isLoading)
