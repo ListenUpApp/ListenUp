@@ -33,24 +33,12 @@ struct SearchView: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-
-            TextField(String(localized: "search.search_placeholder"), text: $searchText)
-                .textFieldStyle(.plain)
-                .focused($isSearchFocused)
-                .submitLabel(.search)
-
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
+        AppTextField(
+            placeholder: String(localized: "search.search_placeholder"),
+            text: $searchText,
+            kind: .search
+        )
+        .focused($isSearchFocused)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
