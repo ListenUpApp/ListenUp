@@ -1,5 +1,6 @@
 import SwiftUI
 @preconcurrency import Shared
+import UIKit
 
 /// Content view for the Books tab in the Library.
 ///
@@ -20,11 +21,19 @@ struct BooksContent: View {
     let onDirectionToggle: () -> Void
     let onRefresh: () -> Void
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     @State private var isScrolling = false
     @State private var scrollTarget: String?
     @State private var sections: [(letter: Character, books: [BookListItem])] = []
 
-    private let columns = [GridItem(.adaptive(minimum: 150), spacing: 16)]
+    private var layout: BooksLayout {
+        BooksLayout.forRegularWidth(horizontalSizeClass == .regular)
+    }
+
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing)]
+    }
 
     /// Available sort categories for books
     private let sortCategories: [SortCategory] = [.title, .author, .duration, .year, .added, .series]
@@ -51,8 +60,12 @@ struct BooksContent: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
-                    // Spacer for sort button
-                    Color.clear.frame(height: 32)
+                    if layout.usesInlineSort, sortState != nil {
+                        sortRow
+                    } else {
+                        // Spacer for sort button
+                        Color.clear.frame(height: 32)
+                    }
 
                     ForEach(sections, id: \.letter) { section in
                         let sectionId = "section-\(section.letter)"
@@ -65,7 +78,7 @@ struct BooksContent: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
                             // Books grid
-                            LazyVGrid(columns: columns, spacing: 16) {
+                            LazyVGrid(columns: columns, spacing: layout.gridSpacing) {
                                 ForEach(section.books, id: \.idString) { book in
                                     NavigationLink(value: BookDestination(id: book.idString)) {
                                         BookCoverCard(book: book, progress: bookProgress[book.idString])
@@ -77,7 +90,7 @@ struct BooksContent: View {
                         .id(sectionId)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, layout.sideMargin)
                 // Extra padding at bottom so content scrolls above tab bar
                 .padding(.bottom, 100)
             }
@@ -103,7 +116,7 @@ struct BooksContent: View {
             }
             // Alphabet scrubber overlay
             .overlay(alignment: .trailing) {
-                if shouldShowAlphabetIndex {
+                if layout.showsScrubber, shouldShowAlphabetIndex {
                     SectionIndexBar(
                         letters: letters,
                         onLetterSelected: { letter in
@@ -117,7 +130,7 @@ struct BooksContent: View {
             }
             // Sort button overlay
             .overlay(alignment: .topLeading) {
-                if let sortState {
+                if !layout.usesInlineSort, let sortState {
                     FloatingSortButton(
                         sortState: sortState,
                         categories: sortCategories,
@@ -130,6 +143,35 @@ struct BooksContent: View {
             }
             .onChange(of: books, initial: true) { _, _ in
                 sections = buildSections(books: books)
+            }
+        }
+    }
+
+    // MARK: - Sort Row
+
+    private var sortRow: some View {
+        let count = String(format: String(localized: "library.title_count"), books.count)
+        let sortLabel = sortState?.category.label ?? ""
+        return SortRow(count: count, sortLabel: sortLabel) {
+            ForEach(sortCategories, id: \.name) { cat in
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    onCategorySelected(cat)
+                } label: {
+                    HStack {
+                        Text(cat.label)
+                        if cat == sortState?.category {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                onDirectionToggle()
+            } label: {
+                Text(String(localized: "common.direction"))
             }
         }
     }
@@ -164,7 +206,8 @@ struct BooksContent: View {
                     BookCoverShimmer()
                 }
             }
-            .padding()
+            .padding(.vertical)
+            .padding(.horizontal, layout.sideMargin)
         }
     }
 

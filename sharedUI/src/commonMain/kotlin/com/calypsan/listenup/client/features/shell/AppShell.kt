@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -146,11 +147,22 @@ fun AppShell(
     // Search overlay expansion lives in the UI — purely presentational state.
     var isSearchExpanded by rememberSaveable { mutableStateOf(false) }
 
+    // The single way search closes: collapse the overlay and clear the query. Shared by the header
+    // back arrow, the overlay's own back affordance, and the system back gesture below.
+    val collapseSearch: () -> Unit = {
+        isSearchExpanded = false
+        searchViewModel.clearQuery()
+    }
+
+    // The search overlay is a full-screen layer over the shell, not a nav-stack entry, so the system
+    // back gesture would otherwise fall through to the shell root and exit the app. While search is
+    // open, intercept back to close it instead.
+    PlatformBackHandler(enabled = isSearchExpanded) { collapseSearch() }
+
     // Handle search navigation: collapse the overlay and clear the query before navigating away.
     LaunchedEffect(searchViewModel) {
         searchViewModel.navActions.collect { action ->
-            isSearchExpanded = false
-            searchViewModel.clearQuery()
+            collapseSearch()
             when (action) {
                 is SearchNavAction.NavigateToBook -> onBookClick(action.bookId)
                 is SearchNavAction.NavigateToContributor -> onContributorClick(action.contributorId)
@@ -220,8 +232,7 @@ fun AppShell(
             isSearchExpanded = isSearchExpanded,
             searchQuery = searchState.query,
             onSearchExpandedChange = { expanded ->
-                isSearchExpanded = expanded
-                if (!expanded) searchViewModel.clearQuery()
+                if (expanded) isSearchExpanded = true else collapseSearch()
             },
             onSearchQueryChange = { query ->
                 searchViewModel.onQueryChanged(query)
@@ -278,6 +289,7 @@ fun AppShell(
             SearchResultsOverlay(
                 state = searchState,
                 isExpanded = isSearchExpanded,
+                onClose = collapseSearch,
                 onResultClick = { hit ->
                     searchViewModel.onResultClicked(hit)
                 },

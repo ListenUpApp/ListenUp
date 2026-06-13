@@ -23,12 +23,16 @@ import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.util.sortableTitle
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.concurrent.Volatile
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -98,6 +102,9 @@ class LibraryViewModel(
     private val libraryPreferences: LibraryPreferences,
     private val syncStatusRepository: SyncStatusRepository,
     private val selectionManager: LibrarySelectionManager,
+    // CPU-bound sort/filter of the library runs on this dispatcher, off the main thread. Defaulted
+    // for production; tests inject their scheduler-backed dispatcher so the pipeline stays controllable.
+    private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
     // ═══════════════════════════════════════════════════════════════════════
     // INTENT
@@ -153,7 +160,7 @@ class LibraryViewModel(
                 },
         ) { content, positions ->
             computeProgress(content.books, positions)
-        }
+        }.conflate()
 
     private val syncSnapshot: Flow<SyncSnapshot> =
         combine(
@@ -174,14 +181,18 @@ class LibraryViewModel(
             val loaded: LibraryUiState =
                 buildLoaded(intentValue, content, progress, sync, selection)
             loaded
-        }.fallbackTo { e ->
-            logger.error(e) { "Library state pipeline failed" }
-            LibraryUiState.Error("Failed to load library")
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = LibraryUiState.Loading,
-        )
+        }
+            // Sorting/filtering ~1000 books runs in this transform; keep it off the main thread so a
+            // burst of position updates (e.g. the post-import sync flood) can't stall input dispatch.
+            .flowOn(backgroundDispatcher)
+            .fallbackTo { e ->
+                logger.error(e) { "Library state pipeline failed" }
+                LibraryUiState.Error("Failed to load library")
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = LibraryUiState.Loading,
+            )
 
     // ═══════════════════════════════════════════════════════════════════════
     // INITIALIZATION

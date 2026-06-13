@@ -713,6 +713,7 @@ One beautiful library.</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_summary">• %1$s</string>
     <string name="library_sync_failed">Sync Failed</string>
+    <string name="library_title_count">%d titles</string>
     <string name="library_title_sort">Title Sort</string>
     <string name="library_title_sort_toggle">Title sort</string>
     <string name="library_you_dont_have_any_shelves">You don\'t have any shelves yet</string>

@@ -78,19 +78,28 @@ before any non-trivial iOS work.
     Book, Play Audio, Settings, Statistics, auth flows). They are **pre-Liquid-Glass** — use
     them for layout/flow/content *inspiration only*; never copy their chrome or styling.
     Liquid Glass + HIG always win over the mockups. Android screens are likewise inspiration only.
-12. **Adaptive to every device, accessible to every user — neither is polish.**
-    **Build for all screen sizes as a first-class requirement:** every screen earns a real
-    layout at compact, regular, and large widths — **all iPhones, all iPads, landscape, Split
-    View / Stage Manager** — via `NavigationSplitView`, multi-column, and size-class-driven
-    composition. Never ship a blown-up iPhone UI on iPad ("a phone layout stretched on a
-    tablet"); the end-goal is a genuinely great experience across the whole iPhone+iPad range.
-    iOS is more constrained here than Android (which is further along — its shell already
-    adapts compact/medium/expanded), which is exactly why iOS needs deliberate attention.
-    *(Current debt: the app is "blown-up phone" today — `.tabViewStyle(.sidebarAdaptable)` is
-    commented out and `horizontalSizeClass` is used in one place; treat closing this as real
-    scheduled work.)* **And accessibility *is* "follows Apple guidelines":** honor Dynamic
-    Type, VoiceOver, and the Liquid Glass accessibility settings — Reduce Transparency,
-    Increase Contrast, Reduce Motion.
+12. **Responsive first, adaptive where needed — accessible always. None is polish.**
+    **Make layouts RESPONSIVE, not just adaptive (Apple's WWDC-2026 direction).**
+    *Adaptive* = discrete branches on size class (`if .regular { 3-col grid } else { list }`):
+    two hand-tuned layouts at one breakpoint. *Responsive* = the layout flows continuously with
+    the **actual available width** — column counts emerge from width, spacing/margins scale, and
+    it's right at **every** point on the continuum (full-screen iPad, 1/2 + 1/3 Split View,
+    Stage Manager, resizable windows), not just "iPhone vs iPad." A fixed N-column grid crushes
+    cards in a narrow Split View; a width-driven one stays right everywhere.
+    **Build for all screen sizes as a first-class requirement** — all iPhones, all iPads,
+    landscape, Split View / Stage Manager. Prefer width-driven tools: `GridItem(.adaptive(minimum:))`
+    (columns flow from width), `ViewThatFits`, `containerRelativeFrame`, width-scaled sizing.
+    A genuine layout-*mode* fork (row-cards ↔ grid-cards) on `horizontalSizeClass` is still fine —
+    but the chosen mode's internals must be width-responsive (its grid columns flow). Treat
+    size-class branches as the fallback, not the default; cover the narrow-Split-View case (where
+    an iPad reports `.compact`). Apple's newest responsive APIs aren't all in stable Xcode/iOS yet —
+    approach it as far as the stable tools allow now and adopt the rest as they ship. Never ship a
+    blown-up iPhone UI on iPad ("a phone layout stretched on a tablet"). iOS is more constrained
+    here than Android (whose shell already adapts compact/medium/expanded), which is exactly why
+    iOS needs deliberate attention. The app shell is already on `.tabViewStyle(.sidebarAdaptable)`;
+    Phase 2 brings the content screens up to the responsive bar one slice at a time.
+    **And accessibility *is* "follows Apple guidelines":** honor Dynamic Type, VoiceOver, and the
+    Liquid Glass accessibility settings — Reduce Transparency, Increase Contrast, Reduce Motion.
 
 ## Media & process
 
