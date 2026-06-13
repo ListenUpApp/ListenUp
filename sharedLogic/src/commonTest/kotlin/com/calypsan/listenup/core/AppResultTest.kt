@@ -17,12 +17,10 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNull
-import kotlin.test.assertSame
-import kotlin.test.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 
 /**
  * Tests for [AppResult] — the canonical result type.
@@ -31,143 +29,125 @@ import kotlin.test.assertTrue
  * models ([Result], `AsyncState`, [AppError]) with no conversion path. [AppResult] is
  * the single sealed hierarchy carrying [AppError] directly.
  */
-class AppResultTest {
-    @Test
-    fun successHoldsData() {
-        val result: AppResult<String> = AppResult.Success("hello")
-        assertIs<AppResult.Success<String>>(result)
-        assertEquals("hello", result.data)
-    }
+class AppResultTest :
+    FunSpec({
+        test("successHoldsData") {
+            val result: AppResult<String> = AppResult.Success("hello")
+            result.shouldBeInstanceOf<AppResult.Success<String>>()
+            result.data shouldBe "hello"
+        }
 
-    @Test
-    fun failureHoldsAppError() {
-        val err: AppError = TransportError.NetworkUnavailable(debugInfo = "timeout")
-        val result: AppResult<String> = AppResult.Failure(err)
-        assertIs<AppResult.Failure>(result)
-        assertSame(err, result.error)
-    }
+        test("failureHoldsAppError") {
+            val err: AppError = TransportError.NetworkUnavailable(debugInfo = "timeout")
+            val result: AppResult<String> = AppResult.Failure(err)
+            result.shouldBeInstanceOf<AppResult.Failure>()
+            result.error shouldBeSameInstanceAs err
+        }
 
-    @Test
-    fun mapTransformsSuccess() {
-        val result: AppResult<Int> = AppResult.Success(5)
-        val mapped = result.map { it * 2 }
-        assertEquals(AppResult.Success(10), mapped)
-    }
+        test("mapTransformsSuccess") {
+            val result: AppResult<Int> = AppResult.Success(5)
+            val mapped = result.map { it * 2 }
+            mapped shouldBe AppResult.Success(10)
+        }
 
-    @Test
-    fun mapPreservesFailure() {
-        val err: AppError = TransportError.NetworkUnavailable()
-        val result: AppResult<Int> = AppResult.Failure(err)
-        val mapped = result.map { it * 2 }
-        assertIs<AppResult.Failure>(mapped)
-        assertSame(err, mapped.error)
-    }
+        test("mapPreservesFailure") {
+            val err: AppError = TransportError.NetworkUnavailable()
+            val result: AppResult<Int> = AppResult.Failure(err)
+            val mapped = result.map { it * 2 }
+            mapped.shouldBeInstanceOf<AppResult.Failure>()
+            mapped.error shouldBeSameInstanceAs err
+        }
 
-    @Test
-    fun flatMapChainsSuccesses() {
-        val result: AppResult<Int> = AppResult.Success(5)
-        val chained: AppResult<String> = result.flatMap { AppResult.Success(it.toString()) }
-        assertEquals(AppResult.Success("5"), chained)
-    }
+        test("flatMapChainsSuccesses") {
+            val result: AppResult<Int> = AppResult.Success(5)
+            val chained: AppResult<String> = result.flatMap { AppResult.Success(it.toString()) }
+            chained shouldBe AppResult.Success("5")
+        }
 
-    @Test
-    fun flatMapShortCircuitsOnFailure() {
-        val err: AppError = ValidationError(message = "bad")
-        val result: AppResult<Int> = AppResult.Failure(err)
-        val chained: AppResult<String> = result.flatMap { error("should not be called") }
-        assertIs<AppResult.Failure>(chained)
-        assertSame(err, chained.error)
-    }
+        test("flatMapShortCircuitsOnFailure") {
+            val err: AppError = ValidationError(message = "bad")
+            val result: AppResult<Int> = AppResult.Failure(err)
+            val chained: AppResult<String> = result.flatMap { error("should not be called") }
+            chained.shouldBeInstanceOf<AppResult.Failure>()
+            chained.error shouldBeSameInstanceAs err
+        }
 
-    @Test
-    fun flatMapSurfacesInnerFailure() {
-        val inner: AppError = AuthError.SessionExpired()
-        val result: AppResult<Int> = AppResult.Success(5)
-        val chained = result.flatMap<Int, String> { AppResult.Failure(inner) }
-        assertIs<AppResult.Failure>(chained)
-        assertSame(inner, chained.error)
-    }
+        test("flatMapSurfacesInnerFailure") {
+            val inner: AppError = AuthError.SessionExpired()
+            val result: AppResult<Int> = AppResult.Success(5)
+            val chained = result.flatMap<Int, String> { AppResult.Failure(inner) }
+            chained.shouldBeInstanceOf<AppResult.Failure>()
+            chained.error shouldBeSameInstanceAs inner
+        }
 
-    @Test
-    fun foldDispatchesSuccess() {
-        val result: AppResult<Int> = AppResult.Success(5)
-        val folded = result.fold(onSuccess = { "got $it" }, onFailure = { "err ${it.code}" })
-        assertEquals("got 5", folded)
-    }
+        test("foldDispatchesSuccess") {
+            val result: AppResult<Int> = AppResult.Success(5)
+            val folded = result.fold(onSuccess = { "got $it" }, onFailure = { "err ${it.code}" })
+            folded shouldBe "got 5"
+        }
 
-    @Test
-    fun foldDispatchesFailure() {
-        val result: AppResult<Int> = AppResult.Failure(AuthError.SessionExpired())
-        val folded = result.fold(onSuccess = { "got $it" }, onFailure = { "err ${it.code}" })
-        assertEquals("err AUTH_SESSION_EXPIRED", folded)
-    }
+        test("foldDispatchesFailure") {
+            val result: AppResult<Int> = AppResult.Failure(AuthError.SessionExpired())
+            val folded = result.fold(onSuccess = { "got $it" }, onFailure = { "err ${it.code}" })
+            folded shouldBe "err AUTH_SESSION_EXPIRED"
+        }
 
-    @Test
-    fun getOrNullReturnsDataOnSuccess() {
-        val result: AppResult<Int> = AppResult.Success(5)
-        assertEquals(5, result.getOrNull())
-    }
+        test("getOrNullReturnsDataOnSuccess") {
+            val result: AppResult<Int> = AppResult.Success(5)
+            result.getOrNull() shouldBe 5
+        }
 
-    @Test
-    fun getOrNullReturnsNullOnFailure() {
-        val result: AppResult<Int> = AppResult.Failure(TransportError.NetworkUnavailable())
-        assertNull(result.getOrNull())
-    }
+        test("getOrNullReturnsNullOnFailure") {
+            val result: AppResult<Int> = AppResult.Failure(TransportError.NetworkUnavailable())
+            result.getOrNull() shouldBe null
+        }
 
-    @Test
-    fun errorOrNullReturnsErrorOnFailure() {
-        val err: AppError = TransportError.NetworkUnavailable()
-        val result: AppResult<Int> = AppResult.Failure(err)
-        assertSame(err, result.errorOrNull())
-    }
+        test("errorOrNullReturnsErrorOnFailure") {
+            val err: AppError = TransportError.NetworkUnavailable()
+            val result: AppResult<Int> = AppResult.Failure(err)
+            result.errorOrNull() shouldBeSameInstanceAs err
+        }
 
-    @Test
-    fun errorOrNullReturnsNullOnSuccess() {
-        val result: AppResult<Int> = AppResult.Success(5)
-        assertNull(result.errorOrNull())
-    }
+        test("errorOrNullReturnsNullOnSuccess") {
+            val result: AppResult<Int> = AppResult.Success(5)
+            result.errorOrNull() shouldBe null
+        }
 
-    @Test
-    fun onSuccessRunsOnlyOnSuccess() {
-        var ran = false
-        val result: AppResult<Int> = AppResult.Success(5)
-        result.onSuccess { ran = true }
-        assertTrue(ran)
-    }
+        test("onSuccessRunsOnlyOnSuccess") {
+            var ran = false
+            val result: AppResult<Int> = AppResult.Success(5)
+            result.onSuccess { ran = true }
+            ran shouldBe true
+        }
 
-    @Test
-    fun onFailureRunsOnlyOnFailure() {
-        var captured: AppError? = null
-        val err: AppError = AuthError.SessionExpired()
-        AppResult.Failure(err).onFailure { captured = it }
-        assertSame(err, captured)
-    }
+        test("onFailureRunsOnlyOnFailure") {
+            var captured: AppError? = null
+            val err: AppError = AuthError.SessionExpired()
+            AppResult.Failure(err).onFailure { captured = it }
+            captured shouldBeSameInstanceAs err
+        }
 
-    @Test
-    fun failureFromThrowableMapsViaErrorMapper() {
-        val ex = IllegalStateException("boom")
-        val failure = Failure(ex)
-        val internal = assertIs<InternalError>(failure.error)
-        assertTrue(internal.debugInfo?.contains("boom") == true)
-        assertTrue(internal.debugInfo?.contains("IllegalStateException") == true)
-    }
+        test("failureFromThrowableMapsViaErrorMapper") {
+            val ex = IllegalStateException("boom")
+            val failure = Failure(ex)
+            val internal = failure.error.shouldBeInstanceOf<InternalError>()
+            (internal.debugInfo?.contains("boom") == true) shouldBe true
+            (internal.debugInfo?.contains("IllegalStateException") == true) shouldBe true
+        }
 
-    @Test
-    fun validationErrorBuildsValidationErrorFailure() {
-        val failure = validationError("bad input")
-        assertIs<ValidationError>(failure.error)
-        assertEquals("bad input", failure.message)
-    }
+        test("validationErrorBuildsValidationErrorFailure") {
+            val failure = validationError("bad input")
+            failure.error.shouldBeInstanceOf<ValidationError>()
+            failure.message shouldBe "bad input"
+        }
 
-    @Test
-    fun networkErrorHelperBuildsNetworkUnavailableFailure() {
-        val failure = networkError("offline")
-        assertIs<TransportError.NetworkUnavailable>(failure.error)
-    }
+        test("networkErrorHelperBuildsNetworkUnavailableFailure") {
+            val failure = networkError("offline")
+            failure.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+        }
 
-    @Test
-    fun unauthorizedHelperBuildsSessionExpiredFailure() {
-        val failure = unauthorizedError()
-        assertIs<AuthError.SessionExpired>(failure.error)
-    }
-}
+        test("unauthorizedHelperBuildsSessionExpiredFailure") {
+            val failure = unauthorizedError()
+            failure.error.shouldBeInstanceOf<AuthError.SessionExpired>()
+        }
+    })

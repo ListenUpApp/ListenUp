@@ -1,65 +1,61 @@
 package com.calypsan.listenup.client.voice
 
-import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import io.kotest.assertions.withClue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
-class ResumePhraseDetectorTest {
-    @Test
-    fun `exact resume phrase returns true`() {
-        assertTrue(ResumePhraseDetector.isResumeIntent("resume"))
-        assertTrue(ResumePhraseDetector.isResumeIntent("continue"))
-        assertTrue(ResumePhraseDetector.isResumeIntent("my audiobook"))
-    }
-
-    @Test
-    fun `resume phrase with surrounding text returns true`() {
-        assertTrue(ResumePhraseDetector.isResumeIntent("please resume my book"))
-        assertTrue(ResumePhraseDetector.isResumeIntent("continue listening to my audiobook"))
-    }
-
-    @Test
-    fun `case insensitive matching`() {
-        assertTrue(ResumePhraseDetector.isResumeIntent("RESUME"))
-        assertTrue(ResumePhraseDetector.isResumeIntent("Continue Listening"))
-        assertTrue(ResumePhraseDetector.isResumeIntent("MY AUDIOBOOK"))
-    }
-
-    @Test
-    fun `whitespace trimming`() {
-        assertTrue(ResumePhraseDetector.isResumeIntent("  resume  "))
-        assertTrue(ResumePhraseDetector.isResumeIntent("\tcontinue\n"))
-    }
-
-    @Test
-    fun `specific book title returns false`() {
-        assertFalse(ResumePhraseDetector.isResumeIntent("The Hobbit"))
-        assertFalse(ResumePhraseDetector.isResumeIntent("play Mistborn"))
-    }
-
-    @Test
-    fun `empty query returns false`() {
-        assertFalse(ResumePhraseDetector.isResumeIntent(""))
-        assertFalse(ResumePhraseDetector.isResumeIntent("   "))
-    }
-
-    @Test
-    fun `all supported phrases are detected`() {
-        val phrases =
-            listOf(
-                "resume",
-                "continue",
-                "continue listening",
-                "continue reading",
-                "my audiobook",
-                "my book",
-                "where i left off",
-                "pick up where i left off",
-                "keep playing",
-                "keep listening",
-            )
-        phrases.forEach { phrase ->
-            assertTrue(ResumePhraseDetector.isResumeIntent(phrase), "Expected '$phrase' to be detected")
+class ResumePhraseDetectorTest :
+    FunSpec({
+        test("exact resume phrase returns true") {
+            ResumePhraseDetector.isResumeIntent("resume") shouldBe true
+            ResumePhraseDetector.isResumeIntent("continue") shouldBe true
+            ResumePhraseDetector.isResumeIntent("my audiobook") shouldBe true
         }
-    }
-}
+
+        test("resume phrase with surrounding text returns true") {
+            ResumePhraseDetector.isResumeIntent("please resume my book") shouldBe true
+            ResumePhraseDetector.isResumeIntent("continue listening to my audiobook") shouldBe true
+        }
+
+        test("case insensitive matching") {
+            ResumePhraseDetector.isResumeIntent("RESUME") shouldBe true
+            ResumePhraseDetector.isResumeIntent("Continue Listening") shouldBe true
+            ResumePhraseDetector.isResumeIntent("MY AUDIOBOOK") shouldBe true
+        }
+
+        test("whitespace trimming") {
+            ResumePhraseDetector.isResumeIntent("  resume  ") shouldBe true
+            ResumePhraseDetector.isResumeIntent("\tcontinue\n") shouldBe true
+        }
+
+        test("specific book title returns false") {
+            ResumePhraseDetector.isResumeIntent("The Hobbit") shouldBe false
+            ResumePhraseDetector.isResumeIntent("play Mistborn") shouldBe false
+        }
+
+        test("empty query returns false") {
+            ResumePhraseDetector.isResumeIntent("") shouldBe false
+            ResumePhraseDetector.isResumeIntent("   ") shouldBe false
+        }
+
+        test("all supported phrases are detected") {
+            val phrases =
+                listOf(
+                    "resume",
+                    "continue",
+                    "continue listening",
+                    "continue reading",
+                    "my audiobook",
+                    "my book",
+                    "where i left off",
+                    "pick up where i left off",
+                    "keep playing",
+                    "keep listening",
+                )
+            phrases.forEach { phrase ->
+                withClue("Expected '$phrase' to be detected") {
+                    ResumePhraseDetector.isResumeIntent(phrase) shouldBe true
+                }
+            }
+        }
+    })
