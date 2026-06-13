@@ -29,6 +29,7 @@ struct ImageEditHeader<ImageContent: View>: View {
                                 .tint(.white)
                                 .frame(width: size, height: size)
                                 .background(.black.opacity(0.25), in: clip)
+                                .accessibilityLabel(Text("edit.uploading_image"))
                         }
                     }
 
@@ -40,6 +41,7 @@ struct ImageEditHeader<ImageContent: View>: View {
                         .background(Circle().fill(Color.luTint))
                         .overlay(Circle().stroke(Color.luSurface, lineWidth: 2.5))
                 }
+                .accessibilityLabel(Text("edit.change_image"))
                 .offset(x: 6, y: 6)
             }
 

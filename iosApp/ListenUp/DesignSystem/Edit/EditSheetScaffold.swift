@@ -25,6 +25,10 @@ struct EditSheetScaffold<Content: View>: View {
                     Button(String(localized: "common.cancel"), action: onCancel)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Invariant: while `isSaving` the action is REPLACED by a spinner, not
+                    // merely disabled — this is the load-bearing guard against double-submit.
+                    // Any variant that keeps the button visible during save must also fold
+                    // `isSaving` into `.disabled`.
                     if isSaving {
                         ProgressView()
                     } else {

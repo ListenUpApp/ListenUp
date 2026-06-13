@@ -956,6 +956,8 @@
     "books_count": "%1$d books"
   },
   "edit": {
-    "remove_image": "Remove image"
+    "remove_image": "Remove image",
+    "change_image": "Change image",
+    "uploading_image": "Uploading image"
   }
 }

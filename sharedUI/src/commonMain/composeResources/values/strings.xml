@@ -492,7 +492,9 @@ One beautiful library.</string>
     <string name="discover_total_time">Total Time</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
     <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they\'ll appear here.</string>
+    <string name="edit_change_image">Change image</string>
     <string name="edit_remove_image">Remove image</string>
+    <string name="edit_uploading_image">Uploading image</string>
     <string name="error_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="error_conflict">That resource is in use or already exists.</string>
     <string name="error_forbidden">You don\'t have permission to do that.</string>

@@ -4911,12 +4911,32 @@
         }
       }
     },
+    "edit.change_image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change image"
+          }
+        }
+      }
+    },
     "edit.remove_image": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Remove image"
+          }
+        }
+      }
+    },
+    "edit.uploading_image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading image"
           }
         }
       }
