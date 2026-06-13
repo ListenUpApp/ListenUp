@@ -8571,6 +8571,16 @@
         }
       }
     },
+    "search.searching": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching…"
+          }
+        }
+      }
+    },
     "search.section_count": {
       "localizations": {
         "en": {
@@ -8581,12 +8591,32 @@
         }
       }
     },
+    "search.tab_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
     "search.try_a_different_search_term": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Try a different search term"
+          }
+        }
+      }
+    },
+    "search.unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Unavailable"
           }
         }
       }

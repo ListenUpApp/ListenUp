@@ -468,10 +468,13 @@
     "no_results_for_query": "No results for “%1$s”",
     "people": "People",
     "results_for": "Results for “%1$s”",
+    "searching": "Searching…",
     "section_count": "(%1$d)",
     "search_placeholder": "Search books, authors, series...",
     "search_your_library": "Search Your Library",
-    "try_a_different_search_term": "Try a different search term"
+    "tab_all": "All",
+    "try_a_different_search_term": "Try a different search term",
+    "unavailable": "Search Unavailable"
   },
   "discover": {
     "activity_feed": "Activity Feed",

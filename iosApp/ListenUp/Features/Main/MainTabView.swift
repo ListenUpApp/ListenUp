@@ -41,7 +41,7 @@ struct MainTabView: View {
                     tabStack(.discover) { DiscoverView() }
                 }
                 SwiftUI.Tab(value: Tab.search, role: .search) {
-                    tabStack(.search) { SearchView() }
+                    tabStack(.search) { SearchView(path: pathBinding(.search)) }
                 }
             }
             .tabViewStyle(.sidebarAdaptable)

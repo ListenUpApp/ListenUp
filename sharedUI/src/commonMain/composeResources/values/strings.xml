@@ -858,8 +858,11 @@ One beautiful library.</string>
     <string name="search_results_for">Results for “%1$s”</string>
     <string name="search_search_placeholder">Search books, authors, series...</string>
     <string name="search_search_your_library">Search Your Library</string>
+    <string name="search_searching">Searching…</string>
     <string name="search_section_count">(%1$d)</string>
+    <string name="search_tab_all">All</string>
     <string name="search_try_a_different_search_term">Try a different search term</string>
+    <string name="search_unavailable">Search Unavailable</string>
     <string name="series_book_finished">Finished</string>
     <string name="series_book_number">Book %1$s</string>
     <string name="series_book_position">Book %1$s</string>
