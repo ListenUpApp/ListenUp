@@ -20,6 +20,7 @@ struct DiscoverView: View {
                 contentPlaceholder
             }
             .padding()
+            .readableWidth()
         }
         .background(Color(.systemBackground))
         .navigationTitle(String(localized: "common.discover"))

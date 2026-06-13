@@ -25,6 +25,7 @@ struct SearchView: View {
                 searchResults
             }
         }
+        .readableWidth()
         .background(Color(.systemBackground))
         .navigationTitle(String(localized: "common.search"))
         .navigationBarTitleDisplayMode(.large)

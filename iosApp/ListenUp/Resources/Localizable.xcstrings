@@ -7121,6 +7121,16 @@
         }
       }
     },
+    "library.title_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d titles"
+          }
+        }
+      }
+    },
     "library.title_sort": {
       "localizations": {
         "en": {

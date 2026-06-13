@@ -144,12 +144,13 @@ struct HomeView: View {
         }
     }
 
-    /// Single column at compact; a two-column grid at regular so the rows fill the wider canvas.
+    /// Single column at compact; a width-driven grid at regular so columns flow with the canvas
+    /// (one in a narrow Split View, two on a full-width iPad) rather than a fixed two-up.
     @ViewBuilder
     private func continueRows(_ items: [ContinueItem]) -> some View {
         if isRegularWidth {
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)],
+                columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
                 alignment: .leading,
                 spacing: 4
             ) {
