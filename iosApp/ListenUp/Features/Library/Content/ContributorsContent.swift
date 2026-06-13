@@ -48,6 +48,19 @@ struct ContributorsContent: View {
     }
 
     private var listBody: some View {
+        GeometryReader { geo in
+            let columns = ContributorColumns.columnCount(availableWidth: geo.size.width)
+            Group {
+                if columns <= 1 {
+                    singleColumnList
+                } else {
+                    multiColumnList(columns: columns)
+                }
+            }
+        }
+    }
+
+    private var singleColumnList: some View {
         let groups = isNameSort
             ? ContributorLetterGrouping.group(list, key: { $0.contributor.name })
             : [ContributorLetterGrouping.Group(letter: "", items: list)]
@@ -97,6 +110,45 @@ struct ContributorsContent: View {
             }
             .background(Color.luSurface)
         }
+    }
+
+    private func multiColumnList(columns: Int) -> some View {
+        let groups = isNameSort
+            ? ContributorLetterGrouping.group(list, key: { $0.contributor.name })
+            : [ContributorLetterGrouping.Group(letter: "", items: list)]
+        let columnGroups: [[ContributorLetterGrouping.Group]] = isNameSort
+            ? ContributorColumns.balancedColumns(groups, weight: { $0.items.count }, columns: columns)
+            : ContributorColumns.balancedColumns(list, weight: { _ in 1 }, columns: columns)
+                .map { [ContributorLetterGrouping.Group(letter: "", items: $0)] }
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                sortRow.padding(.horizontal, 36)
+                HStack(alignment: .top, spacing: 24) {
+                    ForEach(Array(columnGroups.enumerated()), id: \.offset) { _, columnGroup in
+                        column(columnGroup)
+                    }
+                }
+                .padding(.horizontal, 36)
+            }
+            .padding(.bottom, 100)
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color.luSurface)
+    }
+
+    private func column(_ groups: [ContributorLetterGrouping.Group]) -> some View {
+        LazyVStack(alignment: .leading, spacing: 12) {
+            ForEach(groups, id: \.letter) { group in
+                if isNameSort {
+                    LetterHeader(letter: group.letter)
+                }
+                FieldGroup(group.items, id: \.contributorIdString, separatorInset: 78) { person in
+                    PersonRow(contributor: person, kind: roleKind)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private var sortRow: some View {
