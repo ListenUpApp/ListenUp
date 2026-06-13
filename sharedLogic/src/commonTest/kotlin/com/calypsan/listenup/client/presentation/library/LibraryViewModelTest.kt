@@ -177,6 +177,7 @@ class LibraryViewModelTest :
                     libraryPreferences = libraryPreferences,
                     syncStatusRepository = syncStatusRepository,
                     selectionManager = selectionManager,
+                    backgroundDispatcher = testDispatcher,
                 )
         }
 
