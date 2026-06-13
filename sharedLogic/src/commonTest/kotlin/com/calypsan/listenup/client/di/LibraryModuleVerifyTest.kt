@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
 import com.calypsan.listenup.client.data.local.db.dao.LibraryFolderDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -37,6 +38,7 @@ import org.koin.test.verify.verify
  *  - [ListenUpDatabase] — owned by `platformDatabaseModule`.
  *  - [TransactionRunner] — owned by `persistenceModule`.
  *  - [LibrarySync] — owned by `settingsModule`.
+ *  - [FtsPopulatorContract] — owned by `searchModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class LibraryModuleVerifyTest :
@@ -60,6 +62,7 @@ class LibraryModuleVerifyTest :
                         ApiClientFactory::class,
                         LibraryDao::class,
                         LibraryFolderDao::class,
+                        FtsPopulatorContract::class,
                     ),
             )
         }
