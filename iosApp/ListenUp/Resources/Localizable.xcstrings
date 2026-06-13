@@ -4911,6 +4911,36 @@
         }
       }
     },
+    "edit.change_image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change image"
+          }
+        }
+      }
+    },
+    "edit.remove_image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove image"
+          }
+        }
+      }
+    },
+    "edit.uploading_image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading image"
+          }
+        }
+      }
+    },
     "error.auth_session_expired": {
       "localizations": {
         "en": {
@@ -8051,12 +8081,52 @@
         }
       }
     },
+    "series.edit_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Description"
+          }
+        }
+      }
+    },
+    "series.edit_description_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a description"
+          }
+        }
+      }
+    },
+    "series.edit_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
     "series.edit_series": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Edit series"
+          }
+        }
+      }
+    },
+    "series.edit_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Series"
           }
         }
       }

@@ -365,7 +365,11 @@
     "book_finished": "Finished",
     "complete": "Complete",
     "not_started": "Not Started",
-    "x_of_y": "%d of %d"
+    "x_of_y": "%d of %d",
+    "edit_title": "Edit Series",
+    "edit_name": "Name",
+    "edit_description": "Description",
+    "edit_description_placeholder": "Add a description"
   },
   "contributor": {
     "aka": "aka %1$s",
@@ -950,5 +954,10 @@
     "all_mapped": "Every genre string from your scanner has been mapped or auto-resolved.",
     "book_count": "%1$d book",
     "books_count": "%1$d books"
+  },
+  "edit": {
+    "remove_image": "Remove image",
+    "change_image": "Change image",
+    "uploading_image": "Uploading image"
   }
 }
