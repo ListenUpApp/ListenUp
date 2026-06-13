@@ -126,7 +126,7 @@ struct SeriesContent: View {
     private var iPhoneList: some View {
         LazyVStack(spacing: 12) {
             ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
-                let seriesId = String(describing: seriesWithBooks.series.id)
+                let seriesId = seriesWithBooks.series.idString
                 SeriesRowCard(
                     series: seriesWithBooks,
                     progress: progressFor(seriesId: seriesId, series: seriesWithBooks)
@@ -145,7 +145,7 @@ struct SeriesContent: View {
         let columns = [GridItem(.adaptive(minimum: 260), spacing: 22)]
         return LazyVGrid(columns: columns, spacing: 22) {
             ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
-                let seriesId = String(describing: seriesWithBooks.series.id)
+                let seriesId = seriesWithBooks.series.idString
                 SeriesGridCard(
                     series: seriesWithBooks,
                     progress: progressFor(seriesId: seriesId, series: seriesWithBooks)
@@ -180,7 +180,7 @@ struct SeriesContent: View {
 
             if !seenLetters.contains(letter) {
                 seenLetters.insert(letter)
-                let seriesId = String(describing: seriesWithBooks.series.id)
+                let seriesId = seriesWithBooks.series.idString
                 index.append((letter: letter, firstId: "series-\(seriesId)"))
             }
         }

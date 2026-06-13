@@ -6,7 +6,7 @@ import SwiftUI
 struct SeriesMiniCard: View {
     let series: SeriesWithBooks_
 
-    private var seriesId: String { String(describing: series.series.id) }
+    private var seriesId: String { series.series.idString }
     private var books: [BookListItem] { Array(series.books) }
 
     var body: some View {

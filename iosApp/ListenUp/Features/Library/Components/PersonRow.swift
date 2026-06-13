@@ -7,7 +7,7 @@ struct PersonRow: View {
     let contributor: ContributorWithBookCount_
     let kind: RoleChip.Kind
 
-    private var contributorId: String { String(describing: contributor.contributor.id) }
+    private var contributorId: String { contributor.contributor.idString }
     private var name: String { contributor.contributor.name }
     private var bookCountLabel: String {
         let count = Int(contributor.bookCount)

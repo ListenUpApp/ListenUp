@@ -191,5 +191,5 @@ struct ContributorsContent: View {
 }
 
 private extension ContributorWithBookCount_ {
-    var contributorIdString: String { String(describing: contributor.id) }
+    var contributorIdString: String { contributor.idString }
 }

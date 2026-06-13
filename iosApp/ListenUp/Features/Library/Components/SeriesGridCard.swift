@@ -7,7 +7,7 @@ struct SeriesGridCard: View {
     let series: SeriesWithBooks_
     let progress: SeriesProgressState
 
-    private var seriesId: String { String(describing: series.series.id) }
+    private var seriesId: String { series.series.idString }
     private var books: [BookListItem] { Array(series.books) }
     private var meta: String {
         let count = books.count

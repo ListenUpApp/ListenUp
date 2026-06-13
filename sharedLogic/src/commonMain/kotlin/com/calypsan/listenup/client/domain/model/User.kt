@@ -35,6 +35,9 @@ data class User(
     val createdAtMs: Long,
     val updatedAtMs: Long,
 ) {
+    /** The user id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+
     /**
      * Returns true if the user has an uploaded avatar image.
      */
