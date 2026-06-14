@@ -13,8 +13,8 @@ struct ListenUpShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: PlayBookIntent(),
             phrases: [
-                "Play \(\.$book) in \(.applicationName)",
-                "Play \(\.$book) on \(.applicationName)"
+                "Play \(\.$target) in \(.applicationName)",
+                "Play \(\.$target) on \(.applicationName)"
             ],
             shortTitle: "Play Audiobook",
             systemImageName: "play.circle.fill"
