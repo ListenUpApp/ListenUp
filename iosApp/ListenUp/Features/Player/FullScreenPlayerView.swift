@@ -62,7 +62,6 @@ struct FullScreenPlayerView: View {
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.regularMaterial)
         }
         .sheet(isPresented: $showSleepTimer) {
             SleepTimerSheet(
@@ -71,7 +70,6 @@ struct FullScreenPlayerView: View {
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.regularMaterial)
         }
         .sheet(isPresented: $showChapterList) {
             ChapterListSheet(
@@ -80,7 +78,6 @@ struct FullScreenPlayerView: View {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.regularMaterial)
         }
     }
 
