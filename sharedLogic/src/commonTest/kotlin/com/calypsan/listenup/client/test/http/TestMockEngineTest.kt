@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.test.http
 
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.withClue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
@@ -7,75 +11,71 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 
 /**
  * Verifies [testMockEngine] dispatches requests to path handlers, falls back with 404 for
  * unmatched paths, and exposes the resulting [HttpClient] for use in seam tests.
  */
-class TestMockEngineTest {
-    @Test
-    fun dispatchesJsonResponseForRegisteredPath() =
-        runTest {
-            val client =
-                HttpClient(
-                    testMockEngine {
-                        respondJson("/api/v1/books") { """{"id":"book-1","title":"Dune"}""" }
-                    },
-                )
+class TestMockEngineTest :
+    FunSpec({
+        test("dispatchesJsonResponseForRegisteredPath") {
+            runTest {
+                val client =
+                    HttpClient(
+                        testMockEngine {
+                            respondJson("/api/v1/books") { """{"id":"book-1","title":"Dune"}""" }
+                        },
+                    )
 
-            val response: HttpResponse = client.get("http://unit.test/api/v1/books")
-            assertTrue(response.status.isSuccess(), "matched path must resolve to 2xx")
-            assertEquals("""{"id":"book-1","title":"Dune"}""", response.bodyAsText())
-        }
-
-    @Test
-    fun returns404ForUnregisteredPath() =
-        runTest {
-            val client =
-                HttpClient(
-                    testMockEngine {
-                        respondJson("/api/v1/books") { "{}" }
-                    },
-                )
-
-            assertFailsWith<AssertionError> {
-                client.get("http://unit.test/api/v1/nonexistent")
+                val response: HttpResponse = client.get("http://unit.test/api/v1/books")
+                withClue("matched path must resolve to 2xx") { response.status.isSuccess() shouldBe true }
+                response.bodyAsText() shouldBe """{"id":"book-1","title":"Dune"}"""
             }
         }
 
-    @Test
-    fun respondJsonIncludesContentTypeHeader() =
-        runTest {
-            val client =
-                HttpClient(
-                    testMockEngine {
-                        respondJson("/whoami") { """{"user":"alice"}""" }
-                    },
-                )
+        test("returns404ForUnregisteredPath") {
+            runTest {
+                val client =
+                    HttpClient(
+                        testMockEngine {
+                            respondJson("/api/v1/books") { "{}" }
+                        },
+                    )
 
-            val response: HttpResponse = client.get("http://unit.test/whoami")
-            val contentType = response.headers["Content-Type"]
-            assertTrue(
-                contentType?.startsWith("application/json") == true,
-                "respondJson must set Content-Type: application/json (was $contentType)",
-            )
+                shouldThrow<AssertionError> {
+                    client.get("http://unit.test/api/v1/nonexistent")
+                }
+            }
         }
 
-    @Test
-    fun respondStatusEmitsRequestedStatusCode() =
-        runTest {
-            val client =
-                HttpClient(
-                    testMockEngine {
-                        respondStatus("/missing", HttpStatusCode.NotFound)
-                    },
-                )
+        test("respondJsonIncludesContentTypeHeader") {
+            runTest {
+                val client =
+                    HttpClient(
+                        testMockEngine {
+                            respondJson("/whoami") { """{"user":"alice"}""" }
+                        },
+                    )
 
-            val response: HttpResponse = client.get("http://unit.test/missing")
-            assertEquals(HttpStatusCode.NotFound, response.status)
+                val response: HttpResponse = client.get("http://unit.test/whoami")
+                val contentType = response.headers["Content-Type"]
+                withClue("respondJson must set Content-Type: application/json (was $contentType)") {
+                    (contentType?.startsWith("application/json") == true) shouldBe true
+                }
+            }
         }
-}
+
+        test("respondStatusEmitsRequestedStatusCode") {
+            runTest {
+                val client =
+                    HttpClient(
+                        testMockEngine {
+                            respondStatus("/missing", HttpStatusCode.NotFound)
+                        },
+                    )
+
+                val response: HttpResponse = client.get("http://unit.test/missing")
+                response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+    })

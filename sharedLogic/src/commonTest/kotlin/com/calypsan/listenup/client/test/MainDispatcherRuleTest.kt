@@ -1,13 +1,12 @@
 package com.calypsan.listenup.client.test
 
+import io.kotest.assertions.withClue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertTrue
 
 /**
  * Verifies [MainDispatcherRule] installs its [TestDispatcher] as [Dispatchers.Main] during a test,
@@ -17,20 +16,21 @@ import kotlin.test.assertTrue
  * because no Main dispatcher is installed on any non-Android target.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class MainDispatcherRuleTest {
-    private val mainRule = MainDispatcherRule()
+class MainDispatcherRuleTest :
+    FunSpec({
+        val mainRule = MainDispatcherRule()
 
-    @BeforeTest
-    fun beforeTest() = mainRule.setUp()
+        beforeTest { mainRule.setUp() }
 
-    @AfterTest
-    fun afterTest() = mainRule.tearDown()
+        afterTest { mainRule.tearDown() }
 
-    @Test
-    fun mainDispatcherIsUsableAfterSetUp() =
-        runTest(mainRule.testDispatcher) {
-            var ran = false
-            withContext(Dispatchers.Main) { ran = true }
-            assertTrue(ran, "withContext(Dispatchers.Main) must execute under MainDispatcherRule")
+        test("mainDispatcherIsUsableAfterSetUp") {
+            runTest(mainRule.testDispatcher) {
+                var ran = false
+                withContext(Dispatchers.Main) { ran = true }
+                withClue("withContext(Dispatchers.Main) must execute under MainDispatcherRule") {
+                    ran shouldBe true
+                }
+            }
         }
-}
+    })

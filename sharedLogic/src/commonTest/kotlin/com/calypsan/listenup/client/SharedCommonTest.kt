@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
-class SharedCommonTest {
-    @Test
-    fun example() {
-        assertEquals(3, 1 + 2)
-    }
-}
+class SharedCommonTest :
+    FunSpec({
+        test("example") {
+            (1 + 2) shouldBe 3
+        }
+    })
