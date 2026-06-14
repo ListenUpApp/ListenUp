@@ -210,7 +210,7 @@ class PlaybackErrorHandlerTest {
     // ── handle — Network ──────────────────────────────────────────────────────
 
     @Test
-    fun `handle Network returns true and does not pause player`() =
+    fun `handle Network returns true and does not pause player`() {
         runBlocking {
             val tracker = FakeProgressTracker()
             val player = FakeExoPlayer(stubbedPosition = 8_000L)
@@ -230,9 +230,10 @@ class PlaybackErrorHandlerTest {
             withClue("Position saved once before handling") { tracker.savePlaybackStateCalls.size shouldBe 1 }
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book1")
         }
+    }
 
     @Test
-    fun `handle Network skips position save when currentBookId is null`() =
+    fun `handle Network skips position save when currentBookId is null`() {
         runBlocking {
             val tracker = FakeProgressTracker()
 
@@ -245,11 +246,12 @@ class PlaybackErrorHandlerTest {
 
             withClue("No save when bookId is null") { tracker.savePlaybackStateCalls.size shouldBe 0 }
         }
+    }
 
     // ── handle — NotFound ─────────────────────────────────────────────────────
 
     @Test
-    fun `handle NotFound returns false, pauses player, shows user error`() =
+    fun `handle NotFound returns false, pauses player, shows user error`() {
         runBlocking {
             val tracker = FakeProgressTracker()
             val player = FakeExoPlayer(stubbedPosition = 4_500L)
@@ -270,11 +272,12 @@ class PlaybackErrorHandlerTest {
             tracker.savePlaybackStateCalls.size shouldBe 1
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book2")
         }
+    }
 
     // ── handle — Codec ────────────────────────────────────────────────────────
 
     @Test
-    fun `handle Codec returns false, pauses player, shows user error`() =
+    fun `handle Codec returns false, pauses player, shows user error`() {
         runBlocking {
             val player = FakeExoPlayer()
             val errors = mutableListOf<String>()
@@ -291,11 +294,12 @@ class PlaybackErrorHandlerTest {
             player.pauseCount shouldBe 1
             errors.size shouldBe 1
         }
+    }
 
     // ── handle — Stuck ────────────────────────────────────────────────────────
 
     @Test
-    fun `handle Stuck returns true and performs stop-prepare-seekTo-play recovery`() =
+    fun `handle Stuck returns true and performs stop-prepare-seekTo-play recovery`() {
         runBlocking {
             val tracker = FakeProgressTracker()
             val player = FakeExoPlayer(stubbedPosition = 12_000L, stubbedMediaItemIndex = 2)
@@ -319,9 +323,10 @@ class PlaybackErrorHandlerTest {
             withClue("No user error shown for stuck recovery attempt") { errors.isEmpty() shouldBe true }
             tracker.savePlaybackStateCalls.size shouldBe 1
         }
+    }
 
     @Test
-    fun `handle Stuck at position 0 does not call seekTo`() =
+    fun `handle Stuck at position 0 does not call seekTo`() {
         runBlocking {
             val player = FakeExoPlayer(stubbedPosition = 0L, stubbedMediaItemIndex = 0)
 
@@ -334,11 +339,12 @@ class PlaybackErrorHandlerTest {
 
             withClue("seekTo NOT called when position is 0") { player.seekCalls.size shouldBe 0 }
         }
+    }
 
     // ── handle — Unknown ──────────────────────────────────────────────────────
 
     @Test
-    fun `handle Unknown returns false, pauses player, shows user error`() =
+    fun `handle Unknown returns false, pauses player, shows user error`() {
         runBlocking {
             val tracker = FakeProgressTracker()
             val player = FakeExoPlayer(stubbedPosition = 3_000L)
@@ -358,6 +364,7 @@ class PlaybackErrorHandlerTest {
             tracker.savePlaybackStateCalls.size shouldBe 1
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book4")
         }
+    }
 
     // ── getErrorMessage ────────────────────────────────────────────────────────
 
