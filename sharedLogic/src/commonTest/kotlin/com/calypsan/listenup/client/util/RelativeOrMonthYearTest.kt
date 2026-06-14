@@ -28,6 +28,11 @@ class RelativeOrMonthYearTest :
             relativeOrMonthYear(finishedAtMs = yesterdayMs, nowMs = nowMs) shouldBe "yesterday"
         }
 
+        test("7 days ago returns 1 week ago") {
+            val oneWeekMs = 1779710400000L // 2026-05-25T12:00:00 UTC, exactly 7 days before nowMs
+            relativeOrMonthYear(finishedAtMs = oneWeekMs, nowMs = nowMs) shouldBe "1 week ago"
+        }
+
         test("21 days ago returns 3 weeks ago") {
             val threeWeeksMs = 1778500800000L // 2026-05-11T12:00:00 UTC, exactly 21 days before nowMs
             relativeOrMonthYear(finishedAtMs = threeWeeksMs, nowMs = nowMs) shouldBe "3 weeks ago"

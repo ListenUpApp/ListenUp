@@ -40,11 +40,26 @@ fun relativeOrMonthYear(
     val deltaMs = nowMs - finishedAtMs
     val deltaDays = (deltaMs / MILLIS_PER_DAY).toInt()
     return when {
-        deltaDays < 1 -> "today"
-        deltaDays < 2 -> "yesterday"
-        deltaDays < DAYS_PER_WEEK -> "$deltaDays days ago"
-        deltaDays < MONTH_YEAR_THRESHOLD_DAYS -> "${deltaDays / DAYS_PER_WEEK} weeks ago"
-        else -> formatDate(finishedAtMs, "MMMM yyyy")
+        deltaDays < 1 -> {
+            "today"
+        }
+
+        deltaDays < 2 -> {
+            "yesterday"
+        }
+
+        deltaDays < DAYS_PER_WEEK -> {
+            "$deltaDays days ago"
+        }
+
+        deltaDays < MONTH_YEAR_THRESHOLD_DAYS -> {
+            val weeks = deltaDays / DAYS_PER_WEEK
+            if (weeks == 1) "1 week ago" else "$weeks weeks ago"
+        }
+
+        else -> {
+            formatDate(finishedAtMs, "MMMM yyyy")
+        }
     }
 }
 

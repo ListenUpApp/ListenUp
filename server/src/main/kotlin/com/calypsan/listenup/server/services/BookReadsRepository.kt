@@ -45,29 +45,6 @@ class BookReadsRepository(
         source: String,
     ) = suspendTransaction(db) { insertRow(id, userId, bookId, finishedAt, source) }
 
-    /**
-     * Append only if [id] doesn't already exist.
-     *
-     * ABS import seeds use a stable deterministic id (`abs-read:<userId>:<bookId>`)
-     * so that re-importing the same backup is a no-op. A second call with the same
-     * [id] leaves the original [finishedAt] untouched.
-     */
-    suspend fun recordReadIfAbsent(
-        id: String,
-        userId: String,
-        bookId: String,
-        finishedAt: Long,
-        source: String,
-    ) = suspendTransaction(db) {
-        val exists =
-            BookReadsTable
-                .selectAll()
-                .where { BookReadsTable.id eq id }
-                .limit(1)
-                .any()
-        if (!exists) insertRow(id, userId, bookId, finishedAt, source)
-    }
-
     /** All completions of [bookId] across all users, newest-first. */
     suspend fun finishesForBook(bookId: String): List<BookReadRow> =
         suspendTransaction(db) {

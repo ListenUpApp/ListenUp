@@ -155,7 +155,7 @@ fun BookReadersSection(
 
     BookReadersContent(
         readers = rows,
-        listeningNowCount = rows.count { it.isReading },
+        listeningNowCount = allRows.count { it.isReading },
         totalCount = allRows.size,
         isCard = isCard,
         onUserClick = onUserClick,

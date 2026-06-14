@@ -35,15 +35,4 @@ class BookReadsRepositoryTest :
                 }
             }
         }
-
-        test("recordReadIfAbsent is idempotent on id (ABS re-import safety)") {
-            withInMemoryDatabase {
-                val repo = BookReadsRepository(this, FixedClock(NOW))
-                runTest {
-                    repo.recordReadIfAbsent("abs-read:u1:b1", "u1", "b1", finishedAt = 100L, source = "import")
-                    repo.recordReadIfAbsent("abs-read:u1:b1", "u1", "b1", finishedAt = 999L, source = "import")
-                    repo.finishesForUserBook("u1", "b1") shouldBe listOf(100L) // not duplicated, not overwritten
-                }
-            }
-        }
     })

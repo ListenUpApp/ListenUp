@@ -41,11 +41,12 @@ sealed interface BookReadersUiState {
  * Backs the Book Detail "Readers" section.
  *
  * Observes [BookReadersRepository.observeReadersFor] for the given [bookId] and maps each
- * emission to a sealed [BookReadersUiState]. The repository combines the current user's own reading
- * state (local, offline-capable) with other live listeners from the server, so the section shows
- * whenever the current user — or anyone else — is reading or has finished the book.
+ * emission to a sealed [BookReadersUiState]. The repository observes the server's `bookReadership`
+ * RPC, which returns every reader of this book — including the current user — each with their
+ * current progress and dated finish history. On RPC failure the list is empty, so the Readers
+ * section shows nothing when the server is unreachable.
  *
- * @param repo The readers repository (current user + live others), refreshed on presence pings.
+ * @param repo The readers repository, backed by the server's bookReadership RPC.
  * @param bookId The book whose readers this ViewModel tracks.
  */
 class BookReadersViewModel(
