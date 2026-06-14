@@ -1,9 +1,9 @@
-
 package com.calypsan.listenup.client.features.metadata
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,37 +17,38 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.FormatListNumbered
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,7 +57,14 @@ import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.design.components.ColorBlockHero
+import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
+import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.CoverEntry
@@ -64,25 +72,40 @@ import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.common_genres
-import listenup.composeapp.generated.resources.common_series
-import listenup.composeapp.generated.resources.common_selected
-import listenup.composeapp.generated.resources.contributor_audible_region
 import listenup.composeapp.generated.resources.common_loading
+import listenup.composeapp.generated.resources.common_selected
+import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.metadata_apply_selected_metadata
+import listenup.composeapp.generated.resources.metadata_audible_region
+import listenup.composeapp.generated.resources.metadata_audible_source_region
 import listenup.composeapp.generated.resources.metadata_chapter_names
-import listenup.composeapp.generated.resources.metadata_chapters_match_review
+import listenup.composeapp.generated.resources.metadata_chapters_matched
 import listenup.composeapp.generated.resources.metadata_cover
 import listenup.composeapp.generated.resources.metadata_cover_from_source
 import listenup.composeapp.generated.resources.metadata_current_cover
-import listenup.composeapp.generated.resources.metadata_review
+import listenup.composeapp.generated.resources.metadata_field_authors
+import listenup.composeapp.generated.resources.metadata_field_description
+import listenup.composeapp.generated.resources.metadata_field_genres
+import listenup.composeapp.generated.resources.metadata_field_language
+import listenup.composeapp.generated.resources.metadata_field_narrators
+import listenup.composeapp.generated.resources.metadata_field_publisher
+import listenup.composeapp.generated.resources.metadata_field_subtitle
+import listenup.composeapp.generated.resources.metadata_field_title
 import listenup.composeapp.generated.resources.metadata_metadata_is_up_to_date
 import listenup.composeapp.generated.resources.metadata_no_metadata_available
 import listenup.composeapp.generated.resources.metadata_release_date
+import listenup.composeapp.generated.resources.metadata_review
+import listenup.composeapp.generated.resources.metadata_review_and_apply_chapter_names
+import listenup.composeapp.generated.resources.metadata_section_classification
+import listenup.composeapp.generated.resources.metadata_section_details
+import listenup.composeapp.generated.resources.metadata_section_identity
 import listenup.composeapp.generated.resources.metadata_select_metadata
 import listenup.composeapp.generated.resources.metadata_try_selecting_a_different_region
 import listenup.composeapp.generated.resources.metadata_your_book_already_has_all
+
+/** Readable centred-column width cap on expanded layouts. */
+private val PREVIEW_MAX_WIDTH = 640.dp
+private const val DESCRIPTION_PREVIEW_LIMIT = 200
 
 /**
  * Full-screen preview of metadata changes before applying.
@@ -91,7 +114,7 @@ import listenup.composeapp.generated.resources.metadata_your_book_already_has_al
  * select which fields to apply. Supports region selection for
  * trying different Audible markets.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 // Screen entry point hoists every metadata field's state + toggle callback; a parameter object
 // would only add an indirection layer Compose tooling discourages.
 @Suppress("LongParameterList")
@@ -138,16 +161,10 @@ fun MatchPreviewScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.metadata_select_metadata)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ColorBlockHero(
+                title = stringResource(Res.string.metadata_select_metadata),
+                badgeIcon = Icons.AutoMirrored.Outlined.MenuBook,
+                onBack = onBack,
             )
         },
         bottomBar = {
@@ -159,64 +176,200 @@ fun MatchPreviewScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            // Region selector
-            item {
-                RegionSelector(
-                    selectedRegion = selectedRegion,
-                    onRegionSelected = onRegionSelected,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider()
-            }
-
-            // Check if there's any metadata available
-            val hasAnyData =
-                newMetadata.coverUrl != null ||
-                    newMetadata.title.isNotBlank() ||
-                    !newMetadata.subtitle.isNullOrBlank() ||
-                    newMetadata.authors.isNotEmpty() ||
-                    newMetadata.narrators.isNotEmpty() ||
-                    newMetadata.series.isNotEmpty() ||
-                    newMetadata.genres.isNotEmpty() ||
-                    !newMetadata.description.isNullOrBlank() ||
-                    !newMetadata.publisher.isNullOrBlank() ||
-                    !newMetadata.language.isNullOrBlank() ||
-                    !newMetadata.releaseDate.isNullOrBlank()
-
-            if (!hasAnyData) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .widthIn(max = PREVIEW_MAX_WIDTH),
+                contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                // Matched edition hero
                 item {
-                    if (previewNotFound) {
-                        NoMetadataAvailableMessage(selectedRegion = selectedRegion)
-                    } else {
-                        AlreadyUpToDateMessage()
+                    MatchedEditionHero(
+                        match = newMetadata,
+                        coverUrl = newMetadata.coverUrl,
+                        selectedRegion = selectedRegion,
+                    )
+                }
+
+                // Region selector
+                item {
+                    Column {
+                        Overline(text = stringResource(Res.string.metadata_audible_region))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        RegionSelector(
+                            selectedRegion = selectedRegion,
+                            onRegionSelected = onRegionSelected,
+                        )
                     }
                 }
-            } else {
-                metadataFieldsSection(
-                    currentBook = currentBook,
-                    newMetadata = newMetadata,
-                    selections = selections,
-                    coverOptions = coverOptions,
-                    isLoadingCovers = isLoadingCovers,
-                    selectedCoverUrl = selectedCoverUrl,
-                    onSelectCover = onSelectCover,
-                    chapterSuggestion = chapterSuggestion,
-                    onReviewChapters = onReviewChapters,
-                    onToggleField = onToggleField,
-                    onToggleAuthor = onToggleAuthor,
-                    onToggleNarrator = onToggleNarrator,
-                    onToggleSeries = onToggleSeries,
-                    onToggleGenre = onToggleGenre,
-                )
+
+                // Check if there's any metadata available
+                val hasAnyData =
+                    newMetadata.coverUrl != null ||
+                        newMetadata.title.isNotBlank() ||
+                        !newMetadata.subtitle.isNullOrBlank() ||
+                        newMetadata.authors.isNotEmpty() ||
+                        newMetadata.narrators.isNotEmpty() ||
+                        newMetadata.series.isNotEmpty() ||
+                        newMetadata.genres.isNotEmpty() ||
+                        !newMetadata.description.isNullOrBlank() ||
+                        !newMetadata.publisher.isNullOrBlank() ||
+                        !newMetadata.language.isNullOrBlank() ||
+                        !newMetadata.releaseDate.isNullOrBlank()
+
+                if (!hasAnyData) {
+                    item {
+                        if (previewNotFound) {
+                            NoMetadataAvailableMessage(selectedRegion = selectedRegion)
+                        } else {
+                            AlreadyUpToDateMessage()
+                        }
+                    }
+                } else {
+                    metadataFieldsSection(
+                        currentBook = currentBook,
+                        newMetadata = newMetadata,
+                        selections = selections,
+                        coverOptions = coverOptions,
+                        isLoadingCovers = isLoadingCovers,
+                        selectedCoverUrl = selectedCoverUrl,
+                        onSelectCover = onSelectCover,
+                        chapterSuggestion = chapterSuggestion,
+                        onReviewChapters = onReviewChapters,
+                        onToggleField = onToggleField,
+                        onToggleAuthor = onToggleAuthor,
+                        onToggleNarrator = onToggleNarrator,
+                        onToggleSeries = onToggleSeries,
+                        onToggleGenre = onToggleGenre,
+                    )
+                }
             }
+        }
+    }
+}
+
+/** UPPERCASE muted overline label, matching the grouped-section heading idiom. */
+@Composable
+private fun Overline(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 6.dp),
+    )
+}
+
+/**
+ * The matched-edition color-blocked hero: a [MaterialTheme.colorScheme.primaryContainer] card with
+ * the matched cover, an "Audible · region" source chip, the title, and the contributor line.
+ */
+@Composable
+private fun MatchedEditionHero(
+    match: MetadataBook,
+    coverUrl: String?,
+    selectedRegion: AudibleRegion,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (coverUrl != null) {
+                AsyncImage(
+                    model = coverUrl,
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .size(74.dp)
+                            .clip(MaterialTheme.shapes.medium),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(74.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(colors.primary.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                        contentDescription = null,
+                        tint = colors.onPrimaryContainer.copy(alpha = 0.7f),
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                SourceChip(region = selectedRegion)
+                Text(
+                    text = match.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.onPrimaryContainer,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 9.dp),
+                )
+                val people =
+                    (match.authors.map { it.name } + match.narrators.map { it.name })
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · ")
+                if (people.isNotBlank()) {
+                    Text(
+                        text = people,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The "Audible · <region>" provenance chip shown on the matched-edition hero. */
+@Composable
+private fun SourceChip(region: AudibleRegion) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(percent = 50),
+        color = colors.onPrimaryContainer.copy(alpha = 0.12f),
+        contentColor = colors.onPrimaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 9.dp, end = 11.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Public,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = stringResource(Res.string.metadata_audible_source_region, region.displayName),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
@@ -235,7 +388,7 @@ private fun ApplyBottomBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(18.dp),
         ) {
             applyError?.let { error ->
                 Text(
@@ -246,17 +399,13 @@ private fun ApplyBottomBar(
                 )
             }
 
-            Button(
+            ListenUpButton(
+                text = stringResource(Res.string.metadata_apply_selected_metadata),
                 onClick = onApply,
-                enabled = !isApplying && hasAnySelected,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (isApplying) {
-                    ListenUpLoadingIndicatorSmall()
-                } else {
-                    Text(stringResource(Res.string.metadata_apply_selected_metadata))
-                }
-            }
+                enabled = hasAnySelected,
+                isLoading = isApplying,
+                leadingIcon = Icons.Outlined.Check,
+            )
         }
     }
 }
@@ -280,145 +429,247 @@ private fun LazyListScope.metadataFieldsSection(
     onToggleSeries: (String) -> Unit,
     onToggleGenre: (String) -> Unit,
 ) {
-    // Cover selection row
+    // ── IDENTITY ──
     item {
-        CoverSelectionRow(
-            currentCoverPath = currentBook.coverPath,
-            coverOptions = coverOptions,
-            isLoading = isLoadingCovers,
-            selectedUrl = selectedCoverUrl,
-            isCoverEnabled = selections.cover,
-            onSelectCover = onSelectCover,
-            onToggleCover = { onToggleField(MetadataField.COVER) },
-        )
-    }
-
-    // Title
-    if (newMetadata.title.isNotBlank()) {
-        item {
-            SimpleFieldItem(
-                label = "Title",
-                value = newMetadata.title,
-                isSelected = selections.title,
-                onToggle = { onToggleField(MetadataField.TITLE) },
+        FieldGroup(
+            label = stringResource(Res.string.metadata_section_identity),
+            icon = Icons.AutoMirrored.Outlined.MenuBook,
+        ) {
+            IdentitySectionContent(
+                currentBook = currentBook,
+                newMetadata = newMetadata,
+                selections = selections,
+                coverOptions = coverOptions,
+                isLoadingCovers = isLoadingCovers,
+                selectedCoverUrl = selectedCoverUrl,
+                onSelectCover = onSelectCover,
+                onToggleField = onToggleField,
+                onToggleAuthor = onToggleAuthor,
+                onToggleNarrator = onToggleNarrator,
+                onToggleSeries = onToggleSeries,
             )
         }
     }
 
-    // Subtitle
-    newMetadata.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
-        item {
-            SimpleFieldItem(
-                label = "Subtitle",
-                value = subtitle,
-                isSelected = selections.subtitle,
-                onToggle = { onToggleField(MetadataField.SUBTITLE) },
-            )
-        }
-    }
-
-    // Authors
-    if (newMetadata.authors.isNotEmpty()) {
-        item {
-            ContributorListItem(
-                label = "Authors",
-                contributors = newMetadata.authors,
-                selectedAsins = selections.selectedAuthors,
-                onToggle = onToggleAuthor,
-            )
-        }
-    }
-
-    // Narrators
-    if (newMetadata.narrators.isNotEmpty()) {
-        item {
-            ContributorListItem(
-                label = "Narrators",
-                contributors = newMetadata.narrators,
-                selectedAsins = selections.selectedNarrators,
-                onToggle = onToggleNarrator,
-            )
-        }
-    }
-
-    // Series
-    if (newMetadata.series.isNotEmpty()) {
-        item {
-            SeriesListItem(
-                series = newMetadata.series,
-                selectedAsins = selections.selectedSeries,
-                onToggle = onToggleSeries,
-            )
-        }
-    }
-
-    // Genres
+    // ── CLASSIFICATION ──
     if (newMetadata.genres.isNotEmpty()) {
         item {
-            GenreListItem(
-                genres = newMetadata.genres,
-                selectedGenres = selections.selectedGenres,
-                onToggle = onToggleGenre,
-            )
+            FieldGroup(
+                label = stringResource(Res.string.metadata_section_classification),
+                icon = Icons.Outlined.Category,
+                accent = MaterialTheme.colorScheme.tertiary,
+            ) {
+                GenreFieldRow(
+                    genres = newMetadata.genres,
+                    selectedGenres = selections.selectedGenres,
+                    onToggle = onToggleGenre,
+                )
+            }
         }
     }
 
-    // Description
-    newMetadata.description?.takeIf { it.isNotBlank() }?.let { description ->
+    // ── DETAILS ──
+    val hasDetails =
+        !newMetadata.description.isNullOrBlank() ||
+            !newMetadata.publisher.isNullOrBlank() ||
+            !newMetadata.releaseDate.isNullOrBlank() ||
+            !newMetadata.language.isNullOrBlank()
+    if (hasDetails) {
         item {
-            val displayText =
-                if (description.length > 200) {
-                    description.take(200) + "..."
-                } else {
-                    description
-                }
-            SimpleFieldItem(
-                label = "Description",
-                value = displayText,
-                isSelected = selections.description,
-                onToggle = { onToggleField(MetadataField.DESCRIPTION) },
-            )
-        }
-    }
-
-    // Publisher
-    newMetadata.publisher?.takeIf { it.isNotBlank() }?.let { publisher ->
-        item {
-            SimpleFieldItem(
-                label = "Publisher",
-                value = publisher,
-                isSelected = selections.publisher,
-                onToggle = { onToggleField(MetadataField.PUBLISHER) },
-            )
-        }
-    }
-
-    // Release Date
-    newMetadata.releaseDate?.takeIf { it.isNotBlank() }?.let { releaseDate ->
-        item {
-            SimpleFieldItem(
-                label = stringResource(Res.string.metadata_release_date),
-                value = releaseDate,
-                isSelected = selections.releaseDate,
-                onToggle = { onToggleField(MetadataField.RELEASE_DATE) },
-            )
-        }
-    }
-
-    // Language
-    newMetadata.language?.takeIf { it.isNotBlank() }?.let { language ->
-        item {
-            SimpleFieldItem(
-                label = "Language",
-                value = language,
-                isSelected = selections.language,
-                onToggle = { onToggleField(MetadataField.LANGUAGE) },
-            )
+            FieldGroup(
+                label = stringResource(Res.string.metadata_section_details),
+                icon = Icons.Outlined.Info,
+                accent = MaterialTheme.colorScheme.secondary,
+            ) {
+                DetailsSectionContent(
+                    newMetadata = newMetadata,
+                    selections = selections,
+                    onToggleField = onToggleField,
+                )
+            }
         }
     }
 
     // Chapter names (count-gated; renders nothing when unavailable)
     chapterNamesSection(chapterSuggestion, onReviewChapters)
+}
+
+/** Identity-section field rows: cover, title, subtitle, authors, narrators, series. */
+@Suppress("LongParameterList")
+@Composable
+private fun IdentitySectionContent(
+    currentBook: BookDetail,
+    newMetadata: MetadataBook,
+    selections: MetadataSelections,
+    coverOptions: List<CoverEntry>,
+    isLoadingCovers: Boolean,
+    selectedCoverUrl: String?,
+    onSelectCover: (String?) -> Unit,
+    onToggleField: (MetadataField) -> Unit,
+    onToggleAuthor: (String) -> Unit,
+    onToggleNarrator: (String) -> Unit,
+    onToggleSeries: (String) -> Unit,
+) {
+    var first = true
+
+    CoverFieldRow(
+        currentCoverPath = currentBook.coverPath,
+        coverOptions = coverOptions,
+        isLoading = isLoadingCovers,
+        selectedUrl = selectedCoverUrl,
+        isCoverEnabled = selections.cover,
+        onSelectCover = onSelectCover,
+        onToggleCover = { onToggleField(MetadataField.COVER) },
+        showDivider = !first,
+    )
+    first = false
+
+    if (newMetadata.title.isNotBlank()) {
+        SimpleFieldRow(
+            label = stringResource(Res.string.metadata_field_title),
+            value = newMetadata.title,
+            isSelected = selections.title,
+            onToggle = { onToggleField(MetadataField.TITLE) },
+            showDivider = !first,
+        )
+        first = false
+    }
+
+    newMetadata.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
+        SimpleFieldRow(
+            label = stringResource(Res.string.metadata_field_subtitle),
+            value = subtitle,
+            isSelected = selections.subtitle,
+            onToggle = { onToggleField(MetadataField.SUBTITLE) },
+            showDivider = !first,
+        )
+        first = false
+    }
+
+    if (newMetadata.authors.isNotEmpty()) {
+        ContributorFieldRows(
+            label = stringResource(Res.string.metadata_field_authors),
+            contributors = newMetadata.authors,
+            selectedAsins = selections.selectedAuthors,
+            onToggle = onToggleAuthor,
+            showTopDivider = !first,
+        )
+        first = false
+    }
+
+    if (newMetadata.narrators.isNotEmpty()) {
+        ContributorFieldRows(
+            label = stringResource(Res.string.metadata_field_narrators),
+            contributors = newMetadata.narrators,
+            selectedAsins = selections.selectedNarrators,
+            onToggle = onToggleNarrator,
+            showTopDivider = !first,
+        )
+        first = false
+    }
+
+    if (newMetadata.series.isNotEmpty()) {
+        SeriesFieldRows(
+            series = newMetadata.series,
+            selectedAsins = selections.selectedSeries,
+            onToggle = onToggleSeries,
+            showTopDivider = !first,
+        )
+    }
+}
+
+/** Details-section field rows: description (clamped), publisher, release date, language. */
+@Composable
+private fun DetailsSectionContent(
+    newMetadata: MetadataBook,
+    selections: MetadataSelections,
+    onToggleField: (MetadataField) -> Unit,
+) {
+    var first = true
+
+    newMetadata.description?.takeIf { it.isNotBlank() }?.let { description ->
+        val displayText =
+            if (description.length > DESCRIPTION_PREVIEW_LIMIT) {
+                description.take(DESCRIPTION_PREVIEW_LIMIT) + "…"
+            } else {
+                description
+            }
+        SimpleFieldRow(
+            label = stringResource(Res.string.metadata_field_description),
+            value = displayText,
+            isSelected = selections.description,
+            onToggle = { onToggleField(MetadataField.DESCRIPTION) },
+            showDivider = !first,
+        )
+        first = false
+    }
+
+    newMetadata.publisher?.takeIf { it.isNotBlank() }?.let { publisher ->
+        SimpleFieldRow(
+            label = stringResource(Res.string.metadata_field_publisher),
+            value = publisher,
+            isSelected = selections.publisher,
+            onToggle = { onToggleField(MetadataField.PUBLISHER) },
+            showDivider = !first,
+        )
+        first = false
+    }
+
+    newMetadata.releaseDate?.takeIf { it.isNotBlank() }?.let { releaseDate ->
+        SimpleFieldRow(
+            label = stringResource(Res.string.metadata_release_date),
+            value = releaseDate,
+            isSelected = selections.releaseDate,
+            onToggle = { onToggleField(MetadataField.RELEASE_DATE) },
+            showDivider = !first,
+        )
+        first = false
+    }
+
+    newMetadata.language?.takeIf { it.isNotBlank() }?.let { language ->
+        SimpleFieldRow(
+            label = stringResource(Res.string.metadata_field_language),
+            value = language,
+            isSelected = selections.language,
+            onToggle = { onToggleField(MetadataField.LANGUAGE) },
+            showDivider = !first,
+        )
+    }
+}
+
+/**
+ * The accent-headed grouped section container used for the metadata field lists — an accent-tinted
+ * [TonalIconTile] + UPPERCASE label floating above a [surfaceContainerLow] card.
+ */
+@Composable
+private fun FieldGroup(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    accent: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            TonalIconTile(icon = icon, size = 30.dp, accent = accent)
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+            )
+        }
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            content = { Column(content = content) },
+        )
+    }
 }
 
 /**
@@ -454,89 +705,101 @@ private fun ChapterNamesItem(
         }
 
         is ChapterSuggestion.CountMismatch -> {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                Text(
-                    text = stringResource(Res.string.metadata_chapter_names),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text =
-                        "${suggestion.audibleCount} Audible chapters → your ${suggestion.localCount} — " +
-                            "different edition, unavailable.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(
+                        text = stringResource(Res.string.metadata_chapter_names),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text =
+                            "${suggestion.audibleCount} Audible chapters → your ${suggestion.localCount} — " +
+                                "different edition, unavailable.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
 
         is ChapterSuggestion.Available -> {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                onClick = onReview,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.metadata_chapter_names),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = stringResource(Res.string.metadata_chapters_match_review, suggestion.rows.size),
-                        style = MaterialTheme.typography.bodySmall,
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    ScallopBadge(size = 52.dp, containerColor = MaterialTheme.colorScheme.secondary) {
+                        Icon(
+                            imageVector = Icons.Outlined.FormatListNumbered,
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp),
+                            tint = MaterialTheme.colorScheme.onSecondary,
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.metadata_chapters_matched, suggestion.rows.size),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = stringResource(Res.string.metadata_review_and_apply_chapter_names),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                        contentDescription = stringResource(Res.string.metadata_review),
                     )
                 }
-                TextButton(onClick = onReview) { Text(stringResource(Res.string.metadata_review)) }
             }
         }
     }
 }
 
 /**
- * Region selector chips for trying different Audible markets.
+ * Region selector — a horizontally scrolling row of [PillChip]s for trying different Audible markets.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RegionSelector(
     selectedRegion: AudibleRegion,
     onRegionSelected: (AudibleRegion) -> Unit,
 ) {
-    Column {
-        Text(
-            text = stringResource(Res.string.contributor_audible_region),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            AudibleRegion.entries.forEach { region ->
-                FilterChip(
-                    selected = region == selectedRegion,
-                    onClick = { onRegionSelected(region) },
-                    label = { Text(region.displayName) },
-                )
-            }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    ) {
+        AudibleRegion.entries.forEach { region ->
+            PillChip(
+                label = region.displayName,
+                onClick = { onRegionSelected(region) },
+                selected = region == selectedRegion,
+                leadingIcon = if (region == selectedRegion) Icons.Outlined.Check else null,
+            )
         }
     }
 }
 
 /**
- * Horizontal scrollable row of cover options from multiple sources.
- * Shows current cover first, then all available options from iTunes/Audible.
+ * Cover field row: the leading [ExpressiveCheckbox] toggles whether a new cover is applied, beside a
+ * "Cover" label and a horizontally scrollable strip of source options.
  */
 @Composable
-private fun CoverSelectionRow(
+private fun CoverFieldRow(
     currentCoverPath: String?,
     coverOptions: List<CoverEntry>,
     isLoading: Boolean,
@@ -544,39 +807,33 @@ private fun CoverSelectionRow(
     isCoverEnabled: Boolean,
     onSelectCover: (String?) -> Unit,
     onToggleCover: () -> Unit,
+    showDivider: Boolean,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Header with checkbox
+        FieldRowDivider(show = showDivider)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Checkbox(
-                checked = isCoverEnabled,
-                onCheckedChange = { onToggleCover() },
-            )
+            ExpressiveCheckbox(checked = isCoverEnabled, onCheckedChange = { onToggleCover() })
             Text(
                 text = stringResource(Res.string.metadata_cover),
                 style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Scrollable cover options
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 15.dp),
         ) {
-            // Current cover option (selecting this keeps current cover)
             if (currentCoverPath != null) {
                 item {
                     CoverOptionCard(
-                        label = "Current",
+                        label = stringResource(Res.string.metadata_current_cover),
                         source = null,
-                        width = null,
-                        height = null,
                         isSelected = selectedUrl == null && isCoverEnabled,
                         onClick = { onSelectCover(null) },
                     ) {
@@ -589,13 +846,10 @@ private fun CoverSelectionRow(
                 }
             }
 
-            // Cover options derived from book metadata (Audible thumbnail + iTunes HD)
             items(coverOptions) { cover ->
                 CoverOptionCard(
                     label = cover.label,
                     source = cover.label,
-                    width = null,
-                    height = null,
                     isSelected = selectedUrl == cover.url,
                     onClick = { onSelectCover(cover.url) },
                 ) {
@@ -608,7 +862,6 @@ private fun CoverSelectionRow(
                 }
             }
 
-            // Loading placeholders
             if (isLoading) {
                 items(3) {
                     CoverOptionPlaceholder()
@@ -619,14 +872,12 @@ private fun CoverSelectionRow(
 }
 
 /**
- * Individual cover option card with image, source badge, and dimensions.
+ * Individual cover option card with image, source badge, and a selected indicator.
  */
 @Composable
 private fun CoverOptionCard(
     label: String,
     source: String?,
-    width: Int?,
-    height: Int?,
     isSelected: Boolean,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
@@ -639,7 +890,7 @@ private fun CoverOptionCard(
                 Modifier
                     .size(100.dp)
                     .clickable(onClick = onClick),
-            shape = MaterialTheme.shapes.medium,
+            shape = MaterialTheme.shapes.large,
             border =
                 if (isSelected) {
                     BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
@@ -654,33 +905,31 @@ private fun CoverOptionCard(
             Box(modifier = Modifier.fillMaxSize()) {
                 content()
 
-                // Source badge
                 if (source != null) {
                     Surface(
                         modifier =
                             Modifier
                                 .align(Alignment.TopStart)
                                 .padding(4.dp),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                     ) {
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         )
                     }
                 }
 
-                // Selected indicator
                 if (isSelected) {
                     Box(
                         modifier =
                             Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(4.dp)
-                                .size(20.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(11.dp))
                                 .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -695,11 +944,10 @@ private fun CoverOptionCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Dimensions or label
         Text(
-            text = if (width != null && height != null) "$width×$height" else label,
+            text = label,
             style = MaterialTheme.typography.labelSmall,
             color =
                 if (isSelected) {
@@ -721,7 +969,7 @@ private fun CoverOptionPlaceholder() {
     ) {
         Card(
             modifier = Modifier.size(100.dp),
-            shape = MaterialTheme.shapes.medium,
+            shape = MaterialTheme.shapes.large,
             colors =
                 CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -735,7 +983,7 @@ private fun CoverOptionPlaceholder() {
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = stringResource(Res.string.common_loading),
@@ -745,72 +993,51 @@ private fun CoverOptionPlaceholder() {
     }
 }
 
-/**
- * Simple field with checkbox (title, subtitle, description, etc.).
- */
+/** Inset divider between field rows inside a [FieldGroup] card (clears the leading checkbox column). */
 @Composable
-private fun SimpleFieldItem(
-    label: String,
-    value: String,
-    isSelected: Boolean,
-    onToggle: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Checkbox(
-            checked = isSelected,
-            onCheckedChange = { onToggle() },
+private fun FieldRowDivider(show: Boolean) {
+    if (show) {
+        androidx.compose.material3.HorizontalDivider(
+            modifier = Modifier.padding(start = 56.dp),
+            color = MaterialTheme.colorScheme.outlineVariant,
         )
-        Column(
-            modifier = Modifier.weight(1f),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
     }
 }
 
 /**
- * List of contributors (authors/narrators) with individual checkboxes.
+ * A simple selectable field row (title, subtitle, description, …): a leading [ExpressiveCheckbox], an
+ * accent label, and the matched value. The whole row is the toggle target.
  */
 @Composable
-private fun ContributorListItem(
+private fun SimpleFieldRow(
     label: String,
-    contributors: List<MetadataContributorRef>,
-    selectedAsins: Set<String>,
-    onToggle: (String) -> Unit,
+    value: String,
+    isSelected: Boolean,
+    onToggle: () -> Unit,
+    showDivider: Boolean,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
-        )
-        contributors.forEach { contributor ->
-            val asin = contributor.asin ?: contributor.name // Fallback to name if no ASIN
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(
-                    checked = asin in selectedAsins,
-                    onCheckedChange = { onToggle(asin) },
+        FieldRowDivider(show = showDivider)
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(15.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            ExpressiveCheckbox(checked = isSelected)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = contributor.name,
+                    text = value,
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp),
                 )
             }
         }
@@ -818,20 +1045,56 @@ private fun ContributorListItem(
 }
 
 /**
- * List of series with individual checkboxes.
+ * Contributor (authors/narrators) field rows: an accent sub-label header followed by one
+ * [ExpressiveCheckbox] row per contributor.
  */
 @Composable
-private fun SeriesListItem(
+private fun ContributorFieldRows(
+    label: String,
+    contributors: List<MetadataContributorRef>,
+    selectedAsins: Set<String>,
+    onToggle: (String) -> Unit,
+    showTopDivider: Boolean,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        FieldRowDivider(show = showTopDivider)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 56.dp, top = 15.dp, bottom = 4.dp),
+        )
+        contributors.forEach { contributor ->
+            val asin = contributor.asin ?: contributor.name // Fallback to name if no ASIN
+            ValueCheckRow(
+                checked = asin in selectedAsins,
+                text = contributor.name,
+                onToggle = { onToggle(asin) },
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+/**
+ * Series field rows: an accent sub-label header followed by one [ExpressiveCheckbox] row per series.
+ */
+@Composable
+private fun SeriesFieldRows(
     series: List<MetadataSeriesRef>,
     selectedAsins: Set<String>,
     onToggle: (String) -> Unit,
+    showTopDivider: Boolean,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        FieldRowDivider(show = showTopDivider)
         Text(
             text = stringResource(Res.string.common_series),
             style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = 56.dp, top = 15.dp, bottom = 4.dp),
         )
         series.forEach { seriesEntry ->
             val asin = seriesEntry.asin ?: seriesEntry.title // Fallback to title if no ASIN
@@ -841,58 +1104,101 @@ private fun SeriesListItem(
                 } else {
                     seriesEntry.title
                 }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(
-                    checked = asin in selectedAsins,
-                    onCheckedChange = { onToggle(asin) },
-                )
-                Text(
-                    text = displayText,
-                    style = MaterialTheme.typography.bodyMedium,
+            ValueCheckRow(
+                checked = asin in selectedAsins,
+                text = displayText,
+                onToggle = { onToggle(asin) },
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+/** A single checkbox + value row used by the contributor and series field lists. */
+@Composable
+private fun ValueCheckRow(
+    checked: Boolean,
+    text: String,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ExpressiveCheckbox(checked = checked)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * Genre field row: the matched genres as toggleable filled chips with a leading check when selected.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GenreFieldRow(
+    genres: List<String>,
+    selectedGenres: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Text(
+            text = stringResource(Res.string.metadata_field_genres),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            genres.forEach { genre ->
+                GenreToggleChip(
+                    label = genre,
+                    selected = genre in selectedGenres,
+                    onClick = { onToggle(genre) },
                 )
             }
         }
     }
 }
 
-/**
- * List of genres with individual checkboxes.
- */
-@OptIn(ExperimentalLayoutApi::class)
+/** A toggleable genre chip — filled `tertiaryContainer` with a leading check when selected. */
 @Composable
-private fun GenreListItem(
-    genres: List<String>,
-    selectedGenres: Set<String>,
-    onToggle: (String) -> Unit,
+private fun GenreToggleChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(Res.string.common_genres),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(percent = 50),
+        color = if (selected) colors.tertiaryContainer else colors.surfaceContainerHighest,
+        contentColor = if (selected) colors.onTertiaryContainer else colors.onSurfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            genres.forEach { genre ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        checked = genre in selectedGenres,
-                        onCheckedChange = { onToggle(genre) },
-                    )
-                    Text(
-                        text = genre,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                )
             }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
