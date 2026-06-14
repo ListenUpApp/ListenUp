@@ -79,6 +79,10 @@ final class Dependencies {
     }
     func createBookEditViewModel() -> BookEditViewModel { KoinHelper.shared.getBookEditViewModel() }
 
+    func createDiscoverViewModel() -> DiscoverViewModel { KoinHelper.shared.getDiscoverViewModel() }
+    func createLeaderboardViewModel() -> LeaderboardViewModel { KoinHelper.shared.getLeaderboardViewModel() }
+    func createActivityFeedViewModel() -> ActivityFeedViewModel { KoinHelper.shared.getActivityFeedViewModel() }
+
     func createTagDetailViewModel() -> TagDetailViewModel { KoinHelper.shared.getTagDetailViewModel() }
     func createUserProfileViewModel() -> UserProfileViewModel { KoinHelper.shared.getUserProfileViewModel() }
     func createEditProfileViewModel() -> EditProfileViewModel { KoinHelper.shared.getEditProfileViewModel() }
