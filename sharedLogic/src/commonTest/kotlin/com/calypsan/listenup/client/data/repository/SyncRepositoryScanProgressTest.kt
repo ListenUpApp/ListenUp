@@ -5,11 +5,14 @@ import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.EngineSnapshot
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -348,6 +351,51 @@ class SyncRepositoryScanProgressTest :
                 scanning shouldBe true // genuinely mid-scan — keep the gate, re-subscribe
                 initialComplete shouldBe false
                 reconciled shouldBe false // confirm-first: no wasted catch-up while still scanning
+            }
+        }
+
+        // The offline busy-loop: `observeScanProgressResiliently` re-subscribed the scanner RPC stream
+        // every 2s unconditionally. While the server is offline each subscribe throws "RpcClient was
+        // cancelled" immediately and logs a stacktrace — a 2s busy-loop of log spam (and a wasted
+        // lastScanResult probe). The gate suspends the loop until the engine is actually Connected, so
+        // an offline client is idle and silent instead of hammering a dead connection.
+        test("awaitServerConnected suspends while disconnected and resumes when connected") {
+            runTest {
+                val snapshots = MutableStateFlow(EngineSnapshot(connection = ConnectionState.Disconnected(reason = null)))
+                var resumed = false
+
+                val job =
+                    launch {
+                        awaitServerConnected(snapshots)
+                        resumed = true
+                    }
+
+                runCurrent()
+                resumed shouldBe false // offline → suspended, no re-subscribe, no spam
+
+                snapshots.value = EngineSnapshot(connection = ConnectionState.Connecting)
+                runCurrent()
+                resumed shouldBe false // a connect attempt in flight is not yet a usable stream
+
+                snapshots.value = EngineSnapshot(connection = ConnectionState.Connected(lastEventId = null))
+                runCurrent()
+                resumed shouldBe true // connected → loop proceeds to subscribe
+                job.join()
+            }
+        }
+
+        test("awaitServerConnected returns immediately when already connected") {
+            runTest {
+                val snapshots = MutableStateFlow(EngineSnapshot(connection = ConnectionState.Connected(lastEventId = 7L)))
+                var resumed = false
+
+                launch {
+                    awaitServerConnected(snapshots)
+                    resumed = true
+                }
+                runCurrent()
+
+                resumed shouldBe true
             }
         }
 

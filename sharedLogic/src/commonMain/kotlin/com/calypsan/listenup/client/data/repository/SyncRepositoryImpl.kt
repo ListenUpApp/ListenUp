@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.EngineSnapshot
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
@@ -21,10 +22,12 @@ import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -234,6 +237,12 @@ class SyncRepositoryImpl(
      */
     private suspend fun observeScanProgressResiliently() {
         while (true) {
+            // Gate on a live connection. Offline, the scanner RPC stream throws "RpcClient was
+            // cancelled" the instant it's subscribed (no network wait), so an unconditional re-subscribe
+            // loop becomes a 2s busy-loop of stacktrace spam + wasted lastScanResult probes. Suspend here
+            // until the engine is actually Connected — an offline client is then idle and silent, and the
+            // loop resumes the moment the firehose reconnects.
+            awaitServerConnected(syncEngineState.observe())
             collectScanProgressUntilStreamEnds()
             recoverFromScanStreamEnd(
                 isInitialScanComplete = { hasCompletedInitialScan },
@@ -312,6 +321,17 @@ class SyncRepositoryImpl(
     }
 
     override suspend fun hasLocalLibrary(): Boolean = bookDao.count() > 0
+}
+
+/**
+ * Suspends until the sync engine reports a live [ConnectionState.Connected] firehose, returning
+ * immediately if it already is. The scan-progress observer awaits this before each re-subscribe so a
+ * disconnected client stays idle instead of busy-looping a dead RPC stream (see
+ * [SyncRepositoryImpl.observeScanProgressResiliently]). Top-level + parameterized so the gate is unit
+ * testable without standing up the whole engine.
+ */
+internal suspend fun awaitServerConnected(snapshots: Flow<EngineSnapshot>) {
+    snapshots.first { it.connection is ConnectionState.Connected }
 }
 
 /**
