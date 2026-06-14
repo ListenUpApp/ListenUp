@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.db.ListeningEventTable
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -244,6 +245,41 @@ class ImportApplierTest :
             }
         }
 
+        test("ABS import records a book_reads row for the finished book (via the finish-flip)") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}
+
+                    // mp-1 (book-1, "2022-01-16 04:33:12" UTC) triggers the false→true flip;
+                    // the finish-flip dates the read by lastPlayedAt = that instant in epoch ms.
+                    staged.bookReads.finishesForUserBook(LU_USER, LU_KINGS) shouldBe listOf(1_642_307_592_000L)
+                }
+            }
+        }
+
+        test("re-applying the import does not duplicate the book_reads row") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}
+                    // Second apply: position already finished → lastPlayedAt-wins guard short-circuits
+                    // recordPosition before reaching the flip → no second book_reads row.
+                    applier.apply(staged.importId) {}
+
+                    staged.bookReads.finishesForUserBook(LU_USER, LU_KINGS).size shouldBe 1
+                }
+            }
+        }
+
         test("apply without a confirmed mapping returns ApplyFailed") {
             withInMemoryDatabase {
                 val db = this
@@ -358,6 +394,7 @@ private data class StagedImport(
     val statsRepo: UserStatsRepository,
     val listeningEventRepo: ListeningEventRepository,
     val statsBackfill: UserStatsBackfillService,
+    val bookReads: BookReadsRepository,
 )
 
 /**
@@ -382,7 +419,8 @@ private suspend fun stageAnalyzedImport(
 
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
+    val bookReads = BookReadsRepository(db = db)
+    val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry, bookReadsRepository = bookReads)
     val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
     val statsUpdater =
         UserStatsUpdater(
@@ -405,7 +443,7 @@ private suspend fun stageAnalyzedImport(
             db = db,
         )
     analyzer.analyze(importId) {}
-    return StagedImport(paths, importId, repo, statsRepo, listeningEventRepo, statsBackfill)
+    return StagedImport(paths, importId, repo, statsRepo, listeningEventRepo, statsBackfill, bookReads)
 }
 
 private fun applierFor(
