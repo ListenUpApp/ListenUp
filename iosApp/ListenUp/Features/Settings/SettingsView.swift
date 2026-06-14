@@ -1,102 +1,358 @@
 import SwiftUI
+@preconcurrency import Shared
 
-/// Settings screen.
+/// Settings screen — the Cupertino counterpart to the Android M3 Expressive settings.
 ///
-/// Based on mockup showing:
-/// - Interface settings (bookshelf view, orientation, theme, haptics, language)
-/// - Playback settings (auto rewind, seeking, jump intervals)
-/// - Other settings
+/// A grouped `Form` of tinted SF-icon rows backed by the shared `SettingsViewModel`
+/// (via `SettingsObserver`): an account header, then Appearance / Playback / Sleep
+/// Timer / Library / Downloads / Account / About sections, each row bound to a VM
+/// field so changes reflect and persist through the shared store. Sign Out is a
+/// destructive action behind a confirmation.
+///
+/// Only settings the VM actually exposes are shown. The mockup's storage meter,
+/// Devices, Open Source Licenses, and Now Playing wallpaper rows are intentionally
+/// omitted — they have no `SettingsViewModel` backing yet. An admin entry is likewise
+/// omitted: no `AdminDestination` exists in native navigation.
 struct SettingsView: View {
-    @State private var useBookshelfView = false
-    @State private var lockOrientation = false
-    @State private var darkMode = false
-    @State private var autoRewind = false
+    @Environment(\.dependencies) private var deps
+    @Environment(CurrentUserObserver.self) private var currentUser
+
+    @State private var observer: SettingsObserver?
+    @State private var showingSignOutConfirmation = false
 
     var body: some View {
-        List {
-            // Interface section
-            Section(String(localized: "settings.interface")) {
-                Toggle(String(localized: "settings.use_bookshelf_view"), isOn: $useBookshelfView)
-                Toggle(String(localized: "settings.lock_orientation"), isOn: $lockOrientation)
-
-                HStack {
-                    Text(String(localized: "settings.theme"))
-                    Spacer()
-                    Picker(String(localized: "settings.theme"), selection: $darkMode) {
-                        Image(systemName: "sun.max.fill").tag(false)
-                        Image(systemName: "moon.fill").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 100)
-                }
-
-                HStack {
-                    Text(String(localized: "settings.haptic_feedback"))
-                    Spacer()
-                    Text(String(localized: "settings.haptic_light"))
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack {
-                    Text(String(localized: "settings.language"))
-                    Spacer()
-                    Text(String(localized: "settings.language_english"))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // Playback section
-            Section(String(localized: "settings.playback")) {
-                Toggle(String(localized: "settings.auto_rewind_label"), isOn: $autoRewind)
-
-                HStack {
-                    Text(String(localized: "settings.jump_forward"))
-                    Spacer()
-                    Image(systemName: "goforward.10")
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack {
-                    Text(String(localized: "settings.jump_backward"))
-                    Spacer()
-                    Image(systemName: "gobackward.10")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // Server section
-            Section(String(localized: "settings.server")) {
-                HStack {
-                    Text(String(localized: "settings.connected_to"))
-                    Spacer()
-                    Text("myserver.local")
-                        .foregroundStyle(.secondary)
-                }
-
-                Button(String(localized: "common.disconnect"), role: .destructive) {
-                    // TODO: Handle disconnect
-                }
-            }
-
-            // Account section
-            Section(String(localized: "settings.account")) {
-                Button(String(localized: "common.sign_out"), role: .destructive) {
-                    // TODO: Handle sign out
-                }
-            }
-
-            // About section
-            Section(String(localized: "common.about")) {
-                HStack {
-                    Text(String(localized: "common.version"))
-                    Spacer()
-                    Text("1.0.0")
-                        .foregroundStyle(.secondary)
-                }
+        Form {
+            if let observer {
+                accountSection(observer)
+                appearanceSection(observer)
+                playbackSection(observer)
+                sleepTimerSection(observer)
+                librarySection(observer)
+                downloadsSection(observer)
+                accountInfoSection(observer)
+                aboutSection(observer)
+                signOutSection(observer)
             }
         }
         .navigationTitle(String(localized: "common.settings"))
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .readableWidth(720)
+        .onAppear {
+            if observer == nil {
+                observer = SettingsObserver(viewModel: deps.createSettingsViewModel())
+            }
+        }
+        .onDisappear { observer?.stopObserving() }
+        .confirmationDialog(
+            String(localized: "settings.sign_out_confirm_title"),
+            isPresented: $showingSignOutConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "common.sign_out"), role: .destructive) {
+                observer?.signOut()
+            }
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "settings.are_you_sure_you_want"))
+        }
+    }
+
+    // MARK: - Account header
+
+    @ViewBuilder
+    private func accountSection(_ observer: SettingsObserver) -> some View {
+        Section {
+            HStack(spacing: 14) {
+                UserAvatarView(user: currentUser.user, size: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentUser.user?.displayName ?? String(localized: "common.account"))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    if let email = currentUser.user?.email {
+                        Text(email)
+                            .font(.footnote)
+                            .foregroundStyle(Color.luLabel2)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - Appearance
+
+    @ViewBuilder
+    private func appearanceSection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "settings.appearance")) {
+            Picker(selection: themeBinding(observer)) {
+                Text(String(localized: "settings.theme_automatic")).tag(ThemeMode.system)
+                Text(String(localized: "settings.theme_light")).tag(ThemeMode.light)
+                Text(String(localized: "settings.theme_dark")).tag(ThemeMode.dark)
+            } label: {
+                SettingsLabel(title: String(localized: "settings.appearance"), systemImage: "moon.fill", tint: .indigo)
+            }
+
+            Toggle(isOn: boolBinding(observer.dynamicColorsEnabled, observer.setDynamicColorsEnabled)) {
+                SettingsLabel(
+                    title: String(localized: "settings.dynamic_colors"),
+                    systemImage: "sparkles",
+                    tint: .pink
+                )
+            }
+        }
+    }
+
+    // MARK: - Playback
+
+    @ViewBuilder
+    private func playbackSection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "settings.playback")) {
+            Picker(selection: speedBinding(observer)) {
+                ForEach(Self.speedOptions, id: \.self) { speed in
+                    Text(SettingsFormat.speedLabel(speed)).tag(speed)
+                }
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.default_speed"),
+                    systemImage: "slider.horizontal.3",
+                    tint: .luTint
+                )
+            }
+
+            Picker(selection: skipForwardBinding(observer)) {
+                ForEach(Self.skipOptions, id: \.self) { sec in
+                    Text(SettingsFormat.skipLabel(seconds: sec)).tag(sec)
+                }
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.skip_forward"),
+                    systemImage: "goforward.30",
+                    tint: .luTint
+                )
+            }
+
+            Picker(selection: skipBackwardBinding(observer)) {
+                ForEach(Self.skipOptions, id: \.self) { sec in
+                    Text(SettingsFormat.skipLabel(seconds: sec)).tag(sec)
+                }
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.skip_backward"),
+                    systemImage: "gobackward.10",
+                    tint: .luTint
+                )
+            }
+
+            Toggle(isOn: boolBinding(observer.autoRewindEnabled, observer.setAutoRewindEnabled)) {
+                SettingsLabel(
+                    title: String(localized: "settings.autorewind_on_resume"),
+                    systemImage: "clock.arrow.circlepath",
+                    tint: .luTint
+                )
+            }
+
+            Toggle(isOn: boolBinding(observer.spatialPlayback, observer.setSpatialPlayback)) {
+                SettingsLabel(
+                    title: String(localized: "settings.spatial_audio"),
+                    systemImage: "headphones",
+                    tint: .luTint
+                )
+            }
+        }
+    }
+
+    // MARK: - Sleep Timer
+
+    @ViewBuilder
+    private func sleepTimerSection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "settings.sleep_timer")) {
+            Picker(selection: sleepTimerBinding(observer)) {
+                Text(String(localized: "settings.timer_off")).tag(Int?.none)
+                ForEach(Self.sleepTimerOptions, id: \.self) { minutes in
+                    Text(SettingsFormat.sleepTimerLabel(minutes: minutes, offLabel: ""))
+                        .tag(Int?.some(minutes))
+                }
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.default_timer"),
+                    systemImage: "moon.zzz.fill",
+                    tint: .purple
+                )
+            }
+
+            Toggle(isOn: boolBinding(observer.shakeToResetSleepTimer, observer.setShakeToResetSleepTimer)) {
+                SettingsLabel(
+                    title: String(localized: "settings.shake_to_reset_timer"),
+                    systemImage: "iphone.gen3.radiowaves.left.and.right",
+                    tint: .purple
+                )
+            }
+        }
+    }
+
+    // MARK: - Library
+
+    @ViewBuilder
+    private func librarySection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "settings.library")) {
+            Toggle(isOn: boolBinding(observer.ignoreTitleArticles, observer.setIgnoreTitleArticles)) {
+                SettingsLabel(
+                    title: String(localized: "settings.ignore_articles_when_sorting"),
+                    subtitle: String(localized: "settings.sort_ignoring_leading_articles_a"),
+                    systemImage: "textformat.abc",
+                    tint: .blue
+                )
+            }
+
+            Toggle(isOn: boolBinding(observer.hideSingleBookSeries, observer.setHideSingleBookSeries)) {
+                SettingsLabel(
+                    title: String(localized: "settings.hide_singlebook_series"),
+                    subtitle: String(localized: "settings.hide_series_with_only_one"),
+                    systemImage: "square.stack.3d.up",
+                    tint: .blue
+                )
+            }
+        }
+    }
+
+    // MARK: - Downloads
+
+    @ViewBuilder
+    private func downloadsSection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "settings.downloads")) {
+            Toggle(isOn: boolBinding(observer.wifiOnlyDownloads, observer.setWifiOnlyDownloads)) {
+                SettingsLabel(
+                    title: String(localized: "settings.wifi_only_downloads"),
+                    systemImage: "wifi",
+                    tint: .green
+                )
+            }
+
+            Toggle(isOn: boolBinding(observer.autoRemoveFinished, observer.setAutoRemoveFinished)) {
+                SettingsLabel(
+                    title: String(localized: "settings.auto_remove_finished"),
+                    systemImage: "trash",
+                    tint: .green
+                )
+            }
+        }
+    }
+
+    // MARK: - Account (server info)
+
+    @ViewBuilder
+    private func accountInfoSection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "common.account")) {
+            LabeledContent {
+                Text(observer.serverUrl ?? "—")
+                    .font(.callout.monospaced())
+                    .foregroundStyle(Color.luLabel2)
+            } label: {
+                SettingsLabel(title: String(localized: "common.server"), systemImage: "globe", tint: .teal)
+            }
+
+            Toggle(isOn: boolBinding(observer.hapticFeedbackEnabled, observer.setHapticFeedbackEnabled)) {
+                SettingsLabel(
+                    title: String(localized: "settings.haptic_feedback"),
+                    systemImage: "hand.tap",
+                    tint: .teal
+                )
+            }
+        }
+    }
+
+    // MARK: - About
+
+    @ViewBuilder
+    private func aboutSection(_ observer: SettingsObserver) -> some View {
+        Section(String(localized: "common.about")) {
+            LabeledContent {
+                Text(observer.serverVersion ?? "—")
+                    .foregroundStyle(Color.luLabel2)
+            } label: {
+                SettingsLabel(title: String(localized: "common.version"), systemImage: "star.fill", tint: .gray)
+            }
+        }
+    }
+
+    // MARK: - Sign Out
+
+    @ViewBuilder
+    private func signOutSection(_ observer: SettingsObserver) -> some View {
+        Section {
+            Button(role: .destructive) {
+                showingSignOutConfirmation = true
+            } label: {
+                Text(String(localized: "common.sign_out"))
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    // MARK: - Picker / toggle option sets
+
+    private static let speedOptions: [Float] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+    private static let skipOptions: [Int] = [5, 10, 15, 30, 45, 60]
+    private static let sleepTimerOptions: [Int] = [5, 10, 15, 30, 45, 60]
+
+    // MARK: - Bindings (read flat state, write through the observer's forwarders)
+
+    private func themeBinding(_ observer: SettingsObserver) -> Binding<ThemeMode> {
+        Binding(get: { observer.themeMode }, set: { observer.setThemeMode($0) })
+    }
+
+    private func speedBinding(_ observer: SettingsObserver) -> Binding<Float> {
+        Binding(get: { observer.defaultPlaybackSpeed }, set: { observer.setDefaultPlaybackSpeed($0) })
+    }
+
+    private func skipForwardBinding(_ observer: SettingsObserver) -> Binding<Int> {
+        Binding(get: { observer.defaultSkipForwardSec }, set: { observer.setDefaultSkipForwardSec($0) })
+    }
+
+    private func skipBackwardBinding(_ observer: SettingsObserver) -> Binding<Int> {
+        Binding(get: { observer.defaultSkipBackwardSec }, set: { observer.setDefaultSkipBackwardSec($0) })
+    }
+
+    private func sleepTimerBinding(_ observer: SettingsObserver) -> Binding<Int?> {
+        Binding(get: { observer.defaultSleepTimerMin }, set: { observer.setDefaultSleepTimerMin($0) })
+    }
+
+    private func boolBinding(_ value: Bool, _ set: @escaping (Bool) -> Void) -> Binding<Bool> {
+        Binding(get: { value }, set: { set($0) })
+    }
+}
+
+// MARK: - Tinted icon row label
+
+/// A settings row label: a tinted rounded SF-icon tile leading a title (and optional
+/// subtitle), matching the mockup's `IconTile` + `SRow` vocabulary in native form.
+private struct SettingsLabel: View {
+    let title: String
+    var subtitle: String?
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).foregroundStyle(.primary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Color.luLabel2)
+                }
+            }
+        } icon: {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(tint)
+                .frame(width: 29, height: 29)
+                .overlay {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+        }
     }
 }
 
@@ -105,5 +361,6 @@ struct SettingsView: View {
 #Preview {
     NavigationStack {
         SettingsView()
+            .environment(CurrentUserObserver())
     }
 }

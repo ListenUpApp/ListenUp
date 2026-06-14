@@ -83,6 +83,7 @@ final class Dependencies {
     func createUserProfileViewModel() -> UserProfileViewModel { KoinHelper.shared.getUserProfileViewModel() }
     func createEditProfileViewModel() -> EditProfileViewModel { KoinHelper.shared.getEditProfileViewModel() }
     func createShelfDetailViewModel() -> ShelfDetailViewModel { KoinHelper.shared.getShelfDetailViewModel() }
+    func createSettingsViewModel() -> SettingsViewModel { KoinHelper.shared.getSettingsViewModel() }
 }
 
 // MARK: - Locked cache
