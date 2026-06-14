@@ -26,6 +26,13 @@ data class BookUpdate(
     @SerialName("isbn") val isbn: String? = null,
     @SerialName("asin") val asin: String? = null,
     @SerialName("abridged") val abridged: Boolean? = null,
+    /**
+     * The book's effective "added date" as epoch milliseconds — the value the
+     * library's *Recently Added* ordering sorts on (persisted server-side as the
+     * book's `createdAt`). `null` means "don't touch"; a positive value re-stamps
+     * the added date so the book re-sorts.
+     */
+    @SerialName("addedAt") val addedAt: Long? = null,
 ) {
     init {
         title?.let { require(it.isNotBlank() && it.length <= MAX_TITLE) { "title must be 1..$MAX_TITLE chars" } }
@@ -37,6 +44,7 @@ data class BookUpdate(
         language?.let { require(it.length <= MAX_LANGUAGE) { "language must be <= $MAX_LANGUAGE chars" } }
         isbn?.let { require(it.length <= MAX_ISBN) { "isbn must be <= $MAX_ISBN chars" } }
         asin?.let { require(it.length <= MAX_ASIN) { "asin must be <= $MAX_ASIN chars" } }
+        addedAt?.let { require(it > 0) { "addedAt must be a positive epoch-millis value" } }
     }
 
     companion object {

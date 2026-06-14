@@ -295,6 +295,31 @@ class UpdateBookUseCaseTest :
             }
         }
 
+        test("includes edited addedAt in the metadata patch") {
+            runTest {
+                // Given — only the added date changes
+                val originalMetadata = createMetadata(addedAt = 1_700_000_000_000L)
+                val currentMetadata = createMetadata(addedAt = 1_500_000_000_000L)
+                val original = createOriginalState(metadata = originalMetadata)
+                val current = createUpdateRequest(metadata = currentMetadata)
+
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend {
+                    fixture.bookEditRepository.updateBook(
+                        BookId("book-1"),
+                        matches { patch: BookUpdate -> patch.addedAt == 1_500_000_000_000L },
+                    )
+                }
+            }
+        }
+
         // ========== Contributor Change Tests ==========
 
         test("updates contributors when list changes") {

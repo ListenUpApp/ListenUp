@@ -33,6 +33,7 @@ class BookUpdateContractTest :
                     isbn = "978-0-7653-2635-5",
                     asin = "B0XXXXXXXX",
                     abridged = false,
+                    addedAt = 1_700_000_000_000L,
                 )
             roundTrip<BookUpdate>(original) shouldBe original
         }
@@ -54,6 +55,12 @@ class BookUpdateContractTest :
         test("should throw when BookUpdate publishYear is out of range") {
             shouldThrow<IllegalArgumentException> {
                 BookUpdate(publishYear = 99_999)
+            }
+        }
+
+        test("should throw when BookUpdate addedAt is not positive") {
+            shouldThrow<IllegalArgumentException> {
+                BookUpdate(addedAt = 0L)
             }
         }
 
