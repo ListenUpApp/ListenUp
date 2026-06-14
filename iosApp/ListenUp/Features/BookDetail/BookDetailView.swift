@@ -44,6 +44,16 @@ struct BookDetailView: View {
         .sheet(isPresented: $showEdit) {
             BookEditView(bookId: bookId)
         }
+        .sheet(isPresented: $showMetadataMatch) {
+            if let observer {
+                MetadataMatchView(
+                    bookId: bookId,
+                    title: observer.title,
+                    author: observer.book?.authors.first?.name ?? "",
+                    asin: observer.book?.asin
+                )
+            }
+        }
         .task(id: bookId) {
             guard observer == nil else { return }
             let vm = deps.createBookDetailViewModel()
@@ -217,6 +227,12 @@ struct BookDetailView: View {
                 }
 
                 Button {
+                    showMetadataMatch = true
+                } label: {
+                    Label(String(localized: "metadata.match_on_audible"), systemImage: "sparkles")
+                }
+
+                Button {
                     showRestartConfirmation = true
                 } label: {
                     Label(String(localized: "book.detail_restart"), systemImage: "arrow.counterclockwise")
@@ -254,6 +270,7 @@ struct BookDetailView: View {
     @State private var showRestartConfirmation = false
     @State private var showDiscardConfirmation = false
     @State private var showEdit = false
+    @State private var showMetadataMatch = false
 
     // MARK: - Shelf picker presentation
 

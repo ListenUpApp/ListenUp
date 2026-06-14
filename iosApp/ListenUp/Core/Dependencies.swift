@@ -78,6 +78,7 @@ final class Dependencies {
         KoinHelper.shared.getContributorEditViewModel()
     }
     func createBookEditViewModel() -> BookEditViewModel { KoinHelper.shared.getBookEditViewModel() }
+    func createMetadataViewModel() -> MetadataViewModel { KoinHelper.shared.getMetadataViewModel() }
 
     func createDiscoverViewModel() -> DiscoverViewModel { KoinHelper.shared.getDiscoverViewModel() }
     func createLeaderboardViewModel() -> LeaderboardViewModel { KoinHelper.shared.getLeaderboardViewModel() }
