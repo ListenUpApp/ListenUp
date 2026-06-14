@@ -170,7 +170,8 @@ private fun java.sql.Connection.insertAbsRows() {
                     1234.0,
                     5000.0,
                     finished = false,
-                    "2022-01-17T04:33:12.000Z",
+                    // Real Sequelize-SQLite offset form (#537/#532) — same instant as the clean ISO-Z form.
+                    "2022-01-17 04:33:12.000 +00:00",
                 ),
                 ProgressRow(
                     "mp-3",
@@ -214,7 +215,9 @@ private fun java.sql.Connection.insertAbsSessions() {
                 startTime = 100.0,
                 currentTime = 3700.0,
                 timeListening = 3600,
-                startedAt = "2022-01-17T04:33:12.000Z",
+                // The real Sequelize-on-SQLite DATE form ABS writes (#537/#532): same instant as
+                // 2022-01-17T04:33:12.000Z, but the offset spelling collapsed to 1970 in the old parser.
+                startedAt = "2022-01-17 04:33:12.000 +00:00",
                 device = "Pixel 8",
             ),
             SessionRow(
