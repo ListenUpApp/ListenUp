@@ -9241,6 +9241,16 @@
         }
       }
     },
+    "settings.auto_remove_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Finished Downloads"
+          }
+        }
+      }
+    },
     "settings.auto_rewind_label": {
       "localizations": {
         "en": {
@@ -9371,6 +9381,16 @@
         }
       }
     },
+    "settings.downloads": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads"
+          }
+        }
+      }
+    },
     "settings.duration_when_pressing_skip_backward": {
       "localizations": {
         "en": {
@@ -9387,6 +9407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Duration when pressing skip forward"
+          }
+        }
+      }
+    },
+    "settings.dynamic_colors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dynamic Colors"
           }
         }
       }
@@ -9481,6 +9511,16 @@
         }
       }
     },
+    "settings.library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library"
+          }
+        }
+      }
+    },
     "settings.licenses_by_author": {
       "localizations": {
         "en": {
@@ -9541,6 +9581,16 @@
         }
       }
     },
+    "settings.playback": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playback"
+          }
+        }
+      }
+    },
     "settings.rewind_a_few_seconds_when": {
       "localizations": {
         "en": {
@@ -9557,6 +9607,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server version"
+          }
+        }
+      }
+    },
+    "settings.shake_to_reset_timer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shake to Reset Timer"
+          }
+        }
+      }
+    },
+    "settings.sign_out_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign Out"
           }
         }
       }
@@ -9641,6 +9711,46 @@
         }
       }
     },
+    "settings.theme_automatic": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic"
+          }
+        }
+      }
+    },
+    "settings.theme_dark": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
+          }
+        }
+      }
+    },
+    "settings.theme_light": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        }
+      }
+    },
+    "settings.timer_off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
     "settings.use_bookshelf_view": {
       "localizations": {
         "en": {
@@ -9667,6 +9777,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View third-party licenses"
+          }
+        }
+      }
+    },
+    "settings.wifi_only_downloads": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download on Wi-Fi Only"
           }
         }
       }
