@@ -128,14 +128,13 @@ val socialModule: Module =
             )
         }
 
-        // BookReadersRepository for Book Detail Readers section — combines the current user's local
-        // reading state with other live listeners (SocialService RPC, ACL-filtered, caller-excluded,
-        // re-fetched on every PresenceRefreshSignal ping).
+        // BookReadersRepository for Book Detail Readers section — maps the ACL-filtered SocialService
+        // bookReadership RPC (which includes the caller) to domain readers, flagging the current user,
+        // re-fetched on every PresenceRefreshSignal ping.
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
                 socialRpc = get(),
                 presence = get(),
-                playbackPositionRepository = get(),
                 userRepository = get(),
             )
         }
