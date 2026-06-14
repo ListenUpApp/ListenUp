@@ -269,15 +269,27 @@ struct AdminView: View {
     private func managementSection() -> some View {
         VStack(alignment: .leading, spacing: 0) {
             AdminSectionHeader(String(localized: "admin.management"))
-            // Only Invite Someone has a native destination today; the mockup's Collections /
-            // Categories / Unmapped Genres / Backup rows are omitted (no iOS screen yet).
-            NavigationActionRow(
-                systemImage: "person.2.fill",
-                tint: .luTint,
-                title: String(localized: "admin.invite_someone"),
-                subtitle: String(localized: "admin.share_your_audiobook_library_with"),
-                action: { showingInviteSheet = true }
-            )
+            VStack(spacing: 0) {
+                NavigationActionRow(
+                    systemImage: "person.2.fill",
+                    tint: .luTint,
+                    title: String(localized: "admin.invite_someone"),
+                    subtitle: String(localized: "admin.share_your_audiobook_library_with"),
+                    action: { showingInviteSheet = true }
+                )
+                rowSeparator
+                // Pushes the ABS import hub, which launches the import wizard. The mockup's
+                // Collections / Categories / Unmapped Genres rows are still omitted (no iOS screen yet).
+                NavigationLink(value: ABSImportDestination()) {
+                    NavigationActionRow(
+                        systemImage: "square.and.arrow.down.on.square.fill",
+                        tint: .luTint,
+                        title: String(localized: "import.title"),
+                        subtitle: String(localized: "import.entry_subtitle")
+                    )
+                }
+                .buttonStyle(.plain)
+            }
             .fieldCard()
         }
     }
