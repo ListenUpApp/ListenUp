@@ -2431,12 +2431,32 @@
         }
       }
     },
+    "book.edit_authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authors"
+          }
+        }
+      }
+    },
     "book.edit_book_cover": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Book cover"
+          }
+        }
+      }
+    },
+    "book.edit_book_sequence_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book #"
           }
         }
       }
@@ -2471,6 +2491,26 @@
         }
       }
     },
+    "book.edit_description_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Description"
+          }
+        }
+      }
+    },
+    "book.edit_description_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a description"
+          }
+        }
+      }
+    },
     "book.edit_eg_lord_of_the_rings": {
       "localizations": {
         "en": {
@@ -2501,6 +2541,16 @@
         }
       }
     },
+    "book.edit_genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genres"
+          }
+        }
+      }
+    },
     "book.edit_identifiers": {
       "localizations": {
         "en": {
@@ -2521,6 +2571,66 @@
         }
       }
     },
+    "book.edit_narrators": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrators"
+          }
+        }
+      }
+    },
+    "book.edit_no_authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No authors yet."
+          }
+        }
+      }
+    },
+    "book.edit_no_genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No genres yet."
+          }
+        }
+      }
+    },
+    "book.edit_no_narrators": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No narrators yet."
+          }
+        }
+      }
+    },
+    "book.edit_no_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not part of a series."
+          }
+        }
+      }
+    },
+    "book.edit_no_tags": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tags yet."
+          }
+        }
+      }
+    },
     "book.edit_not_set": {
       "localizations": {
         "en": {
@@ -2537,6 +2647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pick date"
+          }
+        }
+      }
+    },
+    "book.edit_publisher": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publisher"
           }
         }
       }
@@ -2567,6 +2687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@s"
+          }
+        }
+      }
+    },
+    "book.edit_series_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series"
           }
         }
       }
@@ -2611,6 +2741,16 @@
         }
       }
     },
+    "book.edit_tags": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tags"
+          }
+        }
+      }
+    },
     "book.edit_talent": {
       "localizations": {
         "en": {
@@ -2631,12 +2771,32 @@
         }
       }
     },
+    "book.edit_title_field": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title"
+          }
+        }
+      }
+    },
     "book.edit_unsaved_changes": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Unsaved Changes"
+          }
+        }
+      }
+    },
+    "book.edit_year": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Year"
           }
         }
       }

@@ -41,6 +41,9 @@ struct BookDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showEdit) {
+            BookEditView(bookId: bookId)
+        }
         .task(id: bookId) {
             guard observer == nil else { return }
             let vm = deps.createBookDetailViewModel()
@@ -208,6 +211,12 @@ struct BookDetailView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button {
+                    showEdit = true
+                } label: {
+                    Label(String(localized: "book.detail_edit_book"), systemImage: "pencil")
+                }
+
+                Button {
                     showRestartConfirmation = true
                 } label: {
                     Label(String(localized: "book.detail_restart"), systemImage: "arrow.counterclockwise")
@@ -244,6 +253,7 @@ struct BookDetailView: View {
 
     @State private var showRestartConfirmation = false
     @State private var showDiscardConfirmation = false
+    @State private var showEdit = false
 
     // MARK: - Shelf picker presentation
 
