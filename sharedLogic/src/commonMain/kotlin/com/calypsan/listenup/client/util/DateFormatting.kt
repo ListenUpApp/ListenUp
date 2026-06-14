@@ -23,3 +23,27 @@ fun formatDateShort(epochMillis: Long): String = formatDate(epochMillis, "MMM d,
  * Format epoch milliseconds to a long date (e.g., "January 15, 2024").
  */
 fun formatDateLong(epochMillis: Long): String = formatDate(epochMillis, "MMMM d, yyyy")
+
+/**
+ * A human display of a finish time relative to [nowMs]:
+ * - under 1 day → "today"
+ * - 1–6 days → "yesterday" or "N days ago"
+ * - 7–29 days → "N weeks ago" (rounded down to nearest week)
+ * - 30+ days → "Month Year" (e.g. "April 2026")
+ *
+ * Pure (takes [nowMs]) so it is unit-testable without time injection.
+ */
+fun relativeOrMonthYear(
+    finishedAtMs: Long,
+    nowMs: Long,
+): String {
+    val deltaMs = nowMs - finishedAtMs
+    val deltaDays = (deltaMs / (24L * 60 * 60 * 1000)).toInt()
+    return when {
+        deltaDays < 1 -> "today"
+        deltaDays < 2 -> "yesterday"
+        deltaDays < 7 -> "$deltaDays days ago"
+        deltaDays < 30 -> "${deltaDays / 7} weeks ago"
+        else -> formatDate(finishedAtMs, "MMMM yyyy")
+    }
+}
