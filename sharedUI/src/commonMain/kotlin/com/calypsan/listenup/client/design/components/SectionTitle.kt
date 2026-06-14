@@ -24,15 +24,22 @@ import org.jetbrains.compose.resources.stringResource
  * (Several feature screens still carry their own private `SectionHeader` composables —
  * bookdetail/library/profile/search — which could be consolidated onto this later.)
  *
+ * For an icon action (e.g. a refresh button) rather than the "See all" text, pass a [trailing] slot
+ * instead. [onSeeAll] and [trailing] are mutually exclusive in practice; when both are supplied the
+ * "See all" text wins.
+ *
  * @param title The section heading.
  * @param modifier Optional modifier.
  * @param onSeeAll When non-null, renders a trailing "See all" affordance invoking this.
+ * @param trailing Optional trailing slot (e.g. an icon button), aligned to the title baseline. Ignored
+ *   when [onSeeAll] is non-null.
  */
 @Composable
 fun SectionTitle(
     title: String,
     modifier: Modifier = Modifier,
     onSeeAll: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -48,17 +55,23 @@ fun SectionTitle(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (onSeeAll != null) {
-            Text(
-                // Never wrap — the title yields space (above) so "See all" stays a single line.
-                text = stringResource(Res.string.common_see_all),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.clickable(onClick = onSeeAll),
-            )
+        when {
+            onSeeAll != null -> {
+                Text(
+                    // Never wrap — the title yields space (above) so "See all" stays a single line.
+                    text = stringResource(Res.string.common_see_all),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.clickable(onClick = onSeeAll),
+                )
+            }
+
+            trailing != null -> {
+                trailing()
+            }
         }
     }
 }

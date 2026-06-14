@@ -1,27 +1,22 @@
 package com.calypsan.listenup.client.features.discover.components
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
+import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
@@ -39,7 +34,6 @@ import listenup.composeapp.generated.resources.discover_discover_something_new
  * Excludes books the user has already started.
  * Features a refresh button to get a new random selection.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DiscoverBooksSection(
     onBookClick: (String) -> Unit,
@@ -53,33 +47,24 @@ fun DiscoverBooksSection(
     if (ready.isEmpty) return
 
     Column(modifier = modifier) {
-        // Section header with refresh button
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(Res.string.discover_discover_something_new),
-                style = MaterialTheme.typography.titleLargeEmphasized,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            IconButton(
-                onClick = { viewModel.refresh() },
-                modifier = Modifier.size(32.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = stringResource(Res.string.common_refresh),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
+        // Section header with refresh action (canonical SectionTitle + trailing icon slot)
+        SectionTitle(
+            title = stringResource(Res.string.discover_discover_something_new),
+            modifier = Modifier.padding(horizontal = 16.dp),
+            trailing = {
+                IconButton(
+                    onClick = { viewModel.refresh() },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = stringResource(Res.string.common_refresh),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            },
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 

@@ -8,10 +8,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -37,9 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.components.RankBadge
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.discover_leaderboard_show_all
+import listenup.composeapp.generated.resources.discover_leaderboard_show_less
 
 /** Number of entries to show when collapsed */
 private const val COLLAPSED_COUNT = 4
@@ -47,7 +48,8 @@ private const val COLLAPSED_COUNT = 4
 /**
  * Leaderboard list showing ranked users with animated position changes.
  *
- * Shows top 4 entries by default with an expand/collapse option to see more.
+ * Shows top 4 entries by default with an expand/collapse option to see more. Each row carries a
+ * medal-toned [RankBadge] for the podium positions and a clean transparent row chrome.
  *
  * @param entries List of leaderboard entries to display.
  * @param category Current leaderboard category — determines which value to show.
@@ -67,7 +69,7 @@ fun LeaderboardList(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         // Use regular Column instead of LazyColumn to avoid nested scrollable crash
         // when this is inside HorizontalPager inside LazyColumn (DiscoverScreen)
@@ -86,7 +88,12 @@ fun LeaderboardList(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
                 Text(
-                    text = if (isExpanded) "Show less" else "Show all ${entries.size}",
+                    text =
+                        if (isExpanded) {
+                            stringResource(Res.string.discover_leaderboard_show_less)
+                        } else {
+                            stringResource(Res.string.discover_leaderboard_show_all, entries.size)
+                        },
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Icon(
@@ -96,7 +103,7 @@ fun LeaderboardList(
                         } else {
                             Icons.Default.KeyboardArrowDown
                         },
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -115,10 +122,9 @@ private fun LeaderboardEntryRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
+                .clip(MaterialTheme.shapes.large)
                 .clickable(onClick = onClick)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .padding(12.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Animated rank badge — slides up/down when rank changes
@@ -138,16 +144,15 @@ private fun LeaderboardEntryRow(
             RankBadge(rank = rank)
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
 
-        // User info
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = entry.displayName,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
+        // User name
+        Text(
+            text = entry.displayName,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
 
         // Animated value label — fades when value changes
         AnimatedContent(
@@ -160,9 +165,9 @@ private fun LeaderboardEntryRow(
         ) { value ->
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -189,70 +194,5 @@ private fun formatSeconds(seconds: Long): String {
         hours == 0L -> "${minutes}m"
         minutes == 0L -> "${hours}h"
         else -> "${hours}h ${minutes}m"
-    }
-}
-
-@Composable
-private fun RankBadge(
-    rank: Int,
-    modifier: Modifier = Modifier,
-) {
-    val (backgroundColor, textColor, emoji) =
-        when (rank) {
-            1 -> {
-                Triple(
-                    MaterialTheme.colorScheme.tertiaryContainer,
-                    MaterialTheme.colorScheme.onTertiaryContainer,
-                    "🥇",
-                )
-            }
-
-            2 -> {
-                Triple(
-                    MaterialTheme.colorScheme.secondaryContainer,
-                    MaterialTheme.colorScheme.onSecondaryContainer,
-                    "🥈",
-                )
-            }
-
-            3 -> {
-                Triple(
-                    MaterialTheme.colorScheme.surfaceContainerHighest,
-                    MaterialTheme.colorScheme.onSurface,
-                    "🥉",
-                )
-            }
-
-            else -> {
-                Triple(
-                    MaterialTheme.colorScheme.surfaceContainerHigh,
-                    MaterialTheme.colorScheme.onSurfaceVariant,
-                    null,
-                )
-            }
-        }
-
-    if (emoji != null) {
-        Text(
-            text = emoji,
-            fontSize = 20.sp,
-            modifier = modifier.size(32.dp),
-        )
-    } else {
-        Box(
-            modifier =
-                modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(backgroundColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = rank.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-            )
-        }
     }
 }
