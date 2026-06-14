@@ -18,6 +18,9 @@ import dev.mokkery.mock
 import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,262 +31,256 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ServerSelectViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class ServerSelectViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    private fun createServer(
-        id: String = "server-1",
-        name: String = "Test Server",
-        localUrl: String = "http://192.168.1.100:8080",
-    ) = Server(
-        id = id,
-        name = name,
-        apiVersion = "v1",
-        serverVersion = "1.0.0",
-        localUrl = localUrl,
-        remoteUrl = null,
-        isActive = false,
-        lastSeenAt = 0,
-    )
+        fun createServer(
+            id: String = "server-1",
+            name: String = "Test Server",
+            localUrl: String = "http://192.168.1.100:8080",
+        ) = Server(
+            id = id,
+            name = name,
+            apiVersion = "v1",
+            serverVersion = "1.0.0",
+            localUrl = localUrl,
+            remoteUrl = null,
+            isActive = false,
+            lastSeenAt = 0,
+        )
 
-    private fun createServerWithStatus(
-        server: Server = createServer(),
-        isOnline: Boolean = true,
-    ) = ServerWithStatus(
-        server = server,
-        isOnline = isOnline,
-    )
+        fun createServerWithStatus(
+            server: Server = createServer(),
+            isOnline: Boolean = true,
+        ) = ServerWithStatus(
+            server = server,
+            isOnline = isOnline,
+        )
 
-    /** Keep the VM's WhileSubscribed state flow hot for the duration of the test. */
-    private fun TestScope.keepStateHot(viewModel: ServerSelectViewModel) {
-        backgroundScope.launch { viewModel.state.collect { } }
-    }
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    @Test
-    fun `initial state is Discovering with empty servers`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            every { serverRepository.observeServers() } returns
-                kotlinx.coroutines.flow.flow { /* never emits */ }
-
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-            advanceUntilIdle()
-
-            val state = viewModel.state.value
-            val discovering = assertIs<ServerSelectUiState.Discovering>(state)
-            assertEquals(emptyList(), discovering.servers)
+        // Keep the VM's WhileSubscribed state flow hot for the duration of the test.
+        fun TestScope.keepStateHot(viewModel: ServerSelectViewModel) {
+            backgroundScope.launch { viewModel.state.collect { } }
         }
 
-    @Test
-    fun `LocalNetworkPermissionGranted starts server discovery`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            every { serverRepository.startDiscovery() } returns Unit
-
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-
-            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            advanceUntilIdle()
-
-            verify { serverRepository.startDiscovery() }
+        beforeTest {
+            Dispatchers.setMain(testDispatcher)
         }
 
-    @Test
-    fun `LocalNetworkPermissionGranted then observeServers emission transitions Discovering to Ready`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            val serversFlow = MutableStateFlow<List<ServerWithStatus>>(emptyList())
-            every { serverRepository.observeServers() } returns serversFlow
-            every { serverRepository.startDiscovery() } returns Unit
-
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-
-            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            advanceUntilIdle()
-
-            // Initial emission (empty) flips to Ready
-            assertIs<ServerSelectUiState.Ready>(viewModel.state.value)
-
-            val servers = listOf(createServerWithStatus())
-            serversFlow.value = servers
-            advanceUntilIdle()
-
-            val ready = assertIs<ServerSelectUiState.Ready>(viewModel.state.value)
-            assertEquals(1, ready.servers.size)
+        afterTest {
+            Dispatchers.resetMain()
         }
 
-    @Test
-    fun `LocalNetworkPermissionDenied emits error and navigates to manual entry`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            val errorBus = ErrorBus()
+        test("initial state is Discovering with empty servers") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                every { serverRepository.observeServers() } returns
+                    kotlinx.coroutines.flow.flow { /* never emits */ }
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = errorBus)
-            keepStateHot(viewModel)
-            advanceUntilIdle()
-
-            errorBus.errors.test {
-                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
                 advanceUntilIdle()
-                assertIs<ServerConnectError.LocalNetworkPermissionDenied>(awaitItem())
-            }
 
-            viewModel.navigationEvents.test {
-                // Navigation event was already trySend'd synchronously, should be buffered
-                assertEquals(ServerSelectViewModel.NavigationEvent.GoToManualEntry, awaitItem())
+                val state = viewModel.state.value
+                val discovering = state.shouldBeInstanceOf<ServerSelectUiState.Discovering>()
+                discovering.servers shouldBe emptyList()
             }
-
-            // Discovery must never start on the denial path.
-            verify(VerifyMode.not) { serverRepository.startDiscovery() }
         }
 
-    @Test
-    fun `ManualEntryClicked emits GoToManualEntry navigation event`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            every { serverRepository.startDiscovery() } returns Unit
+        test("LocalNetworkPermissionGranted starts server discovery") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-            advanceUntilIdle()
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
 
-            viewModel.navigationEvents.test {
-                viewModel.onEvent(ServerSelectUiEvent.ManualEntryClicked)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
                 advanceUntilIdle()
-                assertEquals(ServerSelectViewModel.NavigationEvent.GoToManualEntry, awaitItem())
+
+                verify { serverRepository.startDiscovery() }
             }
         }
 
-    @Test
-    fun `RefreshClicked stops and restarts discovery`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            every { serverRepository.startDiscovery() } returns Unit
-            every { serverRepository.stopDiscovery() } returns Unit
+        test("LocalNetworkPermissionGranted then observeServers emission transitions Discovering to Ready") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                val serversFlow = MutableStateFlow<List<ServerWithStatus>>(emptyList())
+                every { serverRepository.observeServers() } returns serversFlow
+                every { serverRepository.startDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            advanceUntilIdle()
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
 
-            viewModel.onEvent(ServerSelectUiEvent.RefreshClicked)
-            advanceUntilIdle()
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
 
-            verify { serverRepository.stopDiscovery() }
+                // Initial emission (empty) flips to Ready
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
+
+                val servers = listOf(createServerWithStatus())
+                serversFlow.value = servers
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
+                ready.servers.size shouldBe 1
+            }
         }
 
-    @Test
-    fun `ServerSelected activates server and emits navigation`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            val server = createServer()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            every { serverRepository.startDiscovery() } returns Unit
-            everySuspend { instanceRepository.findReachableUrl(any()) } returns server.localUrl
-            everySuspend { serverConfig.setServerUrl(any()) } returns Unit
-            everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+        test("LocalNetworkPermissionDenied emits error and navigates to manual entry") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                val errorBus = ErrorBus()
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            advanceUntilIdle()
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = errorBus)
+                keepStateHot(viewModel)
+                advanceUntilIdle()
 
-            viewModel.navigationEvents.test {
+                errorBus.errors.test {
+                    viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<ServerConnectError.LocalNetworkPermissionDenied>()
+                }
+
+                viewModel.navigationEvents.test {
+                    // Navigation event was already trySend'd synchronously, should be buffered
+                    awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.GoToManualEntry
+                }
+
+                // Discovery must never start on the denial path.
+                verify(VerifyMode.not) { serverRepository.startDiscovery() }
+            }
+        }
+
+        test("ManualEntryClicked emits GoToManualEntry navigation event") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
+
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.navigationEvents.test {
+                    viewModel.onEvent(ServerSelectUiEvent.ManualEntryClicked)
+                    advanceUntilIdle()
+                    awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.GoToManualEntry
+                }
+            }
+        }
+
+        test("RefreshClicked stops and restarts discovery") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
+                every { serverRepository.stopDiscovery() } returns Unit
+
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                viewModel.onEvent(ServerSelectUiEvent.RefreshClicked)
+                advanceUntilIdle()
+
+                verify { serverRepository.stopDiscovery() }
+            }
+        }
+
+        test("ServerSelected activates server and emits navigation") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                val server = createServer()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
+                everySuspend { instanceRepository.findReachableUrl(any()) } returns server.localUrl
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                viewModel.navigationEvents.test {
+                    viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
+                    advanceUntilIdle()
+
+                    verifySuspend { serverConfig.setServerUrl(ServerUrl(server.localUrl!!)) }
+                    verifySuspend { serverConfig.setConnectedServerId(server.id) }
+                    awaitItem() shouldBe ServerSelectViewModel.NavigationEvent.ServerActivated
+                }
+
+                // After success, overlay cleared → Ready
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
+            }
+        }
+
+        test("ServerSelected failure transitions to Error state") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                val server = createServer()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
+                everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
+
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
                 viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
                 advanceUntilIdle()
 
-                verifySuspend { serverConfig.setServerUrl(ServerUrl(server.localUrl!!)) }
-                verifySuspend { serverConfig.setConnectedServerId(server.id) }
-                assertEquals(ServerSelectViewModel.NavigationEvent.ServerActivated, awaitItem())
+                val error = viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
+                error.selectedServerId shouldBe server.id
             }
-
-            // After success, overlay cleared → Ready
-            assertIs<ServerSelectUiState.Ready>(viewModel.state.value)
         }
 
-    @Test
-    fun `ServerSelected failure transitions to Error state`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            val server = createServer()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            every { serverRepository.startDiscovery() } returns Unit
-            everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
+        test("ErrorDismissed transitions from Error back to Ready") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                val server = createServer()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
+                everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            advanceUntilIdle()
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+                viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Error>()
 
-            viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
-            advanceUntilIdle()
+                viewModel.onEvent(ServerSelectUiEvent.ErrorDismissed)
+                advanceUntilIdle()
 
-            val error = assertIs<ServerSelectUiState.Error>(viewModel.state.value)
-            assertEquals(server.id, error.selectedServerId)
+                viewModel.state.value.shouldBeInstanceOf<ServerSelectUiState.Ready>()
+            }
         }
-
-    @Test
-    fun `ErrorDismissed transitions from Error back to Ready`() =
-        runTest {
-            val serverRepository: ServerRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val instanceRepository: InstanceRepository = mock()
-            val server = createServer()
-            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
-            every { serverRepository.startDiscovery() } returns Unit
-            everySuspend { instanceRepository.findReachableUrl(any()) } throws RuntimeException("Failed")
-
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
-            keepStateHot(viewModel)
-            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
-            advanceUntilIdle()
-            viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
-            advanceUntilIdle()
-            assertIs<ServerSelectUiState.Error>(viewModel.state.value)
-
-            viewModel.onEvent(ServerSelectUiEvent.ErrorDismissed)
-            advanceUntilIdle()
-
-            assertIs<ServerSelectUiState.Ready>(viewModel.state.value)
-        }
-}
+    })

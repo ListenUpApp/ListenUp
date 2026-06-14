@@ -22,211 +22,205 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import com.calypsan.listenup.core.error.ErrorBus
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * Tests that totalBooks/totalUsers from AnalysisStatusResponse
  * are propagated to the ViewModel state during the ANALYZING step.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class ABSImportViewModelAnalysisCountsTest {
-    private val testDispatcher = StandardTestDispatcher()
+class ABSImportViewModelAnalysisCountsTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var backupApi: BackupApiContract
-    private lateinit var searchApi: SearchApiContract
-    private lateinit var absImportApi: ABSImportApiContract
-    private lateinit var syncRepository: SyncRepository
+        fun completedAnalysisResponse() =
+            AnalyzeABSResponse(
+                backupPath = "/tmp/backup.audiobookshelf",
+                analyzedAt = "2025-01-01T00:00:00Z",
+                summary = "Test",
+                totalUsers = 5,
+                totalBooks = 1011,
+                totalSessions = 200,
+                usersMatched = 5,
+                usersPending = 0,
+                booksMatched = 900,
+                booksPending = 111,
+                sessionsReady = 150,
+                sessionsPending = 50,
+                progressReady = 100,
+                progressPending = 100,
+                userMatches = emptyList(),
+                bookMatches = emptyList(),
+            )
 
-    private fun completedAnalysisResponse() =
-        AnalyzeABSResponse(
-            backupPath = "/tmp/backup.audiobookshelf",
-            analyzedAt = "2025-01-01T00:00:00Z",
-            summary = "Test",
-            totalUsers = 5,
-            totalBooks = 1011,
-            totalSessions = 200,
-            usersMatched = 5,
-            usersPending = 0,
-            booksMatched = 900,
-            booksPending = 111,
-            sessionsReady = 150,
-            sessionsPending = 50,
-            progressReady = 100,
-            progressPending = 100,
-            userMatches = emptyList(),
-            bookMatches = emptyList(),
-        )
+        // Fresh mocks per test, mirroring the original @BeforeTest lifecycle.
+        class TestFixture {
+            val backupApi: BackupApiContract = mock()
+            val searchApi: SearchApiContract = mock()
+            val absImportApi: ABSImportApiContract = mock()
+            val syncRepository: SyncRepository = mock()
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-        backupApi = mock()
-        searchApi = mock()
-        absImportApi = mock()
-        syncRepository = mock()
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    private fun createViewModel() =
-        ABSImportViewModel(
-            backupApi = backupApi,
-            searchApi = searchApi,
-            absImportApi = absImportApi,
-            syncRepository = syncRepository,
-            errorBus = ErrorBus(),
-        )
-
-    @Test
-    fun `analyzing state shows totalBooks and totalUsers when server provides counts`() =
-        runTest {
-            val analysisResult = completedAnalysisResponse()
-
-            everySuspend { backupApi.analyzeABSBackupAsync(any()) } returns
-                AppResult.Success(AsyncAnalyzeResponse(analysisId = "a1"))
-
-            everySuspend { backupApi.getAnalysisStatus("a1") } sequentiallyReturns
-                listOf(
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "running",
-                            phase = "matching_books",
-                            current = 100,
-                            total = 1011,
-                            totalBooks = 1011,
-                            totalUsers = 5,
-                        ),
-                    ),
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "completed",
-                            phase = "done",
-                            result = analysisResult,
-                        ),
-                    ),
+            fun createViewModel() =
+                ABSImportViewModel(
+                    backupApi = backupApi,
+                    searchApi = searchApi,
+                    absImportApi = absImportApi,
+                    syncRepository = syncRepository,
+                    errorBus = ErrorBus(),
                 )
-
-            val viewModel = createViewModel()
-            viewModel.setFullRemotePath("/tmp/backup.audiobookshelf")
-
-            // Advance past the first poll (launch + analyzeABSBackupAsync + first getAnalysisStatus)
-            advanceTimeBy(100)
-
-            val stateAfterFirstPoll = assertIs<ABSImportUiState.Ready>(viewModel.state.value)
-            assertEquals(ABSImportStep.ANALYZING, stateAfterFirstPoll.step)
-            assertEquals(1011, stateAfterFirstPoll.totalBooks)
-            assertEquals(5, stateAfterFirstPoll.totalUsers)
-
-            // Advance past the delay(1500) and second poll to complete analysis
-            advanceUntilIdle()
-
-            // After completion, counts should still be populated
-            val finalState = assertIs<ABSImportUiState.Ready>(viewModel.state.value)
-            assertEquals(1011, finalState.totalBooks)
-            assertEquals(5, finalState.totalUsers)
         }
 
-    @Test
-    fun `analyzing state has zero counts when server does not provide them`() =
-        runTest {
-            val analysisResult = completedAnalysisResponse()
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-            everySuspend { backupApi.analyzeABSBackupAsync(any()) } returns
-                AppResult.Success(AsyncAnalyzeResponse(analysisId = "a2"))
+        test("analyzing state shows totalBooks and totalUsers when server provides counts") {
+            runTest {
+                val fixture = TestFixture()
+                val analysisResult = completedAnalysisResponse()
 
-            everySuspend { backupApi.getAnalysisStatus("a2") } sequentiallyReturns
-                listOf(
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "running",
-                            phase = "parsing",
-                            current = 0,
-                            total = 0,
-                            totalBooks = 0,
-                            totalUsers = 0,
+                everySuspend { fixture.backupApi.analyzeABSBackupAsync(any()) } returns
+                    AppResult.Success(AsyncAnalyzeResponse(analysisId = "a1"))
+
+                everySuspend { fixture.backupApi.getAnalysisStatus("a1") } sequentiallyReturns
+                    listOf(
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "running",
+                                phase = "matching_books",
+                                current = 100,
+                                total = 1011,
+                                totalBooks = 1011,
+                                totalUsers = 5,
+                            ),
                         ),
-                    ),
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "completed",
-                            phase = "done",
-                            result = analysisResult,
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "completed",
+                                phase = "done",
+                                result = analysisResult,
+                            ),
                         ),
-                    ),
-                )
+                    )
 
-            val viewModel = createViewModel()
-            viewModel.setFullRemotePath("/tmp/backup.audiobookshelf")
+                val viewModel = fixture.createViewModel()
+                viewModel.setFullRemotePath("/tmp/backup.audiobookshelf")
 
-            // Advance past the first poll
-            advanceTimeBy(100)
+                // Advance past the first poll (launch + analyzeABSBackupAsync + first getAnalysisStatus)
+                advanceTimeBy(100)
 
-            val stateAfterFirstPoll = assertIs<ABSImportUiState.Ready>(viewModel.state.value)
-            assertEquals(ABSImportStep.ANALYZING, stateAfterFirstPoll.step)
-            assertEquals(0, stateAfterFirstPoll.totalBooks)
-            assertEquals(0, stateAfterFirstPoll.totalUsers)
+                val stateAfterFirstPoll = viewModel.state.value.shouldBeInstanceOf<ABSImportUiState.Ready>()
+                stateAfterFirstPoll.step shouldBe ABSImportStep.ANALYZING
+                stateAfterFirstPoll.totalBooks shouldBe 1011
+                stateAfterFirstPoll.totalUsers shouldBe 5
+
+                // Advance past the delay(1500) and second poll to complete analysis
+                advanceUntilIdle()
+
+                // After completion, counts should still be populated
+                val finalState = viewModel.state.value.shouldBeInstanceOf<ABSImportUiState.Ready>()
+                finalState.totalBooks shouldBe 1011
+                finalState.totalUsers shouldBe 5
+            }
         }
 
-    @Test
-    fun `counts use max value across polling responses`() =
-        runTest {
-            val analysisResult = completedAnalysisResponse()
+        test("analyzing state has zero counts when server does not provide them") {
+            runTest {
+                val fixture = TestFixture()
+                val analysisResult = completedAnalysisResponse()
 
-            everySuspend { backupApi.analyzeABSBackupAsync(any()) } returns
-                AppResult.Success(AsyncAnalyzeResponse(analysisId = "a3"))
+                everySuspend { fixture.backupApi.analyzeABSBackupAsync(any()) } returns
+                    AppResult.Success(AsyncAnalyzeResponse(analysisId = "a2"))
 
-            everySuspend { backupApi.getAnalysisStatus("a3") } sequentiallyReturns
-                listOf(
-                    // First poll: only users known
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "running",
-                            phase = "matching_users",
-                            totalBooks = 0,
-                            totalUsers = 5,
+                everySuspend { fixture.backupApi.getAnalysisStatus("a2") } sequentiallyReturns
+                    listOf(
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "running",
+                                phase = "parsing",
+                                current = 0,
+                                total = 0,
+                                totalBooks = 0,
+                                totalUsers = 0,
+                            ),
                         ),
-                    ),
-                    // Second poll: books now known too
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "running",
-                            phase = "matching_books",
-                            current = 50,
-                            total = 1011,
-                            totalBooks = 1011,
-                            totalUsers = 5,
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "completed",
+                                phase = "done",
+                                result = analysisResult,
+                            ),
                         ),
-                    ),
-                    AppResult.Success(
-                        AnalysisStatusResponse(
-                            status = "completed",
-                            phase = "done",
-                            result = analysisResult,
-                        ),
-                    ),
-                )
+                    )
 
-            val viewModel = createViewModel()
-            viewModel.setFullRemotePath("/tmp/backup.audiobookshelf")
+                val viewModel = fixture.createViewModel()
+                viewModel.setFullRemotePath("/tmp/backup.audiobookshelf")
 
-            // First poll sees users only
-            advanceTimeBy(100)
-            val afterFirst = assertIs<ABSImportUiState.Ready>(viewModel.state.value)
-            assertEquals(5, afterFirst.totalUsers)
-            assertEquals(0, afterFirst.totalBooks)
+                // Advance past the first poll
+                advanceTimeBy(100)
 
-            // Second poll sees both
-            advanceTimeBy(1600)
-            val afterSecond = assertIs<ABSImportUiState.Ready>(viewModel.state.value)
-            assertEquals(5, afterSecond.totalUsers)
-            assertEquals(1011, afterSecond.totalBooks)
+                val stateAfterFirstPoll = viewModel.state.value.shouldBeInstanceOf<ABSImportUiState.Ready>()
+                stateAfterFirstPoll.step shouldBe ABSImportStep.ANALYZING
+                stateAfterFirstPoll.totalBooks shouldBe 0
+                stateAfterFirstPoll.totalUsers shouldBe 0
+            }
         }
-}
+
+        test("counts use max value across polling responses") {
+            runTest {
+                val fixture = TestFixture()
+                val analysisResult = completedAnalysisResponse()
+
+                everySuspend { fixture.backupApi.analyzeABSBackupAsync(any()) } returns
+                    AppResult.Success(AsyncAnalyzeResponse(analysisId = "a3"))
+
+                everySuspend { fixture.backupApi.getAnalysisStatus("a3") } sequentiallyReturns
+                    listOf(
+                        // First poll: only users known
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "running",
+                                phase = "matching_users",
+                                totalBooks = 0,
+                                totalUsers = 5,
+                            ),
+                        ),
+                        // Second poll: books now known too
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "running",
+                                phase = "matching_books",
+                                current = 50,
+                                total = 1011,
+                                totalBooks = 1011,
+                                totalUsers = 5,
+                            ),
+                        ),
+                        AppResult.Success(
+                            AnalysisStatusResponse(
+                                status = "completed",
+                                phase = "done",
+                                result = analysisResult,
+                            ),
+                        ),
+                    )
+
+                val viewModel = fixture.createViewModel()
+                viewModel.setFullRemotePath("/tmp/backup.audiobookshelf")
+
+                // First poll sees users only
+                advanceTimeBy(100)
+                val afterFirst = viewModel.state.value.shouldBeInstanceOf<ABSImportUiState.Ready>()
+                afterFirst.totalUsers shouldBe 5
+                afterFirst.totalBooks shouldBe 0
+
+                // Second poll sees both
+                advanceTimeBy(1600)
+                val afterSecond = viewModel.state.value.shouldBeInstanceOf<ABSImportUiState.Ready>()
+                afterSecond.totalUsers shouldBe 5
+                afterSecond.totalBooks shouldBe 1011
+            }
+        }
+    })
