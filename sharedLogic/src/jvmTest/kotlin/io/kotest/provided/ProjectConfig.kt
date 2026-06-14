@@ -2,6 +2,7 @@ package io.kotest.provided
 
 import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.core.extensions.Extension
+import io.kotest.core.listeners.AfterSpecListener
 import io.kotest.core.listeners.BeforeSpecListener
 import io.kotest.core.names.DuplicateTestNameMode
 import io.kotest.core.spec.Spec
@@ -25,21 +26,37 @@ class ProjectConfig : AbstractProjectConfig() {
 }
 
 /**
- * Guarantees every spec starts with a clean **global** Koin context.
+ * Bounds the **global** Koin context strictly within each spec — clean on entry, clean on exit.
  *
  * Two kinds of spec start the global Koin: server end-to-end specs boot Ktor's `install(Koin)` on
  * the global context (via `testApplication { module() }`), and some client specs start it through
- * `KoinTestRule`. If any spec leaves it running — a crash mid-spec, an ordering gap, a teardown that
- * doesn't fire — the next server boot **reuses that stale context** and can't resolve server-only
- * definitions, surfacing as a `NoDefinitionFoundException` (e.g. for `BookAccessPolicy`) or a hung
- * request. That made `ImportRpcE2ETest` flake on CI: the failure depended purely on which spec ran
- * before it.
+ * `KoinTestRule`. If a stale context survives into the next spec, the next server boot **reuses that
+ * stale context** and can't resolve server-only definitions, surfacing as a `NoDefinitionFoundException`
+ * (e.g. for `BookAccessPolicy`) or a hung request — which made `ImportRpcE2ETest` flake on CI.
  *
- * Stopping any leaked context **before** each spec makes the suite order-independent — every spec,
- * server or client, begins from a clean slate and is then free to start its own Koin.
+ * Cleaning **before** each spec ([beforeSpec]) makes the suite order-independent. But that alone left
+ * a window: a server spec's Koin is torn down **asynchronously** — Ktor's `install(Koin)` registers
+ * `on(ApplicationStopped) { stopKoin() }`, and `testApplication`'s shutdown (plus any client
+ * `KoinTestRule` teardown) can fire that `stopKoin()` **late**, after the next spec has already
+ * installed *its own* context. On a slow/contended CI runner that late `stopKoin()` rips the live
+ * context out from under the running spec → an import RPC step resolves into a half-torn-down graph
+ * and returns `AppResult.Failure`. Locally (fast box, wide window) it effectively never lands; on the
+ * 2-core CI runner it landed intermittently — the classic "passes on my machine" timing flake.
+ *
+ * Stopping the context **synchronously in [afterSpec]** too closes that window: every spec ends with
+ * the global context already gone, so there is no pending async `stopKoin()` left to race the next
+ * spec, and `beforeSpec` remains the belt-and-braces guard for a spec that crashed before its
+ * `afterSpec` ran. Net: the global-Koin lifecycle is nested inside `[beforeSpec, afterSpec]` with no
+ * cross-spec overlap. `stopKoin()` is a no-op when nothing is running, so double-stops are harmless.
  */
-private object GlobalKoinIsolationListener : BeforeSpecListener {
-    override suspend fun beforeSpec(spec: Spec) {
+private object GlobalKoinIsolationListener :
+    BeforeSpecListener,
+    AfterSpecListener {
+    override suspend fun beforeSpec(spec: Spec) = stopGlobalKoinIfRunning()
+
+    override suspend fun afterSpec(spec: Spec) = stopGlobalKoinIfRunning()
+
+    private fun stopGlobalKoinIfRunning() {
         if (GlobalContext.getKoinApplicationOrNull() != null) {
             stopKoin()
         }
