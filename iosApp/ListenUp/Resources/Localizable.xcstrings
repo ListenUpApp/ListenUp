@@ -9531,6 +9531,26 @@
         }
       }
     },
+    "shelf.book_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "shelf.books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
     "shelf.books_in_shelf": {
       "localizations": {
         "en": {
@@ -9571,6 +9591,26 @@
         }
       }
     },
+    "shelf.no_books_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add books from your library to build this shelf."
+          }
+        }
+      }
+    },
+    "shelf.no_books_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books yet"
+          }
+        }
+      }
+    },
     "shelf.private_shelf": {
       "localizations": {
         "en": {
@@ -9597,6 +9637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This will permanently delete this shelf. Books in the shelf will not be affected."
+          }
+        }
+      }
+    },
+    "shelf.unavailable_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelf unavailable"
           }
         }
       }

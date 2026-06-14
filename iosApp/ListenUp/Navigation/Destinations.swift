@@ -24,6 +24,11 @@ struct TagDestination: Hashable {
     let id: String
 }
 
+/// Shelf detail screen — the books a user has curated onto one shelf.
+struct ShelfDestination: Hashable {
+    let id: String
+}
+
 /// The current user's profile.
 struct UserProfileDestination: Hashable {}
 

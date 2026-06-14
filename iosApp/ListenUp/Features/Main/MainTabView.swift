@@ -126,6 +126,9 @@ private extension View {
             .navigationDestination(for: TagDestination.self) { destination in
                 TagDetailView(tagId: destination.id)
             }
+            .navigationDestination(for: ShelfDestination.self) { destination in
+                ShelfDetailView(shelfId: destination.id)
+            }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }

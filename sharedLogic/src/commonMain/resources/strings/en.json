@@ -561,13 +561,18 @@
   },
   "shelf": {
     "add_books_from_the_library": "Add books from the library",
+    "book_count": "%1$d book",
+    "books_count": "%1$d books",
     "books_in_shelf": "Books in shelf",
     "delete_shelf": "Delete Shelf",
     "description_optional": "Description (optional)",
     "edit_shelf": "Edit shelf",
+    "no_books_description": "Add books from your library to build this shelf.",
+    "no_books_title": "No books yet",
     "private_shelf": "Private shelf",
     "private_shelf_description": "Only you can see this shelf.",
     "this_will_permanently_delete_this": "This will permanently delete this shelf. Books in the shelf will not be affected.",
+    "unavailable_title": "Shelf unavailable",
     "whats_this_shelf_for": "What's this shelf for?"
   },
   "shell": {
