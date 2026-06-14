@@ -11,7 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
+import io.kotest.matchers.shouldBe
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
@@ -67,7 +67,7 @@ class AppNavigationSuiteTest {
             }
         }
         composeRule.onNodeWithText("Discover").performClick()
-        assertEquals(ShellDestination.Discover, selected)
+        selected shouldBe ShellDestination.Discover
     }
 
     @Test
@@ -84,7 +84,7 @@ class AppNavigationSuiteTest {
             }
         }
         composeRule.onNodeWithText("Discover").performClick()
-        assertEquals(ShellDestination.Discover, selected)
+        selected shouldBe ShellDestination.Discover
     }
 
     @Test
@@ -101,6 +101,6 @@ class AppNavigationSuiteTest {
             }
         }
         composeRule.onNodeWithText("Logout").performClick()
-        assertEquals(true, signedOut)
+        signedOut shouldBe true
     }
 }

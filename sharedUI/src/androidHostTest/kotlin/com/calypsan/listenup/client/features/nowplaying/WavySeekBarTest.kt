@@ -16,9 +16,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import io.kotest.assertions.withClue
+import io.kotest.matchers.shouldBe
 import kotlin.math.abs
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Verifies that [WavySeekBar] exposes the accessibility semantics required for
@@ -99,19 +99,17 @@ class WavySeekBarTest {
         composeRule
             .onNodeWithTag(TEST_TAG)
             .performSemanticsAction(SemanticsActions.SetProgress) { setProgress ->
-                assertTrue(
-                    setProgress(targetValue),
-                    "SetProgress action did not report success",
-                )
+                withClue("SetProgress action did not report success") {
+                    setProgress(targetValue) shouldBe true
+                }
             }
 
-        assertTrue(!receivedValue.isNaN(), "onSeek was not called after SetProgress action")
-        assertEquals(
-            targetValue,
-            receivedValue,
-            absoluteTolerance = 0.001f,
-            message = "SetProgress delivered wrong value to onSeek",
-        )
+        withClue("onSeek was not called after SetProgress action") {
+            !receivedValue.isNaN() shouldBe true
+        }
+        withClue("SetProgress delivered wrong value to onSeek") {
+            (abs(receivedValue - targetValue) < 0.001f) shouldBe true
+        }
     }
 
     @Test

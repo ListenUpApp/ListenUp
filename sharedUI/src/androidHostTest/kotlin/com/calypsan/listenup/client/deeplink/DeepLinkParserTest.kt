@@ -7,9 +7,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 
 /**
  * Tests for [DeepLinkParser].
@@ -37,19 +36,17 @@ class DeepLinkParserTest {
     @Test
     fun `parseUri returns InviteDeepLink for valid join URI`() {
         val uri = Uri.parse("listenup://join?server=https://audiobooks.example.com&code=ABC123")
-        val result = DeepLinkParser.parseUri(uri)
-        assertNotNull(result)
-        assertEquals("https://audiobooks.example.com", result.serverUrl)
-        assertEquals("ABC123", result.code)
+        val result = DeepLinkParser.parseUri(uri).shouldNotBeNull()
+        result.serverUrl shouldBe "https://audiobooks.example.com"
+        result.code shouldBe "ABC123"
     }
 
     @Test
     fun `parseUri decodes URL-encoded server param`() {
         val uri = Uri.parse("listenup://join?server=https%3A%2F%2Faudiobooks.example.com&code=XY9")
-        val result = DeepLinkParser.parseUri(uri)
-        assertNotNull(result)
-        assertEquals("https://audiobooks.example.com", result.serverUrl)
-        assertEquals("XY9", result.code)
+        val result = DeepLinkParser.parseUri(uri).shouldNotBeNull()
+        result.serverUrl shouldBe "https://audiobooks.example.com"
+        result.code shouldBe "XY9"
     }
 
     // ── parseUri — reject paths ───────────────────────────────────────────────
@@ -57,38 +54,38 @@ class DeepLinkParserTest {
     @Test
     fun `parseUri returns null for wrong scheme`() {
         val uri = Uri.parse("https://join?server=https://audiobooks.example.com&code=ABC123")
-        assertNull(DeepLinkParser.parseUri(uri))
+        DeepLinkParser.parseUri(uri) shouldBe null
     }
 
     @Test
     fun `parseUri returns null for wrong host`() {
         val uri = Uri.parse("listenup://book?server=https://audiobooks.example.com&code=ABC123")
         // host is "book", not "join" — parseCustomScheme rejects it
-        assertNull(DeepLinkParser.parseUri(uri))
+        DeepLinkParser.parseUri(uri) shouldBe null
     }
 
     @Test
     fun `parseUri returns null when server param is missing`() {
         val uri = Uri.parse("listenup://join?code=ABC123")
-        assertNull(DeepLinkParser.parseUri(uri))
+        DeepLinkParser.parseUri(uri) shouldBe null
     }
 
     @Test
     fun `parseUri returns null when code param is missing`() {
         val uri = Uri.parse("listenup://join?server=https://audiobooks.example.com")
-        assertNull(DeepLinkParser.parseUri(uri))
+        DeepLinkParser.parseUri(uri) shouldBe null
     }
 
     @Test
     fun `parseUri returns null when server param is blank`() {
         val uri = Uri.parse("listenup://join?server=&code=ABC123")
-        assertNull(DeepLinkParser.parseUri(uri))
+        DeepLinkParser.parseUri(uri) shouldBe null
     }
 
     @Test
     fun `parseUri returns null when code param is blank`() {
         val uri = Uri.parse("listenup://join?server=https://audiobooks.example.com&code=")
-        assertNull(DeepLinkParser.parseUri(uri))
+        DeepLinkParser.parseUri(uri) shouldBe null
     }
 
     // ── parseBookDeepLink — happy path ────────────────────────────────────────
@@ -96,9 +93,8 @@ class DeepLinkParserTest {
     @Test
     fun `parseBookDeepLink returns BookDeepLink for valid book URI`() {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("listenup://book/book-abc-123"))
-        val result = DeepLinkParser.parseBookDeepLink(intent)
-        assertNotNull(result)
-        assertEquals("book-abc-123", result.bookId)
+        val result = DeepLinkParser.parseBookDeepLink(intent).shouldNotBeNull()
+        result.bookId shouldBe "book-abc-123"
     }
 
     // ── parseBookDeepLink — reject paths ─────────────────────────────────────
@@ -106,36 +102,36 @@ class DeepLinkParserTest {
     @Test
     fun `parseBookDeepLink returns null for wrong action`() {
         val intent = Intent(Intent.ACTION_SEND, Uri.parse("listenup://book/book-abc-123"))
-        assertNull(DeepLinkParser.parseBookDeepLink(intent))
+        DeepLinkParser.parseBookDeepLink(intent) shouldBe null
     }
 
     @Test
     fun `parseBookDeepLink returns null for wrong scheme`() {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://book/book-abc-123"))
-        assertNull(DeepLinkParser.parseBookDeepLink(intent))
+        DeepLinkParser.parseBookDeepLink(intent) shouldBe null
     }
 
     @Test
     fun `parseBookDeepLink returns null for wrong host`() {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("listenup://join/book-abc-123"))
-        assertNull(DeepLinkParser.parseBookDeepLink(intent))
+        DeepLinkParser.parseBookDeepLink(intent) shouldBe null
     }
 
     @Test
     fun `parseBookDeepLink returns null when book id path segment is missing`() {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("listenup://book/"))
-        assertNull(DeepLinkParser.parseBookDeepLink(intent))
+        DeepLinkParser.parseBookDeepLink(intent) shouldBe null
     }
 
     @Test
     fun `parseBookDeepLink returns null for null intent`() {
-        assertNull(DeepLinkParser.parseBookDeepLink(null))
+        DeepLinkParser.parseBookDeepLink(null) shouldBe null
     }
 
     @Test
     fun `parseBookDeepLink returns null for intent with no data`() {
         val intent = Intent(Intent.ACTION_VIEW)
-        assertNull(DeepLinkParser.parseBookDeepLink(intent))
+        DeepLinkParser.parseBookDeepLink(intent) shouldBe null
     }
 
     // ── parse(Intent?) — invite path ─────────────────────────────────────────
@@ -147,15 +143,14 @@ class DeepLinkParserTest {
                 Intent.ACTION_VIEW,
                 Uri.parse("listenup://join?server=https://example.com&code=ZZ1"),
             )
-        val result: InviteDeepLink? = DeepLinkParser.parse(intent)
-        assertNotNull(result)
-        assertEquals("https://example.com", result.serverUrl)
-        assertEquals("ZZ1", result.code)
+        val result: InviteDeepLink = DeepLinkParser.parse(intent).shouldNotBeNull()
+        result.serverUrl shouldBe "https://example.com"
+        result.code shouldBe "ZZ1"
     }
 
     @Test
     fun `parse returns null for null intent`() {
-        assertNull(DeepLinkParser.parse(null))
+        DeepLinkParser.parse(null) shouldBe null
     }
 
     @Test
@@ -165,12 +160,12 @@ class DeepLinkParserTest {
                 Intent.ACTION_SEND,
                 Uri.parse("listenup://join?server=https://example.com&code=ZZ1"),
             )
-        assertNull(DeepLinkParser.parse(intent))
+        DeepLinkParser.parse(intent) shouldBe null
     }
 
     @Test
     fun `parse returns null for intent with no URI data`() {
         val intent = Intent(Intent.ACTION_VIEW)
-        assertNull(DeepLinkParser.parse(intent))
+        DeepLinkParser.parse(intent) shouldBe null
     }
 }

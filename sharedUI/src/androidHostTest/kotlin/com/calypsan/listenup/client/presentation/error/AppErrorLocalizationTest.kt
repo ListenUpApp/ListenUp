@@ -11,9 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 /**
  * Tests for the [AppError] UI-layer error renderer.
@@ -32,48 +31,45 @@ import kotlin.test.assertNull
 class AppErrorLocalizationTest {
     @Test
     fun `resourceKey lowercases the error code with the error_ prefix`() {
-        assertEquals("error_transport_timeout", TransportError.Timeout().resourceKey())
+        TransportError.Timeout().resourceKey() shouldBe "error_transport_timeout"
     }
 
     @Test
     fun `resolved maps Server4xx 409 to the conflict resource`() {
-        assertEquals(Res.string.error_conflict, TransportError.Server4xx(statusCode = 409).resolved())
+        TransportError.Server4xx(statusCode = 409).resolved() shouldBe Res.string.error_conflict
     }
 
     @Test
     fun `resolved maps Server4xx 403 to the forbidden resource`() {
-        assertEquals(Res.string.error_forbidden, TransportError.Server4xx(statusCode = 403).resolved())
+        TransportError.Server4xx(statusCode = 403).resolved() shouldBe Res.string.error_forbidden
     }
 
     @Test
     fun `resolved maps Server4xx 404 to the not_found resource`() {
-        assertEquals(Res.string.error_not_found, TransportError.Server4xx(statusCode = 404).resolved())
+        TransportError.Server4xx(statusCode = 404).resolved() shouldBe Res.string.error_not_found
     }
 
     @Test
     fun `resolved resolves a dynamically-keyed error to a non-null resource`() {
-        assertNotNull(AuthError.SessionExpired().resolved())
+        AuthError.SessionExpired().resolved() shouldNotBe null
     }
 
     @Test
     fun `resolved returns null for an unmapped error code`() {
         // TRANSPORT_SERVER_5XX has no error_* key; falls through to the message fallback.
-        assertNull(TransportError.Server5xx(statusCode = 500).resolved())
+        TransportError.Server5xx(statusCode = 500).resolved() shouldBe null
     }
 
     @Test
     fun `localizedString renders a mapped error to its localized text`() =
         runTest {
-            assertEquals(
-                "Your session expired. Please sign in again.",
-                AuthError.SessionExpired().localizedString(),
-            )
+            AuthError.SessionExpired().localizedString() shouldBe "Your session expired. Please sign in again."
         }
 
     @Test
     fun `localizedString falls back to the error message for an unmapped error`() =
         runTest {
             val error = TransportError.Server5xx(statusCode = 500)
-            assertEquals(error.message, error.localizedString())
+            error.localizedString() shouldBe error.message
         }
 }
