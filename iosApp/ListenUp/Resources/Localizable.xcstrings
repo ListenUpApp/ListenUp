@@ -8241,6 +8241,26 @@
         }
       }
     },
+    "profile.current_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        }
+      }
+    },
+    "profile.edit_photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Photo"
+          }
+        }
+      }
+    },
     "profile.edit_profile": {
       "localizations": {
         "en": {
@@ -8287,6 +8307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Update your first and last name"
+          }
+        }
+      }
+    },
+    "profile.new_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New"
           }
         }
       }
@@ -8387,6 +8417,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shelves"
+          }
+        }
+      }
+    },
+    "profile.stat_best": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best"
+          }
+        }
+      }
+    },
+    "profile.stat_day_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day streak"
+          }
+        }
+      }
+    },
+    "profile.stat_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "profile.stat_listened": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listened"
           }
         }
       }

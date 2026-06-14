@@ -168,6 +168,16 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getUserProfileViewModel(): com.calypsan.listenup.client.presentation.profile.UserProfileViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.profile.UserProfileViewModel by inject()
+        return viewModel
+    }
+
+    fun getEditProfileViewModel(): com.calypsan.listenup.client.presentation.profile.EditProfileViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.profile.EditProfileViewModel by inject()
+        return viewModel
+    }
+
     fun getProgressTracker(): ProgressTracker {
         val instance: ProgressTracker by inject()
         return instance

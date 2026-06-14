@@ -825,11 +825,14 @@ One beautiful library.</string>
     <string name="profile_change_password">Change Password</string>
     <string name="profile_create_shelf">Create shelf</string>
     <string name="profile_current_avatar">Current avatar</string>
+    <string name="profile_current_password">Current</string>
+    <string name="profile_edit_photo">Edit Photo</string>
     <string name="profile_edit_profile">Edit profile</string>
     <string name="profile_edit_profile_title">Edit Profile</string>
     <string name="profile_hours_listened">Hours Listened</string>
     <string name="profile_in_progress">In Progress</string>
     <string name="profile_name_description">Update your first and last name</string>
+    <string name="profile_new_password">New</string>
     <string name="profile_no_shelves_yet_create_one">No shelves yet. Create one to curate your favorite books!</string>
     <string name="profile_password_description">Set a new password for your account</string>
     <string name="profile_password_min_chars">Must be at least %1$d characters</string>
@@ -840,6 +843,10 @@ One beautiful library.</string>
     <string name="profile_save_tagline">Save Tagline</string>
     <string name="profile_shelf_books_count">%1$d books</string>
     <string name="profile_shelves">Shelves</string>
+    <string name="profile_stat_best">Best</string>
+    <string name="profile_stat_day_streak">Day streak</string>
+    <string name="profile_stat_finished">Finished</string>
+    <string name="profile_stat_listened">Listened</string>
     <string name="profile_tagline">Tagline</string>
     <string name="profile_tagline_char_count">%1$d/%2$d</string>
     <string name="profile_tagline_description">A short bio that appears on your profile</string>
