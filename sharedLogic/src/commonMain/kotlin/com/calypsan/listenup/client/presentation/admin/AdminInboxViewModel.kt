@@ -13,15 +13,12 @@ import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * ViewModel for the admin inbox screen.

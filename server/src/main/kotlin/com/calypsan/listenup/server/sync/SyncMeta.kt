@@ -1,16 +1,8 @@
 package com.calypsan.listenup.server.sync
 
-import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.statements.StatementType
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
-
-/** Single-row counter table for the global sync revision space. */
-internal object SyncMetaTable : Table("sync_meta") {
-    val key = text("key")
-    val value = long("value")
-    override val primaryKey = PrimaryKey(key)
-}
 
 private const val COUNTER_KEY = "revision_counter"
 

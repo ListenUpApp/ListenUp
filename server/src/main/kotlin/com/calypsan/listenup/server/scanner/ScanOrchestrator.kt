@@ -207,16 +207,6 @@ internal class ScanOrchestrator(
      */
     fun lastResult(libraryId: LibraryId): ScanResult? = bundlesByLibrary[libraryId]?.scanner?.lastResult()
 
-    /**
-     * Returns the most recent [ScanResult] across all libraries. Returns the
-     * result from the library with the highest timestamp, or null when no scan
-     * has run yet.
-     */
-    fun lastResultAny(): ScanResult? =
-        bundlesByLibrary.values
-            .mapNotNull { it.scanner.lastResult() }
-            .maxByOrNull { it.durationMs }
-
     /** Snapshot of every library currently registered with a scanner bundle. */
     fun registeredLibraryIds(): List<LibraryId> = bundlesByLibrary.keys.toList()
 

@@ -13,11 +13,8 @@ import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadEnqueuer
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Single seam for download state + aggregation. All download writes go through this class

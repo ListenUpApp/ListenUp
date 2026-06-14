@@ -1,14 +1,8 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
@@ -20,9 +14,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,12 +25,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_cancel_download
 import listenup.composeapp.generated.resources.book_delete_download
-import listenup.composeapp.generated.resources.book_detail_download
 import listenup.composeapp.generated.resources.book_detail_download_book
-import listenup.composeapp.generated.resources.book_detail_downloaded
-import listenup.composeapp.generated.resources.book_detail_progresspercent
-import listenup.composeapp.generated.resources.book_detail_queued
-import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.book_detail_retry_download
 import listenup.composeapp.generated.resources.book_detail_waiting_for_wifi
 
@@ -159,99 +146,6 @@ fun DownloadButton(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-/**
- * Expanded download button with text label for wider layouts.
- *
- * @param isWaitingForWifi True when download is queued but waiting for WiFi connection
- *                         (wifiOnlyDownloads enabled + not on WiFi). Shows "Waiting for WiFi".
- */
-@Composable
-fun DownloadButtonExpanded(
-    status: BookDownloadStatus,
-    onDownloadClick: () -> Unit,
-    onCancelClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isWaitingForWifi: Boolean = false,
-) {
-    val onClick =
-        when (status) {
-            is BookDownloadStatus.NotDownloaded -> onDownloadClick
-            is BookDownloadStatus.InProgress -> onCancelClick
-            is BookDownloadStatus.Completed -> onDeleteClick
-            is BookDownloadStatus.Failed -> onDownloadClick
-            is BookDownloadStatus.Paused -> onDownloadClick
-        }
-
-    OutlinedButton(
-        onClick = onClick,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(52.dp),
-        shape = RoundedCornerShape(26.dp),
-    ) {
-        when (status) {
-            is BookDownloadStatus.NotDownloaded -> {
-                Icon(Icons.Outlined.Download, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(Res.string.book_detail_download))
-            }
-
-            is BookDownloadStatus.InProgress -> {
-                when {
-                    status.downloadingFiles > 0 -> {
-                        val progressPercent = (status.progress * 100).toInt()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                progress = { status.progress },
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(Res.string.book_detail_progresspercent, progressPercent))
-                        }
-                    }
-
-                    isWaitingForWifi -> {
-                        Icon(
-                            Icons.Default.WifiOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(Res.string.book_detail_waiting_for_wifi))
-                    }
-
-                    else -> {
-                        ListenUpLoadingIndicatorSmall()
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(Res.string.book_detail_queued))
-                    }
-                }
-            }
-
-            is BookDownloadStatus.Completed -> {
-                Icon(Icons.Outlined.Delete, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(Res.string.book_detail_downloaded))
-            }
-
-            is BookDownloadStatus.Failed,
-            is BookDownloadStatus.Paused,
-            -> {
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(Res.string.common_retry), color = MaterialTheme.colorScheme.error)
             }
         }
     }

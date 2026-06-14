@@ -71,13 +71,6 @@ class ImportStore(
         paths.analysisFor(id.value).writeText(json.encodeToString(analysis))
     }
 
-    /** Reads the persisted analysis preview for [id], or null if not yet analyzed. */
-    suspend fun readAnalysis(id: ImportId): ImportAnalysis? =
-        onIo {
-            val file = paths.analysisFor(id.value)
-            if (file.exists()) json.decodeFromString<ImportAnalysis>(file.readText()) else null
-        }
-
     /**
      * Persists the server-internal resolved matches for [id] as `matches.json`.
      *

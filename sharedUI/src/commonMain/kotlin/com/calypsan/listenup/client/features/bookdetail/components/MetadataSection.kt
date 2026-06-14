@@ -26,30 +26,6 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/**
- * Clickable series badge.
- */
-@Composable
-fun SeriesBadge(
-    seriesName: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        modifier = modifier,
-    ) {
-        Text(
-            text = seriesName,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    }
-}
-
 /** Tone variants for [StatChip]. */
 enum class StatChipTone {
     /** Neutral surface — default for most chips. */
