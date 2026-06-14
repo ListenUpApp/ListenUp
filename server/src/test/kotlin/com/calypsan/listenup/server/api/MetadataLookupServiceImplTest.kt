@@ -41,6 +41,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
@@ -109,6 +110,64 @@ class MetadataLookupServiceImplTest :
                     result
                         .shouldBeInstanceOf<AppResult.Success<List<MetadataContributorHit>>>()
                         .data shouldHaveSize 0
+                }
+            }
+        }
+
+        // ── getBookMetadata iTunes cover enrichment ───────────────────────────
+
+        test("getBookMetadata enriches coverUrlMaxSize from iTunes findCover") {
+            withInMemoryDatabase {
+                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val itunes =
+                    StubITunesApi(
+                        AppResult.Success(
+                            ITunesCoverHit(
+                                coverUrl = "https://itunes.test/100x100bb.jpg",
+                                maxSizeUrl = "https://itunes.test/7000x7000bb.jpg",
+                                sourceId = "12345",
+                            ),
+                        ),
+                    )
+                val service = makeService(audible = audible, db = this, itunes = itunes)
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.coverUrl shouldBe "https://audible.test/cover.jpg"
+                    book.coverUrlMaxSize shouldBe "https://itunes.test/7000x7000bb.jpg"
+                }
+            }
+        }
+
+        test("getBookMetadata leaves coverUrlMaxSize null when iTunes finds nothing") {
+            withInMemoryDatabase {
+                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val service = makeService(audible = audible, db = this, itunes = StubITunesApi(AppResult.Success(null)))
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.coverUrlMaxSize shouldBe null
+                }
+            }
+        }
+
+        test("getBookMetadata still returns the Audible book when the iTunes lookup fails") {
+            withInMemoryDatabase {
+                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val itunes = StubITunesApi(AppResult.Failure(MetadataError.ExternalUnavailable()))
+                val service = makeService(audible = audible, db = this, itunes = itunes)
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.coverUrl shouldBe "https://audible.test/cover.jpg"
+                    book.coverUrlMaxSize shouldBe null
                 }
             }
         }
@@ -296,12 +355,13 @@ private fun bookFixture(bookId: String): BookSyncPayload =
 private fun makeService(
     audible: AudibleApi,
     db: Database,
+    itunes: ITunesApi = NoOpITunesApi(),
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
         MetadataService(
             audible = audible,
-            itunes = NoOpITunesApi(),
+            itunes = itunes,
             cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
         )
     val bus = ChangeBus()
@@ -398,6 +458,20 @@ private class NoOpITunesApi : ITunesApi {
         title: String,
         author: String,
     ): AppResult<ITunesCoverHit?> = AppResult.Success(null)
+
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> = AppResult.Success(emptyList())
+}
+
+private class StubITunesApi(
+    private val findCoverResult: AppResult<ITunesCoverHit?>,
+) : ITunesApi {
+    override suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> = findCoverResult
 
     override suspend fun searchCovers(
         title: String,
