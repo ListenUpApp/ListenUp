@@ -43,7 +43,7 @@ class AbsBackupReaderTest :
                 inProgress.currentTimeSeconds shouldBe 1234.0
                 // duration 5000s → progress ≈ 0.2468
                 inProgress.progress shouldBe 1234.0 / 5000.0
-                // 2022-01-17T04:33:12.000Z → epoch millis
+                // Real ABS offset form "2022-01-17 04:33:12.000 +00:00" → epoch millis (#537/#532).
                 inProgress.lastUpdateMs shouldBe 1_642_393_992_000L
             }
         }
@@ -76,8 +76,24 @@ class AbsBackupReaderTest :
                 // ABS stores no per-session playback rate → default 1.0.
                 session.playbackSpeed shouldBe 1.0f
                 session.deviceLabel shouldBe "Pixel 8"
-                // createdAt 2022-01-17T04:33:12.000Z → epoch millis.
+                // createdAt is the real ABS offset form "2022-01-17 04:33:12.000 +00:00" → epoch millis.
                 session.startedAtMs shouldBe 1_642_393_992_000L
+            }
+        }
+
+        test("real ABS offset timestamps survive to true epochs, not 1970 (the #532 stats path)") {
+            // Bug #532: imported listening stats stayed empty because session/progress timestamps in
+            // ABS's "2024-06-12 02:48:10.063 +00:00" form parsed to 0L → every listening_event landed
+            // in 1970, outside the weekly window, with all streak dates collapsed onto one day. Guard
+            // both the session (startedAt → stats minutes/streaks) and progress (sort key) paths.
+            val absDb = Files.createTempDirectory("abs-offset-").resolve(AbsSchema.DB_FILENAME)
+            buildSyntheticAbsDb(absDb)
+            AbsBackupReader().open(absDb).use { handle ->
+                val sessionStartedAt = handle.playbackSessions().single { it.itemId == "book-1" }.startedAtMs
+                val progressUpdatedAt = handle.progress().first { it.itemId == "book-2" }.lastUpdateMs
+                // Both sit well after the epoch — the offset form no longer collapses to 1970.
+                (sessionStartedAt > 1_600_000_000_000L).shouldBeTrue()
+                (progressUpdatedAt > 1_600_000_000_000L).shouldBeTrue()
             }
         }
 
