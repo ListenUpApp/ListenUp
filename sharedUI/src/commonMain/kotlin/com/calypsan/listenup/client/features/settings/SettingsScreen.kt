@@ -1,61 +1,85 @@
-
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FilterNone
+import androidx.compose.material.icons.filled.Forward30
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.SurroundSound
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.ValuePill
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_about
-import listenup.composeapp.generated.resources.common_library
+import listenup.composeapp.generated.resources.common_account
+import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_library
+import listenup.composeapp.generated.resources.common_playback
+import listenup.composeapp.generated.resources.common_server
 import listenup.composeapp.generated.resources.common_settings
 import listenup.composeapp.generated.resources.common_sign_out
+import listenup.composeapp.generated.resources.common_storage
+import listenup.composeapp.generated.resources.common_theme
+import listenup.composeapp.generated.resources.devices_manage_active_sessions
 import listenup.composeapp.generated.resources.settings_51_surround_sound_for_immersive
-import listenup.composeapp.generated.resources.common_account
 import listenup.composeapp.generated.resources.settings_app_version
 import listenup.composeapp.generated.resources.settings_appearance
 import listenup.composeapp.generated.resources.settings_are_you_sure_you_want
@@ -66,7 +90,6 @@ import listenup.composeapp.generated.resources.settings_default_speed
 import listenup.composeapp.generated.resources.settings_default_timer
 import listenup.composeapp.generated.resources.settings_desktop
 import listenup.composeapp.generated.resources.settings_devices
-import listenup.composeapp.generated.resources.devices_manage_active_sessions
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_backward
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_forward
 import listenup.composeapp.generated.resources.settings_hide_series_with_only_one
@@ -74,9 +97,7 @@ import listenup.composeapp.generated.resources.settings_hide_singlebook_series
 import listenup.composeapp.generated.resources.settings_ignore_articles_when_sorting
 import listenup.composeapp.generated.resources.settings_manage_storage
 import listenup.composeapp.generated.resources.settings_open_source_licenses
-import listenup.composeapp.generated.resources.common_playback
 import listenup.composeapp.generated.resources.settings_rewind_a_few_seconds_when
-import listenup.composeapp.generated.resources.common_server
 import listenup.composeapp.generated.resources.settings_server_version
 import listenup.composeapp.generated.resources.settings_skip_backward
 import listenup.composeapp.generated.resources.settings_skip_forward
@@ -84,10 +105,10 @@ import listenup.composeapp.generated.resources.settings_sleep_timer
 import listenup.composeapp.generated.resources.settings_sort_ignoring_leading_articles_a
 import listenup.composeapp.generated.resources.settings_spatial_audio
 import listenup.composeapp.generated.resources.settings_speed_used_for_new_books
-import listenup.composeapp.generated.resources.common_storage
-import listenup.composeapp.generated.resources.common_theme
 import listenup.composeapp.generated.resources.settings_view_and_manage_downloaded_audiobooks
 import listenup.composeapp.generated.resources.settings_view_thirdparty_licenses
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Preset playback speeds.
@@ -152,19 +173,26 @@ object SleepTimerPresets {
         }
 }
 
+/** Max readable content width — wide windows centre the settings column rather than stretch it. */
+private val ContentMaxWidth = 640.dp
+
 /**
- * Settings screen for desktop.
+ * Settings screen.
  *
- * Displays user-configurable settings organized by category:
- * - Appearance: Theme
+ * Displays user-configurable settings organized by category, each as an accent-themed group:
+ * - Appearance: Theme, dynamic colors
  * - Playback: Speed, skip intervals, auto-rewind, spatial audio
  * - Sleep Timer: Default duration
  * - Library: Sorting and display options
- * - Account: Server info and sign out
- * - About: Version information
+ * - Account: Server info, devices, sign out
+ * - About: Version information, licenses
  *
  * @param onNavigateBack Callback to navigate back
+ * @param onNavigateToDevices Optional callback to navigate to the devices screen
+ * @param onNavigateToStorage Optional callback to navigate to the storage screen
  * @param onNavigateToLicenses Optional callback to navigate to licenses screen
+ * @param showDynamicColors Whether the dynamic-colors toggle is available on this platform
+ * @param showSleepTimer Whether the sleep-timer group is shown
  * @param viewModel SettingsViewModel injected via Koin
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -227,57 +255,62 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AppearanceSection(
-                state = state,
-                showDynamicColors = showDynamicColors,
-                viewModel = viewModel,
-            )
+            Column(
+                modifier =
+                    Modifier
+                        .widthIn(max = ContentMaxWidth)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                AppearanceSection(
+                    state = state,
+                    showDynamicColors = showDynamicColors,
+                    viewModel = viewModel,
+                )
 
-            SettingsDivider()
+                PlaybackSection(state = state, viewModel = viewModel)
 
-            PlaybackSection(state = state, viewModel = viewModel)
+                if (showSleepTimer) {
+                    SleepTimerSection(state = state, viewModel = viewModel)
+                }
 
-            if (showSleepTimer) {
-                SettingsDivider()
-                SleepTimerSection(state = state, viewModel = viewModel)
+                LibrarySection(state = state, viewModel = viewModel)
+
+                AccountSection(
+                    state = state,
+                    onNavigateToDevices = onNavigateToDevices,
+                    onSignOutClick = { showSignOutDialog = true },
+                )
+
+                if (onNavigateToStorage != null) {
+                    StorageSection(onNavigateToStorage = onNavigateToStorage)
+                }
+
+                AboutSection(state = state, onNavigateToLicenses = onNavigateToLicenses)
             }
-
-            SettingsDivider()
-
-            LibrarySection(state = state, viewModel = viewModel)
-
-            SettingsDivider()
-
-            AccountSection(
-                state = state,
-                onNavigateToDevices = onNavigateToDevices,
-                onSignOutClick = { showSignOutDialog = true },
-            )
-
-            if (onNavigateToStorage != null) {
-                SettingsDivider()
-                StorageSection(onNavigateToStorage = onNavigateToStorage)
-            }
-
-            SettingsDivider()
-
-            AboutSection(state = state, onNavigateToLicenses = onNavigateToLicenses)
         }
     }
 }
 
 @Composable
-private fun ColumnScope.AppearanceSection(
+private fun AppearanceSection(
     state: SettingsUiState,
     showDynamicColors: Boolean,
     viewModel: SettingsViewModel,
 ) {
-    // Appearance section
-    SettingsSection(title = stringResource(Res.string.settings_appearance)) {
-        SettingsDropdownItem(
+    SectionGroup(
+        icon = Icons.Default.Palette,
+        label = stringResource(Res.string.settings_appearance),
+        accent = MaterialTheme.colorScheme.primary,
+    ) {
+        SelectorRow(
+            icon = Icons.Default.DarkMode,
+            accent = MaterialTheme.colorScheme.primary,
             title = stringResource(Res.string.common_theme),
-            description = stringResource(Res.string.settings_choose_light_dark_or_follow),
+            subtitle = stringResource(Res.string.settings_choose_light_dark_or_follow),
             selectedValue = state.themeMode,
             options = ThemeMode.entries.toList(),
             formatValue = { mode ->
@@ -290,360 +323,380 @@ private fun ColumnScope.AppearanceSection(
             onValueSelected = viewModel::setThemeMode,
         )
         if (showDynamicColors) {
-            SettingsToggleItem(
+            ToggleRow(
+                icon = Icons.Default.Palette,
+                accent = MaterialTheme.colorScheme.primary,
                 title = "Dynamic colors",
-                description = "Use colors from your wallpaper (Material You)",
+                subtitle = "Use colors from your wallpaper (Material You)",
                 checked = state.dynamicColorsEnabled,
                 onCheckedChange = viewModel::setDynamicColorsEnabled,
+                showDivider = true,
             )
         }
     }
 }
 
 @Composable
-private fun ColumnScope.PlaybackSection(
+private fun PlaybackSection(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    // Playback section
-    SettingsSection(title = stringResource(Res.string.common_playback)) {
-        SettingsDropdownItem(
+    val accent = MaterialTheme.colorScheme.tertiary
+    val pillContainer = MaterialTheme.colorScheme.tertiaryContainer
+    val pillContent = MaterialTheme.colorScheme.onTertiaryContainer
+    SectionGroup(
+        icon = Icons.Default.PlayCircle,
+        label = stringResource(Res.string.common_playback),
+        accent = accent,
+    ) {
+        SelectorRow(
+            icon = Icons.Default.Speed,
+            accent = accent,
             title = stringResource(Res.string.settings_default_speed),
-            description = stringResource(Res.string.settings_speed_used_for_new_books),
+            subtitle = stringResource(Res.string.settings_speed_used_for_new_books),
             selectedValue = state.defaultPlaybackSpeed,
             options = PlaybackSpeedPresets.presets,
             formatValue = { PlaybackSpeedPresets.format(it) },
             onValueSelected = viewModel::setDefaultPlaybackSpeed,
+            pillContainerColor = pillContainer,
+            pillContentColor = pillContent,
         )
-        SettingsDropdownItem(
+        SelectorRow(
+            icon = Icons.Default.Forward30,
+            accent = accent,
             title = stringResource(Res.string.settings_skip_forward),
-            description = stringResource(Res.string.settings_duration_when_pressing_skip_forward),
+            subtitle = stringResource(Res.string.settings_duration_when_pressing_skip_forward),
             selectedValue = state.defaultSkipForwardSec,
             options = SkipForwardPresets.presets,
             formatValue = { SkipForwardPresets.format(it) },
             onValueSelected = viewModel::setDefaultSkipForwardSec,
+            pillContainerColor = pillContainer,
+            pillContentColor = pillContent,
+            showDivider = true,
         )
-        SettingsDropdownItem(
+        SelectorRow(
+            icon = Icons.Default.Replay10,
+            accent = accent,
             title = stringResource(Res.string.settings_skip_backward),
-            description = stringResource(Res.string.settings_duration_when_pressing_skip_backward),
+            subtitle = stringResource(Res.string.settings_duration_when_pressing_skip_backward),
             selectedValue = state.defaultSkipBackwardSec,
             options = SkipBackwardPresets.presets,
             formatValue = { SkipBackwardPresets.format(it) },
             onValueSelected = viewModel::setDefaultSkipBackwardSec,
+            pillContainerColor = pillContainer,
+            pillContentColor = pillContent,
+            showDivider = true,
         )
-        SettingsToggleItem(
+        ToggleRow(
+            icon = Icons.Default.History,
+            accent = accent,
             title = stringResource(Res.string.settings_autorewind_on_resume),
-            description = stringResource(Res.string.settings_rewind_a_few_seconds_when),
+            subtitle = stringResource(Res.string.settings_rewind_a_few_seconds_when),
             checked = state.autoRewindEnabled,
             onCheckedChange = viewModel::setAutoRewindEnabled,
+            showDivider = true,
         )
-        SettingsToggleItem(
+        ToggleRow(
+            icon = Icons.Default.SurroundSound,
+            accent = accent,
             title = stringResource(Res.string.settings_spatial_audio),
-            description = stringResource(Res.string.settings_51_surround_sound_for_immersive),
+            subtitle = stringResource(Res.string.settings_51_surround_sound_for_immersive),
             checked = state.spatialPlayback,
             onCheckedChange = viewModel::setSpatialPlayback,
+            showDivider = true,
         )
     }
 }
 
 @Composable
-private fun ColumnScope.SleepTimerSection(
+private fun SleepTimerSection(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    // Sleep timer section
-    SettingsSection(title = stringResource(Res.string.settings_sleep_timer)) {
-        SettingsDropdownItem(
+    val accent = MaterialTheme.colorScheme.secondary
+    SectionGroup(
+        icon = Icons.Default.Bedtime,
+        label = stringResource(Res.string.settings_sleep_timer),
+        accent = accent,
+    ) {
+        SelectorRow(
+            icon = Icons.Default.Timer,
+            accent = accent,
             title = stringResource(Res.string.settings_default_timer),
-            description = stringResource(Res.string.settings_autostart_sleep_timer_when_playing),
+            subtitle = stringResource(Res.string.settings_autostart_sleep_timer_when_playing),
             selectedValue = state.defaultSleepTimerMin,
             options = SleepTimerPresets.presets,
             formatValue = { SleepTimerPresets.format(it) },
             onValueSelected = viewModel::setDefaultSleepTimerMin,
+            pillContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            pillContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         )
     }
 }
 
 @Composable
-private fun ColumnScope.LibrarySection(
+private fun LibrarySection(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    // Library section
-    SettingsSection(title = stringResource(Res.string.common_library)) {
-        SettingsToggleItem(
+    val accent = MaterialTheme.colorScheme.primary
+    SectionGroup(
+        icon = Icons.AutoMirrored.Filled.LibraryBooks,
+        label = stringResource(Res.string.common_library),
+        accent = accent,
+    ) {
+        ToggleRow(
+            icon = Icons.Default.SortByAlpha,
+            accent = accent,
             title = stringResource(Res.string.settings_ignore_articles_when_sorting),
-            description = stringResource(Res.string.settings_sort_ignoring_leading_articles_a),
+            subtitle = stringResource(Res.string.settings_sort_ignoring_leading_articles_a),
             checked = state.ignoreTitleArticles,
             onCheckedChange = viewModel::setIgnoreTitleArticles,
         )
-        SettingsToggleItem(
+        ToggleRow(
+            icon = Icons.Default.FilterNone,
+            accent = accent,
             title = stringResource(Res.string.settings_hide_singlebook_series),
-            description = stringResource(Res.string.settings_hide_series_with_only_one),
+            subtitle = stringResource(Res.string.settings_hide_series_with_only_one),
             checked = state.hideSingleBookSeries,
             onCheckedChange = viewModel::setHideSingleBookSeries,
+            showDivider = true,
         )
     }
 }
 
 @Composable
-private fun ColumnScope.AccountSection(
+private fun AccountSection(
     state: SettingsUiState,
     onNavigateToDevices: (() -> Unit)?,
     onSignOutClick: () -> Unit,
 ) {
-    // Account section
-    SettingsSection(title = stringResource(Res.string.common_account)) {
+    val accent = MaterialTheme.colorScheme.primary
+    SectionGroup(
+        icon = Icons.Default.PersonOutline,
+        label = stringResource(Res.string.common_account),
+        accent = accent,
+    ) {
+        val hasServerRow = state.serverUrl != null
         state.serverUrl?.let { url ->
-            SettingsInfoItem(
+            InfoRow(
+                icon = Icons.Default.Dns,
+                accent = accent,
                 title = stringResource(Res.string.common_server),
                 value = url.removePrefix("https://").removePrefix("http://"),
             )
         }
         if (onNavigateToDevices != null) {
-            SettingsNavigationItem(
+            NavigationRow(
+                icon = Icons.Default.Devices,
+                accent = accent,
                 title = stringResource(Res.string.settings_devices),
-                description = stringResource(Res.string.devices_manage_active_sessions),
+                subtitle = stringResource(Res.string.devices_manage_active_sessions),
                 onClick = onNavigateToDevices,
+                showDivider = hasServerRow,
             )
         }
-        SettingsActionItem(
-            title = stringResource(Res.string.common_sign_out),
-            icon = Icons.AutoMirrored.Filled.Logout,
-            onClick = onSignOutClick,
-            destructive = true,
-        )
     }
+    SignOutTile(onClick = onSignOutClick)
 }
 
 @Composable
-private fun ColumnScope.StorageSection(onNavigateToStorage: () -> Unit) {
-    SettingsSection(title = stringResource(Res.string.common_storage)) {
-        SettingsNavigationItem(
+private fun StorageSection(onNavigateToStorage: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    SectionGroup(
+        icon = Icons.Default.Storage,
+        label = stringResource(Res.string.common_storage),
+        accent = accent,
+    ) {
+        NavigationRow(
+            icon = Icons.Default.Download,
+            accent = accent,
             title = stringResource(Res.string.settings_manage_storage),
-            description = stringResource(Res.string.settings_view_and_manage_downloaded_audiobooks),
+            subtitle = stringResource(Res.string.settings_view_and_manage_downloaded_audiobooks),
             onClick = onNavigateToStorage,
         )
     }
 }
 
 @Composable
-private fun ColumnScope.AboutSection(
+private fun AboutSection(
     state: SettingsUiState,
     onNavigateToLicenses: (() -> Unit)?,
 ) {
-    // About section
-    SettingsSection(title = stringResource(Res.string.common_about)) {
-        SettingsInfoItem(
+    val accent = MaterialTheme.colorScheme.onSurfaceVariant
+    SectionGroup(
+        icon = Icons.Default.Info,
+        label = stringResource(Res.string.common_about),
+        accent = accent,
+    ) {
+        InfoRow(
+            icon = Icons.Default.Verified,
+            accent = accent,
             title = stringResource(Res.string.settings_app_version),
             value = stringResource(Res.string.settings_desktop),
         )
         state.serverVersion?.let { version ->
-            SettingsInfoItem(
+            InfoRow(
+                icon = Icons.Default.Dns,
+                accent = accent,
                 title = stringResource(Res.string.settings_server_version),
                 value = version,
+                showDivider = true,
             )
         }
         if (onNavigateToLicenses != null) {
-            SettingsNavigationItem(
+            NavigationRow(
+                icon = Icons.Default.Gavel,
+                accent = accent,
                 title = stringResource(Res.string.settings_open_source_licenses),
-                description = stringResource(Res.string.settings_view_thirdparty_licenses),
+                subtitle = stringResource(Res.string.settings_view_thirdparty_licenses),
                 onClick = onNavigateToLicenses,
+                showDivider = true,
             )
         }
     }
 }
 
 @Composable
-private fun SettingsSection(
+private fun <T> SelectorRow(
+    icon: ImageVector,
+    accent: Color,
     title: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-        content()
-    }
-}
-
-@Composable
-private fun SettingsDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(vertical = 8.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
-}
-
-@Composable
-private fun SettingsToggleItem(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(description) },
-        trailingContent = {
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.padding(horizontal = 8.dp),
-    )
-}
-
-/**
- * Settings item that displays info without interaction.
- */
-@Composable
-private fun SettingsInfoItem(
-    title: String,
-    value: String,
-) {
-    ListItem(
-        headlineContent = { Text(title) },
-        trailingContent = {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.padding(horizontal = 8.dp),
-    )
-}
-
-/**
- * Settings item that navigates to another screen.
- */
-@Composable
-private fun SettingsNavigationItem(
-    title: String,
-    description: String,
-    onClick: () -> Unit,
-) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(description) },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier =
-            Modifier
-                .padding(horizontal = 8.dp)
-                .clickable(onClick = onClick),
-    )
-}
-
-/**
- * Settings item for actions (like sign out) with optional icon.
- */
-@Composable
-private fun SettingsActionItem(
-    title: String,
-    icon: ImageVector? = null,
-    onClick: () -> Unit,
-    destructive: Boolean = false,
-) {
-    val contentColor =
-        if (destructive) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        }
-
-    ListItem(
-        headlineContent = {
-            Text(
-                text = title,
-                color = contentColor,
-            )
-        },
-        leadingContent =
-            icon?.let {
-                {
-                    Icon(
-                        imageVector = it,
-                        contentDescription = null,
-                        tint = contentColor,
-                    )
-                }
-            },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier =
-            Modifier
-                .padding(horizontal = 8.dp)
-                .clickable(onClick = onClick),
-    )
-}
-
-/**
- * Settings item with dropdown selection.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun <T> SettingsDropdownItem(
-    title: String,
-    description: String,
+    subtitle: String,
     selectedValue: T,
     options: List<T>,
     formatValue: (T) -> String,
     onValueSelected: (T) -> Unit,
+    pillContainerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    pillContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    showDivider: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
-
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(description) },
-        trailingContent = {
-            ExposedDropdownMenuBox(
+    SettingRow(
+        icon = icon,
+        accent = accent,
+        title = title,
+        subtitle = subtitle,
+        showDivider = showDivider,
+    ) {
+        Box {
+            ValuePill(
+                value = formatValue(selectedValue),
+                onClick = { expanded = true },
+                containerColor = pillContainerColor,
+                contentColor = pillContentColor,
+            )
+            DropdownMenu(
                 expanded = expanded,
-                onExpandedChange = { expanded = it },
+                onDismissRequest = { expanded = false },
             ) {
-                OutlinedTextField(
-                    value = formatValue(selectedValue),
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    },
-                    modifier =
-                        Modifier
-                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                            .width(100.dp),
-                    singleLine = true,
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    options.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(formatValue(option)) },
-                            onClick = {
-                                onValueSelected(option)
-                                expanded = false
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                        )
-                    }
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(formatValue(option)) },
+                        onClick = {
+                            onValueSelected(option)
+                            expanded = false
+                        },
+                    )
                 }
             }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.padding(horizontal = 8.dp),
-    )
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(
+    icon: ImageVector,
+    accent: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    showDivider: Boolean = false,
+) {
+    SettingRow(
+        icon = icon,
+        accent = accent,
+        title = title,
+        subtitle = subtitle,
+        showDivider = showDivider,
+    ) {
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun NavigationRow(
+    icon: ImageVector,
+    accent: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    showDivider: Boolean = false,
+) {
+    SettingRow(
+        icon = icon,
+        accent = accent,
+        title = title,
+        subtitle = subtitle,
+        showDivider = showDivider,
+        onClick = onClick,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun InfoRow(
+    icon: ImageVector,
+    accent: Color,
+    title: String,
+    value: String,
+    showDivider: Boolean = false,
+) {
+    SettingRow(
+        icon = icon,
+        accent = accent,
+        title = title,
+        subtitle = null,
+        showDivider = showDivider,
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Full-width destructive tile that opens the sign-out confirmation dialog. */
+@Composable
+private fun SignOutTile(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Logout,
+                contentDescription = null,
+            )
+            Text(
+                text = stringResource(Res.string.common_sign_out),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
 }
