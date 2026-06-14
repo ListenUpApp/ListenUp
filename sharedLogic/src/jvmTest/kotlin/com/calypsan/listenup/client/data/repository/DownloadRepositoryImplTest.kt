@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
-import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -19,211 +18,303 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.AfterTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
-class DownloadRepositoryImplTest {
-    private val db: ListenUpDatabase = createInMemoryTestDatabase()
-    private val downloadDao = db.downloadDao()
-    private val bookRepository = FakeBookRepository()
-    private val enqueuer = FakeDownloadEnqueuer()
-    private val sut =
-        DownloadRepositoryImpl(
-            downloadDao = downloadDao,
-            bookRepository = bookRepository,
-            enqueuer = enqueuer,
-        )
+class DownloadRepositoryImplTest :
+    FunSpec({
+        test("empty downloads emits empty list") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-    @AfterTest
-    fun tearDown() {
-        db.close()
-    }
-
-    @Test
-    fun `empty downloads emits empty list`() =
-        runTest {
-            sut.observeDownloadedBooks().test {
-                assertEquals(emptyList(), awaitItem())
-                cancelAndIgnoreRemainingEvents()
+                    sut.observeDownloadedBooks().test {
+                        awaitItem() shouldBe emptyList()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 
-    @Test
-    fun `single completed download becomes one summary row`() =
-        runTest {
-            bookRepository.books = listOf(fakeBook(id = "b1", title = "Dune", authors = listOf("Frank Herbert")))
-            downloadDao.insert(
-                makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 1_000_000L),
-            )
+        test("single completed download becomes one summary row") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-            sut.observeDownloadedBooks().test {
-                val items = awaitItem()
-                assertEquals(1, items.size)
-                val summary = items.first()
-                assertEquals("b1", summary.bookId)
-                assertEquals("Dune", summary.title)
-                assertEquals("Frank Herbert", summary.authorNames)
-                assertEquals(1_000_000L, summary.sizeBytes)
-                assertEquals(1, summary.fileCount)
-                cancelAndIgnoreRemainingEvents()
+                    bookRepository.books =
+                        listOf(fakeBook(id = "b1", title = "Dune", authors = listOf("Frank Herbert")))
+                    downloadDao.insert(
+                        makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 1_000_000L),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        val items = awaitItem()
+                        items.size shouldBe 1
+                        val summary = items.first()
+                        summary.bookId shouldBe "b1"
+                        summary.title shouldBe "Dune"
+                        summary.authorNames shouldBe "Frank Herbert"
+                        summary.sizeBytes shouldBe 1_000_000L
+                        summary.fileCount shouldBe 1
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 
-    @Test
-    fun `multi-file book aggregates size and file count`() =
-        runTest {
-            bookRepository.books = listOf(fakeBook(id = "b1", title = "Foundation", authors = listOf("Isaac Asimov")))
-            downloadDao.insertAll(
-                listOf(
-                    makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 500_000L),
-                    makeDownload(id = "f2", bookId = "b1", state = DownloadState.COMPLETED, bytes = 300_000L),
-                    makeDownload(id = "f3", bookId = "b1", state = DownloadState.COMPLETED, bytes = 200_000L),
-                ),
-            )
+        test("multi-file book aggregates size and file count") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-            sut.observeDownloadedBooks().test {
-                val items = awaitItem()
-                assertEquals(1, items.size)
-                val summary = items.first()
-                assertEquals(1_000_000L, summary.sizeBytes)
-                assertEquals(3, summary.fileCount)
-                cancelAndIgnoreRemainingEvents()
+                    bookRepository.books =
+                        listOf(fakeBook(id = "b1", title = "Foundation", authors = listOf("Isaac Asimov")))
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 500_000L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.COMPLETED, bytes = 300_000L),
+                            makeDownload(id = "f3", bookId = "b1", state = DownloadState.COMPLETED, bytes = 200_000L),
+                        ),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        val items = awaitItem()
+                        items.size shouldBe 1
+                        val summary = items.first()
+                        summary.sizeBytes shouldBe 1_000_000L
+                        summary.fileCount shouldBe 3
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 
-    @Test
-    fun `non-completed downloads are filtered out`() =
-        runTest {
-            bookRepository.books = listOf(fakeBook(id = "b1", title = "Neverwhere", authors = listOf("Neil Gaiman")))
-            downloadDao.insertAll(
-                listOf(
-                    makeDownload(id = "f1", bookId = "b1", state = DownloadState.QUEUED, bytes = 100_000L),
-                    makeDownload(id = "f2", bookId = "b1", state = DownloadState.DOWNLOADING, bytes = 200_000L),
-                    makeDownload(id = "f3", bookId = "b1", state = DownloadState.FAILED, bytes = 300_000L),
-                    makeDownload(id = "f4", bookId = "b1", state = DownloadState.PAUSED, bytes = 400_000L),
-                ),
-            )
+        test("non-completed downloads are filtered out") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-            sut.observeDownloadedBooks().test {
-                assertEquals(emptyList(), awaitItem())
-                cancelAndIgnoreRemainingEvents()
+                    bookRepository.books =
+                        listOf(fakeBook(id = "b1", title = "Neverwhere", authors = listOf("Neil Gaiman")))
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.QUEUED, bytes = 100_000L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.DOWNLOADING, bytes = 200_000L),
+                            makeDownload(id = "f3", bookId = "b1", state = DownloadState.FAILED, bytes = 300_000L),
+                            makeDownload(id = "f4", bookId = "b1", state = DownloadState.PAUSED, bytes = 400_000L),
+                        ),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        awaitItem() shouldBe emptyList()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 
-    @Test
-    fun `summaries are sorted by size descending`() =
-        runTest {
-            bookRepository.books =
-                listOf(
-                    fakeBook(id = "b1", title = "Small Book", authors = listOf("Author A")),
-                    fakeBook(id = "b2", title = "Big Book", authors = listOf("Author B")),
-                )
-            downloadDao.insertAll(
-                listOf(
-                    makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 100_000L),
-                    makeDownload(id = "f2", bookId = "b2", state = DownloadState.COMPLETED, bytes = 900_000L),
-                ),
-            )
+        test("summaries are sorted by size descending") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-            sut.observeDownloadedBooks().test {
-                val items = awaitItem()
-                assertEquals(2, items.size)
-                assertEquals("b2", items[0].bookId)
-                assertEquals("b1", items[1].bookId)
-                cancelAndIgnoreRemainingEvents()
+                    bookRepository.books =
+                        listOf(
+                            fakeBook(id = "b1", title = "Small Book", authors = listOf("Author A")),
+                            fakeBook(id = "b2", title = "Big Book", authors = listOf("Author B")),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 100_000L),
+                            makeDownload(id = "f2", bookId = "b2", state = DownloadState.COMPLETED, bytes = 900_000L),
+                        ),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        val items = awaitItem()
+                        items.size shouldBe 2
+                        items[0].bookId shouldBe "b2"
+                        items[1].bookId shouldBe "b1"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 
-    @Test
-    fun `deleteForBook removes all download rows for that book`() =
-        runTest {
-            bookRepository.books =
-                listOf(
-                    fakeBook(id = "b1", title = "Deleted", authors = listOf("Author A")),
-                    fakeBook(id = "b2", title = "Remaining", authors = listOf("Author B")),
-                )
-            downloadDao.insertAll(
-                listOf(
-                    makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 100_000L),
-                    makeDownload(id = "f2", bookId = "b1", state = DownloadState.QUEUED, bytes = 200_000L),
-                    makeDownload(id = "f3", bookId = "b2", state = DownloadState.COMPLETED, bytes = 300_000L),
-                ),
-            )
+        test("deleteForBook removes all download rows for that book") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-            sut.deleteForBook("b1")
+                    bookRepository.books =
+                        listOf(
+                            fakeBook(id = "b1", title = "Deleted", authors = listOf("Author A")),
+                            fakeBook(id = "b2", title = "Remaining", authors = listOf("Author B")),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 100_000L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.QUEUED, bytes = 200_000L),
+                            makeDownload(id = "f3", bookId = "b2", state = DownloadState.COMPLETED, bytes = 300_000L),
+                        ),
+                    )
 
-            // b1 rows are gone; b2 row is untouched
-            sut.observeDownloadedBooks().test {
-                val items = awaitItem()
-                assertEquals(1, items.size)
-                assertEquals("b2", items.first().bookId)
-                cancelAndIgnoreRemainingEvents()
+                    sut.deleteForBook("b1")
+
+                    // b1 rows are gone; b2 row is untouched
+                    sut.observeDownloadedBooks().test {
+                        val items = awaitItem()
+                        items.size shouldBe 1
+                        items.first().bookId shouldBe "b2"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 
-    @Test
-    fun `downloads whose book is missing from repository are silently dropped`() =
-        runTest {
-            bookRepository.books = emptyList()
-            downloadDao.insert(
-                makeDownload(id = "f1", bookId = "orphan", state = DownloadState.COMPLETED, bytes = 500_000L),
-            )
+        test("downloads whose book is missing from repository are silently dropped") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val enqueuer = FakeDownloadEnqueuer()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = enqueuer,
+                        )
 
-            sut.observeDownloadedBooks().test {
-                assertEquals(emptyList(), awaitItem())
-                cancelAndIgnoreRemainingEvents()
+                    bookRepository.books = emptyList()
+                    downloadDao.insert(
+                        makeDownload(id = "f1", bookId = "orphan", state = DownloadState.COMPLETED, bytes = 500_000L),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        awaitItem() shouldBe emptyList()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
+    })
 
-    // ---- Helper factories ----------------------------------------------------------------
+// ---- Helper factories ----------------------------------------------------------------
 
-    private fun makeDownload(
-        id: String,
-        bookId: String,
-        state: DownloadState,
-        bytes: Long,
-    ): DownloadEntity =
-        DownloadEntity(
-            audioFileId = id,
-            bookId = bookId,
-            filename = "$id.mp3",
-            fileIndex = 0,
-            state = state,
-            localPath = if (state == DownloadState.COMPLETED) "/audio/$id.mp3" else null,
-            totalBytes = bytes,
-            downloadedBytes = if (state == DownloadState.COMPLETED) bytes else 0L,
-            queuedAt = 1_000_000L,
-            startedAt = null,
-            completedAt = if (state == DownloadState.COMPLETED) 2_000_000L else null,
-            errorMessage = null,
-            retryCount = 0,
-        )
+private fun makeDownload(
+    id: String,
+    bookId: String,
+    state: DownloadState,
+    bytes: Long,
+): DownloadEntity =
+    DownloadEntity(
+        audioFileId = id,
+        bookId = bookId,
+        filename = "$id.mp3",
+        fileIndex = 0,
+        state = state,
+        localPath = if (state == DownloadState.COMPLETED) "/audio/$id.mp3" else null,
+        totalBytes = bytes,
+        downloadedBytes = if (state == DownloadState.COMPLETED) bytes else 0L,
+        queuedAt = 1_000_000L,
+        startedAt = null,
+        completedAt = if (state == DownloadState.COMPLETED) 2_000_000L else null,
+        errorMessage = null,
+        retryCount = 0,
+    )
 
-    private fun fakeBook(
-        id: String,
-        title: String,
-        authors: List<String>,
-    ): BookListItem =
-        BookListItem(
-            id = BookId(id),
-            libraryId = LibraryId("test-library"),
-            folderId = FolderId("test-folder"),
-            title = title,
-            authors =
-                authors.mapIndexed { index, name ->
-                    BookContributor(id = "c$index", name = name)
-                },
-            narrators = emptyList(),
-            duration = 0L,
-            coverPath = null,
-            addedAt = Timestamp(0L),
-            updatedAt = Timestamp(0L),
-        )
-}
+private fun fakeBook(
+    id: String,
+    title: String,
+    authors: List<String>,
+): BookListItem =
+    BookListItem(
+        id = BookId(id),
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = title,
+        authors =
+            authors.mapIndexed { index, name ->
+                BookContributor(id = "c$index", name = name)
+            },
+        narrators = emptyList(),
+        duration = 0L,
+        coverPath = null,
+        addedAt = Timestamp(0L),
+        updatedAt = Timestamp(0L),
+    )
 
 private class FakeDownloadEnqueuer : DownloadEnqueuer {
     override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult<Unit> = AppResult.Success(Unit)
