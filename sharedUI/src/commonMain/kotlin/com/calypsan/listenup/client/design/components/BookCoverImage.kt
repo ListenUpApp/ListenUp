@@ -171,7 +171,7 @@ private fun rememberCoverRequest(
                             .diskCacheKey(cacheKey)
                             .build()
                     } else {
-                        serverCoverRequest(context, bookId, serverConfig, authSession, localPath)
+                        serverCoverRequest(context, bookId, serverConfig, authSession, localPath, cacheKey)
                     }
                 }
         }
@@ -182,6 +182,11 @@ private fun rememberCoverRequest(
 /**
  * Builds the authenticated server cover request, falling back to the local path when no server URL is
  * configured (offline before any onboarding).
+ *
+ * [cacheKey] folds the book's coverHash into Coil's memory/disk key so a re-covered book (new hash)
+ * busts the cached image instead of serving the stale one. Without it Coil keys on the cover URL —
+ * which never changes for a given book — so a replaced cover (e.g. a wizard-applied Audible cover)
+ * keeps rendering the old image, and the disk cache survives even an app restart.
  */
 private suspend fun serverCoverRequest(
     context: coil3.PlatformContext,
@@ -189,6 +194,7 @@ private suspend fun serverCoverRequest(
     serverConfig: ServerConfig,
     authSession: AuthSession,
     localPath: String,
+    cacheKey: String,
 ): ImageRequest {
     val baseUrl = serverConfig.getActiveUrl()?.value
     val token = authSession.getAccessToken()?.value
@@ -197,12 +203,19 @@ private suspend fun serverCoverRequest(
         ImageRequest
             .Builder(context)
             .data("$baseUrl/api/v1/covers/$bookId")
+            .memoryCacheKey(cacheKey)
+            .diskCacheKey(cacheKey)
             .apply {
                 if (token != null) {
                     httpHeaders(NetworkHeaders.Builder().set("Authorization", "Bearer $token").build())
                 }
             }.build()
     } else {
-        ImageRequest.Builder(context).data(localPath).build()
+        ImageRequest
+            .Builder(context)
+            .data(localPath)
+            .memoryCacheKey(cacheKey)
+            .diskCacheKey(cacheKey)
+            .build()
     }
 }
