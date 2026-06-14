@@ -60,3 +60,6 @@ struct UserProfileDestination: Hashable {}
 
 /// Settings.
 struct SettingsDestination: Hashable {}
+
+/// Administration dashboard (admin / root users only).
+struct AdminDestination: Hashable {}

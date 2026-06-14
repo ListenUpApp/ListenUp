@@ -138,6 +138,9 @@ private extension View {
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
             }
+            .navigationDestination(for: AdminDestination.self) { _ in
+                AdminView()
+            }
     }
 }
 

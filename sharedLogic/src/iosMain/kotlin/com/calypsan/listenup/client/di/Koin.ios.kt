@@ -163,6 +163,21 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getAdminViewModel(): com.calypsan.listenup.client.presentation.admin.AdminViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminViewModel by inject()
+        return viewModel
+    }
+
+    fun getAdminSettingsViewModel(): com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel by inject()
+        return viewModel
+    }
+
+    fun getCreateInviteViewModel(): com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel by inject()
+        return viewModel
+    }
+
     fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
         return viewModel
