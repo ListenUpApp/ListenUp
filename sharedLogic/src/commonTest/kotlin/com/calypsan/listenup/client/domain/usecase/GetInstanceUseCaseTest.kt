@@ -10,10 +10,10 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import com.calypsan.listenup.core.Timestamp
 
 /**
@@ -24,149 +24,150 @@ import com.calypsan.listenup.core.Timestamp
  * - Success and failure propagation
  * - ForceRefresh parameter forwarding
  */
-class GetInstanceUseCaseTest {
-    // ========== Test Fixtures ==========
+class GetInstanceUseCaseTest :
+    FunSpec({
+        // ========== Test Fixtures ==========
 
-    private class TestFixture {
-        val repository: InstanceRepository = mock()
+        class TestFixture {
+            val repository: InstanceRepository = mock()
 
-        fun build(): GetInstanceUseCase = GetInstanceUseCase(repository = repository)
-    }
-
-    private fun createFixture(): TestFixture = TestFixture()
-
-    // ========== Test Data Factories ==========
-
-    private fun createInstance(
-        id: String = "instance-1",
-        name: String = "Test Server",
-        version: String = "1.0.0",
-    ): Instance =
-        Instance(
-            id = InstanceId(id),
-            name = name,
-            version = version,
-            localUrl = "http://localhost:8080",
-            remoteUrl = null,
-            setupRequired = false,
-            createdAt = Timestamp(1704067200000L),
-            updatedAt = Timestamp(1704067200000L),
-        )
-
-    // ========== Success Tests ==========
-
-    @Test
-    fun `invoke returns success from repository`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val instance = createInstance(name = "My Server")
-            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val success = assertIs<AppResult.Success<Instance>>(result)
-            assertEquals("My Server", success.data.name)
+            fun build(): GetInstanceUseCase = GetInstanceUseCase(repository = repository)
         }
 
-    @Test
-    fun `invoke returns failure from repository`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            // Body-level message convention: pass a typed AppError so the
-            // user-facing message survives delegation.
-            everySuspend { fixture.repository.getInstance(false) } returns
-                AppResult.Failure(
-                    com.calypsan.listenup.api.error
-                        .ValidationError(message = "Network error"),
-                )
-            val useCase = fixture.build()
+        fun createFixture(): TestFixture = TestFixture()
 
-            // When
-            val result = useCase()
+        // ========== Test Data Factories ==========
 
-            // Then
-            val failure = assertIs<AppResult.Failure>(result)
-            assertEquals("Network error", failure.message)
+        fun createInstance(
+            id: String = "instance-1",
+            name: String = "Test Server",
+            version: String = "1.0.0",
+        ): Instance =
+            Instance(
+                id = InstanceId(id),
+                name = name,
+                version = version,
+                localUrl = "http://localhost:8080",
+                remoteUrl = null,
+                setupRequired = false,
+                createdAt = Timestamp(1704067200000L),
+                updatedAt = Timestamp(1704067200000L),
+            )
+
+        // ========== Success Tests ==========
+
+        test("invoke returns success from repository") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val instance = createInstance(name = "My Server")
+                everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase()
+
+                // Then
+                val success = result.shouldBeInstanceOf<AppResult.Success<Instance>>()
+                success.data.name shouldBe "My Server"
+            }
         }
 
-    // ========== ForceRefresh Parameter Tests ==========
+        test("invoke returns failure from repository") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                // Body-level message convention: pass a typed AppError so the
+                // user-facing message survives delegation.
+                everySuspend { fixture.repository.getInstance(false) } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Network error"),
+                    )
+                val useCase = fixture.build()
 
-    @Test
-    fun `invoke with forceRefresh true passes parameter to repository`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val instance = createInstance()
-            everySuspend { fixture.repository.getInstance(true) } returns AppResult.Success(instance)
-            val useCase = fixture.build()
+                // When
+                val result = useCase()
 
-            // When
-            useCase(forceRefresh = true)
-
-            // Then
-            verifySuspend { fixture.repository.getInstance(true) }
+                // Then
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.message shouldBe "Network error"
+            }
         }
 
-    @Test
-    fun `invoke with forceRefresh false passes parameter to repository`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val instance = createInstance()
-            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
-            val useCase = fixture.build()
+        // ========== ForceRefresh Parameter Tests ==========
 
-            // When
-            useCase(forceRefresh = false)
+        test("invoke with forceRefresh true passes parameter to repository") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val instance = createInstance()
+                everySuspend { fixture.repository.getInstance(true) } returns AppResult.Success(instance)
+                val useCase = fixture.build()
 
-            // Then
-            verifySuspend { fixture.repository.getInstance(false) }
+                // When
+                useCase(forceRefresh = true)
+
+                // Then
+                verifySuspend { fixture.repository.getInstance(true) }
+            }
         }
 
-    @Test
-    fun `invoke defaults to forceRefresh false`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val instance = createInstance()
-            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
-            val useCase = fixture.build()
+        test("invoke with forceRefresh false passes parameter to repository") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val instance = createInstance()
+                everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
+                val useCase = fixture.build()
 
-            // When
-            useCase()
+                // When
+                useCase(forceRefresh = false)
 
-            // Then
-            verifySuspend { fixture.repository.getInstance(false) }
+                // Then
+                verifySuspend { fixture.repository.getInstance(false) }
+            }
         }
 
-    // ========== Instance Properties Tests ==========
+        test("invoke defaults to forceRefresh false") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val instance = createInstance()
+                everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
+                val useCase = fixture.build()
 
-    @Test
-    fun `invoke returns complete instance data`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val instance =
-                createInstance(
-                    id = "test-123",
-                    name = "Production Server",
-                    version = "2.5.0",
-                )
-            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
-            val useCase = fixture.build()
+                // When
+                useCase()
 
-            // When
-            val result = useCase()
-
-            // Then
-            val success = assertIs<AppResult.Success<Instance>>(result)
-            assertEquals("test-123", success.data.id.value)
-            assertEquals("Production Server", success.data.name)
-            assertEquals("2.5.0", success.data.version)
+                // Then
+                verifySuspend { fixture.repository.getInstance(false) }
+            }
         }
-}
+
+        // ========== Instance Properties Tests ==========
+
+        test("invoke returns complete instance data") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val instance =
+                    createInstance(
+                        id = "test-123",
+                        name = "Production Server",
+                        version = "2.5.0",
+                    )
+                everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase()
+
+                // Then
+                val success = result.shouldBeInstanceOf<AppResult.Success<Instance>>()
+                success.data.id.value shouldBe "test-123"
+                success.data.name shouldBe "Production Server"
+                success.data.version shouldBe "2.5.0"
+            }
+        }
+    })

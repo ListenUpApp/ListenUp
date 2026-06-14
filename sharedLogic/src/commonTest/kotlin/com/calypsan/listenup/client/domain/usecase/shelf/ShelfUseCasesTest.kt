@@ -10,10 +10,10 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 /**
  * Tests for Shelf use cases.
@@ -21,234 +21,235 @@ import kotlin.test.assertIs
  * The repository now returns [AppResult] directly; use cases validate then forward
  * the typed result. Covers validation gates plus the new privacy/reorder surface.
  */
-class ShelfUseCasesTest {
-    // ========== Test Fixtures ==========
+class ShelfUseCasesTest :
+    FunSpec({
+        // ========== Test Fixtures ==========
 
-    private fun createShelf(
-        id: String = "shelf-123",
-        name: String = "Test Shelf",
-        description: String? = null,
-        isPrivate: Boolean = false,
-    ) = Shelf(
-        id = id,
-        name = name,
-        description = description,
-        isPrivate = isPrivate,
-        ownerId = "owner-123",
-        ownerDisplayName = "Test User",
-        bookCount = 0,
-        totalDurationSeconds = 0,
-        createdAtMs = 1736208000000L,
-        updatedAtMs = 1736208000000L,
-    )
+        fun createShelf(
+            id: String = "shelf-123",
+            name: String = "Test Shelf",
+            description: String? = null,
+            isPrivate: Boolean = false,
+        ) = Shelf(
+            id = id,
+            name = name,
+            description = description,
+            isPrivate = isPrivate,
+            ownerId = "owner-123",
+            ownerDisplayName = "Test User",
+            bookCount = 0,
+            totalDurationSeconds = 0,
+            createdAtMs = 1736208000000L,
+            updatedAtMs = 1736208000000L,
+        )
 
-    // ========== CreateShelfUseCase Tests ==========
+        // ========== CreateShelfUseCase Tests ==========
 
-    @Test
-    fun `create shelf returns success with valid name`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            val expectedShelf = createShelf(name = "My Reading List")
-            everySuspend { shelfRepository.createShelf(any(), any(), any()) } returns AppResult.Success(expectedShelf)
-            val useCase = CreateShelfUseCase(shelfRepository)
+        test("create shelf returns success with valid name") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                val expectedShelf = createShelf(name = "My Reading List")
+                everySuspend { shelfRepository.createShelf(any(), any(), any()) } returns AppResult.Success(expectedShelf)
+                val useCase = CreateShelfUseCase(shelfRepository)
 
-            val result = useCase(name = "My Reading List", description = null)
+                val result = useCase(name = "My Reading List", description = null)
 
-            val success = assertIs<AppResult.Success<Shelf>>(result)
-            assertEquals("My Reading List", success.data.name)
+                val success = result.shouldBeInstanceOf<AppResult.Success<Shelf>>()
+                success.data.name shouldBe "My Reading List"
+            }
         }
 
-    @Test
-    fun `create shelf calls repository with trimmed name and privacy flag`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend {
-                shelfRepository.createShelf(any(), any(), any())
-            } returns AppResult.Success(createShelf())
-            val useCase = CreateShelfUseCase(shelfRepository)
+        test("create shelf calls repository with trimmed name and privacy flag") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend {
+                    shelfRepository.createShelf(any(), any(), any())
+                } returns AppResult.Success(createShelf())
+                val useCase = CreateShelfUseCase(shelfRepository)
 
-            useCase(name = "  Trimmed Name  ", description = null, isPrivate = true)
+                useCase(name = "  Trimmed Name  ", description = null, isPrivate = true)
 
-            verifySuspend { shelfRepository.createShelf("Trimmed Name", null, true) }
+                verifySuspend { shelfRepository.createShelf("Trimmed Name", null, true) }
+            }
         }
 
-    @Test
-    fun `create shelf returns validation error for blank name`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            val useCase = CreateShelfUseCase(shelfRepository)
+        test("create shelf returns validation error for blank name") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                val useCase = CreateShelfUseCase(shelfRepository)
 
-            val result = useCase(name = "   ", description = null)
+                val result = useCase(name = "   ", description = null)
 
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<ValidationError>(failure.error)
-            assertEquals("Shelf name is required", failure.message)
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<ValidationError>()
+                failure.message shouldBe "Shelf name is required"
+            }
         }
 
-    @Test
-    fun `create shelf converts empty description to null`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend {
-                shelfRepository.createShelf(any(), any(), any())
-            } returns AppResult.Success(createShelf())
-            val useCase = CreateShelfUseCase(shelfRepository)
+        test("create shelf converts empty description to null") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend {
+                    shelfRepository.createShelf(any(), any(), any())
+                } returns AppResult.Success(createShelf())
+                val useCase = CreateShelfUseCase(shelfRepository)
 
-            useCase(name = "Test", description = "   ")
+                useCase(name = "Test", description = "   ")
 
-            verifySuspend { shelfRepository.createShelf("Test", null, false) }
+                verifySuspend { shelfRepository.createShelf("Test", null, false) }
+            }
         }
 
-    @Test
-    fun `create shelf forwards repository failure`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend {
-                shelfRepository.createShelf(any(), any(), any())
-            } returns AppResult.Failure(ValidationError(message = "duplicate"))
-            val useCase = CreateShelfUseCase(shelfRepository)
+        test("create shelf forwards repository failure") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend {
+                    shelfRepository.createShelf(any(), any(), any())
+                } returns AppResult.Failure(ValidationError(message = "duplicate"))
+                val useCase = CreateShelfUseCase(shelfRepository)
 
-            val result = useCase(name = "Test", description = null)
+                val result = useCase(name = "Test", description = null)
 
-            assertIs<AppResult.Failure>(result)
+                result.shouldBeInstanceOf<AppResult.Failure>()
+            }
         }
 
-    // ========== UpdateShelfUseCase Tests ==========
+        // ========== UpdateShelfUseCase Tests ==========
 
-    @Test
-    fun `update shelf returns success with valid name`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            val expectedShelf = createShelf(name = "Updated Name")
-            everySuspend {
-                shelfRepository.updateShelf(any(), any(), any(), any())
-            } returns AppResult.Success(expectedShelf)
-            val useCase = UpdateShelfUseCase(shelfRepository)
+        test("update shelf returns success with valid name") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                val expectedShelf = createShelf(name = "Updated Name")
+                everySuspend {
+                    shelfRepository.updateShelf(any(), any(), any(), any())
+                } returns AppResult.Success(expectedShelf)
+                val useCase = UpdateShelfUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-123", name = "Updated Name", description = null)
+                val result = useCase(shelfId = "shelf-123", name = "Updated Name", description = null)
 
-            val success = assertIs<AppResult.Success<Shelf>>(result)
-            assertEquals("Updated Name", success.data.name)
+                val success = result.shouldBeInstanceOf<AppResult.Success<Shelf>>()
+                success.data.name shouldBe "Updated Name"
+            }
         }
 
-    @Test
-    fun `update shelf calls repository with correct parameters and privacy flag`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend {
-                shelfRepository.updateShelf(any(), any(), any(), any())
-            } returns AppResult.Success(createShelf())
-            val useCase = UpdateShelfUseCase(shelfRepository)
+        test("update shelf calls repository with correct parameters and privacy flag") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend {
+                    shelfRepository.updateShelf(any(), any(), any(), any())
+                } returns AppResult.Success(createShelf())
+                val useCase = UpdateShelfUseCase(shelfRepository)
 
-            useCase(shelfId = "shelf-456", name = "New Name", description = "New description", isPrivate = true)
+                useCase(shelfId = "shelf-456", name = "New Name", description = "New description", isPrivate = true)
 
-            verifySuspend { shelfRepository.updateShelf("shelf-456", "New Name", "New description", true) }
+                verifySuspend { shelfRepository.updateShelf("shelf-456", "New Name", "New description", true) }
+            }
         }
 
-    @Test
-    fun `update shelf returns validation error for blank name`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            val useCase = UpdateShelfUseCase(shelfRepository)
+        test("update shelf returns validation error for blank name") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                val useCase = UpdateShelfUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-123", name = "   ", description = null)
+                val result = useCase(shelfId = "shelf-123", name = "   ", description = null)
 
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<ValidationError>(failure.error)
-            assertEquals("Shelf name is required", failure.message)
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<ValidationError>()
+                failure.message shouldBe "Shelf name is required"
+            }
         }
 
-    // ========== DeleteShelfUseCase Tests ==========
+        // ========== DeleteShelfUseCase Tests ==========
 
-    @Test
-    fun `delete shelf returns success`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.deleteShelf(any()) } returns AppResult.Success(Unit)
-            val useCase = DeleteShelfUseCase(shelfRepository)
+        test("delete shelf returns success") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend { shelfRepository.deleteShelf(any()) } returns AppResult.Success(Unit)
+                val useCase = DeleteShelfUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-123")
+                val result = useCase(shelfId = "shelf-123")
 
-            checkIs<AppResult.Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
+            }
         }
 
-    @Test
-    fun `delete shelf calls repository with correct ID`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.deleteShelf(any()) } returns AppResult.Success(Unit)
-            val useCase = DeleteShelfUseCase(shelfRepository)
+        test("delete shelf calls repository with correct ID") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend { shelfRepository.deleteShelf(any()) } returns AppResult.Success(Unit)
+                val useCase = DeleteShelfUseCase(shelfRepository)
 
-            useCase(shelfId = "shelf-456")
+                useCase(shelfId = "shelf-456")
 
-            verifySuspend { shelfRepository.deleteShelf("shelf-456") }
+                verifySuspend { shelfRepository.deleteShelf("shelf-456") }
+            }
         }
 
-    @Test
-    fun `delete shelf forwards repository failure`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend {
-                shelfRepository.deleteShelf(any())
-            } returns AppResult.Failure(ValidationError(message = "boom"))
-            val useCase = DeleteShelfUseCase(shelfRepository)
+        test("delete shelf forwards repository failure") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend {
+                    shelfRepository.deleteShelf(any())
+                } returns AppResult.Failure(ValidationError(message = "boom"))
+                val useCase = DeleteShelfUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-123")
+                val result = useCase(shelfId = "shelf-123")
 
-            assertIs<AppResult.Failure>(result)
+                result.shouldBeInstanceOf<AppResult.Failure>()
+            }
         }
 
-    // ========== ReorderShelfBooksUseCase Tests ==========
+        // ========== ReorderShelfBooksUseCase Tests ==========
 
-    @Test
-    fun `reorder books forwards the new order to the repository`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.reorderBooks(any(), any()) } returns AppResult.Success(Unit)
-            val useCase = ReorderShelfBooksUseCase(shelfRepository)
+        test("reorder books forwards the new order to the repository") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend { shelfRepository.reorderBooks(any(), any()) } returns AppResult.Success(Unit)
+                val useCase = ReorderShelfBooksUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-1", orderedBookIds = listOf("b2", "b1", "b3"))
+                val result = useCase(shelfId = "shelf-1", orderedBookIds = listOf("b2", "b1", "b3"))
 
-            checkIs<AppResult.Success<Unit>>(result)
-            verifySuspend { shelfRepository.reorderBooks("shelf-1", listOf("b2", "b1", "b3")) }
+                checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend { shelfRepository.reorderBooks("shelf-1", listOf("b2", "b1", "b3")) }
+            }
         }
 
-    @Test
-    fun `reorder books returns validation error for empty list`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            val useCase = ReorderShelfBooksUseCase(shelfRepository)
+        test("reorder books returns validation error for empty list") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                val useCase = ReorderShelfBooksUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-1", orderedBookIds = emptyList())
+                val result = useCase(shelfId = "shelf-1", orderedBookIds = emptyList())
 
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<ValidationError>(failure.error)
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<ValidationError>()
+            }
         }
 
-    // ========== AddBooksToShelfUseCase Tests ==========
+        // ========== AddBooksToShelfUseCase Tests ==========
 
-    @Test
-    fun `add books returns validation error for empty list`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            val useCase = AddBooksToShelfUseCase(shelfRepository)
+        test("add books returns validation error for empty list") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                val useCase = AddBooksToShelfUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-1", bookIds = emptyList())
+                val result = useCase(shelfId = "shelf-1", bookIds = emptyList())
 
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<ValidationError>(failure.error)
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<ValidationError>()
+            }
         }
 
-    @Test
-    fun `add books forwards to the repository`() =
-        runTest {
-            val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.addBooksToShelf(any(), any()) } returns AppResult.Success(Unit)
-            val useCase = AddBooksToShelfUseCase(shelfRepository)
+        test("add books forwards to the repository") {
+            runTest {
+                val shelfRepository: ShelfRepository = mock()
+                everySuspend { shelfRepository.addBooksToShelf(any(), any()) } returns AppResult.Success(Unit)
+                val useCase = AddBooksToShelfUseCase(shelfRepository)
 
-            val result = useCase(shelfId = "shelf-1", bookIds = listOf("b1", "b2"))
+                val result = useCase(shelfId = "shelf-1", bookIds = listOf("b1", "b2"))
 
-            checkIs<AppResult.Success<Unit>>(result)
-            verifySuspend { shelfRepository.addBooksToShelf("shelf-1", listOf("b1", "b2")) }
+                checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend { shelfRepository.addBooksToShelf("shelf-1", listOf("b1", "b2")) }
+            }
         }
-}
+    })
