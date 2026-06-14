@@ -8771,6 +8771,16 @@
         }
       }
     },
+    "search.results_count_for": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d results for “%2$@”"
+          }
+        }
+      }
+    },
     "search.results_for": {
       "localizations": {
         "en": {

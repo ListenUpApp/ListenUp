@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
+
 package com.calypsan.listenup.client.features.search
 
 import androidx.compose.animation.AnimatedVisibility
@@ -6,10 +11,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,66 +32,68 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.ContentRow
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
-import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.highlightMatch
+import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
-import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_tags
+import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.genre_book_count
 import listenup.composeapp.generated.resources.genre_books_count
 import listenup.composeapp.generated.resources.library_books
-import listenup.composeapp.generated.resources.search_count_books
 import listenup.composeapp.generated.resources.search_cover_for
 import listenup.composeapp.generated.resources.search_no_results_for_query
 import listenup.composeapp.generated.resources.search_people
-import listenup.composeapp.generated.resources.search_section_count
+import listenup.composeapp.generated.resources.search_results_count_for
+import listenup.composeapp.generated.resources.search_tab_all
 import listenup.composeapp.generated.resources.search_try_a_different_search_term
 import listenup.composeapp.generated.resources.shell_close_search
 
 /**
  * Full-screen overlay for search results.
  *
- * Displays federated results grouped by type (Books, Authors, Series, Tags).
- * [isExpanded] is owned by the enclosing screen (search bar) and combined here
- * with `state.query` to drive entry/exit animation.
- *
- * Layout is width-adaptive: at compact width the groups stack in a single column;
- * at medium-or-wider width Books move into a multi-column cover grid beside a
- * People / Series / Tags rail — mirroring the iPad search design.
+ * Displays federated results grouped by type (Books, People, Series, Tags) in the Material 3
+ * Expressive language: a docked pill search bar, big filled-coral scope chips, scalloped count
+ * badges on each group header, and live query-match highlighting on result labels.
+ * [isExpanded] is owned by the enclosing screen (search bar) and combined here with `state.query`
+ * to drive entry/exit animation.
  */
 @Composable
 fun SearchResultsOverlay(
@@ -94,6 +102,7 @@ fun SearchResultsOverlay(
     onClose: () -> Unit,
     onResultClick: (SearchHit) -> Unit,
     onTypeFilterToggle: (SearchHitType) -> Unit,
+    onClearTypeFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -104,18 +113,27 @@ fun SearchResultsOverlay(
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
+            color = MaterialTheme.colorScheme.surface,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // The overlay covers the shell header (and its back arrow), so it carries its own
                 // back affordance — the visible counterpart to the system-back handler in AppShell.
-                SearchOverlayTopBar(query = state.query, onClose = onClose)
+                SearchPillBar(
+                    query = state.query,
+                    onClose = onClose,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
 
                 TypeFilterRow(
                     selectedTypes = state.selectedTypes,
                     onToggle = onTypeFilterToggle,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    onSelectAll = onClearTypeFilters,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
+
+                if (state is SearchUiState.Results && state.result.isOfflineResult) {
+                    OfflineIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                }
 
                 when (state) {
                     is SearchUiState.Idle -> {
@@ -146,6 +164,98 @@ fun SearchResultsOverlay(
     }
 }
 
+/**
+ * The docked Expressive pill search bar. Reflects the live [query]; both the leading back arrow
+ * and the trailing clear button collapse the overlay back to the shell header for re-editing.
+ */
+@Composable
+private fun SearchPillBar(
+    query: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(Res.string.shell_close_search),
+                )
+            }
+            Text(
+                text = query,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(Res.string.shell_close_search),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypeFilterRow(
+    selectedTypes: Set<SearchHitType>,
+    onToggle: (SearchHitType) -> Unit,
+    onSelectAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PillChip(
+            label = stringResource(Res.string.search_tab_all),
+            onClick = onSelectAll,
+            selected = selectedTypes.isEmpty(),
+            leadingIcon = Icons.Default.Apps,
+        )
+        PillChip(
+            label = stringResource(Res.string.library_books),
+            onClick = { onToggle(SearchHitType.BOOK) },
+            selected = SearchHitType.BOOK in selectedTypes,
+            leadingIcon = Icons.Default.Book,
+        )
+        PillChip(
+            label = stringResource(Res.string.search_people),
+            onClick = { onToggle(SearchHitType.CONTRIBUTOR) },
+            selected = SearchHitType.CONTRIBUTOR in selectedTypes,
+            leadingIcon = Icons.Default.Person,
+        )
+        PillChip(
+            label = stringResource(Res.string.common_series),
+            onClick = { onToggle(SearchHitType.SERIES) },
+            selected = SearchHitType.SERIES in selectedTypes,
+            leadingIcon = Icons.AutoMirrored.Filled.PlaylistPlay,
+        )
+        PillChip(
+            label = stringResource(Res.string.book_detail_tags),
+            onClick = { onToggle(SearchHitType.TAG) },
+            selected = SearchHitType.TAG in selectedTypes,
+            leadingIcon = Icons.Default.Tag,
+        )
+    }
+}
+
 @Composable
 private fun ResultsContent(
     result: SearchResult,
@@ -169,120 +279,35 @@ private fun ResultsContent(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
 
-    if (isWide) {
-        WideSearchResults(
-            books = books,
-            contributors = contributors,
-            series = series,
-            tags = tags,
-            onResultClick = onResultClick,
-            modifier = modifier,
+    Column(modifier = modifier.fillMaxSize()) {
+        Text(
+            text = stringResource(Res.string.search_results_count_for, result.total, query),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = if (isWide) 24.dp else 16.dp, vertical = 4.dp),
         )
-    } else {
-        SearchResultsList(
-            books = books,
-            contributors = contributors,
-            series = series,
-            tags = tags,
-            onResultClick = onResultClick,
-            modifier = modifier,
-        )
-    }
-}
-
-@Composable
-private fun SearchOverlayTopBar(
-    query: String,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(start = 4.dp, end = 16.dp, top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onClose) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.shell_close_search),
+        if (isWide) {
+            WideSearchResults(
+                books = books,
+                contributors = contributors,
+                series = series,
+                tags = tags,
+                query = query,
+                onResultClick = onResultClick,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            SearchResultsList(
+                books = books,
+                contributors = contributors,
+                series = series,
+                tags = tags,
+                query = query,
+                onResultClick = onResultClick,
+                modifier = Modifier.weight(1f),
             )
         }
-        Text(
-            text = query,
-            style = MaterialTheme.typography.titleLargeEmphasized,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp),
-        )
     }
-}
-
-@Composable
-private fun TypeFilterRow(
-    selectedTypes: Set<SearchHitType>,
-    onToggle: (SearchHitType) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SearchScopeChip(
-            type = SearchHitType.BOOK,
-            selectedTypes = selectedTypes,
-            onToggle = onToggle,
-            label = stringResource(Res.string.library_books),
-            icon = Icons.Default.Book,
-        )
-        SearchScopeChip(
-            type = SearchHitType.CONTRIBUTOR,
-            selectedTypes = selectedTypes,
-            onToggle = onToggle,
-            label = stringResource(Res.string.search_people),
-            icon = Icons.Default.Person,
-        )
-        SearchScopeChip(
-            type = SearchHitType.SERIES,
-            selectedTypes = selectedTypes,
-            onToggle = onToggle,
-            label = stringResource(Res.string.common_series),
-            icon = Icons.AutoMirrored.Filled.PlaylistPlay,
-        )
-        SearchScopeChip(
-            type = SearchHitType.TAG,
-            selectedTypes = selectedTypes,
-            onToggle = onToggle,
-            label = stringResource(Res.string.book_detail_tags),
-            icon = Icons.Default.Tag,
-        )
-    }
-}
-
-/**
- * A single multi-select scope chip. Empty selection means "all", so each chip reads as
- * selected when its type is chosen or when nothing is filtered.
- */
-@Composable
-private fun SearchScopeChip(
-    type: SearchHitType,
-    selectedTypes: Set<SearchHitType>,
-    onToggle: (SearchHitType) -> Unit,
-    label: String,
-    icon: ImageVector,
-) {
-    FilterChip(
-        selected = type in selectedTypes || selectedTypes.isEmpty(),
-        onClick = { onToggle(type) },
-        label = { Text(label) },
-        shape = MaterialTheme.shapes.large,
-        leadingIcon = {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-        },
-    )
 }
 
 /**
@@ -294,62 +319,68 @@ private fun SearchResultsList(
     contributors: List<SearchHit>,
     series: List<SearchHit>,
     tags: List<SearchHit>,
+    query: String,
     onResultClick: (SearchHit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (books.isNotEmpty()) {
             item(key = "books_header") {
-                SectionHeader(title = stringResource(Res.string.library_books), count = books.size)
+                GroupHeader(
+                    title = stringResource(Res.string.library_books),
+                    count = books.size,
+                    badgeContainer = MaterialTheme.colorScheme.primary,
+                    badgeContent = MaterialTheme.colorScheme.onPrimary,
+                )
             }
             items(books, key = { "book_${it.id}" }) { hit ->
-                BookSearchResultCard(
-                    hit = hit,
-                    onClick = { onResultClick(hit) },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                BookResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
             }
         }
 
         if (contributors.isNotEmpty()) {
             item(key = "contributors_header") {
-                SectionHeader(title = stringResource(Res.string.search_people), count = contributors.size)
+                GroupHeader(
+                    title = stringResource(Res.string.search_people),
+                    count = contributors.size,
+                    badgeContainer = MaterialTheme.colorScheme.tertiaryContainer,
+                    badgeContent = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
             }
             items(contributors, key = { "contributor_${it.id}" }) { hit ->
-                ContributorSearchResultCard(
-                    hit = hit,
-                    onClick = { onResultClick(hit) },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                PersonResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
             }
         }
 
         if (series.isNotEmpty()) {
             item(key = "series_header") {
-                SectionHeader(title = stringResource(Res.string.common_series), count = series.size)
+                GroupHeader(
+                    title = stringResource(Res.string.common_series),
+                    count = series.size,
+                    badgeContainer = MaterialTheme.colorScheme.secondaryContainer,
+                    badgeContent = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
             }
             items(series, key = { "series_${it.id}" }) { hit ->
-                SeriesSearchResultCard(
-                    hit = hit,
-                    onClick = { onResultClick(hit) },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                SeriesResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
             }
         }
 
         if (tags.isNotEmpty()) {
             item(key = "tags_header") {
-                SectionHeader(title = stringResource(Res.string.book_detail_tags), count = tags.size)
-            }
-            items(tags, key = { "tag_${it.id}" }) { hit ->
-                TagSearchResultCard(
-                    hit = hit,
-                    onClick = { onResultClick(hit) },
+                GroupHeader(
+                    title = stringResource(Res.string.book_detail_tags),
+                    count = tags.size,
+                    badgeContainer = MaterialTheme.colorScheme.primaryContainer,
+                    badgeContent = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+            }
+            item(key = "tags_flow") {
+                TagFlow(tags = tags, query = query, onResultClick = onResultClick)
             }
         }
     }
@@ -366,6 +397,7 @@ private fun WideSearchResults(
     contributors: List<SearchHit>,
     series: List<SearchHit>,
     tags: List<SearchHit>,
+    query: String,
     onResultClick: (SearchHit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -386,32 +418,45 @@ private fun WideSearchResults(
             LazyColumn(
                 modifier = Modifier.weight(1f).widthIn(max = 420.dp),
                 contentPadding = PaddingValues(vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (contributors.isNotEmpty()) {
                     item(key = "contributors_header") {
-                        SectionHeader(title = stringResource(Res.string.search_people), count = contributors.size)
+                        GroupHeader(
+                            title = stringResource(Res.string.search_people),
+                            count = contributors.size,
+                            badgeContainer = MaterialTheme.colorScheme.tertiaryContainer,
+                            badgeContent = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
                     }
                     items(contributors, key = { "contributor_${it.id}" }) { hit ->
-                        ContributorSearchResultCard(hit = hit, onClick = { onResultClick(hit) })
-                        Spacer(modifier = Modifier.height(8.dp))
+                        PersonResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
                     }
                 }
                 if (series.isNotEmpty()) {
                     item(key = "series_header") {
-                        SectionHeader(title = stringResource(Res.string.common_series), count = series.size)
+                        GroupHeader(
+                            title = stringResource(Res.string.common_series),
+                            count = series.size,
+                            badgeContainer = MaterialTheme.colorScheme.secondaryContainer,
+                            badgeContent = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
                     }
                     items(series, key = { "series_${it.id}" }) { hit ->
-                        SeriesSearchResultCard(hit = hit, onClick = { onResultClick(hit) })
-                        Spacer(modifier = Modifier.height(8.dp))
+                        SeriesResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
                     }
                 }
                 if (tags.isNotEmpty()) {
                     item(key = "tags_header") {
-                        SectionHeader(title = stringResource(Res.string.book_detail_tags), count = tags.size)
+                        GroupHeader(
+                            title = stringResource(Res.string.book_detail_tags),
+                            count = tags.size,
+                            badgeContainer = MaterialTheme.colorScheme.primaryContainer,
+                            badgeContent = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                     }
-                    items(tags, key = { "tag_${it.id}" }) { hit ->
-                        TagSearchResultCard(hit = hit, onClick = { onResultClick(hit) })
-                        Spacer(modifier = Modifier.height(8.dp))
+                    item(key = "tags_flow") {
+                        TagFlow(tags = tags, query = query, onResultClick = onResultClick)
                     }
                 }
             }
@@ -437,7 +482,12 @@ private fun BooksGrid(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item(key = "books_header", span = { GridItemSpan(maxLineSpan) }) {
-            SectionHeader(title = stringResource(Res.string.library_books), count = books.size)
+            GroupHeader(
+                title = stringResource(Res.string.library_books),
+                count = books.size,
+                badgeContainer = MaterialTheme.colorScheme.primary,
+                badgeContent = MaterialTheme.colorScheme.onPrimary,
+            )
         }
         gridItems(books, key = { "book_${it.id}" }) { hit ->
             BookCard(
@@ -454,17 +504,24 @@ private fun BooksGrid(
     }
 }
 
+/**
+ * Expressive group header: an emphasized title with a scalloped cookie count badge tinted to
+ * the group's container role.
+ */
 @Composable
-private fun SectionHeader(
+private fun GroupHeader(
     title: String,
     count: Int,
+    badgeContainer: Color,
+    badgeContent: Color,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -473,260 +530,226 @@ private fun SectionHeader(
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = stringResource(Res.string.search_section_count, count),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        ScallopBadge(size = 34.dp, containerColor = badgeContainer) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = badgeContent,
+            )
+        }
     }
 }
 
 @Composable
-private fun BookSearchResultCard(
+private fun BookResultRow(
     hit: SearchHit,
+    query: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BookCoverImage(
-                bookId = hit.id,
-                coverPath = hit.coverPath,
-                contentDescription = stringResource(Res.string.search_cover_for, hit.name),
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .size(56.dp)
-                        .clip(MaterialTheme.shapes.small),
+    ContentRow(onClick = onClick, modifier = modifier) {
+        BookCoverImage(
+            bookId = hit.id,
+            coverPath = hit.coverPath,
+            contentDescription = stringResource(Res.string.search_cover_for, hit.name),
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier
+                    .size(60.dp)
+                    .clip(MaterialTheme.shapes.small),
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = highlightMatch(hit.name, query),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            hit.author?.let { author ->
                 Text(
-                    text = hit.name,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = highlightMatch(author, query),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                hit.author?.let { author ->
-                    Text(
-                        text = author,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                hit.seriesName?.let { seriesName ->
-                    Text(
-                        text = seriesName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
+        }
+        hit.formatDuration()?.let { duration ->
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = duration,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
-            hit.formatDuration()?.let { duration ->
+@Composable
+private fun PersonResultRow(
+    hit: SearchHit,
+    query: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ContentRow(onClick = onClick, modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .size(52.dp)
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = highlightMatch(hit.name, query),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            hit.bookCount?.let { count ->
                 Text(
-                    text = duration,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = bookCountLabel(count),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ContributorSearchResultCard(
-    hit: SearchHit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SearchAvatarTile(
-                icon = Icons.Default.Person,
-                container = MaterialTheme.colorScheme.primaryContainer,
-                onContainer = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = hit.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                hit.bookCount?.let { count ->
-                    Text(
-                        text = stringResource(Res.string.search_count_books, count),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SeriesSearchResultCard(
-    hit: SearchHit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SearchAvatarTile(
-                icon = Icons.AutoMirrored.Filled.PlaylistPlay,
-                container = MaterialTheme.colorScheme.tertiaryContainer,
-                onContainer = MaterialTheme.colorScheme.onTertiaryContainer,
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = hit.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                hit.bookCount?.let { count ->
-                    Text(
-                        text = stringResource(Res.string.search_count_books, count),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TagSearchResultCard(
-    hit: SearchHit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SearchAvatarTile(
-                icon = Icons.Default.Tag,
-                container = MaterialTheme.colorScheme.secondaryContainer,
-                onContainer = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = hit.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                hit.bookCount?.let { count ->
-                    Text(
-                        text =
-                            if (count == 1) {
-                                stringResource(Res.string.genre_book_count, count)
-                            } else {
-                                stringResource(Res.string.genre_books_count, count)
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * The Expressive scalloped "cookie" tile used as the leading glyph for non-book hits
- * (People / Series / Tags), tinted to its container role.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun SearchAvatarTile(
-    icon: ImageVector,
-    container: Color,
-    onContainer: Color,
-) {
-    Box(
-        modifier =
-            Modifier
-                .size(48.dp)
-                .clip(cookieScallopShape())
-                .background(container),
-        contentAlignment = Alignment.Center,
-    ) {
         Icon(
-            icon,
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = onContainer,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun SeriesResultRow(
+    hit: SearchHit,
+    query: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ContentRow(onClick = onClick, modifier = modifier) {
+        ScallopBadge(size = 52.dp, containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
+            Icon(
+                Icons.AutoMirrored.Filled.PlaylistPlay,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = highlightMatch(hit.name, query),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            hit.bookCount?.let { count ->
+                Text(
+                    text = bookCountLabel(count),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Tag hits as a wrapping row of Expressive pills, each highlighting the matched query. */
+@Composable
+private fun TagFlow(
+    tags: List<SearchHit>,
+    query: String,
+    onResultClick: (SearchHit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        tags.forEach { hit ->
+            Surface(
+                onClick = { onResultClick(hit) },
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier.height(42.dp).padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Tag,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = highlightMatch(hit.name, query),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun bookCountLabel(count: Int): String =
+    if (count == 1) {
+        stringResource(Res.string.genre_book_count, count)
+    } else {
+        stringResource(Res.string.genre_books_count, count)
+    }
+
+@Composable
+private fun OfflineIndicator(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.CloudOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(Res.string.book_edit_showing_offline_results),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
     }
 }
 
