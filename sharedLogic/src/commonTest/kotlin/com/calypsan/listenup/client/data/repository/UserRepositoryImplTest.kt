@@ -15,6 +15,9 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -22,12 +25,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * Tests for UserRepositoryImpl.
@@ -41,848 +38,836 @@ import kotlin.test.assertTrue
  * Uses Mokkery for mocking UserDao and follows Given-When-Then style.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class UserRepositoryImplTest {
-    // ========== Test Data Factories ==========
+class UserRepositoryImplTest :
+    FunSpec({
+        // ========== Test Data Factories ==========
 
-    /**
-     * Creates a test UserEntity with all fields populated.
-     * Provides sensible defaults while allowing field overrides for specific test scenarios.
-     */
-    private fun createTestUserEntity(
-        id: String = "user-001",
-        email: String = "test@example.com",
-        displayName: String = "Test User",
-        firstName: String? = "Test",
-        lastName: String? = "User",
-        isRoot: Boolean = false,
-        avatarType: String = "auto",
-        avatarValue: String? = null,
-        avatarColor: String = "#3B82F6",
-        tagline: String? = "Audiobook enthusiast",
-        createdAt: Long = 1704067200000L, // 2024-01-01 00:00:00 UTC
-        updatedAt: Long = 1704153600000L, // 2024-01-02 00:00:00 UTC
-    ): UserEntity =
-        UserEntity(
-            id =
-                UserId(id),
-            email = email,
-            displayName = displayName,
-            firstName = firstName,
-            lastName = lastName,
-            isRoot = isRoot,
-            avatarType = avatarType,
-            avatarValue = avatarValue,
-            avatarColor = avatarColor,
-            tagline = tagline,
-            createdAt =
-                com.calypsan.listenup.core
-                    .Timestamp(createdAt),
-            updatedAt =
-                com.calypsan.listenup.core
-                    .Timestamp(updatedAt),
-        )
+        // Creates a test UserEntity with all fields populated.
+        // Provides sensible defaults while allowing field overrides for specific test scenarios.
+        fun createTestUserEntity(
+            id: String = "user-001",
+            email: String = "test@example.com",
+            displayName: String = "Test User",
+            firstName: String? = "Test",
+            lastName: String? = "User",
+            isRoot: Boolean = false,
+            avatarType: String = "auto",
+            avatarValue: String? = null,
+            avatarColor: String = "#3B82F6",
+            tagline: String? = "Audiobook enthusiast",
+            createdAt: Long = 1704067200000L, // 2024-01-01 00:00:00 UTC
+            updatedAt: Long = 1704153600000L, // 2024-01-02 00:00:00 UTC
+        ): UserEntity =
+            UserEntity(
+                id =
+                    UserId(id),
+                email = email,
+                displayName = displayName,
+                firstName = firstName,
+                lastName = lastName,
+                isRoot = isRoot,
+                avatarType = avatarType,
+                avatarValue = avatarValue,
+                avatarColor = avatarColor,
+                tagline = tagline,
+                createdAt =
+                    com.calypsan.listenup.core
+                        .Timestamp(createdAt),
+                updatedAt =
+                    com.calypsan.listenup.core
+                        .Timestamp(updatedAt),
+            )
 
-    private fun createMockUserDao(): UserDao = mock<UserDao>()
+        fun createMockUserDao(): UserDao = mock<UserDao>()
 
-    private fun createMockAuthRpcFactory(): AuthRpcFactory = mock<AuthRpcFactory>()
+        fun createMockAuthRpcFactory(): AuthRpcFactory = mock<AuthRpcFactory>()
 
-    // ========== observeCurrentUser Tests ==========
+        // ========== observeCurrentUser Tests ==========
 
-    @Test
-    fun `observeCurrentUser emits User when user exists`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity()
-            every { userDao.observeCurrentUser() } returns flowOf(entity)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeCurrentUser emits User when user exists") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity()
+                every { userDao.observeCurrentUser() } returns flowOf(entity)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.observeCurrentUser().first()
+                // When
+                val user = repository.observeCurrentUser().first().shouldNotBeNull()
 
-            // Then
-            assertNotNull(user)
-            assertEquals("user-001", user.id.value)
-            assertEquals("test@example.com", user.email)
-            assertEquals("Test User", user.displayName)
+                // Then
+                user.id.value shouldBe "user-001"
+                user.email shouldBe "test@example.com"
+                user.displayName shouldBe "Test User"
+            }
         }
 
-    @Test
-    fun `observeCurrentUser emits null when no user exists`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            every { userDao.observeCurrentUser() } returns flowOf(null)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeCurrentUser emits null when no user exists") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                every { userDao.observeCurrentUser() } returns flowOf(null)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.observeCurrentUser().first()
+                // When
+                val user = repository.observeCurrentUser().first()
 
-            // Then
-            assertNull(user)
+                // Then
+                user shouldBe null
+            }
         }
 
-    @Test
-    fun `observeCurrentUser emits changes when user updates`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val initialUser = createTestUserEntity(displayName = "Initial Name")
-            val updatedUser = createTestUserEntity(displayName = "Updated Name")
-            // Flow emits null -> user1 -> user2 -> null
-            every { userDao.observeCurrentUser() } returns flowOf(null, initialUser, updatedUser, null)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeCurrentUser emits changes when user updates") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val initialUser = createTestUserEntity(displayName = "Initial Name")
+                val updatedUser = createTestUserEntity(displayName = "Updated Name")
+                // Flow emits null -> user1 -> user2 -> null
+                every { userDao.observeCurrentUser() } returns flowOf(null, initialUser, updatedUser, null)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val emissions = repository.observeCurrentUser().take(4).toList()
+                // When
+                val emissions = repository.observeCurrentUser().take(4).toList()
 
-            // Then
-            assertNull(emissions[0])
-            assertEquals("Initial Name", emissions[1]?.displayName)
-            assertEquals("Updated Name", emissions[2]?.displayName)
-            assertNull(emissions[3])
+                // Then
+                emissions[0] shouldBe null
+                emissions[1]?.displayName shouldBe "Initial Name"
+                emissions[2]?.displayName shouldBe "Updated Name"
+                emissions[3] shouldBe null
+            }
         }
 
-    // ========== observeIsAdmin Tests ==========
+        // ========== observeIsAdmin Tests ==========
 
-    @Test
-    fun `observeIsAdmin emits true when user isRoot is true`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(isRoot = true)
-            every { userDao.observeCurrentUser() } returns flowOf(entity)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeIsAdmin emits true when user isRoot is true") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(isRoot = true)
+                every { userDao.observeCurrentUser() } returns flowOf(entity)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val isAdmin = repository.observeIsAdmin().first()
+                // When
+                val isAdmin = repository.observeIsAdmin().first()
 
-            // Then
-            assertTrue(isAdmin)
+                // Then
+                isAdmin shouldBe true
+            }
         }
 
-    @Test
-    fun `observeIsAdmin emits false when user isRoot is false`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(isRoot = false)
-            every { userDao.observeCurrentUser() } returns flowOf(entity)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeIsAdmin emits false when user isRoot is false") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(isRoot = false)
+                every { userDao.observeCurrentUser() } returns flowOf(entity)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val isAdmin = repository.observeIsAdmin().first()
+                // When
+                val isAdmin = repository.observeIsAdmin().first()
 
-            // Then
-            assertFalse(isAdmin)
+                // Then
+                isAdmin shouldBe false
+            }
         }
 
-    @Test
-    fun `observeIsAdmin emits false when user is null`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            every { userDao.observeCurrentUser() } returns flowOf(null)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeIsAdmin emits false when user is null") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                every { userDao.observeCurrentUser() } returns flowOf(null)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val isAdmin = repository.observeIsAdmin().first()
+                // When
+                val isAdmin = repository.observeIsAdmin().first()
 
-            // Then
-            assertFalse(isAdmin)
+                // Then
+                isAdmin shouldBe false
+            }
         }
 
-    @Test
-    fun `observeIsAdmin emits changes when admin status changes`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val regularUser = createTestUserEntity(isRoot = false)
-            val adminUser = createTestUserEntity(isRoot = true)
-            // Flow: null -> regular -> admin -> regular
-            every { userDao.observeCurrentUser() } returns flowOf(null, regularUser, adminUser, regularUser)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeIsAdmin emits changes when admin status changes") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val regularUser = createTestUserEntity(isRoot = false)
+                val adminUser = createTestUserEntity(isRoot = true)
+                // Flow: null -> regular -> admin -> regular
+                every { userDao.observeCurrentUser() } returns flowOf(null, regularUser, adminUser, regularUser)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val emissions = repository.observeIsAdmin().take(4).toList()
+                // When
+                val emissions = repository.observeIsAdmin().take(4).toList()
 
-            // Then
-            assertFalse(emissions[0]) // null user -> not admin
-            assertFalse(emissions[1]) // regular user -> not admin
-            assertTrue(emissions[2]) // admin user -> admin
-            assertFalse(emissions[3]) // demoted -> not admin
+                // Then
+                emissions[0] shouldBe false // null user -> not admin
+                emissions[1] shouldBe false // regular user -> not admin
+                emissions[2] shouldBe true // admin user -> admin
+                emissions[3] shouldBe false // demoted -> not admin
+            }
         }
 
-    @Test
-    fun `observeIsAdmin reacts to MutableStateFlow changes`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val userFlow = MutableStateFlow<UserEntity?>(null)
-            every { userDao.observeCurrentUser() } returns userFlow
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeIsAdmin reacts to MutableStateFlow changes") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val userFlow = MutableStateFlow<UserEntity?>(null)
+                every { userDao.observeCurrentUser() } returns userFlow
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When/Then - initial state
-            assertFalse(repository.observeIsAdmin().first())
+                // When/Then - initial state
+                repository.observeIsAdmin().first() shouldBe false
 
-            // When/Then - user becomes admin
-            userFlow.value = createTestUserEntity(isRoot = true)
-            assertTrue(repository.observeIsAdmin().first())
+                // When/Then - user becomes admin
+                userFlow.value = createTestUserEntity(isRoot = true)
+                repository.observeIsAdmin().first() shouldBe true
 
-            // When/Then - user demoted
-            userFlow.value = createTestUserEntity(isRoot = false)
-            assertFalse(repository.observeIsAdmin().first())
+                // When/Then - user demoted
+                userFlow.value = createTestUserEntity(isRoot = false)
+                repository.observeIsAdmin().first() shouldBe false
 
-            // When/Then - user logs out
-            userFlow.value = null
-            assertFalse(repository.observeIsAdmin().first())
+                // When/Then - user logs out
+                userFlow.value = null
+                repository.observeIsAdmin().first() shouldBe false
+            }
         }
 
-    // ========== getCurrentUser Tests ==========
+        // ========== getCurrentUser Tests ==========
 
-    @Test
-    fun `getCurrentUser returns User when user exists`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity()
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("getCurrentUser returns User when user exists") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity()
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser().shouldNotBeNull()
 
-            // Then
-            assertNotNull(user)
-            assertEquals("user-001", user.id.value)
-            assertEquals("test@example.com", user.email)
+                // Then
+                user.id.value shouldBe "user-001"
+                user.email shouldBe "test@example.com"
+            }
         }
 
-    @Test
-    fun `getCurrentUser returns null when no user exists`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            everySuspend { userDao.getCurrentUser() } returns null
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("getCurrentUser returns null when no user exists") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                everySuspend { userDao.getCurrentUser() } returns null
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertNull(user)
+                // Then
+                user shouldBe null
+            }
         }
 
-    // ========== refreshCurrentUser (RPC) Tests ==========
+        // ========== refreshCurrentUser (RPC) Tests ==========
 
-    @Test
-    fun `refreshCurrentUser fetches the user via RPC AuthServiceAuthed and persists it`() =
-        runTest {
-            // Given - the authed RPC proxy returns a ROOT user
-            val userDao = createMockUserDao()
-            everySuspend { userDao.upsert(any()) } returns Unit
-            val authed = mock<AuthServiceAuthed>()
-            everySuspend { authed.currentUser() } returns
-                AppResult.Success(
-                    ContractUser(
-                        id = UserId("root-1"),
-                        email = "root@example.com",
-                        displayName = "Root Admin",
-                        role = UserRole.ROOT,
-                        status = UserStatus.ACTIVE,
-                        createdAt = 1_700_000_000_000L,
-                    ),
-                )
-            val authRpcFactory = createMockAuthRpcFactory()
-            everySuspend { authRpcFactory.authedService() } returns authed
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("refreshCurrentUser fetches the user via RPC AuthServiceAuthed and persists it") {
+            runTest {
+                // Given - the authed RPC proxy returns a ROOT user
+                val userDao = createMockUserDao()
+                everySuspend { userDao.upsert(any()) } returns Unit
+                val authed = mock<AuthServiceAuthed>()
+                everySuspend { authed.currentUser() } returns
+                    AppResult.Success(
+                        ContractUser(
+                            id = UserId("root-1"),
+                            email = "root@example.com",
+                            displayName = "Root Admin",
+                            role = UserRole.ROOT,
+                            status = UserStatus.ACTIVE,
+                            createdAt = 1_700_000_000_000L,
+                        ),
+                    )
+                val authRpcFactory = createMockAuthRpcFactory()
+                everySuspend { authRpcFactory.authedService() } returns authed
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.refreshCurrentUser()
+                // When
+                val user = repository.refreshCurrentUser().shouldNotBeNull()
 
-            // Then - ROOT maps to admin and the user is persisted to Room
-            assertNotNull(user)
-            assertEquals("root@example.com", user.email)
-            assertTrue(user.isAdmin)
-            verifySuspend { userDao.upsert(any()) }
+                // Then - ROOT maps to admin and the user is persisted to Room
+                user.email shouldBe "root@example.com"
+                user.isAdmin shouldBe true
+                verifySuspend { userDao.upsert(any()) }
+            }
         }
 
-    @Test
-    fun `refreshCurrentUser returns null when the RPC call fails`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val authed = mock<AuthServiceAuthed>()
-            everySuspend { authed.currentUser() } returns
-                AppResult.Failure(
-                    com.calypsan.listenup.api.error.TransportError
-                        .NetworkUnavailable(),
-                )
-            val authRpcFactory = createMockAuthRpcFactory()
-            everySuspend { authRpcFactory.authedService() } returns authed
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("refreshCurrentUser returns null when the RPC call fails") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val authed = mock<AuthServiceAuthed>()
+                everySuspend { authed.currentUser() } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error.TransportError
+                            .NetworkUnavailable(),
+                    )
+                val authRpcFactory = createMockAuthRpcFactory()
+                everySuspend { authRpcFactory.authedService() } returns authed
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.refreshCurrentUser()
+                // When
+                val user = repository.refreshCurrentUser()
 
-            // Then
-            assertNull(user)
+                // Then
+                user shouldBe null
+            }
         }
 
-    // ========== Entity to Domain Conversion Tests ==========
+        // ========== Entity to Domain Conversion Tests ==========
 
-    @Test
-    fun `toDomain converts id correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(id = "unique-user-id-123")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts id correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(id = "unique-user-id-123")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("unique-user-id-123", user?.id?.value)
+                // Then
+                user?.id?.value shouldBe "unique-user-id-123"
+            }
         }
 
-    @Test
-    fun `toDomain converts email correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(email = "user@listenup.app")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts email correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(email = "user@listenup.app")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("user@listenup.app", user?.email)
+                // Then
+                user?.email shouldBe "user@listenup.app"
+            }
         }
 
-    @Test
-    fun `toDomain converts displayName correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(displayName = "Bookworm Betty")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts displayName correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(displayName = "Bookworm Betty")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("Bookworm Betty", user?.displayName)
+                // Then
+                user?.displayName shouldBe "Bookworm Betty"
+            }
         }
 
-    @Test
-    fun `toDomain converts firstName correctly when present`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(firstName = "Elizabeth")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts firstName correctly when present") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(firstName = "Elizabeth")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("Elizabeth", user?.firstName)
+                // Then
+                user?.firstName shouldBe "Elizabeth"
+            }
         }
 
-    @Test
-    fun `toDomain converts firstName correctly when null`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(firstName = null)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts firstName correctly when null") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(firstName = null)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertNull(user?.firstName)
+                // Then
+                user?.firstName shouldBe null
+            }
         }
 
-    @Test
-    fun `toDomain converts lastName correctly when present`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(lastName = "Bennet")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts lastName correctly when present") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(lastName = "Bennet")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("Bennet", user?.lastName)
+                // Then
+                user?.lastName shouldBe "Bennet"
+            }
         }
 
-    @Test
-    fun `toDomain converts lastName correctly when null`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(lastName = null)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts lastName correctly when null") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(lastName = null)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertNull(user?.lastName)
+                // Then
+                user?.lastName shouldBe null
+            }
         }
 
-    @Test
-    fun `toDomain converts isRoot to isAdmin correctly when true`() =
-        runTest {
-            // Given - entity uses isRoot, domain uses isAdmin
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(isRoot = true)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts isRoot to isAdmin correctly when true") {
+            runTest {
+                // Given - entity uses isRoot, domain uses isAdmin
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(isRoot = true)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertTrue(user?.isAdmin == true)
+                // Then
+                (user?.isAdmin == true) shouldBe true
+            }
         }
 
-    @Test
-    fun `toDomain converts isRoot to isAdmin correctly when false`() =
-        runTest {
-            // Given - entity uses isRoot, domain uses isAdmin
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(isRoot = false)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts isRoot to isAdmin correctly when false") {
+            runTest {
+                // Given - entity uses isRoot, domain uses isAdmin
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(isRoot = false)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertFalse(user?.isAdmin == true)
+                // Then
+                (user?.isAdmin == true) shouldBe false
+            }
         }
 
-    @Test
-    fun `toDomain converts avatarType correctly for auto avatar`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(avatarType = "auto")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts avatarType correctly for auto avatar") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(avatarType = "auto")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("auto", user?.avatarType)
+                // Then
+                user?.avatarType shouldBe "auto"
+            }
         }
 
-    @Test
-    fun `toDomain converts avatarType correctly for image avatar`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(avatarType = "image")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts avatarType correctly for image avatar") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(avatarType = "image")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("image", user?.avatarType)
+                // Then
+                user?.avatarType shouldBe "image"
+            }
         }
 
-    @Test
-    fun `toDomain converts avatarValue correctly when present`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity =
-                createTestUserEntity(
-                    avatarType = "image",
-                    avatarValue = "/avatars/user-001.jpg",
-                )
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts avatarValue correctly when present") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity =
+                    createTestUserEntity(
+                        avatarType = "image",
+                        avatarValue = "/avatars/user-001.jpg",
+                    )
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("/avatars/user-001.jpg", user?.avatarValue)
+                // Then
+                user?.avatarValue shouldBe "/avatars/user-001.jpg"
+            }
         }
 
-    @Test
-    fun `toDomain converts avatarValue correctly when null`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(avatarValue = null)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts avatarValue correctly when null") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(avatarValue = null)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertNull(user?.avatarValue)
+                // Then
+                user?.avatarValue shouldBe null
+            }
         }
 
-    @Test
-    fun `toDomain converts avatarColor correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(avatarColor = "#EF4444")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts avatarColor correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(avatarColor = "#EF4444")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("#EF4444", user?.avatarColor)
+                // Then
+                user?.avatarColor shouldBe "#EF4444"
+            }
         }
 
-    @Test
-    fun `toDomain converts tagline correctly when present`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(tagline = "Fantasy is my escape")
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts tagline correctly when present") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(tagline = "Fantasy is my escape")
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals("Fantasy is my escape", user?.tagline)
+                // Then
+                user?.tagline shouldBe "Fantasy is my escape"
+            }
         }
 
-    @Test
-    fun `toDomain converts tagline correctly when null`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity = createTestUserEntity(tagline = null)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts tagline correctly when null") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity = createTestUserEntity(tagline = null)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertNull(user?.tagline)
+                // Then
+                user?.tagline shouldBe null
+            }
         }
 
-    @Test
-    fun `toDomain converts createdAt to createdAtMs correctly`() =
-        runTest {
-            // Given - entity uses createdAt, domain uses createdAtMs
-            val userDao = createMockUserDao()
-            val timestamp = 1704067200000L // 2024-01-01 00:00:00 UTC
-            val entity = createTestUserEntity(createdAt = timestamp)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts createdAt to createdAtMs correctly") {
+            runTest {
+                // Given - entity uses createdAt, domain uses createdAtMs
+                val userDao = createMockUserDao()
+                val timestamp = 1704067200000L // 2024-01-01 00:00:00 UTC
+                val entity = createTestUserEntity(createdAt = timestamp)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals(timestamp, user?.createdAtMs)
+                // Then
+                user?.createdAtMs shouldBe timestamp
+            }
         }
 
-    @Test
-    fun `toDomain converts updatedAt to updatedAtMs correctly`() =
-        runTest {
-            // Given - entity uses updatedAt, domain uses updatedAtMs
-            val userDao = createMockUserDao()
-            val timestamp = 1704153600000L // 2024-01-02 00:00:00 UTC
-            val entity = createTestUserEntity(updatedAt = timestamp)
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts updatedAt to updatedAtMs correctly") {
+            runTest {
+                // Given - entity uses updatedAt, domain uses updatedAtMs
+                val userDao = createMockUserDao()
+                val timestamp = 1704153600000L // 2024-01-02 00:00:00 UTC
+                val entity = createTestUserEntity(updatedAt = timestamp)
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser()
 
-            // Then
-            assertEquals(timestamp, user?.updatedAtMs)
+                // Then
+                user?.updatedAtMs shouldBe timestamp
+            }
         }
 
-    @Test
-    fun `toDomain converts all fields correctly in comprehensive test`() =
-        runTest {
-            // Given - test all fields together to ensure complete conversion
-            val userDao = createMockUserDao()
-            val entity =
-                UserEntity(
-                    id =
-                        UserId("admin-user-42"),
-                    email = "admin@listenup.app",
-                    displayName = "Admin Alice",
-                    firstName = "Alice",
-                    lastName = "Administrator",
-                    isRoot = true,
-                    avatarType = "image",
-                    avatarValue = "/avatars/admin.png",
-                    avatarColor = "#10B981",
-                    tagline = "Keeping things running smoothly",
-                    createdAt =
-                        com.calypsan.listenup.core
-                            .Timestamp(1700000000000L),
-                    updatedAt =
-                        com.calypsan.listenup.core
-                            .Timestamp(1705000000000L),
-                )
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain converts all fields correctly in comprehensive test") {
+            runTest {
+                // Given - test all fields together to ensure complete conversion
+                val userDao = createMockUserDao()
+                val entity =
+                    UserEntity(
+                        id =
+                            UserId("admin-user-42"),
+                        email = "admin@listenup.app",
+                        displayName = "Admin Alice",
+                        firstName = "Alice",
+                        lastName = "Administrator",
+                        isRoot = true,
+                        avatarType = "image",
+                        avatarValue = "/avatars/admin.png",
+                        avatarColor = "#10B981",
+                        tagline = "Keeping things running smoothly",
+                        createdAt =
+                            com.calypsan.listenup.core
+                                .Timestamp(1700000000000L),
+                        updatedAt =
+                            com.calypsan.listenup.core
+                                .Timestamp(1705000000000L),
+                    )
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser().shouldNotBeNull()
 
-            // Then - verify every field is correctly mapped
-            assertNotNull(user)
-            assertEquals("admin-user-42", user.id.value)
-            assertEquals("admin@listenup.app", user.email)
-            assertEquals("Admin Alice", user.displayName)
-            assertEquals("Alice", user.firstName)
-            assertEquals("Administrator", user.lastName)
-            assertTrue(user.isAdmin)
-            assertEquals("image", user.avatarType)
-            assertEquals("/avatars/admin.png", user.avatarValue)
-            assertEquals("#10B981", user.avatarColor)
-            assertEquals("Keeping things running smoothly", user.tagline)
-            assertEquals(1700000000000L, user.createdAtMs)
-            assertEquals(1705000000000L, user.updatedAtMs)
+                // Then - verify every field is correctly mapped
+                user.id.value shouldBe "admin-user-42"
+                user.email shouldBe "admin@listenup.app"
+                user.displayName shouldBe "Admin Alice"
+                user.firstName shouldBe "Alice"
+                user.lastName shouldBe "Administrator"
+                user.isAdmin shouldBe true
+                user.avatarType shouldBe "image"
+                user.avatarValue shouldBe "/avatars/admin.png"
+                user.avatarColor shouldBe "#10B981"
+                user.tagline shouldBe "Keeping things running smoothly"
+                user.createdAtMs shouldBe 1700000000000L
+                user.updatedAtMs shouldBe 1705000000000L
+            }
         }
 
-    // ========== Edge Cases ==========
+        // ========== Edge Cases ==========
 
-    @Test
-    fun `toDomain handles empty strings correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity =
-                createTestUserEntity(
-                    displayName = "",
-                    email = "",
-                    avatarColor = "",
-                )
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain handles empty strings correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity =
+                    createTestUserEntity(
+                        displayName = "",
+                        email = "",
+                        avatarColor = "",
+                    )
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser().shouldNotBeNull()
 
-            // Then
-            assertNotNull(user)
-            assertEquals("", user.displayName)
-            assertEquals("", user.email)
-            assertEquals("", user.avatarColor)
+                // Then
+                user.displayName shouldBe ""
+                user.email shouldBe ""
+                user.avatarColor shouldBe ""
+            }
         }
 
-    @Test
-    fun `toDomain handles zero timestamps correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val entity =
-                createTestUserEntity(
-                    createdAt = 0L,
-                    updatedAt = 0L,
-                )
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain handles zero timestamps correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val entity =
+                    createTestUserEntity(
+                        createdAt = 0L,
+                        updatedAt = 0L,
+                    )
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser().shouldNotBeNull()
 
-            // Then
-            assertNotNull(user)
-            assertEquals(0L, user.createdAtMs)
-            assertEquals(0L, user.updatedAtMs)
+                // Then
+                user.createdAtMs shouldBe 0L
+                user.updatedAtMs shouldBe 0L
+            }
         }
 
-    @Test
-    fun `toDomain handles maximum timestamp values correctly`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val maxTimestamp = Long.MAX_VALUE
-            val entity =
-                createTestUserEntity(
-                    createdAt = maxTimestamp,
-                    updatedAt = maxTimestamp,
-                )
-            everySuspend { userDao.getCurrentUser() } returns entity
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("toDomain handles maximum timestamp values correctly") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val maxTimestamp = Long.MAX_VALUE
+                val entity =
+                    createTestUserEntity(
+                        createdAt = maxTimestamp,
+                        updatedAt = maxTimestamp,
+                    )
+                everySuspend { userDao.getCurrentUser() } returns entity
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val user = repository.getCurrentUser()
+                // When
+                val user = repository.getCurrentUser().shouldNotBeNull()
 
-            // Then
-            assertNotNull(user)
-            assertEquals(maxTimestamp, user.createdAtMs)
-            assertEquals(maxTimestamp, user.updatedAtMs)
+                // Then
+                user.createdAtMs shouldBe maxTimestamp
+                user.updatedAtMs shouldBe maxTimestamp
+            }
         }
 
-    @Test
-    fun `observeCurrentUser correctly transforms entity stream to domain stream`() =
-        runTest {
-            // Given - multiple different users emitted
-            val userDao = createMockUserDao()
-            val user1Entity =
-                createTestUserEntity(
-                    id = "user-1",
-                    isRoot = false,
-                    avatarType = "auto",
-                )
-            val user2Entity =
-                createTestUserEntity(
-                    id = "user-2",
-                    isRoot = true,
-                    avatarType = "image",
-                    avatarValue = "/path/to/avatar.jpg",
-                )
-            every { userDao.observeCurrentUser() } returns flowOf(user1Entity, user2Entity)
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeCurrentUser correctly transforms entity stream to domain stream") {
+            runTest {
+                // Given - multiple different users emitted
+                val userDao = createMockUserDao()
+                val user1Entity =
+                    createTestUserEntity(
+                        id = "user-1",
+                        isRoot = false,
+                        avatarType = "auto",
+                    )
+                val user2Entity =
+                    createTestUserEntity(
+                        id = "user-2",
+                        isRoot = true,
+                        avatarType = "image",
+                        avatarValue = "/path/to/avatar.jpg",
+                    )
+                every { userDao.observeCurrentUser() } returns flowOf(user1Entity, user2Entity)
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When
-            val emissions = repository.observeCurrentUser().take(2).toList()
+                // When
+                val emissions = repository.observeCurrentUser().take(2).toList()
 
-            // Then
-            val user1 = emissions[0]
-            assertNotNull(user1)
-            assertEquals("user-1", user1.id.value)
-            assertFalse(user1.isAdmin)
-            assertEquals("auto", user1.avatarType)
+                // Then
+                val user1 = emissions[0].shouldNotBeNull()
+                user1.id.value shouldBe "user-1"
+                user1.isAdmin shouldBe false
+                user1.avatarType shouldBe "auto"
 
-            val user2 = emissions[1]
-            assertNotNull(user2)
-            assertEquals("user-2", user2.id.value)
-            assertTrue(user2.isAdmin)
-            assertEquals("image", user2.avatarType)
-            assertEquals("/path/to/avatar.jpg", user2.avatarValue)
+                val user2 = emissions[1].shouldNotBeNull()
+                user2.id.value shouldBe "user-2"
+                user2.isAdmin shouldBe true
+                user2.avatarType shouldBe "image"
+                user2.avatarValue shouldBe "/path/to/avatar.jpg"
+            }
         }
 
-    @Test
-    fun `observeCurrentUser handles user with MutableStateFlow updates`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val userFlow = MutableStateFlow<UserEntity?>(null)
-            every { userDao.observeCurrentUser() } returns userFlow
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeCurrentUser handles user with MutableStateFlow updates") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val userFlow = MutableStateFlow<UserEntity?>(null)
+                every { userDao.observeCurrentUser() } returns userFlow
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When/Then - initial null
-            assertNull(repository.observeCurrentUser().first())
+                // When/Then - initial null
+                repository.observeCurrentUser().first() shouldBe null
 
-            // When/Then - user logs in
-            userFlow.value = createTestUserEntity(id = "logged-in-user")
-            val loggedIn = repository.observeCurrentUser().first()
-            assertNotNull(loggedIn)
-            assertEquals("logged-in-user", loggedIn.id.value)
+                // When/Then - user logs in
+                userFlow.value = createTestUserEntity(id = "logged-in-user")
+                val loggedIn = repository.observeCurrentUser().first().shouldNotBeNull()
+                loggedIn.id.value shouldBe "logged-in-user"
 
-            // When/Then - user updates profile
-            userFlow.value = createTestUserEntity(id = "logged-in-user", displayName = "New Name")
-            val updated = repository.observeCurrentUser().first()
-            assertNotNull(updated)
-            assertEquals("New Name", updated.displayName)
+                // When/Then - user updates profile
+                userFlow.value = createTestUserEntity(id = "logged-in-user", displayName = "New Name")
+                val updated = repository.observeCurrentUser().first().shouldNotBeNull()
+                updated.displayName shouldBe "New Name"
 
-            // When/Then - user logs out
-            userFlow.value = null
-            assertNull(repository.observeCurrentUser().first())
+                // When/Then - user logs out
+                userFlow.value = null
+                repository.observeCurrentUser().first() shouldBe null
+            }
         }
 
-    @Test
-    fun `repository correctly implements UserRepository interface`() =
-        runTest {
-            // Given
-            val userDao = createMockUserDao()
-            val authRpcFactory = createMockAuthRpcFactory()
-            every { userDao.observeCurrentUser() } returns flowOf(null)
-            everySuspend { userDao.getCurrentUser() } returns null
+        test("repository correctly implements UserRepository interface") {
+            runTest {
+                // Given
+                val userDao = createMockUserDao()
+                val authRpcFactory = createMockAuthRpcFactory()
+                every { userDao.observeCurrentUser() } returns flowOf(null)
+                everySuspend { userDao.getCurrentUser() } returns null
 
-            // When
-            val repository: com.calypsan.listenup.client.domain.repository.UserRepository =
-                UserRepositoryImpl(userDao, authRpcFactory)
+                // When
+                val repository: com.calypsan.listenup.client.domain.repository.UserRepository =
+                    UserRepositoryImpl(userDao, authRpcFactory)
 
-            // Then - all methods are accessible via interface
-            assertNull(repository.observeCurrentUser().first())
-            assertFalse(repository.observeIsAdmin().first())
-            assertNull(repository.getCurrentUser())
+                // Then - all methods are accessible via interface
+                repository.observeCurrentUser().first() shouldBe null
+                repository.observeIsAdmin().first() shouldBe false
+                repository.getCurrentUser() shouldBe null
+            }
         }
 
-    @Test
-    fun `observeIsAdmin correctly maps isRoot field from multiple emissions`() =
-        runTest {
-            // Given - test the specific mapping of isRoot -> isAdmin through flow
-            val userDao = createMockUserDao()
-            val userFlow = MutableStateFlow<UserEntity?>(null)
-            every { userDao.observeCurrentUser() } returns userFlow
-            val authRpcFactory = createMockAuthRpcFactory()
-            val repository = UserRepositoryImpl(userDao, authRpcFactory)
+        test("observeIsAdmin correctly maps isRoot field from multiple emissions") {
+            runTest {
+                // Given - test the specific mapping of isRoot -> isAdmin through flow
+                val userDao = createMockUserDao()
+                val userFlow = MutableStateFlow<UserEntity?>(null)
+                every { userDao.observeCurrentUser() } returns userFlow
+                val authRpcFactory = createMockAuthRpcFactory()
+                val repository = UserRepositoryImpl(userDao, authRpcFactory)
 
-            // When/Then - null user
-            assertFalse(repository.observeIsAdmin().first())
+                // When/Then - null user
+                repository.observeIsAdmin().first() shouldBe false
 
-            // When/Then - user with isRoot = false
-            userFlow.value = createTestUserEntity(isRoot = false)
-            assertFalse(repository.observeIsAdmin().first())
+                // When/Then - user with isRoot = false
+                userFlow.value = createTestUserEntity(isRoot = false)
+                repository.observeIsAdmin().first() shouldBe false
 
-            // When/Then - user with isRoot = true
-            userFlow.value = createTestUserEntity(isRoot = true)
-            assertTrue(repository.observeIsAdmin().first())
+                // When/Then - user with isRoot = true
+                userFlow.value = createTestUserEntity(isRoot = true)
+                repository.observeIsAdmin().first() shouldBe true
+            }
         }
-}
+    })

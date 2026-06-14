@@ -19,11 +19,11 @@ import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
-import kotlin.test.assertFailsWith
 
 /**
  * Unit tests for [MetadataRepositoryImpl].
@@ -67,7 +67,7 @@ class MetadataRepositoryImplTest :
             val service = mock<MetadataLookupService>()
             everySuspend { service.searchBooks(any(), any()) } throws CancellationException("cancelled")
 
-            assertFailsWith<CancellationException> {
+            shouldThrow<CancellationException> {
                 buildRepo(service).searchBooks("q", AudibleRegion.US)
             }
         }

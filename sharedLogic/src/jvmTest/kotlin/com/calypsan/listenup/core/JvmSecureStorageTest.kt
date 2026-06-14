@@ -1,16 +1,10 @@
 package com.calypsan.listenup.core
 
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.engine.spec.tempdir
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.junit.Rule
-import org.junit.rules.TemporaryFolder
 import java.io.File
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * Integration tests for JvmSecureStorage.
@@ -18,259 +12,212 @@ import kotlin.test.assertTrue
  * Tests the actual encryption/decryption logic, persistence,
  * and edge cases using real file I/O with temporary directories.
  */
-class JvmSecureStorageTest {
-    @get:Rule
-    val tempFolder = TemporaryFolder()
+class JvmSecureStorageTest :
+    FunSpec({
+        // A fresh, empty storage file inside a per-test temp directory ([tempdir] is cleaned up
+        // by Kotest after the spec). Starting fresh mirrors the original @BeforeTest setup.
+        fun newStorageFile(): File = File(tempdir(), "test-auth.enc").apply { delete() }
 
-    private lateinit var storageFile: File
-    private lateinit var storage: JvmSecureStorage
+        test("save and read round-trip works") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
 
-    @BeforeTest
-    fun setup() {
-        tempFolder.create()
-        storageFile = tempFolder.newFile("test-auth.enc")
-        storageFile.delete() // Start fresh
-        storage = JvmSecureStorage(storageFile)
-    }
+                storage.save("access_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
 
-    @AfterTest
-    fun teardown() {
-        tempFolder.delete()
-    }
-
-    @Test
-    fun `save and read round-trip works`() =
-        runTest {
-            // When
-            storage.save("access_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
-
-            // Then
-            val result = storage.read("access_token")
-            assertEquals("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9", result)
+                val result = storage.read("access_token")
+                result shouldBe "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+            }
         }
 
-    @Test
-    fun `read returns null for non-existent key`() =
-        runTest {
-            // When
-            val result = storage.read("nonexistent")
+        test("read returns null for non-existent key") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
 
-            // Then
-            assertNull(result)
+                storage.read("nonexistent") shouldBe null
+            }
         }
 
-    @Test
-    fun `data persists across storage instances`() =
-        runTest {
-            // Given
-            storage.save("refresh_token", "secret-refresh-token")
+        test("data persists across storage instances") {
+            runTest {
+                val storageFile = newStorageFile()
+                val storage = JvmSecureStorage(storageFile)
+                storage.save("refresh_token", "secret-refresh-token")
 
-            // When - create new instance pointing to same file
-            val newStorage = JvmSecureStorage(storageFile)
-            val result = newStorage.read("refresh_token")
-
-            // Then
-            assertEquals("secret-refresh-token", result)
+                // Create a new instance pointing to the same file.
+                val newStorage = JvmSecureStorage(storageFile)
+                newStorage.read("refresh_token") shouldBe "secret-refresh-token"
+            }
         }
 
-    @Test
-    fun `save overwrites existing value`() =
-        runTest {
-            // Given
-            storage.save("key", "value1")
+        test("save overwrites existing value") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                storage.save("key", "value1")
 
-            // When
-            storage.save("key", "value2")
-            val result = storage.read("key")
-
-            // Then
-            assertEquals("value2", result)
+                storage.save("key", "value2")
+                storage.read("key") shouldBe "value2"
+            }
         }
 
-    @Test
-    fun `multiple keys stored independently`() =
-        runTest {
-            // When
-            storage.save("access_token", "access123")
-            storage.save("refresh_token", "refresh456")
-            storage.save("server_url", "https://example.com")
+        test("multiple keys stored independently") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
 
-            // Then
-            assertEquals("access123", storage.read("access_token"))
-            assertEquals("refresh456", storage.read("refresh_token"))
-            assertEquals("https://example.com", storage.read("server_url"))
+                storage.save("access_token", "access123")
+                storage.save("refresh_token", "refresh456")
+                storage.save("server_url", "https://example.com")
+
+                storage.read("access_token") shouldBe "access123"
+                storage.read("refresh_token") shouldBe "refresh456"
+                storage.read("server_url") shouldBe "https://example.com"
+            }
         }
 
-    @Test
-    fun `delete removes specific key`() =
-        runTest {
-            // Given
-            storage.save("key1", "value1")
-            storage.save("key2", "value2")
+        test("delete removes specific key") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                storage.save("key1", "value1")
+                storage.save("key2", "value2")
 
-            // When
-            storage.delete("key1")
+                storage.delete("key1")
 
-            // Then
-            assertNull(storage.read("key1"))
-            assertEquals("value2", storage.read("key2"))
+                storage.read("key1") shouldBe null
+                storage.read("key2") shouldBe "value2"
+            }
         }
 
-    @Test
-    fun `clear removes all data`() =
-        runTest {
-            // Given
-            storage.save("key1", "value1")
-            storage.save("key2", "value2")
+        test("clear removes all data") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                storage.save("key1", "value1")
+                storage.save("key2", "value2")
 
-            // When
-            storage.clear()
+                storage.clear()
 
-            // Then
-            assertNull(storage.read("key1"))
-            assertNull(storage.read("key2"))
+                storage.read("key1") shouldBe null
+                storage.read("key2") shouldBe null
+            }
         }
 
-    @Test
-    fun `clear deletes storage file`() =
-        runTest {
-            // Given
-            storage.save("key", "value")
-            assertTrue(storageFile.exists())
+        test("clear deletes storage file") {
+            runTest {
+                val storageFile = newStorageFile()
+                val storage = JvmSecureStorage(storageFile)
+                storage.save("key", "value")
+                storageFile.exists() shouldBe true
 
-            // When
-            storage.clear()
+                storage.clear()
 
-            // Then
-            assertTrue(!storageFile.exists())
+                storageFile.exists() shouldBe false
+            }
         }
 
-    @Test
-    fun `handles empty string value`() =
-        runTest {
-            // When
-            storage.save("empty", "")
-            val result = storage.read("empty")
+        test("handles empty string value") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
 
-            // Then
-            assertEquals("", result)
+                storage.save("empty", "")
+                storage.read("empty") shouldBe ""
+            }
         }
 
-    @Test
-    fun `handles unicode characters`() =
-        runTest {
-            // Given
-            val unicodeValue = "用户名：测试 🎧📚"
+        test("handles unicode characters") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                val unicodeValue = "用户名：测试 🎧📚"
 
-            // When
-            storage.save("unicode_key", unicodeValue)
-            val result = storage.read("unicode_key")
-
-            // Then
-            assertEquals(unicodeValue, result)
+                storage.save("unicode_key", unicodeValue)
+                storage.read("unicode_key") shouldBe unicodeValue
+            }
         }
 
-    @Test
-    fun `handles long values`() =
-        runTest {
-            // Given - simulate a large JWT or certificate
-            val longValue = "x".repeat(10_000)
+        test("handles long values") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                // Simulate a large JWT or certificate.
+                val longValue = "x".repeat(10_000)
 
-            // When
-            storage.save("long_key", longValue)
-            val result = storage.read("long_key")
-
-            // Then
-            assertEquals(longValue, result)
+                storage.save("long_key", longValue)
+                storage.read("long_key") shouldBe longValue
+            }
         }
 
-    @Test
-    fun `handles special JSON characters in values`() =
-        runTest {
-            // Given - JSON with quotes, backslashes, newlines
-            val jsonValue = """{"key": "value with \"quotes\" and \\ backslash\nand newline"}"""
+        test("handles special JSON characters in values") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                // JSON with quotes, backslashes, newlines.
+                val jsonValue = """{"key": "value with \"quotes\" and \\ backslash\nand newline"}"""
 
-            // When
-            storage.save("json_data", jsonValue)
-            val result = storage.read("json_data")
-
-            // Then
-            assertEquals(jsonValue, result)
+                storage.save("json_data", jsonValue)
+                storage.read("json_data") shouldBe jsonValue
+            }
         }
 
-    @Test
-    fun `file content is encrypted not plaintext`() =
-        runTest {
-            // Given
-            val secretValue = "super-secret-token-12345"
+        test("file content is encrypted not plaintext") {
+            runTest {
+                val storageFile = newStorageFile()
+                val storage = JvmSecureStorage(storageFile)
+                val secretValue = "super-secret-token-12345"
 
-            // When
-            storage.save("secret", secretValue)
+                storage.save("secret", secretValue)
 
-            // Then - file should exist but not contain plaintext
-            assertTrue(storageFile.exists())
-            val fileContent = storageFile.readText()
-            assertTrue(!fileContent.contains(secretValue), "Plaintext found in encrypted file!")
-            assertTrue(fileContent.isNotEmpty(), "Encrypted file should not be empty")
+                // The file should exist but not contain plaintext.
+                storageFile.exists() shouldBe true
+                val fileContent = storageFile.readText()
+                fileContent.contains(secretValue) shouldBe false
+                fileContent.isNotEmpty() shouldBe true
+            }
         }
 
-    @Test
-    fun `handles corrupted file gracefully`() =
-        runTest {
-            // Given - write garbage to the file
-            storageFile.writeText("not-valid-encrypted-data")
+        test("handles corrupted file gracefully") {
+            runTest {
+                val storageFile = newStorageFile()
+                val storage = JvmSecureStorage(storageFile)
+                // Write garbage to the file.
+                storageFile.writeText("not-valid-encrypted-data")
 
-            // When
-            val result = storage.read("any_key")
-
-            // Then - should return null, not crash
-            assertNull(result)
+                // Should return null, not crash.
+                storage.read("any_key") shouldBe null
+            }
         }
 
-    @Test
-    fun `delete on non-existent key does not crash`() =
-        runTest {
-            // When/Then - should not throw
-            storage.delete("nonexistent_key")
+        test("delete on non-existent key does not crash") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+
+                // Should not throw.
+                storage.delete("nonexistent_key")
+            }
         }
 
-    @Test
-    fun `new storage on non-existent file works`() =
-        runTest {
-            // Given
-            val newFile = File(tempFolder.root, "brand-new.enc")
-            val newStorage = JvmSecureStorage(newFile)
+        test("new storage on non-existent file works") {
+            runTest {
+                val newFile = File(tempdir(), "brand-new.enc")
+                val newStorage = JvmSecureStorage(newFile)
 
-            // When
-            newStorage.save("key", "value")
+                newStorage.save("key", "value")
 
-            // Then
-            assertEquals("value", newStorage.read("key"))
-            assertTrue(newFile.exists())
+                newStorage.read("key") shouldBe "value"
+                newFile.exists() shouldBe true
+            }
         }
 
-    @Test
-    fun `encryption produces different ciphertext for same plaintext`() =
-        runTest {
-            // This tests that we're using random IVs (not deterministic encryption)
+        test("encryption produces different ciphertext for same plaintext") {
+            runTest {
+                // This tests that we're using random IVs (not deterministic encryption).
+                val dir = tempdir()
+                val file1 = File(dir, "enc1.enc")
+                val file2 = File(dir, "enc2.enc")
+                val storage1 = JvmSecureStorage(file1)
+                val storage2 = JvmSecureStorage(file2)
 
-            // Given
-            val file1 = File(tempFolder.root, "enc1.enc")
-            val file2 = File(tempFolder.root, "enc2.enc")
-            val storage1 = JvmSecureStorage(file1)
-            val storage2 = JvmSecureStorage(file2)
+                storage1.save("key", "same-value")
+                storage2.save("key", "same-value")
 
-            // When
-            storage1.save("key", "same-value")
-            storage2.save("key", "same-value")
-
-            // Then - ciphertext should differ due to random IV
-            val content1 = file1.readText()
-            val content2 = file2.readText()
-
-            // Note: They might still be equal by chance (very unlikely with 96-bit IV)
-            // but the values should decrypt to the same thing
-            assertEquals("same-value", storage1.read("key"))
-            assertEquals("same-value", storage2.read("key"))
+                // Ciphertext might still be equal by chance (very unlikely with a 96-bit IV),
+                // but the values must decrypt to the same thing.
+                storage1.read("key") shouldBe "same-value"
+                storage2.read("key") shouldBe "same-value"
+            }
         }
-}
+    })

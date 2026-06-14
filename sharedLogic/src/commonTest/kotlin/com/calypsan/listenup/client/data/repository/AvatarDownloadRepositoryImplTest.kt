@@ -7,10 +7,10 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
 
 /**
  * Tests for AvatarDownloadRepositoryImpl.
@@ -19,42 +19,43 @@ import kotlin.test.Test
  * correct arguments and that async work fires on the provided scope.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class AvatarDownloadRepositoryImplTest {
-    @Test
-    fun `queueAvatarDownload triggers download with forceRefresh=false`() =
-        runTest {
-            val imageDownloader: ImageDownloaderContract = mock()
-            everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
-            val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
+class AvatarDownloadRepositoryImplTest :
+    FunSpec({
+        test("queueAvatarDownload triggers download with forceRefresh=false") {
+            runTest {
+                val imageDownloader: ImageDownloaderContract = mock()
+                everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
+                val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
 
-            repo.queueAvatarDownload("user-1")
-            advanceUntilIdle()
+                repo.queueAvatarDownload("user-1")
+                advanceUntilIdle()
 
-            verifySuspend { imageDownloader.downloadUserAvatar("user-1", forceRefresh = false) }
+                verifySuspend { imageDownloader.downloadUserAvatar("user-1", forceRefresh = false) }
+            }
         }
 
-    @Test
-    fun `queueAvatarForceRefresh triggers download with forceRefresh=true`() =
-        runTest {
-            val imageDownloader: ImageDownloaderContract = mock()
-            everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(true)
-            val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
+        test("queueAvatarForceRefresh triggers download with forceRefresh=true") {
+            runTest {
+                val imageDownloader: ImageDownloaderContract = mock()
+                everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(true)
+                val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
 
-            repo.queueAvatarForceRefresh("user-1")
-            advanceUntilIdle()
+                repo.queueAvatarForceRefresh("user-1")
+                advanceUntilIdle()
 
-            verifySuspend { imageDownloader.downloadUserAvatar("user-1", forceRefresh = true) }
+                verifySuspend { imageDownloader.downloadUserAvatar("user-1", forceRefresh = true) }
+            }
         }
 
-    @Test
-    fun `deleteAvatar delegates to imageDownloader deleteUserAvatar`() =
-        runTest {
-            val imageDownloader: ImageDownloaderContract = mock()
-            everySuspend { imageDownloader.deleteUserAvatar(any()) } returns AppResult.Success(Unit)
-            val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
+        test("deleteAvatar delegates to imageDownloader deleteUserAvatar") {
+            runTest {
+                val imageDownloader: ImageDownloaderContract = mock()
+                everySuspend { imageDownloader.deleteUserAvatar(any()) } returns AppResult.Success(Unit)
+                val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
 
-            repo.deleteAvatar("user-1")
+                repo.deleteAvatar("user-1")
 
-            verifySuspend { imageDownloader.deleteUserAvatar("user-1") }
+                verifySuspend { imageDownloader.deleteUserAvatar("user-1") }
+            }
         }
-}
+    })
