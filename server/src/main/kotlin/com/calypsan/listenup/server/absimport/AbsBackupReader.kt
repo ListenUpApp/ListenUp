@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.calypsan.listenup.server.absimport
 
 import java.nio.file.Path
@@ -5,8 +7,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.ResultSet
 import java.sql.SQLException
-import java.time.Instant
-import java.time.format.DateTimeParseException
+import kotlin.time.Instant
 
 /**
  * Reads an extracted Audiobookshelf `absdatabase.sqlite` on a throwaway **read-only** JDBC
@@ -110,7 +111,7 @@ internal class AbsBackupReader {
                     currentTimeSeconds = currentTime,
                     isFinished = rs.getBoolean("isFinished"),
                     progress = if (duration > 0.0) (currentTime / duration).coerceIn(0.0, 1.0) else 0.0,
-                    lastUpdateMs = parseTimestampMs(rs.getString("updatedAt")),
+                    lastUpdateMs = parseAbsTimestampMs(rs.getString("updatedAt")),
                 )
             }
         }
@@ -141,7 +142,7 @@ internal class AbsBackupReader {
                     startPositionSeconds = rs.getDouble("startTime"),
                     endPositionSeconds = rs.getDouble("currentTime"),
                     timeListeningSeconds = rs.getDouble("timeListening"),
-                    startedAtMs = parseTimestampMs(rs.getString("startedAt")),
+                    startedAtMs = parseAbsTimestampMs(rs.getString("startedAt")),
                     playbackSpeed = DEFAULT_PLAYBACK_SPEED,
                     deviceLabel = rs.getString("deviceLabel")?.ifBlank { null },
                 )
@@ -178,36 +179,46 @@ internal class AbsBackupReader {
     }
 
     private companion object {
-        /**
-         * Parses an ABS `updatedAt` value to epoch millis. Sequelize stores `DataTypes.DATE` in
-         * SQLite as ISO-8601 text (e.g. `2022-01-17T04:33:12.000Z`), but tolerates a bare numeric
-         * epoch (ms or seconds) for robustness across ABS versions. Unparseable → 0L.
-         */
-        fun parseTimestampMs(raw: String?): Long {
-            if (raw.isNullOrBlank()) return 0L
-            raw.toLongOrNull()?.let { numeric ->
-                // Heuristic: a 10-digit value is seconds, larger is already millis.
-                return if (numeric < SECONDS_THRESHOLD) numeric * MILLIS_PER_SECOND else numeric
-            }
-            return try {
-                Instant.parse(raw).toEpochMilli()
-            } catch (_: DateTimeParseException) {
-                // SQLite's space-separated form ("2022-01-17 04:33:12") isn't ISO-T; normalize it.
-                try {
-                    Instant.parse(raw.replaceFirst(' ', 'T').let { if (it.endsWith("Z")) it else "${it}Z" })
-                        .toEpochMilli()
-                } catch (_: DateTimeParseException) {
-                    0L
-                }
-            }
-        }
-
-        private const val MILLIS_PER_SECOND = 1_000L
-
         /** ABS stores no per-session playback rate; sessions default to normal speed. */
         private const val DEFAULT_PLAYBACK_SPEED = 1.0f
+    }
+}
 
-        /** Epoch values below this are treated as seconds (≈ year 33658 in ms). */
-        private const val SECONDS_THRESHOLD = 1_000_000_000_000L
+private const val MILLIS_PER_SECOND = 1_000L
+
+/** Epoch values below this are treated as seconds (≈ year 33658 in ms). */
+private const val SECONDS_THRESHOLD = 1_000_000_000_000L
+
+/**
+ * Parses an ABS timestamp to epoch millis.
+ *
+ * ABS (Sequelize on SQLite) stores `DataTypes.DATE` columns as space-separated text with a
+ * millisecond fraction and an explicit offset, e.g. `2024-06-12 02:48:10.063 +00:00`. The cleaner
+ * ISO-8601 form (`2022-01-17T04:33:12.000Z`), the offsetless SQLite form (`2022-01-16 04:33:12`),
+ * and a bare numeric epoch (ms or seconds) are also accepted. Anything unparseable → 0L.
+ *
+ * `internal` so it can be unit-tested directly against the real-world formats — the offset form
+ * silently parsing to 0L is exactly what mis-ordered Continue Listening after an ABS import.
+ */
+internal fun parseAbsTimestampMs(raw: String?): Long {
+    if (raw.isNullOrBlank()) return 0L
+    val trimmed = raw.trim()
+    trimmed.toLongOrNull()?.let { numeric ->
+        // Heuristic: a 10-digit value is seconds, larger is already millis.
+        return if (numeric < SECONDS_THRESHOLD) numeric * MILLIS_PER_SECOND else numeric
+    }
+    // Normalize the SQLite text form to ISO-8601: swap the date/time space for 'T' and drop the
+    // space before the offset ("2024-06-12 02:48:10.063 +00:00" → "2024-06-12T02:48:10.063+00:00").
+    val isoLike = trimmed.replaceFirst(' ', 'T').replace(" ", "")
+    return try {
+        // Instant.parse handles an explicit offset (e.g. "+00:00") and the trailing 'Z' (UTC) form.
+        Instant.parse(isoLike).toEpochMilliseconds()
+    } catch (_: IllegalArgumentException) {
+        // Offsetless form ("2022-01-16T04:33:12") — treat as UTC.
+        try {
+            Instant.parse(if (isoLike.endsWith("Z")) isoLike else "${isoLike}Z").toEpochMilliseconds()
+        } catch (_: IllegalArgumentException) {
+            0L
+        }
     }
 }
