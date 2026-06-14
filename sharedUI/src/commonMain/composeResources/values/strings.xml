@@ -51,6 +51,7 @@
     <string name="admin_creating_backup">Creating Backup...</string>
     <string name="admin_delete_backup">Delete Backup</string>
     <string name="admin_deny_registration">Deny Registration</string>
+    <string name="admin_email_already_in_use">A user with this email already exists.</string>
     <string name="admin_enter_a_name_for_the">Enter a name for the collection</string>
     <string name="admin_events_sessions_and_progress_data">Events, sessions, and progress data</string>
     <string name="admin_expires_in">Expires in</string>
@@ -80,12 +81,14 @@
     <string name="admin_move_to">Move to…</string>
     <string name="admin_move_to_named">Move “%1$s” to…</string>
     <string name="admin_name_is_invited">%1$s is invited</string>
+    <string name="admin_name_is_required">Name is required.</string>
     <string name="admin_new_books_in_this_library">New books are held for review before members can see them.</string>
     <string name="admin_newly_scanned_books_will_appear">Newly scanned books will appear here for review</string>
     <string name="admin_no_backups_yet">No backups yet</string>
     <string name="admin_no_books_in_this_collection">No books in this collection</string>
     <string name="admin_no_merge_target_available">No other genres available as a merge target.</string>
     <string name="admin_no_move_target_top_level_only">No other genres available — only \'Top level\' is possible.</string>
+    <string name="admin_no_pending_invites">No pending invites</string>
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_open_registration">Open Registration</string>
@@ -132,6 +135,7 @@
     <string name="admin_top_level">Top level</string>
     <string name="admin_unmapped_genres">Unmapped Genres</string>
     <string name="admin_upload_new_import">Upload New Import</string>
+    <string name="admin_valid_email_is_required">A valid email is required.</string>
     <string name="admin_view_the_genre_hierarchy_tree">View the genre hierarchy tree</string>
     <string name="admin_what_to_include">What to include</string>
     <string name="admin_whos_joining">Who\'s joining</string>

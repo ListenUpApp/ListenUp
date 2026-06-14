@@ -11,8 +11,8 @@ import SwiftUI
 ///
 /// Only settings the VM actually exposes are shown. The mockup's storage meter,
 /// Devices, Open Source Licenses, and Now Playing wallpaper rows are intentionally
-/// omitted — they have no `SettingsViewModel` backing yet. An admin entry is likewise
-/// omitted: no `AdminDestination` exists in native navigation.
+/// omitted — they have no `SettingsViewModel` backing yet. The Administration row is
+/// shown only to admin / root users (`User_.isAdmin`) and pushes `AdminView`.
 struct SettingsView: View {
     @Environment(\.dependencies) private var deps
     @Environment(CurrentUserObserver.self) private var currentUser
@@ -24,6 +24,9 @@ struct SettingsView: View {
         Form {
             if let observer {
                 accountSection(observer)
+                if currentUser.user?.isAdmin == true {
+                    administrationSection()
+                }
                 appearanceSection(observer)
                 playbackSection(observer)
                 sleepTimerSection(observer)
@@ -77,6 +80,22 @@ struct SettingsView: View {
                 Spacer(minLength: 0)
             }
             .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - Administration (admin / root only)
+
+    @ViewBuilder
+    private func administrationSection() -> some View {
+        Section {
+            NavigationLink(value: AdminDestination()) {
+                SettingsLabel(
+                    title: String(localized: "common.administration"),
+                    subtitle: String(localized: "admin.server_settings"),
+                    systemImage: "shield.lefthalf.filled",
+                    tint: .luTint
+                )
+            }
         }
     }
 
