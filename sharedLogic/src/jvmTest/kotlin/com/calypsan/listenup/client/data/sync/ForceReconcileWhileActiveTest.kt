@@ -7,7 +7,15 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
+import com.calypsan.listenup.client.device.DeviceInfoProvider
+import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
@@ -96,6 +104,92 @@ class ForceReconcileWhileActiveTest :
                 }
             }
         }
+
+        // The ABS-import live-progress bug. Import completion writes playback positions + listening
+        // events server-side under `FirehoseSuppressed` (no SSE push), at revisions ABOVE the client's
+        // cursor. `refreshListeningHistory` must drain those forward so Continue Listening updates live.
+        // Pre-fix it delegated to `forceFullResync` → `forceReconcile` (a DIGEST compare at the stale
+        // cursor): both local and server digests exclude the beyond-cursor rows, so no drift is seen and
+        // nothing is pulled — the progress only appeared after a cold restart (whose `start()` runs a
+        // forward catch-up). The fix routes `refreshListeningHistory` through the forward catch-up
+        // (`handleCursorStale` → `catchUpAll`), which runs even though `start()` no-ops on the already-
+        // running engine.
+        test("refreshListeningHistory forces a forward catch-up even when the engine is already running") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val catchUp = CountingFromZeroCatchUp()
+                    val state = SyncEngineState()
+                    val sse = FakeForceReconcileSseClient(state)
+
+                    // Digests AGREE at the cursor (the import's rows are beyond `max`), so a digest
+                    // reconcile sees no drift — it is structurally blind to the suppressed import.
+                    val max = 100L
+                    val rows = listOf("p1" to 5L)
+                    val agreeingDigest = DigestComputer.compute(max, rows)
+                    val handler = DriftingTagHandler(rows = rows)
+                    val registry = ClientSyncDomainRegistry()
+                    registry.register(handler)
+                    val store = SyncCursorStore(db.syncCursorDao())
+                    store.setCursor("tags", max)
+                    val reconciler =
+                        SyncReconciler(
+                            registry = registry,
+                            store = store,
+                            digestClient = fakeDigestClient(mapOf("tags" to agreeingDigest)),
+                            catchUp = catchUp,
+                        )
+                    val engine = buildEngine(db, registry, store, state, catchUp, sse, reconciler, scope)
+
+                    // Real recorder over the empty in-memory DB — recoverOrphan() is a no-op (no span).
+                    val recorder =
+                        ListeningEventRecorder(
+                            listeningEventDao = db.listeningEventDao(),
+                            tentativeSpanDao = db.tentativeSpanDao(),
+                            enqueue = { _, _, _, _, _ -> },
+                            currentUserId = { "user-a" },
+                            deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
+                        )
+                    val authSession = mock<AuthSession> { everySuspend { getUserId() } returns "user-a" }
+                    val ftsPopulator =
+                        mock<FtsPopulatorContract> {
+                            everySuspend { rebuildIfEmpty() } returns Unit
+                            everySuspend { rebuildAll() } returns Unit
+                        }
+                    // Un-stubbed: get() throws, so the scan-progress observer dies in its own catch —
+                    // refreshListeningHistory under test never touches the scanner RPC.
+                    val scannerRpcFactory = mock<ScannerRpcFactory>()
+
+                    val repo =
+                        SyncRepositoryImpl(
+                            syncEngine = engine,
+                            syncEngineState = state,
+                            authSession = authSession,
+                            listeningEventRecorder = recorder,
+                            scannerRpcFactory = scannerRpcFactory,
+                            bookDao = db.bookDao(),
+                            ftsPopulator = ftsPopulator,
+                            scope = scope,
+                        )
+
+                    // Engine already running (the post-import reality): the next start() no-ops.
+                    engine.start(currentUserId = "user-a")
+                    val afterStart = catchUp.allInvocations.get()
+
+                    repo.refreshListeningHistory()
+
+                    // Exactly one forward catch-up was forced, despite start()'s no-op. Pre-fix this was
+                    // a digest reconcile that added no catch-up (delta 0), stranding the import progress.
+                    catchUp.allInvocations.get() shouldBe afterStart + 1
+                } finally {
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
     })
 
 private fun buildEngine(
@@ -173,6 +267,9 @@ private fun fakeDigestClient(domainDigests: Map<String, DomainDigest>): DomainDi
 private class CountingFromZeroCatchUp : CatchUp {
     val fromZeroInvocations = AtomicInteger(0)
 
+    /** Counts [catchUpAll] — the forward drain that pulls rows beyond the persisted cursor. */
+    val allInvocations = AtomicInteger(0)
+
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> {
@@ -180,7 +277,10 @@ private class CountingFromZeroCatchUp : CatchUp {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
+        allInvocations.incrementAndGet()
+        return AppResult.Success(Unit)
+    }
 
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
 

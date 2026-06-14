@@ -130,10 +130,18 @@ class SyncRepositoryImpl(
     override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = startEngineForCurrentUser()
 
     override suspend fun refreshListeningHistory(): AppResult<Unit> =
-        // Import completion writes playback positions server-side under `FirehoseSuppressed` (no live
-        // push), so a full reconcile is what lands the freshly-imported listening progress in Room —
-        // without it the data only surfaces after an app restart.
-        forceFullResync()
+        // Import completion writes playback positions + listening events server-side under
+        // `FirehoseSuppressed` (no SSE push), at revisions ABOVE the client's cursor. A digest
+        // reconcile (forceFullResync → forceReconcile) compares local-vs-server digests AT that stale
+        // cursor — and since both sides exclude the beyond-cursor rows, it sees no drift and pulls
+        // nothing, so the progress only appeared after a restart. A forward catch-up is what drains
+        // rows past the cursor; handleCursorStale runs catchUpAll + reseeds the firehose, landing the
+        // imported progress live. (forceFullResync stays the right tool for a server *restore*, where
+        // the whole DB diverges and the digest genuinely differs at the cursor.)
+        when (val started = startEngineForCurrentUser()) {
+            is AppResult.Success -> suspendRunCatching { syncEngine.handleCursorStale() }
+            is AppResult.Failure -> started
+        }
 
     override suspend fun forceFullResync(): AppResult<Unit> =
         when (val started = startEngineForCurrentUser()) {
