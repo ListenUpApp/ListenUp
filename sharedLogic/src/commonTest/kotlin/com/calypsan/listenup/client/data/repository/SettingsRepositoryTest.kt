@@ -15,14 +15,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
 
 /**
@@ -31,336 +28,337 @@ import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
  * slice has its own test in [AuthSessionStoreTest]; here we mock the
  * `AuthSession` collaborator at the seam.
  */
-class SettingsRepositoryTest {
-    private fun createMockStorage(): SecureStorage = mock<SecureStorage>()
+class SettingsRepositoryTest :
+    FunSpec({
+        fun createMockStorage(): SecureStorage = mock<SecureStorage>()
 
-    private fun createMockAuthSession(): AuthSession = mock<AuthSession>()
+        fun createMockAuthSession(): AuthSession = mock<AuthSession>()
 
-    private fun createRepository(
-        storage: SecureStorage = createMockStorage(),
-        authSession: AuthSession = createMockAuthSession(),
-    ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, lazyOf(authSession))
+        fun createRepository(
+            storage: SecureStorage = createMockStorage(),
+            authSession: AuthSession = createMockAuthSession(),
+        ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, lazyOf(authSession))
 
-    @Test
-    fun `setServerUrl persists the URL and triggers offline derive when already authenticated`() =
-        runTest {
-            val storage = createMockStorage()
-            val authSession = createMockAuthSession()
-            everySuspend { storage.save("server_url", "https://api.example.com") } returns Unit
-            everySuspend { storage.read("active_url") } returns null
-            everySuspend { storage.read("server_url") } returns "https://api.example.com"
-            everySuspend { authSession.isAuthenticated() } returns true
-            everySuspend { authSession.initializeAuthState() } returns Unit
-            val repository = createRepository(storage = storage, authSession = authSession)
+        test("setServerUrl persists the URL and triggers offline derive when already authenticated") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { storage.save("server_url", "https://api.example.com") } returns Unit
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_url") } returns "https://api.example.com"
+                everySuspend { authSession.isAuthenticated() } returns true
+                everySuspend { authSession.initializeAuthState() } returns Unit
+                val repository = createRepository(storage = storage, authSession = authSession)
 
-            repository.setServerUrl(ServerUrl("https://api.example.com"))
+                repository.setServerUrl(ServerUrl("https://api.example.com"))
 
-            verifySuspend { storage.save("server_url", "https://api.example.com") }
-            verifySuspend { authSession.initializeAuthState() }
-        }
-
-    @Test
-    fun `setServerUrl persists the URL and asks server status when not yet authenticated`() =
-        runTest {
-            val storage = createMockStorage()
-            val authSession = createMockAuthSession()
-            val authStateFlow: StateFlow<DomainAuthState> = MutableStateFlow(DomainAuthState.Initializing)
-            everySuspend { storage.save("server_url", "https://api.example.com") } returns Unit
-            everySuspend { storage.read("active_url") } returns null
-            everySuspend { storage.read("server_url") } returns "https://api.example.com"
-            everySuspend { authSession.isAuthenticated() } returns false
-            everySuspend { authSession.checkServerStatus() } returns DomainAuthState.NeedsLogin()
-            // checkServerStatus is suspend & returns AuthState; just stub it.
-            val repository = createRepository(storage = storage, authSession = authSession)
-
-            repository.setServerUrl(ServerUrl("https://api.example.com"))
-
-            verifySuspend { storage.save("server_url", "https://api.example.com") }
-            verifySuspend { authSession.checkServerStatus() }
-            // authStateFlow is unused but kept to document the seam shape.
-            assertNull(authStateFlow.value as? DomainAuthState.NeedsLogin)
-        }
-
-    @Test
-    fun `getServerUrl returns stored URL`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("server_url") } returns "https://api.example.com"
-            val repository = createRepository(storage = storage)
-
-            assertEquals(ServerUrl("https://api.example.com"), repository.getServerUrl())
-        }
-
-    @Test
-    fun `getServerUrl returns null when not configured`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("server_url") } returns null
-            val repository = createRepository(storage = storage)
-
-            assertNull(repository.getServerUrl())
-        }
-
-    @Test
-    fun `clearAll wipes secure storage and re-derives auth state`() =
-        runTest {
-            val storage = createMockStorage()
-            val authSession = createMockAuthSession()
-            everySuspend { storage.clear() } returns Unit
-            everySuspend { storage.read(any()) } returns null
-            everySuspend { authSession.initializeAuthState() } returns Unit
-            val repository = createRepository(storage = storage, authSession = authSession)
-
-            repository.clearAll()
-
-            verifySuspend { storage.clear() }
-            verifySuspend { authSession.initializeAuthState() }
-        }
-
-    @Test
-    fun `disconnectFromServer drops auth and URL plumbing then re-derives state`() =
-        runTest {
-            val storage = createMockStorage()
-            val authSession = createMockAuthSession()
-            everySuspend { authSession.clearAuthTokens() } returns Unit
-            everySuspend { authSession.clearPendingRegistration() } returns Unit
-            everySuspend { authSession.initializeAuthState() } returns Unit
-            everySuspend { storage.delete(any()) } returns Unit
-            everySuspend { storage.read(any()) } returns null
-            val repository = createRepository(storage = storage, authSession = authSession)
-
-            repository.disconnectFromServer()
-
-            verifySuspend { authSession.clearAuthTokens() }
-            verifySuspend { authSession.clearPendingRegistration() }
-            verifySuspend { storage.delete("server_url") }
-            verifySuspend { storage.delete("server_remote_url") }
-            verifySuspend { storage.delete("active_url") }
-            verifySuspend { storage.delete("connected_library_id") }
-            verifySuspend { authSession.initializeAuthState() }
-        }
-
-    @Test
-    fun `hasServerConfigured returns true when URL configured`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("server_url") } returns "https://api.example.com"
-            val repository = createRepository(storage = storage)
-
-            assertTrue(repository.hasServerConfigured())
-        }
-
-    @Test
-    fun `hasServerConfigured returns false when URL not configured`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("server_url") } returns null
-            val repository = createRepository(storage = storage)
-
-            assertFalse(repository.hasServerConfigured())
-        }
-
-    // ========== Active URL change-signal ==========
-
-    @Test
-    fun `setActiveUrl persists the active URL and publishes it`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.save("active_url", "http://192.168.1.10:8080") } returns Unit
-            everySuspend { storage.read("active_url") } returns "http://192.168.1.10:8080"
-            val repository = createRepository(storage = storage)
-
-            repository.activeUrl.test {
-                awaitItem() // current value (null initial)
-                repository.setActiveUrl(ServerUrl("http://192.168.1.10:8080"))
-                assertEquals("http://192.168.1.10:8080", awaitItem()?.value)
-                cancelAndIgnoreRemainingEvents()
+                verifySuspend { storage.save("server_url", "https://api.example.com") }
+                verifySuspend { authSession.initializeAuthState() }
             }
         }
 
-    // ========== Connected mDNS server id + local URL follow ==========
+        test("setServerUrl persists the URL and asks server status when not yet authenticated") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                val authStateFlow: StateFlow<DomainAuthState> = MutableStateFlow(DomainAuthState.Initializing)
+                everySuspend { storage.save("server_url", "https://api.example.com") } returns Unit
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_url") } returns "https://api.example.com"
+                everySuspend { authSession.isAuthenticated() } returns false
+                everySuspend { authSession.checkServerStatus() } returns DomainAuthState.NeedsLogin()
+                // checkServerStatus is suspend & returns AuthState; just stub it.
+                val repository = createRepository(storage = storage, authSession = authSession)
 
-    @Test
-    fun `setConnectedServerId persists and getConnectedServerId reads it back`() =
-        runTest {
-            val storage = createMockStorage()
-            val repository = createRepository(storage = storage)
-            everySuspend { storage.save("connected_server_id", "abc-123") } returns Unit
-            everySuspend { storage.read("connected_server_id") } returns "abc-123"
+                repository.setServerUrl(ServerUrl("https://api.example.com"))
 
-            repository.setConnectedServerId("abc-123")
-
-            assertEquals("abc-123", repository.getConnectedServerId())
-        }
-
-    @Test
-    fun `setConnectedServerId null clears it`() =
-        runTest {
-            val storage = createMockStorage()
-            val repository = createRepository(storage = storage)
-            everySuspend { storage.delete("connected_server_id") } returns Unit
-
-            repository.setConnectedServerId(null)
-
-            verifySuspend { storage.delete("connected_server_id") }
-        }
-
-    @Test
-    fun `updateLocalUrl saves the local URL and publishes activeUrl`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.save("server_url", "http://192.168.1.20:8080") } returns Unit
-            everySuspend { storage.read("active_url") } returns null
-            everySuspend { storage.read("server_url") } returns "http://192.168.1.20:8080"
-            everySuspend { storage.read("server_remote_url") } returns null
-            val repository = createRepository(storage = storage)
-
-            repository.activeUrl.test {
-                awaitItem() // current value (null initial)
-                repository.updateLocalUrl(ServerUrl("http://192.168.1.20:8080"))
-                assertEquals("http://192.168.1.20:8080", awaitItem()?.value)
-                cancelAndIgnoreRemainingEvents()
+                verifySuspend { storage.save("server_url", "https://api.example.com") }
+                verifySuspend { authSession.checkServerStatus() }
+                // authStateFlow is unused but kept to document the seam shape.
+                (authStateFlow.value as? DomainAuthState.NeedsLogin) shouldBe null
             }
         }
 
-    // ========== Spatial playback ==========
+        test("getServerUrl returns stored URL") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("server_url") } returns "https://api.example.com"
+                val repository = createRepository(storage = storage)
 
-    @Test
-    fun `getSpatialPlayback returns true by default`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("spatial_playback") } returns null
-            val repository = createRepository(storage = storage)
-
-            assertTrue(repository.getSpatialPlayback())
-        }
-
-    @Test
-    fun `getSpatialPlayback returns false when set to false`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("spatial_playback") } returns "false"
-            val repository = createRepository(storage = storage)
-
-            assertFalse(repository.getSpatialPlayback())
-        }
-
-    @Test
-    fun `getSpatialPlayback returns true when set to true`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("spatial_playback") } returns "true"
-            val repository = createRepository(storage = storage)
-
-            assertTrue(repository.getSpatialPlayback())
-        }
-
-    @Test
-    fun `setSpatialPlayback stores false correctly`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.save("spatial_playback", "false") } returns Unit
-            val repository = createRepository(storage = storage)
-
-            repository.setSpatialPlayback(false)
-
-            verifySuspend { storage.save("spatial_playback", "false") }
-        }
-
-    @Test
-    fun `setSpatialPlayback stores true correctly`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.save("spatial_playback", "true") } returns Unit
-            val repository = createRepository(storage = storage)
-
-            repository.setSpatialPlayback(true)
-
-            verifySuspend { storage.save("spatial_playback", "true") }
-        }
-
-    @Test
-    fun `setSpatialPlayback and getSpatialPlayback persist value correctly`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.save("spatial_playback", "false") } returns Unit
-            everySuspend { storage.read("spatial_playback") } returns "false"
-            val repository = createRepository(storage = storage)
-
-            repository.setSpatialPlayback(false)
-            val result = repository.getSpatialPlayback()
-
-            assertFalse(result)
-            verifySuspend { storage.save("spatial_playback", "false") }
-        }
-
-    // ========== Default playback speed ==========
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @Test
-    fun `setDefaultPlaybackSpeed saves speed and emits preference change event`() =
-        runTest(UnconfinedTestDispatcher()) {
-            val storage = createMockStorage()
-            everySuspend { storage.save("default_playback_speed", "1.5") } returns Unit
-            val repository = createRepository(storage = storage)
-
-            // Start collecting before emitting (async starts immediately under UnconfinedTestDispatcher)
-            val eventDeferred = async { repository.preferenceChanges.first() }
-
-            repository.setDefaultPlaybackSpeed(1.5f)
-
-            val receivedEvent = eventDeferred.await()
-            verifySuspend { storage.save("default_playback_speed", "1.5") }
-            val speedChangedEvent = assertIs<PreferenceChangeEvent.PlaybackSpeedChanged>(receivedEvent)
-            assertEquals(1.5f, speedChangedEvent.speed)
-        }
-
-    @Test
-    fun `getDefaultPlaybackSpeed returns default when not set`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("default_playback_speed") } returns null
-            val repository = createRepository(storage = storage)
-
-            assertEquals(1.0f, repository.getDefaultPlaybackSpeed())
-        }
-
-    @Test
-    fun `getDefaultPlaybackSpeed returns stored speed`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("default_playback_speed") } returns "1.25"
-            val repository = createRepository(storage = storage)
-
-            assertEquals(1.25f, repository.getDefaultPlaybackSpeed())
-        }
-
-    @Test
-    fun `observeDefaultPlaybackSpeed emits current value on first collect`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("default_playback_speed") } returns "1.5"
-            val repository = createRepository(storage = storage)
-
-            repository.observeDefaultPlaybackSpeed().test {
-                assertEquals(1.5f, awaitItem())
-                cancelAndIgnoreRemainingEvents()
+                repository.getServerUrl() shouldBe ServerUrl("https://api.example.com")
             }
         }
 
-    @Test
-    fun `observeDefaultPlaybackSpeed re-emits when setDefaultPlaybackSpeed is called`() =
-        runTest {
-            val storage = createMockStorage()
-            everySuspend { storage.read("default_playback_speed") } returns "1.0"
-            everySuspend { storage.save("default_playback_speed", "1.75") } returns Unit
-            val repository = createRepository(storage = storage)
+        test("getServerUrl returns null when not configured") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("server_url") } returns null
+                val repository = createRepository(storage = storage)
 
-            repository.observeDefaultPlaybackSpeed().test {
-                assertEquals(1.0f, awaitItem())
-                repository.setDefaultPlaybackSpeed(1.75f)
-                assertEquals(1.75f, awaitItem())
-                cancelAndIgnoreRemainingEvents()
+                repository.getServerUrl() shouldBe null
             }
         }
-}
+
+        test("clearAll wipes secure storage and re-derives auth state") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { storage.clear() } returns Unit
+                everySuspend { storage.read(any()) } returns null
+                everySuspend { authSession.initializeAuthState() } returns Unit
+                val repository = createRepository(storage = storage, authSession = authSession)
+
+                repository.clearAll()
+
+                verifySuspend { storage.clear() }
+                verifySuspend { authSession.initializeAuthState() }
+            }
+        }
+
+        test("disconnectFromServer drops auth and URL plumbing then re-derives state") {
+            runTest {
+                val storage = createMockStorage()
+                val authSession = createMockAuthSession()
+                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.clearPendingRegistration() } returns Unit
+                everySuspend { authSession.initializeAuthState() } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { storage.read(any()) } returns null
+                val repository = createRepository(storage = storage, authSession = authSession)
+
+                repository.disconnectFromServer()
+
+                verifySuspend { authSession.clearAuthTokens() }
+                verifySuspend { authSession.clearPendingRegistration() }
+                verifySuspend { storage.delete("server_url") }
+                verifySuspend { storage.delete("server_remote_url") }
+                verifySuspend { storage.delete("active_url") }
+                verifySuspend { storage.delete("connected_library_id") }
+                verifySuspend { authSession.initializeAuthState() }
+            }
+        }
+
+        test("hasServerConfigured returns true when URL configured") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("server_url") } returns "https://api.example.com"
+                val repository = createRepository(storage = storage)
+
+                repository.hasServerConfigured() shouldBe true
+            }
+        }
+
+        test("hasServerConfigured returns false when URL not configured") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("server_url") } returns null
+                val repository = createRepository(storage = storage)
+
+                repository.hasServerConfigured() shouldBe false
+            }
+        }
+
+        // ========== Active URL change-signal ==========
+
+        test("setActiveUrl persists the active URL and publishes it") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save("active_url", "http://192.168.1.10:8080") } returns Unit
+                everySuspend { storage.read("active_url") } returns "http://192.168.1.10:8080"
+                val repository = createRepository(storage = storage)
+
+                repository.activeUrl.test {
+                    awaitItem() // current value (null initial)
+                    repository.setActiveUrl(ServerUrl("http://192.168.1.10:8080"))
+                    awaitItem()?.value shouldBe "http://192.168.1.10:8080"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // ========== Connected mDNS server id + local URL follow ==========
+
+        test("setConnectedServerId persists and getConnectedServerId reads it back") {
+            runTest {
+                val storage = createMockStorage()
+                val repository = createRepository(storage = storage)
+                everySuspend { storage.save("connected_server_id", "abc-123") } returns Unit
+                everySuspend { storage.read("connected_server_id") } returns "abc-123"
+
+                repository.setConnectedServerId("abc-123")
+
+                repository.getConnectedServerId() shouldBe "abc-123"
+            }
+        }
+
+        test("setConnectedServerId null clears it") {
+            runTest {
+                val storage = createMockStorage()
+                val repository = createRepository(storage = storage)
+                everySuspend { storage.delete("connected_server_id") } returns Unit
+
+                repository.setConnectedServerId(null)
+
+                verifySuspend { storage.delete("connected_server_id") }
+            }
+        }
+
+        test("updateLocalUrl saves the local URL and publishes activeUrl") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save("server_url", "http://192.168.1.20:8080") } returns Unit
+                everySuspend { storage.read("active_url") } returns null
+                everySuspend { storage.read("server_url") } returns "http://192.168.1.20:8080"
+                everySuspend { storage.read("server_remote_url") } returns null
+                val repository = createRepository(storage = storage)
+
+                repository.activeUrl.test {
+                    awaitItem() // current value (null initial)
+                    repository.updateLocalUrl(ServerUrl("http://192.168.1.20:8080"))
+                    awaitItem()?.value shouldBe "http://192.168.1.20:8080"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // ========== Spatial playback ==========
+
+        test("getSpatialPlayback returns true by default") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("spatial_playback") } returns null
+                val repository = createRepository(storage = storage)
+
+                repository.getSpatialPlayback() shouldBe true
+            }
+        }
+
+        test("getSpatialPlayback returns false when set to false") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("spatial_playback") } returns "false"
+                val repository = createRepository(storage = storage)
+
+                repository.getSpatialPlayback() shouldBe false
+            }
+        }
+
+        test("getSpatialPlayback returns true when set to true") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("spatial_playback") } returns "true"
+                val repository = createRepository(storage = storage)
+
+                repository.getSpatialPlayback() shouldBe true
+            }
+        }
+
+        test("setSpatialPlayback stores false correctly") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save("spatial_playback", "false") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.setSpatialPlayback(false)
+
+                verifySuspend { storage.save("spatial_playback", "false") }
+            }
+        }
+
+        test("setSpatialPlayback stores true correctly") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save("spatial_playback", "true") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.setSpatialPlayback(true)
+
+                verifySuspend { storage.save("spatial_playback", "true") }
+            }
+        }
+
+        test("setSpatialPlayback and getSpatialPlayback persist value correctly") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save("spatial_playback", "false") } returns Unit
+                everySuspend { storage.read("spatial_playback") } returns "false"
+                val repository = createRepository(storage = storage)
+
+                repository.setSpatialPlayback(false)
+                val result = repository.getSpatialPlayback()
+
+                result shouldBe false
+                verifySuspend { storage.save("spatial_playback", "false") }
+            }
+        }
+
+        // ========== Default playback speed ==========
+
+        test("setDefaultPlaybackSpeed saves speed and emits preference change event") {
+            @OptIn(ExperimentalCoroutinesApi::class)
+            runTest(UnconfinedTestDispatcher()) {
+                val storage = createMockStorage()
+                everySuspend { storage.save("default_playback_speed", "1.5") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                // Start collecting before emitting (async starts immediately under UnconfinedTestDispatcher)
+                val eventDeferred = async { repository.preferenceChanges.first() }
+
+                repository.setDefaultPlaybackSpeed(1.5f)
+
+                val receivedEvent = eventDeferred.await()
+                verifySuspend { storage.save("default_playback_speed", "1.5") }
+                val speedChangedEvent = receivedEvent.shouldBeInstanceOf<PreferenceChangeEvent.PlaybackSpeedChanged>()
+                speedChangedEvent.speed shouldBe 1.5f
+            }
+        }
+
+        test("getDefaultPlaybackSpeed returns default when not set") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_playback_speed") } returns null
+                val repository = createRepository(storage = storage)
+
+                repository.getDefaultPlaybackSpeed() shouldBe 1.0f
+            }
+        }
+
+        test("getDefaultPlaybackSpeed returns stored speed") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_playback_speed") } returns "1.25"
+                val repository = createRepository(storage = storage)
+
+                repository.getDefaultPlaybackSpeed() shouldBe 1.25f
+            }
+        }
+
+        test("observeDefaultPlaybackSpeed emits current value on first collect") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_playback_speed") } returns "1.5"
+                val repository = createRepository(storage = storage)
+
+                repository.observeDefaultPlaybackSpeed().test {
+                    awaitItem() shouldBe 1.5f
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeDefaultPlaybackSpeed re-emits when setDefaultPlaybackSpeed is called") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_playback_speed") } returns "1.0"
+                everySuspend { storage.save("default_playback_speed", "1.75") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.observeDefaultPlaybackSpeed().test {
+                    awaitItem() shouldBe 1.0f
+                    repository.setDefaultPlaybackSpeed(1.75f)
+                    awaitItem() shouldBe 1.75f
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+    })

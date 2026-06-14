@@ -4,12 +4,11 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Tests for ErrorMapper.
@@ -24,155 +23,141 @@ import kotlin.test.assertTrue
  * make them difficult to instantiate in unit tests. Those mappings are verified
  * through HttpClientErrorHandlingTest.
  */
-class ErrorMapperTest {
-    // ========== SerializationException → TransportError.DataMalformed ==========
+class ErrorMapperTest :
+    FunSpec({
+        // ========== SerializationException → TransportError.DataMalformed ==========
 
-    @Test
-    fun `map SerializationException returns DataMalformed`() {
-        val exception = SerializationException("Failed to parse JSON")
-        val error = ErrorMapper.map(exception)
+        test("map SerializationException returns DataMalformed") {
+            val exception = SerializationException("Failed to parse JSON")
+            val error = ErrorMapper.map(exception)
 
-        val dataMalformed = assertIs<TransportError.DataMalformed>(error)
-        assertEquals("Server response was malformed.", dataMalformed.message)
-        assertEquals("TRANSPORT_DATA_MALFORMED", dataMalformed.code)
-        assertEquals("Failed to parse JSON", dataMalformed.detail)
-    }
+            val dataMalformed = error.shouldBeInstanceOf<TransportError.DataMalformed>()
+            dataMalformed.message shouldBe "Server response was malformed."
+            dataMalformed.code shouldBe "TRANSPORT_DATA_MALFORMED"
+            dataMalformed.detail shouldBe "Failed to parse JSON"
+        }
 
-    @Test
-    fun `DataMalformed is not retryable`() {
-        val exception = SerializationException("Parse error")
-        val error = ErrorMapper.map(exception)
+        test("DataMalformed is not retryable") {
+            val exception = SerializationException("Parse error")
+            val error = ErrorMapper.map(exception)
 
-        val dataMalformed = assertIs<TransportError.DataMalformed>(error)
-        assertEquals(false, dataMalformed.isRetryable)
-    }
+            val dataMalformed = error.shouldBeInstanceOf<TransportError.DataMalformed>()
+            dataMalformed.isRetryable shouldBe false
+        }
 
-    @Test
-    fun `map SerializationException includes debug info`() {
-        val exception = SerializationException("Unexpected JSON token")
-        val error = ErrorMapper.map(exception)
+        test("map SerializationException includes debug info") {
+            val exception = SerializationException("Unexpected JSON token")
+            val error = ErrorMapper.map(exception)
 
-        val dataMalformed = assertIs<TransportError.DataMalformed>(error)
-        assertEquals("Unexpected JSON token", dataMalformed.debugInfo)
-    }
+            val dataMalformed = error.shouldBeInstanceOf<TransportError.DataMalformed>()
+            dataMalformed.debugInfo shouldBe "Unexpected JSON token"
+        }
 
-    @Test
-    fun `map SerializationException with null message uses fallback detail`() {
-        val exception = SerializationException(null as String?)
-        val error = ErrorMapper.map(exception)
+        test("map SerializationException with null message uses fallback detail") {
+            val exception = SerializationException(null as String?)
+            val error = ErrorMapper.map(exception)
 
-        val dataMalformed = assertIs<TransportError.DataMalformed>(error)
-        assertEquals("deserialization failed", dataMalformed.detail)
-    }
+            val dataMalformed = error.shouldBeInstanceOf<TransportError.DataMalformed>()
+            dataMalformed.detail shouldBe "deserialization failed"
+        }
 
-    // ========== IOException → TransportError.NetworkUnavailable ==========
+        // ========== IOException → TransportError.NetworkUnavailable ==========
 
-    @Test
-    fun `map IOException returns NetworkUnavailable`() {
-        val exception = IOException("Connection refused")
-        val error = ErrorMapper.map(exception)
+        test("map IOException returns NetworkUnavailable") {
+            val exception = IOException("Connection refused")
+            val error = ErrorMapper.map(exception)
 
-        val networkUnavailable = assertIs<TransportError.NetworkUnavailable>(error)
-        assertEquals("No internet connection. Check your network.", networkUnavailable.message)
-        assertEquals("TRANSPORT_NETWORK_UNAVAILABLE", networkUnavailable.code)
-        assertEquals("Connection refused", networkUnavailable.debugInfo)
-    }
+            val networkUnavailable = error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+            networkUnavailable.message shouldBe "No internet connection. Check your network."
+            networkUnavailable.code shouldBe "TRANSPORT_NETWORK_UNAVAILABLE"
+            networkUnavailable.debugInfo shouldBe "Connection refused"
+        }
 
-    @Test
-    fun `NetworkUnavailable is retryable`() {
-        val exception = IOException("Network down")
-        val error = ErrorMapper.map(exception)
+        test("NetworkUnavailable is retryable") {
+            val exception = IOException("Network down")
+            val error = ErrorMapper.map(exception)
 
-        val networkUnavailable = assertIs<TransportError.NetworkUnavailable>(error)
-        assertEquals(true, networkUnavailable.isRetryable)
-    }
+            val networkUnavailable = error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+            networkUnavailable.isRetryable shouldBe true
+        }
 
-    // ========== IllegalArgumentException → ValidationError ==========
+        // ========== IllegalArgumentException → ValidationError ==========
 
-    @Test
-    fun `map IllegalArgumentException returns ValidationError preserving message`() {
-        val exception = IllegalArgumentException("Bad argument")
-        val error = ErrorMapper.map(exception)
+        test("map IllegalArgumentException returns ValidationError preserving message") {
+            val exception = IllegalArgumentException("Bad argument")
+            val error = ErrorMapper.map(exception)
 
-        val validationError = assertIs<ValidationError>(error)
-        assertEquals("Bad argument", validationError.message)
-        assertEquals("VALIDATION_ERROR", validationError.code)
-        assertEquals("Bad argument", validationError.debugInfo)
-        assertEquals(false, validationError.isRetryable)
-    }
+            val validationError = error.shouldBeInstanceOf<ValidationError>()
+            validationError.message shouldBe "Bad argument"
+            validationError.code shouldBe "VALIDATION_ERROR"
+            validationError.debugInfo shouldBe "Bad argument"
+            validationError.isRetryable shouldBe false
+        }
 
-    @Test
-    fun `map IllegalArgumentException with null message uses fallback`() {
-        val exception = IllegalArgumentException()
-        val error = ErrorMapper.map(exception)
+        test("map IllegalArgumentException with null message uses fallback") {
+            val exception = IllegalArgumentException()
+            val error = ErrorMapper.map(exception)
 
-        val validationError = assertIs<ValidationError>(error)
-        assertEquals("Invalid input.", validationError.message)
-    }
+            val validationError = error.shouldBeInstanceOf<ValidationError>()
+            validationError.message shouldBe "Invalid input."
+        }
 
-    // ========== Unknown / catch-all → InternalError ==========
+        // ========== Unknown / catch-all → InternalError ==========
 
-    @Test
-    fun `map unknown exception returns InternalError`() {
-        val exception = IllegalStateException("Something went wrong")
-        val error = ErrorMapper.map(exception)
+        test("map unknown exception returns InternalError") {
+            val exception = IllegalStateException("Something went wrong")
+            val error = ErrorMapper.map(exception)
 
-        val internalError = assertIs<InternalError>(error)
-        assertEquals("Something went wrong on the server.", internalError.message)
-        assertEquals("INTERNAL_ERROR", internalError.code)
-    }
+            val internalError = error.shouldBeInstanceOf<InternalError>()
+            internalError.message shouldBe "Something went wrong on the server."
+            internalError.code shouldBe "INTERNAL_ERROR"
+        }
 
-    @Test
-    fun `InternalError is not retryable`() {
-        val exception = RuntimeException("Random error")
-        val error = ErrorMapper.map(exception)
+        test("InternalError is not retryable") {
+            val exception = RuntimeException("Random error")
+            val error = ErrorMapper.map(exception)
 
-        val internalError = assertIs<InternalError>(error)
-        assertEquals(false, internalError.isRetryable)
-    }
+            val internalError = error.shouldBeInstanceOf<InternalError>()
+            internalError.isRetryable shouldBe false
+        }
 
-    @Test
-    fun `map unknown exception preserves throwable text in debug info`() {
-        val exception = RuntimeException("Custom error message")
-        val error = ErrorMapper.map(exception)
+        test("map unknown exception preserves throwable text in debug info") {
+            val exception = RuntimeException("Custom error message")
+            val error = ErrorMapper.map(exception)
 
-        val internalError = assertIs<InternalError>(error)
-        assertTrue(internalError.debugInfo?.contains("Custom error message") == true)
-        assertTrue(internalError.debugInfo?.contains("RuntimeException") == true)
-    }
+            val internalError = error.shouldBeInstanceOf<InternalError>()
+            (internalError.debugInfo?.contains("Custom error message") == true) shouldBe true
+            (internalError.debugInfo?.contains("RuntimeException") == true) shouldBe true
+        }
 
-    @Test
-    fun `map unknown exception with null message produces ClassName-null debug info`() {
-        val error = ErrorMapper.map(RuntimeException())
+        test("map unknown exception with null message produces ClassName-null debug info") {
+            val error = ErrorMapper.map(RuntimeException())
 
-        val internalError = assertIs<InternalError>(error)
-        assertEquals("RuntimeException: null", internalError.debugInfo)
-    }
+            val internalError = error.shouldBeInstanceOf<InternalError>()
+            internalError.debugInfo shouldBe "RuntimeException: null"
+        }
 
-    @Test
-    fun `map custom exception returns InternalError`() {
-        class CustomException(
-            message: String,
-        ) : Exception(message)
-        val exception = CustomException("Custom domain error")
-        val error = ErrorMapper.map(exception)
+        test("map custom exception returns InternalError") {
+            class CustomException(
+                message: String,
+            ) : Exception(message)
+            val exception = CustomException("Custom domain error")
+            val error = ErrorMapper.map(exception)
 
-        checkIs<InternalError>(error)
-    }
+            checkIs<InternalError>(error)
+        }
 
-    @Test
-    fun `map NullPointerException returns InternalError`() {
-        val exception = NullPointerException("null reference")
-        val error = ErrorMapper.map(exception)
+        test("map NullPointerException returns InternalError") {
+            val exception = NullPointerException("null reference")
+            val error = ErrorMapper.map(exception)
 
-        checkIs<InternalError>(error)
-    }
+            checkIs<InternalError>(error)
+        }
 
-    @Test
-    fun `map IndexOutOfBoundsException returns InternalError`() {
-        val exception = IndexOutOfBoundsException("index 5 out of bounds")
-        val error = ErrorMapper.map(exception)
+        test("map IndexOutOfBoundsException returns InternalError") {
+            val exception = IndexOutOfBoundsException("index 5 out of bounds")
+            val error = ErrorMapper.map(exception)
 
-        checkIs<InternalError>(error)
-    }
-}
+            checkIs<InternalError>(error)
+        }
+    })
