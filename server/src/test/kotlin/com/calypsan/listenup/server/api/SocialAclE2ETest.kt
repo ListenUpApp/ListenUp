@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
-import com.calypsan.listenup.api.dto.social.BookReader
+import com.calypsan.listenup.api.dto.social.BookReadership
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.ActiveSessionRepository
+import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -66,8 +67,8 @@ import java.nio.file.Files
  * Driving the reads as B over RPC, the test asserts:
  *  - `currentlyListening()` returns the accessible-book session and **omits** the
  *    private-book one (both present-and-absent asserted).
- *  - `bookReaders(accessibleBook)` lists A.
- *  - `bookReaders(privateBook)` returns `AppResult.Failure(SocialError.NotFound)` —
+ *  - `bookReadership(accessibleBook)` lists A (seeded a finish row).
+ *  - `bookReadership(privateBook)` returns `AppResult.Failure(SocialError.NotFound)` —
  *    never revealing the book exists.
  *
  * Presence is server-derived and never synced, so A's sessions are seeded through the
@@ -190,6 +191,17 @@ class SocialAclE2ETest :
                     sessions.startOrRefresh(userId = alice.userId, bookId = "public-book")
                     sessions.startOrRefresh(userId = alice.userId, bookId = "private-book")
 
+                    // ── A also has a persistent completion of the public book, so she appears in
+                    //    its readership (which reads book_reads + in-progress positions, not presence). ──
+                    val reads by application.inject<BookReadsRepository>()
+                    reads.recordRead(
+                        id = "alice-public-finish",
+                        userId = alice.userId,
+                        bookId = "public-book",
+                        finishedAt = 1_000L,
+                        source = "playback",
+                    )
+
                     // ── Drive the reads as B over the real authed RPC surface. ────────────────
                     val rpcClient =
                         createClient {
@@ -209,17 +221,19 @@ class SocialAclE2ETest :
                     listening.single().userId shouldBe alice.userId
                     listening.none { it.bookId == "private-book" } shouldBe true
 
-                    // bookReaders on the accessible book: A is listed.
+                    // bookReadership on the accessible book: A is listed (via her finish row).
                     val readers =
                         social
-                            .bookReaders(BookId("public-book"))
-                            .shouldBeInstanceOf<AppResult.Success<List<BookReader>>>()
+                            .bookReadership(BookId("public-book"))
+                            .shouldBeInstanceOf<AppResult.Success<BookReadership>>()
                             .data
+                            .readers
                     readers shouldHaveSize 1
                     readers.single().userId shouldBe alice.userId
+                    readers.single().finishes shouldBe listOf(1_000L)
 
-                    // bookReaders on the private book: NotFound — never revealing it exists.
-                    val denied = social.bookReaders(BookId("private-book"))
+                    // bookReadership on the private book: NotFound — never revealing it exists.
+                    val denied = social.bookReadership(BookId("private-book"))
                     denied.shouldBeInstanceOf<AppResult.Failure>()
                     denied.error.shouldBeInstanceOf<SocialError.NotFound>()
                 }

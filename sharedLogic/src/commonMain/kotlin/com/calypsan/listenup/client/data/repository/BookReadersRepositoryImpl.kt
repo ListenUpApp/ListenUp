@@ -32,9 +32,9 @@ private val logger = KotlinLogging.logger {}
  * The current user's row comes from the local playback position ([PlaybackPositionRepository]) and
  * profile ([UserRepository]) — so it shows whether *you* are reading or have finished the book even
  * when the server is unreachable. Other listeners come from the [com.calypsan.listenup.api.SocialService]
- * `bookReaders` RPC, which is ACL-filtered and excludes the caller server-side; that list is fetched
- * on first subscribe and re-fetched on every [PresenceRefreshSignal] ping. The current user, when
- * applicable, is listed first.
+ * `bookReadership` RPC, which is ACL-filtered; that list is fetched on first subscribe and re-fetched
+ * on every [PresenceRefreshSignal] ping. The readership now *includes* the caller server-side, so the
+ * caller's own entry is dropped here in favour of the locally-derived self row, which is listed first.
  *
  * On any RPC failure the *other-listeners* list is empty — Never-Stranded: the section still shows
  * the current user's own row, and the next ping recovers the others.
@@ -52,25 +52,33 @@ class BookReadersRepositoryImpl(
 ) : BookReadersRepository {
     override fun observeReadersFor(bookId: String): Flow<BookReaders> =
         combine(
-            otherListeners(bookId),
+            readership(bookId),
             playbackPositionRepository.observeAll(),
             userRepository.observeCurrentUser(),
-        ) { others, positions, currentUser ->
+        ) { readers, positions, currentUser ->
             val self = currentUser?.let { user -> selfReader(user, positions[BookId(bookId)]) }
+            // The server-side readership now includes the caller; drop their entry in favour of the
+            // locally-derived self row (authoritative and offline-resilient), listed first.
+            val others = readers.filterNot { it.userId == currentUser?.id?.value }
             BookReaders(readers = listOfNotNull(self) + others)
         }
 
-    /** Other users currently listening — ACL-filtered and caller-excluded server-side. */
-    private fun otherListeners(bookId: String): Flow<List<Reader>> =
+    /** The full readership of the book — ACL-filtered server-side; empty on any RPC failure. */
+    private fun readership(bookId: String): Flow<List<Reader>> =
         presence.signal
             .onStart { emit(Unit) }
-            .flatMapLatest { flow { emit(fetchOthers(bookId)) } }
+            .flatMapLatest { flow { emit(fetchReadership(bookId)) } }
 
-    private suspend fun fetchOthers(bookId: String): List<Reader> =
-        when (val result = bookReaders(bookId)) {
+    private suspend fun fetchReadership(bookId: String): List<Reader> =
+        when (val result = bookReadership(bookId)) {
             is AppResult.Success -> {
-                result.data.map {
-                    Reader(userId = it.userId, displayName = it.displayName, state = ReaderState.Listening)
+                result.data.readers.map { entry ->
+                    val state =
+                        when {
+                            entry.currentProgressPct != null -> ReaderState.Listening
+                            else -> ReaderState.Finished(entry.finishes.firstOrNull())
+                        }
+                    Reader(userId = entry.userId, displayName = entry.displayName, state = state)
                 }
             }
 
@@ -97,13 +105,13 @@ class BookReadersRepositoryImpl(
         return Reader(userId = user.id.value, displayName = user.displayName, state = state)
     }
 
-    private suspend fun bookReaders(bookId: String) =
+    private suspend fun bookReadership(bookId: String) =
         try {
-            socialRpc.get().bookReaders(BookId(bookId))
+            socialRpc.get().bookReadership(BookId(bookId))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            logger.warn(e) { "bookReaders RPC failed" }
+            logger.warn(e) { "bookReadership RPC failed" }
             AppResult.Failure(ErrorMapper.map(e))
         }
 }
