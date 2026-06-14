@@ -9,9 +9,9 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.SleepTimerManager
+import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
-import kotlin.test.Test
 
 /**
  * Verifies Koin module definitions are correctly configured.
@@ -26,17 +26,14 @@ import kotlin.test.Test
  * since they're defined in platform modules that can't be loaded in commonTest.
  */
 @OptIn(KoinExperimentalAPI::class)
-class KoinModuleVerifyTest {
-    /**
-     * Verify voiceModule — the voice intent resolver and its four repository dependencies.
-     *
-     * Narrow module; the extraTypes list is correspondingly small. Covered as step 1 of
-     * the Finding 12 D4 expansion ("every leaf module is verified"). PresentationModule
-     * verification is deferred to W3, which rewrites the DI layout (Finding 02 R1) and
-     * would immediately invalidate any extraTypes enumerated today.
-     */
-    @Test
-    fun verifyVoiceModule() {
+class KoinModuleVerifyTest : FunSpec({
+    // Verify voiceModule — the voice intent resolver and its four repository dependencies.
+    //
+    // Narrow module; the extraTypes list is correspondingly small. Covered as step 1 of
+    // the Finding 12 D4 expansion ("every leaf module is verified"). PresentationModule
+    // verification is deferred to W3, which rewrites the DI layout (Finding 02 R1) and
+    // would immediately invalidate any extraTypes enumerated today.
+    test("verifyVoiceModule") {
         voiceModule.verify(
             extraTypes =
                 listOf(
@@ -48,15 +45,12 @@ class KoinModuleVerifyTest {
         )
     }
 
-    /**
-     * Verify [playbackPresentationModule] — single shared playback VM bound as `single`
-     * per W7 Phase E2.2.3 consolidation. Closes drift #33 ("playbackPresentationModule
-     * not covered by module.verify()").
-     *
-     * `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.
-     */
-    @Test
-    fun verifyPlaybackPresentationModule() {
+    // Verify [playbackPresentationModule] — single shared playback VM bound as `single`
+    // per W7 Phase E2.2.3 consolidation. Closes drift #33 ("playbackPresentationModule
+    // not covered by module.verify()").
+    //
+    // `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.
+    test("verifyPlaybackPresentationModule") {
         playbackPresentationModule.verify(
             extraTypes =
                 listOf(
@@ -69,4 +63,4 @@ class KoinModuleVerifyTest {
                 ),
         )
     }
-}
+})

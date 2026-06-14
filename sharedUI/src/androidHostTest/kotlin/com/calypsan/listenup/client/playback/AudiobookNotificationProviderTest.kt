@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
+import io.kotest.matchers.shouldBe
 
 /**
  * Tests for the pure formatting helpers in [AudiobookNotificationProvider]:
@@ -55,7 +55,7 @@ class AudiobookNotificationProviderTest {
     @Test
     fun `buildChapterSubtitle returns Playing dot dot dot when chapter is null`() {
         val result = provider.buildChapterSubtitle(null)
-        assertEquals("Playing...", result)
+        result shouldBe "Playing..."
     }
 
     // ── buildChapterSubtitle — generic chapter (isGenericTitle = true) ────────
@@ -65,21 +65,21 @@ class AudiobookNotificationProviderTest {
         val chapter = makeChapterInfo(index = 0, totalChapters = 92, isGenericTitle = true, remainingMs = 8 * 60_000L)
         val result = provider.buildChapterSubtitle(chapter)
         // index 0 → "Chapter 1 of 92", 8 minutes → "8m"
-        assertEquals("Chapter 1 of 92 • 8m left", result)
+        result shouldBe "Chapter 1 of 92 • 8m left"
     }
 
     @Test
     fun `buildChapterSubtitle formats generic chapter index 13 of 92`() {
         val chapter = makeChapterInfo(index = 13, totalChapters = 92, isGenericTitle = true, remainingMs = 8 * 60_000L)
         val result = provider.buildChapterSubtitle(chapter)
-        assertEquals("Chapter 14 of 92 • 8m left", result)
+        result shouldBe "Chapter 14 of 92 • 8m left"
     }
 
     @Test
     fun `buildChapterSubtitle formats generic chapter when only one chapter exists`() {
         val chapter = makeChapterInfo(index = 0, totalChapters = 1, isGenericTitle = true, remainingMs = 30 * 60_000L)
         val result = provider.buildChapterSubtitle(chapter)
-        assertEquals("Chapter 1 of 1 • 30m left", result)
+        result shouldBe "Chapter 1 of 1 • 30m left"
     }
 
     // ── buildChapterSubtitle — named chapter (isGenericTitle = false) ─────────
@@ -95,7 +95,7 @@ class AudiobookNotificationProviderTest {
                 remainingMs = 8 * 60_000L,
             )
         val result = provider.buildChapterSubtitle(chapter)
-        assertEquals("Chapter 14: The Chandrian • 8m left", result)
+        result shouldBe "Chapter 14: The Chandrian • 8m left"
     }
 
     @Test
@@ -109,7 +109,7 @@ class AudiobookNotificationProviderTest {
                 remainingMs = 75 * 60_000L, // 1h 15m
             )
         val result = provider.buildChapterSubtitle(chapter)
-        assertEquals("Prologue • 1h 15m left", result)
+        result shouldBe "Prologue • 1h 15m left"
     }
 
     // ── buildChapterSubtitle — edge remaining times ───────────────────────────
@@ -118,66 +118,66 @@ class AudiobookNotificationProviderTest {
     fun `buildChapterSubtitle shows less than 1m for zero remaining`() {
         val chapter = makeChapterInfo(index = 0, totalChapters = 10, isGenericTitle = true, remainingMs = 0L)
         val result = provider.buildChapterSubtitle(chapter)
-        assertEquals("Chapter 1 of 10 • < 1m left", result)
+        result shouldBe "Chapter 1 of 10 • < 1m left"
     }
 
     @Test
     fun `buildChapterSubtitle shows less than 1m for 59 seconds remaining`() {
         val chapter = makeChapterInfo(index = 0, totalChapters = 10, isGenericTitle = true, remainingMs = 59_999L)
         val result = provider.buildChapterSubtitle(chapter)
-        assertEquals("Chapter 1 of 10 • < 1m left", result)
+        result shouldBe "Chapter 1 of 10 • < 1m left"
     }
 
     // ── formatDuration — boundary cases ──────────────────────────────────────
 
     @Test
     fun `formatDuration returns less than 1m for 0ms`() {
-        assertEquals("< 1m", provider.formatDuration(0L))
+        provider.formatDuration(0L) shouldBe "< 1m"
     }
 
     @Test
     fun `formatDuration returns less than 1m for 59999ms (just under 1 minute)`() {
-        assertEquals("< 1m", provider.formatDuration(59_999L))
+        provider.formatDuration(59_999L) shouldBe "< 1m"
     }
 
     @Test
     fun `formatDuration returns 1m for exactly 60000ms`() {
-        assertEquals("1m", provider.formatDuration(60_000L))
+        provider.formatDuration(60_000L) shouldBe "1m"
     }
 
     @Test
     fun `formatDuration returns 8m for 8 minutes`() {
-        assertEquals("8m", provider.formatDuration(8 * 60_000L))
+        provider.formatDuration(8 * 60_000L) shouldBe "8m"
     }
 
     @Test
     fun `formatDuration returns 59m for 59 minutes`() {
-        assertEquals("59m", provider.formatDuration(59 * 60_000L))
+        provider.formatDuration(59 * 60_000L) shouldBe "59m"
     }
 
     @Test
     fun `formatDuration returns 59m for 3599999ms (just under 1 hour)`() {
-        assertEquals("59m", provider.formatDuration(3_599_999L))
+        provider.formatDuration(3_599_999L) shouldBe "59m"
     }
 
     @Test
     fun `formatDuration returns 1h 0m for exactly 1 hour (3600000ms)`() {
-        assertEquals("1h 0m", provider.formatDuration(3_600_000L))
+        provider.formatDuration(3_600_000L) shouldBe "1h 0m"
     }
 
     @Test
     fun `formatDuration returns 1h 15m for 75 minutes`() {
-        assertEquals("1h 15m", provider.formatDuration(75 * 60_000L))
+        provider.formatDuration(75 * 60_000L) shouldBe "1h 15m"
     }
 
     @Test
     fun `formatDuration returns 2h 0m for exactly 2 hours`() {
-        assertEquals("2h 0m", provider.formatDuration(2 * 3_600_000L))
+        provider.formatDuration(2 * 3_600_000L) shouldBe "2h 0m"
     }
 
     @Test
     fun `formatDuration returns 10h 30m for large values`() {
-        assertEquals("10h 30m", provider.formatDuration((10 * 60 + 30) * 60_000L))
+        provider.formatDuration((10 * 60 + 30) * 60_000L) shouldBe "10h 30m"
     }
 }
 

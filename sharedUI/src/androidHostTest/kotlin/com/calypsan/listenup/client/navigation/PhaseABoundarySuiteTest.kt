@@ -14,8 +14,9 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import io.kotest.assertions.withClue
+import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.test.assertEquals
 
 /**
  * Phase A boundary suite. Tests that exercise the structural invariants the
@@ -44,11 +45,13 @@ class PhaseABoundarySuiteTest {
         harness.navigate(BookEdit(bookId = "book-X"))
 
         val expected = listOf(Shell, BookDetail("book-X"), BookEdit("book-X"))
-        assertEquals(expected, harness.currentBackStack)
+        harness.currentBackStack shouldBe expected
 
         // Simulate process death and assert the stack restores.
         val restored = harness.simulateProcessDeath()
-        assertEquals(expected, restored, "Back stack did not survive process-death round-trip")
+        withClue("Back stack did not survive process-death round-trip") {
+            restored shouldBe expected
+        }
     }
 
     @Test
@@ -72,7 +75,9 @@ class PhaseABoundarySuiteTest {
         sites += findNavDisplaySites("AuthNavigation.kt", authNav)
         sites += findNavDisplaySites("ListenUpNavigation.kt", listenUpNav)
 
-        assertEquals(7, sites.size, "Expected 7 NavDisplay sites; found ${sites.size}")
+        withClue("Expected 7 NavDisplay sites; found ${sites.size}") {
+            sites.size shouldBe 7
+        }
 
         for ((file, lineIdx) in sites) {
             val window = if (file.endsWith("AuthNavigation.kt")) authNav else listenUpNav
@@ -80,8 +85,12 @@ class PhaseABoundarySuiteTest {
             val slice = window.subList(lineIdx, sliceEnd).joinToString("\n")
             val hasSaveable = "rememberSaveableStateHolderNavEntryDecorator" in slice
             val hasVmStore = "rememberViewModelStoreNavEntryDecorator" in slice
-            assertEquals(true, hasSaveable, "$file:${lineIdx + 1} missing rememberSaveableStateHolderNavEntryDecorator")
-            assertEquals(true, hasVmStore, "$file:${lineIdx + 1} missing rememberViewModelStoreNavEntryDecorator")
+            withClue("$file:${lineIdx + 1} missing rememberSaveableStateHolderNavEntryDecorator") {
+                hasSaveable shouldBe true
+            }
+            withClue("$file:${lineIdx + 1} missing rememberViewModelStoreNavEntryDecorator") {
+                hasVmStore shouldBe true
+            }
         }
     }
 
@@ -138,13 +147,15 @@ class PhaseABoundarySuiteTest {
         harness.navigate(BookDetail("book-Y"))
         composeRule.waitForIdle()
 
-        assertEquals(2, capturedVMs.size, "Expected one VM per entry; got ${capturedVMs.size}")
-        assertEquals(
-            false,
-            capturedVMs[0] === capturedVMs[1],
+        withClue("Expected one VM per entry; got ${capturedVMs.size}") {
+            capturedVMs.size shouldBe 2
+        }
+        withClue(
             "Two BookDetail entries with distinct args produced the SAME VM instance — " +
                 "cross-detail VM contamination present.",
-        )
+        ) {
+            (capturedVMs[0] === capturedVMs[1]) shouldBe false
+        }
     }
 
     @Test
@@ -178,11 +189,15 @@ class PhaseABoundarySuiteTest {
         composeRule.waitForIdle()
 
         val vm = capturedVM.get() ?: error("VM was not captured")
-        assertEquals(false, vm.clearedFlag, "VM cleared before pop")
+        withClue("VM cleared before pop") {
+            vm.clearedFlag shouldBe false
+        }
 
         harness.pop()
         composeRule.waitForIdle()
 
-        assertEquals(true, vm.clearedFlag, "Popped entry's VM did not have onCleared() called")
+        withClue("Popped entry's VM did not have onCleared() called") {
+            vm.clearedFlag shouldBe true
+        }
     }
 }

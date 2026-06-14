@@ -63,10 +63,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
+import io.kotest.assertions.withClue
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * Tests for [PlaybackErrorHandler].
@@ -101,13 +100,13 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Network for ERROR_CODE_IO_NETWORK_CONNECTION_FAILED`() {
         val error = PlaybackException("net", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Network>()
     }
 
     @Test
     fun `classify returns Network for ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`() {
         val error = PlaybackException("timeout", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Network>()
     }
 
     // ── classify — HTTP status codes ─────────────────────────────────────────
@@ -115,37 +114,37 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns AuthExpired for HTTP 401`() {
         val error = makeHttpStatusException(401)
-        assertIs<PlaybackErrorHandler.ClassifiedError.AuthExpired>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.AuthExpired>()
     }
 
     @Test
     fun `classify returns AuthExpired for HTTP 403`() {
         val error = makeHttpStatusException(403)
-        assertIs<PlaybackErrorHandler.ClassifiedError.AuthExpired>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.AuthExpired>()
     }
 
     @Test
     fun `classify returns NotFound for HTTP 404`() {
         val error = makeHttpStatusException(404)
-        assertIs<PlaybackErrorHandler.ClassifiedError.NotFound>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.NotFound>()
     }
 
     @Test
     fun `classify returns Network for HTTP 500`() {
         val error = makeHttpStatusException(500)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Network>()
     }
 
     @Test
     fun `classify returns Network for HTTP 599`() {
         val error = makeHttpStatusException(599)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Network>()
     }
 
     @Test
     fun `classify returns Unknown for HTTP 400 (unclassified)`() {
         val error = makeHttpStatusException(400)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Unknown>()
     }
 
     /**
@@ -160,7 +159,7 @@ class PlaybackErrorHandlerTest {
                 RuntimeException("wrong cause type"),
                 PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
             )
-        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Unknown>()
     }
 
     /**
@@ -169,7 +168,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify does not crash when cause is null for IO_BAD_HTTP_STATUS`() {
         val error = PlaybackException("bad http null cause", null, PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Unknown>()
     }
 
     // ── classify — Codec ──────────────────────────────────────────────────────
@@ -177,19 +176,19 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Codec for ERROR_CODE_DECODER_INIT_FAILED`() {
         val error = PlaybackException("decoder init", null, PlaybackException.ERROR_CODE_DECODER_INIT_FAILED)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Codec>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Codec>()
     }
 
     @Test
     fun `classify returns Codec for ERROR_CODE_DECODING_FAILED`() {
         val error = PlaybackException("decoding", null, PlaybackException.ERROR_CODE_DECODING_FAILED)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Codec>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Codec>()
     }
 
     @Test
     fun `classify returns Codec for ERROR_CODE_AUDIO_TRACK_INIT_FAILED`() {
         val error = PlaybackException("audio track", null, PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Codec>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Codec>()
     }
 
     // ── classify — Stuck ──────────────────────────────────────────────────────
@@ -197,7 +196,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Stuck for ERROR_CODE_TIMEOUT`() {
         val error = PlaybackException("timeout", null, PlaybackException.ERROR_CODE_TIMEOUT)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Stuck>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Stuck>()
     }
 
     // ── classify — Unknown ────────────────────────────────────────────────────
@@ -205,7 +204,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Unknown for unrecognised error code`() {
         val error = PlaybackException("other", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
-        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Unknown>()
     }
 
     // ── handle — Network ──────────────────────────────────────────────────────
@@ -225,11 +224,11 @@ class PlaybackErrorHandlerTest {
                     onShowError = { errors += it },
                 )
 
-            assertTrue(result, "Network error should return true (ExoPlayer handles retry)")
-            assertEquals(0, player.pauseCount, "Player should NOT be paused for network errors")
-            assertTrue(errors.isEmpty(), "No user-visible error for transient network issues")
-            assertEquals(1, tracker.savePlaybackStateCalls.size, "Position saved once before handling")
-            assertEquals(BookId("book1"), tracker.savePlaybackStateCalls.first().first)
+            withClue("Network error should return true (ExoPlayer handles retry)") { result shouldBe true }
+            withClue("Player should NOT be paused for network errors") { player.pauseCount shouldBe 0 }
+            withClue("No user-visible error for transient network issues") { errors.isEmpty() shouldBe true }
+            withClue("Position saved once before handling") { tracker.savePlaybackStateCalls.size shouldBe 1 }
+            tracker.savePlaybackStateCalls.first().first shouldBe BookId("book1")
         }
 
     @Test
@@ -244,7 +243,7 @@ class PlaybackErrorHandlerTest {
                 onShowError = {},
             )
 
-            assertEquals(0, tracker.savePlaybackStateCalls.size, "No save when bookId is null")
+            withClue("No save when bookId is null") { tracker.savePlaybackStateCalls.size shouldBe 0 }
         }
 
     // ── handle — NotFound ─────────────────────────────────────────────────────
@@ -264,12 +263,12 @@ class PlaybackErrorHandlerTest {
                     onShowError = { errors += it },
                 )
 
-            assertFalse(result, "NotFound should return false (no further playback)")
-            assertEquals(1, player.pauseCount, "Player paused")
-            assertEquals(1, errors.size)
-            assertTrue(errors.first().isNotBlank(), "Error message is non-blank")
-            assertEquals(1, tracker.savePlaybackStateCalls.size)
-            assertEquals(BookId("book2"), tracker.savePlaybackStateCalls.first().first)
+            withClue("NotFound should return false (no further playback)") { result shouldBe false }
+            withClue("Player paused") { player.pauseCount shouldBe 1 }
+            errors.size shouldBe 1
+            withClue("Error message is non-blank") { errors.first().isNotBlank() shouldBe true }
+            tracker.savePlaybackStateCalls.size shouldBe 1
+            tracker.savePlaybackStateCalls.first().first shouldBe BookId("book2")
         }
 
     // ── handle — Codec ────────────────────────────────────────────────────────
@@ -288,9 +287,9 @@ class PlaybackErrorHandlerTest {
                     onShowError = { errors += it },
                 )
 
-            assertFalse(result)
-            assertEquals(1, player.pauseCount)
-            assertEquals(1, errors.size)
+            result shouldBe false
+            player.pauseCount shouldBe 1
+            errors.size shouldBe 1
         }
 
     // ── handle — Stuck ────────────────────────────────────────────────────────
@@ -310,15 +309,15 @@ class PlaybackErrorHandlerTest {
                     onShowError = { errors += it },
                 )
 
-            assertTrue(result, "Stuck returns true (recovery attempted)")
-            assertEquals(1, player.stopCount, "stop() called once")
-            assertEquals(1, player.prepareCount, "prepare() called once")
-            assertEquals(1, player.playCount, "play() called once")
-            assertEquals(1, player.seekCalls.size, "seekTo called once (position > 0)")
-            assertEquals(2, player.seekCalls.first().first, "seekTo uses saved mediaItemIndex")
-            assertEquals(12_000L, player.seekCalls.first().second, "seekTo uses saved position")
-            assertTrue(errors.isEmpty(), "No user error shown for stuck recovery attempt")
-            assertEquals(1, tracker.savePlaybackStateCalls.size)
+            withClue("Stuck returns true (recovery attempted)") { result shouldBe true }
+            withClue("stop() called once") { player.stopCount shouldBe 1 }
+            withClue("prepare() called once") { player.prepareCount shouldBe 1 }
+            withClue("play() called once") { player.playCount shouldBe 1 }
+            withClue("seekTo called once (position > 0)") { player.seekCalls.size shouldBe 1 }
+            withClue("seekTo uses saved mediaItemIndex") { player.seekCalls.first().first shouldBe 2 }
+            withClue("seekTo uses saved position") { player.seekCalls.first().second shouldBe 12_000L }
+            withClue("No user error shown for stuck recovery attempt") { errors.isEmpty() shouldBe true }
+            tracker.savePlaybackStateCalls.size shouldBe 1
         }
 
     @Test
@@ -333,7 +332,7 @@ class PlaybackErrorHandlerTest {
                 onShowError = {},
             )
 
-            assertEquals(0, player.seekCalls.size, "seekTo NOT called when position is 0")
+            withClue("seekTo NOT called when position is 0") { player.seekCalls.size shouldBe 0 }
         }
 
     // ── handle — Unknown ──────────────────────────────────────────────────────
@@ -353,11 +352,11 @@ class PlaybackErrorHandlerTest {
                     onShowError = { errors += it },
                 )
 
-            assertFalse(result)
-            assertEquals(1, player.pauseCount)
-            assertEquals(1, errors.size)
-            assertEquals(1, tracker.savePlaybackStateCalls.size)
-            assertEquals(BookId("book4"), tracker.savePlaybackStateCalls.first().first)
+            result shouldBe false
+            player.pauseCount shouldBe 1
+            errors.size shouldBe 1
+            tracker.savePlaybackStateCalls.size shouldBe 1
+            tracker.savePlaybackStateCalls.first().first shouldBe BookId("book4")
         }
 
     // ── getErrorMessage ────────────────────────────────────────────────────────
@@ -375,8 +374,8 @@ class PlaybackErrorHandlerTest {
                 handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.Unknown(RuntimeException())),
             )
 
-        assertTrue(messages.all { it.isNotBlank() }, "All messages must be non-blank")
-        assertEquals(messages.size, messages.distinct().size, "Each error type must have a distinct message")
+        withClue("All messages must be non-blank") { messages.all { it.isNotBlank() } shouldBe true }
+        withClue("Each error type must have a distinct message") { messages.distinct().size shouldBe messages.size }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
