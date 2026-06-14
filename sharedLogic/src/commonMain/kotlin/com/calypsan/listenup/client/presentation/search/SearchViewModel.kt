@@ -181,6 +181,11 @@ class SearchViewModel(
         }
     }
 
+    /** Reset all type filters, returning the overlay to its "All" (unfiltered) scope. */
+    fun clearTypeFilters() {
+        typesFlow.value = emptySet()
+    }
+
     fun onResultClicked(hit: SearchHit) {
         val action =
             when (hit.type) {

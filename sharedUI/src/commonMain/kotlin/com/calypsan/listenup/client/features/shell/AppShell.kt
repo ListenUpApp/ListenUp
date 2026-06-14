@@ -296,6 +296,9 @@ fun AppShell(
                 onTypeFilterToggle = { type ->
                     searchViewModel.toggleTypeFilter(type)
                 },
+                onClearTypeFilters = {
+                    searchViewModel.clearTypeFilters()
+                },
                 modifier =
                     Modifier
                         .fillMaxSize()

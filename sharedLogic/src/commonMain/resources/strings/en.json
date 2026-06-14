@@ -484,6 +484,7 @@
     "no_results_for_query": "No results for “%1$s”",
     "people": "People",
     "results_for": "Results for “%1$s”",
+    "results_count_for": "%1$d results for “%2$s”",
     "searching": "Searching…",
     "section_count": "(%1$d)",
     "search_placeholder": "Search books, authors, series...",

@@ -284,6 +284,24 @@ class SearchViewModelTest :
             }
         }
 
+        test("clearTypeFilters resets selectedTypes to empty") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.toggleTypeFilter(SearchHitType.BOOK)
+                viewModel.toggleTypeFilter(SearchHitType.SERIES)
+                advanceUntilIdle()
+                viewModel.state.value.selectedTypes shouldBe setOf(SearchHitType.BOOK, SearchHitType.SERIES)
+
+                viewModel.clearTypeFilters()
+                advanceUntilIdle()
+
+                viewModel.state.value.selectedTypes
+                    .isEmpty() shouldBe true
+            }
+        }
+
         test("toggleTypeFilter triggers re-search immediately when query present") {
             runTest {
                 val fixture = createFixture()

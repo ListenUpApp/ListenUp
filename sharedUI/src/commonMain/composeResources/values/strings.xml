@@ -878,6 +878,7 @@ One beautiful library.</string>
     <string name="search_find_description">Find books by title, author, narrator, or series</string>
     <string name="search_no_results_for_query">No results for “%1$s”</string>
     <string name="search_people">People</string>
+    <string name="search_results_count_for">%1$d results for “%2$s”</string>
     <string name="search_results_for">Results for “%1$s”</string>
     <string name="search_search_placeholder">Search books, authors, series...</string>
     <string name="search_search_your_library">Search Your Library</string>
