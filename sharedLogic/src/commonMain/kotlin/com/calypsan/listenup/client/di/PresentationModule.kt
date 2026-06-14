@@ -269,6 +269,13 @@ val libraryPresentationModule =
                 errorBus = get(),
             )
         }
+
+        factory {
+            com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel(
+                searchRepository = get(),
+                errorBus = get(),
+            )
+        }
     }
 
 /**
