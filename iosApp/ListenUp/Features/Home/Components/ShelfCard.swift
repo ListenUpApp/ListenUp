@@ -3,11 +3,9 @@ import SwiftUI
 /// A single "My Shelves" card: a fanned stack of cover art, the shelf name, and a count/duration
 /// subtitle. Glass-backed to match `ContinueHeroCard`/`HomeStatsCard`.
 ///
-/// The card is intentionally **non-navigating**: shelf detail is a separate sub-project and no
-/// `ShelfDestination` exists yet. Rendered as plain content so it reads as a preview tile, not a
-/// dead link.
+/// Pure visual tile — `MyShelvesRow` wraps it in a `NavigationLink(value:)` so the tap pushes the
+/// shelf's detail onto the Home stack, matching how book/series covers route elsewhere.
 struct ShelfCard: View {
-    // TODO: Wire a tap to a future `ShelfDestination` once shelf detail lands.
     let shelf: ShelfItem
 
     private let cardWidth: CGFloat = 200
@@ -110,7 +108,10 @@ struct MyShelvesRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(shelves) { shelf in
-                        ShelfCard(shelf: shelf)
+                        NavigationLink(value: ShelfDestination(id: shelf.id)) {
+                            ShelfCard(shelf: shelf)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 20)
