@@ -98,6 +98,7 @@ fun BookDetailScreen(
     onContributorClick: (contributorId: String) -> Unit,
     onTagClick: (tagId: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit = {},
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {
@@ -143,6 +144,7 @@ fun BookDetailScreen(
                     onContributorClick = onContributorClick,
                     onTagClick = onTagClick,
                     onUserProfileClick = onUserProfileClick,
+                    onSeeAllReaders = onSeeAllReaders,
                 )
             }
         }
@@ -169,6 +171,7 @@ private fun BookDetailReadyContent(
     onContributorClick: (contributorId: String) -> Unit,
     onTagClick: (tagId: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -249,6 +252,7 @@ private fun BookDetailReadyContent(
         onSeriesClick = onSeriesClick,
         onContributorClick = onContributorClick,
         onTagClick = onTagClick,
+        onSeeAllReaders = onSeeAllReaders,
     )
 
     if (showDeleteDialog) {
@@ -334,6 +338,7 @@ fun BookDetailContent(
     onContributorClick: (contributorId: String) -> Unit,
     onTagClick: (tagId: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit = {},
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
@@ -377,6 +382,7 @@ fun BookDetailContent(
             onContributorClick = onContributorClick,
             onTagClick = onTagClick,
             onUserProfileClick = onUserProfileClick,
+            onSeeAllReaders = onSeeAllReaders,
         )
     } else {
         ImmersiveBookDetail(
@@ -410,6 +416,7 @@ fun BookDetailContent(
             onContributorClick = onContributorClick,
             onTagClick = onTagClick,
             onUserProfileClick = onUserProfileClick,
+            onSeeAllReaders = onSeeAllReaders,
         )
     }
 }
@@ -459,6 +466,7 @@ private fun ImmersiveBookDetail(
     onContributorClick: (contributorId: String) -> Unit,
     onTagClick: (tagId: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -585,6 +593,7 @@ private fun ImmersiveBookDetail(
                 BookReadersSection(
                     bookId = bookId,
                     onUserClick = onUserProfileClick,
+                    onSeeAllClick = onSeeAllReaders,
                     modifier = screenPadding.padding(vertical = 8.dp),
                 )
             }

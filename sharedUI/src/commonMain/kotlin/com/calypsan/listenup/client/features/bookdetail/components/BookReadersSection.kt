@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
@@ -83,6 +84,39 @@ data class ReaderRowUi(
 )
 
 /**
+ * Flattens readers into [ReaderRowUi] rows for both the capped Book Detail section and the full
+ * [com.calypsan.listenup.client.features.bookreaders.BookReadersScreen]. Reading lines come first,
+ * then finished lines newest-first (see [flattenToLines]); the caller's own row is labelled "You".
+ *
+ * @param nowMs Current epoch-ms reference, passed to [relativeOrMonthYear] for finished dates.
+ */
+internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
+    flattenToLines(this).map { line ->
+        val name = if (line.isYou) "You" else line.name
+        when (val k = line.kind) {
+            is ReaderLineKind.Reading -> {
+                ReaderRowUi(
+                    userId = line.userId,
+                    name = name,
+                    isReading = true,
+                    progressPct = k.progressPct,
+                    finishedWhen = null,
+                )
+            }
+
+            is ReaderLineKind.Finished -> {
+                ReaderRowUi(
+                    userId = line.userId,
+                    name = name,
+                    isReading = false,
+                    progressPct = null,
+                    finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
+                )
+            }
+        }
+    }
+
+/**
  * VM-bound entry point for the Readers section on the Book Detail screen.
  *
  * Collects [BookReadersViewModel] state and, on [BookReadersUiState.Data], maps each reader's
@@ -115,38 +149,14 @@ fun BookReadersSection(
     // Loading and Error render nothing — the Readers section is non-critical.
     val data = state as? BookReadersUiState.Data ?: return
 
-    val lines = flattenToLines(data.readers.readers)
     val nowMs = Clock.System.now().toEpochMilliseconds()
-    val rows =
-        lines.take(MAX_COLLAPSED_READERS).map { line ->
-            val name = if (line.isYou) "You" else line.name
-            when (val k = line.kind) {
-                is ReaderLineKind.Reading -> {
-                    ReaderRowUi(
-                        userId = line.userId,
-                        name = name,
-                        isReading = true,
-                        progressPct = k.progressPct,
-                        finishedWhen = null,
-                    )
-                }
-
-                is ReaderLineKind.Finished -> {
-                    ReaderRowUi(
-                        userId = line.userId,
-                        name = name,
-                        isReading = false,
-                        progressPct = null,
-                        finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
-                    )
-                }
-            }
-        }
+    val allRows = data.readers.readers.toReaderRows(nowMs)
+    val rows = allRows.take(MAX_COLLAPSED_READERS)
 
     BookReadersContent(
         readers = rows,
         listeningNowCount = rows.count { it.isReading },
-        totalCount = lines.size,
+        totalCount = allRows.size,
         isCard = isCard,
         onUserClick = onUserClick,
         onSeeAllClick = { onSeeAllClick(bookId) },
@@ -271,7 +281,7 @@ fun BookReadersContent(
  * @param modifier Optional modifier.
  */
 @Composable
-private fun ReaderRow(
+internal fun ReaderRow(
     reader: ReaderRowUi,
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,

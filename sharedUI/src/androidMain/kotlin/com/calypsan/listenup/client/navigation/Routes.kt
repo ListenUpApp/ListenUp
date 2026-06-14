@@ -38,6 +38,19 @@ data class BookDetail(
 ) : Route
 
 /**
+ * Book readers screen - the full "See all" list of everyone reading or who has finished a book.
+ *
+ * Reached from the Readers section's "See all" affordance on [BookDetail]. Renders the uncapped
+ * flattened reader list (the section caps at five).
+ *
+ * @property bookId The unique ID of the book whose readers to display.
+ */
+@Serializable
+data class BookReaders(
+    val bookId: String,
+) : Route
+
+/**
  * Book edit screen - edit book metadata and contributors.
  *
  * Allows editing title, subtitle, description, series info, publish year,

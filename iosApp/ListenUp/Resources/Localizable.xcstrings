@@ -2251,6 +2251,16 @@
         }
       }
     },
+    "book.detail_readers_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No one is reading this book yet."
+          }
+        }
+      }
+    },
     "book.detail_readers_finished": {
       "localizations": {
         "en": {

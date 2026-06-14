@@ -226,6 +226,7 @@ One beautiful library.</string>
     <string name="book_detail_read_less">Read less</string>
     <string name="book_detail_read_more">Read more</string>
     <string name="book_detail_readers">Readers</string>
+    <string name="book_detail_readers_empty">No one is reading this book yet.</string>
     <string name="book_detail_readers_finished">Finished %1$s</string>
     <string name="book_detail_readers_listening_now">%1$d listening now</string>
     <string name="book_detail_released">Released</string>
