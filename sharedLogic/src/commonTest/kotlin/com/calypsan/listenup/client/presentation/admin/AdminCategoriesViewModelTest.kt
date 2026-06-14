@@ -20,14 +20,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import com.calypsan.listenup.core.error.ErrorBus
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * Tests for AdminCategoriesViewModel.
@@ -42,36 +38,36 @@ import com.calypsan.listenup.core.error.ErrorBus
  * - `clearError` clears the transient error on Ready
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class AdminCategoriesViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class AdminCategoriesViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    // ========== Test Fixtures ==========
+        // ========== Test Fixtures ==========
 
-    private class TestFixture {
-        val genreRepository: GenreRepository = mock()
-        val genresFlow = MutableStateFlow<List<Genre>>(emptyList())
+        class TestFixture {
+            val genreRepository: GenreRepository = mock()
+            val genresFlow = MutableStateFlow<List<Genre>>(emptyList())
 
-        fun build(): AdminCategoriesViewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
-    }
+            fun build(): AdminCategoriesViewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
+        }
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-        every { fixture.genreRepository.observeAll() } returns fixture.genresFlow
-        everySuspend { fixture.genreRepository.createGenre(any(), any(), any()) } returns
-            AppResult.Success(
-                com.calypsan.listenup.core
-                    .GenreId("created"),
-            )
-        everySuspend { fixture.genreRepository.updateGenre(any(), any()) } returns AppResult.Success(Unit)
-        everySuspend { fixture.genreRepository.deleteGenre(any()) } returns AppResult.Success(Unit)
-        everySuspend { fixture.genreRepository.moveGenre(any(), any()) } returns AppResult.Success(Unit)
-        return fixture
-    }
+        fun createFixture(): TestFixture {
+            val fixture = TestFixture()
+            every { fixture.genreRepository.observeAll() } returns fixture.genresFlow
+            everySuspend { fixture.genreRepository.createGenre(any(), any(), any()) } returns
+                AppResult.Success(
+                    com.calypsan.listenup.core
+                        .GenreId("created"),
+                )
+            everySuspend { fixture.genreRepository.updateGenre(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.genreRepository.deleteGenre(any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.genreRepository.moveGenre(any(), any()) } returns AppResult.Success(Unit)
+            return fixture
+        }
 
-    // ========== Test Data Factories ==========
+        // ========== Test Data Factories ==========
 
-    companion object {
-        private fun createGenre(
+        fun createGenre(
             id: String = "g1",
             name: String = "Fiction",
             slug: String = "fiction",
@@ -85,185 +81,173 @@ class AdminCategoriesViewModelTest {
                 path = path,
                 bookCount = bookCount,
             )
-    }
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+        // ========== Initial State ==========
 
-    // ========== Initial State ==========
+        test("initial state is Loading before observeAll emits") {
+            runTest {
+                // Given a repository whose observeAll never emits
+                val genreRepository: GenreRepository = mock()
+                every { genreRepository.observeAll() } returns
+                    flow {
+                        // suspend forever — no emission
+                        kotlinx.coroutines.awaitCancellation()
+                    }
 
-    @Test
-    fun `initial state is Loading before observeAll emits`() =
-        runTest {
-            // Given a repository whose observeAll never emits
-            val genreRepository: GenreRepository = mock()
-            every { genreRepository.observeAll() } returns
-                flow {
-                    // suspend forever — no emission
-                    kotlinx.coroutines.awaitCancellation()
-                }
+                // When
+                val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
 
-            // When
-            val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
-
-            // Then
-            assertIs<AdminCategoriesUiState.Loading>(viewModel.state.value)
+                // Then
+                viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Loading>()
+            }
         }
 
-    // ========== Reactive Observation ==========
+        // ========== Reactive Observation ==========
 
-    @Test
-    fun `Ready emitted with genres tree and totalBookCount after first emission`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val fiction = createGenre(id = "fiction", name = "Fiction", path = "/fiction", bookCount = 3)
-            val fantasy =
-                createGenre(id = "fantasy", name = "Fantasy", path = "/fiction/fantasy", bookCount = 5)
-            fixture.genresFlow.value = listOf(fiction, fantasy)
+        test("Ready emitted with genres tree and totalBookCount after first emission") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val fiction = createGenre(id = "fiction", name = "Fiction", path = "/fiction", bookCount = 3)
+                val fantasy =
+                    createGenre(id = "fantasy", name = "Fantasy", path = "/fiction/fantasy", bookCount = 5)
+                fixture.genresFlow.value = listOf(fiction, fantasy)
 
-            // When
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+                // When
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then
-            val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertEquals(listOf(fiction, fantasy), ready.genres)
-            assertEquals(8, ready.totalBookCount)
-            // Tree has one root ("Fiction") with one child ("Fantasy")
-            assertEquals(1, ready.tree.size)
-            assertEquals("fiction", ready.tree[0].genre.id)
-            assertEquals(1, ready.tree[0].children.size)
-            assertEquals(
-                "fantasy",
+                // Then
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                ready.genres shouldBe listOf(fiction, fantasy)
+                ready.totalBookCount shouldBe 8
+                // Tree has one root ("Fiction") with one child ("Fantasy")
+                ready.tree.size shouldBe 1
+                ready.tree[0].genre.id shouldBe "fiction"
+                ready.tree[0].children.size shouldBe 1
                 ready.tree[0]
                     .children[0]
-                    .genre.id,
-            )
-            assertTrue(ready.expandedIds.isEmpty())
-            assertNull(ready.error)
+                    .genre.id shouldBe "fantasy"
+                ready.expandedIds.isEmpty() shouldBe true
+                ready.error shouldBe null
+            }
         }
 
-    // ========== Error Handling ==========
+        // ========== Error Handling ==========
 
-    @Test
-    fun `Error state emitted when observeAll flow throws`() =
-        runTest {
-            // Given
-            val genreRepository: GenreRepository = mock()
-            every { genreRepository.observeAll() } returns
-                flow {
-                    throw RuntimeException("db broken")
-                }
+        test("Error state emitted when observeAll flow throws") {
+            runTest {
+                // Given
+                val genreRepository: GenreRepository = mock()
+                every { genreRepository.observeAll() } returns
+                    flow {
+                        throw RuntimeException("db broken")
+                    }
 
-            // When
-            val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
-            advanceUntilIdle()
+                // When
+                val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
+                advanceUntilIdle()
 
-            // Then — the thrown Throwable is mapped to a typed AppError (InternalError),
-            // with the original message preserved in debugInfo for diagnostics.
-            val err = assertIs<AdminCategoriesUiState.Error>(viewModel.state.value)
-            val internal = assertIs<InternalError>(err.error)
-            assertTrue(internal.debugInfo?.contains("db broken") == true)
+                // Then — the thrown Throwable is mapped to a typed AppError (InternalError),
+                // with the original message preserved in debugInfo for diagnostics.
+                val err = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Error>()
+                val internal = err.error.shouldBeInstanceOf<InternalError>()
+                (internal.debugInfo?.contains("db broken") == true) shouldBe true
+            }
         }
 
-    // ========== Expand / Collapse ==========
+        // ========== Expand / Collapse ==========
 
-    @Test
-    fun `toggleExpanded adds then removes id from Ready expandedIds`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("toggleExpanded adds then removes id from Ready expandedIds") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When — first toggle adds
-            viewModel.toggleExpanded("fiction")
-            val afterAdd = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertEquals(setOf("fiction"), afterAdd.expandedIds)
+                // When — first toggle adds
+                viewModel.toggleExpanded("fiction")
+                val afterAdd = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                afterAdd.expandedIds shouldBe setOf("fiction")
 
-            // When — second toggle removes
-            viewModel.toggleExpanded("fiction")
-            val afterRemove = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertTrue(afterRemove.expandedIds.isEmpty())
+                // When — second toggle removes
+                viewModel.toggleExpanded("fiction")
+                val afterRemove = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                afterRemove.expandedIds.isEmpty() shouldBe true
+            }
         }
 
-    // ========== Mutations ==========
+        // ========== Mutations ==========
 
-    @Test
-    fun `createGenre delegates to repository and auto-expands parent`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("createGenre delegates to repository and auto-expands parent") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.createGenre(name = "Fantasy", parentId = "fiction")
-            advanceUntilIdle()
+                // When
+                viewModel.createGenre(name = "Fantasy", parentId = "fiction")
+                advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.genreRepository.createGenre(any(), any(), any()) }
-            val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertTrue(ready.expandedIds.contains("fiction"))
-            assertEquals(false, ready.isSaving)
-            assertNull(ready.error)
+                // Then
+                verifySuspend { fixture.genreRepository.createGenre(any(), any(), any()) }
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                ready.expandedIds.contains("fiction") shouldBe true
+                ready.isSaving shouldBe false
+                ready.error shouldBe null
+            }
         }
 
-    @Test
-    fun `createGenre failure surfaces as transient error on Ready`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
-            val failureError = TransportError.Server4xx(statusCode = 409, debugInfo = "duplicate name")
-            everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
-                AppResult.Failure(failureError)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("createGenre failure surfaces as transient error on Ready") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
+                val failureError = TransportError.Server4xx(statusCode = 409, debugInfo = "duplicate name")
+                everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
+                    AppResult.Failure(failureError)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.createGenre(name = "Fiction", parentId = null)
-            advanceUntilIdle()
+                // When
+                viewModel.createGenre(name = "Fiction", parentId = null)
+                advanceUntilIdle()
 
-            // Then — the typed AppError itself is carried in state (no longer flattened to a string).
-            val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertEquals(failureError, ready.error)
-            assertEquals(false, ready.isSaving)
+                // Then — the typed AppError itself is carried in state (no longer flattened to a string).
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                ready.error shouldBe failureError
+                ready.isSaving shouldBe false
+            }
         }
 
-    @Test
-    fun `clearError resets Ready error to null`() =
-        runTest {
-            // Given — a Ready state with an error
-            val fixture = createFixture()
-            fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
-            val failureError = TransportError.Server4xx(statusCode = 500, debugInfo = "boom")
-            everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
-                AppResult.Failure(failureError)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-            viewModel.createGenre(name = "X", parentId = null)
-            advanceUntilIdle()
-            assertEquals(
-                failureError,
-                assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value).error,
-            )
+        test("clearError resets Ready error to null") {
+            runTest {
+                // Given — a Ready state with an error
+                val fixture = createFixture()
+                fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
+                val failureError = TransportError.Server4xx(statusCode = 500, debugInfo = "boom")
+                everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
+                    AppResult.Failure(failureError)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.createGenre(name = "X", parentId = null)
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                    .error shouldBe failureError
 
-            // When
-            viewModel.clearError()
+                // When
+                viewModel.clearError()
 
-            // Then
-            val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertNull(ready.error)
+                // Then
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+                ready.error shouldBe null
+            }
         }
-}
+    })

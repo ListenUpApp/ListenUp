@@ -16,6 +16,9 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,12 +32,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 
@@ -55,60 +52,13 @@ import com.calypsan.listenup.core.error.ErrorBus
  * Uses Mokkery for mocking all four repositories plus `AuthSession`.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class DiscoverViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class DiscoverViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    // ========== Test Fixture ==========
+        // ========== Test Data Factories ==========
 
-    private class TestFixture {
-        val bookRepository: BookRepository = mock()
-        val activeSessionRepository: ActiveSessionRepository = mock()
-        val authSession: AuthSession = mock()
-        val shelfRepository: ShelfRepository = mock()
-
-        val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
-        val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
-        val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
-
-        fun build(): DiscoverViewModel =
-            DiscoverViewModel(
-                bookRepository = bookRepository,
-                activeSessionRepository = activeSessionRepository,
-                authSession = authSession,
-                shelfRepository = shelfRepository,
-                errorBus = ErrorBus(),
-            )
-    }
-
-    private fun createFixture(
-        authState: AuthState = AuthState.Authenticated(userId = UserId(USER_ID), sessionId = SessionId(SESSION_ID)),
-        discoveredShelves: List<Shelf> = emptyList(),
-        randomBooks: List<DiscoveryBook> = emptyList(),
-    ): TestFixture {
-        val fixture = TestFixture()
-        fixture.authStateFlow.value = authState
-
-        every { fixture.authSession.authState } returns fixture.authStateFlow
-        every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns fixture.activeSessionsFlow
-        every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns fixture.recentlyAddedFlow
-        every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
-        everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(discoveredShelves)
-
-        return fixture
-    }
-
-    private fun TestScope.keepStateHot(flow: StateFlow<*>) {
-        backgroundScope.launch { flow.collect { } }
-    }
-
-    // ========== Test Data Factories ==========
-
-    companion object {
-        private const val USER_ID = "user-1"
-        private const val SESSION_ID = "session-1"
-        private const val OTHER_USER_ID = "user-2"
-
-        private fun createActiveSession(
+        fun createActiveSession(
             sessionId: String = "active-1",
             userId: String = OTHER_USER_ID,
             bookId: String = "book-1",
@@ -136,7 +86,7 @@ class DiscoverViewModelTest {
                     ),
             )
 
-        private fun createDiscoveryBook(
+        fun createDiscoveryBook(
             id: String = "book-1",
             title: String = "A Book",
         ): DiscoveryBook =
@@ -149,7 +99,7 @@ class DiscoverViewModelTest {
                 createdAt = 0L,
             )
 
-        private fun createShelf(
+        fun createShelf(
             id: String = "shelf-1",
             ownerId: String = OTHER_USER_ID,
             ownerDisplayName: String = "Alice",
@@ -166,257 +116,301 @@ class DiscoverViewModelTest {
                 createdAtMs = 0L,
                 updatedAtMs = 0L,
             )
-    }
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
+        // ========== Test Fixture ==========
 
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+        class TestFixture {
+            val bookRepository: BookRepository = mock()
+            val activeSessionRepository: ActiveSessionRepository = mock()
+            val authSession: AuthSession = mock()
+            val shelfRepository: ShelfRepository = mock()
 
-    // ========== Currently Listening Tests ==========
+            val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
+            val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
+            val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
 
-    @Test
-    fun `currentlyListeningState initial value is Loading before subscription`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-
-            // When - viewModel created; `stateIn` initialValue is Loading.
-            // Do NOT start collecting — the stateIn initialValue is what we assert.
-            val viewModel = fixture.build()
-
-            // Then
-            assertIs<CurrentlyListeningUiState.Loading>(viewModel.currentlyListeningState.value)
-        }
-
-    @Test
-    fun `currentlyListeningState becomes Ready when authenticated and flow emits`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.activeSessionsFlow.value = listOf(createActiveSession(sessionId = "s-1"))
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<CurrentlyListeningUiState.Ready>(viewModel.currentlyListeningState.value)
-            assertEquals(1, ready.sessions.size)
-            assertEquals("s-1", ready.sessions.first().sessionId)
-        }
-
-    @Test
-    fun `currentlyListeningState becomes Ready empty when unauthenticated`() =
-        runTest {
-            // Given - unauthenticated auth state steers flatMapLatest to flowOf(emptyList())
-            val fixture = createFixture(authState = AuthState.NeedsLogin())
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<CurrentlyListeningUiState.Ready>(viewModel.currentlyListeningState.value)
-            assertTrue(ready.isEmpty)
-        }
-
-    @Test
-    fun `currentlyListeningState becomes Error when upstream throws`() =
-        runTest {
-            // Given - observeActiveSessions throws on collection
-            val fixture = createFixture()
-            every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
-                flow { throw RuntimeException("boom") }
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
-            advanceUntilIdle()
-
-            // Then
-            val err = assertIs<CurrentlyListeningUiState.Error>(viewModel.currentlyListeningState.value)
-            assertEquals("Failed to load currently listening", err.message)
-        }
-
-    // ========== Recently Added Tests ==========
-
-    @Test
-    fun `recentlyAddedState becomes Ready when flow emits`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.recentlyAddedFlow.value = listOf(createDiscoveryBook(id = "new-1", title = "New"))
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<RecentlyAddedUiState.Ready>(viewModel.recentlyAddedState.value)
-            assertEquals(1, ready.books.size)
-            assertEquals("new-1", ready.books.first().id)
-        }
-
-    @Test
-    fun `recentlyAddedState becomes Error when upstream throws`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
-                flow { throw RuntimeException("boom") }
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
-            advanceUntilIdle()
-
-            // Then
-            val err = assertIs<RecentlyAddedUiState.Error>(viewModel.recentlyAddedState.value)
-            assertEquals("Failed to load recently added", err.message)
-        }
-
-    // ========== Discover Shelves Tests ==========
-
-    @Test
-    fun `discoverShelvesState becomes Ready grouped by owner`() =
-        runTest {
-            // Given - two shelves from the same owner, one from another owner
-            val fixture =
-                createFixture(
-                    discoveredShelves =
-                        listOf(
-                            createShelf(id = "s1", ownerId = "alice", ownerDisplayName = "Alice"),
-                            createShelf(id = "s2", ownerId = "alice", ownerDisplayName = "Alice"),
-                            createShelf(id = "s3", ownerId = "bob", ownerDisplayName = "Bob"),
-                        ),
+            fun build(): DiscoverViewModel =
+                DiscoverViewModel(
+                    bookRepository = bookRepository,
+                    activeSessionRepository = activeSessionRepository,
+                    authSession = authSession,
+                    shelfRepository = shelfRepository,
+                    errorBus = ErrorBus(),
                 )
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<DiscoverShelvesUiState.Ready>(viewModel.discoverShelvesState.value)
-            assertEquals(2, ready.users.size)
-            assertEquals(3, ready.totalShelfCount)
-            val alice = ready.users.single { it.user.id == "alice" }
-            assertEquals(2, alice.shelves.size)
         }
 
-    @Test
-    fun `discoverShelvesState becomes Error when the discover RPC fails`() =
-        runTest {
-            // Given - the discover RPC returns a failure
-            val fixture = createFixture()
-            everySuspend { fixture.shelfRepository.discoverShelves() } returns
-                AppResult.Failure(
-                    com.calypsan.listenup.api.error
-                        .ValidationError(message = "boom"),
-                )
+        fun createFixture(
+            authState: AuthState = AuthState.Authenticated(userId = UserId(USER_ID), sessionId = SessionId(SESSION_ID)),
+            discoveredShelves: List<Shelf> = emptyList(),
+            randomBooks: List<DiscoveryBook> = emptyList(),
+        ): TestFixture {
+            val fixture = TestFixture()
+            fixture.authStateFlow.value = authState
 
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
-            advanceUntilIdle()
+            every { fixture.authSession.authState } returns fixture.authStateFlow
+            every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns fixture.activeSessionsFlow
+            every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns fixture.recentlyAddedFlow
+            every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
+            everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(discoveredShelves)
 
-            // Then
-            val err = assertIs<DiscoverShelvesUiState.Error>(viewModel.discoverShelvesState.value)
-            assertEquals("Failed to load discover shelves", err.message)
+            return fixture
         }
 
-    // ========== Discover Books Tests ==========
-
-    @Test
-    fun `discoverBooksState becomes Ready with random books on initial load`() =
-        runTest {
-            // Given
-            val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<DiscoverBooksUiState.Ready>(viewModel.discoverBooksState.value)
-            assertEquals(1, ready.books.size)
-            assertEquals("r-1", ready.books.first().id)
+        fun TestScope.keepStateHot(flow: StateFlow<*>) {
+            backgroundScope.launch { flow.collect { } }
         }
 
-    @Test
-    fun `discoverBooksState reloads when refresh is called`() =
-        runTest {
-            // Given
-            val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
-            val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
-            advanceUntilIdle()
+        beforeTest {
+            Dispatchers.setMain(testDispatcher)
+        }
 
-            // When
-            viewModel.refresh()
-            advanceUntilIdle()
+        afterTest {
+            Dispatchers.resetMain()
+        }
 
-            // Then - random books query invoked twice: initial subscription + refresh trigger bump.
-            // Mokkery's default VerifyMode is `exactly(1)`, so assert `atLeast(2)` explicitly.
-            verifySuspend(
-                dev.mokkery.verify.VerifyMode
-                    .atLeast(2),
-            ) {
-                fixture.bookRepository.observeRandomUnstartedBooks(any())
+        // ========== Currently Listening Tests ==========
+
+        test("currentlyListeningState initial value is Loading before subscription") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+
+                // When - viewModel created; `stateIn` initialValue is Loading.
+                // Do NOT start collecting — the stateIn initialValue is what we assert.
+                val viewModel = fixture.build()
+
+                // Then
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Loading>()
             }
         }
 
-    // ========== Discover RPC Load Tests ==========
+        test("currentlyListeningState becomes Ready when authenticated and flow emits") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.activeSessionsFlow.value = listOf(createActiveSession(sessionId = "s-1"))
 
-    @Test
-    fun `discover shelves are loaded on init when authenticated`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
 
-            // When - init runs
-            fixture.build()
-            advanceUntilIdle()
-
-            // Then
-            verifySuspend { fixture.shelfRepository.discoverShelves() }
-        }
-
-    @Test
-    fun `discover shelves are not loaded when unauthenticated`() =
-        runTest {
-            // Given - unauthenticated
-            val fixture = createFixture(authState = AuthState.NeedsLogin())
-
-            // When
-            fixture.build()
-            advanceUntilIdle()
-
-            // Then
-            verifySuspend(dev.mokkery.verify.VerifyMode.not) {
-                fixture.shelfRepository.discoverShelves()
+                // Then
+                val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                ready.sessions.size shouldBe 1
+                ready.sessions.first().sessionId shouldBe "s-1"
             }
         }
 
-    @Test
-    fun `refresh re-fetches discover shelves`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("currentlyListeningState becomes Ready empty when unauthenticated") {
+            runTest {
+                // Given - unauthenticated auth state steers flatMapLatest to flowOf(emptyList())
+                val fixture = createFixture(authState = AuthState.NeedsLogin())
 
-            // When
-            viewModel.refresh()
-            advanceUntilIdle()
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
 
-            // Then - once on init, once on refresh
-            verifySuspend(
-                dev.mokkery.verify.VerifyMode
-                    .atLeast(2),
-            ) {
-                fixture.shelfRepository.discoverShelves()
+                // Then
+                val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                ready.isEmpty shouldBe true
             }
         }
-}
+
+        test("currentlyListeningState becomes Error when upstream throws") {
+            runTest {
+                // Given - observeActiveSessions throws on collection
+                val fixture = createFixture()
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow { throw RuntimeException("boom") }
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                // Then
+                val err = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+                err.message shouldBe "Failed to load currently listening"
+            }
+        }
+
+        // ========== Recently Added Tests ==========
+
+        test("recentlyAddedState becomes Ready when flow emits") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.recentlyAddedFlow.value = listOf(createDiscoveryBook(id = "new-1", title = "New"))
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
+                advanceUntilIdle()
+
+                // Then
+                val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
+                ready.books.size shouldBe 1
+                ready.books.first().id shouldBe "new-1"
+            }
+        }
+
+        test("recentlyAddedState becomes Error when upstream throws") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
+                    flow { throw RuntimeException("boom") }
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
+                advanceUntilIdle()
+
+                // Then
+                val err = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Error>()
+                err.message shouldBe "Failed to load recently added"
+            }
+        }
+
+        // ========== Discover Shelves Tests ==========
+
+        test("discoverShelvesState becomes Ready grouped by owner") {
+            runTest {
+                // Given - two shelves from the same owner, one from another owner
+                val fixture =
+                    createFixture(
+                        discoveredShelves =
+                            listOf(
+                                createShelf(id = "s1", ownerId = "alice", ownerDisplayName = "Alice"),
+                                createShelf(id = "s2", ownerId = "alice", ownerDisplayName = "Alice"),
+                                createShelf(id = "s3", ownerId = "bob", ownerDisplayName = "Bob"),
+                            ),
+                    )
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
+                advanceUntilIdle()
+
+                // Then
+                val ready = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
+                ready.users.size shouldBe 2
+                ready.totalShelfCount shouldBe 3
+                val alice = ready.users.single { it.user.id == "alice" }
+                alice.shelves.size shouldBe 2
+            }
+        }
+
+        test("discoverShelvesState becomes Error when the discover RPC fails") {
+            runTest {
+                // Given - the discover RPC returns a failure
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "boom"),
+                    )
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
+                advanceUntilIdle()
+
+                // Then
+                val err = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
+                err.message shouldBe "Failed to load discover shelves"
+            }
+        }
+
+        // ========== Discover Books Tests ==========
+
+        test("discoverBooksState becomes Ready with random books on initial load") {
+            runTest {
+                // Given
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+
+                // Then
+                val ready = viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
+                ready.books.size shouldBe 1
+                ready.books.first().id shouldBe "r-1"
+            }
+        }
+
+        test("discoverBooksState reloads when refresh is called") {
+            runTest {
+                // Given
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryBook(id = "r-1")))
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+
+                // When
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                // Then - random books query invoked twice: initial subscription + refresh trigger bump.
+                // Mokkery's default VerifyMode is `exactly(1)`, so assert `atLeast(2)` explicitly.
+                verifySuspend(
+                    dev.mokkery.verify.VerifyMode
+                        .atLeast(2),
+                ) {
+                    fixture.bookRepository.observeRandomUnstartedBooks(any())
+                }
+            }
+        }
+
+        // ========== Discover RPC Load Tests ==========
+
+        test("discover shelves are loaded on init when authenticated") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+
+                // When - init runs
+                fixture.build()
+                advanceUntilIdle()
+
+                // Then
+                verifySuspend { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
+        test("discover shelves are not loaded when unauthenticated") {
+            runTest {
+                // Given - unauthenticated
+                val fixture = createFixture(authState = AuthState.NeedsLogin())
+
+                // When
+                fixture.build()
+                advanceUntilIdle()
+
+                // Then
+                verifySuspend(dev.mokkery.verify.VerifyMode.not) {
+                    fixture.shelfRepository.discoverShelves()
+                }
+            }
+        }
+
+        test("refresh re-fetches discover shelves") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                // When
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                // Then - once on init, once on refresh
+                verifySuspend(
+                    dev.mokkery.verify.VerifyMode
+                        .atLeast(2),
+                ) {
+                    fixture.shelfRepository.discoverShelves()
+                }
+            }
+        }
+    })
+
+private const val USER_ID = "user-1"
+private const val SESSION_ID = "session-1"
+private const val OTHER_USER_ID = "user-2"

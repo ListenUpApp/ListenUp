@@ -17,15 +17,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import com.calypsan.listenup.core.error.ErrorBus
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * Tests for AdminSettingsViewModel.
@@ -41,210 +36,203 @@ import com.calypsan.listenup.core.error.ErrorBus
  * - `clearError` clears the transient error on Ready
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class AdminSettingsViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class AdminSettingsViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    // ========== Test Fixtures ==========
+        // ========== Test Fixtures ==========
 
-    private class TestFixture {
-        val loadServerSettingsUseCase: LoadServerSettingsUseCase = mock()
-        val updateServerSettingsUseCase: UpdateServerSettingsUseCase = mock()
-
-        fun build(): AdminSettingsViewModel =
-            AdminSettingsViewModel(
-                loadServerSettingsUseCase = loadServerSettingsUseCase,
-                updateServerSettingsUseCase = updateServerSettingsUseCase,
-                errorBus = ErrorBus(),
+        // createServerSettings is declared before TestFixture so createFixture's default arg resolves.
+        fun createServerSettings(
+            serverName: String = "My Server",
+            remoteUrl: String? = null,
+        ): ServerSettings =
+            ServerSettings(
+                serverName = serverName,
+                remoteUrl = remoteUrl,
             )
-    }
 
-    private fun createFixture(settings: ServerSettings = createServerSettings()): TestFixture {
-        val fixture = TestFixture()
-        everySuspend { fixture.loadServerSettingsUseCase() } returns AppResult.Success(settings)
-        return fixture
-    }
+        class TestFixture {
+            val loadServerSettingsUseCase: LoadServerSettingsUseCase = mock()
+            val updateServerSettingsUseCase: UpdateServerSettingsUseCase = mock()
 
-    // ========== Test Data Factories ==========
-
-    private fun createServerSettings(
-        serverName: String = "My Server",
-        remoteUrl: String? = null,
-    ): ServerSettings =
-        ServerSettings(
-            serverName = serverName,
-            remoteUrl = remoteUrl,
-        )
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Initial State ==========
-
-    @Test
-    fun `initial state is Loading`() =
-        runTest {
-            val fixture = createFixture()
-            // Do not advance — we want to observe the state before init completes.
-            val viewModel = fixture.build()
-
-            assertIs<AdminSettingsUiState.Loading>(viewModel.state.value)
-        }
-
-    // ========== Load ==========
-
-    @Test
-    fun `load transitions to Ready with server settings`() =
-        runTest {
-            val fixture =
-                createFixture(
-                    settings = createServerSettings(serverName = "ListenUp Prod", remoteUrl = "https://audio.example.com"),
+            fun build(): AdminSettingsViewModel =
+                AdminSettingsViewModel(
+                    loadServerSettingsUseCase = loadServerSettingsUseCase,
+                    updateServerSettingsUseCase = updateServerSettingsUseCase,
+                    errorBus = ErrorBus(),
                 )
-
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertEquals("ListenUp Prod", ready.serverName)
-            assertEquals("https://audio.example.com", ready.remoteUrl)
-            assertFalse(ready.isDirty)
-            assertFalse(ready.isSaving)
-            assertNull(ready.error)
         }
 
-    @Test
-    fun `load failure transitions to Error`() =
-        runTest {
+        fun createFixture(settings: ServerSettings = createServerSettings()): TestFixture {
             val fixture = TestFixture()
-            // Body-level message convention: pass a typed AppError so the
-            // user-facing message survives delegation to the ViewModel.
-            everySuspend { fixture.loadServerSettingsUseCase() } returns
-                AppResult.Failure(
-                    com.calypsan.listenup.api.error
-                        .ValidationError(message = "Network down"),
-                )
-
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            val error = assertIs<AdminSettingsUiState.Error>(viewModel.state.value)
-            assertEquals("Network down", error.error.message)
+            everySuspend { fixture.loadServerSettingsUseCase() } returns AppResult.Success(settings)
+            return fixture
         }
 
-    // ========== Edit Buffer Mutations ==========
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-    @Test
-    fun `setServerName updates Ready and marks dirty`() =
-        runTest {
-            val fixture = createFixture(settings = createServerSettings(serverName = "Old Name"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== Initial State ==========
 
-            viewModel.setServerName("New Name")
+        test("initial state is Loading") {
+            runTest {
+                val fixture = createFixture()
+                // Do not advance — we want to observe the state before init completes.
+                val viewModel = fixture.build()
 
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertEquals("New Name", ready.serverName)
-            assertTrue(ready.isDirty)
-        }
-
-    // ========== Save ==========
-
-    @Test
-    fun `saveAll happy-path persists server name changes and resets dirty`() =
-        runTest {
-            val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
-            everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
-                AppResult.Success(createServerSettings(serverName = "Renamed"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            viewModel.setServerName("Renamed")
-            viewModel.saveAll()
-            advanceUntilIdle()
-
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertEquals("Renamed", ready.serverName)
-            assertFalse(ready.isSaving)
-            assertFalse(ready.isDirty)
-            assertNull(ready.error)
-            verifySuspend(VerifyMode.atLeast(1)) {
-                fixture.updateServerSettingsUseCase.updateServerName("Renamed")
+                viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Loading>()
             }
         }
 
-    @Test
-    fun `saveAll happy-path persists remote URL changes and resets dirty`() =
-        runTest {
-            val fixture = createFixture(settings = createServerSettings(remoteUrl = "https://old.example.com"))
-            everySuspend { fixture.updateServerSettingsUseCase.updateRemoteUrl("https://new.example.com") } returns
-                AppResult.Success(createServerSettings(remoteUrl = "https://new.example.com"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== Load ==========
 
-            viewModel.setRemoteUrl("https://new.example.com")
-            viewModel.saveAll()
-            advanceUntilIdle()
+        test("load transitions to Ready with server settings") {
+            runTest {
+                val fixture =
+                    createFixture(
+                        settings = createServerSettings(serverName = "ListenUp Prod", remoteUrl = "https://audio.example.com"),
+                    )
 
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertFalse(ready.isSaving)
-            assertFalse(ready.isDirty)
-            assertNull(ready.error)
-            verifySuspend(VerifyMode.atLeast(1)) {
-                fixture.updateServerSettingsUseCase.updateRemoteUrl("https://new.example.com")
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.serverName shouldBe "ListenUp Prod"
+                ready.remoteUrl shouldBe "https://audio.example.com"
+                ready.isDirty shouldBe false
+                ready.isSaving shouldBe false
+                ready.error shouldBe null
             }
         }
 
-    @Test
-    fun `saveAll failure surfaces as transient error on Ready`() =
-        runTest {
-            val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
-            // Body-level message convention: pass a typed AppError so the
-            // "Forbidden" text surfaces directly as the typed Ready.error.
-            everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
-                AppResult.Failure(
-                    com.calypsan.listenup.api.error
-                        .ValidationError(message = "Forbidden"),
-                )
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("load failure transitions to Error") {
+            runTest {
+                val fixture = TestFixture()
+                // Body-level message convention: pass a typed AppError so the
+                // user-facing message survives delegation to the ViewModel.
+                everySuspend { fixture.loadServerSettingsUseCase() } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Network down"),
+                    )
 
-            viewModel.setServerName("Renamed")
-            viewModel.saveAll()
-            advanceUntilIdle()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertFalse(ready.isSaving)
-            assertTrue(ready.error?.message?.contains("Forbidden") == true)
-            // Dirty remains true because buffer diverges from baseline after failed save.
-            assertTrue(ready.isDirty)
+                val error = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Error>()
+                error.error.message shouldBe "Network down"
+            }
         }
 
-    // ========== Transient State Clearing ==========
+        // ========== Edit Buffer Mutations ==========
 
-    @Test
-    fun `clearError clears Ready error to null`() =
-        runTest {
-            val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
-            everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
-                Failure(RuntimeException("boom"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("setServerName updates Ready and marks dirty") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(serverName = "Old Name"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            viewModel.setServerName("Renamed")
-            viewModel.saveAll()
-            advanceUntilIdle()
-            val withError = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertTrue(withError.error != null)
+                viewModel.setServerName("New Name")
 
-            viewModel.clearError()
-
-            val cleared = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertNull(cleared.error)
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.serverName shouldBe "New Name"
+                ready.isDirty shouldBe true
+            }
         }
-}
+
+        // ========== Save ==========
+
+        test("saveAll happy-path persists server name changes and resets dirty") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
+                everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
+                    AppResult.Success(createServerSettings(serverName = "Renamed"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setServerName("Renamed")
+                viewModel.saveAll()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.serverName shouldBe "Renamed"
+                ready.isSaving shouldBe false
+                ready.isDirty shouldBe false
+                ready.error shouldBe null
+                verifySuspend(VerifyMode.atLeast(1)) {
+                    fixture.updateServerSettingsUseCase.updateServerName("Renamed")
+                }
+            }
+        }
+
+        test("saveAll happy-path persists remote URL changes and resets dirty") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(remoteUrl = "https://old.example.com"))
+                everySuspend { fixture.updateServerSettingsUseCase.updateRemoteUrl("https://new.example.com") } returns
+                    AppResult.Success(createServerSettings(remoteUrl = "https://new.example.com"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setRemoteUrl("https://new.example.com")
+                viewModel.saveAll()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.isSaving shouldBe false
+                ready.isDirty shouldBe false
+                ready.error shouldBe null
+                verifySuspend(VerifyMode.atLeast(1)) {
+                    fixture.updateServerSettingsUseCase.updateRemoteUrl("https://new.example.com")
+                }
+            }
+        }
+
+        test("saveAll failure surfaces as transient error on Ready") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
+                // Body-level message convention: pass a typed AppError so the
+                // "Forbidden" text surfaces directly as the typed Ready.error.
+                everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Forbidden"),
+                    )
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setServerName("Renamed")
+                viewModel.saveAll()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.isSaving shouldBe false
+                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+                // Dirty remains true because buffer diverges from baseline after failed save.
+                ready.isDirty shouldBe true
+            }
+        }
+
+        // ========== Transient State Clearing ==========
+
+        test("clearError clears Ready error to null") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
+                everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
+                    Failure(RuntimeException("boom"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setServerName("Renamed")
+                viewModel.saveAll()
+                advanceUntilIdle()
+                val withError = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                (withError.error != null) shouldBe true
+
+                viewModel.clearError()
+
+                val cleared = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                cleared.error shouldBe null
+            }
+        }
+    })

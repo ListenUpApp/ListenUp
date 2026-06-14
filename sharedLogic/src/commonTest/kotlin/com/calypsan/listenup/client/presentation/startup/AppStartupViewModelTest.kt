@@ -18,6 +18,9 @@ import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,14 +29,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * Tests for AppStartupViewModel.
@@ -47,443 +42,437 @@ import kotlin.test.assertTrue
  * Uses Mokkery for mocking and follows Given-When-Then style.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class AppStartupViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class AppStartupViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+        // ========== Test Data Factories ==========
 
-    // ========== Test Data Factories ==========
+        fun createMockUserRepository(): UserRepository = mock<UserRepository>()
 
-    private fun createMockUserRepository(): UserRepository = mock<UserRepository>()
-
-    /** No-op [ProfileRepository] mock — profile refresh is fire-and-forget and not exercised here. */
-    private fun createNoOpProfileRepository(): ProfileRepository {
-        val repo = mock<ProfileRepository>()
-        everySuspend { repo.refreshMyProfile() } returns CoreAppResult.Success(Unit)
-        return repo
-    }
-
-    // readiness derives from the sync layer's scan signal; these tests don't drive a scan, so a
-    // not-scanning stub is all the aggregator needs. hasLocalLibrary() defaults to false so that
-    // existing failure tests still expect CheckFailed — only tests that explicitly opt in to
-    // hasLocalLibrary() = true will observe the offline-fallback path.
-    private fun createMockSyncRepository(hasLocalLibrary: Boolean = false): SyncRepository {
-        val sync = mock<SyncRepository>()
-        every { sync.isServerScanning } returns MutableStateFlow(false)
-        every { sync.scanProgress } returns MutableStateFlow(null)
-        everySuspend { sync.hasLocalLibrary() } returns hasLocalLibrary
-        return sync
-    }
-
-    private fun createMockLibraryAdminRpcFactory(service: LibraryAdminService = mock()): LibraryAdminRpcFactory {
-        val factory = mock<LibraryAdminRpcFactory>()
-        everySuspend { factory.get() } returns service
-        return factory
-    }
-
-    // The setup check now runs off authState transitions to Authenticated, so the VM needs an
-    // AuthSession. Default to already-Authenticated so existing tests exercise the check as before.
-    private fun createMockAuthSession(
-        authState: AuthState = AuthState.Authenticated(UserId("user-001"), SessionId("session-001")),
-    ): AuthSession {
-        val session = mock<AuthSession>()
-        every { session.authState } returns MutableStateFlow(authState)
-        return session
-    }
-
-    private fun createTestUser(
-        id: String = "user-001",
-        isAdmin: Boolean = false,
-    ): User =
-        User(
-            id =
-                UserId(id),
-            email = "test@example.com",
-            displayName = "Test User",
-            firstName = null,
-            lastName = null,
-            isAdmin = isAdmin,
-            avatarType = "auto",
-            avatarValue = null,
-            avatarColor = "#3B82F6",
-            tagline = null,
-            createdAtMs = 1704067200000L,
-            updatedAtMs = 1704153600000L,
-        )
-
-    // ========== Threshold Constant Tests ==========
-
-    @Test
-    fun `BACKGROUND_THRESHOLD_MS is 30 minutes`() {
-        // Given/When/Then
-        val expectedMs = 30 * 60 * 1000L
-        assertEquals(expectedMs, AppStartupViewModel.BACKGROUND_THRESHOLD_MS)
-    }
-
-    // ========== Initial State Tests ==========
-
-    @Test
-    fun `initial state has isChecking true`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val factory = createMockLibraryAdminRpcFactory()
-            everySuspend { userRepository.refreshCurrentUser() } returns null
-            everySuspend { userRepository.getCurrentUser() } returns null
-
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-
-            // Then - initial state before coroutine completes
-            assertTrue(viewModel.state.value.isChecking)
+        // No-op [ProfileRepository] mock — profile refresh is fire-and-forget and not exercised here.
+        fun createNoOpProfileRepository(): ProfileRepository {
+            val repo = mock<ProfileRepository>()
+            everySuspend { repo.refreshMyProfile() } returns CoreAppResult.Success(Unit)
+            return repo
         }
 
-    @Test
-    fun `initial check completes and sets isChecking false for non-admin user`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val factory = createMockLibraryAdminRpcFactory()
-            val regularUser = createTestUser(isAdmin = false)
-            everySuspend { userRepository.refreshCurrentUser() } returns regularUser
-            everySuspend { userRepository.getCurrentUser() } returns regularUser
-
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
-
-            // Then
-            assertFalse(viewModel.state.value.isChecking)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
+        // readiness derives from the sync layer's scan signal; these tests don't drive a scan, so a
+        // not-scanning stub is all the aggregator needs. hasLocalLibrary() defaults to false so that
+        // existing failure tests still expect CheckFailed — only tests that explicitly opt in to
+        // hasLocalLibrary() = true will observe the offline-fallback path.
+        fun createMockSyncRepository(hasLocalLibrary: Boolean = false): SyncRepository {
+            val sync = mock<SyncRepository>()
+            every { sync.isServerScanning } returns MutableStateFlow(false)
+            every { sync.scanProgress } returns MutableStateFlow(null)
+            everySuspend { sync.hasLocalLibrary() } returns hasLocalLibrary
+            return sync
         }
 
-    @Test
-    fun `initial check completes and sets needsLibrarySetup true for admin when library needs setup`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
-
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
-
-            // Then
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.needsLibrarySetup)
+        fun createMockLibraryAdminRpcFactory(service: LibraryAdminService = mock()): LibraryAdminRpcFactory {
+            val factory = mock<LibraryAdminRpcFactory>()
+            everySuspend { factory.get() } returns service
+            return factory
         }
 
-    // Regression: the VM is created eagerly at app launch (before login). The setup check
-    // must NOT run at construction against a null/unauthenticated user — it must run when
-    // authState becomes Authenticated, and re-run on that transition. Before the fix, the
-    // init-time check resolved a null user, cached "no setup needed", and never re-ran after
-    // the user registered, stranding the admin on the homepage instead of the wizard.
-    @Test
-    fun `setup check runs on transition to Authenticated, not at construction`() =
-        runTest {
-            // Given - admin + a library that needs setup, but NOT yet authenticated
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
-            val authState = MutableStateFlow<AuthState>(AuthState.NeedsLogin(openRegistration = false))
-            val authSession = mock<AuthSession>()
-            every { authSession.authState } returns authState
-
-            // When - constructed before login (as MainActivity does at app launch)
-            val viewModel = AppStartupViewModel(userRepository, factory, authSession, createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
-
-            // Then - no premature check; not dropped into the wizard
-            assertFalse(viewModel.state.value.isChecking)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
-
-            // When - the user authenticates (creates the account)
-            authState.value = AuthState.Authenticated(UserId("user-001"), SessionId("session-001"))
-            advanceUntilIdle()
-
-            // Then - the check runs against the authenticated admin → routes to the wizard
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.needsLibrarySetup)
+        // The setup check now runs off authState transitions to Authenticated, so the VM needs an
+        // AuthSession. Default to already-Authenticated so existing tests exercise the check as before.
+        fun createMockAuthSession(
+            authState: AuthState = AuthState.Authenticated(UserId("user-001"), SessionId("session-001")),
+        ): AuthSession {
+            val session = mock<AuthSession>()
+            every { session.authState } returns MutableStateFlow(authState)
+            return session
         }
 
-    // ========== onAppBackgrounded Tests ==========
+        fun createTestUser(
+            id: String = "user-001",
+            isAdmin: Boolean = false,
+        ): User =
+            User(
+                id =
+                    UserId(id),
+                email = "test@example.com",
+                displayName = "Test User",
+                firstName = null,
+                lastName = null,
+                isAdmin = isAdmin,
+                avatarType = "auto",
+                avatarValue = null,
+                avatarColor = "#3B82F6",
+                tagline = null,
+                createdAtMs = 1704067200000L,
+                updatedAtMs = 1704153600000L,
+            )
 
-    @Test
-    fun `onAppBackgrounded records timestamp`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val factory = createMockLibraryAdminRpcFactory()
-            everySuspend { userRepository.refreshCurrentUser() } returns null
-            everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
+        // ========== Threshold Constant Tests ==========
 
-            // When
-            viewModel.onAppBackgrounded()
-
-            // Then
-            assertNotNull(viewModel.state.value.backgroundedAtMs)
+        test("BACKGROUND_THRESHOLD_MS is 30 minutes") {
+            // Given/When/Then
+            val expectedMs = 30 * 60 * 1000L
+            AppStartupViewModel.BACKGROUND_THRESHOLD_MS shouldBe expectedMs
         }
 
-    // ========== onAppForegrounded Tests ==========
+        // ========== Initial State Tests ==========
 
-    @Test
-    fun `onAppForegrounded does nothing when backgroundedAtMs is null`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val factory = createMockLibraryAdminRpcFactory()
-            everySuspend { userRepository.refreshCurrentUser() } returns null
-            everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
+        test("initial state has isChecking true") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns null
 
-            // Verify backgroundedAtMs is null before the call
-            assertNull(viewModel.state.value.backgroundedAtMs)
-            val isCheckingBefore = viewModel.state.value.isChecking
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
 
-            // When
-            viewModel.onAppForegrounded()
-            advanceUntilIdle()
-
-            // Then - state unchanged
-            assertEquals(isCheckingBefore, viewModel.state.value.isChecking)
+                // Then - initial state before coroutine completes
+                viewModel.state.value.isChecking shouldBe true
+            }
         }
 
-    @Test
-    fun `onAppForegrounded does NOT reset isChecking for short background period`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val factory = createMockLibraryAdminRpcFactory()
-            everySuspend { userRepository.refreshCurrentUser() } returns null
-            everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
+        test("initial check completes and sets isChecking false for non-admin user") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                val regularUser = createTestUser(isAdmin = false)
+                everySuspend { userRepository.refreshCurrentUser() } returns regularUser
+                everySuspend { userRepository.getCurrentUser() } returns regularUser
 
-            // Initial check is complete, isChecking should be false
-            assertFalse(viewModel.state.value.isChecking)
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // Simulate backgrounding and immediate foregrounding (short period)
-            viewModel.onAppBackgrounded()
-
-            // When - foreground immediately (elapsed time ~0ms, well under 30 min threshold)
-            viewModel.onAppForegrounded()
-            advanceUntilIdle()
-
-            // Then - isChecking should still be false (no re-check triggered)
-            assertFalse(viewModel.state.value.isChecking)
+                // Then
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe false
+            }
         }
 
-    // ========== Setup-status Failure Tests ==========
+        test("initial check completes and sets needsLibrarySetup true for admin when library needs setup") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
-    @Test
-    fun `admin getSetupStatus failure surfaces setupCheckFailed not silent Shell`() =
-        runTest {
-            // Given - admin user, setup-status check fails (e.g. transient network error)
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Failure(TransportError.NetworkUnavailable())
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
-
-            // Then - check is settled, failure surfaced, NOT forced into the wizard
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.setupCheckFailed)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
+                // Then
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe true
+            }
         }
 
-    @Test
-    fun `admin getSetupStatus success needsSetup true sets needsLibrarySetup not failed`() =
-        runTest {
-            // Given
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+        // Regression: the VM is created eagerly at app launch (before login). The setup check
+        // must NOT run at construction against a null/unauthenticated user — it must run when
+        // authState becomes Authenticated, and re-run on that transition. Before the fix, the
+        // init-time check resolved a null user, cached "no setup needed", and never re-ran after
+        // the user registered, stranding the admin on the homepage instead of the wizard.
+        test("setup check runs on transition to Authenticated, not at construction") {
+            runTest {
+                // Given - admin + a library that needs setup, but NOT yet authenticated
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                val authState = MutableStateFlow<AuthState>(AuthState.NeedsLogin(openRegistration = false))
+                val authSession = mock<AuthSession>()
+                every { authSession.authState } returns authState
 
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
+                // When - constructed before login (as MainActivity does at app launch)
+                val viewModel = AppStartupViewModel(userRepository, factory, authSession, createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // Then
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.needsLibrarySetup)
-            assertFalse(viewModel.state.value.setupCheckFailed)
+                // Then - no premature check; not dropped into the wizard
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe false
+
+                // When - the user authenticates (creates the account)
+                authState.value = AuthState.Authenticated(UserId("user-001"), SessionId("session-001"))
+                advanceUntilIdle()
+
+                // Then - the check runs against the authenticated admin → routes to the wizard
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe true
+            }
         }
 
-    @Test
-    fun `non-admin is never blocked or failed by setup-status`() =
-        runTest {
-            // Given - non-admin user; getSetupStatus must never be consulted
-            val userRepository = createMockUserRepository()
-            val factory = createMockLibraryAdminRpcFactory()
-            val regularUser = createTestUser(isAdmin = false)
-            everySuspend { userRepository.refreshCurrentUser() } returns regularUser
-            everySuspend { userRepository.getCurrentUser() } returns regularUser
+        // ========== onAppBackgrounded Tests ==========
 
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
+        test("onAppBackgrounded records timestamp") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // Then
-            assertFalse(viewModel.state.value.isChecking)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
-            assertFalse(viewModel.state.value.setupCheckFailed)
+                // When
+                viewModel.onAppBackgrounded()
+
+                // Then
+                viewModel.state.value.backgroundedAtMs
+                    .shouldNotBeNull()
+            }
         }
 
-    @Test
-    fun `retryLibrarySetupCheck re-runs the check after a transient failure`() =
-        runTest {
-            // Given - admin user; first check fails, then the next check succeeds
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Failure(TransportError.NetworkUnavailable())
+        // ========== onAppForegrounded Tests ==========
 
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
-            assertTrue(viewModel.state.value.setupCheckFailed)
+        test("onAppForegrounded does nothing when backgroundedAtMs is null") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // Flip the stub to success and retry
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                // Verify backgroundedAtMs is null before the call
+                viewModel.state.value.backgroundedAtMs shouldBe null
+                val isCheckingBefore = viewModel.state.value.isChecking
 
-            // When
-            viewModel.retryLibrarySetupCheck()
-            advanceUntilIdle()
+                // When
+                viewModel.onAppForegrounded()
+                advanceUntilIdle()
 
-            // Then - failure cleared, check settled, no wizard
-            assertFalse(viewModel.state.value.isChecking)
-            assertFalse(viewModel.state.value.setupCheckFailed)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
+                // Then - state unchanged
+                viewModel.state.value.isChecking shouldBe isCheckingBefore
+            }
         }
 
-    @Test
-    fun `onAppForegrounded preserves needsLibrarySetup state for short background period`() =
-        runTest {
-            // Given - admin user with library needing setup
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+        test("onAppForegrounded does NOT reset isChecking for short background period") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
-            advanceUntilIdle()
+                // Initial check is complete, isChecking should be false
+                viewModel.state.value.isChecking shouldBe false
 
-            // Verify initial state
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.needsLibrarySetup)
+                // Simulate backgrounding and immediate foregrounding (short period)
+                viewModel.onAppBackgrounded()
 
-            // Simulate short background period
-            viewModel.onAppBackgrounded()
+                // When - foreground immediately (elapsed time ~0ms, well under 30 min threshold)
+                viewModel.onAppForegrounded()
+                advanceUntilIdle()
 
-            // When - foreground after short period
-            viewModel.onAppForegrounded()
-            advanceUntilIdle()
-
-            // Then - state preserved, no re-check
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.needsLibrarySetup)
+                // Then - isChecking should still be false (no re-check triggered)
+                viewModel.state.value.isChecking shouldBe false
+            }
         }
 
-    // ========== Offline-first Fallback Tests ==========
+        // ========== Setup-status Failure Tests ==========
 
-    // Regression: a returning admin with a cached local library must NOT be stranded on a
-    // "Library Check Failed" wall when the server is unreachable at startup. The setup check
-    // only matters for a FRESH admin (no library yet). When books exist locally, the VM must
-    // resolve to Ready so the offline library is accessible.
-    @Test
-    fun `admin getSetupStatus failure resolves to Ready when a local library exists`() =
-        runTest {
-            // Given - admin user, setup-status check fails (server unreachable offline)
-            //         but a library is already cached in local Room
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Failure(TransportError.NetworkUnavailable())
-            // hasLocalLibrary = true: returning user with a cached library
-            val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
+        test("admin getSetupStatus failure surfaces setupCheckFailed not silent Shell") {
+            runTest {
+                // Given - admin user, setup-status check fails (e.g. transient network error)
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
 
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
-            advanceUntilIdle()
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // Then - opens offline, NOT stranded on the error wall
-            assertFalse(viewModel.state.value.isChecking)
-            assertFalse(viewModel.state.value.setupCheckFailed)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
-            assertEquals(LibraryReadiness.Ready, viewModel.readiness.value)
+                // Then - check is settled, failure surfaced, NOT forced into the wizard
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.setupCheckFailed shouldBe true
+                viewModel.state.value.needsLibrarySetup shouldBe false
+            }
         }
 
-    // Complement: when there is genuinely no local library (fresh admin, first startup offline),
-    // the retryable error wall is the correct and honest response.
-    @Test
-    fun `admin getSetupStatus failure surfaces CheckFailed when no local library exists`() =
-        runTest {
-            // Given - admin user, setup-status check fails and no local library
-            val userRepository = createMockUserRepository()
-            val service = mock<LibraryAdminService>()
-            val factory = createMockLibraryAdminRpcFactory(service)
-            val adminUser = createTestUser(isAdmin = true)
-            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
-            everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { service.getSetupStatus() } returns
-                AppResult.Failure(TransportError.NetworkUnavailable())
-            // hasLocalLibrary = false: fresh admin, no cache yet
-            val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
+        test("admin getSetupStatus success needsSetup true sets needsLibrarySetup not failed") {
+            runTest {
+                // Given
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
-            // When
-            val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
-            advanceUntilIdle()
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
 
-            // Then - retryable error surfaced (honest over silent for genuine no-library case)
-            assertFalse(viewModel.state.value.isChecking)
-            assertTrue(viewModel.state.value.setupCheckFailed)
-            assertFalse(viewModel.state.value.needsLibrarySetup)
-            assertEquals(LibraryReadiness.CheckFailed, viewModel.readiness.value)
+                // Then
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe true
+                viewModel.state.value.setupCheckFailed shouldBe false
+            }
         }
-}
+
+        test("non-admin is never blocked or failed by setup-status") {
+            runTest {
+                // Given - non-admin user; getSetupStatus must never be consulted
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                val regularUser = createTestUser(isAdmin = false)
+                everySuspend { userRepository.refreshCurrentUser() } returns regularUser
+                everySuspend { userRepository.getCurrentUser() } returns regularUser
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe false
+                viewModel.state.value.setupCheckFailed shouldBe false
+            }
+        }
+
+        test("retryLibrarySetupCheck re-runs the check after a transient failure") {
+            runTest {
+                // Given - admin user; first check fails, then the next check succeeds
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
+                viewModel.state.value.setupCheckFailed shouldBe true
+
+                // Flip the stub to success and retry
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+
+                // When
+                viewModel.retryLibrarySetupCheck()
+                advanceUntilIdle()
+
+                // Then - failure cleared, check settled, no wizard
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.setupCheckFailed shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe false
+            }
+        }
+
+        test("onAppForegrounded preserves needsLibrarySetup state for short background period") {
+            runTest {
+                // Given - admin user with library needing setup
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                advanceUntilIdle()
+
+                // Verify initial state
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe true
+
+                // Simulate short background period
+                viewModel.onAppBackgrounded()
+
+                // When - foreground after short period
+                viewModel.onAppForegrounded()
+                advanceUntilIdle()
+
+                // Then - state preserved, no re-check
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe true
+            }
+        }
+
+        // ========== Offline-first Fallback Tests ==========
+
+        // Regression: a returning admin with a cached local library must NOT be stranded on a
+        // "Library Check Failed" wall when the server is unreachable at startup. The setup check
+        // only matters for a FRESH admin (no library yet). When books exist locally, the VM must
+        // resolve to Ready so the offline library is accessible.
+        test("admin getSetupStatus failure resolves to Ready when a local library exists") {
+            runTest {
+                // Given - admin user, setup-status check fails (server unreachable offline)
+                //         but a library is already cached in local Room
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                // hasLocalLibrary = true: returning user with a cached library
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
+                advanceUntilIdle()
+
+                // Then - opens offline, NOT stranded on the error wall
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.setupCheckFailed shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+            }
+        }
+
+        // Complement: when there is genuinely no local library (fresh admin, first startup offline),
+        // the retryable error wall is the correct and honest response.
+        test("admin getSetupStatus failure surfaces CheckFailed when no local library exists") {
+            runTest {
+                // Given - admin user, setup-status check fails and no local library
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                // hasLocalLibrary = false: fresh admin, no cache yet
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
+                advanceUntilIdle()
+
+                // Then - retryable error surfaced (honest over silent for genuine no-library case)
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.setupCheckFailed shouldBe true
+                viewModel.state.value.needsLibrarySetup shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.CheckFailed
+            }
+        }
+    })

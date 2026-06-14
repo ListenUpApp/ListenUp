@@ -17,6 +17,8 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,12 +27,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 import com.calypsan.listenup.client.core.Failure
 
 /**
@@ -43,128 +39,72 @@ import com.calypsan.listenup.client.core.Failure
  * - Server sync for synced settings
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class SettingsViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class SettingsViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    // ========== Test Fixture Builder ==========
+        // ========== Test Fixture Builder ==========
 
-    private class TestFixture {
-        val libraryPreferences: LibraryPreferences = mock()
-        val playbackPreferences: PlaybackPreferences = mock()
-        val localPreferences: LocalPreferences = mock()
-        val userPreferencesRepository: UserPreferencesRepository = mock()
-        val instanceRepository: InstanceRepository = mock()
-        val serverConfig: ServerConfig = mock()
-        val authSession: AuthSession = mock()
-        val syncRepository: SyncRepository = mock()
-        val rpcCacheInvalidator: RpcCacheInvalidator = mock()
+        class TestFixture {
+            val libraryPreferences: LibraryPreferences = mock()
+            val playbackPreferences: PlaybackPreferences = mock()
+            val localPreferences: LocalPreferences = mock()
+            val userPreferencesRepository: UserPreferencesRepository = mock()
+            val instanceRepository: InstanceRepository = mock()
+            val serverConfig: ServerConfig = mock()
+            val authSession: AuthSession = mock()
+            val syncRepository: SyncRepository = mock()
+            val rpcCacheInvalidator: RpcCacheInvalidator = mock()
 
-        // StateFlows for local preferences (mocked as MutableStateFlow)
-        val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
-        val dynamicColorsFlow = MutableStateFlow(true)
-        val autoRewindFlow = MutableStateFlow(true)
-        val wifiOnlyFlow = MutableStateFlow(true)
-        val autoRemoveFlow = MutableStateFlow(false)
-        val hapticFeedbackFlow = MutableStateFlow(true)
+            // StateFlows for local preferences (mocked as MutableStateFlow)
+            val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
+            val dynamicColorsFlow = MutableStateFlow(true)
+            val autoRewindFlow = MutableStateFlow(true)
+            val wifiOnlyFlow = MutableStateFlow(true)
+            val autoRemoveFlow = MutableStateFlow(false)
+            val hapticFeedbackFlow = MutableStateFlow(true)
 
-        fun build(): SettingsViewModel =
-            SettingsViewModel(
-                libraryPreferences = libraryPreferences,
-                playbackPreferences = playbackPreferences,
-                localPreferences = localPreferences,
-                userPreferencesRepository = userPreferencesRepository,
-                instanceRepository = instanceRepository,
-                serverConfig = serverConfig,
-                authSession = authSession,
-                syncRepository = syncRepository,
-                rpcCacheInvalidator = rpcCacheInvalidator,
-            )
-    }
-
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-
-        // Mock StateFlows for local preferences
-        every { fixture.localPreferences.themeMode } returns fixture.themeModeFlow
-        every { fixture.localPreferences.dynamicColorsEnabled } returns fixture.dynamicColorsFlow
-        every { fixture.localPreferences.autoRewindEnabled } returns fixture.autoRewindFlow
-        every { fixture.localPreferences.wifiOnlyDownloads } returns fixture.wifiOnlyFlow
-        every { fixture.localPreferences.autoRemoveFinished } returns fixture.autoRemoveFlow
-        every { fixture.localPreferences.hapticFeedbackEnabled } returns fixture.hapticFeedbackFlow
-
-        // Default stubs for playback preferences - getters
-        everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
-        everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns true
-
-        // Default stubs for library preferences - getters
-        everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
-        everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns true
-
-        // Default stubs for playback preferences - setters (called when syncing from server)
-        everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED) } returns Unit
-
-        // Default stub for API - return defaults
-        everySuspend { fixture.userPreferencesRepository.getPreferences() } returns
-            AppResult.Success(
-                UserPreferences(
-                    defaultPlaybackSpeed = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
-                    defaultSkipForwardSec = 30,
-                    defaultSkipBackwardSec = 10,
-                    defaultSleepTimerMin = null,
-                    shakeToResetSleepTimer = false,
-                ),
-            )
-
-        // Default stubs for new dependencies
-        everySuspend { fixture.serverConfig.getServerUrl() } returns null
-        everySuspend { fixture.instanceRepository.getInstance() } returns
-            Failure(Exception("Not configured"))
-        everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
-        everySuspend { fixture.syncRepository.disconnect() } returns Unit
-        everySuspend { fixture.rpcCacheInvalidator.invalidateAll() } returns Unit
-
-        return fixture
-    }
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Init / Loading Tests ==========
-
-    @Test
-    fun `initial state is loading`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-
-            // When
-            val viewModel = fixture.build()
-
-            // Then - before advanceUntilIdle, should be loading
-            assertTrue(viewModel.state.value.isLoading)
+            fun build(): SettingsViewModel =
+                SettingsViewModel(
+                    libraryPreferences = libraryPreferences,
+                    playbackPreferences = playbackPreferences,
+                    localPreferences = localPreferences,
+                    userPreferencesRepository = userPreferencesRepository,
+                    instanceRepository = instanceRepository,
+                    serverConfig = serverConfig,
+                    authSession = authSession,
+                    syncRepository = syncRepository,
+                    rpcCacheInvalidator = rpcCacheInvalidator,
+                )
         }
 
-    @Test
-    fun `loads settings on init`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns 1.5f
-            everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns false
-            everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns false
-            everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns false
-            everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
+        fun createFixture(): TestFixture {
+            val fixture = TestFixture()
+
+            // Mock StateFlows for local preferences
+            every { fixture.localPreferences.themeMode } returns fixture.themeModeFlow
+            every { fixture.localPreferences.dynamicColorsEnabled } returns fixture.dynamicColorsFlow
+            every { fixture.localPreferences.autoRewindEnabled } returns fixture.autoRewindFlow
+            every { fixture.localPreferences.wifiOnlyDownloads } returns fixture.wifiOnlyFlow
+            every { fixture.localPreferences.autoRemoveFinished } returns fixture.autoRemoveFlow
+            every { fixture.localPreferences.hapticFeedbackEnabled } returns fixture.hapticFeedbackFlow
+
+            // Default stubs for playback preferences - getters
+            everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
+            everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns true
+
+            // Default stubs for library preferences - getters
+            everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
+            everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns true
+
+            // Default stubs for playback preferences - setters (called when syncing from server)
+            everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED) } returns Unit
+
+            // Default stub for API - return defaults
             everySuspend { fixture.userPreferencesRepository.getPreferences() } returns
                 AppResult.Success(
                     UserPreferences(
-                        defaultPlaybackSpeed = 1.5f,
+                        defaultPlaybackSpeed = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
                         defaultSkipForwardSec = 30,
                         defaultSkipBackwardSec = 10,
                         defaultSleepTimerMin = null,
@@ -172,209 +112,259 @@ class SettingsViewModelTest {
                     ),
                 )
 
-            // When
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+            // Default stubs for new dependencies
+            everySuspend { fixture.serverConfig.getServerUrl() } returns null
+            everySuspend { fixture.instanceRepository.getInstance() } returns
+                Failure(Exception("Not configured"))
+            everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
+            everySuspend { fixture.syncRepository.disconnect() } returns Unit
+            everySuspend { fixture.rpcCacheInvalidator.invalidateAll() } returns Unit
 
-            // Then
-            val state = viewModel.state.value
-            assertFalse(state.isLoading)
-            assertEquals(1.5f, state.defaultPlaybackSpeed)
-            assertFalse(state.spatialPlayback)
-            assertFalse(state.ignoreTitleArticles)
-            assertFalse(state.hideSingleBookSeries)
+            return fixture
         }
 
-    @Test
-    fun `uses default values when loading`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-            // When
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== Init / Loading Tests ==========
 
-            // Then - should use defaults
-            val state = viewModel.state.value
-            assertEquals(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED, state.defaultPlaybackSpeed)
-            assertTrue(state.spatialPlayback)
-            assertTrue(state.ignoreTitleArticles)
-            assertTrue(state.hideSingleBookSeries)
+        test("initial state is loading") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+
+                // When
+                val viewModel = fixture.build()
+
+                // Then - before advanceUntilIdle, should be loading
+                viewModel.state.value.isLoading shouldBe true
+            }
         }
 
-    // ========== Playback Speed Tests ==========
+        test("loads settings on init") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns 1.5f
+                everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns false
+                everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns false
+                everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns false
+                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
+                everySuspend { fixture.userPreferencesRepository.getPreferences() } returns
+                    AppResult.Success(
+                        UserPreferences(
+                            defaultPlaybackSpeed = 1.5f,
+                            defaultSkipForwardSec = 30,
+                            defaultSkipBackwardSec = 10,
+                            defaultSleepTimerMin = null,
+                            shakeToResetSleepTimer = false,
+                        ),
+                    )
 
-    @Test
-    fun `setDefaultPlaybackSpeed updates local cache and UI immediately`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.25f) } returns Unit
-            everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.25f) } returns AppResult.Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+                // When
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.setDefaultPlaybackSpeed(1.25f)
-            advanceUntilIdle()
-
-            // Then - local cache updated
-            verifySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.25f) }
-            assertEquals(1.25f, viewModel.state.value.defaultPlaybackSpeed)
+                // Then
+                val state = viewModel.state.value
+                state.isLoading shouldBe false
+                state.defaultPlaybackSpeed shouldBe 1.5f
+                state.spatialPlayback shouldBe false
+                state.ignoreTitleArticles shouldBe false
+                state.hideSingleBookSeries shouldBe false
+            }
         }
 
-    @Test
-    fun `setDefaultPlaybackSpeed syncs to server`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
-            everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.5f) } returns AppResult.Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("uses default values when loading") {
+            runTest {
+                // Given
+                val fixture = createFixture()
 
-            // When
-            viewModel.setDefaultPlaybackSpeed(1.5f)
-            advanceUntilIdle()
+                // When
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then - server sync called
-            verifySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.5f) }
+                // Then - should use defaults
+                val state = viewModel.state.value
+                state.defaultPlaybackSpeed shouldBe PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
+                state.spatialPlayback shouldBe true
+                state.ignoreTitleArticles shouldBe true
+                state.hideSingleBookSeries shouldBe true
+            }
         }
 
-    @Test
-    fun `setDefaultPlaybackSpeed continues on server sync failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(2.0f) } returns Unit
-            everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(2.0f) } returns
-                Failure(Exception("Network error"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== Playback Speed Tests ==========
 
-            // When
-            viewModel.setDefaultPlaybackSpeed(2.0f)
-            advanceUntilIdle()
+        test("setDefaultPlaybackSpeed updates local cache and UI immediately") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.25f) } returns Unit
+                everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.25f) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then - UI still updated (optimistic), no error shown
-            assertEquals(2.0f, viewModel.state.value.defaultPlaybackSpeed)
+                // When
+                viewModel.setDefaultPlaybackSpeed(1.25f)
+                advanceUntilIdle()
+
+                // Then - local cache updated
+                verifySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.25f) }
+                viewModel.state.value.defaultPlaybackSpeed shouldBe 1.25f
+            }
         }
 
-    // ========== Spatial Playback Tests ==========
+        test("setDefaultPlaybackSpeed syncs to server") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
+                everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.5f) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-    @Test
-    fun `setSpatialPlayback updates setting`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.playbackPreferences.setSpatialPlayback(false) } returns Unit
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+                // When
+                viewModel.setDefaultPlaybackSpeed(1.5f)
+                advanceUntilIdle()
 
-            // When
-            viewModel.setSpatialPlayback(false)
-            advanceUntilIdle()
-
-            // Then
-            verifySuspend { fixture.playbackPreferences.setSpatialPlayback(false) }
-            assertFalse(viewModel.state.value.spatialPlayback)
+                // Then - server sync called
+                verifySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.5f) }
+            }
         }
 
-    @Test
-    fun `setSpatialPlayback toggles correctly`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns true
-            everySuspend { fixture.playbackPreferences.setSpatialPlayback(false) } returns Unit
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-            assertTrue(viewModel.state.value.spatialPlayback)
+        test("setDefaultPlaybackSpeed continues on server sync failure") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(2.0f) } returns Unit
+                everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(2.0f) } returns
+                    Failure(Exception("Network error"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.setSpatialPlayback(false)
-            advanceUntilIdle()
+                // When
+                viewModel.setDefaultPlaybackSpeed(2.0f)
+                advanceUntilIdle()
 
-            // Then
-            assertFalse(viewModel.state.value.spatialPlayback)
+                // Then - UI still updated (optimistic), no error shown
+                viewModel.state.value.defaultPlaybackSpeed shouldBe 2.0f
+            }
         }
 
-    // ========== Ignore Title Articles Tests ==========
+        // ========== Spatial Playback Tests ==========
 
-    @Test
-    fun `setIgnoreTitleArticles updates setting`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.libraryPreferences.setIgnoreTitleArticles(false) } returns Unit
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("setSpatialPlayback updates setting") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.setSpatialPlayback(false) } returns Unit
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.setIgnoreTitleArticles(false)
-            advanceUntilIdle()
+                // When
+                viewModel.setSpatialPlayback(false)
+                advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.libraryPreferences.setIgnoreTitleArticles(false) }
-            assertFalse(viewModel.state.value.ignoreTitleArticles)
+                // Then
+                verifySuspend { fixture.playbackPreferences.setSpatialPlayback(false) }
+                viewModel.state.value.spatialPlayback shouldBe false
+            }
         }
 
-    // ========== Hide Single Book Series Tests ==========
+        test("setSpatialPlayback toggles correctly") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns true
+                everySuspend { fixture.playbackPreferences.setSpatialPlayback(false) } returns Unit
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.state.value.spatialPlayback shouldBe true
 
-    @Test
-    fun `setHideSingleBookSeries updates setting`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.libraryPreferences.setHideSingleBookSeries(false) } returns Unit
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+                // When
+                viewModel.setSpatialPlayback(false)
+                advanceUntilIdle()
 
-            // When
-            viewModel.setHideSingleBookSeries(false)
-            advanceUntilIdle()
-
-            // Then
-            verifySuspend { fixture.libraryPreferences.setHideSingleBookSeries(false) }
-            assertFalse(viewModel.state.value.hideSingleBookSeries)
+                // Then
+                viewModel.state.value.spatialPlayback shouldBe false
+            }
         }
 
-    @Test
-    fun `setHideSingleBookSeries can be enabled`() =
-        runTest {
-            // Given - start with false
-            val fixture = createFixture()
-            everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns false
-            everySuspend { fixture.libraryPreferences.setHideSingleBookSeries(true) } returns Unit
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-            assertFalse(viewModel.state.value.hideSingleBookSeries)
+        // ========== Ignore Title Articles Tests ==========
 
-            // When
-            viewModel.setHideSingleBookSeries(true)
-            advanceUntilIdle()
+        test("setIgnoreTitleArticles updates setting") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.libraryPreferences.setIgnoreTitleArticles(false) } returns Unit
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then
-            assertTrue(viewModel.state.value.hideSingleBookSeries)
+                // When
+                viewModel.setIgnoreTitleArticles(false)
+                advanceUntilIdle()
+
+                // Then
+                verifySuspend { fixture.libraryPreferences.setIgnoreTitleArticles(false) }
+                viewModel.state.value.ignoreTitleArticles shouldBe false
+            }
         }
 
-    @Test
-    fun `signOut stops the sync engine before clearing tokens`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== Hide Single Book Series Tests ==========
 
-            // When
-            viewModel.signOut()
-            advanceUntilIdle()
+        test("setHideSingleBookSeries updates setting") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.libraryPreferences.setHideSingleBookSeries(false) } returns Unit
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then — the engine is stopped (no reconnect loop), cached RPC connections
-            // are dropped (no cross-user reuse), and tokens are cleared.
-            verifySuspend { fixture.syncRepository.disconnect() }
-            verifySuspend { fixture.rpcCacheInvalidator.invalidateAll() }
-            verifySuspend { fixture.authSession.clearAuthTokens() }
+                // When
+                viewModel.setHideSingleBookSeries(false)
+                advanceUntilIdle()
+
+                // Then
+                verifySuspend { fixture.libraryPreferences.setHideSingleBookSeries(false) }
+                viewModel.state.value.hideSingleBookSeries shouldBe false
+            }
         }
-}
+
+        test("setHideSingleBookSeries can be enabled") {
+            runTest {
+                // Given - start with false
+                val fixture = createFixture()
+                everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns false
+                everySuspend { fixture.libraryPreferences.setHideSingleBookSeries(true) } returns Unit
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.state.value.hideSingleBookSeries shouldBe false
+
+                // When
+                viewModel.setHideSingleBookSeries(true)
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.hideSingleBookSeries shouldBe true
+            }
+        }
+
+        test("signOut stops the sync engine before clearing tokens") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                // When
+                viewModel.signOut()
+                advanceUntilIdle()
+
+                // Then — the engine is stopped (no reconnect loop), cached RPC connections
+                // are dropped (no cross-user reuse), and tokens are cleared.
+                verifySuspend { fixture.syncRepository.disconnect() }
+                verifySuspend { fixture.rpcCacheInvalidator.invalidateAll() }
+                verifySuspend { fixture.authSession.clearAuthTokens() }
+            }
+        }
+    })
