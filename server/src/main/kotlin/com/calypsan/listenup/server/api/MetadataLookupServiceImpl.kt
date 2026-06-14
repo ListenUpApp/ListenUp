@@ -120,7 +120,7 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> = audible.getBook(asin, region)
+    ): AppResult<MetadataBook?> = audible.getBook(asin, region).enrichWithItunesCover()
 
     override suspend fun getBookChapters(
         asin: String,
@@ -151,7 +151,31 @@ internal class MetadataLookupServiceImpl(
         region: AudibleRegion,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return audible.getBook(asin, region, refresh = true)
+        return audible.getBook(asin, region, refresh = true).enrichWithItunesCover()
+    }
+
+    /**
+     * Grafts iTunes' high-resolution cover onto a single-book metadata result.
+     *
+     * The metadata wizard's cover picker sources its "iTunes HD" option from
+     * [MetadataBook.coverUrlMaxSize] — but the Audible mappers never populate it.
+     * When the lookup succeeded with a book whose max-size cover is still empty,
+     * fetch the best iTunes cover by title + primary author and copy its
+     * max-resolution URL in. Failure-contained: a missing book, a blank title, a
+     * null hit, a blank URL, or any iTunes error leaves the result untouched so
+     * the Audible metadata still flows. One iTunes request per preview load.
+     */
+    private suspend fun AppResult<MetadataBook?>.enrichWithItunesCover(): AppResult<MetadataBook?> {
+        val book = (this as? AppResult.Success)?.data ?: return this
+        if (book.coverUrlMaxSize != null || book.title.isBlank()) return this
+        val author =
+            book.authors
+                .firstOrNull()
+                ?.name
+                .orEmpty()
+        val hit = (metadataService.findCover(book.title, author) as? AppResult.Success)?.data ?: return this
+        val maxUrl = hit.maxSizeUrl.takeIf { it.isNotBlank() } ?: return this
+        return AppResult.Success(book.copy(coverUrlMaxSize = maxUrl))
     }
 
     override suspend fun applyBookMetadata(
