@@ -261,6 +261,63 @@ class BookServiceImplUpdateTest :
             }
         }
 
+        test("updateBook with addedAt re-stamps the book's createdAt") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val (service, repo) = bookServiceFor(db, "admin", UserRole.ROOT)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val newAddedAt = 1_500_000_000_000L
+
+                    service
+                        .updateBook(BookId("b1"), BookUpdate(addedAt = newAddedAt))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.findById(BookId("b1"))?.createdAt shouldBe newAddedAt
+                }
+            }
+        }
+
+        test("updateBook without addedAt leaves createdAt untouched") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val (service, repo) = bookServiceFor(db, "admin", UserRole.ROOT)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val original = repo.findById(BookId("b1"))?.createdAt
+
+                    service
+                        .updateBook(BookId("b1"), BookUpdate(title = "Words of Radiance"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.findById(BookId("b1"))?.createdAt shouldBe original
+                }
+            }
+        }
+
+        test("a rescan after an added-date edit preserves the edited createdAt") {
+            // Regression guard: the scanner sends createdAt = 0L as a placeholder. writePayload must
+            // only move createdAt when the edit-path override is present, never on a plain rescan.
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val (service, repo) = bookServiceFor(db, "admin", UserRole.ROOT)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val editedAddedAt = 1_500_000_000_000L
+                    service.updateBook(BookId("b1"), BookUpdate(addedAt = editedAddedAt))
+                    repo.findById(BookId("b1"))?.createdAt shouldBe editedAddedAt
+
+                    // Simulate a rescan: an UPDATE upsert carrying the placeholder createdAt, no override.
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings: Rescanned"))
+
+                    repo.findById(BookId("b1"))?.createdAt shouldBe editedAddedAt
+                }
+            }
+        }
+
         test("updateBook returns BookError.NotFound when the book does not exist") {
             withInMemoryDatabase {
                 val db = this

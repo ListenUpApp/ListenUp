@@ -23,8 +23,10 @@ import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.BookWriteExtras
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -154,7 +156,16 @@ internal class BookServiceImpl(
             val current =
                 repo.findById(id)
                     ?: return@suspendTransaction bookNotFound(id)
-            when (val upsertResult = repo.upsert(current.applyPatch(patch))) {
+            val patched = current.applyPatch(patch)
+            // An added-date edit must re-stamp createdAt, which writePayload only writes when this
+            // override is present — keeping rescans (which carry a placeholder createdAt) from clobbering it.
+            val upsertResult =
+                if (patch.addedAt != null) {
+                    withContext(BookWriteExtras(createdAtOverride = patch.addedAt)) { repo.upsert(patched) }
+                } else {
+                    repo.upsert(patched)
+                }
+            when (upsertResult) {
                 is AppResult.Success -> AppResult.Success(Unit)
                 is AppResult.Failure -> AppResult.Failure(upsertResult.error)
             }
@@ -417,4 +428,7 @@ private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
         isbn = patch.isbn ?: isbn,
         asin = patch.asin ?: asin,
         abridged = patch.abridged ?: abridged,
+        // The added date is stored as createdAt; null leaves it untouched. The DB write is gated by
+        // BookWriteExtras.createdAtOverride in writePayload so only this edit path can move it.
+        createdAt = patch.addedAt ?: createdAt,
     )

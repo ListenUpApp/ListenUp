@@ -272,6 +272,10 @@ class BookRepository(
                 stmt[BookTable.updatedAt] = now
                 stmt[BookTable.deletedAt] = null
                 stmt[BookTable.clientOpId] = clientOpId
+                // Edit-path only: re-stamp the added date. `applyBookFields` never writes
+                // createdAt, so a rescan's placeholder value stays ignored — only an explicit
+                // metadata edit (which sets this override) can move it.
+                extras?.createdAtOverride?.let { stmt[BookTable.createdAt] = it }
             }
         } else {
             BookTable.insert { stmt ->

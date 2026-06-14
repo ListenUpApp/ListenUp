@@ -148,6 +148,7 @@ open class UpdateBookUseCase(
                 isbn = metadata.isbn.ifBlank { null },
                 asin = metadata.asin.ifBlank { null },
                 abridged = metadata.abridged,
+                addedAt = metadata.addedAt,
             )
         return bookEditRepository.updateBook(BookId(current.bookId), patch)
     }
