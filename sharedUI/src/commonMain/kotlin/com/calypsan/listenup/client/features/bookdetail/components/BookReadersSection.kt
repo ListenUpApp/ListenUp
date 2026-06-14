@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.background
@@ -38,10 +40,11 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.domain.readers.ReaderState
+import com.calypsan.listenup.client.domain.readers.ReaderLineKind
+import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
-import com.calypsan.listenup.client.util.formatDate
+import com.calypsan.listenup.client.util.relativeOrMonthYear
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_readers
 import listenup.composeapp.generated.resources.book_detail_readers_finished
@@ -51,6 +54,9 @@ import listenup.composeapp.generated.resources.common_see_all
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import kotlin.time.Clock
+
+private const val MAX_COLLAPSED_READERS = 5
 
 /**
  * Presentation-only model for a single reader row in [BookReadersContent].
@@ -101,6 +107,7 @@ fun BookReadersSection(
     onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isCard: Boolean = false,
+    onSeeAllClick: (String) -> Unit = {},
     viewModel: BookReadersViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -108,37 +115,41 @@ fun BookReadersSection(
     // Loading and Error render nothing — the Readers section is non-critical.
     val data = state as? BookReadersUiState.Data ?: return
 
-    val readers =
-        data.readers.readers.map { reader ->
-            when (val readerState = reader.state) {
-                is ReaderState.Listening -> {
+    val lines = flattenToLines(data.readers.readers)
+    val nowMs = Clock.System.now().toEpochMilliseconds()
+    val rows =
+        lines.take(MAX_COLLAPSED_READERS).map { line ->
+            val name = if (line.isYou) "You" else line.name
+            when (val k = line.kind) {
+                is ReaderLineKind.Reading -> {
                     ReaderRowUi(
-                        userId = reader.userId,
-                        name = reader.displayName,
+                        userId = line.userId,
+                        name = name,
                         isReading = true,
-                        progressPct = null,
+                        progressPct = k.progressPct,
                         finishedWhen = null,
                     )
                 }
 
-                is ReaderState.Finished -> {
+                is ReaderLineKind.Finished -> {
                     ReaderRowUi(
-                        userId = reader.userId,
-                        name = reader.displayName,
+                        userId = line.userId,
+                        name = name,
                         isReading = false,
                         progressPct = null,
-                        finishedWhen = readerState.finishedAtMs?.let { formatDate(it, "MMM d") },
+                        finishedWhen = relativeOrMonthYear(k.finishedAtMs, nowMs),
                     )
                 }
             }
         }
 
     BookReadersContent(
-        readers = readers,
-        listeningNowCount = readers.count { it.isReading },
-        totalCount = readers.size,
+        readers = rows,
+        listeningNowCount = rows.count { it.isReading },
+        totalCount = lines.size,
         isCard = isCard,
         onUserClick = onUserClick,
+        onSeeAllClick = { onSeeAllClick(bookId) },
         modifier = modifier,
     )
 }
