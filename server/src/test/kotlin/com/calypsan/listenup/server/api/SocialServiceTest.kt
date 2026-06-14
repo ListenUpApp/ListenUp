@@ -5,7 +5,6 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.dto.social.BookReadership
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload

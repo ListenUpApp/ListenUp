@@ -85,7 +85,7 @@ internal class SocialServiceImpl(
                 val positionMs = inProgress.firstOrNull { it.first == uid }?.second
                 val pct =
                     positionMs?.let {
-                        if (totalDuration > 0) ((it * 100) / totalDuration).toInt().coerceIn(0, 100) else null
+                        if (totalDuration > 0) (it * 100 / totalDuration).toInt().coerceIn(0, 100) else null
                     }
                 BookReaderEntry(
                     userId = uid,
