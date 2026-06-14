@@ -1,4 +1,5 @@
 import Foundation
+@preconcurrency import Shared
 
 // Type-safe navigation destinations. Separate `Hashable` structs (not an enum)
 // so each destination evolves independently and `navigationDestination(for:)`
@@ -27,6 +28,31 @@ struct TagDestination: Hashable {
 /// Shelf detail screen — the books a user has curated onto one shelf.
 struct ShelfDestination: Hashable {
     let id: String
+}
+
+/// The full single-type "See all" search page, reached from a capped result group whose
+/// hit count exceeds its display cap. Carries the settled query and the one type to expand.
+struct SearchSeeAllDestination: Hashable {
+    let query: String
+    let type: SearchSeeAllType
+}
+
+/// The capped-group hit kinds that own a "See all" page. Tags render inline uncapped, so
+/// they are intentionally absent. A platform-native mirror of the shared `SearchHitType`
+/// (which doesn't bridge as `Hashable`), kept Hashable so it can ride a `NavigationPath`.
+enum SearchSeeAllType: Hashable {
+    case book
+    case contributor
+    case series
+
+    /// The shared-domain type this maps to, for `SeeAllSearchViewModel.load`.
+    var hitType: SearchHitType {
+        switch self {
+        case .book: .book
+        case .contributor: .contributor
+        case .series: .series
+        }
+    }
 }
 
 /// The current user's profile.

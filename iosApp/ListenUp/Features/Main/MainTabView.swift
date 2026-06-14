@@ -65,6 +65,9 @@ struct MainTabView: View {
         NavigationStack(path: pathBinding(tab)) {
             content()
                 .navigationDestinations()
+                .navigationDestination(for: SearchSeeAllDestination.self) { destination in
+                    SeeAllSearchView(destination: destination, path: pathBinding(tab))
+                }
                 .safeAreaInset(edge: .bottom) {
                     if playerCoordinator?.isVisible == true {
                         Color.clear.frame(height: miniBarInset)

@@ -78,6 +78,38 @@ struct SearchHitGroups: Equatable {
     }
 }
 
+/// Per-type display caps for the main results, read from the shared `SearchResultCaps` so
+/// iOS and Android stay in lockstep. Tags are intentionally uncapped (they render as inline
+/// pills). A group whose hit count exceeds its cap shows a "See all" affordance that pushes
+/// the full single-type page.
+enum SearchDisplayCap {
+    static let books = Int(SearchResultCaps.shared.BOOK)
+    static let people = Int(SearchResultCaps.shared.CONTRIBUTOR)
+    static let series = Int(SearchResultCaps.shared.SERIES)
+}
+
+/// A single capped result group ready to render: the visible prefix (`hits`) and the
+/// `seeAllType` that owns the full page — non-`nil` only when the group overflowed its cap.
+/// Pure value so the cap/overflow decision is unit-tested rather than buried in the layout.
+struct CappedGroup: Equatable {
+    let hits: [SearchHit]
+    let totalCount: Int
+    let seeAllType: SearchSeeAllType?
+
+    /// Cap `hits` to `limit`; expose `seeAllType` when the full list is longer than the cap.
+    init(_ hits: [SearchHit], cap: Int, type: SearchSeeAllType) {
+        self.totalCount = hits.count
+        self.hits = Array(hits.prefix(cap))
+        self.seeAllType = hits.count > cap ? type : nil
+    }
+}
+
+extension SearchHitGroups {
+    var cappedBooks: CappedGroup { CappedGroup(books, cap: SearchDisplayCap.books, type: .book) }
+    var cappedPeople: CappedGroup { CappedGroup(people, cap: SearchDisplayCap.people, type: .contributor) }
+    var cappedSeries: CappedGroup { CappedGroup(series, cap: SearchDisplayCap.series, type: .series) }
+}
+
 /// A resolved navigation target from a tapped search hit.
 enum SearchRoute: Hashable {
     case book(id: String)
