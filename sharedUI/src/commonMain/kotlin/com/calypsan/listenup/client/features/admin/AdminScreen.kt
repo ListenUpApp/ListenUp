@@ -1,45 +1,34 @@
-
 package com.calypsan.listenup.client.features.admin
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Rule
+import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
-import androidx.compose.material.icons.outlined.Badge
-import androidx.compose.material.icons.outlined.Save
-import com.calypsan.listenup.client.design.components.ListenUpFab
 import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material3.CardDefaults
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,27 +36,39 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.ActionTile
+import com.calypsan.listenup.client.design.components.AvatarSize
+import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.components.RoleChip
+import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
@@ -75,49 +76,48 @@ import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_admin
 import listenup.composeapp.generated.resources.admin_allow_anyone_to_request_an
-import listenup.composeapp.generated.resources.common_approve
-import listenup.composeapp.generated.resources.admin_confirm_deny_registration
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.admin_backup_restore
-import listenup.composeapp.generated.resources.common_categories
-import listenup.composeapp.generated.resources.common_collections
+import listenup.composeapp.generated.resources.admin_confirm_deny_registration
 import listenup.composeapp.generated.resources.admin_copy_link
 import listenup.composeapp.generated.resources.admin_create_backups_and_restore_server
-import listenup.composeapp.generated.resources.common_delete
-import listenup.composeapp.generated.resources.common_delete_name
-import listenup.composeapp.generated.resources.common_deny
 import listenup.composeapp.generated.resources.admin_deny_registration
-import listenup.composeapp.generated.resources.common_email
 import listenup.composeapp.generated.resources.admin_invite_someone
-import listenup.composeapp.generated.resources.connect_listenup_server
-import listenup.composeapp.generated.resources.common_name
+import listenup.composeapp.generated.resources.admin_link_copied
+import listenup.composeapp.generated.resources.admin_management
+import listenup.composeapp.generated.resources.admin_map_scanned_genre_strings_to_your_taxonomy
 import listenup.composeapp.generated.resources.admin_no_pending_registrations
-import listenup.composeapp.generated.resources.common_no_items_found
 import listenup.composeapp.generated.resources.admin_open_registration
 import listenup.composeapp.generated.resources.admin_organize_books_into_collections_for
 import listenup.composeapp.generated.resources.admin_pending_invites
 import listenup.composeapp.generated.resources.admin_pending_registrations
-import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.admin_remote_url
 import listenup.composeapp.generated.resources.admin_remote_url_placeholder
-import listenup.composeapp.generated.resources.common_revoke
 import listenup.composeapp.generated.resources.admin_revoke_invite
-import listenup.composeapp.generated.resources.common_role
 import listenup.composeapp.generated.resources.admin_save_settings
 import listenup.composeapp.generated.resources.admin_server_name
+import listenup.composeapp.generated.resources.admin_server_settings
 import listenup.composeapp.generated.resources.admin_share_your_audiobook_library_with
 import listenup.composeapp.generated.resources.admin_they_wont_be_able_to
-import listenup.composeapp.generated.resources.common_users
-import listenup.composeapp.generated.resources.admin_view_the_genre_hierarchy_tree
 import listenup.composeapp.generated.resources.admin_unmapped_genres
-import listenup.composeapp.generated.resources.admin_map_scanned_genre_strings_to_your_taxonomy
+import listenup.composeapp.generated.resources.admin_view_the_genre_hierarchy_tree
 import listenup.composeapp.generated.resources.common_administration
-import listenup.composeapp.generated.resources.common_settings
+import listenup.composeapp.generated.resources.common_approve
+import listenup.composeapp.generated.resources.common_categories
+import listenup.composeapp.generated.resources.common_collections
+import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_delete_name
+import listenup.composeapp.generated.resources.common_deny
+import listenup.composeapp.generated.resources.common_invite
+import listenup.composeapp.generated.resources.common_no_items_found
+import listenup.composeapp.generated.resources.common_revoke
+import listenup.composeapp.generated.resources.common_users
+import listenup.composeapp.generated.resources.connect_listenup_server
 
 /**
- * Combined admin screen showing users, pending invites, and invite action.
+ * Combined admin screen showing server settings, users, pending registrations & invites, and the
+ * management actions. Material 3 Expressive reskin: a color-blocked hero header, accent-headed
+ * [SectionGroup] cards composed of [SettingRow]s, and color-blocked [ActionTile]s for management.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,6 +144,7 @@ fun AdminScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copyToClipboard = rememberCopyToClipboard()
+    val linkCopiedMessage = stringResource(Res.string.admin_link_copied)
 
     val userToDeleteState = remember { mutableStateOf<AdminUserInfo?>(null) }
     val inviteToRevokeState = remember { mutableStateOf<InviteInfo?>(null) }
@@ -168,13 +169,11 @@ fun AdminScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.common_administration)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
-                    }
-                },
+            ColorBlockHero(
+                title = stringResource(Res.string.common_administration),
+                badgeIcon = Icons.Outlined.Shield,
+                onBack = onBackClick,
+                overline = serverName,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -211,7 +210,7 @@ fun AdminScreen(
                     onCopyInviteClick = { invite ->
                         copyToClipboard(invite.url)
                         scope.launch {
-                            snackbarHostState.showSnackbar("Link copied!")
+                            snackbarHostState.showSnackbar(linkCopiedMessage)
                         }
                     },
                     onRevokeInviteClick = { inviteToRevokeState.value = it },
@@ -299,7 +298,7 @@ private fun AdminConfirmationDialogs(
     }
 }
 
-// AdminContent fans hoisted state + per-row callbacks straight into its LazyColumn sections;
+// AdminContent fans hoisted state + per-row callbacks straight into its layout sections;
 // a parameter object would only add an indirection layer that Compose tooling discourages.
 @Suppress("LongParameterList")
 @Composable
@@ -323,401 +322,374 @@ private fun AdminContent(
     onRemoteUrlChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
+    val isExpanded =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+        )
+
+    if (isExpanded) {
+        AdminTwoPaneContent(
+            state = state,
+            onOpenRegistrationChange = onOpenRegistrationChange,
+            onApproveUserClick = onApproveUserClick,
+            onDenyUserClick = onDenyUserClick,
+            onDeleteUserClick = onDeleteUserClick,
+            onUserClick = onUserClick,
+            onCopyInviteClick = onCopyInviteClick,
+            onRevokeInviteClick = onRevokeInviteClick,
+            onInviteClick = onInviteClick,
+            onCollectionsClick = onCollectionsClick,
+            onCategoriesClick = onCategoriesClick,
+            onUnmappedGenresClick = onUnmappedGenresClick,
+            onBackupClick = onBackupClick,
+            serverName = serverName,
+            onServerNameChange = onServerNameChange,
+            remoteUrl = remoteUrl,
+            onRemoteUrlChange = onRemoteUrlChange,
+            modifier = modifier,
+        )
+    } else {
+        LazyColumn(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+        ) {
+            item {
+                ServerSettingsSection(
+                    state = state,
+                    serverName = serverName,
+                    onServerNameChange = onServerNameChange,
+                    remoteUrl = remoteUrl,
+                    onRemoteUrlChange = onRemoteUrlChange,
+                    onOpenRegistrationChange = onOpenRegistrationChange,
+                )
+            }
+
+            usersSection(
+                state = state,
+                onUserClick = onUserClick,
+                onDeleteUserClick = onDeleteUserClick,
+                onApproveUserClick = onApproveUserClick,
+                onDenyUserClick = onDenyUserClick,
+                onCopyInviteClick = onCopyInviteClick,
+                onRevokeInviteClick = onRevokeInviteClick,
+                onInviteClick = onInviteClick,
+            )
+
+            item {
+                ManagementSection(
+                    onInviteClick = onInviteClick,
+                    onCollectionsClick = onCollectionsClick,
+                    onCategoriesClick = onCategoriesClick,
+                    onUnmappedGenresClick = onUnmappedGenresClick,
+                    onBackupClick = onBackupClick,
+                )
+            }
+        }
+    }
+}
+
+// Two-pane expanded layout: Server settings + Users on the left, Management on the right.
+@Suppress("LongParameterList")
+@Composable
+private fun AdminTwoPaneContent(
+    state: AdminUiState.Ready,
+    onOpenRegistrationChange: (Boolean) -> Unit,
+    onApproveUserClick: (AdminUserInfo) -> Unit,
+    onDenyUserClick: (AdminUserInfo) -> Unit,
+    onDeleteUserClick: (AdminUserInfo) -> Unit,
+    onUserClick: (String) -> Unit,
+    onCopyInviteClick: (InviteInfo) -> Unit,
+    onRevokeInviteClick: (InviteInfo) -> Unit,
+    onInviteClick: () -> Unit,
+    onCollectionsClick: () -> Unit,
+    onCategoriesClick: () -> Unit,
+    onUnmappedGenresClick: () -> Unit,
+    onBackupClick: () -> Unit,
+    serverName: String,
+    onServerNameChange: (String) -> Unit,
+    remoteUrl: String,
+    onRemoteUrlChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // Settings section
-        item {
-            Text(
-                text = stringResource(Res.string.common_settings),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+        LazyColumn(
+            modifier = Modifier.weight(1.1f),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+        ) {
+            item {
+                ServerSettingsSection(
+                    state = state,
+                    serverName = serverName,
+                    onServerNameChange = onServerNameChange,
+                    remoteUrl = remoteUrl,
+                    onRemoteUrlChange = onRemoteUrlChange,
+                    onOpenRegistrationChange = onOpenRegistrationChange,
+                )
+            }
+
+            usersSection(
+                state = state,
+                onUserClick = onUserClick,
+                onDeleteUserClick = onDeleteUserClick,
+                onApproveUserClick = onApproveUserClick,
+                onDenyUserClick = onDenyUserClick,
+                onCopyInviteClick = onCopyInviteClick,
+                onRevokeInviteClick = onRevokeInviteClick,
+                onInviteClick = onInviteClick,
             )
         }
 
-        item {
-            SettingsCard(
-                serverName = serverName,
-                onServerNameChange = onServerNameChange,
-                remoteUrl = remoteUrl,
-                onRemoteUrlChange = onRemoteUrlChange,
-                openRegistration = state.openRegistration,
-                isTogglingOpenRegistration = state.isTogglingOpenRegistration,
-                onOpenRegistrationChange = onOpenRegistrationChange,
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+        ) {
+            item {
+                ManagementSection(
+                    onInviteClick = onInviteClick,
+                    onCollectionsClick = onCollectionsClick,
+                    onCategoriesClick = onCategoriesClick,
+                    onUnmappedGenresClick = onUnmappedGenresClick,
+                    onBackupClick = onBackupClick,
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Server settings section
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ServerSettingsSection(
+    state: AdminUiState.Ready,
+    serverName: String,
+    onServerNameChange: (String) -> Unit,
+    remoteUrl: String,
+    onRemoteUrlChange: (String) -> Unit,
+    onOpenRegistrationChange: (Boolean) -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.admin_server_settings),
+        icon = Icons.Outlined.Badge,
+        accent = MaterialTheme.colorScheme.primary,
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            ListenUpTextField(
+                value = serverName,
+                onValueChange = onServerNameChange,
+                label = stringResource(Res.string.admin_server_name),
+                placeholder = stringResource(Res.string.connect_listenup_server),
+                leadingIcon = Icons.Outlined.Badge,
+            )
+            ListenUpTextField(
+                value = remoteUrl,
+                onValueChange = onRemoteUrlChange,
+                label = stringResource(Res.string.admin_remote_url),
+                placeholder = stringResource(Res.string.admin_remote_url_placeholder),
+                leadingIcon = Icons.Outlined.CloudDownload,
             )
         }
+        SettingRow(
+            icon = Icons.Outlined.HowToReg,
+            title = stringResource(Res.string.admin_open_registration),
+            subtitle = stringResource(Res.string.admin_allow_anyone_to_request_an),
+            showDivider = true,
+        ) {
+            if (state.isTogglingOpenRegistration) {
+                ListenUpLoadingIndicatorSmall()
+            } else {
+                Switch(
+                    checked = state.openRegistration,
+                    onCheckedChange = onOpenRegistrationChange,
+                )
+            }
+        }
+    }
+}
 
-        // Pending users section (only shown when open registration is enabled)
-        if (state.openRegistration) {
-            pendingUsersSection(
+// ---------------------------------------------------------------------------
+// Users section (users table + pending registrations + pending invites)
+// ---------------------------------------------------------------------------
+
+private fun LazyListScope.usersSection(
+    state: AdminUiState.Ready,
+    onUserClick: (String) -> Unit,
+    onDeleteUserClick: (AdminUserInfo) -> Unit,
+    onApproveUserClick: (AdminUserInfo) -> Unit,
+    onDenyUserClick: (AdminUserInfo) -> Unit,
+    onCopyInviteClick: (InviteInfo) -> Unit,
+    onRevokeInviteClick: (InviteInfo) -> Unit,
+    onInviteClick: () -> Unit,
+) {
+    item {
+        UsersGroup(
+            state = state,
+            onUserClick = onUserClick,
+            onDeleteUserClick = onDeleteUserClick,
+            onInviteClick = onInviteClick,
+        )
+    }
+
+    if (state.openRegistration) {
+        item {
+            PendingRegistrationsGroup(
                 state = state,
                 onApproveUserClick = onApproveUserClick,
                 onDenyUserClick = onDenyUserClick,
             )
         }
+    }
 
-        usersTableSection(
-            state = state,
-            onUserClick = onUserClick,
-            onDeleteUserClick = onDeleteUserClick,
-        )
-
-        // Pending invites section (only if there are any)
-        if (state.pendingInvites.isNotEmpty()) {
-            pendingInvitesSection(
+    if (state.pendingInvites.isNotEmpty()) {
+        item {
+            PendingInvitesGroup(
                 state = state,
                 onCopyInviteClick = onCopyInviteClick,
                 onRevokeInviteClick = onRevokeInviteClick,
             )
         }
+    }
+}
 
-        // Invite someone button
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            InviteSomeoneCard(onClick = onInviteClick)
-        }
-
-        // Collections button
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            CollectionsCard(onClick = onCollectionsClick)
-        }
-
-        // Categories button
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            CategoriesCard(onClick = onCategoriesClick)
-        }
-
-        // Unmapped Genres button
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            UnmappedGenresCard(onClick = onUnmappedGenresClick)
-        }
-
-        // Backup & Restore button
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            BackupCard(onClick = onBackupClick)
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
+@Composable
+private fun UsersGroup(
+    state: AdminUiState.Ready,
+    onUserClick: (String) -> Unit,
+    onDeleteUserClick: (AdminUserInfo) -> Unit,
+    onInviteClick: () -> Unit,
+) {
+    SectionGroup(
+        label = stringResource(Res.string.common_users),
+        icon = Icons.Outlined.Group,
+        accent = MaterialTheme.colorScheme.primary,
+        trailing = {
+            ScallopBadge(
+                size = 26.dp,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ) {
+                Text(
+                    text = state.users.size.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+            PillChip(
+                label = stringResource(Res.string.common_invite),
+                onClick = onInviteClick,
+                leadingIcon = Icons.Outlined.PersonAdd,
+            )
+        },
+    ) {
+        if (state.users.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.common_no_items_found, "users"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+        } else {
+            state.users.forEachIndexed { index, user ->
+                UserRow(
+                    user = user,
+                    isDeleting = state.deletingUserId == user.id,
+                    showDivider = index > 0,
+                    onClick = { onUserClick(user.id) },
+                    onDeleteClick = { onDeleteUserClick(user) },
+                )
+            }
         }
     }
 }
 
-private fun LazyListScope.pendingUsersSection(
+@Composable
+private fun UserRow(
+    user: AdminUserInfo,
+    isDeleting: Boolean,
+    showDivider: Boolean,
+    onClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+) {
+    val isRoot = user.isRoot || user.role == "admin"
+    val roleLabel =
+        if (user.isRoot) {
+            "Root"
+        } else {
+            user.role.replaceFirstChar { it.uppercase() }.ifEmpty { "Member" }
+        }
+    SettingRow(
+        title = user.displayName ?: user.email,
+        subtitle = user.email,
+        showDivider = showDivider,
+        onClick = onClick,
+        leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium) },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            RoleChip(label = roleLabel, isRoot = isRoot)
+            if (!user.isProtected) {
+                if (isDeleting) {
+                    ListenUpLoadingIndicatorSmall()
+                } else {
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = stringResource(Res.string.common_delete),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PendingRegistrationsGroup(
     state: AdminUiState.Ready,
     onApproveUserClick: (AdminUserInfo) -> Unit,
     onDenyUserClick: (AdminUserInfo) -> Unit,
 ) {
-    item {
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = stringResource(Res.string.admin_pending_registrations),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-    }
-
-    item {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors =
-                CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                ),
-        ) {
-            if (state.pendingUsers.isEmpty()) {
-                Text(
-                    text = stringResource(Res.string.admin_no_pending_registrations),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(16.dp),
-                )
-            } else {
-                Column {
-                    state.pendingUsers.forEachIndexed { index, user ->
-                        PendingUserRow(
-                            user = user,
-                            isApproving = state.approvingUserId == user.id,
-                            isDenying = state.denyingUserId == user.id,
-                            onApproveClick = { onApproveUserClick(user) },
-                            onDenyClick = { onDenyUserClick(user) },
-                        )
-                        if (index < state.pendingUsers.lastIndex) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun LazyListScope.usersTableSection(
-    state: AdminUiState.Ready,
-    onUserClick: (String) -> Unit,
-    onDeleteUserClick: (AdminUserInfo) -> Unit,
-) {
-    // Users section header
-    item {
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = stringResource(Res.string.common_users),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-    }
-
-    // Users table
-    item {
-        val cardShape = MaterialTheme.shapes.large
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = cardShape,
-            colors =
-                CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ),
-        ) {
-            Column {
-                // Table header - clip top corners to match card shape
-                UserTableHeader(
-                    modifier =
-                        Modifier.clip(
-                            RoundedCornerShape(
-                                topStart = 28.dp,
-                                topEnd = 28.dp,
-                            ),
-                        ),
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                // User rows
-                if (state.users.isEmpty()) {
-                    Text(
-                        text = stringResource(Res.string.common_no_items_found, "users"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                } else {
-                    state.users.forEachIndexed { index, user ->
-                        UserTableRow(
-                            user = user,
-                            isDeleting = state.deletingUserId == user.id,
-                            onClick = { onUserClick(user.id) },
-                            onDeleteClick = { onDeleteUserClick(user) },
-                        )
-                        if (index < state.users.lastIndex) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun LazyListScope.pendingInvitesSection(
-    state: AdminUiState.Ready,
-    onCopyInviteClick: (InviteInfo) -> Unit,
-    onRevokeInviteClick: (InviteInfo) -> Unit,
-) {
-    item {
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = stringResource(Res.string.admin_pending_invites),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-    }
-
-    item {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors =
-                CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                ),
-        ) {
-            Column {
-                state.pendingInvites.forEachIndexed { index, invite ->
-                    InviteRow(
-                        invite = invite,
-                        isRevoking = state.revokingInviteId == invite.id,
-                        onCopyClick = { onCopyInviteClick(invite) },
-                        onRevokeClick = { onRevokeInviteClick(invite) },
-                    )
-                    if (index < state.pendingInvites.lastIndex) {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsCard(
-    serverName: String,
-    onServerNameChange: (String) -> Unit,
-    remoteUrl: String,
-    onRemoteUrlChange: (String) -> Unit,
-    openRegistration: Boolean,
-    isTogglingOpenRegistration: Boolean,
-    onOpenRegistrationChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
+    val accent = MaterialTheme.colorScheme.tertiary
+    SectionGroup(
+        label = stringResource(Res.string.admin_pending_registrations),
+        icon = Icons.Outlined.HowToReg,
+        accent = accent,
     ) {
-        Column {
-            SettingsServerNameRow(
-                serverName = serverName,
-                onServerNameChange = onServerNameChange,
-            )
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            SettingsRemoteUrlRow(
-                remoteUrl = remoteUrl,
-                onRemoteUrlChange = onRemoteUrlChange,
-            )
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            SettingsOpenRegistrationRow(
-                openRegistration = openRegistration,
-                isTogglingOpenRegistration = isTogglingOpenRegistration,
-                onOpenRegistrationChange = onOpenRegistrationChange,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsServerNameRow(
-    serverName: String,
-    onServerNameChange: (String) -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Badge,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = serverName,
-            onValueChange = onServerNameChange,
-            label = { Text(stringResource(Res.string.admin_server_name)) },
-            placeholder = { Text(stringResource(Res.string.connect_listenup_server)) },
-            singleLine = true,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun SettingsRemoteUrlRow(
-    remoteUrl: String,
-    onRemoteUrlChange: (String) -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.CloudDownload,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = remoteUrl,
-            onValueChange = onRemoteUrlChange,
-            label = { Text(stringResource(Res.string.admin_remote_url)) },
-            placeholder = { Text(stringResource(Res.string.admin_remote_url_placeholder)) },
-            singleLine = true,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun SettingsOpenRegistrationRow(
-    openRegistration: Boolean,
-    isTogglingOpenRegistration: Boolean,
-    onOpenRegistrationChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.HowToReg,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(modifier = Modifier.weight(1f)) {
+        if (state.pendingUsers.isEmpty()) {
             Text(
-                text = stringResource(Res.string.admin_open_registration),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(Res.string.admin_allow_anyone_to_request_an),
-                style = MaterialTheme.typography.bodySmall,
+                text = stringResource(Res.string.admin_no_pending_registrations),
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
             )
-        }
-        if (isTogglingOpenRegistration) {
-            ListenUpLoadingIndicatorSmall()
         } else {
-            Switch(
-                checked = openRegistration,
-                onCheckedChange = onOpenRegistrationChange,
-            )
+            state.pendingUsers.forEachIndexed { index, user ->
+                PendingUserRow(
+                    user = user,
+                    accent = accent,
+                    isApproving = state.approvingUserId == user.id,
+                    isDenying = state.denyingUserId == user.id,
+                    showDivider = index > 0,
+                    onApproveClick = { onApproveUserClick(user) },
+                    onDenyClick = { onDenyUserClick(user) },
+                )
+            }
         }
     }
 }
@@ -725,198 +697,71 @@ private fun SettingsOpenRegistrationRow(
 @Composable
 private fun PendingUserRow(
     user: AdminUserInfo,
+    accent: Color,
     isApproving: Boolean,
     isDenying: Boolean,
+    showDivider: Boolean,
     onApproveClick: () -> Unit,
     onDenyClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    val name =
+        user.displayName
+            ?: "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifEmpty { user.email }
+    SettingRow(
+        icon = Icons.Outlined.PersonAdd,
+        accent = accent,
+        title = name,
+        subtitle = user.email,
+        showDivider = showDivider,
     ) {
-        // Name and email
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text =
-                    user.displayName ?: "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifEmpty { user.email },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = user.email,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        // Action buttons
         if (isApproving || isDenying) {
             ListenUpLoadingIndicatorSmall()
         } else {
-            OutlinedButton(
-                onClick = onDenyClick,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(Res.string.common_deny))
-            }
-            FilledTonalButton(
-                onClick = onApproveClick,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(Res.string.common_approve))
-            }
-        }
-    }
-}
-
-@Composable
-private fun UserTableHeader(modifier: Modifier = Modifier) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(Res.string.common_name),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = stringResource(Res.string.common_email),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = stringResource(Res.string.common_role),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f),
-        )
-        Text(
-            text = stringResource(Res.string.common_permissions),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f),
-        )
-        // Space for delete button
-        Spacer(modifier = Modifier.size(48.dp))
-    }
-}
-
-@Composable
-private fun UserTableRow(
-    user: AdminUserInfo,
-    isDeleting: Boolean,
-    onClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Name with admin indicator
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = user.displayName ?: user.email,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (user.isRoot || user.role == "admin") {
-                Icon(
-                    imageVector = Icons.Outlined.Shield,
-                    contentDescription = stringResource(Res.string.common_admin),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-
-        // Email
-        Text(
-            text = user.email,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-
-        // Role
-        Text(
-            text = if (user.isRoot) "Root" else user.role.replaceFirstChar { it.uppercase() }.ifEmpty { "Member" },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(0.4f),
-        )
-
-        // Permissions indicators
-        Row(
-            modifier = Modifier.weight(0.4f),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Share,
-                contentDescription = if (user.permissions.canShare) "Can share" else "Cannot share",
-                tint =
-                    if (user.permissions.canShare) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    },
-                modifier = Modifier.size(16.dp),
-            )
-        }
-
-        // Delete button
-        if (!user.isProtected) {
-            if (isDeleting) {
-                ListenUpLoadingIndicatorSmall()
-            } else {
-                IconButton(onClick = onDeleteClick) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onDenyClick) {
                     Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = stringResource(Res.string.common_delete),
-                        tint = MaterialTheme.colorScheme.error,
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(Res.string.common_deny))
+                }
+                FilledTonalButton(onClick = onApproveClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(Res.string.common_approve))
                 }
             }
-        } else {
-            Spacer(modifier = Modifier.size(48.dp))
+        }
+    }
+}
+
+@Composable
+private fun PendingInvitesGroup(
+    state: AdminUiState.Ready,
+    onCopyInviteClick: (InviteInfo) -> Unit,
+    onRevokeInviteClick: (InviteInfo) -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.secondary
+    SectionGroup(
+        label = stringResource(Res.string.admin_pending_invites),
+        icon = Icons.Outlined.PersonAdd,
+        accent = accent,
+    ) {
+        state.pendingInvites.forEachIndexed { index, invite ->
+            InviteRow(
+                invite = invite,
+                accent = accent,
+                isRevoking = state.revokingInviteId == invite.id,
+                showDivider = index > 0,
+                onCopyClick = { onCopyInviteClick(invite) },
+                onRevokeClick = { onRevokeInviteClick(invite) },
+            )
         }
     }
 }
@@ -924,279 +769,111 @@ private fun UserTableRow(
 @Composable
 private fun InviteRow(
     invite: InviteInfo,
+    accent: Color,
     isRevoking: Boolean,
+    showDivider: Boolean,
     onCopyClick: () -> Unit,
     onRevokeClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    SettingRow(
+        icon = Icons.Outlined.PersonAdd,
+        accent = accent,
+        title = invite.name,
+        subtitle = invite.email,
+        showDivider = showDivider,
     ) {
-        // Name and email
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = invite.name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = invite.email,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        // Role badge
-        Text(
-            text = invite.role.replaceFirstChar { it.uppercase() },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-        )
-
-        // Copy link button
-        IconButton(onClick = onCopyClick) {
-            Icon(
-                imageVector = Icons.Outlined.ContentCopy,
-                contentDescription = stringResource(Res.string.admin_copy_link),
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-        }
-
-        // Revoke button
-        if (isRevoking) {
-            ListenUpLoadingIndicatorSmall()
-        } else {
-            IconButton(onClick = onRevokeClick) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            RoleChip(label = invite.role.replaceFirstChar { it.uppercase() })
+            IconButton(onClick = onCopyClick) {
                 Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = stringResource(Res.string.common_revoke),
-                    tint = MaterialTheme.colorScheme.error,
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = stringResource(Res.string.admin_copy_link),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (isRevoking) {
+                ListenUpLoadingIndicatorSmall()
+            } else {
+                IconButton(onClick = onRevokeClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = stringResource(Res.string.common_revoke),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }
 }
 
-@Composable
-private fun InviteSomeoneCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.PersonAdd,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.admin_invite_someone),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_share_your_audiobook_library_with),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                )
-            }
-        }
-    }
-}
+// ---------------------------------------------------------------------------
+// Management section
+// ---------------------------------------------------------------------------
 
 @Composable
-private fun CollectionsCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun ManagementSection(
+    onInviteClick: () -> Unit,
+    onCollectionsClick: () -> Unit,
+    onCategoriesClick: () -> Unit,
+    onUnmappedGenresClick: () -> Unit,
+    onBackupClick: () -> Unit,
 ) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Folder,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.common_collections),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_organize_books_into_collections_for),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoriesCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Category,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.common_categories),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_view_the_genre_hierarchy_tree),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun UnmappedGenresCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.Rule,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.admin_unmapped_genres),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_map_scanned_genre_strings_to_your_taxonomy),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BackupCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Backup,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.admin_backup_restore),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_create_backups_and_restore_server),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+    val colors = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(Res.string.admin_management),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = colors.onSurface,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_invite_someone),
+            subtitle = stringResource(Res.string.admin_share_your_audiobook_library_with),
+            icon = Icons.Outlined.PersonAdd,
+            onClick = onInviteClick,
+            containerColor = colors.primaryContainer,
+            badgeColor = colors.primary,
+            badgeContentColor = colors.onPrimary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.common_collections),
+            subtitle = stringResource(Res.string.admin_organize_books_into_collections_for),
+            icon = Icons.Outlined.Folder,
+            onClick = onCollectionsClick,
+            containerColor = colors.tertiaryContainer,
+            badgeColor = colors.tertiary,
+            badgeContentColor = colors.onTertiary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.common_categories),
+            subtitle = stringResource(Res.string.admin_view_the_genre_hierarchy_tree),
+            icon = Icons.Outlined.Category,
+            onClick = onCategoriesClick,
+            containerColor = colors.secondaryContainer,
+            badgeColor = colors.secondary,
+            badgeContentColor = colors.onSecondary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_unmapped_genres),
+            subtitle = stringResource(Res.string.admin_map_scanned_genre_strings_to_your_taxonomy),
+            icon = Icons.AutoMirrored.Outlined.Rule,
+            onClick = onUnmappedGenresClick,
+            containerColor = colors.surfaceContainerHigh,
+            badgeColor = colors.primary,
+            badgeContentColor = colors.onPrimary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_backup_restore),
+            subtitle = stringResource(Res.string.admin_create_backups_and_restore_server),
+            icon = Icons.Outlined.Backup,
+            onClick = onBackupClick,
+            containerColor = colors.surfaceContainerHigh,
+            badgeColor = colors.tertiary,
+            badgeContentColor = colors.onTertiary,
+        )
     }
 }

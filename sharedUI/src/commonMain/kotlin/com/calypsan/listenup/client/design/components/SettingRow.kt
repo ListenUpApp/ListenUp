@@ -32,14 +32,19 @@ private val DIVIDER_INSET = 70.dp
  * leading tile switches to its error variant and the [title] renders in the error colour — the
  * destructive variant for sign-out-style rows. Supplying [onClick] makes the whole row clickable.
  *
+ * The leading slot has two paths: by default the [icon] renders inside a [TonalIconTile]; when a
+ * [leading] composable is supplied it REPLACES the icon tile entirely (so e.g. user rows can supply
+ * a [UserAvatar]). [icon] is ignored when [leading] is non-null.
+ *
  * @param title Primary label, [MaterialTheme.typography.titleMedium].
  * @param modifier Modifier for the row.
  * @param subtitle Optional secondary line, single-line ellipsised [onSurfaceVariant] body text.
- * @param icon Optional leading glyph; when null the row has no leading tile.
+ * @param icon Optional leading glyph; when null (and [leading] is null) the row has no leading tile.
  * @param accent Accent colour for the leading tile.
  * @param danger When true, uses the error-tinted tile and an error-coloured title.
  * @param showDivider When true, draws an inset divider above the row.
  * @param onClick Optional tap handler; when set the whole row is clickable.
+ * @param leading Optional custom leading slot; when set it replaces the [icon] tile (e.g. an avatar).
  * @param trailing Optional trailing control (pill, switch, chevron, value text).
  */
 @Composable
@@ -52,6 +57,7 @@ fun SettingRow(
     danger: Boolean = false,
     showDivider: Boolean = false,
     onClick: (() -> Unit)? = null,
+    leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val rowModifier =
@@ -70,7 +76,11 @@ fun SettingRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            icon?.let { TonalIconTile(icon = it, accent = accent, danger = danger) }
+            if (leading != null) {
+                leading()
+            } else {
+                icon?.let { TonalIconTile(icon = it, accent = accent, danger = danger) }
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,

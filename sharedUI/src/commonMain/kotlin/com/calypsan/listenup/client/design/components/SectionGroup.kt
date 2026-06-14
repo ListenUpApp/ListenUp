@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +34,8 @@ private val HEADER_TILE_SIZE = 30.dp
  * @param icon Glyph for the accent-tinted header tile.
  * @param modifier Modifier for the whole section column.
  * @param accent Accent colour driving the header tile tint and the label colour.
+ * @param trailing Optional content rendered at the end of the header row (e.g. a count badge plus an
+ *   action button); when null the header is just the tile and label.
  * @param content Section body rows, laid out in a [Column] inside the card.
  */
 @Composable
@@ -41,11 +44,12 @@ fun SectionGroup(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
+    trailing: @Composable (RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -55,7 +59,9 @@ fun SectionGroup(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = accent,
+                modifier = if (trailing != null) Modifier.weight(1f) else Modifier,
             )
+            trailing?.invoke(this)
         }
         Surface(
             modifier = Modifier.fillMaxWidth(),
