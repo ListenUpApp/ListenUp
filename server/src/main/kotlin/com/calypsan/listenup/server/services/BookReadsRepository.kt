@@ -27,7 +27,7 @@ data class BookReadRow(
  * as distinct rows (naturally deduplicated by [finishedAt]). Used by the readership
  * RPC surface to show persistent readers on the Book Detail screen.
  */
-internal class BookReadsRepository(
+class BookReadsRepository(
     private val db: Database,
     private val clock: Clock = Clock.System,
 ) {
