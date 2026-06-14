@@ -26,19 +26,22 @@ data class CurrentlyListeningSession(
     val startedAtMs: Long,
 )
 
-/**
- * One other user currently reading a given book, as seen by a viewer who can access that book.
- *
- * @property userId The reading user.
- * @property displayName The reading user's public display name.
- * @property avatarType `"auto"` or `"image"`.
- * @property startedAtMs Epoch-ms the session began.
- */
+/** One reader of a book: their live progress (if reading) plus their dated finish history. */
 @Serializable
-@SerialName("BookReader")
-data class BookReader(
+@SerialName("BookReaderEntry")
+data class BookReaderEntry(
     val userId: String,
     val displayName: String,
     val avatarType: String,
-    val startedAtMs: Long,
+    /** 0..100 when the user has an in-progress (unfinished) position; null otherwise. */
+    val currentProgressPct: Int?,
+    /** finished_at epoch ms, newest-first; empty when the user is only currently reading. */
+    val finishes: List<Long>,
+)
+
+/** The full readership of a book: everyone (incl. the caller) who is reading or has finished it. */
+@Serializable
+@SerialName("BookReadership")
+data class BookReadership(
+    val readers: List<BookReaderEntry>,
 )
