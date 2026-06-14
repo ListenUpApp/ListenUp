@@ -178,6 +178,16 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getABSImportHubViewModel(): com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel by inject()
+        return viewModel
+    }
+
+    fun getImportFlowViewModel(): com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel by inject()
+        return viewModel
+    }
+
     fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
         return viewModel
