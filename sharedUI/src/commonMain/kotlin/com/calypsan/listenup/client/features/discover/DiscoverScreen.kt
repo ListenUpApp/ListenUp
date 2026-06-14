@@ -186,7 +186,7 @@ private fun DiscoverContent(
             appHeader {
                 Text(
                     text = ShellDestination.Discover.title,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineMediumEmphasized,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }

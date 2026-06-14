@@ -5141,6 +5141,86 @@
         }
       }
     },
+    "discover.leaderboard_category_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_category_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streak"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_category_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Month"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_period_week": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Week"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_show_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all %1$d"
+          }
+        }
+      }
+    },
+    "discover.leaderboard_show_less": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show less"
+          }
+        }
+      }
+    },
     "discover.loading_leaderboard": {
       "localizations": {
         "en": {
@@ -5207,6 +5287,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start listening to join the community rankings"
+          }
+        }
+      }
+    },
+    "discover.time_ago_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$dd ago"
+          }
+        }
+      }
+    },
+    "discover.time_ago_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$dh ago"
+          }
+        }
+      }
+    },
+    "discover.time_ago_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$dm ago"
+          }
+        }
+      }
+    },
+    "discover.time_ago_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just now"
           }
         }
       }

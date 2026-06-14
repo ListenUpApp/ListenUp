@@ -515,6 +515,14 @@ One beautiful library.</string>
     <string name="discover_discover_something_new">Discover Something New</string>
     <string name="discover_find_next_favorite">Find your next favorite audiobook</string>
     <string name="discover_leaderboard">Leaderboard</string>
+    <string name="discover_leaderboard_category_books">Books</string>
+    <string name="discover_leaderboard_category_streak">Streak</string>
+    <string name="discover_leaderboard_category_time">Time</string>
+    <string name="discover_leaderboard_period_all">All</string>
+    <string name="discover_leaderboard_period_month">Month</string>
+    <string name="discover_leaderboard_period_week">Week</string>
+    <string name="discover_leaderboard_show_all">Show all %1$d</string>
+    <string name="discover_leaderboard_show_less">Show less</string>
     <string name="discover_loading_leaderboard">Loading leaderboard...</string>
     <string name="discover_no_activity_yet_start_listening">No activity yet. Start listening to see what your community is reading!</string>
     <string name="discover_no_shelves_to_discover_yet">No Shelves to Discover Yet</string>
@@ -522,6 +530,10 @@ One beautiful library.</string>
     <string name="discover_shelf_count">%1$d shelf</string>
     <string name="discover_shelves_count">%1$d shelves</string>
     <string name="discover_start_listening_to_join_the">Start listening to join the community rankings</string>
+    <string name="discover_time_ago_days">%1$dd ago</string>
+    <string name="discover_time_ago_hours">%1$dh ago</string>
+    <string name="discover_time_ago_minutes">%1$dm ago</string>
+    <string name="discover_time_ago_now">Just now</string>
     <string name="discover_total_time">Total Time</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
     <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they\'ll appear here.</string>
