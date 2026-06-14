@@ -82,6 +82,7 @@ final class Dependencies {
     func createDiscoverViewModel() -> DiscoverViewModel { KoinHelper.shared.getDiscoverViewModel() }
     func createLeaderboardViewModel() -> LeaderboardViewModel { KoinHelper.shared.getLeaderboardViewModel() }
     func createActivityFeedViewModel() -> ActivityFeedViewModel { KoinHelper.shared.getActivityFeedViewModel() }
+    func createSeeAllSearchViewModel() -> SeeAllSearchViewModel { KoinHelper.shared.getSeeAllSearchViewModel() }
 
     func createTagDetailViewModel() -> TagDetailViewModel { KoinHelper.shared.getTagDetailViewModel() }
     func createUserProfileViewModel() -> UserProfileViewModel { KoinHelper.shared.getUserProfileViewModel() }

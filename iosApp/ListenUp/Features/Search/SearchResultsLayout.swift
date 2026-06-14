@@ -4,28 +4,26 @@ import SwiftUI
 // Two responsive presentations of the grouped hits:
 //  - `SearchResultsList`  — a single grouped `List` (compact / iPhone).
 //  - `SearchResultsPad`   — a width-driven two-column layout (regular / iPad, Split View).
+//
+// Each group renders at most its `SearchResultCaps` prefix; a group that overflows its cap
+// shows a "See all" affordance in its section header that pushes the full single-type page.
 
 /// Compact layout: one grouped `List`, a section per non-empty kind.
 struct SearchResultsList: View {
     let groups: SearchHitGroups
     let onTap: (SearchHit) -> Void
+    let onSeeAll: (SearchSeeAllType) -> Void
 
     var body: some View {
         List {
-            if !groups.books.isEmpty {
-                Section(SearchSectionTitle.books(groups.books.count)) {
-                    ForEach(groups.books, id: \.id) { hit in SearchBookRow(hit: hit) { onTap(hit) } }
-                }
+            section(SearchSectionTitle.books, groups.cappedBooks) { hit in
+                SearchBookRow(hit: hit) { onTap(hit) }
             }
-            if !groups.people.isEmpty {
-                Section(SearchSectionTitle.people(groups.people.count)) {
-                    ForEach(groups.people, id: \.id) { hit in SearchPersonRow(hit: hit) { onTap(hit) } }
-                }
+            section(SearchSectionTitle.people, groups.cappedPeople) { hit in
+                SearchPersonRow(hit: hit) { onTap(hit) }
             }
-            if !groups.series.isEmpty {
-                Section(SearchSectionTitle.series(groups.series.count)) {
-                    ForEach(groups.series, id: \.id) { hit in SearchSeriesRow(hit: hit) { onTap(hit) } }
-                }
+            section(SearchSectionTitle.series, groups.cappedSeries) { hit in
+                SearchSeriesRow(hit: hit) { onTap(hit) }
             }
             if !groups.tags.isEmpty {
                 Section(SearchSectionTitle.tags(groups.tags.count)) {
@@ -34,6 +32,25 @@ struct SearchResultsList: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    @ViewBuilder
+    private func section(
+        _ title: (Int) -> String,
+        _ group: CappedGroup,
+        @ViewBuilder row: @escaping (SearchHit) -> some View
+    ) -> some View {
+        if !group.hits.isEmpty {
+            Section {
+                ForEach(group.hits, id: \.id) { hit in row(hit) }
+            } header: {
+                SearchListSectionHeader(
+                    title: title(group.totalCount),
+                    seeAllType: group.seeAllType,
+                    onSeeAll: onSeeAll
+                )
+            }
+        }
     }
 }
 
@@ -44,6 +61,7 @@ struct SearchResultsList: View {
 struct SearchResultsPad: View {
     let groups: SearchHitGroups
     let onTap: (SearchHit) -> Void
+    let onSeeAll: (SearchSeeAllType) -> Void
 
     private let coverColumns = [GridItem(.adaptive(minimum: 140), spacing: 20)]
 
@@ -72,10 +90,15 @@ struct SearchResultsPad: View {
     }
 
     private var booksColumn: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SearchSectionHeader(title: SearchSectionTitle.books(groups.books.count))
+        let group = groups.cappedBooks
+        return VStack(alignment: .leading, spacing: 12) {
+            SearchSectionHeader(
+                title: SearchSectionTitle.books(group.totalCount),
+                seeAllType: group.seeAllType,
+                onSeeAll: onSeeAll
+            )
             LazyVGrid(columns: coverColumns, alignment: .leading, spacing: 20) {
-                ForEach(groups.books, id: \.id) { hit in
+                ForEach(group.hits, id: \.id) { hit in
                     Button { onTap(hit) } label: { SearchBookCard(hit: hit) }
                         .buttonStyle(.plain)
                 }
@@ -85,17 +108,29 @@ struct SearchResultsPad: View {
 
     private var peopleAndSeriesColumn: some View {
         VStack(alignment: .leading, spacing: 24) {
-            if !groups.people.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    SearchSectionHeader(title: SearchSectionTitle.people(groups.people.count))
-                    ForEach(groups.people, id: \.id) { hit in SearchPersonRow(hit: hit) { onTap(hit) } }
-                }
+            railSection(groups.cappedPeople, title: SearchSectionTitle.people) { hit in
+                SearchPersonRow(hit: hit) { onTap(hit) }
             }
-            if !groups.series.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    SearchSectionHeader(title: SearchSectionTitle.series(groups.series.count))
-                    ForEach(groups.series, id: \.id) { hit in SearchSeriesRow(hit: hit) { onTap(hit) } }
-                }
+            railSection(groups.cappedSeries, title: SearchSectionTitle.series) { hit in
+                SearchSeriesRow(hit: hit) { onTap(hit) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func railSection(
+        _ group: CappedGroup,
+        title: (Int) -> String,
+        @ViewBuilder row: @escaping (SearchHit) -> some View
+    ) -> some View {
+        if !group.hits.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SearchSectionHeader(
+                    title: title(group.totalCount),
+                    seeAllType: group.seeAllType,
+                    onSeeAll: onSeeAll
+                )
+                ForEach(group.hits, id: \.id) { hit in row(hit) }
             }
         }
     }
@@ -125,19 +160,48 @@ private struct SearchBookCard: View {
     }
 }
 
+/// `List` section header with the localized "Title (count)" and a trailing "See all" when
+/// the group overflowed its cap. Pushes the full single-type page.
+private struct SearchListSectionHeader: View {
+    let title: String
+    let seeAllType: SearchSeeAllType?
+    let onSeeAll: (SearchSeeAllType) -> Void
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            if let seeAllType {
+                Button(String(localized: "search.see_all")) { onSeeAll(seeAllType) }
+                    .font(.subheadline)
+                    .textCase(nil)
+            }
+        }
+    }
+}
+
 /// Inline section header for the iPad columns (the `List` uses native `Section` headers).
 private struct SearchSectionHeader: View {
     let title: String
+    var seeAllType: SearchSeeAllType?
+    var onSeeAll: ((SearchSeeAllType) -> Void)?
 
     var body: some View {
-        Text(title)
-            .font(.headline)
-            .foregroundStyle(.secondary)
+        HStack {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if let seeAllType, let onSeeAll {
+                Button(String(localized: "search.see_all")) { onSeeAll(seeAllType) }
+                    .font(.subheadline)
+            }
+        }
     }
 }
 
 /// Localized "Title (count)" section titles, shared by both layouts.
-private enum SearchSectionTitle {
+enum SearchSectionTitle {
     static func books(_ count: Int) -> String { titled(String(localized: "library.books"), count) }
     static func people(_ count: Int) -> String { titled(String(localized: "search.people"), count) }
     static func series(_ count: Int) -> String { titled(String(localized: "common.series"), count) }

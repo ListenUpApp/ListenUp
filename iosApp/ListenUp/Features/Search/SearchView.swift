@@ -81,9 +81,9 @@ struct SearchView: View {
     @ViewBuilder
     private func results(_ observer: SearchObserver) -> some View {
         if horizontalSizeClass == .regular {
-            SearchResultsPad(groups: observer.groups) { observer.selectHit($0) }
+            SearchResultsPad(groups: observer.groups, onTap: { observer.selectHit($0) }, onSeeAll: showSeeAll)
         } else {
-            SearchResultsList(groups: observer.groups) { observer.selectHit($0) }
+            SearchResultsList(groups: observer.groups, onTap: { observer.selectHit($0) }, onSeeAll: showSeeAll)
         }
     }
 
@@ -96,5 +96,10 @@ struct SearchView: View {
         case .series(let id): path.append(SeriesDestination(id: id))
         case .tag(let id): path.append(TagDestination(id: id))
         }
+    }
+
+    /// Push the full single-type "See all" page for an overflowing group.
+    private func showSeeAll(_ type: SearchSeeAllType) {
+        path.append(SearchSeeAllDestination(query: searchText, type: type))
     }
 }

@@ -83,6 +83,55 @@ struct SearchObserverTests {
         #expect(SearchHitGroups.group([]).isEmpty)
     }
 
+    // MARK: - Display caps (mirror the shared SearchResultCaps)
+
+    @Test func displayCapsComeFromSharedSource() {
+        #expect(SearchDisplayCap.books == Int(SearchResultCaps.shared.BOOK))
+        #expect(SearchDisplayCap.people == Int(SearchResultCaps.shared.CONTRIBUTOR))
+        #expect(SearchDisplayCap.series == Int(SearchResultCaps.shared.SERIES))
+    }
+
+    @Test func groupUnderCapShowsNoSeeAll() {
+        let hits = [hit("b1", .book), hit("b2", .book)]
+        let capped = CappedGroup(hits, cap: SearchDisplayCap.books, type: .book)
+        #expect(capped.hits.count == 2)
+        #expect(capped.totalCount == 2)
+        #expect(capped.seeAllType == nil)
+    }
+
+    @Test func groupOverCapTruncatesAndOffersSeeAll() {
+        let hits = (1...10).map { hit("b\($0)", .book) }
+        let capped = CappedGroup(hits, cap: SearchDisplayCap.books, type: .book)
+        #expect(capped.hits.count == SearchDisplayCap.books)
+        #expect(capped.totalCount == 10)
+        #expect(capped.seeAllType == .book)
+    }
+
+    @Test func groupExactlyAtCapShowsNoSeeAll() {
+        let hits = (1...SearchDisplayCap.series).map { hit("s\($0)", .series) }
+        let capped = CappedGroup(hits, cap: SearchDisplayCap.series, type: .series)
+        #expect(capped.hits.count == SearchDisplayCap.series)
+        #expect(capped.seeAllType == nil)
+    }
+
+    @Test func cappedGroupAccessorsPreserveOrderAndType() {
+        let books = (1...6).map { hit("b\($0)", .book) }
+        let people = (1...6).map { hit("p\($0)", .contributor) }
+        let groups = SearchHitGroups.group(books + people)
+        #expect(groups.cappedBooks.hits.map(\.id) == ["b1", "b2", "b3", "b4"])
+        #expect(groups.cappedBooks.seeAllType == .book)
+        #expect(groups.cappedPeople.hits.map(\.id) == ["p1", "p2", "p3"])
+        #expect(groups.cappedPeople.seeAllType == .contributor)
+    }
+
+    // MARK: - See-all type ↔ shared hit type
+
+    @Test func seeAllTypeMapsToSharedHitType() {
+        #expect(SearchSeeAllType.book.hitType == .book)
+        #expect(SearchSeeAllType.contributor.hitType == .contributor)
+        #expect(SearchSeeAllType.series.hitType == .series)
+    }
+
     // MARK: - Helpers
 
     private func hit(_ id: String, _ type: SearchHitType) -> SearchHit {
