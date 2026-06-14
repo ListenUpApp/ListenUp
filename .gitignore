@@ -33,3 +33,7 @@ listenup.db-wal
 
 # brainstorm visual-companion artifacts
 .superpowers/
+
+# Local agent/skill tooling (not part of the repo)
+.claude/
+.agents/
