@@ -9051,6 +9051,16 @@
         }
       }
     },
+    "search.see_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all"
+          }
+        }
+      }
+    },
     "search.tab_all": {
       "localizations": {
         "en": {

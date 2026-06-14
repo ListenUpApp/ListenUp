@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -49,6 +50,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,12 +71,18 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.highlightMatch
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
+import com.calypsan.listenup.client.presentation.search.SearchResultCaps
 import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
@@ -82,9 +94,27 @@ import listenup.composeapp.generated.resources.search_cover_for
 import listenup.composeapp.generated.resources.search_no_results_for_query
 import listenup.composeapp.generated.resources.search_people
 import listenup.composeapp.generated.resources.search_results_count_for
+import listenup.composeapp.generated.resources.search_see_all
 import listenup.composeapp.generated.resources.search_tab_all
 import listenup.composeapp.generated.resources.search_try_a_different_search_term
 import listenup.composeapp.generated.resources.shell_close_search
+
+// Stable lazy-list item keys, shared across the compact list, the wide rail, and the See-all page
+// so a single hit keeps the same identity wherever it renders.
+private const val BOOKS_HEADER_KEY = "books_header"
+private const val CONTRIBUTORS_HEADER_KEY = "contributors_header"
+private const val SERIES_HEADER_KEY = "series_header"
+private const val TAGS_HEADER_KEY = "tags_header"
+private const val TAGS_FLOW_KEY = "tags_flow"
+private const val BOOK_KEY_PREFIX = "book_"
+private const val CONTRIBUTOR_KEY_PREFIX = "contributor_"
+private const val SERIES_KEY_PREFIX = "series_"
+
+/** Stable lazy-list item key for a hit, namespaced by [prefix] so types never collide. */
+private fun hitKey(
+    prefix: String,
+    hit: SearchHit,
+): String = "$prefix${hit.id}"
 
 /**
  * Full-screen overlay for search results.
@@ -105,6 +135,16 @@ fun SearchResultsOverlay(
     onClearTypeFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Which single-type "See all" page is open, if any. Owned here (not a nav-stack entry) so the
+    // overlay can render it in place of the grouped list and back out one level before collapsing.
+    var seeAllType by remember { mutableStateOf<SearchHitType?>(null) }
+
+    // Reset the See-all page whenever the overlay closes, so re-opening search starts on the grouped
+    // list rather than a stale single-type page.
+    LaunchedEffect(isExpanded) {
+        if (!isExpanded) seeAllType = null
+    }
+
     AnimatedVisibility(
         visible = isExpanded && state.query.isNotBlank(),
         enter = fadeIn() + slideInVertically(),
@@ -115,48 +155,64 @@ fun SearchResultsOverlay(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface,
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // The overlay covers the shell header (and its back arrow), so it carries its own
-                // back affordance — the visible counterpart to the system-back handler in AppShell.
-                SearchPillBar(
+            // System back closes the See-all page first (back out one level), then AppShell's own
+            // handler collapses search. Both layers are active while the overlay is up.
+            PlatformBackHandler(enabled = seeAllType != null) { seeAllType = null }
+
+            val openType = seeAllType
+            if (openType != null) {
+                SearchSeeAllPage(
                     query = state.query,
-                    onClose = onClose,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    type = openType,
+                    onBack = { seeAllType = null },
+                    onResultClick = onResultClick,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // The overlay covers the shell header (and its back arrow), so it carries its own
+                    // back affordance — the visible counterpart to the system-back handler in AppShell.
+                    SearchPillBar(
+                        query = state.query,
+                        onClose = onClose,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
 
-                TypeFilterRow(
-                    selectedTypes = state.selectedTypes,
-                    onToggle = onTypeFilterToggle,
-                    onSelectAll = onClearTypeFilters,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
+                    TypeFilterRow(
+                        selectedTypes = state.selectedTypes,
+                        onToggle = onTypeFilterToggle,
+                        onSelectAll = onClearTypeFilters,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
 
-                if (state is SearchUiState.Results && state.result.isOfflineResult) {
-                    OfflineIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                }
-
-                when (state) {
-                    is SearchUiState.Idle -> {
+                    if (state is SearchUiState.Results && state.result.isOfflineResult) {
+                        OfflineIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     }
 
-                    is SearchUiState.Searching -> {
-                        LoadingState(modifier = Modifier.weight(1f))
-                    }
+                    when (state) {
+                        is SearchUiState.Idle -> {
+                        }
 
-                    is SearchUiState.Error -> {
-                        ErrorState(
-                            message = state.message,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                        is SearchUiState.Searching -> {
+                            LoadingState(modifier = Modifier.weight(1f))
+                        }
 
-                    is SearchUiState.Results -> {
-                        ResultsContent(
-                            result = state.result,
-                            query = state.query,
-                            onResultClick = onResultClick,
-                            modifier = Modifier.weight(1f),
-                        )
+                        is SearchUiState.Error -> {
+                            ErrorState(
+                                message = state.message,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+
+                        is SearchUiState.Results -> {
+                            ResultsContent(
+                                result = state.result,
+                                query = state.query,
+                                onResultClick = onResultClick,
+                                onSeeAll = { type -> seeAllType = type },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }
@@ -261,6 +317,7 @@ private fun ResultsContent(
     result: SearchResult,
     query: String,
     onResultClick: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (result.hits.isEmpty()) {
@@ -294,6 +351,7 @@ private fun ResultsContent(
                 tags = tags,
                 query = query,
                 onResultClick = onResultClick,
+                onSeeAll = onSeeAll,
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -304,6 +362,7 @@ private fun ResultsContent(
                 tags = tags,
                 query = query,
                 onResultClick = onResultClick,
+                onSeeAll = onSeeAll,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -321,6 +380,7 @@ private fun SearchResultsList(
     tags: List<SearchHit>,
     query: String,
     onResultClick: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -329,62 +389,99 @@ private fun SearchResultsList(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (books.isNotEmpty()) {
-            item(key = "books_header") {
+            item(key = BOOKS_HEADER_KEY) {
                 GroupHeader(
                     title = stringResource(Res.string.library_books),
                     count = books.size,
                     badgeContainer = MaterialTheme.colorScheme.primary,
                     badgeContent = MaterialTheme.colorScheme.onPrimary,
+                    onSeeAll = seeAllCallback(books.size, SearchResultCaps.BOOK) { onSeeAll(SearchHitType.BOOK) },
                 )
             }
-            items(books, key = { "book_${it.id}" }) { hit ->
+            items(books.take(SearchResultCaps.BOOK), key = { hitKey(BOOK_KEY_PREFIX, it) }) { hit ->
                 BookResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
             }
         }
 
-        if (contributors.isNotEmpty()) {
-            item(key = "contributors_header") {
-                GroupHeader(
-                    title = stringResource(Res.string.search_people),
-                    count = contributors.size,
-                    badgeContainer = MaterialTheme.colorScheme.tertiaryContainer,
-                    badgeContent = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-            }
-            items(contributors, key = { "contributor_${it.id}" }) { hit ->
-                PersonResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
-            }
-        }
-
-        if (series.isNotEmpty()) {
-            item(key = "series_header") {
-                GroupHeader(
-                    title = stringResource(Res.string.common_series),
-                    count = series.size,
-                    badgeContainer = MaterialTheme.colorScheme.secondaryContainer,
-                    badgeContent = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
-            items(series, key = { "series_${it.id}" }) { hit ->
-                SeriesResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
-            }
-        }
-
-        if (tags.isNotEmpty()) {
-            item(key = "tags_header") {
-                GroupHeader(
-                    title = stringResource(Res.string.book_detail_tags),
-                    count = tags.size,
-                    badgeContainer = MaterialTheme.colorScheme.primaryContainer,
-                    badgeContent = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-            item(key = "tags_flow") {
-                TagFlow(tags = tags, query = query, onResultClick = onResultClick)
-            }
-        }
+        contributorGroup(contributors, query, onResultClick, onSeeAll)
+        seriesGroup(series, query, onResultClick, onSeeAll)
+        tagGroup(tags, query, onResultClick)
     }
 }
+
+/** People group: capped rows with a "See all" header action when more than the cap exist. */
+private fun LazyListScope.contributorGroup(
+    contributors: List<SearchHit>,
+    query: String,
+    onResultClick: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
+) {
+    if (contributors.isEmpty()) return
+    item(key = CONTRIBUTORS_HEADER_KEY) {
+        GroupHeader(
+            title = stringResource(Res.string.search_people),
+            count = contributors.size,
+            badgeContainer = MaterialTheme.colorScheme.tertiaryContainer,
+            badgeContent = MaterialTheme.colorScheme.onTertiaryContainer,
+            onSeeAll =
+                seeAllCallback(contributors.size, SearchResultCaps.CONTRIBUTOR) {
+                    onSeeAll(SearchHitType.CONTRIBUTOR)
+                },
+        )
+    }
+    items(contributors.take(SearchResultCaps.CONTRIBUTOR), key = { hitKey(CONTRIBUTOR_KEY_PREFIX, it) }) { hit ->
+        PersonResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
+    }
+}
+
+/** Series group: capped rows with a "See all" header action when more than the cap exist. */
+private fun LazyListScope.seriesGroup(
+    series: List<SearchHit>,
+    query: String,
+    onResultClick: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
+) {
+    if (series.isEmpty()) return
+    item(key = SERIES_HEADER_KEY) {
+        GroupHeader(
+            title = stringResource(Res.string.common_series),
+            count = series.size,
+            badgeContainer = MaterialTheme.colorScheme.secondaryContainer,
+            badgeContent = MaterialTheme.colorScheme.onSecondaryContainer,
+            onSeeAll = seeAllCallback(series.size, SearchResultCaps.SERIES) { onSeeAll(SearchHitType.SERIES) },
+        )
+    }
+    items(series.take(SearchResultCaps.SERIES), key = { hitKey(SERIES_KEY_PREFIX, it) }) { hit ->
+        SeriesResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
+    }
+}
+
+/** Tags group: a single wrapping pill flow. Tags are never capped — they render inline. */
+private fun LazyListScope.tagGroup(
+    tags: List<SearchHit>,
+    query: String,
+    onResultClick: (SearchHit) -> Unit,
+) {
+    if (tags.isEmpty()) return
+    item(key = TAGS_HEADER_KEY) {
+        GroupHeader(
+            title = stringResource(Res.string.book_detail_tags),
+            count = tags.size,
+            badgeContainer = MaterialTheme.colorScheme.primaryContainer,
+            badgeContent = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+    }
+    item(key = TAGS_FLOW_KEY) {
+        TagFlow(tags = tags, query = query, onResultClick = onResultClick)
+    }
+}
+
+/** Returns a header "See all" callback when [total] exceeds [cap], else null (no affordance). */
+private fun seeAllCallback(
+    total: Int,
+    cap: Int,
+    onSeeAll: () -> Unit,
+): (() -> Unit)? = if (total > cap) onSeeAll else null
 
 /**
  * Medium/expanded layout: Books fill a responsive cover grid on the left, with People,
@@ -399,6 +496,7 @@ private fun WideSearchResults(
     tags: List<SearchHit>,
     query: String,
     onResultClick: (SearchHit) -> Unit,
+    onSeeAll: (SearchHitType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -407,8 +505,10 @@ private fun WideSearchResults(
     ) {
         if (books.isNotEmpty()) {
             BooksGrid(
-                books = books,
+                books = books.take(SearchResultCaps.BOOK),
+                totalBookCount = books.size,
                 onResultClick = onResultClick,
+                onSeeAll = { onSeeAll(SearchHitType.BOOK) },
                 modifier = Modifier.weight(1.4f),
             )
         }
@@ -420,45 +520,9 @@ private fun WideSearchResults(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (contributors.isNotEmpty()) {
-                    item(key = "contributors_header") {
-                        GroupHeader(
-                            title = stringResource(Res.string.search_people),
-                            count = contributors.size,
-                            badgeContainer = MaterialTheme.colorScheme.tertiaryContainer,
-                            badgeContent = MaterialTheme.colorScheme.onTertiaryContainer,
-                        )
-                    }
-                    items(contributors, key = { "contributor_${it.id}" }) { hit ->
-                        PersonResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
-                    }
-                }
-                if (series.isNotEmpty()) {
-                    item(key = "series_header") {
-                        GroupHeader(
-                            title = stringResource(Res.string.common_series),
-                            count = series.size,
-                            badgeContainer = MaterialTheme.colorScheme.secondaryContainer,
-                            badgeContent = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
-                    items(series, key = { "series_${it.id}" }) { hit ->
-                        SeriesResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
-                    }
-                }
-                if (tags.isNotEmpty()) {
-                    item(key = "tags_header") {
-                        GroupHeader(
-                            title = stringResource(Res.string.book_detail_tags),
-                            count = tags.size,
-                            badgeContainer = MaterialTheme.colorScheme.primaryContainer,
-                            badgeContent = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                    item(key = "tags_flow") {
-                        TagFlow(tags = tags, query = query, onResultClick = onResultClick)
-                    }
-                }
+                contributorGroup(contributors, query, onResultClick, onSeeAll)
+                seriesGroup(series, query, onResultClick, onSeeAll)
+                tagGroup(tags, query, onResultClick)
             }
         }
     }
@@ -471,7 +535,9 @@ private fun WideSearchResults(
 @Composable
 private fun BooksGrid(
     books: List<SearchHit>,
+    totalBookCount: Int,
     onResultClick: (SearchHit) -> Unit,
+    onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
@@ -481,15 +547,16 @@ private fun BooksGrid(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item(key = "books_header", span = { GridItemSpan(maxLineSpan) }) {
+        item(key = BOOKS_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }) {
             GroupHeader(
                 title = stringResource(Res.string.library_books),
-                count = books.size,
+                count = totalBookCount,
                 badgeContainer = MaterialTheme.colorScheme.primary,
                 badgeContent = MaterialTheme.colorScheme.onPrimary,
+                onSeeAll = seeAllCallback(totalBookCount, SearchResultCaps.BOOK, onSeeAll),
             )
         }
-        gridItems(books, key = { "book_${it.id}" }) { hit ->
+        gridItems(books, key = { hitKey(BOOK_KEY_PREFIX, it) }) { hit ->
             BookCard(
                 bookId = hit.id,
                 title = hit.name,
@@ -506,7 +573,8 @@ private fun BooksGrid(
 
 /**
  * Expressive group header: an emphasized title with a scalloped cookie count badge tinted to
- * the group's container role.
+ * the group's container role. When the group is capped in the main results view, [onSeeAll] is
+ * non-null and a trailing "See all" affordance opens the full single-type page.
  */
 @Composable
 private fun GroupHeader(
@@ -515,6 +583,7 @@ private fun GroupHeader(
     badgeContainer: Color,
     badgeContent: Color,
     modifier: Modifier = Modifier,
+    onSeeAll: (() -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -538,8 +607,190 @@ private fun GroupHeader(
                 color = badgeContent,
             )
         }
+        if (onSeeAll != null) {
+            Spacer(modifier = Modifier.weight(1f))
+            SeeAllAction(onClick = onSeeAll)
+        }
     }
 }
+
+/** Trailing "See all" affordance in a capped group header: a label plus a forward chevron. */
+@Composable
+private fun SeeAllAction(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(Res.string.search_see_all),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Full-bleed single-type "See all" page, reached from a capped group's header in the main results
+ * view. Shows a back-arrow top bar with the type's title, then the complete list of that type's
+ * hits rendered with the same row composables the overlay uses. Binds its own
+ * [SeeAllSearchViewModel] and loads the full list for [query] + [type] on entry; result taps route
+ * through [onResultClick] (the same nav path the overlay threads), so AppShell stays the single
+ * navigation owner.
+ */
+@Composable
+private fun SearchSeeAllPage(
+    query: String,
+    type: SearchHitType,
+    onBack: () -> Unit,
+    onResultClick: (SearchHit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val viewModel: SeeAllSearchViewModel = koinViewModel()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(query, type) {
+        viewModel.load(query, type)
+    }
+
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            SeeAllTopBar(title = seeAllTitle(type), onBack = onBack)
+
+            when (val current = state) {
+                is SeeAllSearchUiState.Idle,
+                is SeeAllSearchUiState.Loading,
+                -> {
+                    LoadingState(modifier = Modifier.weight(1f))
+                }
+
+                is SeeAllSearchUiState.Error -> {
+                    ErrorState(message = current.message, modifier = Modifier.weight(1f))
+                }
+
+                is SeeAllSearchUiState.Results -> {
+                    if (current.hits.isEmpty()) {
+                        EmptyState(query = query, modifier = Modifier.weight(1f))
+                    } else {
+                        SeeAllList(
+                            type = type,
+                            hits = current.hits,
+                            query = query,
+                            onResultClick = onResultClick,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Top bar for the See-all page: a back arrow and the type's title. */
+@Composable
+private fun SeeAllTopBar(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(Res.string.shell_close_search),
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmallEmphasized,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * The full list for one type. Tags get a wrapping pill flow; the other types reuse the same row
+ * composables as the main overlay. A capped book/series/contributor list reads well at expanded
+ * width inside a width-constrained column.
+ */
+@Composable
+private fun SeeAllList(
+    type: SearchHitType,
+    hits: List<SearchHit>,
+    query: String,
+    onResultClick: (SearchHit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        when (type) {
+            SearchHitType.BOOK -> {
+                items(hits, key = { hitKey(BOOK_KEY_PREFIX, it) }) { hit ->
+                    BookResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
+                }
+            }
+
+            SearchHitType.CONTRIBUTOR -> {
+                items(hits, key = { hitKey(CONTRIBUTOR_KEY_PREFIX, it) }) { hit ->
+                    PersonResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
+                }
+            }
+
+            SearchHitType.SERIES -> {
+                items(hits, key = { hitKey(SERIES_KEY_PREFIX, it) }) { hit ->
+                    SeriesResultRow(hit = hit, query = query, onClick = { onResultClick(hit) })
+                }
+            }
+
+            SearchHitType.TAG -> {
+                item(key = TAGS_FLOW_KEY) {
+                    TagFlow(tags = hits, query = query, onResultClick = onResultClick)
+                }
+            }
+        }
+    }
+}
+
+/** The localized page title for a single-type See-all page. */
+@Composable
+private fun seeAllTitle(type: SearchHitType): String =
+    when (type) {
+        SearchHitType.BOOK -> stringResource(Res.string.library_books)
+        SearchHitType.CONTRIBUTOR -> stringResource(Res.string.search_people)
+        SearchHitType.SERIES -> stringResource(Res.string.common_series)
+        SearchHitType.TAG -> stringResource(Res.string.book_detail_tags)
+    }
 
 @Composable
 private fun BookResultRow(
