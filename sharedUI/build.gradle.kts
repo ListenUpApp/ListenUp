@@ -169,7 +169,6 @@ kotlin {
         }
         val androidHostTest by getting {
             dependencies {
-                implementation(libs.kotlin.test)
                 implementation(libs.kotlinx.coroutines.test)
 
                 // Kotest — canonical FunSpec framework for new androidHostTest tests.
@@ -194,7 +193,6 @@ kotlin {
         }
         val desktopTest by getting {
             dependencies {
-                implementation(libs.kotlin.test)
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.mokkery.runtime)
 
