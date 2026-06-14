@@ -12,8 +12,16 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.BookReadsTable
+import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.PlaybackPositionTable
 import com.calypsan.listenup.server.db.PublicProfilesTable
 import com.calypsan.listenup.server.services.ActiveSessionRepository
+import com.calypsan.listenup.server.services.BookReadsRepository
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -28,9 +36,11 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Contract and ACL tests for [SocialServiceImpl] — the crown-jewel ACL surface.
@@ -40,8 +50,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
  *    `public_profiles`.
  * 2. (CROWN JEWEL) A viewer never learns that someone is listening to a book they cannot
  *    access: only the accessible-book session is returned; the private-book one is omitted.
- * 3. `bookReaders(accessibleBook)` lists other readers; `bookReaders(inaccessibleBook)`
- *    returns `SocialError.NotFound` (never revealing the book exists).
+ * 3. `bookReadership(accessibleBook)` lists every reader (including the caller) with their
+ *    current progress% and dated finish history; `bookReadership(inaccessibleBook)` returns
+ *    `SocialError.NotFound` (never revealing the book exists).
  * 4. An unauthenticated caller receives `AppResult.Failure(SocialError.NotFound)`.
  *
  * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
@@ -62,12 +73,78 @@ class SocialServiceTest :
         ): SocialServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
+            // BookRepository registers global domains; give it its own registry to avoid
+            // duplicate-domain registration against the per-test [registry] above.
+            val bookRegistry = SyncRegistry()
+            val books =
+                BookRepository(
+                    db = db,
+                    bus = bus,
+                    registry = bookRegistry,
+                    contributorRepository = ContributorRepository(db = db, bus = bus, registry = bookRegistry),
+                    seriesRepository = SeriesRepository(db = db, bus = bus, registry = bookRegistry),
+                )
             return SocialServiceImpl(
                 activeSessions = ActiveSessionRepository(db = db, bus = bus),
                 bookAccessPolicy = BookAccessPolicy(db),
                 publicProfiles = PublicProfileRepository(db = db, bus = bus, registry = registry),
+                playbackPositions = PlaybackPositionRepository(db = db, bus = bus, registry = registry),
+                bookReads = BookReadsRepository(db = db),
+                books = books,
                 principal = principal,
             )
+        }
+
+        /** Sets a book's `total_duration` (ms); [seedTestBook] inserts 0L by default. */
+        fun Database.setBookDuration(
+            bookId: String,
+            totalDuration: Long,
+        ) {
+            transaction(this) {
+                BookTable.update({ BookTable.id eq bookId }) { it[BookTable.totalDuration] = totalDuration }
+            }
+        }
+
+        /** Inserts an in-progress (unfinished) playback position row directly. */
+        fun Database.seedInProgressPosition(
+            userId: String,
+            bookId: String,
+            positionMs: Long,
+        ) {
+            transaction(this) {
+                PlaybackPositionTable.insert {
+                    it[id] = "$userId-$bookId"
+                    it[PlaybackPositionTable.userId] = userId
+                    it[PlaybackPositionTable.bookId] = bookId
+                    it[PlaybackPositionTable.positionMs] = positionMs
+                    it[lastPlayedAt] = 1L
+                    it[finished] = false
+                    it[revision] = 0L
+                    it[createdAt] = 1L
+                    it[updatedAt] = 1L
+                    it[deletedAt] = null
+                }
+            }
+        }
+
+        /** Appends a `book_reads` completion row directly (newest-first ordering is by [finishedAt]). */
+        fun Database.seedFinish(
+            id: String,
+            userId: String,
+            bookId: String,
+            finishedAt: Long,
+            source: String = "playback",
+        ) {
+            transaction(this) {
+                BookReadsTable.insert {
+                    it[BookReadsTable.id] = id
+                    it[BookReadsTable.userId] = userId
+                    it[BookReadsTable.bookId] = bookId
+                    it[BookReadsTable.finishedAt] = finishedAt
+                    it[BookReadsTable.readSource] = source
+                    it[BookReadsTable.createdAt] = finishedAt
+                }
+            }
         }
 
         fun <T> AppResult<T>.value(): T {
@@ -192,9 +269,9 @@ class SocialServiceTest :
             }
         }
 
-        // ── 3: bookReaders on accessible / inaccessible books ────────────────────────
+        // ── 3: bookReadership on accessible / inaccessible books ─────────────────────
 
-        test("bookReaders lists other readers of an accessible book") {
+        test("bookReadership lists every reader of an accessible book, including the caller") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -204,23 +281,26 @@ class SocialServiceTest :
                 seedPublicProfile("alice", displayName = "Alice")
                 seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
-                    sessions.startOrRefresh(userId = "alice", bookId = "book-a")
-                    sessions.startOrRefresh(userId = "viewer", bookId = "book-a")
+                    db.setBookDuration("book-a", totalDuration = 10_000L)
+                    db.seedFinish("alice-1", userId = "alice", bookId = "book-a", finishedAt = 500L)
+                    db.seedInProgressPosition(userId = "viewer", bookId = "book-a", positionMs = 2_000L)
 
-                    val result =
+                    val readers =
                         makeService(db, principalFor("viewer"))
-                            .bookReaders(BookId("book-a"))
+                            .bookReadership(BookId("book-a"))
                             .value()
+                            .readers
 
-                    result shouldHaveSize 1
-                    result.first().userId shouldBe "alice"
-                    result.first().displayName shouldBe "Alice"
+                    // The caller (viewer) is now included alongside alice.
+                    readers shouldHaveSize 2
+                    readers.map { it.userId }.toSet() shouldBe setOf("alice", "viewer")
+                    readers.first { it.userId == "viewer" }.currentProgressPct shouldBe 20
+                    readers.first { it.userId == "alice" }.finishes shouldBe listOf(500L)
                 }
             }
         }
 
-        test("bookReaders returns Failure(SocialError.NotFound) for an inaccessible book") {
+        test("bookReadership returns Failure(SocialError.NotFound) for an inaccessible book") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -229,15 +309,42 @@ class SocialServiceTest :
                 seedTestBook("private-book")
                 runTest {
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
-                    val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
-                    sessions.startOrRefresh(userId = "alice", bookId = "private-book")
+                    db.seedFinish("alice-1", userId = "alice", bookId = "private-book", finishedAt = 500L)
 
                     val result =
                         makeService(db, principalFor("viewer"))
-                            .bookReaders(BookId("private-book"))
+                            .bookReadership(BookId("private-book"))
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()
+                }
+            }
+        }
+
+        test("bookReadership returns current progress + finish history, including the caller") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                seedTestBook("b1")
+                seedPublicProfile("u1", displayName = "User One")
+                seedPublicProfile("u2", displayName = "User Two")
+                runTest {
+                    db.setBookDuration("b1", totalDuration = 10_000L)
+                    // Caller u1 finished b1 twice (100L, 300L); u2 is in progress at 4_300/10_000.
+                    db.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 100L)
+                    db.seedFinish("u1-b", userId = "u1", bookId = "b1", finishedAt = 300L)
+                    db.seedInProgressPosition(userId = "u2", bookId = "b1", positionMs = 4_300L)
+
+                    val readers =
+                        makeService(db, principalFor("u1"))
+                            .bookReadership(BookId("b1"))
+                            .value()
+                            .readers
+
+                    readers.first { it.userId == "u2" }.currentProgressPct shouldBe 43
+                    readers.first { it.userId == "u1" }.finishes shouldBe listOf(300L, 100L) // newest-first
                 }
             }
         }
@@ -256,13 +363,13 @@ class SocialServiceTest :
             }
         }
 
-        test("bookReaders returns Failure(SocialError.NotFound) when caller is unauthenticated") {
+        test("bookReadership returns Failure(SocialError.NotFound) when caller is unauthenticated") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
                 seedTestBook("book-a")
                 runTest {
-                    val result = makeService(db, noPrincipal()).bookReaders(BookId("book-a"))
+                    val result = makeService(db, noPrincipal()).bookReadership(BookId("book-a"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()
                 }

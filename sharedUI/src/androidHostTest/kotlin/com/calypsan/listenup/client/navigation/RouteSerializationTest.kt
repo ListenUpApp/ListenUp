@@ -45,6 +45,7 @@ private fun sampleRoutes(): List<Route> =
         // Core
         add(Shell)
         add(BookDetail(bookId = "test-book-id"))
+        add(BookReaders(bookId = "test-book-id"))
         add(BookEdit(bookId = "test-book-id"))
         add(MatchPreview(bookId = "test-book-id", asin = "test-asin"))
         add(MetadataSearch(bookId = "test-book-id"))

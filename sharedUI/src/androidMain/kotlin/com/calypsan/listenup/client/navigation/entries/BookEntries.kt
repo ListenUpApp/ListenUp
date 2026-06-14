@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
+import com.calypsan.listenup.client.navigation.BookReaders
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.MatchPreview
 import com.calypsan.listenup.client.navigation.MetadataSearch
@@ -36,6 +37,20 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
                 backStack.add(TagDetail(tagId))
             },
             onUserProfileClick = { userId ->
+                backStack.add(UserProfile(userId))
+            },
+            onSeeAllReaders = { id ->
+                backStack.add(BookReaders(id))
+            },
+        )
+    }
+    entry<BookReaders> { args ->
+        com.calypsan.listenup.client.features.bookreaders.BookReadersScreen(
+            bookId = args.bookId,
+            onBack = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            onUserClick = { userId ->
                 backStack.add(UserProfile(userId))
             },
         )

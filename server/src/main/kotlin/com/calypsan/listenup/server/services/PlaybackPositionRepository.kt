@@ -50,6 +50,7 @@ class PlaybackPositionRepository(
     private val userStatsUpdater: UserStatsUpdater? = null,
     private val activeSessionRepo: ActiveSessionRepository? = null,
     private val activityRecorder: ActivityRecorder? = null,
+    private val bookReadsRepository: BookReadsRepository? = null,
 ) : SyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
         table = PlaybackPositionTable,
@@ -175,6 +176,13 @@ class PlaybackPositionRepository(
                 userStatsUpdater?.onPositionFinishedFlip(userId)
                 activeSessionRepo?.deleteForUserBook(userId, bookId)
                 activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId)
+                bookReadsRepository?.recordRead(
+                    id = Uuid.random().toString(),
+                    userId = userId,
+                    bookId = bookId,
+                    finishedAt = lastPlayedAt,
+                    source = "playback",
+                )
             } else if (result is AppResult.Success && !finished) {
                 activeSessionRepo?.startOrRefresh(userId, bookId)
                 if (existing == null) {
@@ -304,6 +312,18 @@ class PlaybackPositionRepository(
                 }.orderBy(PlaybackPositionTable.lastPlayedAt, SortOrder.DESC)
                 .limit(limit)
                 .map { row -> row.toSyncPayload() }
+        }
+
+    /** (userId, positionMs) for every user with an in-progress (unfinished, positionMs>0) position on [bookId]. */
+    suspend fun listInProgressForBook(bookId: String): List<Pair<String, Long>> =
+        suspendTransaction(db) {
+            PlaybackPositionTable
+                .selectAll()
+                .where {
+                    (PlaybackPositionTable.bookId eq bookId) and
+                        (PlaybackPositionTable.finished eq false) and
+                        (PlaybackPositionTable.positionMs greater 0L)
+                }.map { it[PlaybackPositionTable.userId] to it[PlaybackPositionTable.positionMs] }
         }
 
     private fun org.jetbrains.exposed.v1.core.ResultRow.toSyncPayload(): PlaybackPositionSyncPayload =

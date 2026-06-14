@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.dto.social.BookReadership
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -101,7 +102,7 @@ class ActiveSessionRepositoryImplTest :
                     mock<SocialService> {
                         everySuspend { currentlyListening() } returns
                             AppResult.Success(listOf(session(userId = "u2", bookId = "bookA", displayName = "Bob")))
-                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                        everySuspend { bookReadership(any()) } returns AppResult.Success(BookReadership(emptyList()))
                     }
                 val bookDao =
                     bookDaoReturning(
@@ -137,7 +138,7 @@ class ActiveSessionRepositoryImplTest :
                                     session(userId = "u3", bookId = "missing"),
                                 ),
                             )
-                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                        everySuspend { bookReadership(any()) } returns AppResult.Success(BookReadership(emptyList()))
                     }
                 val bookDao =
                     bookDaoReturning(
@@ -169,7 +170,7 @@ class ActiveSessionRepositoryImplTest :
                                     ),
                                 ),
                             )
-                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                        everySuspend { bookReadership(any()) } returns AppResult.Success(BookReadership(emptyList()))
                     }
                 val bookDao =
                     bookDaoReturning(
@@ -194,7 +195,7 @@ class ActiveSessionRepositoryImplTest :
                     mock<SocialService> {
                         everySuspend { currentlyListening() } returns
                             AppResult.Failure(TransportError.NetworkUnavailable())
-                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                        everySuspend { bookReadership(any()) } returns AppResult.Success(BookReadership(emptyList()))
                     }
 
                 repo(fakeRpc(service), bookDaoReturning(), PresenceRefreshSignal())
@@ -242,7 +243,7 @@ class ActiveSessionRepositoryImplTest :
                     mock<SocialService> {
                         everySuspend { currentlyListening() } returns
                             AppResult.Success(listOf(session(userId = "u2", bookId = "bookA")))
-                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                        everySuspend { bookReadership(any()) } returns AppResult.Success(BookReadership(emptyList()))
                     }
                 // First lookup throws (transient SQLite/disk error); second lookup succeeds.
                 var lookups = 0

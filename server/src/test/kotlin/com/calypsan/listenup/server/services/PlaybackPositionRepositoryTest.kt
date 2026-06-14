@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
 
 package com.calypsan.listenup.server.services
 
@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -17,6 +18,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -537,6 +539,31 @@ class PlaybackPositionRepositoryTest :
                             currentChapterId = null,
                         )
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
+                }
+            }
+        }
+
+        test("finishing a book appends a book_reads row dated lastPlayedAt") {
+            withInMemoryDatabase {
+                val reads = BookReadsRepository(db = this, clock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L)))
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        bookReadsRepository = reads,
+                    )
+                runTest {
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "b1",
+                        positionMs = 5_000L,
+                        lastPlayedAt = 1_700_000_000_000L,
+                        finished = true,
+                        playbackSpeed = 1f,
+                        currentChapterId = null,
+                    )
+                    reads.finishesForUserBook("u1", "b1") shouldBe listOf(1_700_000_000_000L)
                 }
             }
         }

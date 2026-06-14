@@ -87,6 +87,7 @@ fun WideBookDetail(
     onContributorClick: (contributorId: String) -> Unit,
     onTagClick: (tagId: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit = {},
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -204,6 +205,7 @@ fun WideBookDetail(
                     isChaptersExpanded = isChaptersExpanded,
                     onExpandChapters = { isChaptersExpanded = true },
                     onUserProfileClick = onUserProfileClick,
+                    onSeeAllReaders = onSeeAllReaders,
                     modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
                 )
             }
@@ -301,6 +303,7 @@ private fun WideRightColumn(
     isChaptersExpanded: Boolean,
     onExpandChapters: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -313,6 +316,7 @@ private fun WideRightColumn(
             bookId = bookId,
             onUserClick = onUserProfileClick,
             isCard = true,
+            onSeeAllClick = onSeeAllReaders,
             modifier = Modifier.fillMaxWidth(),
         )
 
