@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -59,7 +57,6 @@ import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
 import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
-import com.calypsan.listenup.client.features.search.SearchResultsOverlay
 import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
 import com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen
 import com.calypsan.listenup.client.features.settings.LicensesScreen
@@ -71,7 +68,6 @@ import com.calypsan.listenup.client.features.profile.UserProfileScreen
 import com.calypsan.listenup.client.navigation.AuthNavigation
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.presentation.search.SearchViewModel
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingBar
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingScreen
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -611,41 +607,6 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                 onCreateShelfClick = { navigateTo(DetailDestination.ShelfCreate) },
-            )
-        }
-    }
-}
-
-/**
- * Placeholder screen for destinations not yet implemented.
- */
-@Composable
-private fun PlaceholderScreen(
-    title: String,
-    description: String,
-    icon: @Composable () -> Unit,
-    padding: PaddingValues,
-) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            icon()
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

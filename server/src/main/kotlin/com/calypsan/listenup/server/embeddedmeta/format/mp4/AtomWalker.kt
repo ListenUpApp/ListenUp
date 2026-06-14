@@ -31,10 +31,6 @@ internal data class Atom(
     val dataOffset: Int get() = offset + headerSize
     val dataSize: Int get() = (size - headerSize).coerceAtLeast(0)
     val end: Int get() = offset + size
-
-    /** True if this atom type is known to contain child atoms. */
-    val isContainer: Boolean
-        get() = type in CONTAINER_TYPES
 }
 
 internal class AtomParseException(
@@ -55,23 +51,6 @@ internal data class TopLevelAtom(
 ) {
     val end: Long get() = offset + size
 }
-
-private val CONTAINER_TYPES =
-    setOf(
-        "moov",
-        "udta",
-        "ilst",
-        "trak",
-        "mdia",
-        "minf",
-        "stbl",
-        "tref",
-        "----",
-        "covr",
-        // `meta` is a container too, but its payload starts with 4 extra bytes
-        // (version+flags) before the first child atom — readers handle the
-        // skip explicitly via [readMetaChildren].
-    )
 
 // MP4 atom header field offsets/sizes (8-byte basic, 16-byte extended) and the
 // big-endian byte-assembly shift widths are fixed by the ISO base media file

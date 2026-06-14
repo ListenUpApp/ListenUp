@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.bookdetail
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 
 /**
@@ -33,23 +32,4 @@ interface BookDetailPlatformActions {
         text: String,
         url: String,
     )
-}
-
-/**
- * No-op implementation for platforms without download/playback support.
- */
-class NoOpBookDetailPlatformActions : BookDetailPlatformActions {
-    override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> =
-        AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "Not available on this platform"))
-
-    override suspend fun cancelDownload(bookId: BookId) {}
-
-    override suspend fun deleteDownload(bookId: BookId) {}
-
-    override fun playBook(bookId: BookId) {}
-
-    override fun shareText(
-        text: String,
-        url: String,
-    ) {}
 }

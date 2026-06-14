@@ -301,29 +301,6 @@ class DownloadManager(
         logger.info { "Re-enqueued ${incomplete.size} incomplete downloads" }
     }
 
-    /**
-     * Check if a book is fully downloaded.
-     */
-    suspend fun isBookDownloaded(bookId: BookId): Boolean {
-        val downloads = downloadDao.getForBook(bookId.value)
-        return downloads.isNotEmpty() && downloads.all { it.state == DownloadState.COMPLETED }
-    }
-
-    /**
-     * Get total storage used by all downloads.
-     */
-    fun getTotalStorageUsed(): Long = fileManager.calculateStorageUsed()
-
-    /**
-     * Delete all downloads.
-     */
-    suspend fun deleteAllDownloads() {
-        workManager.cancelAllWork()
-        fileManager.deleteAllFiles()
-        downloadDao.deleteAll()
-        logger.info { "Deleted all downloads" }
-    }
-
     // --- WorkManager string identifiers ---
     // fileWorkName is the unique-work name for enqueueUniqueWork; fileCancelTag is for
     // addTag/cancelAllWorkByTag. They produce different strings on purpose — do not consolidate.

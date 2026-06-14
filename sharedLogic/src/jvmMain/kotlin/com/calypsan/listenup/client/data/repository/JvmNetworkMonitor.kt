@@ -30,7 +30,6 @@ private const val HEALTH_CHECK_TIMEOUT_MS = 5_000L
  *
  * Features:
  * - Polls server health endpoint every 30 seconds
- * - Immediate recheck capability via [recheckNow]
  * - Assumes online if no server URL is configured (optimistic default)
  * - Desktop networks are always considered unmetered
  *
@@ -64,16 +63,6 @@ class JvmNetworkMonitor(
     }
 
     override fun isOnline(): Boolean = _isOnlineFlow.value
-
-    /**
-     * Trigger an immediate health check.
-     * Useful when a network operation fails and we want to update state.
-     */
-    fun recheckNow() {
-        scope.launch {
-            checkHealth()
-        }
-    }
 
     private fun startHealthCheckLoop() {
         scope.launch {
