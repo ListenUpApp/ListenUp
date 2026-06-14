@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -43,6 +44,8 @@ private val HERO_BADGE_SIZE = 48.dp
  * @param overline Optional UPPERCASE eyebrow above the title (e.g. server name); hidden when null
  *   or blank.
  * @param supportingText Optional paragraph rendered below the title.
+ * @param content Optional trailing slot rendered full-width below the title/supporting text — used
+ *   to host a [WizardStepTracker] inside the wizard chrome.
  */
 @Composable
 fun ColorBlockHero(
@@ -52,6 +55,7 @@ fun ColorBlockHero(
     modifier: Modifier = Modifier,
     overline: String? = null,
     supportingText: String? = null,
+    content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     Surface(
         modifier = modifier,
@@ -110,6 +114,11 @@ fun ColorBlockHero(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
                     modifier = Modifier.padding(start = 8.dp, top = 14.dp, end = 8.dp),
                 )
+            }
+            if (content != null) {
+                Column(modifier = Modifier.padding(start = 8.dp, top = 18.dp)) {
+                    content()
+                }
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.admin.backup
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,20 +16,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.components.ScallopBadge
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,7 +40,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,9 +51,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.data.remote.ABSImportSummary
+import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.BackupInfo
@@ -81,13 +84,14 @@ import listenup.composeapp.generated.resources.admin_migrate_listening_history
 import listenup.composeapp.generated.resources.admin_no_backups_yet
 import listenup.composeapp.generated.resources.admin_restore
 import listenup.composeapp.generated.resources.admin_upload_new_import
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_menu
 import listenup.composeapp.generated.resources.common_open
+import listenup.composeapp.generated.resources.import_audiobookshelf_imports
 import listenup.composeapp.generated.resources.import_delete_confirm
 import listenup.composeapp.generated.resources.import_delete_import
+import listenup.composeapp.generated.resources.import_flow_eyebrow
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -145,19 +149,6 @@ fun AdminBackupScreen(
     val readyState = backupState as? AdminBackupUiState.Ready
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.admin_backups)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
-            )
-        },
         floatingActionButton = {
             if (readyState != null) {
                 ListenUpFab(
@@ -169,17 +160,26 @@ fun AdminBackupScreen(
         },
     ) { paddingValues ->
         val absListReady = absImportListState as? ABSImportListUiState.Ready
-        AdminBackupBody(
-            state = backupState,
-            absImports = absListReady?.imports ?: emptyList(),
-            isLoadingImports = absImportListState is ABSImportListUiState.Loading,
-            modifier = Modifier.padding(paddingValues),
-            onRestoreClick = onRestoreClick,
-            onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
-            onABSImportClick = onABSImportHubClick,
-            onDeleteImportClick = { deleteConfirmImport = it },
-            onUploadABSBackup = onNewImportClick,
-        )
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            ColorBlockHero(
+                title = stringResource(Res.string.admin_backups),
+                badgeIcon = Icons.Default.Archive,
+                onBack = onBackClick,
+                modifier = Modifier.fillMaxWidth(),
+                overline = stringResource(Res.string.import_flow_eyebrow),
+            )
+            AdminBackupBody(
+                state = backupState,
+                absImports = absListReady?.imports ?: emptyList(),
+                isLoadingImports = absImportListState is ABSImportListUiState.Loading,
+                modifier = Modifier.fillMaxSize(),
+                onRestoreClick = onRestoreClick,
+                onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
+                onABSImportClick = onABSImportHubClick,
+                onDeleteImportClick = { deleteConfirmImport = it },
+                onUploadABSBackup = onNewImportClick,
+            )
+        }
     }
 
     // ABS Upload Sheet
@@ -359,7 +359,7 @@ private fun AdminBackupReadyContent(
             if (state.backups.isNotEmpty()) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
-            SectionHeader(title = "Audiobookshelf Imports")
+            SectionHeader(title = stringResource(Res.string.import_audiobookshelf_imports))
         }
 
         // Upload new import card
@@ -395,10 +395,11 @@ private fun AdminBackupReadyContent(
 @Composable
 private fun SectionHeader(title: String) {
     Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
     )
 }
 
@@ -493,52 +494,20 @@ private fun BackupCard(
 }
 
 /**
- * Card for uploading a new ABS backup file.
+ * Color-blocked navigation tile for uploading a new ABS backup file — composes the canonical
+ * [ActionTile] so the upload call-to-action matches the app's other big management tiles.
  */
 @Composable
 private fun UploadABSBackupCard(onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    ActionTile(
+        title = stringResource(Res.string.admin_upload_new_import),
+        subtitle = stringResource(Res.string.admin_migrate_listening_history),
+        icon = Icons.Outlined.CloudUpload,
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CloudUpload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = stringResource(Res.string.admin_upload_new_import),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_migrate_listening_history),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                )
-            }
-        }
-    }
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        badgeColor = MaterialTheme.colorScheme.primary,
+        badgeContentColor = MaterialTheme.colorScheme.onPrimary,
+    )
 }
 
 /**
@@ -728,26 +697,31 @@ private fun EmptyBackupState(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            imageVector = Icons.Default.Archive,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Icon(
+                imageVector = Icons.Outlined.Inventory2,
+                contentDescription = null,
+                modifier = Modifier.size(46.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.height(22.dp))
         Text(
             text = stringResource(Res.string.admin_no_backups_yet),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
         )
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = stringResource(Res.string.admin_create_backup_to_protect),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(32.dp))
         UploadABSBackupCard(onClick = onUploadABSBackup)

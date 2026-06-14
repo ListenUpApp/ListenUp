@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.import
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,29 +12,39 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +52,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -48,7 +63,12 @@ import com.calypsan.listenup.api.dto.import.AbsItemRef
 import com.calypsan.listenup.api.dto.import.AbsUserMatch
 import com.calypsan.listenup.api.dto.import.ImportResult
 import com.calypsan.listenup.api.dto.import.MatchTier
+import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.StatTile
+import com.calypsan.listenup.client.design.components.StatTileTone
+import com.calypsan.listenup.client.design.components.WizardStepTracker
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.import.BookSearchState
@@ -60,11 +80,10 @@ import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_try_again
+import listenup.composeapp.generated.resources.import_all_done
 import listenup.composeapp.generated.resources.import_apply_import
 import listenup.composeapp.generated.resources.import_analyzing_subtitle
-import listenup.composeapp.generated.resources.import_applying_subtitle
 import listenup.composeapp.generated.resources.import_auto_matched
 import listenup.composeapp.generated.resources.import_book_assigned
 import listenup.composeapp.generated.resources.import_book_search_cancel
@@ -72,19 +91,26 @@ import listenup.composeapp.generated.resources.import_book_search_hint
 import listenup.composeapp.generated.resources.import_book_search_no_results
 import listenup.composeapp.generated.resources.import_book_skip
 import listenup.composeapp.generated.resources.import_books_matched
-import listenup.composeapp.generated.resources.import_books_skipped
 import listenup.composeapp.generated.resources.import_choose_backup_file
-import listenup.composeapp.generated.resources.import_done_subtitle
+import listenup.composeapp.generated.resources.import_currently_writing_label
+import listenup.composeapp.generated.resources.import_data_stays_on_server
 import listenup.composeapp.generated.resources.import_done_title
 import listenup.composeapp.generated.resources.import_error_title
 import listenup.composeapp.generated.resources.import_finish
+import listenup.composeapp.generated.resources.import_flow_eyebrow
+import listenup.composeapp.generated.resources.import_flow_step_apply
+import listenup.composeapp.generated.resources.import_flow_step_done
+import listenup.composeapp.generated.resources.import_flow_step_review
+import listenup.composeapp.generated.resources.import_flow_step_upload
 import listenup.composeapp.generated.resources.import_idle_subtitle
 import listenup.composeapp.generated.resources.import_idle_title
 import listenup.composeapp.generated.resources.import_items_matched
+import listenup.composeapp.generated.resources.import_items_written_label
+import listenup.composeapp.generated.resources.import_keep_app_open
 import listenup.composeapp.generated.resources.import_matching_current_item
 import listenup.composeapp.generated.resources.import_no_attention_needed
+import listenup.composeapp.generated.resources.common_percent
 import listenup.composeapp.generated.resources.import_no_books_to_review
-import listenup.composeapp.generated.resources.import_records_imported
 import listenup.composeapp.generated.resources.import_review_books_section
 import listenup.composeapp.generated.resources.import_review_users_section
 import listenup.composeapp.generated.resources.import_review_users_unresolved_warning
@@ -92,7 +118,13 @@ import listenup.composeapp.generated.resources.import_search_and_assign
 import listenup.composeapp.generated.resources.import_sessions_importable
 import listenup.composeapp.generated.resources.import_flow_sessions_imported
 import listenup.composeapp.generated.resources.import_flow_title
-import listenup.composeapp.generated.resources.import_sessions_written
+import listenup.composeapp.generated.resources.import_skipped_books_subtitle
+import listenup.composeapp.generated.resources.import_skipped_books_title
+import listenup.composeapp.generated.resources.import_stat_records_imported
+import listenup.composeapp.generated.resources.import_stat_sessions_imported
+import listenup.composeapp.generated.resources.import_stat_sessions_written
+import listenup.composeapp.generated.resources.import_stat_users_merged
+import listenup.composeapp.generated.resources.import_to_review_count
 import listenup.composeapp.generated.resources.import_uploading_subtitle
 import listenup.composeapp.generated.resources.import_uploading_title
 import listenup.composeapp.generated.resources.import_user_accept_suggestion
@@ -103,17 +135,30 @@ import listenup.composeapp.generated.resources.import_user_pick_user
 import listenup.composeapp.generated.resources.import_user_skip
 import listenup.composeapp.generated.resources.import_user_skipped
 import listenup.composeapp.generated.resources.import_user_suggested
-import listenup.composeapp.generated.resources.import_users_matched
+import listenup.composeapp.generated.resources.import_users_in_backup
 import listenup.composeapp.generated.resources.import_writing_current_item
+import listenup.composeapp.generated.resources.import_writing_history_subtitle
+import listenup.composeapp.generated.resources.import_writing_history_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+
+private val CONTENT_MAX_WIDTH = 560.dp
+
+// Zero-based wizard step index for each progress phase, mapped onto the 4-step tracker.
+private const val STEP_UPLOAD = 0
+private const val STEP_REVIEW = 1
+private const val STEP_APPLY = 2
+private const val STEP_DONE = 3
 
 /**
  * Single-screen host for the entire ABS import flow. All state transitions are driven by
  * [ImportFlowUiState] from [ImportFlowViewModel]; no navigation occurs between phases.
  *
+ * The flow wears the M3 Expressive wizard chrome — a colour-blocked [ColorBlockHero] hosting a
+ * [WizardStepTracker] (Upload → Review → Apply → Done) — over expressive per-phase content:
+ * scallop medallions, the wavy progress indicator, tonal stat tiles, and status-toned review cards.
+ *
  * [Idle] hosts the OS file picker: picking a file immediately calls [ImportFlowViewModel.start].
- * Progress phases reuse the visual treatment from LibraryScanScreen (label + current item + counters).
  * [Review] surfaces unmatched / ambiguous items for admin attention with per-item skip toggles.
  * [Done] / [Error] carry action buttons that return to the back stack or reset the flow.
  */
@@ -135,181 +180,303 @@ fun ImportFlowScreen(
             }
         }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.import_flow_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
-            )
-        },
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(paddingValues),
         ) {
-            when (val state = uiState) {
-                is ImportFlowUiState.Idle -> {
-                    IdleContent(onChooseFile = { filePicker.launch() })
-                }
+            FlowHero(state = uiState, onBack = onNavigateBack)
+            CenteredColumn {
+                when (val state = uiState) {
+                    is ImportFlowUiState.Idle -> {
+                        IdleContent(onChooseFile = { filePicker.launch() })
+                    }
 
-                is ImportFlowUiState.Uploading -> {
-                    UploadingContent(state = state)
-                }
+                    is ImportFlowUiState.Uploading -> {
+                        UploadingContent(state = state)
+                    }
 
-                is ImportFlowUiState.Analyzing -> {
-                    AnalyzingContent(state = state)
-                }
+                    is ImportFlowUiState.Analyzing -> {
+                        AnalyzingContent(state = state)
+                    }
 
-                is ImportFlowUiState.Review -> {
-                    ReviewContent(
-                        state = state,
-                        onSetUserMapping = { absUserId, userId ->
-                            viewModel.setUserMapping(absUserId, userId)
-                        },
-                        onSkipUser = { viewModel.skipUser(it) },
-                        onOpenBookSearch = { viewModel.openBookSearch(it) },
-                        onCloseBookSearch = { viewModel.closeBookSearch() },
-                        onBookSearchQueryChange = { viewModel.updateBookSearchQuery(it) },
-                        onSelectBook = { absItemId, bookId ->
-                            viewModel.selectBook(absItemId, bookId)
-                        },
-                        onSkipBook = { viewModel.skipBook(it) },
-                        onConfirm = { viewModel.confirmAndApply() },
-                    )
-                }
+                    is ImportFlowUiState.Review -> {
+                        ReviewContent(
+                            state = state,
+                            onSetUserMapping = { absUserId, userId ->
+                                viewModel.setUserMapping(absUserId, userId)
+                            },
+                            onSkipUser = { viewModel.skipUser(it) },
+                            onOpenBookSearch = { viewModel.openBookSearch(it) },
+                            onCloseBookSearch = { viewModel.closeBookSearch() },
+                            onBookSearchQueryChange = { viewModel.updateBookSearchQuery(it) },
+                            onSelectBook = { absItemId, bookId -> viewModel.selectBook(absItemId, bookId) },
+                            onSkipBook = { viewModel.skipBook(it) },
+                            onConfirm = { viewModel.confirmAndApply() },
+                        )
+                    }
 
-                is ImportFlowUiState.Applying -> {
-                    ApplyingContent(state = state)
-                }
+                    is ImportFlowUiState.Applying -> {
+                        ApplyingContent(state = state)
+                    }
 
-                is ImportFlowUiState.Done -> {
-                    DoneContent(
-                        result = state.result,
-                        onFinish = {
-                            viewModel.reset()
-                            onNavigateBack()
-                        },
-                    )
-                }
+                    is ImportFlowUiState.Done -> {
+                        DoneContent(
+                            result = state.result,
+                            onFinish = {
+                                viewModel.reset()
+                                onNavigateBack()
+                            },
+                        )
+                    }
 
-                is ImportFlowUiState.Error -> {
-                    ErrorContent(
-                        message = state.error.localized(),
-                        onTryAgain = { viewModel.reset() },
-                    )
+                    is ImportFlowUiState.Error -> {
+                        ErrorContent(
+                            message = state.error.localized(),
+                            onTryAgain = { viewModel.reset() },
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-// ─── Idle ─────────────────────────────────────────────────────────────────────
+// ─── Wizard chrome ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun FlowHero(
+    state: ImportFlowUiState,
+    onBack: () -> Unit,
+) {
+    val title =
+        when (state) {
+            is ImportFlowUiState.Idle -> stringResource(Res.string.import_idle_title)
+            is ImportFlowUiState.Uploading -> stringResource(Res.string.import_uploading_title)
+            is ImportFlowUiState.Analyzing -> stringResource(Res.string.import_flow_title)
+            is ImportFlowUiState.Review -> stringResource(Res.string.import_review_users_section)
+            is ImportFlowUiState.Applying -> stringResource(Res.string.import_apply_import)
+            is ImportFlowUiState.Done -> stringResource(Res.string.import_done_title)
+            is ImportFlowUiState.Error -> stringResource(Res.string.import_error_title)
+        }
+    val step =
+        when (state) {
+            is ImportFlowUiState.Uploading, is ImportFlowUiState.Analyzing -> STEP_UPLOAD
+            is ImportFlowUiState.Review -> STEP_REVIEW
+            is ImportFlowUiState.Applying -> STEP_APPLY
+            is ImportFlowUiState.Done -> STEP_DONE
+            else -> null
+        }
+    val steps =
+        listOf(
+            stringResource(Res.string.import_flow_step_upload),
+            stringResource(Res.string.import_flow_step_review),
+            stringResource(Res.string.import_flow_step_apply),
+            stringResource(Res.string.import_flow_step_done),
+        )
+    ColorBlockHero(
+        title = title,
+        badgeIcon = Icons.Outlined.CloudUpload,
+        onBack = onBack,
+        modifier = Modifier.fillMaxWidth(),
+        overline = stringResource(Res.string.import_flow_eyebrow),
+        content =
+            step?.let {
+                {
+                    WizardStepTracker(
+                        steps = steps,
+                        currentStep = it,
+                        accent = MaterialTheme.colorScheme.primary,
+                        ink = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(end = 20.dp),
+                    )
+                }
+            },
+    )
+}
+
+@Composable
+private fun CenteredColumn(content: @Composable () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier =
+                Modifier
+                    .widthIn(max = CONTENT_MAX_WIDTH)
+                    .fillMaxSize()
+                    .padding(horizontal = 22.dp, vertical = 20.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+/** A pulsing scallop medallion holding a glyph — the signature Expressive focal point. */
+@Composable
+private fun ScallopMedallion(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    size: Dp,
+    iconSize: Dp,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primaryContainer,
+    contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+) {
+    ScallopBadge(size = size, containerColor = containerColor) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(iconSize),
+            tint = contentColor,
+        )
+    }
+}
+
+// ─── Idle (intro) ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun IdleContent(onChooseFile: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = stringResource(Res.string.import_idle_title),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Spacer(Modifier.height(12.dp))
+    Column(modifier = Modifier.fillMaxSize()) {
         Text(
             text = stringResource(Res.string.import_idle_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                HowItWorksStep(
+                    icon = Icons.Outlined.FolderOpen,
+                    text = stringResource(Res.string.import_choose_backup_file),
+                )
+                Spacer(Modifier.height(16.dp))
+                HowItWorksStep(
+                    icon = Icons.Outlined.Group,
+                    text = stringResource(Res.string.import_review_users_section),
+                )
+                Spacer(Modifier.height(16.dp))
+                HowItWorksStep(icon = Icons.Outlined.AutoAwesome, text = stringResource(Res.string.import_apply_import))
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Lock,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(
+                text = stringResource(Res.string.import_data_stays_on_server),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         ListenUpButton(
             text = stringResource(Res.string.import_choose_backup_file),
             onClick = onChooseFile,
+            leadingIcon = Icons.Outlined.FolderOpen,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun HowItWorksStep(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(21.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
 
 // ─── Uploading ────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun UploadingContent(state: ImportFlowUiState.Uploading) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Text(
-            text = stringResource(Res.string.import_uploading_title),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(Res.string.import_uploading_subtitle, state.filename),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
-        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+    ProgressMedallionContent(
+        icon = Icons.Outlined.CloudUpload,
+        subtitle = stringResource(Res.string.import_uploading_subtitle, state.filename),
+    ) {
+        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
     }
 }
 
 // ─── Analyzing ───────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AnalyzingContent(state: ImportFlowUiState.Analyzing) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Text(
-            text = stringResource(Res.string.import_flow_title),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(Res.string.import_analyzing_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ScallopMedallion(icon = Icons.Outlined.AutoAwesome, size = 64.dp, iconSize = 30.dp)
+            Spacer(Modifier.width(14.dp))
+            Text(
+                text = stringResource(Res.string.import_analyzing_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(34.dp))
         if (state.total > 0) {
-            LinearProgressIndicator(
+            PercentCountRow(done = state.done, total = state.total)
+            Spacer(Modifier.height(14.dp))
+            LinearWavyProgressIndicator(
                 progress = { state.done.toFloat() / state.total.toFloat() },
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(Res.string.import_items_matched, state.done, state.total),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         } else {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
         state.currentItem?.let { item ->
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(Res.string.import_matching_current_item, item),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(Modifier.height(14.dp))
+            DetailChip(label = stringResource(Res.string.import_matching_current_item, item))
         }
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            Text(
-                text = stringResource(Res.string.import_users_matched, state.usersMatched),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Spacer(Modifier.height(20.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            StatTile(
+                value = state.usersMatched.toString(),
+                label = stringResource(Res.string.import_stat_users_merged),
+                icon = Icons.Outlined.Group,
+                colors = StatTileTone.primary(),
+                modifier = Modifier.weight(1f),
             )
-            Text(
-                text = stringResource(Res.string.import_books_matched, state.booksMatched),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            StatTile(
+                value = state.booksMatched.toString(),
+                label = stringResource(Res.string.import_review_books_section),
+                icon = Icons.AutoMirrored.Filled.LibraryBooks,
+                colors = StatTileTone.tertiary(),
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -344,21 +511,23 @@ private fun ReviewContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // ── Users section ─────────────────────────────────────────────────────
         item(key = "users_header") {
-            SectionLabel(stringResource(Res.string.import_review_users_section))
+            val reviewCount =
+                if (unresolvedUserCount > 0) {
+                    stringResource(Res.string.import_to_review_count, unresolvedUserCount.toString())
+                } else {
+                    null
+                }
+            ReviewSectionHeader(
+                label = stringResource(Res.string.import_users_in_backup),
+                count = reviewCount,
+            )
         }
 
         if (analysis.userMatches.isEmpty()) {
-            item(key = "users_empty") {
-                Text(
-                    text = stringResource(Res.string.import_no_attention_needed),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            item(key = "users_empty") { MutedLine(stringResource(Res.string.import_no_attention_needed)) }
         } else {
             items(analysis.userMatches, key = { "user_${it.absUserId.value}" }) { match ->
                 UserMatchCard(
@@ -366,53 +535,34 @@ private fun ReviewContent(
                     assignedUserId = state.userMappings[match.absUserId],
                     isSkipped = state.skippedUsers.contains(match.absUserId),
                     listenupUsers = state.listenupUsers,
-                    onAcceptSuggestion = { suggestedId ->
-                        onSetUserMapping(match.absUserId, suggestedId)
-                    },
-                    onAssign = { pickedUser ->
-                        onSetUserMapping(match.absUserId, UserId(pickedUser.id))
-                    },
+                    onAcceptSuggestion = { suggestedId -> onSetUserMapping(match.absUserId, suggestedId) },
+                    onAssign = { pickedUser -> onSetUserMapping(match.absUserId, UserId(pickedUser.id)) },
                     onSkip = { onSkipUser(match.absUserId) },
                 )
             }
         }
 
-        // ── Books section ─────────────────────────────────────────────────────
         item(key = "books_header") {
-            SectionLabel(stringResource(Res.string.import_review_books_section))
+            ReviewSectionHeader(label = stringResource(Res.string.import_review_books_section), count = null)
         }
 
-        // Auto-match summary line
         if (autoMatchedCount > 0) {
             item(key = "auto_summary") {
-                Text(
-                    text =
-                        stringResource(Res.string.import_books_matched, autoMatchedCount.toString()) +
-                            " — " + stringResource(Res.string.import_auto_matched),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                MutedLine(
+                    stringResource(Res.string.import_books_matched, autoMatchedCount.toString()) +
+                        " — " + stringResource(Res.string.import_auto_matched),
                 )
             }
         }
 
         if (analysis.importableSessionCount > 0) {
             item(key = "sessions_summary") {
-                Text(
-                    text = stringResource(Res.string.import_sessions_importable, analysis.importableSessionCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                MutedLine(stringResource(Res.string.import_sessions_importable, analysis.importableSessionCount))
             }
         }
 
         if (attentionItems.isEmpty()) {
-            item(key = "books_no_review") {
-                Text(
-                    text = stringResource(Res.string.import_no_books_to_review),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            item(key = "books_no_review") { MutedLine(stringResource(Res.string.import_no_books_to_review)) }
         } else {
             items(attentionItems, key = { "book_${it.absItemId.value}" }) { item ->
                 val isSearchOpen = state.bookSearch?.absItemId == item.absItemId
@@ -431,10 +581,8 @@ private fun ReviewContent(
             }
         }
 
-        // ── Apply ─────────────────────────────────────────────────────────────
         item(key = "apply_warning") {
             if (unresolvedUserCount > 0) {
-                Spacer(Modifier.height(4.dp))
                 Text(
                     text = stringResource(Res.string.import_review_users_unresolved_warning, unresolvedUserCount),
                     style = MaterialTheme.typography.bodySmall,
@@ -444,13 +592,40 @@ private fun ReviewContent(
         }
 
         item(key = "apply_button") {
-            Spacer(Modifier.height(4.dp))
             ListenUpButton(
                 text = stringResource(Res.string.import_apply_import),
                 onClick = onConfirm,
+                trailingIcon = Icons.Outlined.AutoAwesome,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReviewSectionHeader(
+    label: String,
+    count: String?,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        if (count != null) {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.tertiaryContainer) {
+                Text(
+                    text = count,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
         }
     }
 }
@@ -469,88 +644,149 @@ private fun UserMatchCard(
 ) {
     val isResolved = assignedUserId != null || isSkipped
     val assignedUser = assignedUserId?.let { id -> listenupUsers.find { it.id == id.value } }
+    val matched = assignedUserId != null
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    when {
-                        isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
-                        assignedUserId != null -> MaterialTheme.colorScheme.surfaceContainerLow
-                        else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                    },
-            ),
+        shape = MaterialTheme.shapes.extraLarge,
+        color =
+            when {
+                isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
+                matched -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+            },
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             UserIdentityRow(
                 match = match,
+                matched = matched,
+                statusText = userStatusText(matched, isSkipped),
                 isResolved = isResolved,
-                isSkipped = isSkipped,
-                assignedUser = assignedUser,
-                assignedUserId = assignedUserId,
             )
-            val suggestedUserId = match.suggestedUserId
-            if (suggestedUserId != null && assignedUserId == null && !isSkipped) {
-                UserSuggestionRow(
-                    suggestedId = suggestedUserId,
+            if (matched) {
+                AssignedToRow(label = assignedUser?.displayableName ?: assignedUserId.value)
+            } else if (!isSkipped) {
+                UnresolvedUserActions(
+                    match = match,
                     listenupUsers = listenupUsers,
-                    onAccept = onAcceptSuggestion,
+                    onAcceptSuggestion = onAcceptSuggestion,
+                    onAssign = onAssign,
+                    onSkip = onSkip,
                 )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                UserAssignDropdown(listenupUsers = listenupUsers, onAssign = onAssign)
-                OutlinedButton(onClick = onSkip, shape = MaterialTheme.shapes.extraLarge) {
-                    Text(stringResource(Res.string.import_user_skip))
-                }
             }
         }
     }
 }
 
 @Composable
+private fun userStatusText(
+    matched: Boolean,
+    isSkipped: Boolean,
+): String =
+    when {
+        isSkipped -> stringResource(Res.string.import_user_skipped)
+        matched -> stringResource(Res.string.import_book_assigned)
+        else -> stringResource(Res.string.import_user_needs_review)
+    }
+
+@Composable
 private fun UserIdentityRow(
     match: AbsUserMatch,
+    matched: Boolean,
+    statusText: String,
     isResolved: Boolean,
-    isSkipped: Boolean,
-    assignedUser: AdminUserInfo?,
-    assignedUserId: UserId?,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ScallopBadge(
+            size = 46.dp,
+            containerColor =
+                if (matched) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiaryContainer,
+        ) {
+            Text(
+                text = match.absUsername.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color =
+                    if (matched) {
+                        MaterialTheme.colorScheme.onSecondary
+                    } else {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    },
+            )
+        }
+        Spacer(Modifier.width(13.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = match.absUsername, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = match.absUsername,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             match.absEmail?.let { email ->
                 Text(
                     text = email,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        val badgeText =
-            when {
-                isSkipped -> stringResource(Res.string.import_user_skipped)
-                assignedUser != null -> stringResource(Res.string.import_user_assigned_to, assignedUser.displayableName)
-                assignedUserId != null -> stringResource(Res.string.import_user_assigned_to, assignedUserId.value)
-                else -> stringResource(Res.string.import_user_needs_review)
-            }
+        StatusChip(text = statusText, resolved = isResolved)
+    }
+}
+
+@Composable
+private fun AssignedToRow(label: String) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Link,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        Spacer(Modifier.width(10.dp))
         Text(
-            text = badgeText,
-            style = MaterialTheme.typography.labelSmall,
-            color =
-                if (!isResolved) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            modifier = Modifier.padding(start = 8.dp),
+            text = stringResource(Res.string.import_user_assigned_to, label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+@Composable
+private fun UnresolvedUserActions(
+    match: AbsUserMatch,
+    listenupUsers: List<AdminUserInfo>,
+    onAcceptSuggestion: (UserId) -> Unit,
+    onAssign: (AdminUserInfo) -> Unit,
+    onSkip: () -> Unit,
+) {
+    val suggestedUserId = match.suggestedUserId
+    if (suggestedUserId != null) {
+        UserSuggestionRow(
+            suggestedId = suggestedUserId,
+            listenupUsers = listenupUsers,
+            onAccept = onAcceptSuggestion,
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        UserAssignDropdown(listenupUsers = listenupUsers, onAssign = onAssign, modifier = Modifier.weight(1f))
+        ListenUpButton(
+            text = stringResource(Res.string.import_user_skip),
+            onClick = onSkip,
+            leadingIcon = Icons.Outlined.Block,
+            filled = false,
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -564,20 +800,35 @@ private fun UserSuggestionRow(
     val suggestedUser = listenupUsers.find { it.id == suggestedId.value }
     val suggestionLabel = suggestedUser?.displayableName ?: suggestedId.value
     Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Icon(
+            imageVector = Icons.Outlined.AutoAwesome,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(Res.string.import_user_suggested, suggestionLabel),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        TextButton(onClick = { onAccept(suggestedId) }) {
-            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(stringResource(Res.string.import_user_accept_suggestion))
-        }
+        ListenUpButton(
+            text = stringResource(Res.string.import_user_accept_suggestion),
+            onClick = { onAccept(suggestedId) },
+            leadingIcon = Icons.Filled.Check,
+            fillMaxWidth = false,
+        )
     }
 }
 
@@ -585,19 +836,18 @@ private fun UserSuggestionRow(
 private fun UserAssignDropdown(
     listenupUsers: List<AdminUserInfo>,
     onAssign: (AdminUserInfo) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(
+    Box(modifier = modifier) {
+        ListenUpButton(
+            text = stringResource(Res.string.import_user_assign),
             onClick = { dropdownExpanded = true },
-            shape = MaterialTheme.shapes.extraLarge,
-        ) {
-            Text(stringResource(Res.string.import_user_assign))
-        }
-        DropdownMenu(
-            expanded = dropdownExpanded,
-            onDismissRequest = { dropdownExpanded = false },
-        ) {
+            leadingIcon = Icons.Outlined.PersonAdd,
+            filled = false,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        DropdownMenu(expanded = dropdownExpanded, onDismissRequest = { dropdownExpanded = false }) {
             if (listenupUsers.isEmpty()) {
                 DropdownMenuItem(
                     text = {
@@ -661,28 +911,26 @@ private fun BookReviewCard(
                 .replaceFirstChar { it.uppercase() }
         }
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    when {
-                        isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
-                        isAssigned -> MaterialTheme.colorScheme.surfaceContainerLow
-                        else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                    },
-            ),
+        shape = MaterialTheme.shapes.extraLarge,
+        color =
+            when {
+                isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
+                isAssigned -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+            },
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             BookTitleRow(
                 item = item,
-                isAssigned = isAssigned,
-                isSkipped = isSkipped,
+                statusText =
+                    when {
+                        isAssigned -> stringResource(Res.string.import_book_assigned)
+                        isSkipped -> stringResource(Res.string.import_user_skipped)
+                        else -> tierLabel
+                    },
                 isResolved = isResolved,
-                tierLabel = tierLabel,
             )
             if (bookSearch != null) {
                 BookSearchPanel(
@@ -692,13 +940,20 @@ private fun BookReviewCard(
                     onSelectBook = onSelectBook,
                 )
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onOpenSearch, shape = MaterialTheme.shapes.extraLarge) {
-                        Text(stringResource(Res.string.import_search_and_assign))
-                    }
-                    OutlinedButton(onClick = onSkip, shape = MaterialTheme.shapes.extraLarge) {
-                        Text(stringResource(Res.string.import_book_skip))
-                    }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ListenUpButton(
+                        text = stringResource(Res.string.import_search_and_assign),
+                        onClick = onOpenSearch,
+                        leadingIcon = Icons.Outlined.AutoAwesome,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ListenUpButton(
+                        text = stringResource(Res.string.import_book_skip),
+                        onClick = onSkip,
+                        leadingIcon = Icons.Outlined.Block,
+                        filled = false,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -708,18 +963,12 @@ private fun BookReviewCard(
 @Composable
 private fun BookTitleRow(
     item: AbsItemRef,
-    isAssigned: Boolean,
-    isSkipped: Boolean,
+    statusText: String,
     isResolved: Boolean,
-    tierLabel: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = item.title, style = MaterialTheme.typography.bodyMedium)
+            Text(text = item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             val identifiers =
                 listOfNotNull(
                     item.asin?.let { "ASIN: $it" },
@@ -733,22 +982,8 @@ private fun BookTitleRow(
                 )
             }
         }
-        Text(
-            text =
-                when {
-                    isAssigned -> stringResource(Res.string.import_book_assigned)
-                    isSkipped -> stringResource(Res.string.import_user_skipped)
-                    else -> tierLabel
-                },
-            style = MaterialTheme.typography.labelSmall,
-            color =
-                if (!isResolved) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            modifier = Modifier.padding(start = 8.dp),
-        )
+        Spacer(Modifier.width(8.dp))
+        StatusChip(text = statusText, resolved = isResolved)
     }
 }
 
@@ -770,6 +1005,7 @@ private fun BookSearchPanel(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 },
+                shape = MaterialTheme.shapes.large,
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 trailingIcon = {
@@ -780,10 +1016,7 @@ private fun BookSearchPanel(
             )
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = onCloseSearch) {
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = stringResource(Res.string.import_book_search_cancel),
-                )
+                Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.import_book_search_cancel))
             }
         }
         if (bookSearch.query.isNotBlank() && !bookSearch.isSearching && bookSearch.results.isEmpty()) {
@@ -811,115 +1044,157 @@ private fun BookSearchPanel(
     }
 }
 
-@Composable
-private fun SectionLabel(text: String) {
-    HorizontalDivider()
-    Spacer(Modifier.height(4.dp))
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = 4.dp),
-    )
-}
-
 // ─── Applying ────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ApplyingContent(state: ImportFlowUiState.Applying) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Text(
-            text = stringResource(Res.string.import_apply_import),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(Res.string.import_applying_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ScallopMedallion(icon = Icons.Filled.Storage, size = 64.dp, iconSize = 30.dp)
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(Res.string.import_writing_history_title),
+                    style = MaterialTheme.typography.titleLargeEmphasized,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(Res.string.import_writing_history_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(34.dp))
         if (state.total > 0) {
-            LinearProgressIndicator(
+            PercentCountRow(done = state.done, total = state.total)
+            Spacer(Modifier.height(14.dp))
+            LinearWavyProgressIndicator(
                 progress = { state.done.toFloat() / state.total.toFloat() },
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(Res.string.import_items_matched, state.done, state.total),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         } else {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
+        Spacer(Modifier.height(10.dp))
+        MutedLine(stringResource(Res.string.import_items_written_label))
+
         state.currentItem?.let { item ->
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(Res.string.import_writing_current_item, item),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(Modifier.height(20.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(Res.string.import_currently_writing_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    DetailChip(label = stringResource(Res.string.import_writing_current_item, item))
+                }
+            }
         }
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = stringResource(Res.string.import_sessions_written, state.sessionsWritten),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+        Spacer(Modifier.height(14.dp))
+        StatTile(
+            value = state.sessionsWritten.toString(),
+            label = stringResource(Res.string.import_stat_sessions_written),
+            icon = Icons.Filled.GraphicEq,
+            colors = StatTileTone.primary(),
+            modifier = Modifier.fillMaxWidth(),
         )
+
+        Spacer(Modifier.weight(1f))
+        FooterNote(stringResource(Res.string.import_keep_app_open))
     }
 }
 
-// ─── Done ────────────────────────────────────────────────────────────────────
+// ─── Done (complete) ───────────────────────────────────────────────────────────
 
 @Composable
 private fun DoneContent(
     result: ImportResult,
     onFinish: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
+    Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.primary) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                modifier = Modifier.size(52.dp),
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+        Spacer(Modifier.height(16.dp))
         Text(
-            text = stringResource(Res.string.import_done_title),
-            style = MaterialTheme.typography.headlineMedium,
+            text = stringResource(Res.string.import_all_done),
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            fontWeight = FontWeight.ExtraBold,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
-            text = stringResource(Res.string.import_done_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
+            text = stringResource(Res.string.import_flow_sessions_imported, result.sessionsImported.toString()),
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
-        Card(
+        Spacer(Modifier.height(26.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(
+                value = result.importedCount.toString(),
+                label = stringResource(Res.string.import_stat_records_imported),
+                icon = Icons.Outlined.Inventory2,
+                colors = StatTileTone.primary(),
+                modifier = Modifier.weight(1f),
+            )
+            StatTile(
+                value = result.sessionsImported.toString(),
+                label = stringResource(Res.string.import_stat_sessions_imported),
+                icon = Icons.Filled.GraphicEq,
+                colors = StatTileTone.tertiary(),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = stringResource(Res.string.import_records_imported, result.importedCount),
-                    style = MaterialTheme.typography.bodyMedium,
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.SkipNext,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.import_skipped_books_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(Res.string.import_skipped_books_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Text(
-                    text = stringResource(Res.string.import_flow_sessions_imported, result.sessionsImported),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = stringResource(Res.string.import_books_skipped, result.skippedCount),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = result.skippedCount.toString(),
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.weight(1f))
         ListenUpButton(
             text = stringResource(Res.string.import_finish),
             onClick = onFinish,
+            leadingIcon = Icons.Filled.Check,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -937,9 +1212,19 @@ private fun ErrorContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+        Spacer(Modifier.height(20.dp))
         Text(
             text = stringResource(Res.string.import_error_title),
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.error,
         )
         Spacer(Modifier.height(12.dp))
@@ -953,6 +1238,121 @@ private fun ErrorContent(
             text = stringResource(Res.string.common_try_again),
             onClick = onTryAgain,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+// ─── Shared bits ───────────────────────────────────────────────────────────────
+
+/** Centred scallop medallion + subtitle + a wavy progress block; the upload/indeterminate phase. */
+@Composable
+private fun ProgressMedallionContent(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    subtitle: String,
+    progress: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(10.dp))
+        ScallopMedallion(icon = icon, size = 120.dp, iconSize = 54.dp)
+        Spacer(Modifier.height(28.dp))
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+        Spacer(Modifier.height(38.dp))
+        progress()
+        Spacer(Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun PercentCountRow(
+    done: Int,
+    total: Int,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = stringResource(Res.string.import_items_matched, done.toString(), total.toString()),
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.weight(1f),
+        )
+        val pct = if (total > 0) done * 100 / total else 0
+        Text(
+            text = stringResource(Res.string.common_percent, pct),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
+private fun StatusChip(
+    text: String,
+    resolved: Boolean,
+) {
+    val container =
+        if (resolved) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.tertiaryContainer
+    val content =
+        if (resolved) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onTertiaryContainer
+    Surface(shape = MaterialTheme.shapes.large, color = container) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = content,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun DetailChip(label: String) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun MutedLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun FooterNote(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Lock,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
