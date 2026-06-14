@@ -11,6 +11,16 @@
         }
       }
     },
+    "admin.access_level": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access level"
+          }
+        }
+      }
+    },
     "admin.add_folder": {
       "localizations": {
         "en": {
@@ -217,6 +227,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Books in Collection"
+          }
+        }
+      }
+    },
+    "admin.can_access_the_library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can access the library"
+          }
+        }
+      }
+    },
+    "admin.can_manage_users_and_invites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can manage users and invites"
           }
         }
       }
@@ -631,6 +661,26 @@
         }
       }
     },
+    "admin.invite_expires_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite expires in"
+          }
+        }
+      }
+    },
+    "admin.invite_preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite preview"
+          }
+        }
+      }
+    },
     "admin.invite_someone": {
       "localizations": {
         "en": {
@@ -667,6 +717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Listening history"
+          }
+        }
+      }
+    },
+    "admin.management": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Management"
           }
         }
       }
@@ -727,6 +787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Move “%1$@” to…"
+          }
+        }
+      }
+    },
+    "admin.name_is_invited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is invited"
           }
         }
       }
@@ -1111,6 +1181,16 @@
         }
       }
     },
+    "admin.server_settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server settings"
+          }
+        }
+      }
+    },
     "admin.share_this_link_with_invitename": {
       "localizations": {
         "en": {
@@ -1257,6 +1337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "What to include"
+          }
+        }
+      }
+    },
+    "admin.whos_joining": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who's joining"
           }
         }
       }
@@ -3327,6 +3417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inbox"
+          }
+        }
+      }
+    },
+    "common.invite": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
           }
         }
       }

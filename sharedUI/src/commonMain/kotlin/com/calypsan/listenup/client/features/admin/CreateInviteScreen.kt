@@ -10,26 +10,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Mail
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,14 +48,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.SelectableOptionCard
+import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType
 import com.calypsan.listenup.client.presentation.admin.CreateInviteField
 import com.calypsan.listenup.client.presentation.admin.CreateInviteStatus
@@ -58,26 +75,36 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_1_day
-import listenup.composeapp.generated.resources.common_n_days
-
-import listenup.composeapp.generated.resources.common_admin
-import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.common_copy
+import listenup.composeapp.generated.resources.admin_access_level
+import listenup.composeapp.generated.resources.admin_can_access_the_library
+import listenup.composeapp.generated.resources.admin_can_manage_users_and_invites
 import listenup.composeapp.generated.resources.admin_create_an_invite_to_share
 import listenup.composeapp.generated.resources.admin_create_another
 import listenup.composeapp.generated.resources.admin_create_invite
-import listenup.composeapp.generated.resources.common_done
-import listenup.composeapp.generated.resources.admin_expires_in
 import listenup.composeapp.generated.resources.admin_invite_created
+import listenup.composeapp.generated.resources.admin_invite_created_link_copied_to
+import listenup.composeapp.generated.resources.admin_invite_expires_in
+import listenup.composeapp.generated.resources.admin_invite_preview
+import listenup.composeapp.generated.resources.admin_link_copied
+import listenup.composeapp.generated.resources.admin_name_is_invited
+import listenup.composeapp.generated.resources.admin_whos_joining
+import listenup.composeapp.generated.resources.common_admin
+import listenup.composeapp.generated.resources.common_copy
+import listenup.composeapp.generated.resources.common_display_name
+import listenup.composeapp.generated.resources.common_done
+import listenup.composeapp.generated.resources.common_email_address
 import listenup.composeapp.generated.resources.common_member
-import listenup.composeapp.generated.resources.common_role
-import listenup.composeapp.generated.resources.admin_share_this_link_with_invitename
+import listenup.composeapp.generated.resources.common_n_days
 
 private const val ROLE_MEMBER = "member"
 private const val ROLE_ADMIN = "admin"
+private val EXPIRY_OPTIONS = listOf(1, 7, 30)
 
 /**
- * Create invite screen - form to create new invites.
+ * Create invite screen - Material 3 Expressive form to create new invites: a color-blocked
+ * [ColorBlockHero], accent-headed form sections (display name + email fields, two selectable role
+ * cards, and an expressive expiry segmented control), and a primary-container link-preview card on
+ * success.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +118,8 @@ fun CreateInviteScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copyToClipboard = rememberCopyToClipboard()
+    val inviteCreatedMessage = stringResource(Res.string.admin_invite_created_link_copied_to)
+    val linkCopiedMessage = stringResource(Res.string.admin_link_copied)
 
     // Handle success - show link and allow copy; surface non-validation errors in snackbar.
     val readyStatus = (state as? CreateInviteUiState.Ready)?.status
@@ -99,7 +128,7 @@ fun CreateInviteScreen(
             is CreateInviteStatus.Success -> {
                 // Auto-copy the link
                 copyToClipboard(readyStatus.invite.url)
-                snackbarHostState.showSnackbar("Invite created! Link copied to clipboard.")
+                snackbarHostState.showSnackbar(inviteCreatedMessage)
             }
 
             is CreateInviteStatus.Error -> {
@@ -123,13 +152,11 @@ fun CreateInviteScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.admin_create_invite)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
-                    }
-                },
+            ColorBlockHero(
+                title = stringResource(Res.string.admin_create_invite),
+                badgeIcon = Icons.Outlined.PersonAdd,
+                onBack = onBackClick,
+                supportingText = stringResource(Res.string.admin_create_an_invite_to_share),
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -166,12 +193,10 @@ fun CreateInviteScreen(
                             onCopyClick = {
                                 scope.launch {
                                     copyToClipboard(status.invite.url)
-                                    snackbarHostState.showSnackbar("Link copied!")
+                                    snackbarHostState.showSnackbar(linkCopiedMessage)
                                 }
                             },
-                            onCreateAnother = {
-                                viewModel.reset()
-                            },
+                            onCreateAnother = { viewModel.reset() },
                             onDone = onSuccess,
                             modifier = Modifier.padding(innerPadding),
                         )
@@ -190,7 +215,6 @@ fun CreateInviteScreen(
     }
 }
 
-@Suppress("LongMethod")
 @Composable
 private fun CreateInviteForm(
     status: CreateInviteStatus,
@@ -202,7 +226,6 @@ private fun CreateInviteForm(
     var role by remember { mutableStateOf(ROLE_MEMBER) }
     var expiresInDays by remember { mutableIntStateOf(7) }
 
-    val focusManager = LocalFocusManager.current
     val isSubmitting = status is CreateInviteStatus.Submitting
     val validationField =
         (status as? CreateInviteStatus.Error)
@@ -210,49 +233,109 @@ private fun CreateInviteForm(
             ?.let { it as? CreateInviteErrorType.ValidationError }
             ?.field
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = stringResource(Res.string.admin_create_an_invite_to_share),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val isExpanded =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
+    val sections: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
+            WhosJoiningSection(
+                name = name,
+                onNameChange = { name = it },
+                email = email,
+                onEmailChange = { email = it },
+                isSubmitting = isSubmitting,
+                validationField = validationField,
+                onSubmit = { onSubmit(name, email, role, expiresInDays) },
+            )
+            AccessLevelSection(
+                role = role,
+                onRoleChange = { if (!isSubmitting) role = it },
+            )
+            ExpirySection(
+                expiresInDays = expiresInDays,
+                isSubmitting = isSubmitting,
+                onExpiryChange = { if (!isSubmitting) expiresInDays = it },
+            )
+        }
+    }
+
+    val submitButton: @Composable () -> Unit = {
+        ListenUpButton(
+            onClick = { onSubmit(name, email, role, expiresInDays) },
+            text = stringResource(Res.string.admin_create_invite),
+            leadingIcon = Icons.AutoMirrored.Outlined.Send,
+            enabled = !isSubmitting,
+            isLoading = isSubmitting,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    if (isExpanded) {
+        Row(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            Box(modifier = Modifier.weight(1.2f)) { sections() }
+            Box(modifier = Modifier.weight(1f)) { submitButton() }
+        }
+    } else {
+        Column(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
+            sections()
+            submitButton()
+        }
+    }
+}
+
+@Composable
+private fun WhosJoiningSection(
+    name: String,
+    onNameChange: (String) -> Unit,
+    email: String,
+    onEmailChange: (String) -> Unit,
+    isSubmitting: Boolean,
+    validationField: CreateInviteField?,
+    onSubmit: () -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SectionHeader(
+            label = stringResource(Res.string.admin_whos_joining),
+            icon = Icons.Outlined.PersonAdd,
+            accent = MaterialTheme.colorScheme.primary,
+        )
         ListenUpTextField(
             value = name,
-            onValueChange = { name = it },
-            label = "Name",
+            onValueChange = onNameChange,
+            label = stringResource(Res.string.common_display_name),
+            leadingIcon = Icons.Outlined.Badge,
             enabled = !isSubmitting,
             isError = validationField == CreateInviteField.NAME,
             supportingText =
-                if (validationField == CreateInviteField.NAME) {
-                    "Name is required"
-                } else {
-                    "The person's display name"
-                },
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next,
-                ),
-            keyboardActions =
-                KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                ),
+                if (validationField == CreateInviteField.NAME) "Name is required" else "The person's display name",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
             modifier = Modifier.fillMaxWidth(),
         )
-
         ListenUpTextField(
             value = email,
-            onValueChange = { email = it },
-            label = "Email",
+            onValueChange = onEmailChange,
+            label = stringResource(Res.string.common_email_address),
+            leadingIcon = Icons.Outlined.Mail,
             enabled = !isSubmitting,
             isError = validationField == CreateInviteField.EMAIL,
             supportingText =
@@ -261,95 +344,107 @@ private fun CreateInviteForm(
                 } else {
                     "Their email address for login"
                 },
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Done,
-                ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
             keyboardActions =
                 KeyboardActions(
                     onDone = {
                         focusManager.clearFocus()
-                        if (!isSubmitting) {
-                            onSubmit(name, email, role, expiresInDays)
-                        }
+                        if (!isSubmitting) onSubmit()
                     },
                 ),
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
 
-        // Role selection
-        Column {
-            Text(
-                text = stringResource(Res.string.common_role),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+@Composable
+private fun AccessLevelSection(
+    role: String,
+    onRoleChange: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(
+            label = stringResource(Res.string.admin_access_level),
+            icon = Icons.Outlined.Shield,
+            accent = MaterialTheme.colorScheme.secondary,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SelectableOptionCard(
+                title = stringResource(Res.string.common_member),
+                subtitle = stringResource(Res.string.admin_can_access_the_library),
+                icon = Icons.Outlined.Headphones,
+                selected = role == ROLE_MEMBER,
+                onClick = { onRoleChange(ROLE_MEMBER) },
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = role == ROLE_MEMBER,
-                    onClick = { role = ROLE_MEMBER },
-                    label = { Text(stringResource(Res.string.common_member)) },
-                    enabled = !isSubmitting,
-                )
-                FilterChip(
-                    selected = role == ROLE_ADMIN,
-                    onClick = { role = ROLE_ADMIN },
-                    label = { Text(stringResource(Res.string.common_admin)) },
-                    enabled = !isSubmitting,
-                )
-            }
-            Text(
-                text = if (role == ROLE_ADMIN) "Can manage users and invites" else "Can access the library",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
+            SelectableOptionCard(
+                title = stringResource(Res.string.common_admin),
+                subtitle = stringResource(Res.string.admin_can_manage_users_and_invites),
+                icon = Icons.Outlined.Shield,
+                selected = role == ROLE_ADMIN,
+                onClick = { onRoleChange(ROLE_ADMIN) },
+                modifier = Modifier.weight(1f),
             )
         }
+    }
+}
 
-        // Expiration
-        Column {
-            Text(
-                text = stringResource(Res.string.admin_expires_in),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = expiresInDays == 1,
-                    onClick = { expiresInDays = 1 },
-                    label = { Text(stringResource(Res.string.admin_1_day)) },
+@Composable
+private fun ExpirySection(
+    expiresInDays: Int,
+    isSubmitting: Boolean,
+    onExpiryChange: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(
+            label = stringResource(Res.string.admin_invite_expires_in),
+            icon = Icons.Outlined.Schedule,
+            accent = MaterialTheme.colorScheme.tertiary,
+        )
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            EXPIRY_OPTIONS.forEachIndexed { index, days ->
+                SegmentedButton(
+                    selected = expiresInDays == days,
+                    onClick = { onExpiryChange(days) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = EXPIRY_OPTIONS.size),
                     enabled = !isSubmitting,
-                )
-                FilterChip(
-                    selected = expiresInDays == 7,
-                    onClick = { expiresInDays = 7 },
-                    label = { Text(stringResource(Res.string.common_n_days, "7")) },
-                    enabled = !isSubmitting,
-                )
-                FilterChip(
-                    selected = expiresInDays == 30,
-                    onClick = { expiresInDays = 30 },
-                    label = { Text(stringResource(Res.string.common_n_days, "30")) },
-                    enabled = !isSubmitting,
-                )
+                ) {
+                    Text(
+                        text =
+                            if (days == 1) {
+                                stringResource(Res.string.admin_1_day)
+                            } else {
+                                stringResource(Res.string.common_n_days, days.toString())
+                            },
+                    )
+                }
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ListenUpButton(
-            onClick = { onSubmit(name, email, role, expiresInDays) },
-            text = stringResource(Res.string.admin_create_invite),
-            enabled = !isSubmitting,
-            isLoading = isSubmitting,
-            modifier = Modifier.fillMaxWidth(),
+/**
+ * Section overline header for the invite form: an accent-tinted [TonalIconTile] beside an UPPERCASE
+ * label. Matches the [com.calypsan.listenup.client.design.components.SectionGroup] header look but
+ * without the card body, since the invite form sections are free-standing.
+ */
+@Composable
+private fun SectionHeader(
+    label: String,
+    icon: ImageVector,
+    accent: Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        TonalIconTile(icon = icon, size = 30.dp, accent = accent)
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = accent,
         )
     }
 }
@@ -363,67 +458,27 @@ private fun SuccessContent(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isExpanded =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+        )
+    val horizontalPadding = if (isExpanded) 24.dp else 16.dp
     Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = horizontalPadding, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            colors =
-                CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text(
-                    text = stringResource(Res.string.admin_invite_created),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
+        LinkPreviewCard(
+            inviteName = inviteName,
+            inviteUrl = inviteUrl,
+            onCopyClick = onCopyClick,
+        )
 
-                Text(
-                    text = stringResource(Res.string.admin_share_this_link_with_invitename, inviteName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = inviteUrl,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                        )
-                        IconButton(onClick = onCopyClick) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(Res.string.common_copy),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         ListenUpButton(
             onClick = onDone,
@@ -431,10 +486,96 @@ private fun SuccessContent(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        ListenUpButton(
+            onClick = onCreateAnother,
+            text = stringResource(Res.string.admin_create_another),
+            filled = false,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
-        androidx.compose.material3.TextButton(onClick = onCreateAnother) {
-            Text(stringResource(Res.string.admin_create_another))
+/**
+ * The expressive invite-link payoff card: a [MaterialTheme.colorScheme.primaryContainer] surface with
+ * a [ScallopBadge], the recipient line, and the invite URL in a copyable pill.
+ */
+@Composable
+private fun LinkPreviewCard(
+    inviteName: String,
+    inviteUrl: String,
+    onCopyClick: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.admin_invite_preview).uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                ScallopBadge(size = 52.dp, containerColor = colors.primary) {
+                    Icon(
+                        imageVector = Icons.Outlined.PersonAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = colors.onPrimary,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.admin_invite_created),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onPrimaryContainer,
+                    )
+                    Text(
+                        text = stringResource(Res.string.admin_name_is_invited, inviteName),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(percent = 50),
+                color = colors.onPrimaryContainer.copy(alpha = 0.08f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp).height(48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = inviteUrl,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onPrimaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ListenUpButton(
+                        onClick = onCopyClick,
+                        text = stringResource(Res.string.common_copy),
+                        leadingIcon = Icons.Outlined.ContentCopy,
+                        fillMaxWidth = false,
+                    )
+                }
+            }
         }
     }
 }
