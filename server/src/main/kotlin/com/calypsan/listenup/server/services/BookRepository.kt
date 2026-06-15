@@ -79,6 +79,12 @@ private val log = KotlinLogging.logger {}
  * @param genreRepository the syncable genres catalogue; backs the
  *   [GenreAutoCreator] that the book-genre writer uses to auto-create a flat
  *   live genre for any scanner string the alias/normalizer cascade can't resolve.
+ * @param tagRepository the syncable tags catalogue; backs the [BookTagWriter]
+ *   that persists the ABS `metadata.json` `tags[]` array at scan, auto-creating
+ *   tag rows for trope names that don't yet exist.
+ * @param bookTagRepository the syncable `book_tags` junction; the [BookTagWriter]
+ *   links the book to each scanned tag through it (add-only on rescan), and the
+ *   book soft-delete cascades through it.
  */
 class BookRepository(
     db: Database,
@@ -90,6 +96,7 @@ class BookRepository(
     private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),
     clock: Clock = Clock.System,
     private val collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository? = null,
+    private val tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
@@ -113,6 +120,19 @@ class BookRepository(
 
     /** Genre junction write helpers — `book_genres` and auto-create for unknown strings (no revision/bus). */
     private val bookGenreWriter = BookGenreWriter(db, clock, GenreAutoCreator(genreRepository))
+
+    /**
+     * Tag junction write helper — persists scanned ABS `tags[]` to `book_tags`,
+     * auto-creating tag rows, add-only on rescan. Null when the tag repos aren't
+     * wired (a books slice without the tags domain), in which case scan tags are
+     * silently skipped.
+     */
+    private val bookTagWriter =
+        if (tagRepository != null && bookTagRepository != null) {
+            BookTagWriter(clock, tagRepository, bookTagRepository)
+        } else {
+            null
+        }
 
     override val elementSerializer: KSerializer<BookSyncPayload> = BookSyncPayload.serializer()
 
@@ -526,6 +546,7 @@ class BookRepository(
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
             suspendTransaction(db) { bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now) }
+            bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
     }
