@@ -134,12 +134,13 @@ internal class ScanOrchestrator(
      * Triggers a full scan of [libraryId] via the library's [ScanCoordinator].
      *
      * Returns [LibraryError.NotFound] when [libraryId] is not registered.
-     * Returns [ScanError.AlreadyRunning] when a scan is already in flight for
+     * Returns [com.calypsan.listenup.api.error.ScanError.AlreadyRunning] when a scan is already in flight for
      * that library (the coordinator's single-flight contract).
      */
     suspend fun scanLibrary(libraryId: LibraryId): AppResult<ScanResult> {
-        val active = mutex.withLock { bundle?.takeIf { it.library.id == libraryId } }
-            ?: return AppResult.Failure(LibraryError.NotFound())
+        val active =
+            mutex.withLock { bundle?.takeIf { it.library.id == libraryId } }
+                ?: return AppResult.Failure(LibraryError.NotFound())
         return active.coordinator.scanFull()
     }
 
@@ -147,7 +148,7 @@ internal class ScanOrchestrator(
      * Fire-and-forget variant of [scanLibrary]: kicks the full scan off on the library's
      * coordinator scope and returns immediately ("202 Accepted"). Returns
      * [LibraryError.NotFound] when the library isn't registered and
-     * [ScanError.AlreadyRunning] when a scan is already in flight — both surfaced
+     * [com.calypsan.listenup.api.error.ScanError.AlreadyRunning] when a scan is already in flight — both surfaced
      * synchronously. The scan itself runs in the background and streams progress over SSE.
      *
      * This is what the admin/wizard `LibraryAdminService.scanLibrary` trigger uses, so the
@@ -155,8 +156,9 @@ internal class ScanOrchestrator(
      * [ScanResult]) is retained for the scanner vertical's synchronous summary endpoint.
      */
     suspend fun scanLibraryAsync(libraryId: LibraryId): AppResult<Unit> {
-        val active = mutex.withLock { bundle?.takeIf { it.library.id == libraryId } }
-            ?: return AppResult.Failure(LibraryError.NotFound())
+        val active =
+            mutex.withLock { bundle?.takeIf { it.library.id == libraryId } }
+                ?: return AppResult.Failure(LibraryError.NotFound())
         return active.coordinator.scanFullAsync()
     }
 

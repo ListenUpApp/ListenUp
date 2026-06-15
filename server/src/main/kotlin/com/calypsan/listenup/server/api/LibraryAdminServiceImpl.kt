@@ -136,6 +136,10 @@ internal class LibraryAdminServiceImpl(
                 return AppResult.Success(existing.data.first())
             }
         }
+        return createNewLibrary(request)
+    }
+
+    private suspend fun createNewLibrary(request: CreateLibraryRequest): AppResult<Library> {
         if (request.folderPaths.isEmpty()) {
             return AppResult.Failure(LibraryError.InvalidPath(debugInfo = "At least one folder path is required."))
         }
