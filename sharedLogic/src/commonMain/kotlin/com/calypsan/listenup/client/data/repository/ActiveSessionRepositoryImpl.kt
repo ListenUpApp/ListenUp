@@ -96,6 +96,7 @@ class ActiveSessionRepositoryImpl(
                     id = summary.id,
                     title = summary.title,
                     coverPath = coverPath,
+                    coverHash = summary.coverHash,
                     coverBlurHash = summary.coverBlurHash,
                     authorName = summary.authorName,
                 ),

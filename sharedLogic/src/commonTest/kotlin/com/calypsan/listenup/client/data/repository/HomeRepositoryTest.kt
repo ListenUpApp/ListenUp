@@ -88,6 +88,7 @@ class HomeRepositoryTest :
             duration: Long = 10_000L,
             authorNames: String = "Author Name",
             coverPath: String? = null,
+            coverHash: String? = null,
         ): BookListItem =
             TestData.bookListItem(
                 id = id,
@@ -95,6 +96,7 @@ class HomeRepositoryTest :
                 authorName = authorNames,
                 duration = duration,
                 coverPath = coverPath,
+                coverHash = coverHash,
             )
 
         // ========== Continue Listening Tests ==========
@@ -293,6 +295,28 @@ class HomeRepositoryTest :
                 val books = success.data as List<*>
                 val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
                 continueBook.coverPath shouldBe "/path/to/cover.jpg"
+            }
+        }
+
+        test("getContinueListening carries coverHash from the book into ContinueListeningBook") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val position = createPlaybackPosition("book-1", positionMs = 5000L)
+                val book = createBook(id = "book-1", duration = 10_000L, coverHash = "cover-hash-1")
+
+                everySuspend { fixture.playbackPositionDao.getRecentPositions(10) } returns listOf(position)
+                everySuspend { fixture.bookRepository.getBookListItems(any()) } returns listOf(book)
+                val repository = fixture.build()
+
+                // When
+                val result = repository.getContinueListening(10)
+
+                // Then
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val books = success.data as List<*>
+                val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
+                continueBook.coverHash shouldBe "cover-hash-1"
             }
         }
 

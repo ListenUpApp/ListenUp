@@ -450,7 +450,7 @@ interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash,
+            b.id, b.title, b.coverBlurHash, b.coverHash,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -469,17 +469,21 @@ interface BookDao {
  * Minimal book identity for enriching social presence sessions.
  *
  * Carries exactly what the "currently listening" UI needs beyond wire identity: the title,
- * the cover blur hash for the placeholder, and the primary author's name.
+ * the cover blur hash for the placeholder, the cover content hash for image-cache busting,
+ * and the primary author's name.
  *
  * @property id The book id.
  * @property title The book title.
  * @property coverBlurHash BlurHash placeholder for the cover, or null when none is stored.
+ * @property coverHash Content hash of the cover, used to version the image-cache key so a
+ *   re-imaged cover invalidates the stale cached bitmap; null when no cover is stored.
  * @property authorName Primary author's display name, or null when no author is linked.
  */
 data class BookSummary(
     val id: String,
     val title: String,
     val coverBlurHash: String?,
+    val coverHash: String?,
     val authorName: String?,
 )
 
