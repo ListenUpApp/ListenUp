@@ -163,6 +163,7 @@ private fun BookSearchResult.toSearchHit(imageStorage: ImageStorage): SearchHit 
         duration = book.totalDuration,
         bookCount = null,
         coverPath = coverPath,
+        coverHash = book.coverHash,
         score = 1.0f, // No scoring in local search
     )
 }
