@@ -128,8 +128,7 @@ struct FullScreenPlayerView: View {
             BookCoverImage(
                 bookId: observer.currentBookId,
                 coverPath: observer.coverPath,
-                blurHash: observer.coverBlurHash,
-                accessibilityLabel: CoverAccessibility.label(title: observer.bookTitle, author: observer.authorName)
+                blurHash: observer.coverBlurHash
             )
             .frame(width: 286, height: 286)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

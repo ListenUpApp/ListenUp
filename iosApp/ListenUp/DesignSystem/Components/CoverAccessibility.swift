@@ -10,7 +10,7 @@ enum CoverAccessibility {
         let titlePart = (t?.isEmpty == false) ? t : nil
         let authorPart = (a?.isEmpty == false) ? a : nil
         switch (titlePart, authorPart) {
-        case let (title?, author?): return "\(title), by \(author)"
+        case let (title?, author?): return "\(title), \(author)"
         case let (title?, nil): return title
         case let (nil, author?): return author
         case (nil, nil): return nil

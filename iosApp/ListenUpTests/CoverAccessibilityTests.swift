@@ -3,9 +3,9 @@ import Testing
 
 @Suite("CoverAccessibility")
 struct CoverAccessibilityTests {
-    @Test func titleAndAuthorReadAsByline() {
+    @Test func titleAndAuthorJoinWithComma() {
         #expect(CoverAccessibility.label(title: "The Way of Kings", author: "Brandon Sanderson")
-            == "The Way of Kings, by Brandon Sanderson")
+            == "The Way of Kings, Brandon Sanderson")
     }
 
     @Test func titleOnly() {
