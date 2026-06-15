@@ -200,6 +200,7 @@ private fun Application.launchSeeders(
         }
     } else if (libraryConfigured) {
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        val moodSeeder by inject<com.calypsan.listenup.server.seed.MoodDomainSeeder>()
         val pendingGenrePromotion by inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
         // Synchronous on the module init thread — `module()` returns only after the
         // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
@@ -210,6 +211,11 @@ private fun Application.launchSeeders(
             runCatching {
                 if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
             }.onFailure { it.logUnlessCancelled("genre default-taxonomy seeding failed — server keeps running") }
+            // Seed the canonical Audible mood vocabulary on fresh installs (curator
+            // dedupe anchors, not demo content). Idempotent via `isAlreadySeeded`.
+            runCatching {
+                if (!moodSeeder.isAlreadySeeded()) moodSeeder.seed()
+            }.onFailure { it.logUnlessCancelled("mood vocabulary seeding failed — server keeps running") }
             // One-time: drain the legacy pending-genre backlog into live genres so an
             // existing library lights up. Runs after seeding (resolution prefers the
             // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
@@ -286,6 +292,7 @@ private fun Application.installDependencies(
                     hasBooksModule = true,
                     demoLibraryPath = resolvedLibraryPath?.toString(),
                     hasGenresModule = true,
+                    hasMoodsModule = true,
                     hasCollectionsModule = true,
                     hasShelvesModule = true,
                 )
