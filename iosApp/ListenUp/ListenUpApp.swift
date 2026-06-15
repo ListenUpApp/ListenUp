@@ -73,8 +73,10 @@ private struct RootView: View {
         switch auth.state {
         case .initializing, .checkingServer:
             LaunchScreen()
-        case .needsServerUrl, .needsSetup:
+        case .needsServerUrl:
             ServerFlowCoordinator()
+        case .needsSetup:
+            SetupView()
         case .needsLogin:
             AuthFlowCoordinator(openRegistration: auth.openRegistration)
         case .pendingApproval:
