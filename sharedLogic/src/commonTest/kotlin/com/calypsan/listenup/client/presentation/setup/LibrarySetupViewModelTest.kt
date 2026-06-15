@@ -4,14 +4,15 @@ import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.AccessMode
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.dto.Library
+import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -19,10 +20,11 @@ import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import app.cash.turbine.test
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -35,10 +37,9 @@ import kotlinx.coroutines.test.resetMain
  * Covers:
  * - Setup status check on init → `getSetupStatus()` path
  * - Filesystem browsing → `browseFilesystem()` path; parentPath/isRoot derived client-side
- * - Library creation success → NavAction emission + UiState reset (multi-library loop)
- * - Library creation failure → ErrorBus emit + error in UiState
- * - Multi-library loop: second createLibrary appends to createdLibraries
- * - `finishOnboarding()` flips setupComplete + emits Finished NavAction
+ * - [completeSetup] adds each selected folder via [addFolderToLibrary], triggers the scan,
+ *   then emits [LibrarySetupNavAction.Finished]
+ * - [completeSetup] with no selected paths sets an error and does not finish
  *
  * Uses Mokkery to mock [LibraryAdminRpcFactory] returning a [LibraryAdminService] stub.
  * [ErrorBus] is a final class — tests observe its [ErrorBus.errors] flow directly.
@@ -60,16 +61,25 @@ class LibrarySetupViewModelTest :
 
         fun makeService(): LibraryAdminService =
             mock<LibraryAdminService> {
-                // Default: the post-create initial scan trigger is a no-op success unless a
-                // test overrides it. Keeps createLibrary-success tests from hitting an
-                // unstubbed call when the wizard fires the scan.
-                everySuspend { scanLibrary(any()) } returns AppResult.Success(Unit)
+                // Default: triggerLibraryScan is a no-op success unless a test overrides it.
+                everySuspend { triggerLibraryScan() } returns AppResult.Success(Unit)
             }
 
         fun makeFactory(service: LibraryAdminService): LibraryAdminRpcFactory =
             mock<LibraryAdminRpcFactory>().also {
                 everySuspend { it.get() } returns service
             }
+
+        fun makeLibraryFolder(
+            path: String = "/audio/a",
+            libraryId: String = "lib-001",
+        ): LibraryFolder =
+            LibraryFolder(
+                id = FolderId("folder-001"),
+                libraryId = LibraryId(libraryId),
+                rootPath = path,
+                createdAt = 1_700_000_000_000L,
+            )
 
         fun makeLibrary(
             id: String = "lib-001",
@@ -215,9 +225,38 @@ class LibrarySetupViewModelTest :
             }
         }
 
-        // ── createLibrary: validation ────────────────────────────────────────
+        // ── completeSetup ────────────────────────────────────────────────────
 
-        test("createLibrary with no paths selected sets error and does not call RPC") {
+        test("completeSetup adds each selected folder then scans then emits Finished") {
+            runTest {
+                val service = makeService()
+                val folder = makeLibraryFolder()
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                everySuspend { service.addFolderToLibrary(any()) } returns AppResult.Success(folder)
+                everySuspend { service.triggerLibraryScan() } returns AppResult.Success(Unit)
+
+                val appScope = CoroutineScope(testDispatcher)
+                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), appScope)
+                advanceUntilIdle()
+
+                vm.selectPath("/audio/a")
+                vm.selectPath("/audio/b")
+
+                vm.navActions.test {
+                    vm.completeSetup()
+                    advanceUntilIdle()
+
+                    awaitItem() shouldBe LibrarySetupNavAction.Finished
+                }
+
+                verifySuspend { service.addFolderToLibrary("/audio/a") }
+                verifySuspend { service.addFolderToLibrary("/audio/b") }
+                verifySuspend { service.triggerLibraryScan() }
+            }
+        }
+
+        test("completeSetup with no selected paths sets an error and does not finish") {
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
@@ -226,180 +265,59 @@ class LibrarySetupViewModelTest :
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
-                vm.createLibrary()
-                advanceUntilIdle()
+                vm.navActions.test {
+                    vm.completeSetup()
+                    advanceUntilIdle()
 
-                vm.state.value.error shouldBe "Please select at least one folder for your library"
+                    expectNoEvents()
+                }
+
+                vm.state.value.error shouldNotBe null
             }
         }
 
-        test("createLibrary with blank name sets error and does not call RPC") {
-            runTest {
-                val service = makeService()
-                everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
-                advanceUntilIdle()
-                vm.togglePath("/data/audiobooks")
-                vm.setLibraryName("   ")
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                vm.state.value.error shouldBe "Please enter a name for your library"
-            }
-        }
-
-        // ── createLibrary: success — multi-library loop ──────────────────────
-
-        test("createLibrary success appends to createdLibraries and resets selection") {
-            runTest {
-                val service = makeService()
-                val library = makeLibrary()
-                everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } returns AppResult.Success(library)
-
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
-                advanceUntilIdle()
-                vm.togglePath("/data/audiobooks")
-                vm.setLibraryName("My Library")
-
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                vm.state.value.isCreatingLibrary shouldBe false
-                vm.state.value.createdLibraries.size shouldBe 1
-                vm.state.value.createdLibraries
-                    .first() shouldBe library
-                // Selection resets for the next library
-                vm.state.value.selectedPaths shouldBe emptySet()
-                vm.state.value.libraryName shouldBe "My Library"
-                // setupComplete is NOT yet flipped — only finishOnboarding() does that
-                vm.state.value.setupComplete shouldBe false
-            }
-        }
-
-        test("createLibrary success emits LibraryCreated NavAction") {
-            runTest {
-                val service = makeService()
-                val library = makeLibrary()
-                everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } returns AppResult.Success(library)
-
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
-                advanceUntilIdle()
-                vm.togglePath("/data/audiobooks")
-
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                val action = vm.navActions.first()
-                (action is LibrarySetupNavAction.LibraryCreated) shouldBe true
-                (action as LibrarySetupNavAction.LibraryCreated).library shouldBe library
-            }
-        }
-
-        test("createLibrary success triggers an initial scan of the new library") {
-            runTest {
-                val service = makeService()
-                val library = makeLibrary()
-                everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } returns AppResult.Success(library)
-
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
-                advanceUntilIdle()
-                vm.togglePath("/data/audiobooks")
-                vm.setLibraryName("My Library")
-
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                // The server live-mounts a watcher on create but never scans existing files;
-                // the wizard must explicitly trigger the initial scan or no books ever appear.
-                verifySuspend(VerifyMode.exactly(1)) { service.scanLibrary(library.id) }
-            }
-        }
-
-        test("second createLibrary appends another library to createdLibraries") {
-            runTest {
-                val service = makeService()
-                val lib1 = makeLibrary(id = "lib-001", name = "First")
-                val lib2 = makeLibrary(id = "lib-002", name = "Second")
-                everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } sequentiallyReturns
-                    listOf(AppResult.Success(lib1), AppResult.Success(lib2))
-
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
-                advanceUntilIdle()
-
-                // First library creation
-                vm.togglePath("/data/audiobooks")
-                vm.setLibraryName("First")
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                // Second library creation
-                vm.togglePath("/data/music")
-                vm.setLibraryName("Second")
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                vm.state.value.createdLibraries.size shouldBe 2
-                vm.state.value.createdLibraries[0] shouldBe lib1
-                vm.state.value.createdLibraries[1] shouldBe lib2
-            }
-        }
-
-        // ── createLibrary: failure ───────────────────────────────────────────
-
-        test("createLibrary failure sets error in state") {
+        test("completeSetup addFolderToLibrary failure sets error and does not finish") {
             runTest {
                 val service = makeService()
                 val error = InternalError()
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } returns AppResult.Failure(error)
+                everySuspend { service.addFolderToLibrary(any()) } returns AppResult.Failure(error)
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
-                vm.togglePath("/data/audiobooks")
+                vm.selectPath("/audio/a")
 
-                vm.createLibrary()
-                advanceUntilIdle()
+                vm.navActions.test {
+                    vm.completeSetup()
+                    advanceUntilIdle()
+
+                    expectNoEvents()
+                }
 
                 vm.state.value.isCreatingLibrary shouldBe false
-                vm.state.value.createdLibraries shouldBe emptyList()
                 vm.state.value.error shouldBe error.message
             }
         }
 
-        test("createLibrary failure does not flip setupComplete and appends nothing") {
+        // ── path selection ───────────────────────────────────────────────────
+
+        test("togglePath adds path when not selected") {
             runTest {
                 val service = makeService()
-                val error = InternalError()
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } returns AppResult.Failure(error)
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
+
                 vm.togglePath("/data/audiobooks")
 
-                vm.createLibrary()
-                advanceUntilIdle()
-
-                vm.state.value.setupComplete shouldBe false
-                vm.state.value.createdLibraries shouldBe emptyList()
+                vm.state.value.selectedPaths shouldBe setOf("/data/audiobooks")
             }
         }
 
-        // ── finishOnboarding ─────────────────────────────────────────────────
-
-        test("finishOnboarding flips setupComplete and emits Finished NavAction") {
+        test("togglePath removes path when already selected") {
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
@@ -408,35 +326,42 @@ class LibrarySetupViewModelTest :
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
-                vm.finishOnboarding()
+                vm.togglePath("/data/audiobooks")
+                vm.togglePath("/data/audiobooks")
 
-                vm.state.value.setupComplete shouldBe true
-                val action = vm.navActions.first()
-                action shouldBe LibrarySetupNavAction.Finished
+                vm.state.value.selectedPaths shouldBe emptySet()
             }
         }
 
-        // ── createLibrary sends correct request ──────────────────────────────
-
-        test("createLibrary calls RPC exactly once with correct request shape") {
+        test("selectPath adds path to selection") {
             runTest {
                 val service = makeService()
-                val library = makeLibrary()
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.createLibrary(any()) } returns AppResult.Success(library)
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
-                vm.togglePath("/data/audiobooks")
-                vm.togglePath("/data/podcasts")
-                vm.setLibraryName("  My Library  ")
 
-                vm.createLibrary()
+                vm.selectPath("/audio/a")
+                vm.selectPath("/audio/b")
+
+                vm.state.value.selectedPaths shouldBe setOf("/audio/a", "/audio/b")
+            }
+        }
+
+        test("clearSelection empties selectedPaths") {
+            runTest {
+                val service = makeService()
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+
+                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
-                vm.state.value.createdLibraries.size shouldBe 1
-                verifySuspend(VerifyMode.exactly(1)) { service.createLibrary(any()) }
+                vm.selectPath("/audio/a")
+                vm.clearSelection()
+
+                vm.state.value.selectedPaths shouldBe emptySet()
             }
         }
     })
