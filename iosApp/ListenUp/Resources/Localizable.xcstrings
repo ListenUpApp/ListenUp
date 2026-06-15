@@ -701,16 +701,6 @@
         }
       }
     },
-    "admin.library_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library name"
-          }
-        }
-      }
-    },
     "admin.link_copied": {
       "localizations": {
         "en": {
@@ -8481,16 +8471,6 @@
         }
       }
     },
-    "library_setup.add_another_folder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add another folder"
-          }
-        }
-      }
-    },
     "library_setup.browse_while_building": {
       "localizations": {
         "en": {
@@ -8651,16 +8631,6 @@
         }
       }
     },
-    "library_setup.library_created": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library created!"
-          }
-        }
-      }
-    },
     "library_setup.library_name": {
       "localizations": {
         "en": {
@@ -8737,16 +8707,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Point ListenUp at your audiobooks."
-          }
-        }
-      }
-    },
-    "library_setup.scanned_shortly": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your audiobooks will be scanned and available shortly."
           }
         }
       }

@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
@@ -55,7 +54,6 @@ import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_folder
 import listenup.composeapp.generated.resources.admin_add_this_folder
-import listenup.composeapp.generated.resources.admin_library_name
 import listenup.composeapp.generated.resources.admin_remove_path
 import listenup.composeapp.generated.resources.admin_remove_path_from_library_scan
 import listenup.composeapp.generated.resources.admin_remove_scan_path
@@ -65,7 +63,6 @@ import listenup.composeapp.generated.resources.admin_scan_paths
 import listenup.composeapp.generated.resources.admin_scanning
 import listenup.composeapp.generated.resources.admin_select_folder
 import listenup.composeapp.generated.resources.common_cancel
-import listenup.composeapp.generated.resources.common_entity_information
 import listenup.composeapp.generated.resources.common_remove
 import org.jetbrains.compose.resources.stringResource
 
@@ -96,11 +93,7 @@ fun LibrarySettingsScreen(
         }
     }
 
-    val topBarTitle =
-        when (val s = state) {
-            is LibrarySettingsUiState.Ready -> s.library.name
-            is LibrarySettingsUiState.Loading, is LibrarySettingsUiState.Error -> "Library Settings"
-        }
+    val topBarTitle = "Library Settings"
 
     Scaffold(
         modifier = modifier,
@@ -181,28 +174,13 @@ private fun LibrarySettingsContent(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
     ) {
-        // Library info section
-        item {
-            Text(
-                text = stringResource(Res.string.common_entity_information, "Library"),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            )
-        }
-
-        item {
-            LibraryInfoCard(library = library)
-        }
-
         // Scan paths section
         item {
-            Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = stringResource(Res.string.admin_scan_paths),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
             )
         }
 
@@ -235,54 +213,6 @@ private fun LibrarySettingsContent(
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun LibraryInfoCard(
-    library: Library,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Name row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Folder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column {
-                    Text(
-                        text = library.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(Res.string.admin_library_name),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
         }
     }
 }
