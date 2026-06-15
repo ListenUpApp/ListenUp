@@ -468,6 +468,7 @@ private fun RawProduct.toBook(): AudibleBook {
                 AudibleSeriesEntry(asin = it.asin, name = it.title, position = it.sequence)
             },
         genres = extractGenres(categoryLadders),
+        genreLadders = extractGenreLadders(categoryLadders),
         language = language,
         rating = rating,
         ratingCount = ratingCount,
@@ -519,6 +520,17 @@ private fun extractGenres(ladders: List<RawCategoryLadder>): List<String> {
         if (cat.name.isNotEmpty() && seen.add(cat.name)) cat.name else null
     }
 }
+
+/**
+ * Preserves Audible's category ladders root → leaf — one inner list of rung
+ * names per ladder, blank rungs dropped, empty ladders omitted. Unlike
+ * [extractGenres] (which flattens + dedups), this retains the hierarchy so the
+ * match-apply path can nest genres (Fiction → Fantasy → LitRPG).
+ */
+private fun extractGenreLadders(ladders: List<RawCategoryLadder>): List<List<String>> =
+    ladders
+        .map { ladder -> ladder.ladder.map { it.name }.filter { it.isNotEmpty() } }
+        .filter { it.isNotEmpty() }
 
 /**
  * Removes HTML tags from Audible's `merchandising_summary` field.

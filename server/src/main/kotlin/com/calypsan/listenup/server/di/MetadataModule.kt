@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -22,6 +23,7 @@ import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookSummary
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import io.ktor.client.HttpClient
@@ -172,10 +174,15 @@ fun metadataModule(imageHome: Path): Module =
                 bookRepository = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),
-                imageStorage = get(),
-                coverImageStore = get<CoverImageStore>(),
-                imageHome = imageHome,
+                imageDeps =
+                    MetadataImageDeps(
+                        imageStorage = get(),
+                        coverImageStore = get<CoverImageStore>(),
+                        imageHome = imageHome,
+                    ),
                 permissionPolicy = get<UserPermissionPolicy>(),
+                db = get(),
+                genreRepository = get<GenreRepository>(),
                 principal =
                     PrincipalProvider {
                         error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")

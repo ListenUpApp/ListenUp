@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -115,8 +116,9 @@ class B2aMetadataApplyE2ETest :
                 // ── Repositories ────────────────────────────────────────────────
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, GenreRepository(db, bus, syncRegistry))
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook = canned_WayOfKings()
@@ -147,6 +149,7 @@ class B2aMetadataApplyE2ETest :
                         bookRepo,
                         contributorRepo,
                         seriesRepo,
+                        genreRepo,
                         imageStorage,
                         coverImageStore,
                         metadataService,
@@ -201,8 +204,9 @@ class B2aMetadataApplyE2ETest :
 
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, GenreRepository(db, bus, syncRegistry))
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
@@ -221,6 +225,7 @@ class B2aMetadataApplyE2ETest :
                         bookRepo,
                         contributorRepo,
                         seriesRepo,
+                        genreRepo,
                         imageStorage,
                         coverImageStore,
                         metadataService,
@@ -261,8 +266,9 @@ class B2aMetadataApplyE2ETest :
 
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, GenreRepository(db, bus, syncRegistry))
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
 
                 val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
                 val metadataService =
@@ -280,6 +286,7 @@ class B2aMetadataApplyE2ETest :
                         bookRepo,
                         contributorRepo,
                         seriesRepo,
+                        genreRepo,
                         imageStorage,
                         coverImageStore,
                         metadataService,
@@ -320,6 +327,7 @@ private fun buildService(
     bookRepo: BookRepository,
     contributorRepo: ContributorRepository,
     seriesRepo: SeriesRepository,
+    genreRepo: GenreRepository,
     imageStorage: ImageStorage,
     coverImageStore: CoverImageStore,
     metadataService: MetadataService,
@@ -337,10 +345,15 @@ private fun buildService(
         bookRepository = bookRepo,
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
-        imageStorage = imageStorage,
-        coverImageStore = coverImageStore,
-        imageHome = Path(tempDir),
+        imageDeps =
+            MetadataImageDeps(
+                imageStorage = imageStorage,
+                coverImageStore = coverImageStore,
+                imageHome = Path(tempDir),
+            ),
         permissionPolicy = UserPermissionPolicy(db),
+        db = db,
+        genreRepository = genreRepo,
         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
     )
 

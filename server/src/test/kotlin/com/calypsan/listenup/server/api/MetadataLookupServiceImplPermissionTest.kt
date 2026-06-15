@@ -112,7 +112,8 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, registry)
     val seriesRepo = SeriesRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, GenreRepository(db, bus, registry))
+    val genreRepo = GenreRepository(db, bus, registry)
+    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = EmptyAudibleApi(),
@@ -131,10 +132,15 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
         bookRepository = bookRepo,
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
-        imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-        coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
-        imageHome = Path(tempDir.toString()),
+        imageDeps =
+            MetadataImageDeps(
+                imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
+                coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
+                imageHome = Path(tempDir.toString()),
+            ),
         permissionPolicy = UserPermissionPolicy(db),
+        db = db,
+        genreRepository = genreRepo,
     )
 }
 
