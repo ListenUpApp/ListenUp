@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +60,9 @@ import org.jetbrains.compose.resources.stringResource
 
 private const val OUTER_ROTATION_MS = 9_000
 private const val INNER_ROTATION_MS = 7_000
+
+/** Lazy leftward drift speed for the cover strip — deliberately decoupled from scan throughput. */
+private val MARQUEE_SPEED_DP_PER_SECOND = 22.dp
 private const val CORE_PULSE_MS = 1_100
 private const val FILE_LINE_PULSE_MS = 700
 private const val PATH_TAIL_LENGTH = 48
@@ -173,9 +179,10 @@ fun StatChip(
 }
 
 /**
- * A growing strip of [BookCoverFallback] tiles for the books matched so far, newest at the end. As
- * the accumulated [books] list grows, the row auto-scrolls to follow the tail, so each freshly-matched
- * book slides in from the right while older covers drift off the left — it never loops or resets. Each
+ * A growing strip of [BookCoverFallback] tiles for the books matched so far, newest at the end. The
+ * row drifts leftward at a constant, lazy pace (see [MARQUEE_SPEED_DP_PER_SECOND]) — independent of
+ * how fast the [books] list grows — so covers glide off the left while newer ones wait their turn at
+ * the right; it never loops or resets, and a fast scan simply outruns it without making it race. Each
  * tile is keyed by the book it shows, so an already-displayed title keeps its exact place and contents;
  * a newly-scanned book is appended, never swapped in over an existing tile. Covers aren't available
  * mid-scan, so each tile is a deterministic title/author placeholder. The edges fade via a
@@ -189,11 +196,23 @@ fun ScanCoversMarquee(
 ) {
     if (books.isEmpty()) return
     val listState = rememberLazyListState()
-    // Follow the newest match: scrolling to the last index clamps to the end of the content, keeping
-    // the tail in view so new covers enter from the right. Keyed on the list so it advances on every
-    // append but stays put when an event carries no new book (idle = still).
-    LaunchedEffect(books) {
-        listState.animateScrollToItem(books.lastIndex)
+    // Drift the strip leftward at a constant, lazy pace, decoupled from how fast books arrive. A fast
+    // scan appends covers far quicker than the eye wants to track; chasing the tail on every append
+    // makes the row race. Instead we creep toward the tail at a fixed speed and simply fall behind —
+    // catching up before the scan finishes doesn't matter, the gentle motion is the point. When the
+    // strip is caught up there's nothing left to reveal, so it idles until the next book lands.
+    val density = LocalDensity.current
+    LaunchedEffect(listState, density) {
+        val pixelsPerSecond = with(density) { MARQUEE_SPEED_DP_PER_SECOND.toPx() }
+        var lastFrameNanos = withFrameNanos { it }
+        while (true) {
+            val frameNanos = withFrameNanos { it }
+            val elapsedSeconds = (frameNanos - lastFrameNanos) / 1_000_000_000f
+            lastFrameNanos = frameNanos
+            if (listState.canScrollForward) {
+                listState.scrollBy(pixelsPerSecond * elapsedSeconds)
+            }
+        }
     }
     val fade =
         Brush.horizontalGradient(
