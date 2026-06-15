@@ -104,7 +104,7 @@ fun ChapterNameReviewSheet(
 
             Surface(
                 modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 LazyColumn {

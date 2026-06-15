@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -67,6 +70,9 @@ fun ColorBlockHero(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // The primaryContainer Surface bleeds edge-to-edge behind the status bar; inset
+                    // only the content so the back button clears the system clock and stays tappable.
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(start = 8.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
         ) {
             Row(

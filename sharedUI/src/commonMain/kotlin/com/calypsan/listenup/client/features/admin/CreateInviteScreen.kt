@@ -508,7 +508,7 @@ private fun LinkPreviewCard(
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = colors.primaryContainer,
         contentColor = colors.onPrimaryContainer,
     ) {
