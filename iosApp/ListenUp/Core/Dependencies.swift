@@ -28,6 +28,8 @@ final class Dependencies {
     var serverConnectViewModel: ServerConnectViewModel { resolve { KoinHelper.shared.getServerConnectViewModel() } }
     var loginViewModel: LoginViewModel { resolve { KoinHelper.shared.getLoginViewModel() } }
     var registerViewModel: RegisterViewModel { resolve { KoinHelper.shared.getRegisterViewModel() } }
+    var setupViewModel: SetupViewModel { resolve { KoinHelper.shared.getSetupViewModel() } }
+    var claimInviteViewModel: ClaimInviteViewModel { resolve { KoinHelper.shared.getClaimInviteViewModel() } }
     var serverSelectViewModel: ServerSelectViewModel { resolve { KoinHelper.shared.getServerSelectViewModel() } }
     var librarySetupViewModel: LibrarySetupViewModel { resolve { KoinHelper.shared.getLibrarySetupViewModel() } }
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
@@ -67,6 +69,11 @@ final class Dependencies {
     }
 
     // MARK: - Detail ViewModels (fresh instance per screen)
+
+    /// Parametrized VM — a fresh instance per pending-approval session (carries userId/email + its SSE job).
+    func makePendingApprovalViewModel(userId: String, email: String) -> PendingApprovalViewModel {
+        KoinHelper.shared.getPendingApprovalViewModel(userId: userId, email: email)
+    }
 
     func createBookDetailViewModel() -> BookDetailViewModel { KoinHelper.shared.getBookDetailViewModel() }
     func createSeriesDetailViewModel() -> SeriesDetailViewModel { KoinHelper.shared.getSeriesDetailViewModel() }
