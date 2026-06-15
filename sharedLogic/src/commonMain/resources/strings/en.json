@@ -917,7 +917,9 @@
     "valid_email_is_required": "A valid email is required.",
     "view_the_genre_hierarchy_tree": "View the genre hierarchy tree",
     "what_to_include": "What to include",
-    "whos_joining": "Who's joining"
+    "whos_joining": "Who's joining",
+    "inbox_setting_title": "Hold new books for review",
+    "inbox_setting_subtitle": "New books wait in the inbox until an admin releases them."
   },
   "import": {
     "title": "Import from Audiobookshelf",

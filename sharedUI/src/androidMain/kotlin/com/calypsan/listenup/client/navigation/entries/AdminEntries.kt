@@ -72,6 +72,8 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onServerNameChange = { settingsViewModel.setServerName(it) },
             remoteUrl = readySettings?.remoteUrl ?: "",
             onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
+            inboxEnabled = readySettings?.inboxEnabled ?: false,
+            onInboxEnabledChange = { settingsViewModel.setInboxEnabled(it) },
             isDirty = readySettings?.isDirty == true,
             onSave = { settingsViewModel.saveAll() },
             settingsError =

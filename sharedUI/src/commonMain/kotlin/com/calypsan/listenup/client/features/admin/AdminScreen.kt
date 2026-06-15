@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Shield
@@ -76,6 +77,8 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_allow_anyone_to_request_an
+import listenup.composeapp.generated.resources.admin_inbox_setting_subtitle
+import listenup.composeapp.generated.resources.admin_inbox_setting_title
 import listenup.composeapp.generated.resources.admin_backup_restore
 import listenup.composeapp.generated.resources.admin_confirm_deny_registration
 import listenup.composeapp.generated.resources.admin_copy_link
@@ -130,6 +133,8 @@ fun AdminScreen(
     onServerNameChange: (String) -> Unit = {},
     remoteUrl: String = "",
     onRemoteUrlChange: (String) -> Unit = {},
+    inboxEnabled: Boolean = false,
+    onInboxEnabledChange: (Boolean) -> Unit = {},
     isDirty: Boolean = false,
     onSave: () -> Unit = {},
     settingsError: String? = null,
@@ -218,6 +223,8 @@ fun AdminScreen(
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
+                    inboxEnabled = inboxEnabled,
+                    onInboxEnabledChange = onInboxEnabledChange,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -314,6 +321,8 @@ private fun AdminContent(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    inboxEnabled: Boolean,
+    onInboxEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isExpanded =
@@ -339,6 +348,8 @@ private fun AdminContent(
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
             onRemoteUrlChange = onRemoteUrlChange,
+            inboxEnabled = inboxEnabled,
+            onInboxEnabledChange = onInboxEnabledChange,
             modifier = modifier,
         )
     } else {
@@ -357,6 +368,8 @@ private fun AdminContent(
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
+                    inboxEnabled = inboxEnabled,
+                    onInboxEnabledChange = onInboxEnabledChange,
                     onOpenRegistrationChange = onOpenRegistrationChange,
                 )
             }
@@ -404,6 +417,8 @@ private fun AdminTwoPaneContent(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    inboxEnabled: Boolean,
+    onInboxEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -422,6 +437,8 @@ private fun AdminTwoPaneContent(
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
+                    inboxEnabled = inboxEnabled,
+                    onInboxEnabledChange = onInboxEnabledChange,
                     onOpenRegistrationChange = onOpenRegistrationChange,
                 )
             }
@@ -466,6 +483,8 @@ private fun ServerSettingsSection(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    inboxEnabled: Boolean,
+    onInboxEnabledChange: (Boolean) -> Unit,
     onOpenRegistrationChange: (Boolean) -> Unit,
 ) {
     SectionGroup(
@@ -506,6 +525,17 @@ private fun ServerSettingsSection(
                     onCheckedChange = onOpenRegistrationChange,
                 )
             }
+        }
+        SettingRow(
+            icon = Icons.Outlined.Inbox,
+            title = stringResource(Res.string.admin_inbox_setting_title),
+            subtitle = stringResource(Res.string.admin_inbox_setting_subtitle),
+            showDivider = true,
+        ) {
+            Switch(
+                checked = inboxEnabled,
+                onCheckedChange = onInboxEnabledChange,
+            )
         }
     }
 }
