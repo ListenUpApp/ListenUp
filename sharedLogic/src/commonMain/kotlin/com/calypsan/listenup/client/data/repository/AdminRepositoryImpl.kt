@@ -15,7 +15,6 @@ import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
 import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
@@ -226,46 +225,24 @@ class AdminRepositoryImpl(
     // LIBRARY MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun getLibraries(): AppResult<List<Library>> =
-        catching("getLibraries") {
-            libraryAdminRpc.get().listLibraries().map { libraries -> libraries.map { it.toDomain() } }
-        }
-
-    // Load via the LibraryAdminService RPC (not the Go-era REST path) so the returned Library
-    // carries the live inboxEnabled flag — the settings toggle would otherwise display stale-false
-    // on open until interacted with. The RPC Library maps to the same domain shape (no folders on
-    // the domain model), so this is field-equivalent plus the inbox flag.
-    override suspend fun getLibrary(libraryId: String): AppResult<Library> =
+    override suspend fun getLibrary(): AppResult<Library> =
         catching("getLibrary") {
-            libraryAdminRpc.get().getLibrary(LibraryId(libraryId)).flatMap { library ->
-                library?.let { AppResult.Success(it.toDomain()) }
-                    ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
-            }
+            libraryAdminRpc.get().fetchLibrary().map { it.toDomain() }
         }
 
-    override suspend fun addScanPath(
-        libraryId: String,
-        path: String,
-    ): AppResult<Library> =
+    override suspend fun addScanPath(path: String): AppResult<Library> =
         catching("addScanPath") {
-            libraryAdminRpc.get().addFolder(LibraryId(libraryId), path).flatMap {
-                getLibrary(libraryId)
-            }
+            libraryAdminRpc.get().addFolderToLibrary(path).flatMap { getLibrary() }
         }
 
-    override suspend fun removeFolder(
-        libraryId: String,
-        folderId: String,
-    ): AppResult<Library> =
+    override suspend fun removeFolder(folderId: String): AppResult<Library> =
         catching("removeFolder") {
-            libraryAdminRpc.get().removeFolder(FolderId(folderId)).flatMap {
-                getLibrary(libraryId)
-            }
+            libraryAdminRpc.get().removeFolder(FolderId(folderId)).flatMap { getLibrary() }
         }
 
-    override suspend fun triggerScan(libraryId: String): AppResult<Unit> =
+    override suspend fun triggerScan(): AppResult<Unit> =
         catching("triggerScan") {
-            libraryAdminRpc.get().scanLibrary(LibraryId(libraryId))
+            libraryAdminRpc.get().triggerLibraryScan()
         }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =

@@ -45,9 +45,9 @@ private fun contractLibrary(
  */
 private class FakeLibraryAdminService : LibraryAdminService {
     val libraries = mutableMapOf<String, Library>()
-    var addFolderCalls = mutableListOf<Pair<String, String>>()
+    var addFolderToLibraryCalls = mutableListOf<String>()
     var removedFolderIds = mutableListOf<String>()
-    var scannedLibraryIds = mutableListOf<String>()
+    var triggerLibraryScanCount = 0
     var browsePaths = mutableListOf<String>()
     var browseResult: List<DirectoryEntry> = emptyList()
     private var folderSeq = 0
@@ -56,9 +56,13 @@ private class FakeLibraryAdminService : LibraryAdminService {
         libraries[library.id.value] = library
     }
 
+    private fun theLibrary(): Library = libraries.values.first()
+
     override suspend fun listLibraries(): AppResult<List<Library>> = AppResult.Success(libraries.values.toList())
 
     override suspend fun getLibrary(id: LibraryId): AppResult<Library?> = AppResult.Success(libraries[id.value])
+
+    override suspend fun fetchLibrary(): AppResult<Library> = AppResult.Success(theLibrary())
 
     override suspend fun getSetupStatus(): AppResult<SetupStatus> = AppResult.Success(SetupStatus(needsSetup = libraries.isEmpty(), libraryCount = libraries.size))
 
@@ -91,7 +95,6 @@ private class FakeLibraryAdminService : LibraryAdminService {
         libraryId: LibraryId,
         path: String,
     ): AppResult<LibraryFolder> {
-        addFolderCalls += libraryId.value to path
         val folderId = FolderId("f${folderSeq++}")
         val existing = libraries.getValue(libraryId.value)
         libraries[libraryId.value] =
@@ -101,13 +104,28 @@ private class FakeLibraryAdminService : LibraryAdminService {
         )
     }
 
+    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
+        addFolderToLibraryCalls += path
+        val lib = theLibrary()
+        val folderId = FolderId("f${folderSeq++}")
+        libraries[lib.id.value] =
+            lib.copy(folders = lib.folders + LibraryFolderRef(id = folderId, rootPath = path))
+        return AppResult.Success(
+            LibraryFolder(id = folderId, libraryId = lib.id, rootPath = path, createdAt = 1L),
+        )
+    }
+
     override suspend fun removeFolder(folderId: FolderId): AppResult<Unit> {
         removedFolderIds += folderId.value
         return AppResult.Success(Unit)
     }
 
     override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> {
-        scannedLibraryIds += libraryId.value
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun triggerLibraryScan(): AppResult<Unit> {
+        triggerLibraryScanCount++
         return AppResult.Success(Unit)
     }
 
@@ -136,7 +154,7 @@ private fun buildRepo(service: FakeLibraryAdminService): AdminRepositoryImpl =
 class AdminRepositoryImplLibraryTest :
     FunSpec({
 
-        test("getLibraries maps contract libraries to domain with folders populated") {
+        test("getLibrary returns THE library mapped to domain") {
             val service = FakeLibraryAdminService()
             service.seed(
                 contractLibrary(
@@ -150,37 +168,36 @@ class AdminRepositoryImplLibraryTest :
             )
             val repo = buildRepo(service)
 
-            val result = repo.getLibraries()
+            val result = repo.getLibrary()
 
             (result is AppResult.Success) shouldBe true
-            val libs = (result as AppResult.Success).data
-            libs.size shouldBe 1
-            libs.first().id shouldBe "lib1"
-            libs.first().folders.map { it.id } shouldBe listOf("f1", "f2")
-            libs.first().folders.map { it.rootPath } shouldBe listOf("/audiobooks", null)
+            val lib = (result as AppResult.Success).data
+            lib.id shouldBe "lib1"
+            lib.folders.map { it.id } shouldBe listOf("f1", "f2")
+            lib.folders.map { it.rootPath } shouldBe listOf("/audiobooks", null)
         }
 
-        test("addScanPath calls addFolder then returns the re-fetched library") {
+        test("addScanPath calls addFolderToLibrary then returns the re-fetched library") {
             val service = FakeLibraryAdminService()
             service.seed(contractLibrary(id = "lib1"))
             val repo = buildRepo(service)
 
-            val result = repo.addScanPath("lib1", "/new/path")
+            val result = repo.addScanPath("/new/path")
 
-            service.addFolderCalls shouldBe listOf("lib1" to "/new/path")
+            service.addFolderToLibraryCalls shouldBe listOf("/new/path")
             (result is AppResult.Success) shouldBe true
             val lib = (result as AppResult.Success).data
             lib.folders.map { it.rootPath } shouldBe listOf("/new/path")
         }
 
-        test("triggerScan calls scanLibrary with the library id") {
+        test("triggerScan calls triggerLibraryScan") {
             val service = FakeLibraryAdminService()
             service.seed(contractLibrary(id = "lib1"))
             val repo = buildRepo(service)
 
-            val result = repo.triggerScan("lib1")
+            val result = repo.triggerScan()
 
-            service.scannedLibraryIds shouldBe listOf("lib1")
+            service.triggerLibraryScanCount shouldBe 1
             (result is AppResult.Success) shouldBe true
         }
 
@@ -238,7 +255,7 @@ class AdminRepositoryImplLibraryTest :
             )
             val repo = buildRepo(service)
 
-            val result = repo.removeFolder("lib1", "f1")
+            val result = repo.removeFolder("f1")
 
             service.removedFolderIds shouldBe listOf("f1")
             (result is AppResult.Success<*>) shouldBe true
