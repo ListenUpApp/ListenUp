@@ -23,18 +23,38 @@ private val log = KotlinLogging.logger("mdns.MulticastMdnsResponder")
  * Pure-Kotlin advertise-only mDNS responder over [MulticastSocket]. Binds one socket per suitable
  * IPv4 interface (non-loopback, up, multicast-capable) joined to 224.0.0.251:5353 with address reuse
  * so it coexists with a host avahi/mDNSResponder. On [start] it sends the announcement x3 (~1s apart)
- * and serves PTR queries; on [stop] it sends a goodbye (TTL 0) and closes everything.
+ * and serves PTR queries; on [refresh] it rebuilds the TXT from [txtProvider] and re-announces; on
+ * [stop] it sends a goodbye (TTL 0) and closes everything.
+ *
+ * [txtProvider] is read on every [start]/[refresh] (not captured once), so the advertised TXT always
+ * reflects the live server identity — this is what lets an admin rename propagate without a restart.
+ * [instanceName] and [port] are fixed for the process lifetime.
  *
  * All failures are swallowed (logged) — advertisement is non-critical; the manual-URL fallback covers
  * a host without working multicast.
  */
 class MulticastMdnsResponder(
-    private val service: MdnsServiceInfo,
+    private val instanceName: String,
+    private val port: Int,
+    private val txtProvider: suspend () -> Map<String, String>,
     private val scope: CoroutineScope,
 ) : MdnsAdvertiser {
     private val group: InetAddress = InetAddress.getByName(GROUP)
     private val sockets = mutableListOf<Bound>()
     private val jobs = mutableListOf<Job>()
+
+    // The currently-advertised record. Volatile because the receive loop (Dispatchers.IO) reads it
+    // while start()/refresh() rewrite it. Seeded empty; filled from txtProvider() on start().
+    @Volatile
+    private var service: MdnsServiceInfo = MdnsServiceInfo(instanceName, port, emptyMap())
+
+    // True once start() ran (even if no interface was found). refresh() is a no-op before this so a
+    // disabled/never-started advertiser ignores rename nudges instead of half-announcing.
+    @Volatile
+    private var started = false
+
+    /** The currently-advertised record — test seam for asserting [refresh] picked up the new TXT. */
+    internal fun advertisedService(): MdnsServiceInfo = service
 
     private data class Bound(
         val socket: MulticastSocket,
@@ -43,6 +63,8 @@ class MulticastMdnsResponder(
     )
 
     override suspend fun start() {
+        service = MdnsServiceInfo(instanceName, port, txtProvider())
+        started = true
         withContext(Dispatchers.IO) {
             runCatching {
                 if (sockets.isNotEmpty()) return@runCatching
@@ -70,6 +92,24 @@ class MulticastMdnsResponder(
             }.onFailure { e ->
                 if (e is CancellationException) throw e
                 log.warn(e) { "mDNS: failed to start advertisement — continuing without it" }
+            }
+        }
+    }
+
+    override suspend fun refresh() {
+        if (!started) return
+        // Rebuild the advertised TXT from the live source (server name/remote URL may have changed),
+        // then re-announce x3 on every bound socket so caches replace the stale record promptly.
+        service = service.copy(txt = txtProvider())
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val bounds = sockets.toList()
+                if (bounds.isEmpty()) return@runCatching
+                bounds.forEach { bound -> jobs += scope.launch(Dispatchers.IO) { announce(bound) } }
+                log.info { "mDNS advertisement refreshed: re-announced on ${bounds.size} interface(s)" }
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                log.warn(e) { "mDNS: failed to refresh advertisement — keeping the previous announcement" }
             }
         }
     }

@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
-import com.calypsan.listenup.server.mdns.MdnsServiceInfo
 import com.calypsan.listenup.server.mdns.MulticastMdnsResponder
 import com.calypsan.listenup.server.mdns.buildMdnsTxt
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -13,11 +12,12 @@ import java.net.InetAddress
 
 /**
  * mDNS advertisement wiring. [applicationScope] hosts the responder's receive/announce coroutines;
- * [port] is the server's HTTP port (the advertised SRV port). The TXT `id` comes from the persistent
- * [InstanceIdentity]; `name` is the operator's configured server name; `remote` is advertised only when
- * an operator has set a remote URL. All three are resolved async at startup and passed into the advertiser
- * factory; `version`/`api` are the server's identity constants. Loads unconditionally — no library/DB
- * coupling beyond the one-time instance-id + settings read.
+ * [port] is the server's HTTP port (the advertised SRV port). The advertiser is a **singleton** so the
+ * settings-change path can re-announce the live instance (an admin rename must propagate without a
+ * restart). Its TXT is rebuilt from live sources on every start/refresh: `id` from the persistent
+ * [InstanceIdentity], `name` from the operator's configured server name, `remote` only when a remote
+ * URL is set; `version`/`api` are identity constants. Loads unconditionally — no library/DB coupling
+ * beyond the instance-id + settings reads, which happen lazily inside the TXT provider.
  */
 fun mdnsModule(
     applicationScope: CoroutineScope,
@@ -25,14 +25,15 @@ fun mdnsModule(
 ): Module =
     module {
         single { InstanceIdentity(get<ServerSettingsRepository>()) }
-        factory<MdnsAdvertiser> { (instanceId: String, serverName: String, remoteUrl: String?) ->
+        single<MdnsAdvertiser> {
+            val identity = get<InstanceIdentity>()
+            val settings = get<ServerSettingsRepository>()
             MulticastMdnsResponder(
-                service =
-                    MdnsServiceInfo(
-                        instanceName = hostname(),
-                        port = port,
-                        txt = buildMdnsTxt(instanceId, serverName, remoteUrl),
-                    ),
+                instanceName = hostname(),
+                port = port,
+                txtProvider = {
+                    buildMdnsTxt(identity.instanceId(), settings.serverName(), settings.remoteUrl())
+                },
                 scope = applicationScope,
             )
         }
