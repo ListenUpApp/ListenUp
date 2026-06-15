@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.navigation
 
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import kotlinx.serialization.Serializable
 
 /**
@@ -71,11 +72,14 @@ data class BookEdit(
  *
  * @property bookId The unique ID of the book to update.
  * @property asin The Audible ASIN of the matched book.
+ * @property region The Audible region the match was found in, carried over from the search screen so
+ *   the preview fetches in the same storefront instead of re-defaulting to US.
  */
 @Serializable
 data class MatchPreview(
     val bookId: String,
     val asin: String,
+    val region: AudibleRegion,
 ) : Route
 
 /**

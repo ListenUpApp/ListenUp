@@ -70,8 +70,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
     entry<MetadataSearch> { args ->
         com.calypsan.listenup.client.features.metadata.MetadataSearchRoute(
             bookId = args.bookId,
-            onResultSelected = { asin ->
-                backStack.add(MatchPreview(args.bookId, asin))
+            onResultSelected = { asin, region ->
+                backStack.add(MatchPreview(args.bookId, asin, region))
             },
             onBack = {
                 backStack.removeAt(backStack.lastIndex)
@@ -82,6 +82,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
         com.calypsan.listenup.client.features.metadata.MatchPreviewRoute(
             bookId = args.bookId,
             asin = args.asin,
+            region = args.region,
             onBack = {
                 backStack.removeAt(backStack.lastIndex)
             },

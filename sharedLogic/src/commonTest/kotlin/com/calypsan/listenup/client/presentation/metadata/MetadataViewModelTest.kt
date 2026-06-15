@@ -714,13 +714,67 @@ class MetadataViewModelTest :
             }
         }
 
+        test("changeRegion in Search phase re-runs the search with the new region") {
+            runTest {
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), AudibleRegion.US) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(makeBook(title = "US Edition"))))
+                everySuspend { repo.searchBooks(any(), AudibleRegion.CA) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(makeBook(title = "CA Edition"))))
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.search()
+                advanceUntilIdle()
+
+                vm.changeRegion(AudibleRegion.CA)
+                advanceUntilIdle()
+
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                state.region shouldBe AudibleRegion.CA
+                state.loadState
+                    .shouldBeInstanceOf<SearchLoadState.Loaded>()
+                    .results
+                    .single()
+                    .title shouldBe "CA Edition"
+                verifySuspend { repo.searchBooks(any(), AudibleRegion.CA) }
+            }
+        }
+
+        test("initForBook seeds an explicit region so the preview fetch uses it") {
+            runTest {
+                val book = makeBook(asin = "B007")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                // Mirrors MatchPreviewRoute initialising a fresh per-entry VM with the
+                // region carried across the navigation boundary from the search screen.
+                vm.initForBook(bookId = "b1", title = "", author = "", region = AudibleRegion.CA)
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.state.value
+                    .shouldBeInstanceOf<MetadataUiState.Preview>()
+                    .region shouldBe AudibleRegion.CA
+                verifySuspend { repo.getBookMetadata("B007", AudibleRegion.CA) }
+            }
+        }
+
         // ── reset() ───────────────────────────────────────────────────────────
 
         test("reset returns to Idle preserving region") {
             runTest {
-                val vm = buildVm(mock())
+                // changeRegion in Search now re-runs the search, so the repo must stub searchBooks.
+                val repo =
+                    mock<MetadataRepository> {
+                        everySuspend { searchBooks(any(), any()) } returns
+                            AppResult.Success(MetadataSearchResults(emptyList()))
+                    }
+                val vm = buildVm(repo)
                 vm.initForBook("b1", "Dune", "FH")
                 vm.changeRegion(AudibleRegion.DE)
+                advanceUntilIdle()
                 vm.reset()
 
                 val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Idle>()
