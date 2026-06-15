@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -31,6 +30,7 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.Serializable
 
 /**
  * The capstone proof of library-less onboarding: a server that boots with NO
@@ -38,9 +38,9 @@ import kotlinx.coroutines.withTimeout
  * routes, and the scanner background tasks all run with zero configured libraries) can,
  * in a single running process and with no restart:
  *
- *  1. report `needsSetup == true` (no library yet),
- *  2. accept a wizard `createLibrary` call,
- *  3. live-mount + scan the new library via the already-running `ScanOrchestrator`,
+ *  1. report `needsSetup == true` (no folder yet),
+ *  2. accept a wizard `addFolderToLibrary` call (`POST /api/v1/libraries/folders`),
+ *  3. live-mount + scan the new folder via the already-running `ScanOrchestrator`,
  *  4. serve the scanned books over the always-loaded `/api/v1/sync/books` substrate.
  *
  * This is the end-to-end guarantee that the unconditional-module / unconditional-route
@@ -53,7 +53,7 @@ import kotlinx.coroutines.withTimeout
 class LibraryLessOnboardingE2ETest :
     FunSpec({
 
-        test("library-less server: wizard creates a library, scans it live, books appear — no restart") {
+        test("library-less server: wizard adds a folder, scans it live, books appear — no restart") {
             // A temp library dir with one real (placeholder) book the scanner can ingest.
             // The scanner E2E proves zero-byte placeholder tracks group into a book.
             val libraryDir = Files.createTempDirectory("listenup-onboarding-e2e-lib-")
@@ -74,35 +74,31 @@ class LibraryLessOnboardingE2ETest :
                     val adminToken = client.mintRootToken()
 
                     // 2. The library-admin surface is PRESENT on a library-less boot (not 404),
-                    //    and reports that the server still needs onboarding.
+                    //    and reports that the server still needs onboarding (no folders yet).
                     val statusResponse = client.get("/api/v1/libraries/setup-status") { bearerAuth(adminToken) }
                     statusResponse.status shouldBe HttpStatusCode.OK
                     val status = statusResponse.body<SetupStatus>()
                     status.needsSetup shouldBe true
-                    // Singleton model: the library always exists (1), but has no folders yet.
-                    status.libraryCount shouldBe 1
 
-                    // 3. Wizard creates the library, pointing at the temp dir.
-                    val createResponse =
-                        client.post("/api/v1/libraries") {
+                    // 3. Wizard fetches THE library to confirm it exists (singleton model).
+                    val libraryResponse = client.get("/api/v1/libraries") { bearerAuth(adminToken) }
+                    libraryResponse.status shouldBe HttpStatusCode.OK
+                    val library = libraryResponse.body<Library>()
+
+                    // 4. Wizard adds a folder to THE library pointing at the temp dir.
+                    val addFolderResponse =
+                        client.post("/api/v1/libraries/folders") {
                             bearerAuth(adminToken)
                             contentType(ContentType.Application.Json)
-                            setBody(
-                                CreateLibraryRequest(
-                                    name = "Test Library",
-                                    folderPaths = listOf(libraryDir.toString()),
-                                ),
-                            )
+                            setBody(AddFolderBody(path = libraryDir.toString()))
                         }
-                    createResponse.status shouldBe HttpStatusCode.Created
-                    val library = createResponse.body<Library>()
+                    addFolderResponse.status shouldBe HttpStatusCode.Created
 
-                    // 4. Kick the live scan via the already-mounted orchestrator.
-                    val scanResponse =
-                        client.post("/api/v1/libraries/${library.id.value}/scan") { bearerAuth(adminToken) }
+                    // 5. Kick the live scan via the already-mounted orchestrator.
+                    val scanResponse = client.post("/api/v1/libraries/scan") { bearerAuth(adminToken) }
                     scanResponse.status shouldBe HttpStatusCode.Accepted
 
-                    // 5. Await books on the always-loaded sync substrate. The scan is async,
+                    // 6. Await books on the always-loaded sync substrate. The scan is async,
                     //    so poll the books page until at least one book lands.
                     val bookCount =
                         withTimeout(SCAN_AWAIT_TIMEOUT_MS) {
@@ -114,7 +110,7 @@ class LibraryLessOnboardingE2ETest :
                             count
                         }
 
-                    // 6. Books appeared: library-less boot → onboard → live scan → served, no restart.
+                    // 7. Books appeared: library-less boot → onboard → live scan → served, no restart.
                     bookCount shouldBeGreaterThanOrEqual 1
                 }
             } finally {
@@ -125,6 +121,10 @@ class LibraryLessOnboardingE2ETest :
 
 private const val SCAN_AWAIT_TIMEOUT_MS = 20_000L
 private const val POLL_INTERVAL_MS = 100L
+
+/** Request body for `POST /api/v1/libraries/folders`. */
+@Serializable
+private data class AddFolderBody(val path: String)
 
 private suspend fun HttpClient.mintRootToken(): String =
     post("/api/v1/auth/setup") {

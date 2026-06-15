@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.LibraryAdminService
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.LibraryTable
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -13,18 +12,18 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 private val logger = KotlinLogging.logger {}
 
 /**
- * Seeds the demo library — a "Demo Library" pointing at the pre-generated
- * synthetic audiobook library (produced by `:server:generateSeedLibrary`).
+ * Seeds the demo library — ensures the singleton library has the pre-generated
+ * synthetic audiobook folder registered (produced by `:server:generateSeedLibrary`).
  *
- * Writes through [LibraryAdminService.createLibrary] — the real domain
- * write-path — so the seeded library is indistinguishable from one created
- * via the REST surface. The scanner will pick up the pre-generated files once
- * a scan is triggered.
+ * Writes through [LibraryAdminService.addFolderToLibrary] — the real domain
+ * write-path — so the seeded folder is indistinguishable from one added via the
+ * REST surface. The scanner will pick up the pre-generated files once a scan is
+ * triggered.
  *
- * Idempotency: [isAlreadySeeded] returns `true` when any library row exists
- * in the `libraries` table (the demo profile is designed for a single library).
- * A failure response from [LibraryAdminService.createLibrary] is logged and
- * swallowed so a second `seed()` call never throws.
+ * Idempotency: [isAlreadySeeded] returns `true` when any active library row exists
+ * (the singleton library is always bootstrapped on first access). [addFolderToLibrary]
+ * silently returns [com.calypsan.listenup.api.error.LibraryError.DuplicateFolder] on
+ * a second call with the same path; [seed] swallows that so re-running is safe.
  *
  * Runs at order 5 — after [UserDomainSeeder] (order 0) and before the
  * scan-dependent [PlaybackPositionDomainSeeder] (order 10) and
@@ -51,21 +50,13 @@ internal class LibraryDomainSeeder(
         }
 
     override suspend fun seed() {
-        when (
-            val result =
-                libraryAdminService.createLibrary(
-                    CreateLibraryRequest(
-                        name = DEMO_LIBRARY_NAME,
-                        folderPaths = listOf(demoLibraryPath),
-                    ),
-                )
-        ) {
+        when (val result = libraryAdminService.addFolderToLibrary(demoLibraryPath)) {
             is AppResult.Success -> {
-                logger.info { "seed [$domainName]: Demo Library created id=${result.data.id.value}" }
+                logger.info { "seed [$domainName]: Demo folder registered id=${result.data.id.value} path=$demoLibraryPath" }
             }
 
             is AppResult.Failure -> {
-                logger.warn { "seed [$domainName]: createLibrary returned ${result.error.code} — skipping" }
+                logger.warn { "seed [$domainName]: addFolderToLibrary returned ${result.error.code} — skipping" }
             }
         }
     }

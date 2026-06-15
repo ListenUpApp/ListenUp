@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.dto.AccessMode
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
@@ -44,7 +43,7 @@ class LibraryDomainSeederTest :
             }
         }
 
-        test("seed() creates a Demo Library with the configured path") {
+        test("seed() registers the demo folder path via addFolderToLibrary") {
             withInMemoryDatabase {
                 val fake = FakeLibraryAdminService()
                 val seeder =
@@ -55,11 +54,8 @@ class LibraryDomainSeederTest :
                     )
                 runTest {
                     seeder.seed()
-                    fake.createCalls.size shouldBe 1
-                    fake.createCalls
-                        .single()
-                        .folderPaths
-                        .single() shouldBe demoPath
+                    fake.addFolderCalls.size shouldBe 1
+                    fake.addFolderCalls.single() shouldBe demoPath
                 }
             }
         }
@@ -95,7 +91,7 @@ class LibraryDomainSeederTest :
         test("seed() is idempotent — calling twice does not throw") {
             withInMemoryDatabase {
                 // On the second call the service returns DuplicateFolder; seed() must swallow it.
-                val fake = FakeLibraryAdminService(failSecondCreate = true)
+                val fake = FakeLibraryAdminService(failSecondAdd = true)
                 val seeder =
                     LibraryDomainSeeder(
                         db = this,
@@ -105,7 +101,7 @@ class LibraryDomainSeederTest :
                 runTest {
                     seeder.seed()
                     seeder.seed() // second call must not throw
-                    fake.createCalls.size shouldBe 2
+                    fake.addFolderCalls.size shouldBe 2
                 }
             }
         }
@@ -128,62 +124,48 @@ class LibraryDomainSeederTest :
 
 /**
  * Minimal fake [com.calypsan.listenup.api.LibraryAdminService] that records
- * [createLibrary] calls and optionally returns [LibraryError.DuplicateFolder]
+ * [addFolderToLibrary] calls and optionally returns [LibraryError.DuplicateFolder]
  * on the second call to simulate the idempotency scenario.
  */
 private class FakeLibraryAdminService(
-    private val failSecondCreate: Boolean = false,
+    private val failSecondAdd: Boolean = false,
 ) : com.calypsan.listenup.api.LibraryAdminService {
-    val createCalls = mutableListOf<CreateLibraryRequest>()
+    val addFolderCalls = mutableListOf<String>()
 
-    override suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library> {
-        createCalls.add(request)
-        if (failSecondCreate && createCalls.size > 1) {
-            return AppResult.Failure(LibraryError.DuplicateFolder())
-        }
-        return AppResult.Success(
+    override suspend fun fetchLibrary(): AppResult<Library> =
+        AppResult.Success(
             Library(
-                id = LibraryId("lib-${createCalls.size}"),
-                name = request.name,
-                folders =
-                    request.folderPaths.mapIndexed { i, path ->
-                        LibraryFolderRef(id = FolderId("folder-$i"), rootPath = path)
-                    },
+                id = LibraryId("lib-1"),
+                name = "Demo Library",
+                folders = emptyList(),
                 metadataPrecedence = "embedded,abs,sidecar",
                 accessMode = AccessMode.SHARED,
                 createdByUserId = null,
                 createdAt = System.currentTimeMillis(),
             ),
         )
-    }
 
-    override suspend fun listLibraries(): AppResult<List<Library>> = AppResult.Success(emptyList())
-
-    override suspend fun getLibrary(id: LibraryId): AppResult<Library?> = AppResult.Success(null)
-
-    override suspend fun getSetupStatus(): AppResult<SetupStatus> = AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+    override suspend fun getSetupStatus(): AppResult<SetupStatus> =
+        AppResult.Success(SetupStatus(needsSetup = true, isScanning = false))
 
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> = AppResult.Success(emptyList())
 
-    override suspend fun renameLibrary(
-        id: LibraryId,
-        name: String,
-    ): AppResult<Library> = AppResult.Failure(LibraryError.NotFound())
-
-    override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun addFolder(
-        libraryId: LibraryId,
-        path: String,
-    ): AppResult<LibraryFolder> = AppResult.Failure(LibraryError.NotFound())
+    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
+        addFolderCalls.add(path)
+        if (failSecondAdd && addFolderCalls.size > 1) {
+            return AppResult.Failure(LibraryError.DuplicateFolder())
+        }
+        return AppResult.Success(
+            LibraryFolder(
+                id = FolderId("folder-${addFolderCalls.size}"),
+                libraryId = LibraryId("lib-1"),
+                rootPath = path,
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+    }
 
     override suspend fun removeFolder(folderId: FolderId): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun fetchLibrary(): AppResult<Library> = AppResult.Failure(LibraryError.NotFound())
-
-    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> = AppResult.Failure(LibraryError.NotFound())
-
-    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun triggerLibraryScan(): AppResult<Unit> = AppResult.Success(Unit)
 

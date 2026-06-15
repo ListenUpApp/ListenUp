@@ -47,6 +47,15 @@ class LibraryResources {
     )
 
     /**
+     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.addFolderToLibrary] —
+     * `POST /api/v1/libraries/folders` registers a new root folder under THE library.
+     */
+    @Resource("folders")
+    class Folders(
+        val parent: LibraryResources = LibraryResources(),
+    )
+
+    /**
      * REST mirror for per-folder operations:
      * - `DELETE /api/v1/libraries/folders/{folderId}` → [com.calypsan.listenup.api.LibraryAdminService.removeFolder]
      *   (cascade-deletes folder's books)
@@ -68,5 +77,14 @@ class LibraryResources {
         val parent: LibraryResources = LibraryResources(),
         /** Folder id string. */
         val folderId: String,
+    )
+
+    /**
+     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.triggerLibraryScan] —
+     * `POST /api/v1/libraries/scan` triggers a full scan of THE library.
+     */
+    @Resource("scan")
+    class Scan(
+        val parent: LibraryResources = LibraryResources(),
     )
 }

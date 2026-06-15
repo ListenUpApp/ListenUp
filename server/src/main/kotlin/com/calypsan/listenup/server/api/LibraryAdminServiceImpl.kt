@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.AccessMode
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
@@ -26,7 +25,6 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import java.util.UUID
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
@@ -34,18 +32,17 @@ private val logger = KotlinLogging.logger {}
 /**
  * Server-side implementation of [LibraryAdminService].
  *
- * Manages the full lifecycle of libraries and their root folders through the
- * syncable-substrate repositories. Lifecycle mutations (create, delete, add/remove
- * folder) run inside a single [suspendTransaction] for atomicity, then call out
- * to [scanOrchestrator] **after** the transaction commits so the orchestrator's
- * watcher/scanner state reflects the committed DB state.
+ * Manages the single library and its root folders through the syncable-substrate
+ * repositories. Folder mutations (add/remove, scan) run through [suspendTransaction]
+ * for atomicity, then call out to [scanOrchestrator] **after** the transaction commits
+ * so the orchestrator's watcher/scanner state reflects the committed DB state.
  *
- * Library structure is ADMIN territory. Every mutating op — create/delete library,
- * add/remove folder, scan triggers — and the filesystem-exposing [browseFilesystem]
- * are gated through [requireAdmin] (ROOT/ADMIN pass; everyone else gets
- * [AuthError.PermissionDenied]). The read-only [listLibraries]/[getLibrary]/[getSetupStatus]
- * stay open to any authenticated caller: members need to list and resolve libraries for
- * normal content browsing, and the setup status drives first-launch onboarding.
+ * Library structure is ADMIN territory. Every mutating op — add/remove folder,
+ * scan triggers — and the filesystem-exposing [browseFilesystem] are gated through
+ * [requireAdmin] (ROOT/ADMIN pass; everyone else gets [AuthError.PermissionDenied]).
+ * The read-only [fetchLibrary] and [getSetupStatus] stay open to any authenticated
+ * caller: members need to resolve the library for normal content browsing, and the
+ * setup status drives first-launch onboarding.
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder ([PrincipalProvider.None]) that
@@ -62,23 +59,6 @@ internal class LibraryAdminServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : LibraryAdminService {
     // ── Observation ──────────────────────────────────────────────────────────
-
-    override suspend fun listLibraries(): AppResult<List<Library>> {
-        // Open to any authenticated caller: members list libraries to browse content.
-        val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val active = page.items.filter { it.deletedAt == null }
-        val libraries = active.map { it.toLibraryWithFolders() }
-        return AppResult.Success(libraries)
-    }
-
-    override suspend fun getLibrary(id: LibraryId): AppResult<Library?> {
-        // Open to any authenticated caller: members resolve a library by id while browsing.
-        val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val payload =
-            page.items.firstOrNull { it.id == id.value && it.deletedAt == null }
-                ?: return AppResult.Success(null)
-        return AppResult.Success(payload.toLibraryWithFolders())
-    }
 
     override suspend fun fetchLibrary(): AppResult<Library> {
         // Open to any authenticated caller: single-library resolution without an id.
@@ -97,10 +77,8 @@ internal class LibraryAdminServiceImpl(
         val id = libraryRegistry.currentLibrary()
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val folderCount = folderPage.items.count { it.libraryId == id.value && it.deletedAt == null }
-        val libPage = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val libraryCount = libPage.items.count { it.deletedAt == null }
         return AppResult.Success(
-            SetupStatus(needsSetup = folderCount == 0, libraryCount = libraryCount, isScanning = scanOrchestrator.isScanning()),
+            SetupStatus(needsSetup = folderCount == 0, isScanning = scanOrchestrator.isScanning()),
         )
     }
 
@@ -142,174 +120,7 @@ internal class LibraryAdminServiceImpl(
         }
     }
 
-    // ── Library lifecycle ────────────────────────────────────────────────────
-
-    override suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
-        // Single-library invariant: one library per server. If the singleton already exists,
-        // apply the request as a configuration update — rename it and add any requested folder
-        // paths (DuplicateFolder is silently skipped so re-running is idempotent). This keeps
-        // the wizard flow working against the pre-existing registry-bootstrapped singleton.
-        val existing = fetchLibrary()
-        if (existing is AppResult.Success) {
-            // Apply the requested name (renameLibrary handles its own substrate update).
-            renameLibrary(existing.data.id, request.name)
-            // Add requested folders; skip duplicates silently.
-            for (folderPath in request.folderPaths) {
-                val result = addFolderTo(existing.data.id, folderPath)
-                if (result is AppResult.Failure && result.error !is LibraryError.DuplicateFolder) {
-                    return AppResult.Failure(result.error)
-                }
-            }
-            val updated = fetchLibrary()
-            // Register with orchestrator so callers can immediately scan the library.
-            if (updated is AppResult.Success) scanOrchestrator.onLibraryAdded(updated.data)
-            return updated
-        }
-        return createNewLibrary(request)
-    }
-
-    private suspend fun createNewLibrary(request: CreateLibraryRequest): AppResult<Library> {
-        if (request.folderPaths.isEmpty()) {
-            return AppResult.Failure(LibraryError.InvalidPath(debugInfo = "At least one folder path is required."))
-        }
-        // Validate all paths exist before touching the DB
-        for (folderPath in request.folderPaths) {
-            val dir = Path(folderPath)
-            if (!SystemFileSystem.exists(dir) || SystemFileSystem.metadataOrNull(dir)?.isDirectory != true) {
-                return AppResult.Failure(
-                    LibraryError.InvalidPath(debugInfo = "Path does not exist or is not a directory: $folderPath"),
-                )
-            }
-        }
-        // Check for duplicate folder paths (any active folder across all libraries)
-        val duplicateCheck = checkForDuplicateFolders(request.folderPaths)
-        if (duplicateCheck != null) return duplicateCheck
-
-        val now = clock.now().toEpochMilliseconds()
-        val libraryId = LibraryId(UUID.randomUUID().toString())
-        val precedence = request.metadataPrecedence ?: "embedded,abs,sidecar"
-
-        // Create library row
-        val libraryPayload =
-            LibrarySyncPayload(
-                id = libraryId.value,
-                name = request.name,
-                metadataPrecedence = precedence,
-                accessMode = AccessMode.SHARED.name.lowercase(),
-                createdByUserId = null,
-                revision = 0L,
-                updatedAt = now,
-                createdAt = now,
-                deletedAt = null,
-            )
-        when (val result = libraryRepository.upsert(libraryPayload)) {
-            is AppResult.Failure -> return AppResult.Failure(result.error)
-            is AppResult.Success -> Unit
-        }
-
-        // Create folder rows
-        val folderRefs =
-            request.folderPaths.map { folderPath ->
-                val folderId = FolderId(UUID.randomUUID().toString())
-                val folderPayload =
-                    LibraryFolderSyncPayload(
-                        id = folderId.value,
-                        libraryId = libraryId.value,
-                        rootPath = folderPath,
-                        revision = 0L,
-                        updatedAt = now,
-                        createdAt = now,
-                        deletedAt = null,
-                    )
-                when (val result = libraryFolderRepository.upsert(folderPayload)) {
-                    is AppResult.Failure -> return AppResult.Failure(result.error)
-                    is AppResult.Success -> Unit
-                }
-                LibraryFolderRef(id = folderId, rootPath = folderPath)
-            }
-
-        val library =
-            Library(
-                id = libraryId,
-                name = request.name,
-                folders = folderRefs,
-                metadataPrecedence = precedence,
-                accessMode = AccessMode.SHARED,
-                createdByUserId = null,
-                createdAt = now,
-                inboxEnabled = false,
-            )
-
-        // Register with orchestrator AFTER DB commit
-        scanOrchestrator.onLibraryAdded(library)
-        return AppResult.Success(library)
-    }
-
-    override suspend fun renameLibrary(
-        id: LibraryId,
-        name: String,
-    ): AppResult<Library> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
-        val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val existing =
-            page.items.firstOrNull { it.id == id.value && it.deletedAt == null }
-                ?: return AppResult.Failure(LibraryError.NotFound())
-
-        val now = clock.now().toEpochMilliseconds()
-        val updated = existing.copy(name = name, updatedAt = now)
-        return when (val result = libraryRepository.upsert(updated)) {
-            is AppResult.Failure -> AppResult.Failure(result.error)
-            is AppResult.Success -> AppResult.Success(result.data.toLibraryWithFolders())
-        }
-    }
-
-    override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
-        val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val existing =
-            page.items.firstOrNull { it.id == id.value }
-                ?: return AppResult.Failure(LibraryError.NotFound())
-        if (existing.deletedAt != null) return AppResult.Success(Unit) // idempotent
-
-        // Cascade: soft-delete books → folders → library (one transaction per item
-        // since softDelete opens its own transaction; orchestration is sequential)
-        val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val activeFolders = folderPage.items.filter { it.libraryId == id.value && it.deletedAt == null }
-
-        // Soft-delete books belonging to this library's folders
-        val bookPage = bookRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val activeBooks = bookPage.items.filter { it.libraryId == id && it.deletedAt == null }
-        for (book in activeBooks) {
-            bookRepository.softDelete(
-                com.calypsan.listenup.core
-                    .BookId(book.id),
-            )
-        }
-        // Soft-delete folders
-        for (folder in activeFolders) {
-            libraryFolderRepository.softDelete(FolderId(folder.id))
-        }
-        // Soft-delete library
-        libraryRepository.softDelete(id)
-
-        // Tear down scanner AFTER DB mutations
-        scanOrchestrator.onLibraryRemoved(id)
-        return AppResult.Success(Unit)
-    }
-
     // ── Folder lifecycle ─────────────────────────────────────────────────────
-
-    override suspend fun addFolder(
-        libraryId: LibraryId,
-        path: String,
-    ): AppResult<LibraryFolder> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
-        val libraryPage = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        libraryPage.items.firstOrNull { it.id == libraryId.value && it.deletedAt == null }
-            ?: return AppResult.Failure(LibraryError.NotFound())
-        return addFolderTo(libraryId, path)
-    }
 
     override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
         requireAdmin()?.let { return AppResult.Failure(it) }
@@ -332,7 +143,7 @@ internal class LibraryAdminServiceImpl(
         if (duplicateCheck != null) return AppResult.Failure((duplicateCheck as AppResult.Failure).error)
 
         val now = clock.now().toEpochMilliseconds()
-        val folderId = FolderId(UUID.randomUUID().toString())
+        val folderId = FolderId(java.util.UUID.randomUUID().toString())
         val folderPayload =
             LibraryFolderSyncPayload(
                 id = folderId.value,
@@ -347,8 +158,16 @@ internal class LibraryAdminServiceImpl(
             is AppResult.Failure -> AppResult.Failure(result.error)
             is AppResult.Success -> {
                 val folder = LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = now)
-                val folderRef = LibraryFolderRef(id = folderId, rootPath = path)
-                scanOrchestrator.onFolderAdded(libraryId, folderRef)
+                // Re-register the library with the orchestrator so the Scanner picks up the
+                // updated folder list. onLibraryAdded rebuilds the scanner bundle (including a
+                // fresh Scanner instance that captures the current library.folders snapshot),
+                // while onFolderAdded only patches the existing bundle's library snapshot but
+                // NOT the Scanner's internal library copy. The re-registration is cheap: the
+                // scanner factory runs synchronously and no scan is in flight at this point.
+                val updatedLibrary = fetchLibrary()
+                if (updatedLibrary is AppResult.Success) {
+                    scanOrchestrator.onLibraryAdded(updatedLibrary.data)
+                }
                 AppResult.Success(folder)
             }
         }
@@ -380,15 +199,6 @@ internal class LibraryAdminServiceImpl(
     }
 
     // ── Scan triggers ────────────────────────────────────────────────────────
-
-    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> {
-        // Admin-only: triggering a scan is a privileged server operation.
-        requireAdmin()?.let { return AppResult.Failure(it) }
-        // Fire-and-forget: kick the scan off and return "accepted" immediately. The scan
-        // runs on the server's lifecycle scope and streams progress over SSE, so the
-        // caller (admin RPC / onboarding wizard) never blocks on the full walk.
-        return scanOrchestrator.scanLibraryAsync(libraryId)
-    }
 
     override suspend fun triggerLibraryScan(): AppResult<Unit> {
         // Admin-only: triggering a scan is a privileged server operation.
@@ -484,7 +294,6 @@ internal class LibraryAdminServiceImpl(
                         .UserId(it)
                 },
             createdAt = this.createdAt,
-            inboxEnabled = libraryRepository.readInboxEnabled(LibraryId(this.id)),
         )
     }
 }
