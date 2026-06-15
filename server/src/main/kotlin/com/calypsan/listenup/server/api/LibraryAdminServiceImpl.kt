@@ -129,6 +129,17 @@ internal class LibraryAdminServiceImpl(
 
     override suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library> {
         requireAdmin()?.let { return AppResult.Failure(it) }
+        // Single-library invariant: one library per server. If one already exists, return it
+        // (get-or-create) rather than creating a second — keeps the setup flow idempotent.
+        listLibraries().let { existing ->
+            if (existing is AppResult.Success && existing.data.isNotEmpty()) {
+                return AppResult.Success(existing.data.first())
+            }
+        }
+        return createNewLibrary(request)
+    }
+
+    private suspend fun createNewLibrary(request: CreateLibraryRequest): AppResult<Library> {
         if (request.folderPaths.isEmpty()) {
             return AppResult.Failure(LibraryError.InvalidPath(debugInfo = "At least one folder path is required."))
         }
