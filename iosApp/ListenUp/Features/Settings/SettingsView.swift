@@ -371,6 +371,7 @@ private struct SettingsLabel: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                 }
+                .accessibilityHidden(true)
         }
     }
 }
