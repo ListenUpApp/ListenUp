@@ -148,6 +148,7 @@ struct SearchObserverTests {
             genreSlugs: nil,
             tags: nil,
             coverPath: nil,
+            coverHash: nil,
             score: 0,
             highlight: nil
         )

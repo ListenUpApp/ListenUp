@@ -16,6 +16,7 @@ struct HomeWrapperTests {
             title: "The Way of Kings",
             authorNames: "Brandon Sanderson",
             coverPath: "/covers/wok.jpg",
+            coverHash: nil,
             coverBlurHash: "L6Pj0^jE.AyE",
             progress: 0.42,
             currentPositionMs: 1_000,
