@@ -31,6 +31,7 @@ import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -194,6 +195,7 @@ class MetadataLookupServiceImplTest :
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 val metadataService =
                     MetadataService(
@@ -375,6 +377,7 @@ private fun makeService(
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = GenreRepository(db, bus, syncRegistry),
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,

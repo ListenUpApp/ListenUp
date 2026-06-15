@@ -45,6 +45,7 @@ class BookServiceImplSearchAccessTest :
             val registry = SyncRegistry()
             val contributorRepo = ContributorRepository(this, bus, registry)
             val seriesRepo = SeriesRepository(this, bus, registry)
+            val genreRepo = GenreRepository(this, bus, registry)
             val bookRepo =
                 BookRepository(
                     db = this,
@@ -52,6 +53,7 @@ class BookServiceImplSearchAccessTest :
                     registry = registry,
                     contributorRepository = contributorRepo,
                     seriesRepository = seriesRepo,
+                    genreRepository = genreRepo,
                 )
             val service =
                 BookServiceImpl(
@@ -60,7 +62,7 @@ class BookServiceImplSearchAccessTest :
                     seriesRepo = seriesRepo,
                     coverStorage = CoverStorage(),
                     db = this,
-                    genreRepo = GenreRepository(this, bus, registry),
+                    genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(this),
                     permissionPolicy = UserPermissionPolicy(this),
                     principal = PrincipalProvider { error("Unscoped — call copyWith") },

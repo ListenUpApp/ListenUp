@@ -92,6 +92,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -213,6 +214,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -281,6 +283,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -341,6 +344,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -410,6 +414,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -498,6 +503,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )

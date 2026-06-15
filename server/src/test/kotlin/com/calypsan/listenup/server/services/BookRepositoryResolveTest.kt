@@ -197,6 +197,7 @@ private fun repository(db: Database): ResolveRepoFixture {
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db, bus, syncRegistry),
         )
     return ResolveRepoFixture(repo, registry)
 }

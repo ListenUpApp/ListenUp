@@ -54,6 +54,7 @@ class BookServiceImplUpdateTest :
             val syncRegistry = SyncRegistry()
             val contributorRepo = ContributorRepository(db, bus, syncRegistry)
             val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+            val genreRepo = GenreRepository(db, bus, syncRegistry)
             val repo =
                 BookRepository(
                     db = db,
@@ -61,6 +62,7 @@ class BookServiceImplUpdateTest :
                     registry = syncRegistry,
                     contributorRepository = contributorRepo,
                     seriesRepository = seriesRepo,
+                    genreRepository = genreRepo,
                 )
             val service =
                 BookServiceImpl(
@@ -69,7 +71,7 @@ class BookServiceImplUpdateTest :
                     seriesRepo = seriesRepo,
                     coverStorage = CoverStorage(),
                     db = db,
-                    genreRepo = GenreRepository(db, bus, syncRegistry),
+                    genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(db),
                     permissionPolicy = UserPermissionPolicy(db),
                     principal = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) },
@@ -173,6 +175,7 @@ class BookServiceImplUpdateTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
@@ -180,6 +183,7 @@ class BookServiceImplUpdateTest :
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
                     )
                 val service =
                     BookServiceImpl(
@@ -188,7 +192,7 @@ class BookServiceImplUpdateTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
-                        genreRepo = GenreRepository(db, bus, syncRegistry),
+                        genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
                         permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
@@ -218,6 +222,7 @@ class BookServiceImplUpdateTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
@@ -225,6 +230,7 @@ class BookServiceImplUpdateTest :
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
                     )
                 val service =
                     BookServiceImpl(
@@ -233,7 +239,7 @@ class BookServiceImplUpdateTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
-                        genreRepo = GenreRepository(db, bus, syncRegistry),
+                        genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
                         permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
@@ -326,6 +332,7 @@ class BookServiceImplUpdateTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
@@ -333,6 +340,7 @@ class BookServiceImplUpdateTest :
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
                     )
                 val service =
                     BookServiceImpl(
@@ -341,7 +349,7 @@ class BookServiceImplUpdateTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
-                        genreRepo = GenreRepository(db, bus, syncRegistry),
+                        genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
                         permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },

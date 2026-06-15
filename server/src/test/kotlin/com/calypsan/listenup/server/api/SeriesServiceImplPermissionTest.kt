@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -104,6 +105,7 @@ private fun makeService(db: Database): PermServiceDeps {
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = GenreRepository(db = db, bus = bus, registry = registry),
         )
     val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)

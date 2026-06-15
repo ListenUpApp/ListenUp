@@ -123,6 +123,7 @@ fun booksModule(
                 get(),
                 get(),
                 get(),
+                get<GenreRepository>(),
                 get(),
                 clock = get(),
                 collectionBookRepository = get(),

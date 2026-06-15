@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -115,7 +116,7 @@ class B2aMetadataApplyE2ETest :
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, GenreRepository(db, bus, syncRegistry))
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook = canned_WayOfKings()
@@ -201,7 +202,7 @@ class B2aMetadataApplyE2ETest :
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, GenreRepository(db, bus, syncRegistry))
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
@@ -261,7 +262,7 @@ class B2aMetadataApplyE2ETest :
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, GenreRepository(db, bus, syncRegistry))
 
                 val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
                 val metadataService =

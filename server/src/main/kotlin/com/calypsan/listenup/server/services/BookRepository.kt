@@ -76,6 +76,9 @@ private val log = KotlinLogging.logger {}
  * @param seriesRepository the syncable series catalogue;
  *   [upsertFromAnalyzed] resolves each series name through it before the
  *   aggregate write.
+ * @param genreRepository the syncable genres catalogue; backs the
+ *   [GenreAutoCreator] that the book-genre writer uses to auto-create a flat
+ *   live genre for any scanner string the alias/normalizer cascade can't resolve.
  */
 class BookRepository(
     db: Database,
@@ -83,6 +86,7 @@ class BookRepository(
     registry: SyncRegistry,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
+    private val genreRepository: GenreRepository,
     private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),
     clock: Clock = Clock.System,
     private val collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository? = null,
@@ -107,8 +111,8 @@ class BookRepository(
     /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
     private val bookFinder = BookFinder(db)
 
-    /** Genre junction write helpers — `book_genres` and `pending_book_genres` (no revision/bus). */
-    private val bookGenreWriter = BookGenreWriter(db, clock)
+    /** Genre junction write helpers — `book_genres` and auto-create for unknown strings (no revision/bus). */
+    private val bookGenreWriter = BookGenreWriter(db, clock, GenreAutoCreator(genreRepository))
 
     override val elementSerializer: KSerializer<BookSyncPayload> = BookSyncPayload.serializer()
 

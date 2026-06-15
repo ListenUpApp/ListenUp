@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -300,6 +301,7 @@ private fun makeUnmergeServiceAndDeps(db: Database): UnmergeServiceDeps {
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = GenreRepository(db, bus, syncRegistry),
         )
     val tagRepo = TagRepository(db = db, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = syncRegistry)

@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -193,6 +194,7 @@ internal fun withTestApplication(
                     registry = sharedRegistry,
                     contributorRepository = ContributorRepository(db, bus, sharedRegistry),
                     seriesRepository = SeriesRepository(db, bus, sharedRegistry),
+                    genreRepository = GenreRepository(db, bus, sharedRegistry),
                 )
             bookRepoForScope = bookRepo
             // Seed the library + folder a test book FKs to, so playback-event tests

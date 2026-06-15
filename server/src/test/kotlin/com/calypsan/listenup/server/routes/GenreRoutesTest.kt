@@ -76,6 +76,7 @@ class GenreRoutesTest :
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
                     )
                 val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db)
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)

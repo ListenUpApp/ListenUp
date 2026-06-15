@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldNotBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -31,9 +32,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * DB-backed coverage for the scanner's 3-step genre-resolution cascade in
- * [BookRepository.processGenreStrings]: curator alias ([GenreAliasTable]) →
+ * [BookGenreWriter.processGenreStrings]: curator alias ([GenreAliasTable]) →
  * built-in normalization ([GenreNormalizer] against the live taxonomy) →
- * unresolved ([PendingBookGenreTable]).
+ * auto-create a flat live genre ([GenreAutoCreator]).
  *
  * Seeds the real taxonomy via [GenreDomainSeeder] so the built-in normalizer's
  * canonical slugs resolve against actual genre rows.
@@ -43,7 +44,7 @@ class GenreResolutionScanTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
 
-        test("built-in normalizer resolves a known raw string; unknown parks in pending") {
+        test("built-in normalizer resolves a known raw string; unknown auto-creates a live genre") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -64,9 +65,13 @@ class GenreResolutionScanTest :
                     transaction(db) {
                         val sciFiId = GenreTable.findBySlug("science-fiction")
                         sciFiId shouldNotBe null
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(sciFiId)
-                        PendingBookGenreTable.bookIdsByRawString("Totally Unknown Genre Xyz") shouldContainExactly
-                            listOf("b1")
+                        // Known string normalizes to the seeded genre; unknown string is
+                        // auto-created as a flat live genre, so both land in book_genres.
+                        val newGenreId = GenreTable.findBySlug("totally-unknown-genre-xyz")
+                        newGenreId shouldNotBe null
+                        BookGenreTable.genresForBook("b1") shouldContainExactlyInAnyOrder
+                            listOf(sciFiId, newGenreId)
+                        PendingBookGenreTable.bookIdsByRawString("Totally Unknown Genre Xyz").shouldBeEmpty()
                         // No alias row was created — built-in resolution doesn't touch genre_aliases.
                         GenreAliasTable.aliasesForGenre(sciFiId!!).shouldBeEmpty()
                     }
@@ -167,6 +172,7 @@ private fun newRepo(db: Database): BookRepository {
         registry = syncRegistry,
         contributorRepository = ContributorRepository(db, bus, syncRegistry),
         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+        genreRepository = GenreRepository(db, bus, syncRegistry),
     )
 }
 

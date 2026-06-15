@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -196,6 +197,7 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = GenreRepository(db = db, bus = ChangeBus(), registry = SyncRegistry()),
         )
     val service =
         LibraryAdminServiceImpl(

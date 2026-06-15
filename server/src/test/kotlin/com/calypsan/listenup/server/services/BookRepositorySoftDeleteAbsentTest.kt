@@ -143,6 +143,7 @@ private fun repository(
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db, bus, syncRegistry),
         )
     return SoftDeleteRepoFixture(repo, registry)
 }

@@ -57,6 +57,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     // Seed the contributor/series catalogue rows the junction-row FKs
@@ -126,6 +127,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     transaction(db) {
@@ -194,6 +196,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     transaction(db) {
@@ -250,6 +253,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val warned =
@@ -290,6 +294,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     // Insert a book row directly with a bogus cover_source value that
@@ -350,6 +355,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     transaction(db) {
@@ -415,6 +421,7 @@ class BookRepositoryUpsertTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))

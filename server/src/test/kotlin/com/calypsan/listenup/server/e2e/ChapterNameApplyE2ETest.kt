@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -145,7 +146,7 @@ private fun wire(
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, registry)
     val seriesRepo = SeriesRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
+    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, GenreRepository(db, bus, registry))
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(chapters),

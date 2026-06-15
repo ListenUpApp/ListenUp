@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -215,6 +216,7 @@ private fun makeMergeSeriesServiceAndDeps(db: Database): MergeSeriesServiceDeps 
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = GenreRepository(db = db, bus = bus, registry = syncRegistry),
         )
     val tagRepo = TagRepository(db = db, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = syncRegistry)
