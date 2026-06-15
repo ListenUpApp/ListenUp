@@ -178,7 +178,6 @@ class MatchApplySelectionTest :
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
                 metadataProvider = provider,
                 genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
-                db = db,
                 ladderSource = { _, _ -> ladders },
             )
         }
@@ -368,7 +367,7 @@ class MatchApplySelectionTest :
             }
         }
 
-        test("a matched book with a category ladder is linked to the nested leaf genre") {
+        test("applying a match links only the selected genres while building the full taxonomy tree") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -392,15 +391,91 @@ class MatchApplySelectionTest :
                             ladders = listOf(listOf("Fiction", "Fantasy", "LitRPG")),
                         )
 
-                    // genres selection must be non-empty for the ladder path to engage.
+                    // The user selected only "Fiction"; "Fantasy"/"LitRPG" were deselected.
                     val sel = allButCover().copy(genres = setOf("Fiction"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    // Every rung is linked …
+                    // Only the selected genre is linked to the book — deselected rungs are NOT re-added.
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.genres.map { it.name }.toSet() shouldBe setOf("Fiction")
+
+                    // … yet the taxonomy is still built/nested for the full ladder (depth 2, full path).
+                    val leaf = genreRepo.findBySlug("litrpg")!!
+                    leaf.depth shouldBe 2
+                    leaf.path shouldBe "/fiction/fantasy/litrpg"
+                }
+            }
+        }
+
+        test("selecting every rung of a ladder links the book to all of them, nested") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a =
+                        applier(
+                            db,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            fakeProvider(matchBook()),
+                            ladders = listOf(listOf("Fiction", "Fantasy", "LitRPG")),
+                        )
+
+                    val sel = allButCover().copy(genres = setOf("Fiction", "Fantasy", "LitRPG"))
+                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
                     val saved = books.findById(BookId("b1"))!!
                     saved.genres.map { it.name }.toSet() shouldBe setOf("Fiction", "Fantasy", "LitRPG")
 
-                    // … and the leaf is nested under the ladder (depth 2, full materialized path).
+                    val leaf = genreRepo.findBySlug("litrpg")!!
+                    leaf.depth shouldBe 2
+                    leaf.path shouldBe "/fiction/fantasy/litrpg"
+                }
+            }
+        }
+
+        test("selecting only the leaf links just the leaf while still building its ancestor taxonomy") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a =
+                        applier(
+                            db,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            fakeProvider(matchBook()),
+                            ladders = listOf(listOf("Fiction", "Fantasy", "LitRPG")),
+                        )
+
+                    val sel = allButCover().copy(genres = setOf("LitRPG"))
+                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    // Only the leaf is linked even though its ancestors weren't selected …
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.genres.map { it.name }.toSet() shouldBe setOf("LitRPG")
+
+                    // … and the ancestor taxonomy is still built, nesting the leaf at depth 2.
                     val leaf = genreRepo.findBySlug("litrpg")!!
                     leaf.depth shouldBe 2
                     leaf.path shouldBe "/fiction/fantasy/litrpg"

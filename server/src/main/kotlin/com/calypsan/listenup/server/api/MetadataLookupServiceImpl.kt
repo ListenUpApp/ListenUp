@@ -195,7 +195,6 @@ internal class MetadataLookupServiceImpl(
             coverImageStore = imageDeps.coverImageStore,
             metadataProvider = audible,
             genreHierarchy = GenreHierarchyFromLadder(db, genreRepository, genreAutoCreator),
-            db = db,
             ladderSource = { r, a ->
                 when (val book = metadataService.getBook(r, a)) {
                     is AppResult.Success -> book.data?.genreLadders.orEmpty()

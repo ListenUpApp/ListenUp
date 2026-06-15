@@ -14,7 +14,6 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.cover.CoverImageStore
-import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
@@ -23,8 +22,6 @@ import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -62,7 +59,6 @@ internal class BookMetadataApplier(
     private val coverImageStore: CoverImageStore,
     private val metadataProvider: MetadataProvider,
     private val genreHierarchy: GenreHierarchyFromLadder,
-    private val db: Database,
     private val ladderSource: suspend (region: AudibleRegion, asin: String) -> List<List<String>>,
 ) {
     suspend fun apply(
@@ -203,15 +199,20 @@ internal class BookMetadataApplier(
     }
 
     /**
-     * Nests the matched book's genres from Audible's category ladders and links the book to every
-     * rung (root → leaf), so browsing a parent genre surfaces the book and the leaf is its most
-     * specific genre. Obtains the structured ladders server-side via [ladderSource] (the wire
-     * [MetadataBook] only carries the flat dedup). Runs AFTER [applyGenresBestEffort] (whose
-     * `setBookGenres` wipes the junction first) so the additive rung links survive, and BEFORE the
-     * book `upsert` so the re-read junction rides the same SSE event + revision bump.
+     * Builds and nests the taxonomy tree for the matched book's Audible category ladders via
+     * [GenreHierarchyFromLadder.ensureLadder], so the genres the user kept get nested under their
+     * parents (correct `path`/`parentId`) and browse-by-parent works. Obtains the structured
+     * ladders server-side via [ladderSource] (the wire [MetadataBook] only carries the flat dedup).
+     *
+     * Does NOT add any `book_genres` links: [applyGenresBestEffort] already linked the book to
+     * exactly the genres the user selected, and `ensureLadder` only adjusts those genres'
+     * `path`/`parentId` (the book's junction rows still point to them, now nested). Rungs the user
+     * deselected become taxonomy nodes but are never linked to the book — honoring
+     * [MetadataApplySelection.genres].
      *
      * Best-effort: a failure is logged and skipped so already-committed metadata is not rolled back.
-     * [CancellationException] is always re-raised. No-ops when the match has no ladders.
+     * [CancellationException] is always re-raised. No-ops when the selection is empty or the match
+     * has no ladders.
      */
     private suspend fun applyGenreHierarchyBestEffort(
         bookId: BookId,
@@ -225,13 +226,7 @@ internal class BookMetadataApplier(
             if (ladders.isEmpty()) return
 
             for (ladder in ladders) {
-                val rungIds = genreHierarchy.ensureLadder(ladder)
-                if (rungIds.isEmpty()) continue
-                suspendTransaction(db) {
-                    for (rungId in rungIds) {
-                        BookGenreTable.insertIfAbsent(bookId.value, rungId)
-                    }
-                }
+                genreHierarchy.ensureLadder(ladder)
             }
         } catch (e: CancellationException) {
             throw e

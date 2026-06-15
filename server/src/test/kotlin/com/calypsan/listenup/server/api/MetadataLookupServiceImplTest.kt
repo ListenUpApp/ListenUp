@@ -239,7 +239,6 @@ class MetadataLookupServiceImplTest :
                             coverImageStore = coverImageStore,
                             metadataProvider = AudibleMetadataProvider(metadataService),
                             genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
-                            db = db,
                             ladderSource = { _, _ -> emptyList() },
                         )
                     val coverSelection =
