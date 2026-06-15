@@ -65,6 +65,15 @@ interface LibraryAdminService {
      */
     suspend fun getLibrary(id: LibraryId): AppResult<Library?>
 
+    /**
+     * Returns THE library (single-library model) with its [Library.folders] populated.
+     *
+     * In the single-library model there is exactly one library; this resolves it without
+     * an id. Prefer this over [getLibrary] in all single-library contexts.
+     * Open to any authenticated caller.
+     */
+    suspend fun fetchLibrary(): AppResult<Library>
+
     // ── Setup / onboarding ───────────────────────────────────────────────────
 
     /**
@@ -177,6 +186,15 @@ interface LibraryAdminService {
     ): AppResult<LibraryFolder>
 
     /**
+     * Registers a new folder at [path] under THE library and returns the created [LibraryFolder].
+     *
+     * Validates the path (must exist and be a readable directory). Prefer this over
+     * [addFolder] in all single-library contexts. Admin-only —
+     * non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
+     */
+    suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder>
+
+    /**
      * Removes the folder identified by [folderId] and cascade-deletes its books.
      *
      * Cascade semantics (all performed inside one `suspendTransaction`):
@@ -209,6 +227,13 @@ interface LibraryAdminService {
      * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit>
+
+    /**
+     * Triggers a full scan of THE library. Fire-and-forget: returns once the scan is
+     * accepted; progress streams over SSE. Prefer this over [scanLibrary] in all
+     * single-library contexts. Admin-only.
+     */
+    suspend fun triggerLibraryScan(): AppResult<Unit>
 
     /**
      * Triggers an incremental scan of the folder identified by [folderId].
