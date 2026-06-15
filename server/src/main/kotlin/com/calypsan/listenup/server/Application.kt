@@ -735,7 +735,8 @@ internal suspend fun bootstrapLibraries(
     when {
         existing.isNotEmpty() -> {
             logger.info { "bootstrap: ${existing.size} library(s) already configured; env var ignored" }
-            existing.forEach { library ->
+            val library = existing.firstOrNull()
+            if (library != null) {
                 scanOrchestrator.onLibraryAdded(library)
                 if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(library.id)
             }
@@ -769,8 +770,11 @@ private suspend fun bootstrapRecheckAndRegister(
         logger.info {
             "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator"
         }
-        recheck.data.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
-        if (rescanOnStartup) recheck.data.forEach { library -> scanOrchestrator.scanLibraryAsync(library.id) }
+        val library = recheck.data.firstOrNull()
+        if (library != null) {
+            scanOrchestrator.onLibraryAdded(library)
+            if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(library.id)
+        }
     }
 }
 

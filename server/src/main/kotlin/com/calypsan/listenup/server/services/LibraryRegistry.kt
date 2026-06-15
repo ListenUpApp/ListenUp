@@ -14,22 +14,19 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
- * Resolves the single library id for this server process (Books-A bootstrap
- * shim — superseded by [LibraryRepository] + `LibraryAdminServiceImpl` in the
- * Libraries phase).
+ * Resolves THE single library for this server process.
  *
- * Finds the first non-deleted library row on first [currentLibrary] call and
- * caches the result for the process lifetime. If no library exists, bootstraps
- * one using `LISTENUP_LIBRARY_PATH` as the name (a placeholder until
- * [LibraryAdminServiceImpl.createLibrary] is wired at startup — see Task 18).
- *
- * TODO: remove once the Libraries phase (Task 18) wires bootstrap in
- * Application.kt and the scanner is reshaped to take a [Library] (Task 10).
+ * Finds the one non-deleted library row on first [currentLibrary] call and caches
+ * the result for the process lifetime. If no library row exists yet (first boot
+ * before [Application.bootstrapLibraries] has run, or a test fixture that hasn't
+ * seeded one), bootstraps a row using the `LISTENUP_LIBRARY_PATH` env var as the
+ * path — failing loudly when that var is also absent, because there is nothing
+ * sensible to fabricate from.
  *
  * @param db Exposed database the `libraries` row lives in.
- * @param env environment map (injectable for tests). Defaults empty — the real
- *   bootstrap is now [Application.bootstrapLibraries], so production no longer
- *   feeds a `LISTENUP_LIBRARY_PATH` fallback here.
+ * @param env environment map (injectable for tests). Defaults empty — production
+ *   bootstrap runs via [Application.bootstrapLibraries] and no longer relies on
+ *   the env-var fallback here.
  * @param metadataPrecedence the operator-configured textual-metadata precedence.
  */
 class LibraryRegistry(
@@ -68,7 +65,6 @@ class LibraryRegistry(
         return LibraryId(cachedId.get()!!)
     }
 
-    // TODO: remove when Task 18 (Application.kt bootstrap) lands — LIB-C.
     private fun bootstrapLibrary(): String {
         // The real bootstrap is Application.bootstrapLibraries. Without a usable
         // env path there is nothing to fabricate a library from — fail loud
