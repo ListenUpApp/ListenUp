@@ -65,10 +65,11 @@ class AdminSettingsServiceImplTest :
         test("getServerSettings returns default server name and null remoteUrl when unset") {
             withInMemoryDatabase {
                 runTest {
-                    val (svc, _, libraryRegistry) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        principal = principalFor("root1", UserRole.ROOT),
-                    )
+                    val (svc, _, libraryRegistry) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("root1", UserRole.ROOT))
                     val settings = svc.getServerSettings().shouldSucceed()
                     settings.serverName shouldBe ServerIdentity.NAME
@@ -81,10 +82,11 @@ class AdminSettingsServiceImplTest :
         test("updateServerSettings persists serverName and remoteUrl for ADMIN and fresh read reflects the change") {
             withInMemoryDatabase {
                 runTest {
-                    val (svc) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        principal = principalFor("a1", UserRole.ADMIN),
-                    )
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            principal = principalFor("a1", UserRole.ADMIN),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("a1", UserRole.ADMIN))
                     val updated =
                         svc
@@ -106,10 +108,11 @@ class AdminSettingsServiceImplTest :
         test("getServerSettings by a MEMBER is rejected with PermissionDenied") {
             withInMemoryDatabase {
                 runTest {
-                    val (svc) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        principal = principalFor("m1", UserRole.MEMBER),
-                    )
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            principal = principalFor("m1", UserRole.MEMBER),
+                        )
                     svc.getServerSettings().shouldFail<AuthError.PermissionDenied>()
                 }
             }
@@ -119,10 +122,11 @@ class AdminSettingsServiceImplTest :
         test("updateServerSettings with a blank serverName returns InvalidInput") {
             withInMemoryDatabase {
                 runTest {
-                    val (svc) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        principal = principalFor("root1", UserRole.ROOT),
-                    )
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("root1", UserRole.ROOT))
                     svc
                         .updateServerSettings(AdminServerSettingsPatch(serverName = "   "))
@@ -135,10 +139,11 @@ class AdminSettingsServiceImplTest :
         test("updateServerSettings with empty remoteUrl clears the stored remote URL") {
             withInMemoryDatabase {
                 runTest {
-                    val (svc) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        principal = principalFor("root1", UserRole.ROOT),
-                    )
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("root1", UserRole.ROOT))
 
                     // first set a URL
@@ -159,11 +164,12 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val bus = ChangeBus()
-                    val (svc) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        bus = bus,
-                        principal = principalFor("a1", UserRole.ADMIN),
-                    )
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            bus = bus,
+                            principal = principalFor("a1", UserRole.ADMIN),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("a1", UserRole.ADMIN))
 
                     bus.subscribeControl().test {
@@ -182,11 +188,12 @@ class AdminSettingsServiceImplTest :
             withInMemoryDatabase {
                 runTest {
                     val bus = ChangeBus()
-                    val (svc) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        bus = bus,
-                        principal = principalFor("a1", UserRole.ADMIN),
-                    )
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            bus = bus,
+                            principal = principalFor("a1", UserRole.ADMIN),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("a1", UserRole.ADMIN))
 
                     bus.subscribeControl().test {
@@ -201,10 +208,11 @@ class AdminSettingsServiceImplTest :
         test("updateServerSettings inboxEnabled persists to the library and round-trips through getServerSettings") {
             withInMemoryDatabase {
                 runTest {
-                    val (svc, libraryRepository, libraryRegistry) = makeAdminSettingsService(
-                        db = this@withInMemoryDatabase,
-                        principal = principalFor("root1", UserRole.ROOT),
-                    )
+                    val (svc, libraryRepository, libraryRegistry) =
+                        makeAdminSettingsService(
+                            db = this@withInMemoryDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
                     seedLibrary(this@withInMemoryDatabase, principalFor("root1", UserRole.ROOT))
 
                     svc.getServerSettings().shouldSucceed().inboxEnabled shouldBe false
@@ -233,12 +241,13 @@ private fun makeAdminSettingsService(
 ): AdminSettingsFixture {
     val libraryRepo = LibraryRepository(db = db, bus = bus, registry = SyncRegistry())
     val libraryRegistry = LibraryRegistry(db = db)
-    val svc = AdminSettingsServiceImpl(
-        settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN),
-        changeBus = bus,
-        libraryRegistry = libraryRegistry,
-        libraryRepository = libraryRepo,
-    ).copyWith(principal)
+    val svc =
+        AdminSettingsServiceImpl(
+            settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN),
+            changeBus = bus,
+            libraryRegistry = libraryRegistry,
+            libraryRepository = libraryRepo,
+        ).copyWith(principal)
     return AdminSettingsFixture(svc, libraryRepo, libraryRegistry)
 }
 
@@ -256,13 +265,14 @@ private suspend fun seedLibrary(
     val folderRepo = LibraryFolderRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
     val contributorRepo = ContributorRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
     val seriesRepo = SeriesRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-    val bookRepo = BookRepository(
-        db = db,
-        bus = ChangeBus(),
-        registry = SyncRegistry(),
-        contributorRepository = contributorRepo,
-        seriesRepository = seriesRepo,
-    )
+    val bookRepo =
+        BookRepository(
+            db = db,
+            bus = ChangeBus(),
+            registry = SyncRegistry(),
+            contributorRepository = contributorRepo,
+            seriesRepository = seriesRepo,
+        )
     val dir = Files.createTempDirectory("listenup-seed-").toFile().apply { deleteOnExit() }
     LibraryAdminServiceImpl(
         libraryRepository = libraryRepo,
@@ -276,36 +286,48 @@ private suspend fun seedLibrary(
 private fun noOpOrchestrator(): ScanOrchestrator =
     ScanOrchestrator(
         scannerFactory = { library ->
-            val coordinator = ScanCoordinator(
-                libraryId = library.id,
-                runFullScan = {
-                    ScanResult(
-                        correlationId = "test",
-                        rootPath = library.folders.firstOrNull()?.rootPath ?: "/tmp",
-                        books = emptyList(),
-                        changes = emptyList(),
-                        errors = emptyList(),
-                        durationMs = 0,
-                        filesWalked = 0,
-                        filesSkipped = 0,
-                        scope = ScanScope.Full,
-                    )
-                },
-                runIncremental = {},
-                scope = GlobalScope,
-            )
+            val coordinator =
+                ScanCoordinator(
+                    libraryId = library.id,
+                    runFullScan = {
+                        ScanResult(
+                            correlationId = "test",
+                            rootPath = library.folders.firstOrNull()?.rootPath ?: "/tmp",
+                            books = emptyList(),
+                            changes = emptyList(),
+                            errors = emptyList(),
+                            durationMs = 0,
+                            filesWalked = 0,
+                            filesSkipped = 0,
+                            scope = ScanScope.Full,
+                        )
+                    },
+                    runIncremental = {},
+                    scope = GlobalScope,
+                )
             ScannerBundle(
                 library = library,
-                scanner = object : ScannerResultPort { override fun lastResult(): ScanResult? = null },
+                scanner =
+                    object : ScannerResultPort {
+                        override fun lastResult(): ScanResult? = null
+                    },
                 coordinator = coordinator,
             )
         },
-        watcherSupervisor = object : WatcherSupervisorPort {
-            override suspend fun mount(libraryId: LibraryId, folder: com.calypsan.listenup.api.dto.LibraryFolderRef, onEvent: suspend (LibraryId, Path) -> Unit) = Unit
-            override suspend fun unmount(folderId: FolderId) = Unit
-            override suspend fun unmountAllForLibrary(libraryId: LibraryId) = Unit
-            override suspend fun unmountAll() = Unit
-        },
+        watcherSupervisor =
+            object : WatcherSupervisorPort {
+                override suspend fun mount(
+                    libraryId: LibraryId,
+                    folder: com.calypsan.listenup.api.dto.LibraryFolderRef,
+                    onEvent: suspend (LibraryId, Path) -> Unit,
+                ) = Unit
+
+                override suspend fun unmount(folderId: FolderId) = Unit
+
+                override suspend fun unmountAllForLibrary(libraryId: LibraryId) = Unit
+
+                override suspend fun unmountAll() = Unit
+            },
     )
 
 private fun <T> AppResult<T>.shouldSucceed(): T = shouldBeInstanceOf<AppResult.Success<T>>().data

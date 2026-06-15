@@ -196,7 +196,13 @@ class AdminRepositoryImpl(
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
         catching("getServerSettings") {
-            adminSettingsRpc.get().getServerSettings().map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
+            adminSettingsRpc.get().getServerSettings().map {
+                ServerSettings(
+                    it.serverName,
+                    it.remoteUrl,
+                    it.inboxEnabled,
+                )
+            }
         }
 
     override suspend fun updateServerSettings(
@@ -207,8 +213,13 @@ class AdminRepositoryImpl(
         catching("updateServerSettings") {
             adminSettingsRpc
                 .get()
-                .updateServerSettings(AdminServerSettingsPatch(serverName = serverName, remoteUrl = remoteUrl, inboxEnabled = inboxEnabled))
-                .map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
+                .updateServerSettings(
+                    AdminServerSettingsPatch(
+                        serverName = serverName,
+                        remoteUrl = remoteUrl,
+                        inboxEnabled = inboxEnabled,
+                    ),
+                ).map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
         }
 
     // ═══════════════════════════════════════════════════════════════════════

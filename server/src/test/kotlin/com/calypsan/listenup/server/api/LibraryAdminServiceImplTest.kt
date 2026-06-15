@@ -652,7 +652,6 @@ class LibraryAdminServiceImplTest :
                 }
             }
         }
-
     })
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
