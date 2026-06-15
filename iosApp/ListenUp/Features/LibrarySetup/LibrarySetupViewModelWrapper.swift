@@ -87,22 +87,13 @@ final class LibrarySetupViewModelWrapper {
     // Library creation
     private(set) var isCreatingLibrary: Bool = false
 
-    /// The library name. Two-way bound by the view; writes forward to the shared VM.
-    var libraryName: String = "My Library" {
-        didSet {
-            guard libraryName != oldValue else { return }
-            viewModel.setLibraryName(name: libraryName)
-        }
-    }
-
     // Scan progress (cross-cutting, from SyncRepository)
     private(set) var scan: ScanProgressItem?
 
     // Error (mapped once from state.error)
     private(set) var errorMessage: String?
 
-    /// Navigation callbacks — set by the view.
-    var onLibraryCreated: (() -> Void)?
+    /// Navigation callbacks — set by the coordinator.
     var onFinished: (() -> Void)?
 
     /// The shared VM. Implicitly-unwrapped because the bridge-free test initializer
@@ -158,12 +149,8 @@ final class LibrarySetupViewModelWrapper {
         viewModel.clearSelection()
     }
 
-    func create() {
-        viewModel.createLibrary()
-    }
-
-    func finish() {
-        viewModel.finishOnboarding()
+    func completeSetup() {
+        viewModel.completeSetup()
     }
 
     func dismissError() {
@@ -189,18 +176,10 @@ final class LibrarySetupViewModelWrapper {
         directories = state.directories.map {
             DirectoryItem(from: $0, selectedPaths: selected)
         }
-
-        // Keep the editable name in sync with the source of truth without
-        // re-entering the `didSet` forward (the value is already identical there).
-        if libraryName != state.libraryName {
-            libraryName = state.libraryName
-        }
     }
 
     private func applyNav(_ action: LibrarySetupNavAction) {
         switch onEnum(of: action) {
-        case .libraryCreated:
-            onLibraryCreated?()
         case .finished:
             onFinished?()
         }

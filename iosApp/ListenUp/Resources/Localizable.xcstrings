@@ -8551,16 +8551,6 @@
         }
       }
     },
-    "library_setup.create_library": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create Library"
-          }
-        }
-      }
-    },
     "library_setup.current_path_label": {
       "localizations": {
         "en": {
@@ -8627,26 +8617,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d items"
-          }
-        }
-      }
-    },
-    "library_setup.library_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library name"
-          }
-        }
-      }
-    },
-    "library_setup.library_name_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "My Library"
           }
         }
       }
@@ -8737,6 +8707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select this folder"
+          }
+        }
+      }
+    },
+    "library_setup.start_scanning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Scanning"
           }
         }
       }
