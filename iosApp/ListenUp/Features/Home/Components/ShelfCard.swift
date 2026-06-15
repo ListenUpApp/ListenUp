@@ -68,6 +68,7 @@ struct ShelfCard: View {
             .fill(Color.gray.opacity(0.2))
             .frame(width: coverSize, height: coverSize)
             .overlay {
+                // Dynamic Type exclusion: fixed-box glyph inside a 64×64 cover placeholder tile
                 Image(systemName: "books.vertical.fill")
                     .font(.system(size: 22))
                     .foregroundStyle(.secondary)

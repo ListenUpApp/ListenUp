@@ -15,6 +15,7 @@ struct SpeedPickerSheet: View {
     private let speeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
     private let minSpeed: Float = 0.5
     private let maxSpeed: Float = 3.0
+    @ScaledMetric(relativeTo: .largeTitle) private var speedReadoutSize: CGFloat = 56
 
     /// Live slider value, kept continuous for a smooth drag and snapped to the
     /// nearest catalogued speed on release.
@@ -24,7 +25,7 @@ struct SpeedPickerSheet: View {
         NavigationStack {
             VStack(spacing: 0) {
                 Text(Self.formatSpeed(currentSpeed))
-                    .font(.system(size: 56, weight: .bold))
+                    .font(.system(size: speedReadoutSize, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Color.luTint)
                     .padding(.top, 8)
@@ -294,6 +295,7 @@ struct SleepTimerSheet: View {
             onDismiss()
         } label: {
             HStack(spacing: 14) {
+                // Dynamic Type exclusion: sleep-timer icon glyph in fixed 42×42 circle
                 Image(systemName: "moon.fill")
                     .font(.system(size: 20))
                     .foregroundStyle(Color.luOnTint)

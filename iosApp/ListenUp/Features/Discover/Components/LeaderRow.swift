@@ -9,7 +9,7 @@ struct LeaderRow: View {
     var body: some View {
         HStack(spacing: 13) {
             Text("\(row.rank)")
-                .font(.system(size: 16, weight: .bold).monospacedDigit())
+                .font(.callout.weight(.bold).monospacedDigit())
                 .foregroundStyle(rankColor)
                 .frame(width: 22)
 
