@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
@@ -406,6 +407,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val searchService by inject<SearchService>()
     val libraryAdminService by inject<LibraryAdminService>()
     val tagService by inject<TagService>()
+    val moodService by inject<MoodService>()
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
@@ -441,6 +443,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             searchService,
             libraryAdminService,
             tagService,
+            moodService,
             genreService,
             collectionService,
             shelfService,
