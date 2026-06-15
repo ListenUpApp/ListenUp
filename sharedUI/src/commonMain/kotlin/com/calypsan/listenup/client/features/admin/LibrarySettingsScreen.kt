@@ -18,7 +18,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
@@ -32,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -57,9 +55,7 @@ import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_folder
 import listenup.composeapp.generated.resources.admin_add_this_folder
-import listenup.composeapp.generated.resources.admin_inbox_settings
 import listenup.composeapp.generated.resources.admin_library_name
-import listenup.composeapp.generated.resources.admin_new_books_in_this_library
 import listenup.composeapp.generated.resources.admin_remove_path
 import listenup.composeapp.generated.resources.admin_remove_path_from_library_scan
 import listenup.composeapp.generated.resources.admin_remove_scan_path
@@ -68,7 +64,6 @@ import listenup.composeapp.generated.resources.admin_scan_all_paths_for_new
 import listenup.composeapp.generated.resources.admin_scan_paths
 import listenup.composeapp.generated.resources.admin_scanning
 import listenup.composeapp.generated.resources.admin_select_folder
-import listenup.composeapp.generated.resources.admin_inbox_new_books
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_entity_information
 import listenup.composeapp.generated.resources.common_remove
@@ -79,7 +74,8 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Features:
  * - View library information (name, scan paths)
- * - Toggle inbox quarantine for new books
+ * - Manage scan folders (add, remove, browse server filesystem)
+ * - Trigger a library rescan
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,7 +145,6 @@ private fun LibrarySettingsBody(
         is LibrarySettingsUiState.Ready -> {
             LibrarySettingsContent(
                 state = state,
-                onInboxEnabledChange = viewModel::setInboxEnabled,
                 onRemoveFolder = viewModel::removeFolder,
                 onAddFolder = { viewModel.setShowFolderBrowser(true) },
                 onTriggerScan = viewModel::triggerScan,
@@ -173,7 +168,6 @@ private fun LibrarySettingsBody(
 @Composable
 private fun LibrarySettingsContent(
     state: LibrarySettingsUiState.Ready,
-    onInboxEnabledChange: (Boolean) -> Unit,
     onRemoveFolder: (String) -> Unit,
     onAddFolder: () -> Unit,
     onTriggerScan: () -> Unit,
@@ -239,25 +233,6 @@ private fun LibrarySettingsContent(
             )
         }
 
-        // Inbox settings section
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.admin_inbox_settings),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        item {
-            InboxSettingsCard(
-                inboxEnabled = state.inboxEnabled,
-                isSaving = state.isSaving,
-                onInboxEnabledChange = onInboxEnabledChange,
-            )
-        }
-
         item {
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -307,58 +282,6 @@ private fun LibraryInfoCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InboxSettingsCard(
-    inboxEnabled: Boolean,
-    isSaving: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Inbox,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.admin_inbox_new_books),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_new_books_in_this_library),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (isSaving) {
-                ListenUpLoadingIndicatorSmall()
-            } else {
-                Switch(
-                    checked = inboxEnabled,
-                    onCheckedChange = onInboxEnabledChange,
-                )
             }
         }
     }

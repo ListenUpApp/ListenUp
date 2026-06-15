@@ -46,7 +46,7 @@ private val logger = KotlinLogging.logger {}
  * @property adminUserRpc RPC factory for user-management operations
  * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
- * @property libraryAdminRpc RPC factory for library-admin operations (e.g. inbox toggle)
+ * @property libraryAdminRpc RPC factory for library-admin operations (add/remove folder, scan)
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
@@ -230,14 +230,6 @@ class AdminRepositoryImpl(
                 library?.let { AppResult.Success(it.toDomain()) }
                     ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
             }
-        }
-
-    override suspend fun setInboxEnabled(
-        libraryId: String,
-        enabled: Boolean,
-    ): AppResult<Library> =
-        catching("setInboxEnabled") {
-            libraryAdminRpc.get().setInboxEnabled(LibraryId(libraryId), enabled).map { it.toDomain() }
         }
 
     override suspend fun addScanPath(

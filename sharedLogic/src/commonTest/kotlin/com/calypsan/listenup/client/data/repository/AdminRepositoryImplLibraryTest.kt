@@ -82,15 +82,6 @@ private class FakeLibraryAdminService : LibraryAdminService {
         return AppResult.Success(updated)
     }
 
-    override suspend fun setInboxEnabled(
-        libraryId: LibraryId,
-        enabled: Boolean,
-    ): AppResult<Library> {
-        val updated = libraries.getValue(libraryId.value).copy(inboxEnabled = enabled)
-        libraries[libraryId.value] = updated
-        return AppResult.Success(updated)
-    }
-
     override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> {
         libraries.remove(id.value)
         return AppResult.Success(Unit)

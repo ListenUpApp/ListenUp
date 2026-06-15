@@ -20,7 +20,7 @@ private val logger = KotlinLogging.logger {}
  * ViewModel for the library settings screen.
  *
  * Manages viewing and editing a single library's settings:
- * - Inbox quarantine setting
+ * - Scan folder management (add, remove, browse, scan trigger)
  */
 class LibrarySettingsViewModel(
     private val libraryId: String,
@@ -51,13 +51,11 @@ class LibrarySettingsViewModel(
                         if (current is LibrarySettingsUiState.Ready) {
                             current.copy(
                                 library = library,
-                                inboxEnabled = library.inboxEnabled,
                                 error = null,
                             )
                         } else {
                             LibrarySettingsUiState.Ready(
                                 library = library,
-                                inboxEnabled = library.inboxEnabled,
                             )
                         }
                     }
@@ -72,51 +70,6 @@ class LibrarySettingsViewModel(
                         } else {
                             LibrarySettingsUiState.Error(result.error)
                         }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Enable or disable inbox quarantine for the library.
-     *
-     * Optimistically updates the UI state, then persists via the
-     * `LibraryAdminService.setInboxEnabled` RPC. Reverts on failure.
-     */
-    fun setInboxEnabled(enabled: Boolean) {
-        val ready = state.value as? LibrarySettingsUiState.Ready ?: return
-        val previousValue = ready.inboxEnabled
-
-        if (enabled == previousValue) return
-
-        // Optimistic update
-        updateReady { it.copy(inboxEnabled = enabled, isSaving = true) }
-
-        viewModelScope.launch {
-            when (val result = adminRepository.setInboxEnabled(libraryId = libraryId, enabled = enabled)) {
-                is AppResult.Success -> {
-                    val updatedLibrary = result.data
-                    logger.info { "Set inbox enabled for library $libraryId to ${updatedLibrary.inboxEnabled}" }
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            library = updatedLibrary,
-                            inboxEnabled = updatedLibrary.inboxEnabled,
-                        )
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to set inbox enabled for library: $libraryId — ${result.error}" }
-                    // Revert to previous value
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            inboxEnabled = previousValue,
-                            error = result.error,
-                        )
                     }
                 }
             }
@@ -308,10 +261,8 @@ class LibrarySettingsViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `adminRepository.getLibrary` response.
  * - [Ready] once the library has loaded; carries the canonical library,
- *   the edit-buffer field (`inboxEnabled`) that mirrors the
- *   server state after optimistic updates, action overlays
- *   (`isSaving`, `isScanning`, `isBrowserLoading`), the folder-browser
- *   overlay fields, and a transient `error` surfaced via snackbar.
+ *   action overlays (`isSaving`, `isScanning`, `isBrowserLoading`), the
+ *   folder-browser overlay fields, and a transient `error` surfaced via snackbar.
  * - [Error] terminal state when the initial load (or a retry from [Error])
  *   fails. Refresh failures after reaching [Ready] surface via the
  *   transient `error` field on [Ready] instead.
@@ -320,12 +271,11 @@ sealed interface LibrarySettingsUiState {
     data object Loading : LibrarySettingsUiState
 
     /**
-     * Library has loaded; carries the canonical library, edit-buffer fields,
-     * action overlays, the folder-browser overlay state, and a transient `error`.
+     * Library has loaded; carries the canonical library, action overlays,
+     * the folder-browser overlay state, and a transient `error`.
      */
     data class Ready(
         val library: Library,
-        val inboxEnabled: Boolean = false,
         val isSaving: Boolean = false,
         val isScanning: Boolean = false,
         val error: AppError? = null,

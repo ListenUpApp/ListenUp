@@ -1082,11 +1082,6 @@ private class FakeAdminRepository(
 
     override suspend fun getLibrary(libraryId: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
-    override suspend fun setInboxEnabled(
-        libraryId: String,
-        enabled: Boolean,
-    ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
-
     override suspend fun addScanPath(
         libraryId: String,
         path: String,

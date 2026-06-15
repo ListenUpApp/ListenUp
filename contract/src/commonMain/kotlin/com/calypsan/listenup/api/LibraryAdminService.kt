@@ -134,26 +134,6 @@ interface LibraryAdminService {
     ): AppResult<Library>
 
     /**
-     * Enables or disables inbox quarantine for the library identified by [libraryId]
-     * and returns the updated [Library].
-     *
-     * When inbox is enabled, newly-scanned books in this library are quarantined in
-     * its inbox (hidden from members, visible to admins) until an admin releases them,
-     * rather than becoming immediately public. Toggling the flag does not retroactively
-     * move existing books — only future scans are affected. The change bumps the
-     * library's revision so connected clients reconcile reactively.
-     *
-     * Returns [com.calypsan.listenup.api.error.LibraryError.NotFound] when no library
-     * with the given id exists.
-     *
-     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
-     */
-    suspend fun setInboxEnabled(
-        libraryId: LibraryId,
-        enabled: Boolean,
-    ): AppResult<Library>
-
-    /**
      * Deletes the library identified by [id] and cascade-deletes all of its
      * folders and books atomically inside a single transaction.
      *
