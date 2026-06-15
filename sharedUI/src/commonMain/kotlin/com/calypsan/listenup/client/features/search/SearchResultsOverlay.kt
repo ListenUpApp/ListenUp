@@ -800,6 +800,7 @@ private fun BookResultRow(
         BookCoverImage(
             bookId = hit.id,
             coverPath = hit.coverPath,
+            coverHash = hit.coverHash,
             contentDescription = stringResource(Res.string.search_cover_for, hit.name),
             contentScale = ContentScale.Crop,
             modifier =
