@@ -636,7 +636,7 @@ private fun buildServerRepositories(
     val contributorRepo = ContributorRepository(serverDb, bus, registry)
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
     val genreRepo = ServerGenreRepository(serverDb, bus, registry)
-    val bookRepo = BookRepository(serverDb, bus, registry, contributorRepo, seriesRepo)
+    val bookRepo = BookRepository(serverDb, bus, registry, contributorRepo, seriesRepo, genreRepo)
     val activeSessionRepo = ActiveSessionRepository(serverDb, bus)
     val playbackPositionRepo =
         PlaybackPositionRepository(serverDb, bus, registry, activeSessionRepo = activeSessionRepo)

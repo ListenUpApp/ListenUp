@@ -32,13 +32,16 @@ import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.AnalyzedBookMapper
+import com.calypsan.listenup.server.services.BookGenreWriter
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.PendingGenrePromotion
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.micrometer.core.instrument.MeterRegistry
@@ -123,10 +126,12 @@ fun booksModule(
                 get(),
                 get(),
                 get(),
+                get<GenreRepository>(),
                 get(),
                 clock = get(),
                 collectionBookRepository = get(),
-                bookTagRepository = getOrNull(),
+                tagRepository = getOrNull<TagRepository>(),
+                bookTagRepository = getOrNull<BookTagRepository>(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
             )
@@ -212,14 +217,31 @@ fun booksModule(
             )
         }
         single<CollectionService> { get<CollectionServiceImpl>() }
-        // Default-genre-taxonomy seeder. Logically part of the books slice — runs once on
-        // every install (curator can edit afterwards). Application.kt invokes seed() in a
-        // launch after Koin starts, regardless of seed.profile; `isAlreadySeeded()` makes
-        // re-invocations a no-op.
-        single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
 
+        genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
+
+/**
+ * Boot-time genre bindings invoked by `Application.launchSeeders`:
+ *  - [GenreDomainSeeder] — seeds the default taxonomy once per fresh install
+ *    (`isAlreadySeeded()` makes re-runs no-ops).
+ *  - [PendingGenrePromotion] — one-time drain of the legacy `pending_book_genres`
+ *    backlog into live genres; idempotent, so a second boot costs a single
+ *    empty-queue query.
+ *
+ * Both are logically part of the books slice; split out only to keep [booksModule]
+ * under the length budget.
+ */
+private fun Module.genreBootstrapBindings() {
+    single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
+    single {
+        PendingGenrePromotion(
+            db = get(),
+            bookGenreWriter = BookGenreWriter(get(), get(), GenreAutoCreator(get<GenreRepository>())),
+        )
+    }
+}
 
 /**
  * Cover-serving ([EmbeddedCoverCache], [CoverResponder]), managed-cover store

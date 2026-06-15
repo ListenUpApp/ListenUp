@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -83,6 +84,7 @@ class SocialServiceTest :
                     registry = bookRegistry,
                     contributorRepository = ContributorRepository(db = db, bus = bus, registry = bookRegistry),
                     seriesRepository = SeriesRepository(db = db, bus = bus, registry = bookRegistry),
+                    genreRepository = GenreRepository(db = db, bus = bus, registry = bookRegistry),
                 )
             return SocialServiceImpl(
                 activeSessions = ActiveSessionRepository(db = db, bus = bus),

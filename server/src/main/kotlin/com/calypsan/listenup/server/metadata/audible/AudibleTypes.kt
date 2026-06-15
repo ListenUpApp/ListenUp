@@ -242,6 +242,14 @@ data class AudibleBook(
     val coverUrl: String,
     val series: List<AudibleSeriesEntry>,
     val genres: List<String>,
+    /**
+     * Audible's category ladders preserved root → leaf, one inner list per
+     * ladder (e.g. `[["Fiction", "Fantasy", "LitRPG"]]`). [genres] is the flat
+     * dedup of the same rungs, kept for back-compat; this field retains the
+     * hierarchy so the match-apply path can nest genres. Defaults to empty so
+     * pre-existing cached values and test fixtures deserialize unchanged.
+     */
+    val genreLadders: List<List<String>> = emptyList(),
     val language: String,
     val rating: Float,
     val ratingCount: Int,

@@ -31,6 +31,9 @@ import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreAutoCreator
+import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -187,6 +190,7 @@ class MetadataLookupServiceImplTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(
                         db = db,
@@ -194,6 +198,7 @@ class MetadataLookupServiceImplTest :
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
                     )
                 val metadataService =
                     MetadataService(
@@ -233,6 +238,9 @@ class MetadataLookupServiceImplTest :
                             imageStorage = imageStorage,
                             coverImageStore = coverImageStore,
                             metadataProvider = AudibleMetadataProvider(metadataService),
+                            genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
+                            db = db,
+                            ladderSource = { _, _ -> emptyList() },
                         )
                     val coverSelection =
                         MetadataApplySelection(
@@ -368,6 +376,7 @@ private fun makeService(
     val syncRegistry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, syncRegistry)
     val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val genreRepo = GenreRepository(db, bus, syncRegistry)
     val bookRepository =
         BookRepository(
             db = db,
@@ -375,6 +384,7 @@ private fun makeService(
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = genreRepo,
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
@@ -388,10 +398,15 @@ private fun makeService(
         bookRepository = bookRepository,
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
-        imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-        coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
-        imageHome = Path(tempDir.toString()),
+        imageDeps =
+            MetadataImageDeps(
+                imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
+                coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
+                imageHome = Path(tempDir.toString()),
+            ),
         permissionPolicy = UserPermissionPolicy(db),
+        db = db,
+        genreRepository = genreRepo,
     )
 }
 

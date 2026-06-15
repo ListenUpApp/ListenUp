@@ -40,6 +40,7 @@ class BookRepositorySoftDeleteCascadeTest :
                             registry = syncRegistry,
                             contributorRepository = ContributorRepository(db, bus, syncRegistry),
                             seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            genreRepository = GenreRepository(db, bus, syncRegistry),
                             bookTagRepository = bookTagRepo,
                         )
 
@@ -79,6 +80,7 @@ class BookRepositorySoftDeleteCascadeTest :
                             registry = syncRegistry,
                             contributorRepository = ContributorRepository(db, bus, syncRegistry),
                             seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            genreRepository = GenreRepository(db, bus, syncRegistry),
                             // bookTagRepository = null (default) — cascade is a no-op
                         )
 

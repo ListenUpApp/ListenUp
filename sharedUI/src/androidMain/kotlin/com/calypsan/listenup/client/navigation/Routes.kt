@@ -277,13 +277,6 @@ data object AdminCategories : Route
 data object BrowseGenre : Route
 
 /**
- * Unmapped genres curator screen — lists raw scanner strings the alias table
- * couldn't resolve, with per-string genre picker for binding.
- */
-@Serializable
-data object UnmappedGenres : Route
-
-/**
  * Admin user detail screen - view and edit a user's details and permissions.
  *
  * Shows user information and allows toggling canShare permission.

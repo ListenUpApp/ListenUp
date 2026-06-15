@@ -35,6 +35,7 @@ class BookRepositoryReadPayloadsTest :
                 registry = syncRegistry,
                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                genreRepository = GenreRepository(db, bus, syncRegistry),
             )
         }
 

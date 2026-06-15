@@ -13,8 +13,7 @@ import kotlinx.rpc.withService
 
 /**
  * Supplies the [GenreService] kotlinx.rpc proxy that backs curator mutations
- * (`createGenre`/`updateGenre`/`deleteGenre`/`moveGenre`/`mergeGenres`) and
- * the unmapped-string queue surfaces (`listUnmappedStrings`/`mapUnmappedToGenre`).
+ * (`createGenre`/`updateGenre`/`deleteGenre`/`moveGenre`/`mergeGenres`).
  *
  * Tree reads (list, getById, getChildren) come from the client Room mirror,
  * which the sync engine populates via [com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler] —

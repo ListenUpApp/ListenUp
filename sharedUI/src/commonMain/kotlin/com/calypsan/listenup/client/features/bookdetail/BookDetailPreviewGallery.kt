@@ -53,7 +53,7 @@ private const val MOCK_TITLE = "The Way of Kings"
 // An independent subtitle (not just the series name) plus multi-series membership — the case the
 // subtitle + series-chip treatment exists for.
 private const val MOCK_SUBTITLE = "A Novel"
-private const val MOCK_OVERLINE = "Epic Fantasy · Unabridged"
+private const val MOCK_GENRE = "Epic Fantasy"
 private const val MOCK_PROGRESS = 0.62f
 private const val MOCK_TIME_REMAINING = "17h 12m left"
 private const val MOCK_DURATION_MS = 45L * 3600 * 1000
@@ -185,7 +185,8 @@ private fun HeroSection() {
         coverHash = null,
         bookId = MOCK_BOOK_ID,
         title = MOCK_TITLE,
-        overline = MOCK_OVERLINE,
+        genre = MOCK_GENRE,
+        abridged = false,
         subtitle = MOCK_SUBTITLE,
         series = mockSeries,
         authors = mockAuthors,
@@ -204,7 +205,8 @@ private fun HeroSection() {
             coverHash = null,
             bookId = MOCK_BOOK_ID,
             title = MOCK_TITLE,
-            overline = MOCK_OVERLINE,
+            genre = MOCK_GENRE,
+            abridged = false,
             subtitle = MOCK_SUBTITLE,
             series = mockSeries,
             authors = mockAuthors,

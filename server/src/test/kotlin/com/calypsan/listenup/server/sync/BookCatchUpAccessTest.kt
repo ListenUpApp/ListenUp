@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -48,6 +49,7 @@ class BookCatchUpAccessTest :
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
+                        genreRepository = GenreRepository(db = this, bus = bus, registry = registry),
                     ),
                 collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),

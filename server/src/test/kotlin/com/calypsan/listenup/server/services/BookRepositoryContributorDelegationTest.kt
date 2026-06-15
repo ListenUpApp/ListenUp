@@ -41,6 +41,7 @@ class BookRepositoryContributorDelegationTest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
+                        genreRepository = GenreRepository(db, bus, registry),
                     )
                 runTest {
                     val analyzed = analyzedFor("Sanderson/Way of Kings", author = "Brandon Sanderson")
@@ -76,6 +77,7 @@ class BookRepositoryContributorDelegationTest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
+                        genreRepository = GenreRepository(db, bus, registry),
                     )
                 runTest {
                     val analyzed =

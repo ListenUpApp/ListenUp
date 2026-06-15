@@ -196,13 +196,11 @@ private fun Application.launchSeeders(
         val seedRunner by inject<SeedRunner>()
         scope.launch {
             runCatching { seedRunner.run() }
-                .onFailure { e ->
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    logger.error(e) { "demo seeding failed — server keeps running" }
-                }
+                .onFailure { it.logUnlessCancelled("demo seeding failed — server keeps running") }
         }
     } else if (libraryConfigured) {
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        val pendingGenrePromotion by inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
         // Synchronous on the module init thread — `module()` returns only after the
         // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
         // on first install; subsequent boots are a single `count()` query via
@@ -211,12 +209,25 @@ private fun Application.launchSeeders(
         kotlinx.coroutines.runBlocking {
             runCatching {
                 if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
-            }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                logger.error(e) { "genre default-taxonomy seeding failed — server keeps running" }
-            }
+            }.onFailure { it.logUnlessCancelled("genre default-taxonomy seeding failed — server keeps running") }
+            // One-time: drain the legacy pending-genre backlog into live genres so an
+            // existing library lights up. Runs after seeding (resolution prefers the
+            // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
+            // subsequent boots a single empty-queue query.
+            runCatching { pendingGenrePromotion.run() }
+                .onFailure { it.logUnlessCancelled("pending-genre backlog promotion failed — server keeps running") }
         }
     }
+}
+
+/**
+ * Re-raises [CancellationException] (so structured concurrency stays intact) and
+ * logs every other throwable at error level under [message]. The shared tail for
+ * the boot-time seed/promotion jobs, which must never bring the server down.
+ */
+private fun Throwable.logUnlessCancelled(message: String) {
+    if (this is kotlinx.coroutines.CancellationException) throw this
+    logger.error(this) { message }
 }
 
 /**

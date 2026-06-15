@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.GenreUpdate
-import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
@@ -92,15 +91,4 @@ interface GenreRepository {
         includeDescendants: Boolean = false,
         limit: Int = 100,
     ): AppResult<List<BookId>>
-
-    // ── Unmapped-string curator queue (RPC-dispatched) ───────────────────────
-
-    /** Lists raw genre strings the scanner couldn't resolve, aggregated by string. */
-    suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>>
-
-    /** Binds [rawString] to [genreId]: alias, junction insert, pending cleanup. */
-    suspend fun mapUnmappedToGenre(
-        rawString: String,
-        genreId: GenreId,
-    ): AppResult<Unit>
 }

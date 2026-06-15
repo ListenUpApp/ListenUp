@@ -25,6 +25,9 @@ import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.metadata.provider.MetadataSource
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreAutoCreator
+import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -149,11 +152,14 @@ class MatchApplySelectionTest :
         )
 
         fun applier(
+            db: org.jetbrains.exposed.v1.jdbc.Database,
+            genreRepo: GenreRepository,
             books: BookRepository,
             contributors: ContributorRepository,
             series: SeriesRepository,
             provider: MetadataProvider,
             coverBytes: ByteArray? = null,
+            ladders: List<List<String>> = emptyList(),
         ): BookMetadataApplier {
             val tempDir = Files.createTempDirectory("matchapply-").also { it.toFile().deleteOnExit() }
             val engine =
@@ -171,6 +177,9 @@ class MatchApplySelectionTest :
                 imageStorage = ImageStorage(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
                 metadataProvider = provider,
+                genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
+                db = db,
+                ladderSource = { _, _ -> ladders },
             )
         }
 
@@ -182,11 +191,12 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
 
                     a
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover())
@@ -215,11 +225,12 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     val sel = allButCover().copy(title = false, description = false, releaseDate = false)
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -241,11 +252,12 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     val sel = allButCover().copy(authorAsins = emptySet())
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -266,9 +278,10 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     a
                         .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allButCover())
                         .shouldBeInstanceOf<AppResult.Failure>()
@@ -284,14 +297,15 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     // give the book a pre-existing non-ENRICHED cover to prove the gate is gone
                     books.setManagedCover(BookId("b1"), "covers/old.png", "oldhash", CoverSource.EMBEDDED)
 
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()), coverBytes = ONE_PX_PNG)
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()), coverBytes = ONE_PX_PNG)
                     val sel = allButCover().copy(cover = true, coverUrl = "https://itunes/chosen.png")
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
@@ -310,12 +324,13 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
 
                     val sel = allButCover().copy(genres = setOf("Fantasy"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -334,20 +349,61 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     // seed the existing genre link AFTER the book row exists (FK constraint)
                     suspendTransaction(db) { BookGenreTable.insertIfAbsent("b1", "g-fant") }
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
 
                     a
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     books.findById(BookId("b1"))!!.genres.map { it.name } shouldContainExactly listOf("Fantasy")
+                }
+            }
+        }
+
+        test("a matched book with a category ladder is linked to the nested leaf genre") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(db, bus, registry)
+                val series = SeriesRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a =
+                        applier(
+                            db,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            fakeProvider(matchBook()),
+                            ladders = listOf(listOf("Fiction", "Fantasy", "LitRPG")),
+                        )
+
+                    // genres selection must be non-empty for the ladder path to engage.
+                    val sel = allButCover().copy(genres = setOf("Fiction"))
+                    a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    // Every rung is linked …
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.genres.map { it.name }.toSet() shouldBe setOf("Fiction", "Fantasy", "LitRPG")
+
+                    // … and the leaf is nested under the ladder (depth 2, full materialized path).
+                    val leaf = genreRepo.findBySlug("litrpg")!!
+                    leaf.depth shouldBe 2
+                    leaf.path shouldBe "/fiction/fantasy/litrpg"
                 }
             }
         }
@@ -360,11 +416,12 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
                 val series = SeriesRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series)
+                val genreRepo = GenreRepository(db, bus, registry)
+                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     // matchBook authors have asin "AUTH1"; select an asin that isn't in the match
                     val sel = allButCover().copy(authorAsins = setOf("NOT-IN-MATCH"), seriesAsins = setOf("NOT-IN-MATCH"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()

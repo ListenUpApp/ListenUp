@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -32,6 +33,7 @@ import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -145,7 +147,8 @@ private fun wire(
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, registry)
     val seriesRepo = SeriesRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
+    val genreRepo = GenreRepository(db, bus, registry)
+    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(chapters),
@@ -165,10 +168,15 @@ private fun wire(
             bookRepository = bookRepo,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-            coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), 10L * 1024 * 1024)),
-            imageHome = Path(tempDir.toString()),
+            imageDeps =
+                MetadataImageDeps(
+                    imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
+                    coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), 10L * 1024 * 1024)),
+                    imageHome = Path(tempDir.toString()),
+                ),
             permissionPolicy = UserPermissionPolicy(db),
+            db = db,
+            genreRepository = genreRepo,
             principal = PrincipalProvider { UserPrincipal(UserId("root"), SessionId("s"), UserRole.ROOT) },
         )
     return Ctx(bookRepo, service)

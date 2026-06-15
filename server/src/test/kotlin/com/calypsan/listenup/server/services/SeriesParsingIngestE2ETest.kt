@@ -47,6 +47,7 @@ class SeriesParsingIngestE2ETest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
+                        genreRepository = GenreRepository(db, bus, registry),
                     )
                 runTest {
                     val analyzed =
@@ -91,6 +92,7 @@ class SeriesParsingIngestE2ETest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
+                        genreRepository = GenreRepository(db, bus, registry),
                     )
                 runTest {
                     val analyzed =

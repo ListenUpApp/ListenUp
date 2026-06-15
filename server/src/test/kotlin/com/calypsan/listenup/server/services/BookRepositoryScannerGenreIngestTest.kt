@@ -27,7 +27,9 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class BookRepositoryScannerGenreIngestTest :
@@ -64,7 +66,7 @@ class BookRepositoryScannerGenreIngestTest :
             }
         }
 
-        test("single unaliased string writes to pending_book_genres and leaves book_genres empty") {
+        test("single unaliased string auto-creates a live genre and leaves pending empty") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -82,14 +84,14 @@ class BookRepositoryScannerGenreIngestTest :
 
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     transaction(db) {
-                        BookGenreTable.genresForBook("b1").shouldBeEmpty()
-                        PendingBookGenreTable.bookIdsByRawString("Cyberpunk") shouldContainExactly listOf("b1")
+                        genreNamesForBook("b1") shouldContainExactly listOf("Cyberpunk")
+                        PendingBookGenreTable.bookIdsByRawString("Cyberpunk").shouldBeEmpty()
                     }
                 }
             }
         }
 
-        test("mixed aliased + unaliased strings split across book_genres and pending_book_genres") {
+        test("mixed aliased + unaliased strings both land in book_genres (auto-create), pending empty") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -116,15 +118,15 @@ class BookRepositoryScannerGenreIngestTest :
 
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(genreId)
-                        PendingBookGenreTable.bookIdsByRawString("Cyberpunk") shouldContainExactly listOf("b1")
+                        genreNamesForBook("b1") shouldContainExactlyInAnyOrder listOf("Fantasy", "Cyberpunk")
+                        PendingBookGenreTable.bookIdsByRawString("Cyberpunk").shouldBeEmpty()
                         PendingBookGenreTable.bookIdsByRawString("Fantasy").shouldBeEmpty()
                     }
                 }
             }
         }
 
-        test("rescan with different strings wipes prior book_genres and pending_book_genres") {
+        test("rescan with different strings wipes prior book_genres") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -141,7 +143,7 @@ class BookRepositoryScannerGenreIngestTest :
                         seedAlias("C", genreC)
                     }
 
-                    // Scan 1: ["A", "B"] — A aliased to genreA, B unmapped.
+                    // Scan 1: ["A", "B"] — A aliased to genreA, B auto-created as a live genre.
                     repo.upsertFromAnalyzed(
                         BookId("b1"),
                         LibraryId("test-library"),
@@ -149,11 +151,10 @@ class BookRepositoryScannerGenreIngestTest :
                         analyzedFixture(rootRelPath = "books/b1", genres = listOf("A", "B")),
                     )
                     transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(genreA)
-                        PendingBookGenreTable.bookIdsByRawString("B") shouldContainExactly listOf("b1")
+                        genreNamesForBook("b1") shouldContainExactlyInAnyOrder listOf("A", "B")
                     }
 
-                    // Scan 2: ["C"] only — A and B should be wiped.
+                    // Scan 2: ["C"] only — A and B should be wiped from the junction.
                     repo.upsertFromAnalyzed(
                         BookId("b1"),
                         LibraryId("test-library"),
@@ -161,10 +162,7 @@ class BookRepositoryScannerGenreIngestTest :
                         analyzedFixture(rootRelPath = "books/b1", genres = listOf("C")),
                     )
                     transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(genreC)
-                        PendingBookGenreTable.bookIdsByRawString("A").shouldBeEmpty()
-                        PendingBookGenreTable.bookIdsByRawString("B").shouldBeEmpty()
-                        PendingBookGenreTable.bookIdsByRawString("C").shouldBeEmpty()
+                        genreNamesForBook("b1") shouldContainExactly listOf("C")
                     }
                 }
             }
@@ -317,7 +315,16 @@ private fun newRepo(
         registry = syncRegistry,
         contributorRepository = ContributorRepository(db, bus, syncRegistry),
         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+        genreRepository = GenreRepository(db, bus, syncRegistry),
     )
+
+private fun genreNamesForBook(bookId: String): List<String> =
+    BookGenreTable.genresForBook(bookId).map { genreId ->
+        GenreTable
+            .selectAll()
+            .where { GenreTable.id eq genreId }
+            .single()[GenreTable.name]
+    }
 
 private fun seedGenre(
     id: String,

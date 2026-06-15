@@ -38,6 +38,7 @@ class BookRepositoryReadTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     suspendTransaction(db = db) {
@@ -60,6 +61,7 @@ class BookRepositoryReadTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     // Resolve the library id first — this bootstraps the `libraries`
@@ -193,6 +195,7 @@ class BookRepositoryReadTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val libId = registry.currentLibrary().value

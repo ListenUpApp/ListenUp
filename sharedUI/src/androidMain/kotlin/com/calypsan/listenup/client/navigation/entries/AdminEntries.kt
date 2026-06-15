@@ -29,7 +29,6 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.CreateBackup
 import com.calypsan.listenup.client.navigation.CreateInvite
 import com.calypsan.listenup.client.navigation.RestoreBackup
-import com.calypsan.listenup.client.navigation.UnmappedGenres
 import com.calypsan.listenup.client.navigation.AdminInbox
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
@@ -39,7 +38,6 @@ import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
 import com.calypsan.listenup.client.presentation.error.localized
-import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /** Admin navigation entries (main admin screens). */
@@ -63,9 +61,6 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
             onCategoriesClick = {
                 backStack.add(AdminCategories)
-            },
-            onUnmappedGenresClick = {
-                backStack.add(UnmappedGenres)
             },
             onBackupClick = {
                 backStack.add(AdminBackups)
@@ -115,13 +110,6 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             viewModel = viewModel,
             onBackClick = { backStack.removeAt(backStack.lastIndex) },
             onBookClick = { bookId -> backStack.add(BookDetail(bookId.value)) },
-        )
-    }
-    entry<UnmappedGenres> {
-        val viewModel: UnmappedGenresViewModel = koinViewModel()
-        com.calypsan.listenup.client.features.unmappedgenres.UnmappedGenresScreen(
-            viewModel = viewModel,
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
         )
     }
     entry<CreateInvite> {

@@ -187,6 +187,26 @@ class AudibleClientTest :
             }
         }
 
+        test("getBook preserves the category ladder hierarchy in genreLadders") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_WITH_NESTED_LADDER_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+                val client = makeClient(engine)
+                val book = (client.getBook(AudibleRegion.US, "B0LADDER") as AppResult.Success<AudibleBook?>).data
+
+                // Hierarchy preserved root → leaf …
+                book?.genreLadders shouldBe listOf(listOf("Fiction", "Fantasy", "LitRPG"))
+                // … while the flat list is the deduped rungs (back-compat).
+                book?.genres shouldBe listOf("Fiction", "Fantasy", "LitRPG")
+            }
+        }
+
         // ─── getChapters ──────────────────────────────────────────────────────
 
         test("getChapters returns Success with parsed chapters on 200") {
@@ -331,6 +351,34 @@ private val BOOK_200 =
     "narrators": [{"asin": "", "name": "Scott Brick", "role": "narrator"}],
     "series": [],
     "category_ladders": [{"ladder": [{"id": "18685580011", "name": "Science Fiction"}]}],
+    "language": "english",
+    "rating": null
+  }
+}
+    """.trimIndent()
+
+private val BOOK_WITH_NESTED_LADDER_200 =
+    """
+{
+  "product": {
+    "asin": "B0LADDER",
+    "title": "Dungeon Crawler",
+    "subtitle": "",
+    "publisher_name": "Test Audio",
+    "release_date": "2020-01-01",
+    "runtime_length_min": 600,
+    "merchandising_summary": "<p>A ladder fixture</p>",
+    "product_images": {"500": "https://example.com/cover500.jpg"},
+    "authors": [{"asin": "A1", "name": "Test Author", "role": "author"}],
+    "narrators": [],
+    "series": [],
+    "category_ladders": [
+      {"ladder": [
+        {"id": "1", "name": "Fiction"},
+        {"id": "2", "name": "Fantasy"},
+        {"id": "3", "name": "LitRPG"}
+      ]}
+    ],
     "language": "english",
     "rating": null
   }

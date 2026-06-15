@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -169,6 +170,7 @@ private fun fixture(db: Database): InboxFixture {
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db, bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
     val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)

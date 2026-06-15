@@ -112,6 +112,29 @@ internal object PendingBookGenreTable : Table("pending_book_genres") {
     }
 
     /**
+     * Every pending row grouped by book: `bookId -> its raw strings`. Drives the
+     * one-time legacy backlog promotion ([com.calypsan.listenup.server.services.PendingGenrePromotion]),
+     * which resolves each book's unmapped strings into live genres then drains the
+     * book's rows. Empty map when the queue is empty.
+     *
+     * Must be called inside a `suspendTransaction { }` block.
+     */
+    fun allGroupedByBook(): Map<String, List<String>> =
+        selectAll()
+            .map { it[bookId] to it[rawString] }
+            .groupBy({ it.first }, { it.second })
+
+    /**
+     * Hard-deletes every pending row for [bookId]. Returns the row count. Called
+     * by the legacy backlog promotion after a book's strings have been resolved
+     * and linked, draining its pending rows so the one-time migration is
+     * idempotent.
+     *
+     * Must be called inside a `suspendTransaction { }` block.
+     */
+    fun deleteAllForBook(bookId: String): Int = deleteWhere { this@PendingBookGenreTable.bookId eq bookId }
+
+    /**
      * Distinct book ids that contributed [rawString] to the unmapped queue.
      * Used by the curator-mapping flow: when an operator maps "Sci-Fi" to
      * genre X, every book in this list gets a `book_genres` row added for X.

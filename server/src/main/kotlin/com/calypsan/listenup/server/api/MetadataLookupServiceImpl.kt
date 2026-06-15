@@ -20,18 +20,19 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
-import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.metadata.provider.MetadataSource
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreAutoCreator
+import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.io.files.Path
+import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Server-side implementation of [MetadataLookupService].
@@ -60,10 +61,10 @@ internal class MetadataLookupServiceImpl(
     private val bookRepository: BookRepository,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
-    private val imageStorage: ImageStorage,
-    private val coverImageStore: CoverImageStore,
-    private val imageHome: Path,
+    private val imageDeps: MetadataImageDeps,
     private val permissionPolicy: UserPermissionPolicy,
+    private val db: Database,
+    private val genreRepository: GenreRepository,
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MetadataLookupService {
@@ -82,10 +83,10 @@ internal class MetadataLookupServiceImpl(
             bookRepository = bookRepository,
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
-            imageStorage = imageStorage,
-            coverImageStore = coverImageStore,
-            imageHome = imageHome,
+            imageDeps = imageDeps,
             permissionPolicy = permissionPolicy,
+            db = db,
+            genreRepository = genreRepository,
             defaultRegion = defaultRegion,
             principal = principal,
         )
@@ -185,13 +186,22 @@ internal class MetadataLookupServiceImpl(
         selection: MetadataApplySelection,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        val genreAutoCreator = GenreAutoCreator(genreRepository)
         return BookMetadataApplier(
             bookRepository = bookRepository,
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
-            imageStorage = imageStorage,
-            coverImageStore = coverImageStore,
+            imageStorage = imageDeps.imageStorage,
+            coverImageStore = imageDeps.coverImageStore,
             metadataProvider = audible,
+            genreHierarchy = GenreHierarchyFromLadder(db, genreRepository, genreAutoCreator),
+            db = db,
+            ladderSource = { r, a ->
+                when (val book = metadataService.getBook(r, a)) {
+                    is AppResult.Success -> book.data?.genreLadders.orEmpty()
+                    is AppResult.Failure -> emptyList()
+                }
+            },
         ).apply(bookId, asin, region, selection)
     }
 
@@ -216,9 +226,9 @@ internal class MetadataLookupServiceImpl(
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return ContributorMetadataApplier(
             contributorRepository = contributorRepository,
-            imageStorage = imageStorage,
+            imageStorage = imageDeps.imageStorage,
             metadataService = metadataService,
-            imageHome = imageHome,
+            imageHome = imageDeps.imageHome,
         ).apply(contributorId, asin, region)
     }
 
@@ -240,8 +250,8 @@ internal class MetadataLookupServiceImpl(
         bookRepository.findById(bookId)
             ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}"))
         return try {
-            val bytes = imageStorage.downloadBytes(url)
-            val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
+            val bytes = imageDeps.imageStorage.downloadBytes(url)
+            val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
             val relPath = "covers/${stored.path.fileName}"
             bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
         } catch (e: CancellationException) {

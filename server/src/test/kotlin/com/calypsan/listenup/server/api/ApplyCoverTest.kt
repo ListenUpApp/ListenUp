@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -116,7 +117,8 @@ private fun withCoverFixture(
         val registry = SyncRegistry()
         val contributorRepo = ContributorRepository(db, bus, registry)
         val seriesRepo = SeriesRepository(db, bus, registry)
-        val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo)
+        val genreRepo = GenreRepository(db, bus, registry)
+        val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
 
         runTest {
             books
@@ -153,10 +155,15 @@ private fun withCoverFixture(
                     bookRepository = books,
                     contributorRepository = contributorRepo,
                     seriesRepository = seriesRepo,
-                    imageStorage = ImageStorage(httpClient = mockHttp),
-                    coverImageStore = coverStore,
-                    imageHome = Path(tempDir.toString()),
+                    imageDeps =
+                        MetadataImageDeps(
+                            imageStorage = ImageStorage(httpClient = mockHttp),
+                            coverImageStore = coverStore,
+                            imageHome = Path(tempDir.toString()),
+                        ),
                     permissionPolicy = UserPermissionPolicy(db),
+                    db = db,
+                    genreRepository = genreRepo,
                     principal =
                         PrincipalProvider {
                             UserPrincipal(UserId("root"), SessionId("s"), UserRole.ADMIN)

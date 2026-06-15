@@ -74,7 +74,6 @@
     <string name="admin_link_copied">Link copied!</string>
     <string name="admin_listening_history">Listening history</string>
     <string name="admin_management">Management</string>
-    <string name="admin_map_scanned_genre_strings_to_your_taxonomy">Map scanned genre strings to your taxonomy</string>
     <string name="admin_merge_into">Merge into…</string>
     <string name="admin_merge_into_named">Merge “%1$s” into…</string>
     <string name="admin_migrate_listening_history">Migrate listening history from ABS backup</string>
@@ -133,7 +132,6 @@
     <string name="admin_they_wont_be_able_to">They won\'t be able to use this link anymore.</string>
     <string name="admin_this_users_permissions_cannot_be">This user\'s permissions cannot be modified</string>
     <string name="admin_top_level">Top level</string>
-    <string name="admin_unmapped_genres">Unmapped Genres</string>
     <string name="admin_upload_new_import">Upload New Import</string>
     <string name="admin_valid_email_is_required">A valid email is required.</string>
     <string name="admin_view_the_genre_hierarchy_tree">View the genre hierarchy tree</string>
@@ -573,18 +571,12 @@ One beautiful library.</string>
     <string name="error_not_found">Not found.</string>
     <string name="error_transport_network_unavailable">Can\'t reach the server. Check your connection.</string>
     <string name="error_transport_timeout">The request took too long. Please try again.</string>
-    <string name="genre_all_mapped">Every genre string from your scanner has been mapped or auto-resolved.</string>
     <string name="genre_book_count">%1$d book</string>
     <string name="genre_books_count">%1$d books</string>
     <string name="genre_browse_title">Browse by Genre</string>
     <string name="genre_include_subtree">Include subtree</string>
-    <string name="genre_map_arrow">Map →</string>
-    <string name="genre_map_raw_to">Map "%1$s" to…</string>
     <string name="genre_no_books_in_genre">No books in this genre.</string>
     <string name="genre_no_genres_yet">No genres yet.</string>
-    <string name="genre_no_live_genres">No live genres available. Create one in Admin → Categories first.</string>
-    <string name="genre_nothing_to_map">Nothing to map.</string>
-    <string name="genre_unmapped_title">Unmapped Genres</string>
     <string name="home_best_day_streak">Best: %1$d day streak</string>
     <string name="home_best_longeststreak">(best: %1$s)</string>
     <string name="home_best_value">Best: %1$s</string>

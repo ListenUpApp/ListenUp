@@ -14,13 +14,17 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -57,6 +61,9 @@ internal class BookMetadataApplier(
     private val imageStorage: ImageStorage,
     private val coverImageStore: CoverImageStore,
     private val metadataProvider: MetadataProvider,
+    private val genreHierarchy: GenreHierarchyFromLadder,
+    private val db: Database,
+    private val ladderSource: suspend (region: AudibleRegion, asin: String) -> List<List<String>>,
 ) {
     suspend fun apply(
         bookId: BookId,
@@ -78,6 +85,7 @@ internal class BookMetadataApplier(
             }
 
             applyGenresBestEffort(bookId, asin, selection)
+            applyGenreHierarchyBestEffort(bookId, asin, region, selection)
 
             val updated =
                 existing.copy(
@@ -191,6 +199,44 @@ internal class BookMetadataApplier(
             throw e
         } catch (e: Exception) {
             log.warn(e) { "Genre apply failed for ${bookId.value} (ASIN $asin) — skipping" }
+        }
+    }
+
+    /**
+     * Nests the matched book's genres from Audible's category ladders and links the book to every
+     * rung (root → leaf), so browsing a parent genre surfaces the book and the leaf is its most
+     * specific genre. Obtains the structured ladders server-side via [ladderSource] (the wire
+     * [MetadataBook] only carries the flat dedup). Runs AFTER [applyGenresBestEffort] (whose
+     * `setBookGenres` wipes the junction first) so the additive rung links survive, and BEFORE the
+     * book `upsert` so the re-read junction rides the same SSE event + revision bump.
+     *
+     * Best-effort: a failure is logged and skipped so already-committed metadata is not rolled back.
+     * [CancellationException] is always re-raised. No-ops when the match has no ladders.
+     */
+    private suspend fun applyGenreHierarchyBestEffort(
+        bookId: BookId,
+        asin: String,
+        region: AudibleRegion,
+        selection: MetadataApplySelection,
+    ) {
+        if (selection.genres.isEmpty()) return
+        try {
+            val ladders = ladderSource(region, asin)
+            if (ladders.isEmpty()) return
+
+            for (ladder in ladders) {
+                val rungIds = genreHierarchy.ensureLadder(ladder)
+                if (rungIds.isEmpty()) continue
+                suspendTransaction(db) {
+                    for (rungId in rungIds) {
+                        BookGenreTable.insertIfAbsent(bookId.value, rungId)
+                    }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "Genre-hierarchy apply failed for ${bookId.value} (ASIN $asin) — skipping" }
         }
     }
 

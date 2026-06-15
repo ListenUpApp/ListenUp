@@ -230,6 +230,7 @@ private fun newService(
     val syncRegistry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, syncRegistry)
     val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val genreRepo = GenreRepository(db, bus, syncRegistry)
     val repo =
         BookRepository(
             db = db,
@@ -237,6 +238,7 @@ private fun newService(
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository = genreRepo,
             homeDir = homeDir,
             coverImageStore = coverImageStore,
         )
@@ -247,7 +249,7 @@ private fun newService(
             seriesRepo = seriesRepo,
             coverStorage = CoverStorage(),
             db = db,
-            genreRepo = GenreRepository(db, bus, syncRegistry),
+            genreRepo = genreRepo,
             accessPolicy = BookAccessPolicy(db),
             permissionPolicy = UserPermissionPolicy(db),
             principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },

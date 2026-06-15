@@ -54,6 +54,7 @@ class GenreServiceImplMoveTest :
                     registry = registry,
                     contributorRepository = contributorRepo,
                     seriesRepository = seriesRepo,
+                    genreRepository = genreRepo,
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
