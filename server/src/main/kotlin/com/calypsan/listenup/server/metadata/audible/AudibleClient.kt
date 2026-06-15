@@ -403,22 +403,25 @@ private fun stripHtml(html: String): String =
  * Ported from Go's `parseContributorSearch` in `contributor.go`.
  */
 internal fun parseContributorSearch(html: String): List<AudibleContributorProfile> {
-    // Pattern: href="/author/{slug}/{ASIN}" — ASIN is all-caps alphanumeric.
-    val linkPattern = Regex("""href="/author/[^/]+/([A-Z0-9]+)"""")
-    // Within an <a href="/author/..."> ... </a> block, extract the name from
-    // the first non-blank text. The block may contain nested tags (span, img).
-    val nameInLinkPattern = Regex("""href="/author/[^/]+/[A-Z0-9]+"[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
+    // Author links are `href="/author/{slug}/{ASIN}?{tracking}"` — Audible always appends tracking
+    // query params (ref, pf_rd_*, plink, …) after the ASIN. The pattern must therefore tolerate
+    // anything up to the closing quote after the ASIN; requiring a quote *immediately* after it
+    // (the previous behaviour) matched nothing, so every contributor search returned empty (#551).
+    // The anchor's inner text is the contributor name. Mirrors Go's `parseContributorSearch`.
+    val anchorPattern =
+        Regex(
+            """href="/author/[^/]+/([A-Z0-9]+)[^"]*"[^>]*>(.*?)</a>""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
 
     val seen = mutableSetOf<String>()
     val results = mutableListOf<AudibleContributorProfile>()
 
-    nameInLinkPattern.findAll(html).forEach { match ->
-        val rawInner = match.groupValues[1]
-        // Extract ASIN from the href — re-match the anchor opening tag portion.
-        val asin = linkPattern.find(match.value)?.groupValues?.get(1) ?: return@forEach
-        if (!seen.add(asin)) return@forEach // deduplicate
+    anchorPattern.findAll(html).forEach { match ->
+        val asin = match.groupValues[1]
+        if (!seen.add(asin)) return@forEach // an author repeats across product listings — dedupe
 
-        val name = stripHtml(rawInner).trim().takeIf { it.isNotBlank() } ?: return@forEach
+        val name = stripHtml(match.groupValues[2]).trim().takeIf { it.isNotBlank() } ?: return@forEach
         results += AudibleContributorProfile(asin = asin, name = name, biography = "", imageUrl = "")
     }
 
