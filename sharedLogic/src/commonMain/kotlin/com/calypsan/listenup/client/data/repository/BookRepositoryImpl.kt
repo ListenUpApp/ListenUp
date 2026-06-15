@@ -364,6 +364,7 @@ private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithAuthor.t
         authorName = authorName,
         coverPath = if (imageStorage.exists(id)) imageStorage.getCoverPath(id) else null,
         coverBlurHash = coverBlurHash,
+        coverHash = coverHash,
         createdAt = createdAt.epochMillis,
     )
 
@@ -379,5 +380,6 @@ private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries.t
         authorName = authorName,
         coverPath = if (imageStorage.exists(id)) imageStorage.getCoverPath(id) else null,
         coverBlurHash = coverBlurHash,
+        coverHash = coverHash,
         createdAt = createdAt.epochMillis,
     )

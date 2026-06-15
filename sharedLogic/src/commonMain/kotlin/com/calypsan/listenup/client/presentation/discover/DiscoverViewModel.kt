@@ -145,6 +145,7 @@ class DiscoverViewModel(
             authorName = authorName,
             coverPath = coverPath,
             coverBlurHash = coverBlurHash,
+            coverHash = coverHash,
             seriesName = null, // Series comes from book_series relation
         )
 
@@ -179,6 +180,7 @@ class DiscoverViewModel(
             authorName = authorName,
             coverPath = coverPath,
             coverBlurHash = coverBlurHash,
+            coverHash = coverHash,
             createdAt = createdAt,
         )
 
@@ -400,6 +402,7 @@ data class DiscoverUiBook(
     val authorName: String?,
     val coverPath: String?,
     val coverBlurHash: String?,
+    val coverHash: String?,
     val seriesName: String?,
 )
 
@@ -412,5 +415,6 @@ data class RecentlyAddedUiBook(
     val authorName: String?,
     val coverPath: String?,
     val coverBlurHash: String?,
+    val coverHash: String?,
     val createdAt: Long,
 )

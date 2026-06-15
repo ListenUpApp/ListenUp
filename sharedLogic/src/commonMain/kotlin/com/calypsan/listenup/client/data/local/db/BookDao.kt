@@ -361,7 +361,7 @@ interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -387,7 +387,7 @@ interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -417,7 +417,7 @@ interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -491,6 +491,7 @@ data class DiscoveryBookWithAuthor(
     val id: BookId,
     val title: String,
     val coverBlurHash: String?,
+    val coverHash: String?,
     val createdAt: Timestamp,
     val authorName: String?,
 )
@@ -506,6 +507,7 @@ data class DiscoveryBookWithSeries(
     val id: BookId,
     val title: String,
     val coverBlurHash: String?,
+    val coverHash: String?,
     val createdAt: Timestamp,
     val authorName: String?,
     val sequence: String?,
