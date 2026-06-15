@@ -741,16 +741,6 @@
         }
       }
     },
-    "admin.map_scanned_genre_strings_to_your_taxonomy": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Map scanned genre strings to your taxonomy"
-          }
-        }
-      }
-    },
     "admin.merge_into": {
       "localizations": {
         "en": {
@@ -1327,16 +1317,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Top level"
-          }
-        }
-      }
-    },
-    "admin.unmapped_genres": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unmapped Genres"
           }
         }
       }
@@ -5711,16 +5691,6 @@
         }
       }
     },
-    "genre.all_mapped": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Every genre string from your scanner has been mapped or auto-resolved."
-          }
-        }
-      }
-    },
     "genre.book_count": {
       "localizations": {
         "en": {
@@ -5761,26 +5731,6 @@
         }
       }
     },
-    "genre.map_arrow": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Map →"
-          }
-        }
-      }
-    },
-    "genre.map_raw_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Map \"%1$@\" to…"
-          }
-        }
-      }
-    },
     "genre.no_books_in_genre": {
       "localizations": {
         "en": {
@@ -5797,36 +5747,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No genres yet."
-          }
-        }
-      }
-    },
-    "genre.no_live_genres": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No live genres available. Create one in Admin → Categories first."
-          }
-        }
-      }
-    },
-    "genre.nothing_to_map": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing to map."
-          }
-        }
-      }
-    },
-    "genre.unmapped_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unmapped Genres"
           }
         }
       }

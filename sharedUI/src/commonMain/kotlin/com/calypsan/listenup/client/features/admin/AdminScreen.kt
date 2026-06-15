@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Category
@@ -85,7 +84,6 @@ import listenup.composeapp.generated.resources.admin_deny_registration
 import listenup.composeapp.generated.resources.admin_invite_someone
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
-import listenup.composeapp.generated.resources.admin_map_scanned_genre_strings_to_your_taxonomy
 import listenup.composeapp.generated.resources.admin_no_pending_registrations
 import listenup.composeapp.generated.resources.admin_open_registration
 import listenup.composeapp.generated.resources.admin_organize_books_into_collections_for
@@ -99,7 +97,6 @@ import listenup.composeapp.generated.resources.admin_server_name
 import listenup.composeapp.generated.resources.admin_server_settings
 import listenup.composeapp.generated.resources.admin_share_your_audiobook_library_with
 import listenup.composeapp.generated.resources.admin_they_wont_be_able_to
-import listenup.composeapp.generated.resources.admin_unmapped_genres
 import listenup.composeapp.generated.resources.admin_view_the_genre_hierarchy_tree
 import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.common_approve
@@ -127,7 +124,6 @@ fun AdminScreen(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit = {},
     onCategoriesClick: () -> Unit = {},
-    onUnmappedGenresClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
     serverName: String = "",
@@ -217,7 +213,6 @@ fun AdminScreen(
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
-                    onUnmappedGenresClick = onUnmappedGenresClick,
                     onBackupClick = onBackupClick,
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
@@ -314,7 +309,6 @@ private fun AdminContent(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
-    onUnmappedGenresClick: () -> Unit,
     onBackupClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
@@ -340,7 +334,6 @@ private fun AdminContent(
             onInviteClick = onInviteClick,
             onCollectionsClick = onCollectionsClick,
             onCategoriesClick = onCategoriesClick,
-            onUnmappedGenresClick = onUnmappedGenresClick,
             onBackupClick = onBackupClick,
             serverName = serverName,
             onServerNameChange = onServerNameChange,
@@ -384,7 +377,6 @@ private fun AdminContent(
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
-                    onUnmappedGenresClick = onUnmappedGenresClick,
                     onBackupClick = onBackupClick,
                 )
             }
@@ -407,7 +399,6 @@ private fun AdminTwoPaneContent(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
-    onUnmappedGenresClick: () -> Unit,
     onBackupClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
@@ -457,7 +448,6 @@ private fun AdminTwoPaneContent(
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
-                    onUnmappedGenresClick = onUnmappedGenresClick,
                     onBackupClick = onBackupClick,
                 )
             }
@@ -818,7 +808,6 @@ private fun ManagementSection(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
-    onUnmappedGenresClick: () -> Unit,
     onBackupClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -856,15 +845,6 @@ private fun ManagementSection(
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
             badgeContentColor = colors.onSecondary,
-        )
-        ActionTile(
-            title = stringResource(Res.string.admin_unmapped_genres),
-            subtitle = stringResource(Res.string.admin_map_scanned_genre_strings_to_your_taxonomy),
-            icon = Icons.AutoMirrored.Outlined.Rule,
-            onClick = onUnmappedGenresClick,
-            containerColor = colors.surfaceContainerHigh,
-            badgeColor = colors.primary,
-            badgeContentColor = colors.onPrimary,
         )
         ActionTile(
             title = stringResource(Res.string.admin_backup_restore),

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.GenreUpdate
-import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.GenreEntity
@@ -90,16 +89,6 @@ class GenreRepositoryImpl(
         includeDescendants: Boolean,
         limit: Int,
     ): AppResult<List<BookId>> = rpcCall { rpcFactory.genreService().browseBooks(genreId, includeDescendants, limit) }
-
-    // ── Unmapped queue (RPC) ─────────────────────────────────────────────────
-
-    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
-        rpcCall { rpcFactory.genreService().listUnmappedStrings() }
-
-    override suspend fun mapUnmappedToGenre(
-        rawString: String,
-        genreId: GenreId,
-    ): AppResult<Unit> = rpcCallUnit { rpcFactory.genreService().mapUnmappedToGenre(rawString, genreId) }
 
     // ── Plumbing ─────────────────────────────────────────────────────────────
 

@@ -139,12 +139,6 @@ val adminPresentationModule =
                 errorBus = get(),
             )
         }
-        factory {
-            com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel(
-                genreRepository = get(),
-                errorBus = get(),
-            )
-        }
         // AdminCollectionDetailViewModel - takes collectionId as parameter
         factory { params ->
             com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel(
