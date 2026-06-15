@@ -159,10 +159,9 @@ val adminPresentationModule =
                 errorBus = get(),
             )
         }
-        // LibrarySettingsViewModel - takes libraryId as parameter
-        factory { params ->
+        // LibrarySettingsViewModel — operates on THE singleton library (no id param)
+        factory {
             com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel(
-                libraryId = params.get<String>(0),
                 adminRepository = get(),
                 errorBus = get(),
             )

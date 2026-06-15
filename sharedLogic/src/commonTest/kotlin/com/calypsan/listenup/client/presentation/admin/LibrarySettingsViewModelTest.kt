@@ -45,11 +45,10 @@ class LibrarySettingsViewModelTest :
         test("initial state is Loading") {
             runTest(dispatcher) {
                 val adminRepository: AdminRepository = mock()
-                everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(createLibrary())
+                everySuspend { adminRepository.getLibrary() } returns AppResult.Success(createLibrary())
 
                 val viewModel =
                     LibrarySettingsViewModel(
-                        libraryId = "lib-1",
                         adminRepository = adminRepository,
                         errorBus = ErrorBus(),
                     )
@@ -62,11 +61,10 @@ class LibrarySettingsViewModelTest :
             runTest(dispatcher) {
                 val adminRepository: AdminRepository = mock()
                 val library = createLibrary()
-                everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
+                everySuspend { adminRepository.getLibrary() } returns AppResult.Success(library)
 
                 val viewModel =
                     LibrarySettingsViewModel(
-                        libraryId = "lib-1",
                         adminRepository = adminRepository,
                         errorBus = ErrorBus(),
                     )
@@ -80,11 +78,10 @@ class LibrarySettingsViewModelTest :
         test("loadLibrary initial failure transitions to Error") {
             runTest(dispatcher) {
                 val adminRepository: AdminRepository = mock()
-                everySuspend { adminRepository.getLibrary("lib-1") } returns networkFailure()
+                everySuspend { adminRepository.getLibrary() } returns networkFailure()
 
                 val viewModel =
                     LibrarySettingsViewModel(
-                        libraryId = "lib-1",
                         adminRepository = adminRepository,
                         errorBus = ErrorBus(),
                     )
@@ -98,11 +95,10 @@ class LibrarySettingsViewModelTest :
             runTest(dispatcher) {
                 val adminRepository: AdminRepository = mock()
                 val library = createLibrary()
-                everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
+                everySuspend { adminRepository.getLibrary() } returns AppResult.Success(library)
 
                 val viewModel =
                     LibrarySettingsViewModel(
-                        libraryId = "lib-1",
                         adminRepository = adminRepository,
                         errorBus = ErrorBus(),
                     )

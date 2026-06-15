@@ -292,13 +292,10 @@ data class AdminUserDetail(
  * Admin library settings screen - view and edit library settings.
  *
  * Shows library information and allows changing access mode and inbox settings.
- *
- * @property libraryId The unique ID of the library to configure.
+ * Operates on THE singleton library — no id parameter required.
  */
 @Serializable
-data class AdminLibrarySettings(
-    val libraryId: String,
-) : Route
+data object AdminLibrarySettings : Route
 
 // Admin Backup Routes
 

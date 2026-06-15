@@ -1078,21 +1078,17 @@ private class FakeAdminRepository(
         inboxEnabled: Boolean?,
     ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
 
-    override suspend fun getLibraries(): AppResult<List<Library>> = AppResult.Success(emptyList())
-
-    override suspend fun getLibrary(libraryId: String): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
+    override suspend fun getLibrary(): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
     override suspend fun addScanPath(
-        libraryId: String,
         path: String,
     ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
     override suspend fun removeFolder(
-        libraryId: String,
         folderId: String,
     ): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())
 
-    override suspend fun triggerScan(libraryId: String): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun triggerScan(): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> = AppResult.Failure(TransportError.NetworkUnavailable())
 }
