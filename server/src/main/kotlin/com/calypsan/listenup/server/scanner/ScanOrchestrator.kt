@@ -103,7 +103,9 @@ internal class ScanOrchestrator(
     }
 
     /**
-     * Mounts a new watcher for [folder] under [libraryId].
+     * Mounts a new watcher for [folder] under [libraryId] and updates the
+     * in-memory bundle snapshot so that [scanFolder] can find the new folder
+     * immediately after this call returns.
      *
      * Called after a successful `addFolder` admin RPC.
      */
@@ -111,6 +113,16 @@ internal class ScanOrchestrator(
         libraryId: LibraryId,
         folder: LibraryFolderRef,
     ) {
+        mutex.withLock {
+            val current = bundle
+            if (current != null && current.library.id == libraryId) {
+                bundle = current.copy(
+                    library = current.library.copy(
+                        folders = current.library.folders + folder,
+                    ),
+                )
+            }
+        }
         if (watchEnabled) {
             watcherSupervisor.mount(libraryId, folder) { libId, path -> onFileChanged(libId, path) }
         }

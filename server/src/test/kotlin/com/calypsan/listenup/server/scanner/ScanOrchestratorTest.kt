@@ -147,6 +147,37 @@ class ScanOrchestratorTest :
             }
         }
 
+        test("scanFolder finds new folder after onFolderAdded updates the snapshot") {
+            runTest {
+                val incrementalPaths = mutableListOf<java.nio.file.Path>()
+                val factory = FakeScannerFactory(recordIncremental = { path -> incrementalPaths.add(path) })
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+
+                // Library starts with no folders; only add the folder via onFolderAdded.
+                val library =
+                    Library(
+                        id = LibraryId("lib-1"),
+                        name = "Test Library",
+                        folders = emptyList(),
+                        metadataPrecedence = "embedded,abs,sidecar",
+                        accessMode = AccessMode.SHARED,
+                        createdByUserId = null,
+                        createdAt = 0L,
+                    )
+                orchestrator.onLibraryAdded(library)
+
+                val newFolder = LibraryFolderRef(FolderId("f-new"), "/tmp/extras")
+                orchestrator.onFolderAdded(LibraryId("lib-1"), newFolder)
+
+                // scanFolder must find the new folder in the snapshot — before the fix it no-ops.
+                orchestrator.scanFolder(FolderId("f-new"))
+                // Drain the incremental channel so the runIncremental lambda fires.
+                testScheduler.runCurrent()
+
+                incrementalPaths.map { it.toString() } shouldBe listOf("/tmp/extras")
+            }
+        }
+
         test("concurrent scanLibrary on the same library collapses via single-flight") {
             runTest {
                 val gate = CompletableDeferred<Unit>()
@@ -198,11 +229,13 @@ private fun orchestrator(
 // --- Fakes ------------------------------------------------------------------
 
 /**
- * Factory that produces [ScannerBundle]s with an optional gate to block full scans.
+ * Factory that produces [ScannerBundle]s with an optional gate to block full scans
+ * and an optional recorder for incremental re-analysis paths.
  * The first gate controls library-1's scanner; the second controls library-2's.
  */
 private class FakeScannerFactory(
     vararg gates: CompletableDeferred<Unit>,
+    private val recordIncremental: (suspend (java.nio.file.Path) -> Unit)? = null,
 ) {
     private val gateQueue = ArrayDeque(gates.toList())
     var scannersCreated = 0
@@ -221,7 +254,7 @@ private class FakeScannerFactory(
                     gate?.await()
                     emptyResult()
                 },
-                runIncremental = { /* no-op */ },
+                runIncremental = { path -> recordIncremental?.invoke(path) },
                 scope = scope,
             )
         return ScannerBundle(library, scanner, coordinator)
