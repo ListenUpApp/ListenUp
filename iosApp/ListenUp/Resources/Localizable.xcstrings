@@ -8521,6 +8521,16 @@
         }
       }
     },
+    "metadata.apply_metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply Metadata"
+          }
+        }
+      }
+    },
     "metadata.apply_selected_metadata": {
       "localizations": {
         "en": {
@@ -8547,6 +8557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audible region"
+          }
+        }
+      }
+    },
+    "metadata.audible_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audible · %1$@"
           }
         }
       }
@@ -8581,6 +8601,16 @@
         }
       }
     },
+    "metadata.change": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change"
+          }
+        }
+      }
+    },
     "metadata.chapter_names": {
       "localizations": {
         "en": {
@@ -8601,6 +8631,26 @@
         }
       }
     },
+    "metadata.chapters_all_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %1$d selected"
+          }
+        }
+      }
+    },
+    "metadata.chapters_count_mismatch": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d Audible chapters → your %2$d — different edition, unavailable."
+          }
+        }
+      }
+    },
     "metadata.chapters_match_review": {
       "localizations": {
         "en": {
@@ -8617,6 +8667,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d chapters matched"
+          }
+        }
+      }
+    },
+    "metadata.chapters_review_apply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review & apply chapter names"
+          }
+        }
+      }
+    },
+    "metadata.chapters_some_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d selected"
+          }
+        }
+      }
+    },
+    "metadata.clear_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all"
           }
         }
       }
@@ -8681,6 +8761,26 @@
         }
       }
     },
+    "metadata.field_cover": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover"
+          }
+        }
+      }
+    },
+    "metadata.field_cover_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New artwork from Audible"
+          }
+        }
+      }
+    },
     "metadata.field_description": {
       "localizations": {
         "en": {
@@ -8731,6 +8831,26 @@
         }
       }
     },
+    "metadata.field_release_date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release date"
+          }
+        }
+      }
+    },
+    "metadata.field_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series"
+          }
+        }
+      }
+    },
     "metadata.field_subtitle": {
       "localizations": {
         "en": {
@@ -8751,12 +8871,32 @@
         }
       }
     },
+    "metadata.fields_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d selected"
+          }
+        }
+      }
+    },
     "metadata.find_on_audible": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Find on Audible"
+          }
+        }
+      }
+    },
+    "metadata.find_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Audible for this book, then choose the edition that matches your audiobook."
           }
         }
       }
@@ -8771,12 +8911,52 @@
         }
       }
     },
+    "metadata.match_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d match found"
+          }
+        }
+      }
+    },
     "metadata.match_metadata": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Match metadata"
+          }
+        }
+      }
+    },
+    "metadata.match_on_audible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match on Audible"
+          }
+        }
+      }
+    },
+    "metadata.matched_by_asin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched by ASIN on Audible %1$@"
+          }
+        }
+      }
+    },
+    "metadata.matches_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d matches found"
           }
         }
       }
@@ -8801,7 +8981,37 @@
         }
       }
     },
+    "metadata.more_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ %1$d more chapters"
+          }
+        }
+      }
+    },
     "metadata.no_matches_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matches found"
+          }
+        }
+      }
+    },
+    "metadata.no_matches_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a different search term or region."
+          }
+        }
+      }
+    },
+    "metadata.no_matches_title": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8871,6 +9081,26 @@
         }
       }
     },
+    "metadata.review_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review chapters"
+          }
+        }
+      }
+    },
+    "metadata.review_chapters_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audible names replace your current chapter labels. Timings stay the same."
+          }
+        }
+      }
+    },
     "metadata.search_audible": {
       "localizations": {
         "en": {
@@ -8881,12 +9111,32 @@
         }
       }
     },
+    "metadata.search_helper": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search by title, author, or ASIN"
+          }
+        }
+      }
+    },
     "metadata.searching_for": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Searching for: %1$@"
+          }
+        }
+      }
+    },
+    "metadata.section_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapters"
           }
         }
       }
@@ -8921,12 +9171,32 @@
         }
       }
     },
+    "metadata.select_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all"
+          }
+        }
+      }
+    },
     "metadata.select_metadata": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Select Metadata"
+          }
+        }
+      }
+    },
+    "metadata.start_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a title, author, narrator, or ASIN to search."
           }
         }
       }
@@ -8957,6 +9227,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Try selecting a different region above."
+          }
+        }
+      }
+    },
+    "metadata.updated_chapters_named": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapters named"
+          }
+        }
+      }
+    },
+    "metadata.updated_cover_replaced": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover replaced"
+          }
+        }
+      }
+    },
+    "metadata.updated_fields_applied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fields applied"
+          }
+        }
+      }
+    },
+    "metadata.updated_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ now matches its Audible edition."
+          }
+        }
+      }
+    },
+    "metadata.updated_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadata updated"
+          }
+        }
+      }
+    },
+    "metadata.use_this_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use This Match"
           }
         }
       }

@@ -238,6 +238,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getMetadataViewModel(): com.calypsan.listenup.client.presentation.metadata.MetadataViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.metadata.MetadataViewModel by inject()
+        return viewModel
+    }
+
     fun getProgressTracker(): ProgressTracker {
         val instance: ProgressTracker by inject()
         return instance
