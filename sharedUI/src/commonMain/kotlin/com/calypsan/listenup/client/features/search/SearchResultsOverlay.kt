@@ -70,6 +70,7 @@ import com.calypsan.listenup.client.design.components.ContentRow
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.components.highlightMatch
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.BookCard
@@ -558,12 +559,8 @@ private fun BooksGrid(
         }
         gridItems(books, key = { hitKey(BOOK_KEY_PREFIX, it) }) { hit ->
             BookCard(
-                bookId = hit.id,
-                title = hit.name,
-                coverPath = hit.coverPath,
-                blurHash = null,
+                cover = hit.toCoverModel(),
                 onClick = { onResultClick(hit) },
-                authorName = hit.author,
                 subtitle = hit.seriesName,
                 duration = hit.formatDuration(),
             )

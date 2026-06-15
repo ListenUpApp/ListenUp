@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
@@ -242,13 +243,8 @@ private fun GridOnlyLayout(
             key = { it.id.value },
         ) { book ->
             BookCard(
-                bookId = book.id.value,
-                title = book.title,
-                coverPath = book.coverPath,
-                coverHash = book.coverHash,
-                blurHash = book.coverBlurHash,
+                cover = book.toCoverModel(),
                 onClick = { onBookClick(book.id.value) },
-                authorName = book.authorNames,
                 duration = book.formatDuration(),
                 progress = state.bookProgress[book.id],
             )
@@ -396,13 +392,8 @@ private fun SeriesCarouselSection(
                 key = { it.id.value },
             ) { book ->
                 BookCard(
-                    bookId = book.id.value,
-                    title = book.title,
-                    coverPath = book.coverPath,
-                    coverHash = book.coverHash,
-                    blurHash = book.coverBlurHash,
+                    cover = book.toCoverModel(),
                     onClick = { onBookClick(book.id.value) },
-                    authorName = book.authorNames,
                     duration = book.formatDuration(),
                     progress = bookProgress[book.id],
                     cardWidth = 150.dp,
@@ -466,13 +457,8 @@ private fun StandaloneBooksGrid(
                 ) {
                     rowBooks.forEach { book ->
                         BookCard(
-                            bookId = book.id.value,
-                            title = book.title,
-                            coverPath = book.coverPath,
-                            coverHash = book.coverHash,
-                            blurHash = book.coverBlurHash,
+                            cover = book.toCoverModel(),
                             onClick = { onBookClick(book.id.value) },
-                            authorName = book.authorNames,
                             duration = book.formatDuration(),
                             progress = bookProgress[book.id],
                             modifier = Modifier.weight(1f),

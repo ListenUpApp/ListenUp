@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -389,13 +390,8 @@ private fun BookGrid(
                     is BookGridItem.BookItem -> {
                         val bookId = gridItem.book.id.value
                         BookCard(
-                            bookId = bookId,
-                            title = gridItem.book.title,
-                            coverPath = gridItem.book.coverPath,
-                            coverHash = gridItem.book.coverHash,
-                            blurHash = gridItem.book.coverBlurHash,
+                            cover = gridItem.book.toCoverModel(),
                             onClick = { onBookClick(bookId) },
-                            authorName = gridItem.book.authorNames,
                             duration = gridItem.book.formatDuration(),
                             progress = bookProgress[gridItem.book.id],
                             isFinished = bookIsFinished[gridItem.book.id] ?: false,

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
@@ -82,12 +83,9 @@ data class AvatarOverlayData(
  * - Discover: basic cover with optional subtitle (e.g. series name)
  * - Recently Added: basic cover with title/author
  *
- * @param bookId Unique book identifier
- * @param title Book title
- * @param coverPath Local file path to cover image
- * @param blurHash BlurHash string for placeholder
+ * @param cover Bundled cover identity (id, title, author, coverPath, coverHash, blurHash). Travels
+ *   as one unit so a call-site can never silently drop [BookCoverModel.coverHash].
  * @param onClick Callback when card is clicked
- * @param authorName Author name(s) to display below title
  * @param duration Formatted duration string (e.g. "12h 30m")
  * @param subtitle Additional text line (e.g. series name, "Book 1 of X")
  * @param progress Optional progress (0.0-1.0). Shows progress overlay when not finished.
@@ -103,13 +101,9 @@ data class AvatarOverlayData(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookCard(
-    bookId: String,
-    title: String,
-    coverPath: String?,
-    blurHash: String?,
+    cover: BookCoverModel,
     onClick: () -> Unit,
-    coverHash: String? = null,
-    authorName: String? = null,
+    modifier: Modifier = Modifier,
     duration: String? = null,
     subtitle: String? = null,
     progress: Float? = null,
@@ -121,7 +115,6 @@ fun BookCard(
     isSelected: Boolean = false,
     onLongPress: (() -> Unit)? = null,
     cardWidth: Dp? = null,
-    modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -198,13 +191,13 @@ fun BookCard(
             // The now-playing book gets a coral frame; selection/focus still win when active.
             val playingBorder = MaterialTheme.colorScheme.primary
             BookCardCover(
-                bookId = bookId,
-                coverPath = coverPath,
-                coverHash = coverHash,
-                blurHash = blurHash,
-                contentDescription = title,
-                title = title,
-                author = authorName.orEmpty(),
+                bookId = cover.bookId,
+                coverPath = cover.coverPath,
+                coverHash = cover.coverHash,
+                blurHash = cover.blurHash,
+                contentDescription = cover.title,
+                title = cover.title,
+                author = cover.author.orEmpty(),
                 progress = if (isCompleted) null else progress,
                 timeRemaining = if (isCompleted) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
@@ -242,7 +235,7 @@ fun BookCard(
         // Metadata
         Column(modifier = Modifier.padding(horizontal = if (cardWidth != null) 2.dp else 4.dp)) {
             Text(
-                text = title,
+                text = cover.title,
                 style =
                     if (cardWidth != null) {
                         MaterialTheme.typography.titleSmall.copy(
@@ -260,7 +253,7 @@ fun BookCard(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            authorName?.let { author ->
+            cover.author?.let { author ->
                 Text(
                     text = author,
                     style = MaterialTheme.typography.bodySmall,

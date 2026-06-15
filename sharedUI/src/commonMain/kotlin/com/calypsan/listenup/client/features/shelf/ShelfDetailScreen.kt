@@ -1,14 +1,12 @@
 package com.calypsan.listenup.client.features.shelf
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,17 +54,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.domain.model.ShelfBook
+import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.presentation.shelf.ShelfBookSort
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
@@ -513,43 +511,16 @@ private fun ShelfSortPill(
     }
 }
 
-/** A single book cell: square cover with title + author beneath. */
+/** A single book cell: the canonical library [BookCard] filling the grid column. */
 @Composable
 private fun ShelfBookGridItem(
     book: ShelfBook,
     onClick: () -> Unit,
 ) {
-    val author = book.authorNames.joinToString(", ")
-    Column(modifier = Modifier.clickable(onClick = onClick)) {
-        BookCoverImage(
-            bookId = book.id,
-            coverPath = book.coverPath,
-            contentDescription = book.title,
-            title = book.title,
-            author = author,
-            contentScale = ContentScale.Crop,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(20.dp)),
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = book.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = author,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    BookCard(
+        cover = book.toCoverModel(),
+        onClick = onClick,
+    )
 }
 
 /** Empty-state block shown when the shelf has no books. */
