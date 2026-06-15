@@ -26,7 +26,7 @@ private const val CHEVRON_ALPHA = 0.7f
 private val BADGE_SIZE = 50.dp
 
 /**
- * A color-blocked navigation tile: a rounded ([MaterialTheme.shapes.extraLarge]) [Surface] filled
+ * A color-blocked navigation tile: a rounded ([MaterialTheme.shapes.large]) [Surface] filled
  * with [containerColor], leading with a [ScallopBadge] holding [icon], a [title] + muted [subtitle]
  * text column, and a trailing chevron. The canonical "big nav tile" for management/landing actions —
  * the Admin Management section composes one per destination, and any screen needing a vivid,
@@ -58,7 +58,7 @@ fun ActionTile(
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = containerColor,
         contentColor = contentColor,
     ) {

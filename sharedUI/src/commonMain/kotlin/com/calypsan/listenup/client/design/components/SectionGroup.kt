@@ -23,7 +23,7 @@ private val HEADER_TILE_SIZE = 30.dp
 /**
  * The canonical accent-headed grouped-section container: an accent-tinted [TonalIconTile] paired
  * with an UPPERCASE overline [label] in [accent], floating above a [surfaceContainerLow] card
- * ([MaterialTheme.shapes.extraLarge]) whose body is the [content] [Column]. Used wherever the app
+ * ([MaterialTheme.shapes.large]) whose body is the [content] [Column]. Used wherever the app
  * groups related rows under a coloured heading — Settings sections (Appearance, Playback, …) and
  * Admin sections (Server, Users, Management) all compose this with their own accent and rows.
  *
@@ -65,7 +65,7 @@ fun SectionGroup(
         }
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
         ) {
             Column(content = content)

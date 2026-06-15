@@ -282,7 +282,7 @@ private fun MatchedEditionHero(
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = colors.primaryContainer,
         contentColor = colors.onPrimaryContainer,
     ) {
@@ -665,7 +665,7 @@ private fun FieldGroup(
         }
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             content = { Column(content = content) },
         )
@@ -707,7 +707,7 @@ private fun ChapterNamesItem(
         is ChapterSuggestion.CountMismatch -> {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -732,7 +732,7 @@ private fun ChapterNamesItem(
             Surface(
                 onClick = onReview,
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
