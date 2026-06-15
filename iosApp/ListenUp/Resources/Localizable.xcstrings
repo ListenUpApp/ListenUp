@@ -8311,6 +8311,16 @@
         }
       }
     },
+    "library.index_jump": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jump to %1$@"
+          }
+        }
+      }
+    },
     "library.loading_your_library": {
       "localizations": {
         "en": {
@@ -8347,6 +8357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Narrators"
+          }
+        }
+      }
+    },
+    "library.section_index": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Section index"
           }
         }
       }

@@ -17,6 +17,8 @@ struct DownloadButton: View {
     let onCancel: () -> Void
     let onDelete: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Tracks whether we've shown the checkmark long enough to transition to trash
     @State private var showTrash = false
     /// Tracks previous state to detect completion transition
@@ -32,7 +34,7 @@ struct DownloadButton: View {
         .onChange(of: state) { oldValue, newValue in
             if newValue == .completed && oldValue != .completed {
                 showTrash = false
-                withAnimation(.easeInOut.delay(2.0)) {
+                withAnimation(reduceMotion ? nil : .easeInOut.delay(2.0)) {
                     showTrash = true
                 }
             } else if newValue != .completed {
@@ -99,7 +101,7 @@ struct DownloadButton: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .animation(.easeInOut(duration: 0.3), value: showTrash)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showTrash)
 
         case .partial, .failed:
             Image(systemName: "arrow.clockwise.circle")

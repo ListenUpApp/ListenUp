@@ -39,6 +39,7 @@ struct SeriesBookRow: View {
 
     private var cover: some View {
         BookCoverImage(book: book)
+            .accessibilityHidden(true)
             .frame(width: 54, height: 54)
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay(alignment: .bottomTrailing) {

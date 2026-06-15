@@ -24,6 +24,9 @@ struct BookCoverImage: View {
     let bookId: String?
     let coverPath: String?
     let blurHash: String?
+    /// VoiceOver label. When nil the cover is treated as decorative and hidden from VoiceOver
+    /// (an unlabeled cover is noise — meaningful covers pass a label via `CoverAccessibility.label`).
+    var accessibilityLabel: String?
 
     @Environment(\.displayScale) private var displayScale
     @State private var request: ImageRequest?
@@ -34,6 +37,7 @@ struct BookCoverImage: View {
         self.bookId = book.idString
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
+        self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
 
     /// Convenience initializer from a BookDetail
@@ -41,20 +45,23 @@ struct BookCoverImage: View {
         self.bookId = book.idString
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
+        self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
 
     /// Direct initializer with a book id, so the authenticated server URL can resolve.
-    init(bookId: String?, coverPath: String?, blurHash: String? = nil) {
+    init(bookId: String?, coverPath: String?, blurHash: String? = nil, accessibilityLabel: String? = nil) {
         self.bookId = bookId
         self.coverPath = coverPath
         self.blurHash = blurHash
+        self.accessibilityLabel = accessibilityLabel
     }
 
     /// Local-only initializer (no `bookId`): renders the downloaded file or a placeholder.
-    init(coverPath: String?, blurHash: String? = nil) {
+    init(coverPath: String?, blurHash: String? = nil, accessibilityLabel: String? = nil) {
         self.bookId = nil
         self.coverPath = coverPath
         self.blurHash = blurHash
+        self.accessibilityLabel = accessibilityLabel
     }
 
     var body: some View {
@@ -91,6 +98,10 @@ struct BookCoverImage: View {
                 targetPixels: targetMaxPixels
             )
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel ?? "")
+        .accessibilityHidden(accessibilityLabel == nil)
+        .accessibilityAddTraits(.isImage)
     }
 
     /// Identity for the request-building task: any change re-resolves the cover source.

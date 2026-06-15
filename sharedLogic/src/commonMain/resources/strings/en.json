@@ -208,6 +208,8 @@
     "count_unit": "%1$d %2$s",
     "create_a_collection_in_the": "Create a collection in the Admin section first",
     "ignoring_articles": " · ignoring A · An · The",
+    "index_jump": "Jump to %1$s",
+    "section_index": "Section index",
     "create_add": "Create & Add",
     "create_new_shelf": "Create New Shelf",
     "empty_description": "Books you add to your server will appear here",

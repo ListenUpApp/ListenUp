@@ -40,6 +40,7 @@ struct NavigationActionRow: View {
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.luLabel3)
+                .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
         .padding(.horizontal, 14)
