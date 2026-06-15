@@ -187,7 +187,7 @@ private data class ResolveRepoFixture(
 )
 
 private fun repository(db: Database): ResolveRepoFixture {
-    val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+    val registry = LibraryRegistry(db)
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val repo =

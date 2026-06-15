@@ -51,7 +51,7 @@ class BookRepositoryReadTest :
         test("readPayload assembles the full aggregate: book + contributors + series + chapters + audio files") {
             withInMemoryDatabase {
                 val db = this
-                val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                val registry = LibraryRegistry(db)
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -185,7 +185,7 @@ class BookRepositoryReadTest :
         test("readPayload returns cover = null when coverHash is absent") {
             withInMemoryDatabase {
                 val db = this
-                val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                val registry = LibraryRegistry(db)
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
