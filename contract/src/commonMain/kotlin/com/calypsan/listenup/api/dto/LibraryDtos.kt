@@ -45,9 +45,6 @@ data class Library(
     val createdByUserId: UserId?,
     /** Unix epoch milliseconds when this library was created. */
     val createdAt: Long,
-    /** When true, newly-scanned books in this library are quarantined in its inbox (admin-only) until released. */
-    @SerialName("inboxEnabled")
-    val inboxEnabled: Boolean = false,
 )
 
 /**
@@ -94,51 +91,16 @@ data class LibraryFolderRef(
 )
 
 /**
- * Request body for [com.calypsan.listenup.api.LibraryAdminService.createLibrary].
- *
- * [folderPaths] must contain at least one path. The server validates that each
- * path exists and is readable; invalid paths produce [LibraryError.InvalidPath].
- * Duplicate paths (already registered under another library) produce
- * [LibraryError.DuplicateFolder].
- */
-@Serializable
-@SerialName("CreateLibraryRequest")
-data class CreateLibraryRequest(
-    /** Human-readable name for the new library. */
-    val name: String,
-    /**
-     * One or more absolute filesystem paths to register as folders.
-     * Must be non-empty; each path must exist and be readable on the server.
-     */
-    val folderPaths: List<String>,
-    /**
-     * Optional metadata source precedence override. `null` means the server
-     * applies its default precedence (`"embedded,abs,sidecar"`).
-     */
-    val metadataPrecedence: String? = null,
-    /**
-     * When `true` the server skips the inbox folder convention during scanning.
-     * Preserved from the legacy `SetupApiContract` surface; verify semantic
-     * validity during Library UI phase.
-     */
-    val skipInbox: Boolean = false,
-)
-
-/**
  * Wire response for [com.calypsan.listenup.api.LibraryAdminService.getSetupStatus].
  *
- * [needsSetup] is `true` when no libraries exist on the server — the client
- * onboarding wizard should show the library creation flow. Once at least one
- * library exists, [needsSetup] is `false` and [libraryCount] reflects the
- * current total.
+ * [needsSetup] is `true` when THE library has no folders yet — the client onboarding
+ * wizard should prompt the operator to add at least one root folder.
  */
 @Serializable
 @SerialName("SetupStatus")
 data class SetupStatus(
-    /** `true` when the server has no libraries and needs onboarding. */
+    /** `true` when THE library has no folders yet and needs onboarding. */
     val needsSetup: Boolean,
-    /** Total number of non-deleted libraries on the server. */
-    val libraryCount: Int,
     /** `true` while a library scan is in progress, for onboarding-status spinners. */
     val isScanning: Boolean = false,
 )

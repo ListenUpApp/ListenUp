@@ -291,5 +291,4 @@ private fun ContractLibrary.toDomain(): Library =
         createdByUserId = createdByUserId?.value,
         createdAt = createdAt,
         revision = 0L,
-        inboxEnabled = inboxEnabled,
     )
