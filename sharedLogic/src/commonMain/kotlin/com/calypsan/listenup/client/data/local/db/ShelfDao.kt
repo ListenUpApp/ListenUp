@@ -111,6 +111,25 @@ interface ShelfDao {
     suspend fun coverHashesFor(shelfId: String): List<String>
 
     /**
+     * Per-book cover hashes for a shelf's live books present in the local mirror.
+     *
+     * The shelf-detail RPC view carries no cover info, so the detail mapper joins each
+     * [ShelfBook][com.calypsan.listenup.client.domain.model.ShelfBook] to its local cover hash
+     * here. Books not yet synced to Room are simply absent. Unlike [coverHashesFor] (a LIMIT-4
+     * cover-grid helper) this returns one row per live book and includes null hashes.
+     */
+    @Query(
+        """
+        SELECT sb.bookId AS bookId, b.coverHash AS coverHash
+        FROM shelf_books sb
+        JOIN books b ON sb.bookId = b.id
+        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL
+        ORDER BY sb.sortOrder ASC
+    """,
+    )
+    suspend fun coverHashesByBookFor(shelfId: String): List<ShelfBookCoverHash>
+
+    /**
      * True live (non-tombstoned) book count for a single shelf.
      *
      * Used by the single-shelf mapping paths ([ShelfRepositoryImpl.observeById] /
