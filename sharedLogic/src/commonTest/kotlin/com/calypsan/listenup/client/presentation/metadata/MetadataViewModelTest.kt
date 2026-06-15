@@ -741,16 +741,18 @@ class MetadataViewModelTest :
             }
         }
 
-        test("initForBook seeds an explicit region so the preview fetch uses it") {
+        test("region applied before selectMatch is used for the preview fetch") {
             runTest {
                 val book = makeBook(asin = "B007")
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
                 val vm = buildVm(repo)
 
-                // Mirrors MatchPreviewRoute initialising a fresh per-entry VM with the
-                // region carried across the navigation boundary from the search screen.
-                vm.initForBook(bookId = "b1", title = "", author = "", region = AudibleRegion.CA)
+                // Mirrors MatchPreviewRoute on a fresh per-entry VM: init, apply the region carried
+                // across navigation, then select the match. (changeRegion's search is a blank no-op.)
+                vm.initForBook(bookId = "b1", title = "", author = "")
+                vm.changeRegion(AudibleRegion.CA)
+                advanceUntilIdle()
                 vm.selectMatch(book)
                 advanceUntilIdle()
 
