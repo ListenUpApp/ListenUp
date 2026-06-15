@@ -17,7 +17,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
+
+private const val COLD_RPC_HANDSHAKE_ATTEMPTS = 4
+private const val COLD_RPC_HANDSHAKE_RETRY_DELAY_MS = 250L
 
 private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
 private const val UNMERGE_TARGET_ID = "unmerge-stephen-king"
@@ -128,11 +132,25 @@ class ContributorUnmergeE2ETest :
                 }
 
                 // Issue the unmerge over the real kotlinx.rpc transport.
+                //
+                // This is the test's first and only RPC call, so kotlinx.rpc opens its WebSocket
+                // lazily right here — a *cold* handshake. Under CI contention that handshake
+                // intermittently fails ("Handshake exception, expected status code 101 but was
+                // 401") *before* the request reaches `ContributorService`, surfacing as an
+                // AppResult.Failure (see ContributorEditRepositoryImpl.rpcCall's catch). The
+                // unmerge never executed, so re-firing is safe: a failed handshake leaves no
+                // server-side state to collide with. (The test auth provider authenticates every
+                // request unconditionally, so the 401 is transport-layer, never a real auth
+                // rejection.) Bounded retry removes the transport flake without masking a real
+                // failure — a genuine service error returns Failure on every attempt and still
+                // fails the test.
                 val result =
-                    contributorEditRepository.unmergeContributor(
-                        contributorId = ContributorId(UNMERGE_TARGET_ID),
-                        aliasName = ALIAS_NAME,
-                    )
+                    retryOnColdRpcHandshake {
+                        contributorEditRepository.unmergeContributor(
+                            contributorId = ContributorId(UNMERGE_TARGET_ID),
+                            aliasName = ALIAS_NAME,
+                        )
+                    }
                 result.shouldBeInstanceOf<AppResult.Success<ContributorId>>()
                 val newId = result.data.value
                 newId shouldNotBe UNMERGE_TARGET_ID
@@ -260,3 +278,20 @@ private fun bookFixture(
         createdAt = 0L,
         deletedAt = null,
     )
+
+/**
+ * Re-fire a single RPC [call] until it returns [AppResult.Success], up to
+ * [COLD_RPC_HANDSHAKE_ATTEMPTS] times. Guards the cold kotlinx.rpc WebSocket handshake, which can
+ * transiently 401 under CI contention *before* the request reaches the service — leaving no
+ * server-side state, so re-firing is safe. A genuine service failure returns [AppResult.Failure] on
+ * every attempt and is returned unchanged, so this never masks a real error.
+ */
+private suspend fun <T> retryOnColdRpcHandshake(call: suspend () -> AppResult<T>): AppResult<T> {
+    var result = call()
+    repeat(COLD_RPC_HANDSHAKE_ATTEMPTS - 1) {
+        if (result is AppResult.Success) return result
+        delay(COLD_RPC_HANDSHAKE_RETRY_DELAY_MS)
+        result = call()
+    }
+    return result
+}
