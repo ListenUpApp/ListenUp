@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.features.library.AvatarOverlayData
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
@@ -49,12 +50,8 @@ fun CurrentlyListeningSection(
         // Horizontal scroll of session cards
         BrowseCarousel(items = ready.sessions) { session ->
             BookCard(
-                bookId = session.bookId,
-                title = session.bookTitle,
-                coverPath = session.coverPath,
-                blurHash = session.coverBlurHash,
+                cover = session.toCoverModel(),
                 onClick = { onBookClick(session.bookId) },
-                authorName = session.authorName,
                 avatarOverlay =
                     AvatarOverlayData(
                         userId = session.userId,

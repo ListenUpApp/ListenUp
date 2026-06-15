@@ -91,3 +91,16 @@ data class ShelfWithBookCount(
     @Embedded val shelf: ShelfEntity,
     val bookCount: Int,
 )
+
+/**
+ * Projection returned by [ShelfDao.coverHashesByBookFor]: one row per live shelf book that
+ * exists in the local `books` mirror, pairing the book id with its cover content hash.
+ *
+ * The shelf-detail RPC view carries no cover information, so the hash is resolved client-side
+ * from Room. A non-null [coverHash] lets the UI version its image-cache key so a re-imaged
+ * cover invalidates the stale cached bitmap.
+ */
+data class ShelfBookCoverHash(
+    val bookId: String,
+    val coverHash: String?,
+)

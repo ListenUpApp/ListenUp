@@ -42,6 +42,7 @@ class SearchRepositoryTest :
             id: String = "book-1",
             title: String = "Test Book",
             authorName: String? = "Test Author",
+            coverHash: String? = null,
         ) = BookSearchResult(
             book =
                 BookEntity(
@@ -50,7 +51,7 @@ class SearchRepositoryTest :
                     folderId = FolderId("test-folder"),
                     title = title,
                     subtitle = null,
-                    coverHash = null,
+                    coverHash = coverHash,
                     totalDuration = 3_600_000,
                     description = null,
                     publishYear = null,
@@ -126,6 +127,23 @@ class SearchRepositoryTest :
                     }
 
                 repo.search("test").isOfflineResult.shouldBeFalse()
+            }
+        }
+
+        test("book hits carry coverHash through to the SearchHit") {
+            runTest {
+                val repo =
+                    repository {
+                        everySuspend { searchBooks(any(), any()) } returns
+                            listOf(bookResult(title = "Mistborn", coverHash = "abc123"))
+                        everySuspend { searchContributors(any(), any()) } returns emptyList()
+                        everySuspend { searchSeries(any(), any()) } returns emptyList()
+                        everySuspend { searchTags(any(), any()) } returns emptyList()
+                    }
+
+                val result = repo.search("brandon", types = listOf(SearchHitType.BOOK))
+
+                result.hits.first { it.type == SearchHitType.BOOK }.coverHash shouldBe "abc123"
             }
         }
 

@@ -69,6 +69,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.toCoverModel
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -295,13 +296,8 @@ private fun WideContributorPortfolio(
                 key = { "${section.role}_${it.id.value}" },
             ) { book ->
                 BookCard(
-                    bookId = book.id.value,
-                    title = book.title,
-                    coverPath = book.coverPath,
-                    coverHash = book.coverHash,
-                    blurHash = book.coverBlurHash,
+                    cover = book.toCoverModel(),
                     onClick = { onBookClick(book.id.value) },
-                    authorName = book.authorNames,
                     duration = book.formatDuration(),
                     progress = state.bookProgress[book.id],
                 )
@@ -703,13 +699,8 @@ private fun NarrowWorkSection(
                 key = { it.id.value },
             ) { book ->
                 BookCard(
-                    bookId = book.id.value,
-                    title = book.title,
-                    coverPath = book.coverPath,
-                    coverHash = book.coverHash,
-                    blurHash = book.coverBlurHash,
+                    cover = book.toCoverModel(),
                     onClick = { onBookClick(book.id.value) },
-                    authorName = book.authorNames,
                     duration = book.formatDuration(),
                     progress = bookProgress[book.id],
                     cardWidth = 150.dp,

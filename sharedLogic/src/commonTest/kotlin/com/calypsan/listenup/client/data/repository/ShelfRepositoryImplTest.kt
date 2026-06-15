@@ -4,8 +4,11 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf as ShelfDto
+import com.calypsan.listenup.api.dto.shelf.ShelfBookView
+import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.ShelfBookCoverHash
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
@@ -299,6 +302,43 @@ class ShelfRepositoryImplTest :
                 result.map { it.id } shouldContainExactly listOf("s1")
                 result.first().bookCount shouldBe 3
                 result.first().ownerId shouldBe "owner1"
+            }
+        }
+
+        test("getShelfDetail carries coverHash from the local mirror into each ShelfBook") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { getShelf(ShelfId("s1")) } returns
+                            AppResult.Success(
+                                ShelfDetailDto(
+                                    id = ShelfId("s1"),
+                                    name = "Reading",
+                                    description = "",
+                                    isPrivate = false,
+                                    isOwner = true,
+                                    books =
+                                        listOf(
+                                            ShelfBookView(bookId = "b1", title = "Mistborn", authors = listOf("Sanderson")),
+                                            ShelfBookView(bookId = "b2", title = "Elantris", authors = listOf("Sanderson")),
+                                        ),
+                                    bookCount = 2,
+                                    totalDurationMs = 0L,
+                                ),
+                            )
+                    }
+                val dao =
+                    mock<ShelfDao> {
+                        everySuspend { coverHashesByBookFor("s1") } returns
+                            listOf(
+                                ShelfBookCoverHash(bookId = "b1", coverHash = "hash-b1"),
+                                ShelfBookCoverHash(bookId = "b2", coverHash = null),
+                            )
+                    }
+                val result = repo(shelfDao = dao, service = service).getShelfDetail("s1")
+                val detail = (result as AppResult.Success).data
+                detail.books.first { it.id == "b1" }.coverHash shouldBe "hash-b1"
+                detail.books.first { it.id == "b2" }.coverHash shouldBe null
             }
         }
 

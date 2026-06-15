@@ -29,6 +29,7 @@ data class SearchHit(
     val genreSlugs: List<String>? = null,
     val tags: List<String>? = null,
     val coverPath: String? = null,
+    val coverHash: String? = null,
     val score: Float = 0f,
     val highlight: String? = null,
 ) {

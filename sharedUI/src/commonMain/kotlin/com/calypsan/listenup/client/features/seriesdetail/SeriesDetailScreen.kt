@@ -493,6 +493,7 @@ private fun SeriesBookRow(
             BookCoverImage(
                 bookId = book.id.value,
                 coverPath = book.coverPath,
+                coverHash = book.coverHash,
                 contentDescription = book.title,
                 title = book.title,
                 author = book.authors.firstOrNull()?.name,

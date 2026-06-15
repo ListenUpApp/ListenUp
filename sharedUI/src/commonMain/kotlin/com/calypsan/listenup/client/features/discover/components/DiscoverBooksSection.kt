@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
@@ -71,12 +72,8 @@ fun DiscoverBooksSection(
         // Horizontal scroll of book cards
         BrowseCarousel(items = ready.books) { book ->
             BookCard(
-                bookId = book.id,
-                title = book.title,
-                coverPath = book.coverPath,
-                blurHash = book.coverBlurHash,
+                cover = book.toCoverModel(),
                 onClick = { onBookClick(book.id) },
-                authorName = book.authorName,
                 subtitle =
                     book.seriesName?.takeIf { it.isNotBlank() }?.let { series ->
                         stringResource(Res.string.discover_book_1_of_series, series)

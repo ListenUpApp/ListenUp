@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -63,12 +64,8 @@ fun ContinueListeningRow(
                 when (item) {
                     is ContinueListeningItem.Ready -> {
                         BookCard(
-                            bookId = item.book.bookId,
-                            title = item.book.title,
-                            coverPath = item.book.coverPath,
-                            blurHash = item.book.coverBlurHash,
+                            cover = item.book.toCoverModel(),
                             onClick = { onBookClick(item.bookId) },
-                            authorName = item.book.authorNames,
                             progress = item.book.progress,
                             timeRemaining = item.book.timeRemainingFormatted,
                             isPlaying = item.book.bookId == playingBookId,

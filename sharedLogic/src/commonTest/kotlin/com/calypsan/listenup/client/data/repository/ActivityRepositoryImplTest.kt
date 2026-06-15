@@ -105,6 +105,7 @@ class ActivityRepositoryImplTest :
                 id = id,
                 title = "The Way of Kings",
                 coverBlurHash = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
+                coverHash = null,
                 authorName = "Brandon Sanderson",
             )
 

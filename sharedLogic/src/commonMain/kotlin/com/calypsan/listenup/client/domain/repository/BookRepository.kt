@@ -171,5 +171,6 @@ data class DiscoveryBook(
     val authorName: String?,
     val coverPath: String?,
     val coverBlurHash: String?,
+    val coverHash: String? = null,
     val createdAt: Long,
 )

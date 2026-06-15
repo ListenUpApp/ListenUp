@@ -86,7 +86,11 @@ class ShelfRepositoryImpl(
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
     override suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail> =
-        rpcCall { rpcFactory.get().getShelf(ShelfId(shelfId)) }.map { it.toDomain() }
+        rpcCall { rpcFactory.get().getShelf(ShelfId(shelfId)) }
+            .map { detail ->
+                val coverHashByBook = dao.coverHashesByBookFor(shelfId).associate { it.bookId to it.coverHash }
+                detail.toDomain(coverHashByBook)
+            }
 
     // ── Mutation (RPC) ────────────────────────────────────────────────────────────
 
@@ -226,7 +230,7 @@ private fun DiscoveredShelf.toDomain(): Shelf =
         updatedAtMs = shelf.updatedAt,
     )
 
-private fun ShelfDetailDto.toDomain(): ShelfDetail =
+private fun ShelfDetailDto.toDomain(coverHashByBook: Map<String, String?>): ShelfDetail =
     ShelfDetail(
         id = id.value,
         name = name,
@@ -242,6 +246,7 @@ private fun ShelfDetailDto.toDomain(): ShelfDetail =
                     title = book.title,
                     authorNames = book.authors,
                     coverPath = null,
+                    coverHash = coverHashByBook[book.bookId],
                 )
             },
     )

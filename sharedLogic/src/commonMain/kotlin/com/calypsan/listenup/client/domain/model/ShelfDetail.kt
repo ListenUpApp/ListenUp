@@ -56,10 +56,13 @@ data class ShelfDetail(
  * @property title Book title
  * @property authorNames List of author names for this book
  * @property coverPath Local path to cover image (optional)
+ * @property coverHash Content hash of the book's cover, used to bust the image cache when the
+ *   cover changes (optional; resolved from the local `books` mirror)
  */
 data class ShelfBook(
     val id: String,
     val title: String,
     val authorNames: List<String>,
     val coverPath: String?,
+    val coverHash: String? = null,
 )

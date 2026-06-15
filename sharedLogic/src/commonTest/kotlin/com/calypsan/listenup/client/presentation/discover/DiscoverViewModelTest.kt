@@ -89,6 +89,7 @@ class DiscoverViewModelTest :
         fun createDiscoveryBook(
             id: String = "book-1",
             title: String = "A Book",
+            coverHash: String? = null,
         ): DiscoveryBook =
             DiscoveryBook(
                 id = id,
@@ -96,6 +97,7 @@ class DiscoverViewModelTest :
                 authorName = "An Author",
                 coverPath = null,
                 coverBlurHash = null,
+                coverHash = coverHash,
                 createdAt = 0L,
             )
 
@@ -249,6 +251,23 @@ class DiscoverViewModelTest :
                 val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
                 ready.books.size shouldBe 1
                 ready.books.first().id shouldBe "new-1"
+            }
+        }
+
+        test("recentlyAddedState carries coverHash into RecentlyAddedUiBook") {
+            runTest {
+                // Given - a recently-added book with a non-null coverHash
+                val fixture = createFixture()
+                fixture.recentlyAddedFlow.value =
+                    listOf(createDiscoveryBook(id = "new-1", title = "New", coverHash = "abc123"))
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.recentlyAddedState) }
+                advanceUntilIdle()
+
+                // Then - coverHash survives the DiscoveryBook → RecentlyAddedUiBook mapping
+                val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
+                ready.books.first().coverHash shouldBe "abc123"
             }
         }
 

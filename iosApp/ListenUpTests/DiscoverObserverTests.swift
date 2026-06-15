@@ -18,6 +18,7 @@ struct DiscoverObserverTests {
             authorName: "Andy Weir",
             coverPath: "/covers/phm.jpg",
             coverBlurHash: "L6Pj0^jE",
+            coverHash: nil,
             seriesName: nil
         )
         let book = DiscoverBook(from: kmp)
@@ -39,6 +40,7 @@ struct DiscoverObserverTests {
             authorName: "Robert Galbraith",
             coverPath: nil,
             coverBlurHash: nil,
+            coverHash: nil,
             createdAt: 1_609_459_200_000
         )
         let book = RecentlyAddedBook(from: kmp)

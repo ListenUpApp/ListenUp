@@ -106,7 +106,13 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "bookA", title = "The Way of Kings", coverBlurHash = "blur", authorName = "Brandon"),
+                        BookSummary(
+                            id = "bookA",
+                            title = "The Way of Kings",
+                            coverBlurHash = "blur",
+                            coverHash = "cover-hash-a",
+                            authorName = "Brandon",
+                        ),
                     )
                 val presence = PresenceRefreshSignal()
 
@@ -119,6 +125,7 @@ class ActiveSessionRepositoryImplTest :
                     s.user.displayName shouldBe "Bob"
                     s.book.title shouldBe "The Way of Kings"
                     s.book.coverBlurHash shouldBe "blur"
+                    s.book.coverHash shouldBe "cover-hash-a"
                     s.book.authorName shouldBe "Brandon"
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -142,7 +149,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "present", title = "Present", coverBlurHash = null, authorName = null),
+                        BookSummary(id = "present", title = "Present", coverBlurHash = null, coverHash = null, authorName = null),
                     )
 
                 repo(fakeRpc(service), bookDao, PresenceRefreshSignal()).observeActiveSessions("u1").test {
@@ -174,7 +181,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, authorName = null),
+                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
                     )
                 val presence = PresenceRefreshSignal()
 
@@ -250,7 +257,7 @@ class ActiveSessionRepositoryImplTest :
                 val bookDao = mock<BookDao>(MockMode.autoUnit)
                 everySuspend { bookDao.getBookSummary("bookA") } calls {
                     if (lookups++ == 0) throw RuntimeException("transient Room failure")
-                    BookSummary(id = "bookA", title = "A", coverBlurHash = null, authorName = null)
+                    BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null)
                 }
                 val presence = PresenceRefreshSignal()
 
