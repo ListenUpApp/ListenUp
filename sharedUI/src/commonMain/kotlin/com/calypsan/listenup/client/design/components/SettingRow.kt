@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** Leading-icon column width: tile (44) + row gap (14) ≈ the divider's inset start. */
@@ -38,7 +37,8 @@ private val DIVIDER_INSET = 70.dp
  *
  * @param title Primary label, [MaterialTheme.typography.titleMedium].
  * @param modifier Modifier for the row.
- * @param subtitle Optional secondary line, single-line ellipsised [onSurfaceVariant] body text.
+ * @param subtitle Optional secondary description in [onSurfaceVariant] body text; wraps to as many
+ *   lines as it needs so it never truncates on narrow (phone) widths.
  * @param icon Optional leading glyph; when null (and [leading] is null) the row has no leading tile.
  * @param accent Accent colour for the leading tile.
  * @param danger When true, uses the error-tinted tile and an error-coloured title.
@@ -97,8 +97,6 @@ fun SettingRow(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
