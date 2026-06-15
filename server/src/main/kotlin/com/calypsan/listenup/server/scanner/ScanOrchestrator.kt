@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.error.LibraryError
-import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -28,26 +27,26 @@ internal interface ScannerResultPort {
 private val logger = KotlinLogging.logger {}
 
 /**
- * Top-level orchestrator that manages one [Scanner] + [ScanCoordinator] per
- * library and one [WatcherSupervisor] for all per-folder [com.calypsan.listenup.server.scanner.watcher.FolderWatcher]
- * instances.
+ * Top-level orchestrator that manages the single [Scanner] + [ScanCoordinator] bundle
+ * for the one library and one [WatcherSupervisor] for all per-folder
+ * [com.calypsan.listenup.server.scanner.watcher.FolderWatcher] instances.
  *
  * **Lifecycle:**
- * 1. On startup, [onLibraryAdded] is called for every existing library. This
+ * 1. On startup, [onLibraryAdded] is called for the configured library. This
  *    creates the scanner + coordinator pair and mounts watchers for each folder.
- * 2. [scanLibrary] triggers a full scan via the library's coordinator (single-flight).
- * 3. [scanFolder] resolves the owning library and triggers an incremental reanalysis.
+ * 2. [scanLibrary] triggers a full scan via the coordinator (single-flight).
+ * 3. [scanFolder] triggers an incremental reanalysis for the given folder.
  * 4. [onLibraryRemoved] tears down the scanner + coordinator and unmounts all watchers.
  * 5. [onFolderAdded] / [onFolderRemoved] adjust the watcher set.
  *
- * **Concurrency.** A [Mutex] guards [scannersByLibrary] and [coordinatorsByLibrary]
- * for lifecycle mutations (add/remove). Scan invocations delegate to
- * [ScanCoordinator] which serialises concurrent scans of the same library.
- * Concurrent scans of different libraries are allowed and run in parallel.
+ * **One library, many folders.** ListenUp is a single-library product. A second call
+ * to [onLibraryAdded] replaces the existing bundle — it does not create a second one.
  *
- * @param scannerFactory creates a [Scanner] for the given [Library]. Must also
- *   expose a [ScanCoordinator] — callers typically return a pre-paired object.
- *   Separated from the constructor to enable testing without real scanner deps.
+ * **Concurrency.** A [Mutex] guards [bundle] for lifecycle mutations (add/remove).
+ * Scan invocations delegate to [ScanCoordinator] which serialises concurrent scans.
+ *
+ * @param scannerFactory creates a [ScannerBundle] for the given [Library]. Separated
+ *   from the constructor to enable testing without real scanner deps.
  * @param watcherSupervisor manages per-folder watcher instances.
  * @param watchEnabled when `false`, [onLibraryAdded] and [onFolderAdded] skip
  *   mounting real-time file-system watchers — the library is still registered
@@ -62,35 +61,27 @@ internal class ScanOrchestrator(
     private val watchEnabled: Boolean = true,
 ) {
     private val mutex = Mutex()
-    private val bundlesByLibrary = mutableMapOf<LibraryId, ScannerBundle>()
 
-    // Folder-to-library reverse index for scanFolder lookups.
-    private val libraryByFolder = mutableMapOf<FolderId, LibraryId>()
+    // The single library's scanner bundle (or null before configuration). One library, many folders.
+    private var bundle: ScannerBundle? = null
 
-    /** True if any library currently has a scan in flight. */
-    suspend fun isScanning(): Boolean = mutex.withLock { bundlesByLibrary.values.any { it.coordinator.isScanning() } }
+    /** True if the library currently has a scan in flight. */
+    suspend fun isScanning(): Boolean = mutex.withLock { bundle?.coordinator?.isScanning() == true }
 
     /**
      * Registers [library] with the orchestrator: creates a [Scanner] +
-     * [ScanCoordinator] pair, registers the folder-to-library index, and mounts
-     * file-system watchers for each folder.
+     * [ScanCoordinator] pair and mounts file-system watchers for each folder.
      *
-     * Called at server startup for every existing library and after a
-     * successful `createLibrary` admin RPC.
+     * Called at server startup for the configured library and after a
+     * successful `createLibrary` admin RPC. A second call replaces the existing
+     * bundle — there is only ever one library active at a time.
      */
     suspend fun onLibraryAdded(library: Library) {
-        mutex.withLock {
-            val bundle = scannerFactory(library)
-            bundlesByLibrary[library.id] = bundle
-            for (folder in library.folders) {
-                libraryByFolder[folder.id] = library.id
-            }
-        }
+        val newBundle = scannerFactory(library)
+        mutex.withLock { bundle = newBundle }
         if (watchEnabled) {
             for (folder in library.folders) {
-                watcherSupervisor.mount(library.id, folder) { libId, path ->
-                    onFileChanged(libId, path)
-                }
+                watcherSupervisor.mount(library.id, folder) { libId, path -> onFileChanged(libId, path) }
             }
         }
         logger.info {
@@ -100,16 +91,13 @@ internal class ScanOrchestrator(
     }
 
     /**
-     * Removes [libraryId] from the orchestrator: tears down the scanner bundle
+     * Removes the library from the orchestrator: tears down the scanner bundle
      * and unmounts all associated file-system watchers.
      *
      * Called after a successful `deleteLibrary` admin RPC.
      */
     suspend fun onLibraryRemoved(libraryId: LibraryId) {
-        mutex.withLock {
-            bundlesByLibrary.remove(libraryId)
-            libraryByFolder.entries.removeIf { (_, libId) -> libId == libraryId }
-        }
+        mutex.withLock { if (bundle?.library?.id == libraryId) bundle = null }
         watcherSupervisor.unmountAllForLibrary(libraryId)
         logger.info { "Library removed: id=${libraryId.value}" }
     }
@@ -123,13 +111,8 @@ internal class ScanOrchestrator(
         libraryId: LibraryId,
         folder: LibraryFolderRef,
     ) {
-        mutex.withLock {
-            libraryByFolder[folder.id] = libraryId
-        }
         if (watchEnabled) {
-            watcherSupervisor.mount(libraryId, folder) { libId, path ->
-                onFileChanged(libId, path)
-            }
+            watcherSupervisor.mount(libraryId, folder) { libId, path -> onFileChanged(libId, path) }
         }
         logger.info {
             "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}" +
@@ -143,9 +126,6 @@ internal class ScanOrchestrator(
      * Called after a successful `removeFolder` admin RPC.
      */
     suspend fun onFolderRemoved(folderId: FolderId) {
-        mutex.withLock {
-            libraryByFolder.remove(folderId)
-        }
         watcherSupervisor.unmount(folderId)
         logger.info { "Folder removed: folder=${folderId.value}" }
     }
@@ -158,10 +138,9 @@ internal class ScanOrchestrator(
      * that library (the coordinator's single-flight contract).
      */
     suspend fun scanLibrary(libraryId: LibraryId): AppResult<ScanResult> {
-        val bundle =
-            mutex.withLock { bundlesByLibrary[libraryId] }
-                ?: return AppResult.Failure(LibraryError.NotFound())
-        return bundle.coordinator.scanFull()
+        val active = mutex.withLock { bundle?.takeIf { it.library.id == libraryId } }
+            ?: return AppResult.Failure(LibraryError.NotFound())
+        return active.coordinator.scanFull()
     }
 
     /**
@@ -176,52 +155,50 @@ internal class ScanOrchestrator(
      * [ScanResult]) is retained for the scanner vertical's synchronous summary endpoint.
      */
     suspend fun scanLibraryAsync(libraryId: LibraryId): AppResult<Unit> {
-        val bundle =
-            mutex.withLock { bundlesByLibrary[libraryId] }
-                ?: return AppResult.Failure(LibraryError.NotFound())
-        return bundle.coordinator.scanFullAsync()
+        val active = mutex.withLock { bundle?.takeIf { it.library.id == libraryId } }
+            ?: return AppResult.Failure(LibraryError.NotFound())
+        return active.coordinator.scanFullAsync()
     }
 
     /**
      * Triggers an incremental re-analysis of the subtree under [folderId].
      *
-     * Returns [LibraryError.FolderNotFound] when [folderId] is not registered.
+     * Returns silently when [folderId] is not found in the registered library's folders.
      */
     fun scanFolder(folderId: FolderId) {
-        val libraryId =
-            libraryByFolder[folderId] ?: run {
+        val active = bundle ?: return
+        val folderPath =
+            active.library.folders
+                .firstOrNull { it.id == folderId }
+                ?.rootPath ?: run {
                 logger.warn { "scanFolder: folderId=${folderId.value} not registered — ignoring" }
                 return
             }
-        val bundle = bundlesByLibrary[libraryId] ?: return
-        val folderPath =
-            bundle.library.folders
-                .firstOrNull { it.id == folderId }
-                ?.rootPath ?: return
-        bundle.coordinator.reanalyze(Path.of(folderPath))
+        active.coordinator.reanalyze(Path.of(folderPath))
     }
 
     /**
      * Returns the most recent [ScanResult] for [libraryId], or null when no
      * scan has completed yet or the library is not registered.
      */
-    fun lastResult(libraryId: LibraryId): ScanResult? = bundlesByLibrary[libraryId]?.scanner?.lastResult()
+    fun lastResult(libraryId: LibraryId): ScanResult? =
+        bundle?.takeIf { it.library.id == libraryId }?.scanner?.lastResult()
 
-    /** Snapshot of every library currently registered with a scanner bundle. */
-    fun registeredLibraryIds(): List<LibraryId> = bundlesByLibrary.keys.toList()
+    /** The single registered library id, as a 0-or-1 element list (kept list-shaped for the caller). */
+    fun registeredLibraryIds(): List<LibraryId> = bundle?.let { listOf(it.library.id) } ?: emptyList()
 
     private fun onFileChanged(
         libraryId: LibraryId,
         subtreePath: Path,
     ) {
-        val bundle = bundlesByLibrary[libraryId] ?: return
+        val active = bundle?.takeIf { it.library.id == libraryId } ?: return
         // Find the owning folder and compute a book-root within that folder.
         val owningFolder =
-            bundle.library.folders.firstOrNull { folder ->
+            active.library.folders.firstOrNull { folder ->
                 subtreePath.startsWith(Path.of(folder.rootPath))
             }
         val bookRoot = owningFolder?.let { subtreePath } ?: subtreePath
-        bundle.coordinator.reanalyze(bookRoot)
+        active.coordinator.reanalyze(bookRoot)
     }
 }
 

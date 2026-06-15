@@ -124,23 +124,18 @@ class ScanOrchestratorTest :
             }
         }
 
-        test("concurrent scanLibrary on different libraries both proceed") {
+        test("onLibraryAdded replaces the single bundle; only the latest library is scannable") {
             runTest {
-                val gate1 = CompletableDeferred<Unit>()
-                val gate2 = CompletableDeferred<Unit>()
-                val factory = FakeScannerFactory(gate1, gate2)
-                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+                val orchestrator = orchestrator(FakeScannerFactory(), FakeWatcherSupervisor(), backgroundScope)
+                val libraryA = testLib("lib-a", "/tmp/a")
+                val libraryB = testLib("lib-b", "/tmp/b")
 
-                orchestrator.onLibraryAdded(testLib("lib-1", "/tmp/a"))
-                orchestrator.onLibraryAdded(testLib("lib-2", "/tmp/b"))
+                orchestrator.onLibraryAdded(libraryA)
+                orchestrator.onLibraryAdded(libraryB)
 
-                val job1 = async { orchestrator.scanLibrary(LibraryId("lib-1")) }
-                val job2 = async { orchestrator.scanLibrary(LibraryId("lib-2")) }
-
-                gate1.complete(Unit)
-                gate2.complete(Unit)
-                job1.await().shouldBeInstanceOf<AppResult.Success<ScanResult>>()
-                job2.await().shouldBeInstanceOf<AppResult.Success<ScanResult>>()
+                orchestrator.registeredLibraryIds() shouldBe listOf(libraryB.id)
+                (orchestrator.scanLibrary(libraryA.id) as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.NotFound>()
+                orchestrator.scanLibrary(libraryB.id).shouldBeInstanceOf<AppResult.Success<ScanResult>>()
             }
         }
 
