@@ -611,16 +611,6 @@
         }
       }
     },
-    "admin.inbox_new_books": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inbox new books"
-          }
-        }
-      }
-    },
     "admin.inbox_setting_subtitle": {
       "localizations": {
         "en": {
@@ -637,16 +627,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hold new books for review"
-          }
-        }
-      }
-    },
-    "admin.inbox_settings": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inbox Settings"
           }
         }
       }
@@ -827,16 +807,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Name is required."
-          }
-        }
-      }
-    },
-    "admin.new_books_in_this_library": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New books are held for review before members can see them."
           }
         }
       }

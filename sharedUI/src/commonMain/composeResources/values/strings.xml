@@ -61,10 +61,8 @@
     <string name="admin_import_users_progress">Users: %1$d/%2$d</string>
     <string name="admin_in_this_collection">in this collection</string>
     <string name="admin_inbox_empty">Inbox Empty</string>
-    <string name="admin_inbox_new_books">Inbox new books</string>
     <string name="admin_inbox_setting_subtitle">New books wait in the inbox until an admin releases them.</string>
     <string name="admin_inbox_setting_title">Hold new books for review</string>
-    <string name="admin_inbox_settings">Inbox Settings</string>
     <string name="admin_inbox_workflow">Inbox Workflow</string>
     <string name="admin_info_emoji">ℹ️</string>
     <string name="admin_invite_created">Invite Created!</string>
@@ -83,7 +81,6 @@
     <string name="admin_move_to_named">Move “%1$s” to…</string>
     <string name="admin_name_is_invited">%1$s is invited</string>
     <string name="admin_name_is_required">Name is required.</string>
-    <string name="admin_new_books_in_this_library">New books are held for review before members can see them.</string>
     <string name="admin_newly_scanned_books_will_appear">Newly scanned books will appear here for review</string>
     <string name="admin_no_backups_yet">No backups yet</string>
     <string name="admin_no_books_in_this_collection">No books in this collection</string>

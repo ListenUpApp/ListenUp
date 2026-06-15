@@ -53,16 +53,7 @@ final class AdminSettingsObserver {
         case .loading:
             phase = .loading
         case .ready(let ready):
-            phase = .ready(
-                AdminSettingsReadyModel(
-                    serverName: ready.serverName,
-                    remoteUrl: ready.remoteUrl,
-                    inboxEnabled: ready.inboxEnabled,
-                    isDirty: ready.isDirty,
-                    isSaving: ready.isSaving,
-                    error: (ready.error?.message)
-                )
-            )
+            phase = .ready(AdminSettingsReadyModel.from(ready))
         case .error(let error):
             phase = .error(message: error.error.message)
         }
@@ -87,4 +78,17 @@ struct AdminSettingsReadyModel: Equatable {
     let isSaving: Bool
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
     let error: String?
+
+    /// Pure mapping from the SKIE-bridged KMP `Ready` state. `nonisolated` so tests can
+    /// exercise it without a live observer or main-actor context.
+    nonisolated static func from(_ ready: AdminSettingsUiStateReady) -> AdminSettingsReadyModel {
+        AdminSettingsReadyModel(
+            serverName: ready.serverName,
+            remoteUrl: ready.remoteUrl,
+            inboxEnabled: ready.inboxEnabled,
+            isDirty: ready.isDirty,
+            isSaving: ready.isSaving,
+            error: ready.error?.message
+        )
+    }
 }

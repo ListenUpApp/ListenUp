@@ -1,50 +1,55 @@
 import Testing
+@preconcurrency import Shared
 @testable import ListenUp
 
-@MainActor
 @Suite("AdminSettingsObserver")
 struct AdminSettingsObserverTests {
-    // AdminSettingsReadyModel is a pure Swift struct constructed by the observer's
-    // state-mapping closure — it is testable without a live KMP ViewModel.
+    // Tests exercise `AdminSettingsReadyModel.from(_:)` — the real KMP-Ready → Swift mapping
+    // closure — so regressions that drop a field mapping are caught here, not just at runtime.
 
-    @Test func inboxEnabledTrueFlattensToReadyModel() {
-        let model = AdminSettingsReadyModel(
+    @Test func inboxEnabledTrueMapsToReadyModel() {
+        let ready = AdminSettingsUiStateReady(
             serverName: "My Server",
-            remoteUrl: "",
-            inboxEnabled: true,
-            isDirty: false,
-            isSaving: false,
-            error: nil
-        )
-        #expect(model.inboxEnabled == true)
-    }
-
-    @Test func inboxEnabledFalseFlattensToReadyModel() {
-        let model = AdminSettingsReadyModel(
-            serverName: "My Server",
-            remoteUrl: "",
-            inboxEnabled: false,
-            isDirty: false,
-            isSaving: false,
-            error: nil
-        )
-        #expect(model.inboxEnabled == false)
-    }
-
-    @Test func readyPhaseCarriesInboxEnabled() {
-        let model = AdminSettingsReadyModel(
-            serverName: "S",
             remoteUrl: "https://example.com",
             inboxEnabled: true,
+            isDirty: false,
+            isSaving: false,
+            error: nil
+        )
+        let model = AdminSettingsReadyModel.from(ready)
+        #expect(model.inboxEnabled == true)
+        #expect(model.serverName == "My Server")
+        #expect(model.remoteUrl == "https://example.com")
+        #expect(model.error == nil)
+    }
+
+    @Test func inboxEnabledFalseMapsToReadyModel() {
+        let ready = AdminSettingsUiStateReady(
+            serverName: "Inbox Off",
+            remoteUrl: "",
+            inboxEnabled: false,
             isDirty: true,
             isSaving: false,
             error: nil
         )
-        let phase = AdminSettingsPhase.ready(model)
-        if case .ready(let m) = phase {
-            #expect(m.inboxEnabled == true)
-        } else {
-            Issue.record("Expected .ready phase")
-        }
+        let model = AdminSettingsReadyModel.from(ready)
+        #expect(model.inboxEnabled == false)
+        #expect(model.serverName == "Inbox Off")
+        #expect(model.isDirty == true)
+    }
+
+    @Test func dirtyAndSavingFlagsMapped() {
+        let ready = AdminSettingsUiStateReady(
+            serverName: "S",
+            remoteUrl: "https://example.com",
+            inboxEnabled: true,
+            isDirty: true,
+            isSaving: true,
+            error: nil
+        )
+        let model = AdminSettingsReadyModel.from(ready)
+        #expect(model.isDirty == true)
+        #expect(model.isSaving == true)
+        #expect(model.inboxEnabled == true)
     }
 }
