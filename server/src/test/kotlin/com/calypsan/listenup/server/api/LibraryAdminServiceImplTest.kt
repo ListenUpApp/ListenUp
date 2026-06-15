@@ -160,15 +160,17 @@ class LibraryAdminServiceImplTest :
             }
         }
 
-        test("getSetupStatus returns needsSetup=true when libraries empty") {
+        test("getSetupStatus returns needsSetup=true when library has no folders") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val result = service.getSetupStatus()
                     result.shouldBeInstanceOf<AppResult.Success<SetupStatus>>()
                     val status = (result as AppResult.Success).data
+                    // Singleton model: the library always exists (created by LibraryRegistry on
+                    // first access), so libraryCount is 1. needsSetup reflects whether it has folders.
                     status.needsSetup shouldBe true
-                    status.libraryCount shouldBe 0
+                    status.libraryCount shouldBe 1
                     (result as AppResult.Success).data.isScanning shouldBe false
                 }
             }
@@ -749,7 +751,7 @@ private fun makeService(
                     registry = SyncRegistry(),
                 ),
         )
-    val libraryRegistry = LibraryRegistry(db = db)
+    val libraryRegistry = LibraryRegistry(db = db, clock = clock)
     val service =
         LibraryAdminServiceImpl(
             libraryRepository = libraryRepo,

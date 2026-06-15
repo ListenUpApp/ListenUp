@@ -146,12 +146,25 @@ internal class LibraryAdminServiceImpl(
 
     override suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library> {
         requireAdmin()?.let { return AppResult.Failure(it) }
-        // Single-library invariant: one library per server. If one already exists, return it
-        // (get-or-create) rather than creating a second — keeps the setup flow idempotent.
-        listLibraries().let { existing ->
-            if (existing is AppResult.Success && existing.data.isNotEmpty()) {
-                return AppResult.Success(existing.data.first())
+        // Single-library invariant: one library per server. If the singleton already exists,
+        // apply the request as a configuration update — rename it and add any requested folder
+        // paths (DuplicateFolder is silently skipped so re-running is idempotent). This keeps
+        // the wizard flow working against the pre-existing registry-bootstrapped singleton.
+        val existing = fetchLibrary()
+        if (existing is AppResult.Success) {
+            // Apply the requested name (renameLibrary handles its own substrate update).
+            renameLibrary(existing.data.id, request.name)
+            // Add requested folders; skip duplicates silently.
+            for (folderPath in request.folderPaths) {
+                val result = addFolderTo(existing.data.id, folderPath)
+                if (result is AppResult.Failure && result.error !is LibraryError.DuplicateFolder) {
+                    return AppResult.Failure(result.error)
+                }
             }
+            val updated = fetchLibrary()
+            // Register with orchestrator so callers can immediately scan the library.
+            if (updated is AppResult.Success) scanOrchestrator.onLibraryAdded(updated.data)
+            return updated
         }
         return createNewLibrary(request)
     }

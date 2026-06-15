@@ -3,11 +3,13 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.sync.nextRevision
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -59,19 +61,22 @@ class LibraryRegistry(
         return LibraryId(cachedId.get()!!)
     }
 
-    private fun bootstrapLibrary(): String {
+    private fun JdbcTransaction.bootstrapLibrary(): String {
         // The library is a singleton: it always exists. Folders are added separately
         // (by Application.bootstrapLibraries from env paths, or by the user via onboarding).
+        // Uses nextRevision() so the row lands at revision ≥ 1, which makes it visible to
+        // pullSince(cursor = 0L) (strictly-greater predicate) across all callers.
         val newId = UUID.randomUUID().toString()
         val now = clock.now().toEpochMilliseconds()
         val serializedPrecedence = metadataPrecedence.serialize()
+        val rev = nextRevision()
         LibraryTable.insert {
             it[LibraryTable.id] = newId
             it[LibraryTable.name] = "Library"
             it[LibraryTable.metadataPrecedence] = serializedPrecedence
             it[LibraryTable.createdAt] = now
             it[LibraryTable.updatedAt] = now
-            it[LibraryTable.revision] = 0L
+            it[LibraryTable.revision] = rev
             it[LibraryTable.deletedAt] = null
         }
         return newId

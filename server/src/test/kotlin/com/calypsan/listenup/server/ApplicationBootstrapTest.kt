@@ -17,12 +17,14 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -36,124 +38,108 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class ApplicationBootstrapTest :
     FunSpec({
 
-        test("bootstrap creates one default library when libraries empty + env var set + path valid") {
-            withInMemoryDatabase {
-                val tempDir = Files.createTempDirectory("bootstrap-test-").toString()
-                val (service, orchestrator, scanCalls) = makeServiceAndOrchestrator(this)
-                runTest {
-                    bootstrapLibraries(
-                        libraryAdminService = service,
-                        scanOrchestrator = orchestrator,
-                        libraryPath = tempDir,
-                    )
-
-                    val result = service.listLibraries()
-                    val libraries = result.shouldBeInstanceOf<AppResult.Success<List<Library>>>().data
-                    libraries shouldHaveSize 1
-                    libraries.first().name shouldBe "My Library"
-                    libraries.first().folders shouldHaveSize 1
-                    libraries
-                        .first()
-                        .folders
-                        .first()
-                        .rootPath shouldBe tempDir
-                }
-            }
-        }
-
-        test("bootstrap ignores env var when libraries table is non-empty") {
-            withInMemoryDatabase {
-                val existingDir = Files.createTempDirectory("bootstrap-existing-").toString()
-                val otherDir = Files.createTempDirectory("bootstrap-other-").toString()
-                val (service, orchestrator, _) = makeServiceAndOrchestrator(this)
-                runTest {
-                    // Seed one library first
-                    bootstrapLibraries(
-                        libraryAdminService = service,
-                        scanOrchestrator = orchestrator,
-                        libraryPath = existingDir,
-                    )
-
-                    // Re-run bootstrap with a different path — should be ignored
-                    bootstrapLibraries(
-                        libraryAdminService = service,
-                        scanOrchestrator = orchestrator,
-                        libraryPath = otherDir,
-                    )
-
-                    val result = service.listLibraries()
-                    val libraries = (result as AppResult.Success).data
-                    // Still exactly one library from the first bootstrap
-                    libraries shouldHaveSize 1
-                    libraries
-                        .first()
-                        .folders
-                        .first()
-                        .rootPath shouldBe existingDir
-                }
-            }
-        }
-
-        test("bootstrap no-ops when libraries empty + env var unset") {
-            withInMemoryDatabase {
-                val (service, orchestrator, _) = makeServiceAndOrchestrator(this)
-                runTest {
-                    bootstrapLibraries(
-                        libraryAdminService = service,
-                        scanOrchestrator = orchestrator,
-                        libraryPath = null,
-                    )
-
-                    val result = service.listLibraries()
-                    val libraries = (result as AppResult.Success).data
-                    libraries shouldHaveSize 0
-                }
-            }
-        }
-
-        test("bootstrap loads existing libraries into ScanOrchestrator on startup") {
+        test("bootstrap ensures exactly one path-less library when no env paths") {
             withInMemoryDatabase {
                 val db = this
-                val existingDir = Files.createTempDirectory("bootstrap-load-").toString()
-                val (service, orchestrator, onLibraryAddedCalls) = makeServiceAndOrchestrator(db)
-                // Second boot fixture created outside runTest so `this` refers to Database, not TestScope
-                val (service2, orchestrator2, onLibraryAddedCalls2) = makeServiceAndOrchestrator(db)
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
+                val registry = LibraryRegistry(db = db)
                 runTest {
-                    // Seed a library via direct bootstrap (first boot)
                     bootstrapLibraries(
                         libraryAdminService = service,
                         scanOrchestrator = orchestrator,
-                        libraryPath = existingDir,
+                        libraryRegistry = registry,
+                        libraryPaths = emptyList(),
+                        rescanOnStartup = false,
                     )
 
-                    // Simulate second boot — same library exists, orchestrator gets it again
+                    val result = service.fetchLibrary()
+                    val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
+                    library.folders.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("bootstrap seeds each env path as a folder of the singleton") {
+            withInMemoryDatabase {
+                val db = this
+                val dir1 = Files.createTempDirectory("bootstrap-seed1-")
+                val dir2 = Files.createTempDirectory("bootstrap-seed2-")
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
+                val registry = LibraryRegistry(db = db)
+                runTest {
+                    bootstrapLibraries(
+                        libraryAdminService = service,
+                        scanOrchestrator = orchestrator,
+                        libraryRegistry = registry,
+                        libraryPaths = listOf(dir1, dir2),
+                        rescanOnStartup = false,
+                    )
+
+                    val result = service.fetchLibrary()
+                    val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
+                    library.folders shouldHaveSize 2
+                    val rootPaths = library.folders.map { it.rootPath }.toSet()
+                    rootPaths shouldBe setOf(dir1.toString(), dir2.toString())
+                }
+            }
+        }
+
+        test("bootstrap skips a non-directory path") {
+            withInMemoryDatabase {
+                val db = this
+                val realDir = Files.createTempDirectory("bootstrap-realdir-")
+                val nonDir = Files.createTempFile("bootstrap-notadir-", ".tmp")
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
+                val registry = LibraryRegistry(db = db)
+                runTest {
+                    // addFolderToLibrary rejects non-directories via LibraryError.InvalidPath
+                    bootstrapLibraries(
+                        libraryAdminService = service,
+                        scanOrchestrator = orchestrator,
+                        libraryRegistry = registry,
+                        libraryPaths = listOf(realDir, nonDir),
+                        rescanOnStartup = false,
+                    )
+
+                    val result = service.fetchLibrary()
+                    val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
+                    // Only the real directory was seeded; the temp file was skipped
+                    library.folders shouldHaveSize 1
+                    library.folders.first().rootPath shouldBe realDir.toString()
+                }
+            }
+        }
+
+        test("bootstrap does not re-seed folders on second boot (idempotent)") {
+            withInMemoryDatabase {
+                val db = this
+                val dir = Files.createTempDirectory("bootstrap-idempotent-")
+                val registry = LibraryRegistry(db = db)
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
+                runTest {
+                    // First boot: seeds the folder
+                    bootstrapLibraries(
+                        libraryAdminService = service,
+                        scanOrchestrator = orchestrator,
+                        libraryRegistry = registry,
+                        libraryPaths = listOf(dir),
+                        rescanOnStartup = false,
+                    )
+                    // Second boot with same path — DuplicateFolder is skipped, not crash
+                    val (service2, orchestrator2, _) = makeServiceAndOrchestrator(db)
+                    val registry2 = LibraryRegistry(db = db)
                     bootstrapLibraries(
                         libraryAdminService = service2,
                         scanOrchestrator = orchestrator2,
-                        libraryPath = existingDir,
+                        libraryRegistry = registry2,
+                        libraryPaths = listOf(dir),
+                        rescanOnStartup = false,
                     )
 
-                    // Second boot: library existed → no create, but onLibraryAdded still called
-                    onLibraryAddedCalls2 shouldHaveSize 1
-                }
-            }
-        }
-
-        test("bootstrap does NOT auto-scan on boot") {
-            withInMemoryDatabase {
-                val tempDir = Files.createTempDirectory("bootstrap-noscan-").toString()
-                val fixture = makeServiceAndOrchestrator(this)
-                val (service, orchestrator) = fixture
-                val scanLibraryCalls = fixture.scanLibraryCalls
-                runTest {
-                    bootstrapLibraries(
-                        libraryAdminService = service,
-                        scanOrchestrator = orchestrator,
-                        libraryPath = tempDir,
-                    )
-
-                    // scanLibrary must never be called during bootstrap
-                    scanLibraryCalls shouldHaveSize 0
+                    val result = service2.fetchLibrary()
+                    val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
+                    // Still exactly one folder — no duplicates
+                    library.folders shouldHaveSize 1
                 }
             }
         }

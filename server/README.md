@@ -48,11 +48,14 @@ LISTENUP_DB_URL=jdbc:sqlite:/path/to/demo.db \
 ./gradlew :server:run
 ```
 
-Or point at your own library by setting `LISTENUP_LIBRARY_PATH` explicitly:
+Or point at your own library by setting `LISTENUP_LIBRARY_PATH` explicitly.
+`LISTENUP_LIBRARY_PATH` accepts a single folder or a path-separator-delimited list of
+folders (`:` on Unix, `;` on Windows). Each folder is seeded as a root path of the
+singleton library on first boot:
 
 ```bash
 LISTENUP_SEED_PROFILE=demo \
-LISTENUP_LIBRARY_PATH=/path/to/your/library \
+LISTENUP_LIBRARY_PATH=/path/to/audiobooks:/path/to/more/audiobooks \
 LISTENUP_DB_URL=jdbc:sqlite:/path/to/demo.db \
 ./gradlew :server:run
 ```

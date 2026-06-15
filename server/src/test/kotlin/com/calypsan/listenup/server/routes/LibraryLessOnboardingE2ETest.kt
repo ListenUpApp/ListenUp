@@ -79,7 +79,8 @@ class LibraryLessOnboardingE2ETest :
                     statusResponse.status shouldBe HttpStatusCode.OK
                     val status = statusResponse.body<SetupStatus>()
                     status.needsSetup shouldBe true
-                    status.libraryCount shouldBe 0
+                    // Singleton model: the library always exists (1), but has no folders yet.
+                    status.libraryCount shouldBe 1
 
                     // 3. Wizard creates the library, pointing at the temp dir.
                     val createResponse =
