@@ -46,7 +46,7 @@ private val logger = KotlinLogging.logger {}
  * @property adminUserRpc RPC factory for user-management operations
  * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
- * @property libraryAdminRpc RPC factory for library-admin operations (e.g. inbox toggle)
+ * @property libraryAdminRpc RPC factory for library-admin operations (add/remove folder, scan)
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
@@ -196,18 +196,30 @@ class AdminRepositoryImpl(
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
         catching("getServerSettings") {
-            adminSettingsRpc.get().getServerSettings().map { ServerSettings(it.serverName, it.remoteUrl) }
+            adminSettingsRpc.get().getServerSettings().map {
+                ServerSettings(
+                    it.serverName,
+                    it.remoteUrl,
+                    it.inboxEnabled,
+                )
+            }
         }
 
     override suspend fun updateServerSettings(
         serverName: String?,
         remoteUrl: String?,
+        inboxEnabled: Boolean?,
     ): AppResult<ServerSettings> =
         catching("updateServerSettings") {
             adminSettingsRpc
                 .get()
-                .updateServerSettings(AdminServerSettingsPatch(serverName = serverName, remoteUrl = remoteUrl))
-                .map { ServerSettings(it.serverName, it.remoteUrl) }
+                .updateServerSettings(
+                    AdminServerSettingsPatch(
+                        serverName = serverName,
+                        remoteUrl = remoteUrl,
+                        inboxEnabled = inboxEnabled,
+                    ),
+                ).map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
         }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -229,14 +241,6 @@ class AdminRepositoryImpl(
                 library?.let { AppResult.Success(it.toDomain()) }
                     ?: AppResult.Failure(InternalError(debugInfo = "Library not found: $libraryId"))
             }
-        }
-
-    override suspend fun setInboxEnabled(
-        libraryId: String,
-        enabled: Boolean,
-    ): AppResult<Library> =
-        catching("setInboxEnabled") {
-            libraryAdminRpc.get().setInboxEnabled(LibraryId(libraryId), enabled).map { it.toDomain() }
         }
 
     override suspend fun addScanPath(

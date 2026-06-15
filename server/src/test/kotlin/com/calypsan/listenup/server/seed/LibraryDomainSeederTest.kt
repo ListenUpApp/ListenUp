@@ -170,11 +170,6 @@ private class FakeLibraryAdminService(
         name: String,
     ): AppResult<Library> = AppResult.Failure(LibraryError.NotFound())
 
-    override suspend fun setInboxEnabled(
-        libraryId: LibraryId,
-        enabled: Boolean,
-    ): AppResult<Library> = AppResult.Failure(LibraryError.NotFound())
-
     override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun addFolder(

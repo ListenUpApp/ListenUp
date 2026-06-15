@@ -234,26 +234,6 @@ internal class LibraryAdminServiceImpl(
         }
     }
 
-    override suspend fun setInboxEnabled(
-        libraryId: LibraryId,
-        enabled: Boolean,
-    ): AppResult<Library> {
-        requireAdmin()?.let { return AppResult.Failure(it) }
-        return when (val result = libraryRepository.setInboxEnabled(libraryId, enabled)) {
-            is AppResult.Failure -> {
-                AppResult.Failure(result.error)
-            }
-
-            is AppResult.Success -> {
-                val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-                val payload =
-                    page.items.firstOrNull { it.id == libraryId.value && it.deletedAt == null }
-                        ?: return AppResult.Failure(LibraryError.NotFound())
-                AppResult.Success(payload.toLibraryWithFolders())
-            }
-        }
-    }
-
     override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> {
         requireAdmin()?.let { return AppResult.Failure(it) }
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)

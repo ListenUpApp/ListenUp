@@ -843,8 +843,6 @@
     "import_users_progress": "Users: %1$d/%2$d",
     "in_this_collection": "in this collection",
     "inbox_empty": "Inbox Empty",
-    "inbox_new_books": "Inbox new books",
-    "inbox_settings": "Inbox Settings",
     "inbox_workflow": "Inbox Workflow",
     "info_emoji": "ℹ️",
     "invite_created": "Invite Created!",
@@ -863,7 +861,6 @@
     "move_to_named": "Move “%1$s” to…",
     "name_is_invited": "%1$s is invited",
     "name_is_required": "Name is required.",
-    "new_books_in_this_library": "New books are held for review before members can see them.",
     "newly_scanned_books_will_appear": "Newly scanned books will appear here for review",
     "no_backups_yet": "No backups yet",
     "no_books_in_this_collection": "No books in this collection",
@@ -917,7 +914,9 @@
     "valid_email_is_required": "A valid email is required.",
     "view_the_genre_hierarchy_tree": "View the genre hierarchy tree",
     "what_to_include": "What to include",
-    "whos_joining": "Who's joining"
+    "whos_joining": "Who's joining",
+    "inbox_setting_title": "Hold new books for review",
+    "inbox_setting_subtitle": "New books wait in the inbox until an admin releases them."
   },
   "import": {
     "title": "Import from Audiobookshelf",

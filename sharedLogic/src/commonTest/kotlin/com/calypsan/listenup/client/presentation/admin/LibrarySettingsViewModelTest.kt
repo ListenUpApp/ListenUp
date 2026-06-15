@@ -9,8 +9,6 @@ import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
-import dev.mokkery.verify.VerifyMode
-import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -96,69 +94,11 @@ class LibrarySettingsViewModelTest :
             }
         }
 
-        test("setInboxEnabled calls repository and reflects inboxEnabled in state") {
-            runTest(dispatcher) {
-                val adminRepository: AdminRepository = mock()
-                val library = createLibrary()
-                val updatedLibrary = library.copy(inboxEnabled = true)
-                everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
-                everySuspend {
-                    adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
-                } returns AppResult.Success(updatedLibrary)
-
-                val viewModel =
-                    LibrarySettingsViewModel(
-                        libraryId = "lib-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.setInboxEnabled(true)
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Ready>()
-                ready.inboxEnabled shouldBe true
-                verifySuspend(VerifyMode.atLeast(1)) {
-                    adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
-                }
-            }
-        }
-
-        test("setInboxEnabled failure reverts state and surfaces error") {
-            runTest(dispatcher) {
-                val adminRepository: AdminRepository = mock()
-                val library = createLibrary()
-                everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
-                everySuspend {
-                    adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
-                } returns networkFailure()
-
-                val viewModel =
-                    LibrarySettingsViewModel(
-                        libraryId = "lib-1",
-                        adminRepository = adminRepository,
-                        errorBus = ErrorBus(),
-                    )
-                advanceUntilIdle()
-
-                viewModel.setInboxEnabled(true)
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Ready>()
-                ready.inboxEnabled shouldBe false
-                (ready.error != null) shouldBe true
-            }
-        }
-
         test("clearError clears error on Ready") {
             runTest(dispatcher) {
                 val adminRepository: AdminRepository = mock()
                 val library = createLibrary()
                 everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
-                everySuspend {
-                    adminRepository.setInboxEnabled(libraryId = "lib-1", enabled = true)
-                } returns networkFailure()
 
                 val viewModel =
                     LibrarySettingsViewModel(
@@ -167,12 +107,6 @@ class LibrarySettingsViewModelTest :
                         errorBus = ErrorBus(),
                     )
                 advanceUntilIdle()
-
-                // Trigger a transient failure so Ready has a non-null error.
-                viewModel.setInboxEnabled(true)
-                advanceUntilIdle()
-                val withError = viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Ready>()
-                (withError.error != null) shouldBe true
 
                 viewModel.clearError()
 

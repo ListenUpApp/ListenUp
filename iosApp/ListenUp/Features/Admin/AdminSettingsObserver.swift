@@ -42,6 +42,7 @@ final class AdminSettingsObserver {
     func reload() { viewModel.loadSettings() }
     func setServerName(_ name: String) { viewModel.setServerName(name: name) }
     func setRemoteUrl(_ url: String) { viewModel.setRemoteUrl(url: url) }
+    func setInboxEnabled(_ enabled: Bool) { viewModel.setInboxEnabled(enabled: enabled) }
     func save() { viewModel.saveAll() }
     func clearError() { viewModel.clearError() }
 
@@ -52,15 +53,7 @@ final class AdminSettingsObserver {
         case .loading:
             phase = .loading
         case .ready(let ready):
-            phase = .ready(
-                AdminSettingsReadyModel(
-                    serverName: ready.serverName,
-                    remoteUrl: ready.remoteUrl,
-                    isDirty: ready.isDirty,
-                    isSaving: ready.isSaving,
-                    error: (ready.error?.message)
-                )
-            )
+            phase = .ready(AdminSettingsReadyModel.from(ready))
         case .error(let error):
             phase = .error(message: error.error.message)
         }
@@ -80,8 +73,22 @@ enum AdminSettingsPhase: Equatable {
 struct AdminSettingsReadyModel: Equatable {
     let serverName: String
     let remoteUrl: String
+    let inboxEnabled: Bool
     let isDirty: Bool
     let isSaving: Bool
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
     let error: String?
+
+    /// Pure mapping from the SKIE-bridged KMP `Ready` state. `nonisolated` so tests can
+    /// exercise it without a live observer or main-actor context.
+    nonisolated static func from(_ ready: AdminSettingsUiStateReady) -> AdminSettingsReadyModel {
+        AdminSettingsReadyModel(
+            serverName: ready.serverName,
+            remoteUrl: ready.remoteUrl,
+            inboxEnabled: ready.inboxEnabled,
+            isDirty: ready.isDirty,
+            isSaving: ready.isSaving,
+            error: ready.error?.message
+        )
+    }
 }

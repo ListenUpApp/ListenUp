@@ -154,6 +154,15 @@ struct AdminView: View {
                 isBusy: ready.isTogglingOpenRegistration
             )
             .fieldCard()
+            Spacer().frame(height: 10)
+            ToggleRow(
+                systemImage: "tray.and.arrow.down",
+                tint: .luTint,
+                title: String(localized: "admin.inbox_setting_title"),
+                subtitle: String(localized: "admin.inbox_setting_subtitle"),
+                isOn: inboxEnabledBinding(settings: settings, model: settingsModel(settings))
+            )
+            .fieldCard()
         }
     }
 
@@ -347,6 +356,18 @@ struct AdminView: View {
 
     private func openRegistrationBinding(admin: AdminObserver, ready: AdminReadyModel) -> Binding<Bool> {
         Binding(get: { ready.openRegistration }, set: { admin.setOpenRegistration($0) })
+    }
+
+    private func settingsModel(_ settings: AdminSettingsObserver) -> AdminSettingsReadyModel? {
+        if case .ready(let model) = settings.phase { return model }
+        return nil
+    }
+
+    private func inboxEnabledBinding(
+        settings: AdminSettingsObserver,
+        model: AdminSettingsReadyModel?
+    ) -> Binding<Bool> {
+        Binding(get: { model?.inboxEnabled ?? false }, set: { settings.setInboxEnabled($0) })
     }
 
     // MARK: - Transient mutation error alert

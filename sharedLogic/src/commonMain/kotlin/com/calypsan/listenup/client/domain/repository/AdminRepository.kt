@@ -155,6 +155,7 @@ interface AdminRepository {
     suspend fun updateServerSettings(
         serverName: String? = null,
         remoteUrl: String? = null,
+        inboxEnabled: Boolean? = null,
     ): AppResult<ServerSettings>
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -175,21 +176,6 @@ interface AdminRepository {
      * @return [AppResult] carrying the library, or a failure.
      */
     suspend fun getLibrary(libraryId: String): AppResult<Library>
-
-    /**
-     * Enable or disable inbox quarantine for a library.
-     *
-     * When enabled, newly-scanned books in this library are quarantined in its
-     * inbox (admin-only) until released, rather than becoming visible to members.
-     *
-     * @param libraryId The library ID
-     * @param enabled True to enable inbox quarantine
-     * @return [AppResult] carrying the updated library, or a failure.
-     */
-    suspend fun setInboxEnabled(
-        libraryId: String,
-        enabled: Boolean,
-    ): AppResult<Library>
 
     /**
      * Add a scan path to a library.

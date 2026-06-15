@@ -33,6 +33,7 @@ class AdminSettingsViewModel(
     /** Baseline values from the server, used to compute dirty state. */
     private var savedServerName: String = ""
     private var savedRemoteUrl: String = ""
+    private var savedInboxEnabled: Boolean = false
 
     init {
         loadSettings()
@@ -44,17 +45,20 @@ class AdminSettingsViewModel(
                 is AppResult.Success -> {
                     savedServerName = result.data.serverName
                     savedRemoteUrl = result.data.remoteUrl ?: ""
+                    savedInboxEnabled = result.data.inboxEnabled
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
                             current.copy(
                                 serverName = result.data.serverName,
                                 remoteUrl = result.data.remoteUrl ?: "",
+                                inboxEnabled = result.data.inboxEnabled,
                                 error = null,
                             )
                         } else {
                             AdminSettingsUiState.Ready(
                                 serverName = result.data.serverName,
                                 remoteUrl = result.data.remoteUrl ?: "",
+                                inboxEnabled = result.data.inboxEnabled,
                             )
                         }
                     }
@@ -86,6 +90,13 @@ class AdminSettingsViewModel(
      */
     fun setRemoteUrl(url: String) {
         updateReady { it.copy(remoteUrl = url).withDirty() }
+    }
+
+    /**
+     * Toggle the server-wide inbox quarantine gate (local only).
+     */
+    fun setInboxEnabled(enabled: Boolean) {
+        updateReady { it.copy(inboxEnabled = enabled).withDirty() }
     }
 
     /**
@@ -148,6 +159,29 @@ class AdminSettingsViewModel(
                 }
             }
 
+            // Save inbox enabled if changed
+            if (ready.inboxEnabled != savedInboxEnabled) {
+                when (val result = updateServerSettingsUseCase.updateInboxEnabled(ready.inboxEnabled)) {
+                    is AppResult.Success -> {
+                        savedInboxEnabled = ready.inboxEnabled
+                        logger.info { "Inbox setting saved: ${ready.inboxEnabled}" }
+                    }
+
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to save inbox setting: ${result.error}" }
+                        updateReady {
+                            it
+                                .copy(
+                                    isSaving = false,
+                                    error = result.error,
+                                ).withDirty()
+                        }
+                        return@launch
+                    }
+                }
+            }
+
             updateReady { it.copy(isSaving = false).withDirty() }
         }
     }
@@ -174,7 +208,8 @@ class AdminSettingsViewModel(
         copy(
             isDirty =
                 serverName != savedServerName ||
-                    remoteUrl != savedRemoteUrl,
+                    remoteUrl != savedRemoteUrl ||
+                    inboxEnabled != savedInboxEnabled,
         )
 }
 
@@ -201,6 +236,7 @@ sealed interface AdminSettingsUiState {
     data class Ready(
         val serverName: String = "",
         val remoteUrl: String = "",
+        val inboxEnabled: Boolean = false,
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val error: AppError? = null,

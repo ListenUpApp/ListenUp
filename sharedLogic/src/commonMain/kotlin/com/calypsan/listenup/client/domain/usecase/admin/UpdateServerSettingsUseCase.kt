@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 /**
  * Updates server-identity settings.
  *
- * Allows admins to update the server display name and public remote URL.
+ * Allows admins to update the server display name, public remote URL, and inbox quarantine gate.
  */
 open class UpdateServerSettingsUseCase(
     private val adminRepository: AdminRepository,
@@ -19,4 +19,8 @@ open class UpdateServerSettingsUseCase(
     /** Update remote URL only (empty string clears). */
     open suspend fun updateRemoteUrl(remoteUrl: String): AppResult<ServerSettings> =
         adminRepository.updateServerSettings(remoteUrl = remoteUrl)
+
+    /** Enable or disable the server-wide inbox quarantine gate. */
+    open suspend fun updateInboxEnabled(enabled: Boolean): AppResult<ServerSettings> =
+        adminRepository.updateServerSettings(inboxEnabled = enabled)
 }

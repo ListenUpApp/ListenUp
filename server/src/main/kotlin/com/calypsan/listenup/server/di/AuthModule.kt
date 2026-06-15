@@ -115,7 +115,14 @@ fun authModule(config: ApplicationConfig): Module =
             )
         }
 
-        single { AdminSettingsServiceImpl(settings = get(), changeBus = get()) }
+        single {
+            AdminSettingsServiceImpl(
+                settings = get(),
+                changeBus = get(),
+                libraryRegistry = get(),
+                libraryRepository = get(),
+            )
+        }
         single<AdminSettingsService> { get<AdminSettingsServiceImpl>() }
 
         single { InviteCodeGenerator() }
