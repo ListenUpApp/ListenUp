@@ -8,7 +8,7 @@ import kotlinx.serialization.encodeToString
 class AdminServerSettingsTest :
     FunSpec({
         test("AdminServerSettings round-trips (incl. null remoteUrl)") {
-            val v = AdminServerSettings(serverName = "My Library", remoteUrl = null)
+            val v = AdminServerSettings(serverName = "My Library", remoteUrl = null, inboxEnabled = false)
             contractJson.decodeFromString<AdminServerSettings>(contractJson.encodeToString(v)) shouldBe v
         }
         test("AdminServerSettingsPatch round-trips (defaults null = unchanged)") {

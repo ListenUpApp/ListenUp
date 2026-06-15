@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.db.SwappableDataSource
+import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.FunSpec
@@ -38,6 +40,8 @@ class AuthModuleVerifyTest :
             // HikariDataSource, SwappableDataSource, Path, Database, Function0: DatabaseHandle's
             // constructor takes these directly; they are all constructed inside the factory
             // closure, not injected from the Koin graph.
+            // LibraryRegistry, LibraryRepository: AdminSettingsServiceImpl deps resolved from
+            // booksModule/libraryModule, both loaded at application startup but absent here.
             authModule(config).verify(
                 extraTypes =
                     listOf(
@@ -49,6 +53,8 @@ class AuthModuleVerifyTest :
                         Function0::class,
                         Path::class,
                         Database::class,
+                        LibraryRegistry::class,
+                        LibraryRepository::class,
                     ),
             )
         }

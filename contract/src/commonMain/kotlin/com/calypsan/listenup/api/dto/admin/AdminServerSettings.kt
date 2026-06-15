@@ -5,13 +5,15 @@ import kotlinx.serialization.Serializable
 
 /**
  * The server-wide editable identity settings an admin manages: the display [serverName]
- * (also surfaced pre-auth via `InstanceService.getServerInfo`) and the optional public
- * [remoteUrl]. [remoteUrl] is null when unset.
+ * (also surfaced pre-auth via `InstanceService.getServerInfo`), the optional public
+ * [remoteUrl] (null when unset), and the [inboxEnabled] scanner gate for the single
+ * library.
  */
 @Serializable
 data class AdminServerSettings(
     @SerialName("serverName") val serverName: String,
     @SerialName("remoteUrl") val remoteUrl: String?,
+    @SerialName("inboxEnabled") val inboxEnabled: Boolean,
 )
 
 /**
@@ -22,4 +24,5 @@ data class AdminServerSettings(
 data class AdminServerSettingsPatch(
     @SerialName("serverName") val serverName: String? = null,
     @SerialName("remoteUrl") val remoteUrl: String? = null,
+    @SerialName("inboxEnabled") val inboxEnabled: Boolean? = null,
 )
