@@ -77,6 +77,26 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getSetupViewModel(): com.calypsan.listenup.client.presentation.auth.SetupViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.auth.SetupViewModel by inject()
+        return viewModel
+    }
+
+    fun getClaimInviteViewModel(): com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel by inject()
+        return viewModel
+    }
+
+    fun getPendingApprovalViewModel(
+        userId: String,
+        email: String,
+    ): com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel by inject(
+            parameters = { org.koin.core.parameter.parametersOf(userId, email) },
+        )
+        return viewModel
+    }
+
     fun getServerSelectViewModel(): com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel by inject()
         return viewModel

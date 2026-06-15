@@ -12,6 +12,8 @@ final class AuthStateObserver {
 
     private(set) var state: AuthStateKind = .initializing
     private(set) var openRegistration: Bool = false
+    private(set) var pendingApprovalUserId: String = ""
+    private(set) var pendingApprovalEmail: String = ""
 
     // MARK: - Dependencies
 
@@ -48,8 +50,10 @@ final class AuthStateObserver {
         case .needsLogin(let login):
             state = .needsLogin
             openRegistration = login.openRegistration
-        case .pendingApproval:
+        case .pendingApproval(let pending):
             state = .pendingApproval
+            pendingApprovalUserId = pending.userId as? String ?? ""
+            pendingApprovalEmail = pending.email
         case .authenticated:
             state = .authenticated
         }

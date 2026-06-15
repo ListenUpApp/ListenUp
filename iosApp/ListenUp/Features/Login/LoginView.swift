@@ -25,6 +25,7 @@ struct LoginView: View {
     @State private var viewModel: LoginViewModelWrapper
     @State private var email = ""
     @State private var password = ""
+    @State private var showingClaimInvite = false
 
     // MARK: - Initialization
 
@@ -107,6 +108,18 @@ struct LoginView: View {
                     .buttonStyle(.plain)
             }
             .font(.subheadline)
+        }
+        HStack(spacing: 4) {
+            Text(String(localized: "invite.have_invite_prompt"))
+                .foregroundStyle(.secondary)
+            Button(String(localized: "invite.enter_code")) { showingClaimInvite = true }
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.listenUpOrange)
+                .buttonStyle(.plain)
+        }
+        .font(.subheadline)
+        .sheet(isPresented: $showingClaimInvite) {
+            ClaimInviteView(onDismiss: { showingClaimInvite = false })
         }
     }
 }

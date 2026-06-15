@@ -73,12 +73,14 @@ private struct RootView: View {
         switch auth.state {
         case .initializing, .checkingServer:
             LaunchScreen()
-        case .needsServerUrl, .needsSetup:
+        case .needsServerUrl:
             ServerFlowCoordinator()
+        case .needsSetup:
+            SetupView()
         case .needsLogin:
             AuthFlowCoordinator(openRegistration: auth.openRegistration)
         case .pendingApproval:
-            PendingApprovalView()
+            PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
         case .authenticated:
             authenticatedContent
         }
@@ -114,18 +116,3 @@ private struct LaunchScreen: View {
     }
 }
 
-private struct PendingApprovalView: View {
-    var body: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "clock.badge.checkmark")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.listenUpOrange)
-            Text(String(localized: "auth.waiting_for_approval"))
-                .font(.title.bold())
-            Text(String(localized: "auth.pending_approval_message"))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding()
-    }
-}
