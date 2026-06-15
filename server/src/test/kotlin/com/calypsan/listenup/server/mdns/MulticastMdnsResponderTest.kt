@@ -25,9 +25,13 @@ class MulticastMdnsResponderTest :
             val nif =
                 firstMulticastIpv4Interface()
                     ?: return@test // no multicast-capable interface here — nothing to assert
-            val service =
-                MdnsServiceInfo(instanceName = "kotest-host", port = 8080, txt = linkedMapOf("id" to "x"))
-            val responder = MulticastMdnsResponder(service, CoroutineScope(Dispatchers.IO + SupervisorJob()))
+            val responder =
+                MulticastMdnsResponder(
+                    instanceName = "kotest-host",
+                    port = 8080,
+                    txtProvider = { linkedMapOf("id" to "x") },
+                    scope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+                )
 
             val socket = responder.bindMulticastSocket(nif)
             try {
@@ -40,13 +44,15 @@ class MulticastMdnsResponderTest :
 
         test("start announces an mDNS packet containing our TXT id and service type") {
             val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-            val service =
-                MdnsServiceInfo(
+            val responder =
+                MulticastMdnsResponder(
                     instanceName = "kotest-host",
                     port = 8080,
-                    txt = linkedMapOf("id" to "test-id-123", "name" to "ListenUp", "version" to "0.0.1", "api" to "v1"),
+                    txtProvider = {
+                        linkedMapOf("id" to "test-id-123", "name" to "ListenUp", "version" to "0.0.1", "api" to "v1")
+                    },
+                    scope = scope,
                 )
-            val responder = MulticastMdnsResponder(service, scope)
 
             val nif = firstMulticastIpv4Interface()
             if (nif == null) {
@@ -85,6 +91,47 @@ class MulticastMdnsResponderTest :
                 responder.stop()
                 runCatching { listener.leaveGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif) }
                 listener.close()
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            }
+        }
+
+        test("refresh re-reads the txt provider so a renamed server advertises the new name") {
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            var serverName = "Old Name"
+            val responder =
+                MulticastMdnsResponder(
+                    instanceName = "kotest-host",
+                    port = 8080,
+                    txtProvider = { linkedMapOf("id" to "x", "name" to serverName) },
+                    scope = scope,
+                )
+            try {
+                responder.start()
+                responder.advertisedService().txt["name"] shouldBe "Old Name"
+
+                serverName = "New Name"
+                responder.refresh()
+
+                responder.advertisedService().txt["name"] shouldBe "New Name"
+            } finally {
+                responder.stop()
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            }
+        }
+
+        test("refresh before start is a no-op — a never-started advertiser ignores rename nudges") {
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            val responder =
+                MulticastMdnsResponder(
+                    instanceName = "kotest-host",
+                    port = 8080,
+                    txtProvider = { linkedMapOf("id" to "x", "name" to "Should Not Be Read") },
+                    scope = scope,
+                )
+            try {
+                responder.refresh()
+                responder.advertisedService().txt.isEmpty() shouldBe true
+            } finally {
                 scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
             }
         }

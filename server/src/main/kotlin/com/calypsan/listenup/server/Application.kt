@@ -40,9 +40,8 @@ import com.calypsan.listenup.server.di.profileModule
 import com.calypsan.listenup.server.di.publicProfileModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
-import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
-import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
 import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
@@ -98,6 +97,7 @@ import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.syncRoutes
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
@@ -138,7 +138,6 @@ import kotlin.time.Duration
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlinx.rpc.krpc.ktor.server.Krpc
-import org.koin.core.parameter.parametersOf
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
@@ -649,12 +648,12 @@ private fun Application.startBackgroundTasks(
     ) {
         scope.launch {
             runCatching {
-                val settings = koinGet<ServerSettingsRepository>()
-                val instanceId = inject<InstanceIdentity>().value.instanceId()
-                val serverName = settings.serverName()
-                val remoteUrl = settings.remoteUrl()
-                val advertiser = koinGet<MdnsAdvertiser> { parametersOf(instanceId, serverName, remoteUrl) }
+                val advertiser = koinGet<MdnsAdvertiser>()
                 advertiser.start()
+                // Re-announce when an admin changes the server name / remote URL: that path broadcasts
+                // SyncControl.ServerInfoChanged, which this collector turns into an mDNS refresh so the
+                // new identity reaches LAN clients without a restart.
+                scope.launchMdnsRefreshOnServerInfoChange(koinGet<ChangeBus>(), advertiser)
                 monitor.subscribe(ApplicationStopped) {
                     scope.launch { advertiser.stop() }
                 }
