@@ -25,13 +25,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -48,19 +49,30 @@ import androidx.compose.ui.unit.dp
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.upload.ABSUploadWorker
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import io.github.oshai.kotlinlogging.KotlinLogging
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.import_analyzing_contents
+import listenup.composeapp.generated.resources.import_analyzing_progress
 import listenup.composeapp.generated.resources.import_choose_different_file
+import listenup.composeapp.generated.resources.import_continue_to_import
 import listenup.composeapp.generated.resources.import_import_ready
+import listenup.composeapp.generated.resources.import_phase_analyze
+import listenup.composeapp.generated.resources.import_phase_upload
 import listenup.composeapp.generated.resources.import_ready_to_upload
+import listenup.composeapp.generated.resources.import_select_backup_file
 import listenup.composeapp.generated.resources.import_supports_formats
 import listenup.composeapp.generated.resources.import_title
+import listenup.composeapp.generated.resources.import_try_again
+import listenup.composeapp.generated.resources.import_upload_and_analyze
 import listenup.composeapp.generated.resources.import_upload_failed
 import listenup.composeapp.generated.resources.import_upload_intro
 import listenup.composeapp.generated.resources.import_uploaded_analyzed
+import listenup.composeapp.generated.resources.import_uploading_progress
+import listenup.composeapp.generated.resources.import_uploading_to_server
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.flow.Flow
 import java.io.File
@@ -234,28 +246,22 @@ private fun SelectFileContent(onPickFile: () -> Unit) {
 
         Spacer(Modifier.height(24.dp))
 
-        // Upload icon area
-        Box(
-            modifier =
-                Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
+        // Upload medallion
+        ScallopBadge(size = 100.dp, containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
                 imageVector = Icons.Outlined.CloudUpload,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(46.dp),
             )
         }
 
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Select Backup File",
+            text = stringResource(Res.string.import_select_backup_file),
             onClick = onPickFile,
+            leadingIcon = Icons.Outlined.FolderOpen,
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -330,23 +336,24 @@ private fun FileSelectedContent(
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Upload & Analyze",
+            text = stringResource(Res.string.import_upload_and_analyze),
             onClick = onUpload,
+            leadingIcon = Icons.Outlined.CloudUpload,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(Modifier.height(8.dp))
 
-        OutlinedButton(
+        ListenUpButton(
+            text = stringResource(Res.string.import_choose_different_file),
             onClick = onChangeFile,
+            filled = false,
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-        ) {
-            Text(stringResource(Res.string.import_choose_different_file))
-        }
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun UploadingContent(
     filename: String,
@@ -359,8 +366,8 @@ private fun UploadingContent(
         Text(
             text =
                 when (phase) {
-                    UploadPhase.UPLOADING -> "Uploading..."
-                    UploadPhase.ANALYZING -> "Analyzing..."
+                    UploadPhase.UPLOADING -> stringResource(Res.string.import_uploading_progress)
+                    UploadPhase.ANALYZING -> stringResource(Res.string.import_analyzing_progress)
                 },
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.fillMaxWidth(),
@@ -371,8 +378,8 @@ private fun UploadingContent(
         Text(
             text =
                 when (phase) {
-                    UploadPhase.UPLOADING -> "Uploading $filename to server"
-                    UploadPhase.ANALYZING -> "Analyzing backup contents and matching books"
+                    UploadPhase.UPLOADING -> stringResource(Res.string.import_uploading_to_server, filename)
+                    UploadPhase.ANALYZING -> stringResource(Res.string.import_analyzing_contents)
                 },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -381,13 +388,7 @@ private fun UploadingContent(
 
         Spacer(Modifier.height(32.dp))
 
-        LinearProgressIndicator(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-        )
+        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
 
         Spacer(Modifier.height(16.dp))
 
@@ -396,12 +397,12 @@ private fun UploadingContent(
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             PhaseIndicator(
-                label = "Upload",
+                label = stringResource(Res.string.import_phase_upload),
                 isActive = phase == UploadPhase.UPLOADING,
                 isComplete = phase == UploadPhase.ANALYZING,
             )
             PhaseIndicator(
-                label = "Analyze",
+                label = stringResource(Res.string.import_phase_analyze),
                 isActive = phase == UploadPhase.ANALYZING,
                 isComplete = false,
             )
@@ -465,19 +466,12 @@ private fun CompleteContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(40.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
+        ScallopBadge(size = 92.dp, containerColor = MaterialTheme.colorScheme.primary) {
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(46.dp),
             )
         }
 
@@ -499,8 +493,9 @@ private fun CompleteContent(
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Continue to Import",
+            text = stringResource(Res.string.import_continue_to_import),
             onClick = onContinue,
+            trailingIcon = Icons.Outlined.CloudUpload,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -516,19 +511,12 @@ private fun ErrorContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(40.dp))
-                    .background(MaterialTheme.colorScheme.errorContainer),
-            contentAlignment = Alignment.Center,
-        ) {
+        ScallopBadge(size = 92.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
                 imageVector = Icons.Default.Error,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(46.dp),
             )
         }
 
@@ -550,20 +538,19 @@ private fun ErrorContent(
         Spacer(Modifier.height(24.dp))
 
         ListenUpButton(
-            text = "Try Again",
+            text = stringResource(Res.string.import_try_again),
             onClick = onRetry,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(Modifier.height(8.dp))
 
-        OutlinedButton(
+        ListenUpButton(
+            text = stringResource(Res.string.common_cancel),
             onClick = onDismiss,
+            filled = false,
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-        ) {
-            Text(stringResource(Res.string.common_cancel))
-        }
+        )
     }
 }
 

@@ -6121,6 +6121,16 @@
         }
       }
     },
+    "import.all_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All done!"
+          }
+        }
+      }
+    },
     "import.all_set": {
       "localizations": {
         "en": {
@@ -6161,6 +6171,16 @@
         }
       }
     },
+    "import.analyzing_contents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing backup contents and matching books"
+          }
+        }
+      }
+    },
     "import.analyzing_hero_subtitle": {
       "localizations": {
         "en": {
@@ -6177,6 +6197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Analyzing"
+          }
+        }
+      }
+    },
+    "import.analyzing_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing…"
           }
         }
       }
@@ -6237,6 +6267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Writing listening history to the database..."
+          }
+        }
+      }
+    },
+    "import.audiobookshelf_imports": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audiobookshelf Imports"
           }
         }
       }
@@ -6411,6 +6451,26 @@
         }
       }
     },
+    "import.cancel_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Import"
+          }
+        }
+      }
+    },
+    "import.cancel_upload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel upload"
+          }
+        }
+      }
+    },
     "import.change": {
       "localizations": {
         "en": {
@@ -6501,6 +6561,16 @@
         }
       }
     },
+    "import.continue_to_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue to Import"
+          }
+        }
+      }
+    },
     "import.count_number": {
       "localizations": {
         "en": {
@@ -6537,6 +6607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Created: %1$@"
+          }
+        }
+      }
+    },
+    "import.currently_writing_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Currently writing"
           }
         }
       }
@@ -6661,12 +6741,62 @@
         }
       }
     },
+    "import.flow_eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABS Import"
+          }
+        }
+      }
+    },
     "import.flow_sessions_imported": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sessions imported: %1$@"
+          }
+        }
+      }
+    },
+    "import.flow_step_apply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
+    "import.flow_step_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "import.flow_step_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review"
+          }
+        }
+      }
+    },
+    "import.flow_step_upload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload"
           }
         }
       }
@@ -6891,12 +7021,32 @@
         }
       }
     },
+    "import.items_written_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "items written"
+          }
+        }
+      }
+    },
     "import.keep": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Keep"
+          }
+        }
+      }
+    },
+    "import.keep_app_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the app open until this finishes"
           }
         }
       }
@@ -7151,6 +7301,26 @@
         }
       }
     },
+    "import.phase_analyze": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyze"
+          }
+        }
+      }
+    },
+    "import.phase_upload": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload"
+          }
+        }
+      }
+    },
     "import.pick_different": {
       "localizations": {
         "en": {
@@ -7311,6 +7481,16 @@
         }
       }
     },
+    "import.select_backup_file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Backup File"
+          }
+        }
+      }
+    },
     "import.select_backup_file_device": {
       "localizations": {
         "en": {
@@ -7397,6 +7577,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skip this item"
+          }
+        }
+      }
+    },
+    "import.skipped_books_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not found in your library"
+          }
+        }
+      }
+    },
+    "import.skipped_books_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books skipped"
+          }
+        }
+      }
+    },
+    "import.stat_records_imported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records imported"
+          }
+        }
+      }
+    },
+    "import.stat_sessions_imported": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions imported"
+          }
+        }
+      }
+    },
+    "import.stat_sessions_written": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessions written"
+          }
+        }
+      }
+    },
+    "import.stat_users_merged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Users merged"
           }
         }
       }
@@ -7521,6 +7761,36 @@
         }
       }
     },
+    "import.to_review_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ to review"
+          }
+        }
+      }
+    },
+    "import.try_again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        }
+      }
+    },
+    "import.upload_and_analyze": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload & Analyze"
+          }
+        }
+      }
+    },
     "import.upload_failed": {
       "localizations": {
         "en": {
@@ -7581,6 +7851,16 @@
         }
       }
     },
+    "import.uploading_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading…"
+          }
+        }
+      }
+    },
     "import.uploading_subtitle": {
       "localizations": {
         "en": {
@@ -7597,6 +7877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uploading"
+          }
+        }
+      }
+    },
+    "import.uploading_to_server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading %1$@ to server"
           }
         }
       }
@@ -7807,6 +8097,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Writing: %1$@"
+          }
+        }
+      }
+    },
+    "import.writing_history_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merging sessions into the database"
+          }
+        }
+      }
+    },
+    "import.writing_history_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing history"
           }
         }
       }
