@@ -837,6 +837,7 @@ One beautiful library.</string>
     <string name="library_more_options">More library options</string>
     <string name="library_narrator_count">%d narrators</string>
     <string name="library_narrators">Narrators</string>
+    <string name="library_section_index">Section index</string>
     <string name="library_series_count">%d series</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>

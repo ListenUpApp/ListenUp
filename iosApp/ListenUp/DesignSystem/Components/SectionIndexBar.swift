@@ -62,6 +62,22 @@ struct SectionIndexBar: View {
                             endDrag()
                         }
                 )
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(String(localized: "library.section_index"))
+                .accessibilityValue(selectedLetter ?? letters.first ?? "")
+                .accessibilityAdjustableAction { direction in
+                    guard !letters.isEmpty else { return }
+                    let current = selectedLetter.flatMap { letters.firstIndex(of: $0) } ?? 0
+                    let next: Int
+                    switch direction {
+                    case .increment: next = min(current + 1, letters.count - 1)
+                    case .decrement: next = max(current - 1, 0)
+                    @unknown default: return
+                    }
+                    let letter = letters[next]
+                    selectedLetter = letter
+                    onLetterSelected(letter)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             .padding(.trailing, 4)

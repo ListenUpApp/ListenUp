@@ -8361,6 +8361,16 @@
         }
       }
     },
+    "library.section_index": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Section index"
+          }
+        }
+      }
+    },
     "library.series_count": {
       "localizations": {
         "en": {

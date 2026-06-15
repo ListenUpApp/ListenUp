@@ -14,6 +14,7 @@ struct WrittenCard: View {
             BookCoverImage(book: book)
                 .frame(width: width, height: width)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .accessibilityHidden(true)
                 .overlay(alignment: .bottom) {
                     if let progress, progress > 0 {
                         ProgressBar(progress: progress, style: .overlay)
