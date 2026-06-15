@@ -1,6 +1,7 @@
 {
   "common": {
     "about": "About",
+    "continue": "Continue",
     "accessibility_loading": "Loading",
     "account": "Account",
     "add": "Add",
@@ -1240,5 +1241,26 @@
     "not_set": "Not set",
     "set_date": "Set date",
     "clear_date": "Clear"
+  },
+  "setup": {
+    "error_already_configured": "This server is already set up. Sign in instead.",
+    "error_first_name_required": "First name is required.",
+    "error_last_name_required": "Last name is required.",
+    "error_weak_password": "Choose a stronger password.",
+    "awaiting_approval_title": "Awaiting approval",
+    "approved_title": "You're approved",
+    "cancel_registration": "Cancel registration",
+    "back_to_sign_in": "Back to sign in"
+  },
+  "invite": {
+    "title": "Join with an invite",
+    "subtitle": "Enter the code from your invitation to get started.",
+    "code_placeholder": "Invite code",
+    "preview_title": "%1$s invited you",
+    "set_password_title": "Set your password",
+    "get_started": "Get started",
+    "error_invalid": "This invite isn't valid.",
+    "have_invite_prompt": "Have an invite code?",
+    "enter_code": "Enter code"
   }
 }

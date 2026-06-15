@@ -3211,6 +3211,16 @@
         }
       }
     },
+    "common.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
     "common.copy": {
       "localizations": {
         "en": {
@@ -8121,6 +8131,96 @@
         }
       }
     },
+    "invite.code_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite code"
+          }
+        }
+      }
+    },
+    "invite.enter_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter code"
+          }
+        }
+      }
+    },
+    "invite.error_invalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This invite isn't valid."
+          }
+        }
+      }
+    },
+    "invite.get_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get started"
+          }
+        }
+      }
+    },
+    "invite.have_invite_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Have an invite code?"
+          }
+        }
+      }
+    },
+    "invite.preview_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ invited you"
+          }
+        }
+      }
+    },
+    "invite.set_password_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set your password"
+          }
+        }
+      }
+    },
+    "invite.subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the code from your invitation to get started."
+          }
+        }
+      }
+    },
+    "invite.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join with an invite"
+          }
+        }
+      }
+    },
     "library.add_audiobooks_to_your_server": {
       "localizations": {
         "en": {
@@ -11507,6 +11607,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "You can re-download books anytime."
+          }
+        }
+      }
+    },
+    "setup.approved_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're approved"
+          }
+        }
+      }
+    },
+    "setup.awaiting_approval_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Awaiting approval"
+          }
+        }
+      }
+    },
+    "setup.back_to_sign_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to sign in"
+          }
+        }
+      }
+    },
+    "setup.cancel_registration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel registration"
+          }
+        }
+      }
+    },
+    "setup.error_already_configured": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server is already set up. Sign in instead."
+          }
+        }
+      }
+    },
+    "setup.error_first_name_required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First name is required."
+          }
+        }
+      }
+    },
+    "setup.error_last_name_required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last name is required."
+          }
+        }
+      }
+    },
+    "setup.error_weak_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a stronger password."
           }
         }
       }
