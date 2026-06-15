@@ -13,51 +13,57 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.design.components.ColorBlockHero
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpSearchField
+import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.contributor_audible_region
-import listenup.composeapp.generated.resources.contributor_find_on_audible
-import listenup.composeapp.generated.resources.common_search
 import listenup.composeapp.generated.resources.book_detail_narrated_by_value
+import listenup.composeapp.generated.resources.metadata_audible_region
 import listenup.composeapp.generated.resources.metadata_by_authors
-import listenup.composeapp.generated.resources.metadata_searching_for
+import listenup.composeapp.generated.resources.metadata_enter_a_term_to_search
+import listenup.composeapp.generated.resources.metadata_find_on_audible
+import listenup.composeapp.generated.resources.metadata_match_metadata
+import listenup.composeapp.generated.resources.metadata_matching
+import listenup.composeapp.generated.resources.metadata_no_matches_found
+import listenup.composeapp.generated.resources.metadata_result_count_match
+import listenup.composeapp.generated.resources.metadata_search_audible
 import listenup.composeapp.generated.resources.metadata_title_author_narrator_or_asin
+import listenup.composeapp.generated.resources.metadata_try_a_different_search_term_or_region
+
+/** Readable centred-column width cap on expanded layouts. */
+private val CONTENT_MAX_WIDTH = 640.dp
 
 /**
  * Full-screen for searching books on Audible.
@@ -84,109 +90,96 @@ fun MetadataSearchScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.contributor_find_on_audible)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ColorBlockHero(
+                title = stringResource(Res.string.metadata_find_on_audible),
+                badgeIcon = Icons.AutoMirrored.Outlined.MenuBook,
+                onBack = onBack,
+                overline = stringResource(Res.string.metadata_match_metadata),
             )
         },
     ) { paddingValues ->
-        Column(
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
+                    .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            if (state.context.currentTitle.isNotBlank()) {
-                Text(
-                    text = stringResource(Res.string.metadata_searching_for, state.context.currentTitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp),
-                )
-            }
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .widthIn(max = CONTENT_MAX_WIDTH)
+                        .padding(horizontal = 18.dp),
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = onQueryChange,
-                label = { Text(stringResource(Res.string.common_search)) },
-                placeholder = { Text(stringResource(Res.string.metadata_title_author_narrator_or_asin)) },
-                trailingIcon = {
-                    IconButton(
-                        onClick = onSearch,
-                        enabled = !isSearching && state.query.isNotBlank(),
-                    ) {
-                        if (isSearching) {
-                            ListenUpLoadingIndicatorSmall()
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = stringResource(Res.string.common_search),
-                            )
+                if (state.context.currentTitle.isNotBlank()) {
+                    MatchingContextPill(title = state.context.currentTitle)
+                    Spacer(modifier = Modifier.height(18.dp))
+                }
+
+                ListenUpSearchField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    onSubmit = onSearch,
+                    placeholder = stringResource(Res.string.metadata_title_author_narrator_or_asin),
+                    isLoading = isSearching,
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Overline(text = stringResource(Res.string.metadata_audible_region))
+                Spacer(modifier = Modifier.height(12.dp))
+                RegionSelector(
+                    selectedRegion = state.region,
+                    onRegionSelected = onRegionSelected,
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (searchError != null) {
+                    Text(
+                        text = searchError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+
+                when {
+                    isSearching -> {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ListenUpLoadingIndicator()
                         }
                     }
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-                modifier = Modifier.fillMaxWidth(),
-            )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            RegionSelector(
-                selectedRegion = state.region,
-                onRegionSelected = onRegionSelected,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (searchError != null) {
-                Text(
-                    text = searchError,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            when {
-                isSearching -> {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicator()
+                    searchResults.isEmpty() && searchError == null -> {
+                        EmptyState(hasSearched = state.query.isNotBlank() && !isSearching)
                     }
-                }
 
-                searchResults.isEmpty() && searchError == null -> {
-                    EmptyState(hasSearched = state.query.isNotBlank() && !isSearching)
-                }
-
-                else -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        items(
-                            items = searchResults,
-                            key = { it.asin },
-                        ) { result ->
-                            MetadataSearchResultItem(
-                                result = result,
-                                onClick = { onResultClick(result) },
-                            )
+                    else -> {
+                        Overline(text = stringResource(Res.string.metadata_result_count_match, searchResults.size))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            items(
+                                items = searchResults,
+                                key = { it.asin },
+                            ) { result ->
+                                MetadataSearchResultItem(
+                                    result = result,
+                                    onClick = { onResultClick(result) },
+                                )
+                            }
                         }
                     }
                 }
@@ -195,33 +188,71 @@ fun MetadataSearchScreen(
     }
 }
 
+/** UPPERCASE muted overline label, matching the grouped-section heading idiom. */
+@Composable
+private fun Overline(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 6.dp),
+    )
+}
+
+/** The "Matching · <title>" context pill that anchors the search to the book being matched. */
+@Composable
+private fun MatchingContextPill(title: String) {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.metadata_matching),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Surface(
+                modifier = Modifier.width(1.dp).height(18.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            ) {}
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 /**
- * Region selector chips.
+ * Region selector — a horizontally scrolling row of [PillChip]s. Selecting a region re-scopes the
+ * Audible catalog the search runs against.
  */
 @Composable
 private fun RegionSelector(
     selectedRegion: AudibleRegion,
     onRegionSelected: (AudibleRegion) -> Unit,
 ) {
-    Column {
-        Text(
-            text = stringResource(Res.string.contributor_audible_region),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-        ) {
-            AudibleRegion.entries.forEach { region ->
-                FilterChip(
-                    selected = region == selectedRegion,
-                    onClick = { onRegionSelected(region) },
-                    label = { Text(region.displayName) },
-                )
-            }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    ) {
+        AudibleRegion.entries.forEach { region ->
+            PillChip(
+                label = region.displayName,
+                onClick = { onRegionSelected(region) },
+                selected = region == selectedRegion,
+                leadingIcon = if (region == selectedRegion) Icons.Outlined.Check else null,
+            )
         }
     }
 }
@@ -249,7 +280,12 @@ private fun EmptyState(hasSearched: Boolean) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = if (hasSearched) "No matches found" else "Search Audible",
+                text =
+                    if (hasSearched) {
+                        stringResource(Res.string.metadata_no_matches_found)
+                    } else {
+                        stringResource(Res.string.metadata_search_audible)
+                    },
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -259,9 +295,9 @@ private fun EmptyState(hasSearched: Boolean) {
             Text(
                 text =
                     if (hasSearched) {
-                        "Try a different search term or region"
+                        stringResource(Res.string.metadata_try_a_different_search_term_or_region)
                     } else {
-                        "Enter a title, author, narrator, or ASIN to search"
+                        stringResource(Res.string.metadata_enter_a_term_to_search)
                     },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
@@ -272,7 +308,8 @@ private fun EmptyState(hasSearched: Boolean) {
 }
 
 /**
- * Single search result item showing Audible book metadata.
+ * Single search result item showing Audible book metadata as an expressive card with a cover,
+ * title, author, the differentiating narrator line, and a duration/chapter footnote.
  */
 @Composable
 private fun MetadataSearchResultItem(
@@ -281,12 +318,13 @@ private fun MetadataSearchResultItem(
 ) {
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Cover thumbnail
             @Suppress("MagicNumber") // Standard book cover aspect ratio
@@ -295,9 +333,9 @@ private fun MetadataSearchResultItem(
                 contentDescription = null,
                 modifier =
                     Modifier
-                        .width(56.dp)
-                        .aspectRatio(1f / 1.5f)
-                        .clip(MaterialTheme.shapes.small),
+                        .width(62.dp)
+                        .aspectRatio(1f)
+                        .clip(MaterialTheme.shapes.medium),
                 contentScale = ContentScale.Crop,
             )
 
@@ -305,7 +343,8 @@ private fun MetadataSearchResultItem(
                 // Title
                 Text(
                     text = result.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -318,6 +357,7 @@ private fun MetadataSearchResultItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
 
@@ -330,6 +370,7 @@ private fun MetadataSearchResultItem(
                                 result.narrators.joinToString { it.name },
                             ),
                         style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -339,14 +380,32 @@ private fun MetadataSearchResultItem(
                 // Duration
                 val runtime = result.runtimeMinutes
                 if (runtime != null && runtime > 0) {
-                    Text(
-                        text = formatDuration(runtime),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = formatDuration(runtime),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
+
+            Icon(
+                imageVector = Icons.Outlined.Public,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
