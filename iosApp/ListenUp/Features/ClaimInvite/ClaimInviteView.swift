@@ -10,7 +10,7 @@ struct ClaimInviteView: View {
 
     // MARK: - Configuration
 
-    var onDismiss: () -> Void
+    let onDismiss: () -> Void
 
     // MARK: - State
 
@@ -78,17 +78,23 @@ struct ClaimInviteView: View {
     private var previewScreen: some View {
         if let preview = wrapper.preview {
             AuthScaffold {
-                InvitePreviewCard(
-                    title: String(
-                        format: String(localized: "invite.preview_title"),
-                        preview.invitedByName
-                    ),
-                    subtitle: "\(preview.serverName) · \(preview.email)",
-                    url: preview.email,
-                    onCopy: {
-                        UIPasteboard.general.string = preview.email
+                AuthFieldGroup {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(
+                            String(
+                                format: String(localized: "invite.preview_title"),
+                                preview.invitedByName
+                            )
+                        )
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        Text("\(preview.serverName) · \(preview.email)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
-                )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
                 AuthLargeHeader(title: String(localized: "invite.set_password_title"))
                 AuthFieldGroup {
                     AppTextField(

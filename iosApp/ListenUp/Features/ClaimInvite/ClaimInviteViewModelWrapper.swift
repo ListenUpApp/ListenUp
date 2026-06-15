@@ -45,19 +45,19 @@ final class ClaimInviteViewModelWrapper {
             preview = nil
         case .lookingUp:
             phase = .lookingUp
-        case .preview(let p):
-            preview = p.preview
-            if p.preview.valid {
+        case .preview(let previewState):
+            preview = previewState.preview
+            if previewState.preview.valid {
                 phase = .preview
             } else {
-                phase = .error(p.preview.invalidReason ?? String(localized: "invite.error_invalid"))
+                phase = .error(previewState.preview.invalidReason ?? String(localized: "invite.error_invalid"))
             }
         case .submitting:
             phase = .submitting
         case .claimed:
             phase = .claimed
-        case .error(let e):
-            phase = .error(e.message)
+        case .error(let errorState):
+            phase = .error(errorState.message)
         }
     }
 }
