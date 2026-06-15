@@ -35,6 +35,8 @@ struct BookCoverCard: View {
             bookInfo
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(CoverAccessibility.label(title: book.title, author: book.authorNames) ?? book.title)
     }
 
     // MARK: - Cover Image

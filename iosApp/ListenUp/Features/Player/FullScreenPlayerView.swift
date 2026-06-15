@@ -127,7 +127,9 @@ struct FullScreenPlayerView: View {
             // Cover art — centered
             BookCoverImage(
                 bookId: observer.currentBookId,
-                coverPath: observer.coverPath, blurHash: observer.coverBlurHash
+                coverPath: observer.coverPath,
+                blurHash: observer.coverBlurHash,
+                accessibilityLabel: CoverAccessibility.label(title: observer.bookTitle, author: observer.authorName)
             )
             .frame(width: 286, height: 286)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

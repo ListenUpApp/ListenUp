@@ -79,6 +79,7 @@ struct MiniPlayerBar: View {
             .frame(width: 40, height: 40)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)
+            .accessibilityHidden(true)
     }
 
     /// Thin overall-book progress line pinned to the bottom edge of the bar.
