@@ -73,9 +73,11 @@ fun MatchPreviewRoute(
         val alreadyOnThisMatch =
             current is MetadataUiState.Preview && current.match.asin == asin
         if (!alreadyOnThisMatch) {
-            // Seed the region carried over from the search screen so the first preview fetch hits the
-            // right Audible storefront instead of re-defaulting to US (which would show "not found").
-            metadataViewModel.initForBook(bookId = bookId, title = "", author = "", region = region)
+            // Apply the region carried over from the search screen BEFORE selecting the match, so the
+            // first preview fetch hits the right Audible storefront instead of re-defaulting to US
+            // (which would show "not found"). changeRegion is a no-op search here (query is blank).
+            metadataViewModel.initForBook(bookId = bookId, title = "", author = "")
+            metadataViewModel.changeRegion(region)
             metadataViewModel.selectMatch(
                 MetadataBook(
                     asin = asin,

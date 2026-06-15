@@ -242,15 +242,15 @@ class MetadataViewModel(
      * route can then auto-search for a direct match). Otherwise the query is
      * `"$title $author"`.
      *
-     * [region] defaults to the current region but can be supplied explicitly so a freshly-scoped
-     * VM (e.g. the per-entry preview route) starts in the region carried across navigation.
+     * To start in a specific region (e.g. the per-entry preview route carrying the region across
+     * navigation), follow this with [changeRegion] before [selectMatch] — kept a separate call so
+     * the Swift/iOS bridge for this method stays stable (Kotlin default args don't cross to Swift).
      */
     fun initForBook(
         bookId: String,
         title: String,
         author: String,
         asin: String? = null,
-        region: AudibleRegion = _state.value.region,
     ) {
         val query =
             buildString {
@@ -262,7 +262,7 @@ class MetadataViewModel(
             }.trim()
         _state.value =
             MetadataUiState.Search(
-                region = region,
+                region = _state.value.region,
                 context =
                     BookContext(
                         bookId = bookId,
