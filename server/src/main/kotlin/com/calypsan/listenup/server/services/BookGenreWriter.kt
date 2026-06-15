@@ -65,6 +65,27 @@ internal class BookGenreWriter(
     }
 
     /**
+     * Resolves a single raw scanner genre [raw] for [bookId] through the 3-step
+     * cascade — curator alias → built-in normalization → auto-create — and links
+     * the result, WITHOUT wiping the book's existing `book_genres`. Unlike
+     * [processGenreStrings] this is purely additive: it only ever adds links via
+     * `insertIfAbsent`, so a book's already-live genres survive.
+     *
+     * This is the entry point for the one-time legacy `pending_book_genres`
+     * backlog promotion ([PendingGenrePromotion]), which must light up unresolved
+     * strings without disturbing genres a book already has.
+     *
+     * Must be called inside a `suspendTransaction { }` block.
+     */
+    suspend fun resolveAndLink(
+        bookId: BookId,
+        raw: String,
+    ) {
+        if (raw.isBlank()) return
+        resolveGenreString(bookId.value, raw)
+    }
+
+    /**
      * Resolves a single raw scanner genre [raw] for [bookIdStr] through the
      * 3-step cascade — curator alias → built-in normalization → auto-create.
      * See [processGenreStrings] for the full contract.
