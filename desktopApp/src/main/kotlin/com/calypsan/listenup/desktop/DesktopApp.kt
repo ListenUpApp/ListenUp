@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.features.contributoredit.ContributorEditScre
 import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute
 import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
 import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
@@ -126,6 +127,7 @@ sealed interface DetailDestination {
     data class MatchPreview(
         val bookId: String,
         val asin: String,
+        val region: AudibleRegion,
     ) : DetailDestination
 
     data class ContributorMetadataSearch(
@@ -438,8 +440,8 @@ private fun DetailScreen(
         is DetailDestination.MetadataSearch -> {
             MetadataSearchRoute(
                 bookId = destination.bookId,
-                onResultSelected = { asin ->
-                    navigateTo(DetailDestination.MatchPreview(destination.bookId, asin))
+                onResultSelected = { asin, region ->
+                    navigateTo(DetailDestination.MatchPreview(destination.bookId, asin, region))
                 },
                 onBack = navigateBack,
             )
@@ -449,6 +451,7 @@ private fun DetailScreen(
             MatchPreviewRoute(
                 bookId = destination.bookId,
                 asin = destination.asin,
+                region = destination.region,
                 onBack = navigateBack,
                 onApplySuccess = {
                     // Pop both MatchPreview and MetadataSearch to go back to BookDetail

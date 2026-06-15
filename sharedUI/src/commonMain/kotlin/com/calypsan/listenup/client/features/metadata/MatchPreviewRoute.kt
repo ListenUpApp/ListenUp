@@ -59,6 +59,7 @@ import listenup.composeapp.generated.resources.common_back
 fun MatchPreviewRoute(
     bookId: String,
     asin: String,
+    region: AudibleRegion,
     onBack: () -> Unit,
     onApplySuccess: () -> Unit,
     metadataViewModel: MetadataViewModel = koinViewModel(),
@@ -67,12 +68,14 @@ fun MatchPreviewRoute(
     val state by metadataViewModel.state.collectAsStateWithLifecycle()
     var showChapterReview by remember { mutableStateOf(false) }
 
-    LaunchedEffect(bookId, asin) {
+    LaunchedEffect(bookId, asin, region) {
         val current = state
         val alreadyOnThisMatch =
             current is MetadataUiState.Preview && current.match.asin == asin
         if (!alreadyOnThisMatch) {
-            metadataViewModel.initForBook(bookId = bookId, title = "", author = "")
+            // Seed the region carried over from the search screen so the first preview fetch hits the
+            // right Audible storefront instead of re-defaulting to US (which would show "not found").
+            metadataViewModel.initForBook(bookId = bookId, title = "", author = "", region = region)
             metadataViewModel.selectMatch(
                 MetadataBook(
                     asin = asin,

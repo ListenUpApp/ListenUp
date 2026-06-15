@@ -9,6 +9,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
@@ -23,13 +24,13 @@ import org.koin.compose.viewmodel.koinViewModel
  * Route for the book metadata search screen.
  *
  * Loads the book, initializes the wizard, and auto-searches. When a result is
- * clicked, forwards the ASIN to [onResultSelected] so the host can navigate to
- * the match preview.
+ * clicked, forwards the ASIN and the selected region to [onResultSelected] so the
+ * host can navigate to the match preview in the same Audible storefront.
  */
 @Composable
 fun MetadataSearchRoute(
     bookId: String,
-    onResultSelected: (asin: String) -> Unit,
+    onResultSelected: (asin: String, region: AudibleRegion) -> Unit,
     onBack: () -> Unit,
     viewModel: MetadataViewModel = koinViewModel(),
 ) {
@@ -59,7 +60,7 @@ fun MetadataSearchRoute(
                 onRegionSelected = viewModel::changeRegion,
                 onResultClick = { result ->
                     viewModel.selectMatch(result)
-                    onResultSelected(result.asin)
+                    onResultSelected(result.asin, current.region)
                 },
                 onBack = onBack,
             )

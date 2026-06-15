@@ -241,12 +241,16 @@ class MetadataViewModel(
      * If the book has an existing ASIN, we seed the search query with it (the
      * route can then auto-search for a direct match). Otherwise the query is
      * `"$title $author"`.
+     *
+     * [region] defaults to the current region but can be supplied explicitly so a freshly-scoped
+     * VM (e.g. the per-entry preview route) starts in the region carried across navigation.
      */
     fun initForBook(
         bookId: String,
         title: String,
         author: String,
         asin: String? = null,
+        region: AudibleRegion = _state.value.region,
     ) {
         val query =
             buildString {
@@ -258,7 +262,7 @@ class MetadataViewModel(
             }.trim()
         _state.value =
             MetadataUiState.Search(
-                region = _state.value.region,
+                region = region,
                 context =
                     BookContext(
                         bookId = bookId,
@@ -278,7 +282,10 @@ class MetadataViewModel(
         }
     }
 
-    /** Change the Audible region. If in preview, re-fetch with the new region. */
+    /**
+     * Change the Audible region and immediately reflect it: in preview, re-fetch the open match in
+     * the new region; in search, re-run the query so results update without a manual re-submit.
+     */
     fun changeRegion(region: AudibleRegion) {
         _state.update { current ->
             when (current) {
@@ -287,9 +294,13 @@ class MetadataViewModel(
                 is MetadataUiState.Preview -> current.copy(region = region)
             }
         }
-        val current = _state.value
-        if (current is MetadataUiState.Preview) {
-            selectMatch(current.match)
+        when (val current = _state.value) {
+            is MetadataUiState.Preview -> selectMatch(current.match)
+
+            is MetadataUiState.Search -> search()
+
+            // no-op when the query is blank
+            is MetadataUiState.Idle -> Unit
         }
     }
 
