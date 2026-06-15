@@ -832,6 +832,7 @@ One beautiful library.</string>
     <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_ignoring_articles"> · ignoring A · An · The</string>
+    <string name="library_index_jump">Jump to %1$s</string>
     <string name="library_loading_your_library">Loading your library...</string>
     <string name="library_more_options">More library options</string>
     <string name="library_narrator_count">%d narrators</string>

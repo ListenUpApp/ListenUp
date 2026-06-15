@@ -15,6 +15,7 @@ struct SectionIndexBar: View {
 
     @State private var selectedLetter: String?
     @State private var isDragging = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
 
@@ -32,6 +33,7 @@ struct SectionIndexBar: View {
                         .frame(width: 56, height: 56)
                         .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 10))
                         .transition(.scale.combined(with: .opacity))
+                        .accessibilityLabel(String(format: String(localized: "library.index_jump"), letter))
                 }
 
                 // Letter column
@@ -48,6 +50,7 @@ struct SectionIndexBar: View {
                 .padding(.vertical, 8)
                 .frame(width: 20)
                 .glassControl(in: RoundedRectangle(cornerRadius: 10))
+                .frame(width: 44, alignment: .trailing)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
@@ -64,8 +67,8 @@ struct SectionIndexBar: View {
             .padding(.trailing, 4)
         }
         .opacity(isVisible || isDragging ? 1 : 0)
-        .animation(.easeInOut(duration: 0.2), value: isVisible)
-        .animation(.easeInOut(duration: 0.1), value: isDragging)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isVisible)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.1), value: isDragging)
     }
 
     private func handleDrag(at y: CGFloat, letterHeight: CGFloat) {
@@ -89,7 +92,7 @@ struct SectionIndexBar: View {
 
     private func endDrag() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 isDragging = false
             }
         }
