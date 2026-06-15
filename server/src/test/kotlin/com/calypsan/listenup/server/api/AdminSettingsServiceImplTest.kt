@@ -272,6 +272,12 @@ private suspend fun seedLibrary(
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            genreRepository =
+                com.calypsan.listenup.server.services.GenreRepository(
+                    db = db,
+                    bus = ChangeBus(),
+                    registry = SyncRegistry(),
+                ),
         )
     val dir = Files.createTempDirectory("listenup-seed-").toFile().apply { deleteOnExit() }
     LibraryAdminServiceImpl(
