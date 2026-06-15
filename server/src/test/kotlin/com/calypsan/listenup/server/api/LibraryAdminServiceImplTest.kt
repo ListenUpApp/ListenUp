@@ -52,27 +52,23 @@ class LibraryAdminServiceImplTest :
             withInMemoryDatabase {
                 val (service, libraryRepo, folderRepo) = makeService(db = this)
                 runTest {
-                    // Create 2 active + 1 soft-deleted library
-                    service
-                        .createLibrary(CreateLibraryRequest(name = "Fiction", folderPaths = emptyList()))
-                        .let { } // expected failure but we seed directly
-                    // Seed via repo for test isolation
-                    val dir1 = createTempDir()
-                    val dir2 = createTempDir()
-                    val dir3 = createTempDir()
-
-                    service.createLibrary(CreateLibraryRequest(name = "Fiction", folderPaths = listOf(dir1.absolutePath)))
-                    service.createLibrary(CreateLibraryRequest(name = "Nonfiction", folderPaths = listOf(dir2.absolutePath)))
-                    val toDelete = service.createLibrary(CreateLibraryRequest(name = "Old", folderPaths = listOf(dir3.absolutePath)))
-                    if (toDelete is AppResult.Success) {
-                        service.deleteLibrary(toDelete.data.id)
-                    }
+                    // Single-library invariant: only one library per server. Create it, then
+                    // verify listLibraries returns it; delete and confirm it's gone.
+                    val dir = createTempDir()
+                    val created =
+                        service.createLibrary(CreateLibraryRequest(name = "Fiction", folderPaths = listOf(dir.absolutePath)))
+                    created.shouldBeInstanceOf<AppResult.Success<Library>>()
 
                     val result = service.listLibraries()
                     result.shouldBeInstanceOf<AppResult.Success<List<Library>>>()
                     result as AppResult.Success
-                    result.data shouldHaveSize 2
-                    result.data.map { it.name }.toSet() shouldBe setOf("Fiction", "Nonfiction")
+                    result.data shouldHaveSize 1
+                    result.data.first().name shouldBe "Fiction"
+
+                    // Soft-delete and confirm it's filtered out.
+                    service.deleteLibrary((created as AppResult.Success).data.id)
+                    val afterDelete = service.listLibraries()
+                    (afterDelete as AppResult.Success).data shouldHaveSize 0
                 }
             }
         }
@@ -290,19 +286,26 @@ class LibraryAdminServiceImplTest :
             }
         }
 
-        test("createLibrary returns Failure(DuplicateFolder) when a path is already registered") {
+        test("createLibrary second call with duplicate folder path returns the existing library (idempotent, not DuplicateFolder)") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    service.createLibrary(CreateLibraryRequest(name = "First", folderPaths = listOf(dir.absolutePath)))
+                    val first =
+                        service
+                            .createLibrary(CreateLibraryRequest(name = "First", folderPaths = listOf(dir.absolutePath)))
+                            .shouldBeInstanceOf<AppResult.Success<Library>>()
+                            .data
 
-                    val result =
-                        service.createLibrary(
-                            CreateLibraryRequest(name = "Duplicate", folderPaths = listOf(dir.absolutePath)),
-                        )
-                    result.shouldBeInstanceOf<AppResult.Failure>()
-                    (result as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.DuplicateFolder>()
+                    // Single-library invariant fires before duplicate-folder check:
+                    // the second call returns the existing library, not DuplicateFolder.
+                    val second =
+                        service
+                            .createLibrary(CreateLibraryRequest(name = "Duplicate", folderPaths = listOf(dir.absolutePath)))
+                            .shouldBeInstanceOf<AppResult.Success<Library>>()
+                            .data
+
+                    second.id shouldBe first.id
                 }
             }
         }
@@ -541,6 +544,35 @@ class LibraryAdminServiceImplTest :
                     val result = service.scanFolder(FolderId("no-such"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     (result as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.FolderNotFound>()
+                }
+            }
+        }
+
+        // ── Single-library invariant ──────────────────────────────────────────────
+
+        test("createLibrary is idempotent — a second call returns the existing library, no second row") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val tempDir = createTempDir()
+                    val first =
+                        service
+                            .createLibrary(CreateLibraryRequest(name = "Books", folderPaths = listOf(tempDir.absolutePath)))
+                            .shouldBeInstanceOf<AppResult.Success<Library>>()
+                            .data
+
+                    val second =
+                        service
+                            .createLibrary(CreateLibraryRequest(name = "Other", folderPaths = listOf(tempDir.absolutePath)))
+                            .shouldBeInstanceOf<AppResult.Success<Library>>()
+                            .data
+
+                    second.id shouldBe first.id
+                    service
+                        .listLibraries()
+                        .shouldBeInstanceOf<AppResult.Success<List<Library>>>()
+                        .data
+                        .size shouldBe 1
                 }
             }
         }
