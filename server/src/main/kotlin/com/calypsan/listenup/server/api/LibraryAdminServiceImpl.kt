@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
@@ -56,6 +57,7 @@ internal class LibraryAdminServiceImpl(
     private val libraryFolderRepository: LibraryFolderRepository,
     private val bookRepository: BookRepository,
     private val scanOrchestrator: ScanOrchestrator,
+    private val libraryRegistry: LibraryRegistry,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : LibraryAdminService {
@@ -78,12 +80,27 @@ internal class LibraryAdminServiceImpl(
         return AppResult.Success(payload.toLibraryWithFolders())
     }
 
+    override suspend fun fetchLibrary(): AppResult<Library> {
+        // Open to any authenticated caller: single-library resolution without an id.
+        val id = libraryRegistry.currentLibrary()
+        val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
+        val payload =
+            page.items.firstOrNull { it.id == id.value && it.deletedAt == null }
+                ?: return AppResult.Failure(LibraryError.NotFound())
+        return AppResult.Success(payload.toLibraryWithFolders())
+    }
+
     override suspend fun getSetupStatus(): AppResult<SetupStatus> {
         // Open to any authenticated caller: drives first-launch onboarding before any admin exists.
-        val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        val count = page.items.count { it.deletedAt == null }
+        // needsSetup is true when THE library has no folders (not when there are no libraries —
+        // the singleton library always exists; what matters for onboarding is whether it has paths).
+        val id = libraryRegistry.currentLibrary()
+        val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
+        val folderCount = folderPage.items.count { it.libraryId == id.value && it.deletedAt == null }
+        val libPage = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
+        val libraryCount = libPage.items.count { it.deletedAt == null }
         return AppResult.Success(
-            SetupStatus(needsSetup = count == 0, libraryCount = count, isScanning = scanOrchestrator.isScanning()),
+            SetupStatus(needsSetup = folderCount == 0, libraryCount = libraryCount, isScanning = scanOrchestrator.isScanning()),
         )
     }
 
@@ -278,7 +295,20 @@ internal class LibraryAdminServiceImpl(
         val libraryPage = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         libraryPage.items.firstOrNull { it.id == libraryId.value && it.deletedAt == null }
             ?: return AppResult.Failure(LibraryError.NotFound())
+        return addFolderTo(libraryId, path)
+    }
 
+    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
+        requireAdmin()?.let { return AppResult.Failure(it) }
+        return addFolderTo(libraryRegistry.currentLibrary(), path)
+    }
+
+    /** Validates [path] and creates a new folder row under [libraryId]. Admin gate and library-existence
+     * check must be performed by the caller before invoking this helper. */
+    private suspend fun addFolderTo(
+        libraryId: LibraryId,
+        path: String,
+    ): AppResult<LibraryFolder> {
         val dir = Path(path)
         if (!SystemFileSystem.exists(dir) || SystemFileSystem.metadataOrNull(dir)?.isDirectory != true) {
             return AppResult.Failure(
@@ -301,10 +331,7 @@ internal class LibraryAdminServiceImpl(
                 deletedAt = null,
             )
         return when (val result = libraryFolderRepository.upsert(folderPayload)) {
-            is AppResult.Failure -> {
-                AppResult.Failure(result.error)
-            }
-
+            is AppResult.Failure -> AppResult.Failure(result.error)
             is AppResult.Success -> {
                 val folder = LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = now)
                 val folderRef = LibraryFolderRef(id = folderId, rootPath = path)
@@ -350,6 +377,12 @@ internal class LibraryAdminServiceImpl(
         return scanOrchestrator.scanLibraryAsync(libraryId)
     }
 
+    override suspend fun triggerLibraryScan(): AppResult<Unit> {
+        // Admin-only: triggering a scan is a privileged server operation.
+        requireAdmin()?.let { return AppResult.Failure(it) }
+        return scanOrchestrator.scanLibraryAsync(libraryRegistry.currentLibrary())
+    }
+
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> {
         // Admin-only: triggering a scan is a privileged server operation.
         requireAdmin()?.let { return AppResult.Failure(it) }
@@ -369,6 +402,7 @@ internal class LibraryAdminServiceImpl(
             libraryFolderRepository = libraryFolderRepository,
             bookRepository = bookRepository,
             scanOrchestrator = scanOrchestrator,
+            libraryRegistry = libraryRegistry,
             clock = clock,
             principal = principal,
         )

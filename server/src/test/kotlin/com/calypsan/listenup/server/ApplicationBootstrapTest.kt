@@ -205,6 +205,7 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             libraryFolderRepository = folderRepo,
             bookRepository = bookRepo,
             scanOrchestrator = orchestrator,
+            libraryRegistry = com.calypsan.listenup.server.services.LibraryRegistry(db = db),
         )
 
     return ServiceFixture(service, orchestrator, onLibraryAddedCalls, scanLibraryCalls)

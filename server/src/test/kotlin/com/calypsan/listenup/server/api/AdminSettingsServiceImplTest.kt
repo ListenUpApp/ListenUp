@@ -285,6 +285,7 @@ private suspend fun seedLibrary(
         libraryFolderRepository = folderRepo,
         bookRepository = bookRepo,
         scanOrchestrator = noOpOrchestrator(),
+        libraryRegistry = LibraryRegistry(db = db),
     ).copyWith(principal)
         .createLibrary(CreateLibraryRequest(name = "Default", folderPaths = listOf(dir.absolutePath)))
 }

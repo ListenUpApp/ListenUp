@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.scanner.ScannerResultPort
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -652,6 +653,56 @@ class LibraryAdminServiceImplTest :
                 }
             }
         }
+
+        // ── Single-library no-arg methods ─────────────────────────────────────────
+
+        test("fetchLibrary returns the singleton with its folders") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val dir = createTempDir()
+                    service.createLibrary(CreateLibraryRequest(name = "Books", folderPaths = listOf(dir.absolutePath)))
+
+                    val result = service.fetchLibrary()
+                    result.shouldBeInstanceOf<AppResult.Success<Library>>()
+                    val library = (result as AppResult.Success).data
+                    library.name shouldBe "Books"
+                    library.folders shouldHaveSize 1
+                    library.folders.first().rootPath shouldBe dir.absolutePath
+                }
+            }
+        }
+
+        test("addFolderToLibrary adds a folder to the singleton") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val dir1 = createTempDir()
+                    service.createLibrary(CreateLibraryRequest(name = "Books", folderPaths = listOf(dir1.absolutePath)))
+
+                    val dir2 = createTempDir()
+                    val addResult = service.addFolderToLibrary(dir2.absolutePath)
+                    addResult.shouldBeInstanceOf<AppResult.Success<LibraryFolder>>()
+                    (addResult as AppResult.Success).data.rootPath shouldBe dir2.absolutePath
+
+                    // fetchLibrary reflects the new folder
+                    val library = (service.fetchLibrary() as AppResult.Success).data
+                    library.folders shouldHaveSize 2
+                    library.folders.map { it.rootPath }.toSet() shouldBe setOf(dir1.absolutePath, dir2.absolutePath)
+                }
+            }
+        }
+
+        test("getSetupStatus needsSetup is true when the singleton has no folders") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    // No folders — library exists (singleton bootstrap) but has none.
+                    val status = (service.getSetupStatus() as AppResult.Success).data
+                    status.needsSetup shouldBe true
+                }
+            }
+        }
     })
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -698,12 +749,14 @@ private fun makeService(
                     registry = SyncRegistry(),
                 ),
         )
+    val libraryRegistry = LibraryRegistry(db = db)
     val service =
         LibraryAdminServiceImpl(
             libraryRepository = libraryRepo,
             libraryFolderRepository = folderRepo,
             bookRepository = bookRepo,
             scanOrchestrator = orchestrator,
+            libraryRegistry = libraryRegistry,
             clock = clock,
         ).copyWith(
             PrincipalProvider { UserPrincipal(UserId("caller"), SessionId("s-caller"), role) },

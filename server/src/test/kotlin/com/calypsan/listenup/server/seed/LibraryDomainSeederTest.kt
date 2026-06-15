@@ -179,7 +179,13 @@ private class FakeLibraryAdminService(
 
     override suspend fun removeFolder(folderId: FolderId): AppResult<Unit> = AppResult.Success(Unit)
 
+    override suspend fun fetchLibrary(): AppResult<Library> = AppResult.Failure(LibraryError.NotFound())
+
+    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> = AppResult.Failure(LibraryError.NotFound())
+
     override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun triggerLibraryScan(): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> = AppResult.Success(Unit)
 }
