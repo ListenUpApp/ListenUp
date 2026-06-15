@@ -18,7 +18,7 @@ private const val WIDE_WIDTH = 1000
 private const val WIDE_HEIGHT = 400
 
 private const val PREVIEW_TITLE = "Mistborn"
-private const val PREVIEW_OVERLINE = "Epic Fantasy · Unabridged"
+private const val PREVIEW_GENRE = "Epic Fantasy"
 private const val PREVIEW_SUBTITLE = "The Final Empire"
 private const val PREVIEW_BOOK_ID = "preview-book"
 private const val PREVIEW_TIME_REMAINING = "21h 30m left"
@@ -53,7 +53,8 @@ private fun CompactHeroPreviewBody() {
         coverHash = null,
         bookId = PREVIEW_BOOK_ID,
         title = PREVIEW_TITLE,
-        overline = PREVIEW_OVERLINE,
+        genre = PREVIEW_GENRE,
+        abridged = false,
         subtitle = PREVIEW_SUBTITLE,
         series = previewSeries,
         authors = previewAuthors,
@@ -85,7 +86,8 @@ private fun WideHeroBandPreviewBody() {
         coverHash = null,
         bookId = PREVIEW_BOOK_ID,
         title = PREVIEW_TITLE,
-        overline = PREVIEW_OVERLINE,
+        genre = PREVIEW_GENRE,
+        abridged = false,
         subtitle = PREVIEW_SUBTITLE,
         series = previewSeries,
         authors = previewAuthors,

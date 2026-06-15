@@ -37,6 +37,7 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -156,7 +157,8 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
         // them up by domain name. BookRepository needs contributor + series repos as deps.
         val contributorRepo = ContributorRepository(serverDb, bus, syncRegistry)
         val seriesRepo = SeriesRepository(serverDb, bus, syncRegistry)
-        val bookRepo = BookRepository(serverDb, bus, syncRegistry, contributorRepo, seriesRepo)
+        val genreRepo = GenreRepository(serverDb, bus, syncRegistry)
+        val bookRepo = BookRepository(serverDb, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
         val collectionRepo = CollectionRepository(serverDb, bus, syncRegistry)
         val collectionBookRepo = CollectionBookRepository(serverDb, bus, syncRegistry)
         val shareRepo = CollectionShareRepository(serverDb, bus, syncRegistry)

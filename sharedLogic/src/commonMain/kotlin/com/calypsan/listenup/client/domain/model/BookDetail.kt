@@ -82,3 +82,13 @@ data class BookDetail(
             rating = rating,
         )
 }
+
+/**
+ * Returns the most-specific genre — the one deepest in the hierarchy, measured by
+ * the number of `/` separators in its materialized [Genre.path] (e.g. "Progression
+ * Fantasy" at "/fiction/fantasy/progression" beats "Fantasy" at "/fiction/fantasy").
+ *
+ * On a depth tie the first such genre in list order wins; returns null when the book
+ * has no genres. This is the genre surfaced as the hero chip beside the Unabridged flag.
+ */
+fun BookDetail.mostSpecificGenre(): Genre? = genres.maxByOrNull { it.path.count { c -> c == '/' } }

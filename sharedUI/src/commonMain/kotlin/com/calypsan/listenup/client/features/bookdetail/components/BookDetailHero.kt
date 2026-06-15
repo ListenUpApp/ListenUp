@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
+import com.calypsan.listenup.client.design.components.GenreChip
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -42,9 +43,11 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_abridged
 import listenup.composeapp.generated.resources.book_detail_narrated_by
 import listenup.composeapp.generated.resources.book_detail_other_authors
 import listenup.composeapp.generated.resources.book_detail_other_narrators
+import listenup.composeapp.generated.resources.book_detail_unabridged
 import listenup.composeapp.generated.resources.series_book_sequence
 import org.jetbrains.compose.resources.stringResource
 
@@ -59,8 +62,10 @@ import org.jetbrains.compose.resources.stringResource
  * @param coverPath Local cover file path, or null to show the placeholder
  * @param bookId Book ID for server-URL fallback cover loading
  * @param title Book title (max 2 lines, ellipsised)
- * @param overline Short descriptor shown above the title in the primary brand colour (e.g. genre
- *   and classification); null hides the row
+ * @param genre Most-specific genre name shown as a chip above the title (e.g. "Progression
+ *   Fantasy"); null hides the chip
+ * @param abridged Whether the book is abridged — drives the Abridged/Unabridged flag beside the
+ *   genre chip
  * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
  *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
  * @param series Series memberships rendered as tappable chips; empty hides the row
@@ -81,7 +86,8 @@ fun CompactHero(
     coverHash: String?,
     bookId: String,
     title: String,
-    overline: String?,
+    genre: String?,
+    abridged: Boolean,
     subtitle: String?,
     series: List<BookSeries>,
     authors: List<BookContributor>,
@@ -120,17 +126,15 @@ fun CompactHero(
             }
         }
 
-        // Overline — genre / classification in brand coral; hidden when null
-        if (overline != null) {
-            Text(
-                text = overline.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-                // larger cover→overline gap than the 8dp column rhythm, per the design
-                modifier = Modifier.padding(top = 16.dp),
-            )
-        }
+        // Classification — most-specific genre chip beside the Abridged/Unabridged flag
+        HeroClassification(
+            genre = genre,
+            abridged = abridged,
+            classificationColor = MaterialTheme.colorScheme.primary,
+            centered = true,
+            // larger cover→classification gap than the 8dp column rhythm, per the design
+            modifier = Modifier.padding(top = 16.dp),
+        )
 
         // Title — large display text, max 2 lines
         Text(
@@ -222,7 +226,10 @@ fun CompactHero(
  * @param coverPath Local cover file path, or null to show the placeholder
  * @param bookId Book ID for server-URL fallback cover loading
  * @param title Book title (max 2 lines, ellipsised)
- * @param overline Short descriptor shown above the title (e.g. genre / classification); null hides
+ * @param genre Most-specific genre name shown as a chip above the title (e.g. "Progression
+ *   Fantasy"); null hides the chip
+ * @param abridged Whether the book is abridged — drives the Abridged/Unabridged flag beside the
+ *   genre chip
  * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
  *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
  * @param series Series memberships rendered as tappable chips; empty hides the row
@@ -243,7 +250,8 @@ fun WideHeroBand(
     coverHash: String?,
     bookId: String,
     title: String,
-    overline: String?,
+    genre: String?,
+    abridged: Boolean,
     subtitle: String?,
     series: List<BookSeries>,
     authors: List<BookContributor>,
@@ -317,14 +325,13 @@ fun WideHeroBand(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    // Overline — genre / classification, slightly muted; hidden when null
-                    if (overline != null) {
-                        Text(
-                            text = overline.uppercase(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        )
-                    }
+                    // Classification — most-specific genre chip beside the Abridged/Unabridged flag
+                    HeroClassification(
+                        genre = genre,
+                        abridged = abridged,
+                        classificationColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        centered = false,
+                    )
 
                     // Title — large display, max 2 lines
                     Text(
@@ -375,6 +382,42 @@ fun WideHeroBand(
                 }
             }
         }
+    }
+}
+
+/**
+ * The classification row shared by both heroes: the most-specific [genre] rendered as an outlined
+ * [GenreChip] beside the Abridged/Unabridged flag, in the brand-accent [classificationColor].
+ *
+ * The genre chip is omitted when [genre] is null; the flag is always shown. [centered] aligns the
+ * row for the compact (centered) hero versus the wide (left-aligned) band.
+ */
+@Composable
+private fun HeroClassification(
+    genre: String?,
+    abridged: Boolean,
+    classificationColor: Color,
+    centered: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val classification =
+        stringResource(
+            if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged,
+        )
+    Row(
+        modifier = modifier,
+        horizontalArrangement =
+            Arrangement.spacedBy(10.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!genre.isNullOrBlank()) {
+            GenreChip(genre = genre)
+        }
+        Text(
+            text = classification.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = classificationColor,
+        )
     }
 }
 

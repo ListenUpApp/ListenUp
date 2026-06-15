@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.mostSpecificGenre
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
-import com.calypsan.listenup.client.features.bookdetail.bookDetailOverline
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
@@ -96,9 +96,9 @@ fun WideBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
-    // Overline: parent genre + abridged/unabridged classification (mirrors the compact hero).
-    // note: no parent-genre field yet — using the first genre; server data needed for the rollup.
-    val heroOverline = bookDetailOverline(book.genres.firstOrNull()?.name, book.abridged)
+    // Hero classification: the most-specific genre as a chip beside the Abridged/Unabridged flag
+    // (mirrors the compact hero).
+    val heroGenre = book.mostSpecificGenre()?.name
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
@@ -145,7 +145,8 @@ fun WideBookDetail(
                 coverHash = book.coverHash,
                 bookId = bookId,
                 title = book.title,
-                overline = heroOverline,
+                genre = heroGenre,
+                abridged = book.abridged,
                 subtitle = state.subtitle,
                 series = book.series,
                 authors = book.authors,
