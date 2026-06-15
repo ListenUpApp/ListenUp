@@ -33,11 +33,19 @@ struct PressScaleButtonStyle: ButtonStyle {
         }
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The scale to apply: full size (1.0) when not pressed, or when Reduce Motion is on.
+    static func effectiveScale(pressed: Bool, base: CGFloat, reduceMotion: Bool) -> CGFloat {
+        guard pressed, !reduceMotion else { return 1.0 }
+        return base
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale.value : 1.0)
+            .scaleEffect(Self.effectiveScale(pressed: configuration.isPressed, base: scale.value, reduceMotion: reduceMotion))
             .animation(
-                .spring(response: 0.2, dampingFraction: 0.7),
+                reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.7),
                 value: configuration.isPressed
             )
     }
