@@ -46,10 +46,12 @@ class AdminSettingsViewModelTest :
         fun createServerSettings(
             serverName: String = "My Server",
             remoteUrl: String? = null,
+            inboxEnabled: Boolean = false,
         ): ServerSettings =
             ServerSettings(
                 serverName = serverName,
                 remoteUrl = remoteUrl,
+                inboxEnabled = inboxEnabled,
             )
 
         class TestFixture {
@@ -138,6 +140,42 @@ class AdminSettingsViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 ready.serverName shouldBe "New Name"
                 ready.isDirty shouldBe true
+            }
+        }
+
+        test("toggling inbox marks the state dirty") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setInboxEnabled(true)
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.inboxEnabled shouldBe true
+                ready.isDirty shouldBe true
+            }
+        }
+
+        test("saveAll sends the inbox patch when changed") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
+                everySuspend { fixture.updateServerSettingsUseCase.updateInboxEnabled(true) } returns
+                    AppResult.Success(createServerSettings(inboxEnabled = true))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setInboxEnabled(true)
+                viewModel.saveAll()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.inboxEnabled shouldBe true
+                ready.isSaving shouldBe false
+                ready.isDirty shouldBe false
+                verifySuspend(VerifyMode.atLeast(1)) {
+                    fixture.updateServerSettingsUseCase.updateInboxEnabled(true)
+                }
             }
         }
 

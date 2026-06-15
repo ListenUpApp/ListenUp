@@ -155,6 +155,7 @@ interface AdminRepository {
     suspend fun updateServerSettings(
         serverName: String? = null,
         remoteUrl: String? = null,
+        inboxEnabled: Boolean? = null,
     ): AppResult<ServerSettings>
 
     // ═══════════════════════════════════════════════════════════════════════

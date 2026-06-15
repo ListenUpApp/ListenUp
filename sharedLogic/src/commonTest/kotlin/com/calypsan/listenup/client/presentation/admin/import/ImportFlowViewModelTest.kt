@@ -1075,6 +1075,7 @@ private class FakeAdminRepository(
     override suspend fun updateServerSettings(
         serverName: String?,
         remoteUrl: String?,
+        inboxEnabled: Boolean?,
     ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
 
     override suspend fun getLibraries(): AppResult<List<Library>> = AppResult.Success(emptyList())

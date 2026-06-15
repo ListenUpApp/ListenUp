@@ -42,10 +42,10 @@ class AdminRepositoryImplSettingsTest :
             )
 
         test("getServerSettings maps the RPC DTO to the domain model") {
-            val svc = FakeAdminSettingsService().apply { stored = AdminServerSettings("My Lib", "https://x", inboxEnabled = false) }
+            val svc = FakeAdminSettingsService().apply { stored = AdminServerSettings("My Lib", "https://x", inboxEnabled = true) }
             (repo(svc).getServerSettings() as AppResult.Success).data shouldBe
                 com.calypsan.listenup.client.domain.model
-                    .ServerSettings("My Lib", "https://x")
+                    .ServerSettings("My Lib", "https://x", inboxEnabled = true)
         }
 
         test("updateServerSettings forwards a patch and returns the new settings") {
