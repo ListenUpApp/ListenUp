@@ -6,9 +6,18 @@ import AVFoundation
 /// Polls `condition` until true or the timeout elapses. Replaces fixed `Task.sleep`
 /// waits so tests finish as soon as the async work completes and only fail if it
 /// genuinely never does — deterministic, no wall-clock floor.
+///
+/// The ceiling is deliberately generous. A passing condition returns in milliseconds, so the
+/// timeout is never paid on a green run — it is only ever reached when the awaited work
+/// genuinely never happens. The most async-heavy tests here (`play` → `Task` → engine;
+/// route-change / sleep-fired via `AsyncSequence` → `bridge.bind` → `Task`) hop through many
+/// suspension points, and on a contended 2-core CI runner the shared `@MainActor` is so
+/// saturated by parallel suites that those hops take far longer in wall-clock than the work
+/// itself — an 8 s cap intermittently elapsed before the chain drained. 30 s gives the
+/// saturated scheduler ample room without slowing healthy runs.
 @MainActor
 func awaitUntil(
-    timeout: Duration = .seconds(8),
+    timeout: Duration = .seconds(30),
     pollInterval: Duration = .milliseconds(20),
     _ condition: () async -> Bool
 ) async {
