@@ -4,7 +4,6 @@ import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.local.db.UserStatsDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -19,7 +18,6 @@ import org.koin.test.verify.verify
  *
  *  - [ApiClientFactory] — owned by `networkModule`.
  *  - [ListeningEventDao] — owned by `persistenceModule`.
- *  - [UserStatsDao] — owned by `persistenceModule`.
  *  - [GenreDao] — owned by `persistenceModule`.
  *  - [PlaybackPositionDao] — owned by `persistenceModule`.
  *  - [TransactionRunner] — owned by `persistenceModule`.
@@ -36,7 +34,6 @@ class ListeningModuleVerifyTest :
                 extraTypes =
                     listOf(
                         ListeningEventDao::class,
-                        UserStatsDao::class,
                         GenreDao::class,
                         PlaybackPositionDao::class,
                         TransactionRunner::class,

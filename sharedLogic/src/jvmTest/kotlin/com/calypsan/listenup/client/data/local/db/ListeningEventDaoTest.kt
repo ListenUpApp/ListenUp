@@ -173,6 +173,33 @@ class ListeningEventDaoTest :
                 db.close()
             }
         }
+
+        // ── #532 repair ────────────────────────────────────────────────────────────────────────
+
+        test("reassignBlankUserId re-stamps blank rows and leaves non-blank rows untouched") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val dao = db.listeningEventDao()
+
+                    // One poisoned row (blank userId, written during a startup catch-up race)
+                    dao.upsert(makeEvent("poisoned", userId = "", startedAt = 100, endedAt = 200))
+                    // One normal row that must remain untouched
+                    dao.upsert(makeEvent("ok", userId = "user-123", startedAt = 300, endedAt = 400))
+
+                    val repaired = dao.reassignBlankUserId("user-123")
+                    repaired shouldBe 1
+                    dao.getById("poisoned")!!.userId shouldBe "user-123"
+                    dao.getById("ok")!!.userId shouldBe "user-123"
+
+                    // Idempotent — a second call is a no-op
+                    val repairedAgain = dao.reassignBlankUserId("user-123")
+                    repairedAgain shouldBe 0
+                }
+            } finally {
+                db.close()
+            }
+        }
     })
 
 private fun makeEvent(

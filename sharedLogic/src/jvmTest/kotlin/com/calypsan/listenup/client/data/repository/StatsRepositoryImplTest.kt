@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookGenreCrossRef
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
-import com.calypsan.listenup.client.data.local.db.UserStatsEntity
 import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -83,7 +82,6 @@ class StatsRepositoryImplTest :
             authFlow: MutableStateFlow<AuthState>,
         ) = StatsRepositoryImpl(
             listeningEventDao = db.listeningEventDao(),
-            userStatsDao = db.userStatsDao(),
             genreDao = db.genreDao(),
             authSession = FakeAuthSession(authFlow),
             clock = fixedClock(),
@@ -212,33 +210,105 @@ class StatsRepositoryImplTest :
             }
         }
 
-        test("streak fields come from UserStatsEntity, not recomputed locally") {
+        test("current streak is consecutive-day run ending today; longest spans all history") {
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    db.userStatsDao().upsert(
-                        UserStatsEntity(
-                            id = "u1",
-                            totalSecondsAllTime = 0L,
-                            totalSecondsLast7Days = 0L,
-                            totalSecondsLast30Days = 0L,
-                            booksStarted = 0,
-                            booksFinished = 0,
-                            currentStreakDays = 5,
-                            longestStreakDays = 14,
-                            lastEventDate = null,
-                        ),
-                    )
+                    // today, today-1, today-2: 3-day run ending today → current 3, longest 3
+                    val msPerDay = 86_400_000L
+                    val dayOffset = { days: Int -> nowMs - days * msPerDay - 3_600_000L }
+                    db.listeningEventDao().upsert(makeEvent("d0", startedAt = dayOffset(0), endedAt = dayOffset(0) + 1_800_000L))
+                    db.listeningEventDao().upsert(makeEvent("d1", startedAt = dayOffset(1), endedAt = dayOffset(1) + 1_800_000L))
+                    db.listeningEventDao().upsert(makeEvent("d2", startedAt = dayOffset(2), endedAt = dayOffset(2) + 1_800_000L))
 
-                    val authFlow =
-                        MutableStateFlow<AuthState>(
-                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                        )
+                    val authFlow = MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
-                    stats.currentStreakDays shouldBe 5
-                    stats.longestStreakDays shouldBe 14
+                    stats.currentStreakDays shouldBe 3
+                    stats.longestStreakDays shouldBe 3
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("current streak is 0 when the last listen is old, but longest is preserved") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    // 3 consecutive days ~90 days ago, nothing recent → current 0, longest 3
+                    val msPerDay = 86_400_000L
+                    val oldAnchor = nowMs - 90 * msPerDay
+                    db.listeningEventDao().upsert(makeEvent("o0", startedAt = oldAnchor, endedAt = oldAnchor + 1_800_000L))
+                    db.listeningEventDao().upsert(
+                        makeEvent("o1", startedAt = oldAnchor + msPerDay, endedAt = oldAnchor + msPerDay + 1_800_000L),
+                    )
+                    db.listeningEventDao().upsert(
+                        makeEvent("o2", startedAt = oldAnchor + 2 * msPerDay, endedAt = oldAnchor + 2 * msPerDay + 1_800_000L),
+                    )
+
+                    val authFlow = MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    val repo = buildRepo(db, authFlow)
+
+                    val stats = repo.observeWeeklyStats().first()
+                    stats.currentStreakDays shouldBe 0
+                    stats.longestStreakDays shouldBe 3
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("longest streak is the max run across history regardless of the week window") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    // 5-day run last month + 2-day run ending today → longest 5, current 2
+                    val msPerDay = 86_400_000L
+                    val oldAnchor = nowMs - 30 * msPerDay
+                    for (i in 0..4) {
+                        db.listeningEventDao().upsert(
+                            makeEvent("long-$i", startedAt = oldAnchor + i * msPerDay, endedAt = oldAnchor + i * msPerDay + 1_800_000L),
+                        )
+                    }
+                    // 2-day run today and yesterday
+                    db.listeningEventDao().upsert(makeEvent("r0", startedAt = nowMs - 3_600_000L, endedAt = nowMs - 1_800_000L))
+                    db.listeningEventDao().upsert(
+                        makeEvent("r1", startedAt = nowMs - msPerDay - 3_600_000L, endedAt = nowMs - msPerDay - 1_800_000L),
+                    )
+
+                    val authFlow = MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    val repo = buildRepo(db, authFlow)
+
+                    val stats = repo.observeWeeklyStats().first()
+                    stats.currentStreakDays shouldBe 2
+                    stats.longestStreakDays shouldBe 5
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("same-day multiple sessions count as one streak day") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    // two events same calendar day + the prior day → current 2 (not 3)
+                    val msPerDay = 86_400_000L
+                    // today: two events 1 hour apart
+                    db.listeningEventDao().upsert(makeEvent("t0", startedAt = nowMs - 3_600_000L, endedAt = nowMs - 2_700_000L))
+                    db.listeningEventDao().upsert(makeEvent("t1", startedAt = nowMs - 2_400_000L, endedAt = nowMs - 1_800_000L))
+                    // yesterday: one event
+                    db.listeningEventDao().upsert(
+                        makeEvent("y0", startedAt = nowMs - msPerDay - 3_600_000L, endedAt = nowMs - msPerDay - 1_800_000L),
+                    )
+
+                    val authFlow = MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    val repo = buildRepo(db, authFlow)
+
+                    val stats = repo.observeWeeklyStats().first()
+                    stats.currentStreakDays shouldBe 2
                 }
             } finally {
                 db.close()

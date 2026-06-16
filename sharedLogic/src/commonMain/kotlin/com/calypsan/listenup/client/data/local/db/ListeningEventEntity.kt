@@ -306,6 +306,24 @@ interface ListeningEventDao {
     /** All rows (including tombstones) with [revision][ListeningEventEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM listening_events WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /**
+     * Observe every live event's [endedAt] for [userId], oldest-first (#532). Drives the
+     * client-side streak computation — the week window isn't enough because the longest streak
+     * spans all history. A list of longs is cheap; only distinct calendar days matter downstream.
+     *
+     * Covered by the `["userId","endedAt"]` index; this query is fully indexed.
+     */
+    @Query("SELECT endedAt FROM listening_events WHERE userId = :userId AND deletedAt IS NULL ORDER BY endedAt")
+    fun observeEndedAt(userId: String): Flow<List<Long>>
+
+    /**
+     * One-time repair (#532): re-stamp rows poisoned with a blank userId (written during a startup
+     * catch-up before auth resolved) with the now-known signed-in [userId]. Idempotent — a no-op
+     * once no blank rows remain. Returns the number of rows updated.
+     */
+    @Query("UPDATE listening_events SET userId = :userId WHERE userId = ''")
+    suspend fun reassignBlankUserId(userId: String): Int
 }
 
 /**

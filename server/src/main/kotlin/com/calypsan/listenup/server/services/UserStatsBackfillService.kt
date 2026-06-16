@@ -9,6 +9,7 @@ import kotlin.time.Instant
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.v1.core.and
@@ -105,7 +106,18 @@ class UserStatsBackfillService(
                     .size
             }
 
-        // 5. Upsert the rebuilt row. The substrate assigns revision and timestamps.
+        // 5. The walk's currentStreak is the streak as of lastDate; the *current* streak is only that
+        // value if the last event was today or yesterday — otherwise the streak has lapsed.
+        val referenceTz = if (events.isNotEmpty()) TimeZone.of(events.last()[ListeningEventTable.tz]) else TimeZone.UTC
+        val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(referenceTz).date
+        val currentStreakAsOfToday =
+            when {
+                lastDate == null -> 0
+                lastDate == today || lastDate == today.minus(DatePeriod(days = 1)) -> currentStreak
+                else -> 0
+            }
+
+        // 6. Upsert the rebuilt row. The substrate assigns revision and timestamps.
         val rebuilt =
             UserStatsSyncPayload(
                 id = userId,
@@ -114,7 +126,7 @@ class UserStatsBackfillService(
                 totalSecondsLast30Days = last30,
                 booksStarted = distinctBooks.size,
                 booksFinished = booksFinished,
-                currentStreakDays = currentStreak,
+                currentStreakDays = currentStreakAsOfToday,
                 longestStreakDays = longestStreak,
                 lastEventDate = lastDate?.toString(),
                 revision = 0L,
