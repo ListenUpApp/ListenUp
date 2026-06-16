@@ -33,6 +33,15 @@ import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
 
 /**
+ * Max accepted size for an uploaded `.listenup.zip` backup. Legitimate backups for large libraries
+ * can exceed 50 MiB; this route streams the file straight to a temp file (never buffered in
+ * memory), so a generous cap is safe. Ktor's default [formFieldLimit] is 50 MiB (52_428_800 bytes),
+ * which would reject valid large restores before they could be staged. Mirrors [ImportRoutes]'
+ * cap for consistency — both upload endpoints accept the same ceiling.
+ */
+private const val MAX_BACKUP_RESTORE_BYTES: Long = 5L * 1024 * 1024 * 1024 // 5 GiB
+
+/**
  * REST routes for binary backup download and cross-machine upload (staging).
  *
  * These complement the RPC surface ([com.calypsan.listenup.api.BackupService]) — binary
@@ -105,7 +114,7 @@ private suspend fun ApplicationCall.handleUpload(
     val tmpFile = Files.createTempFile(paths.tmpDir, "upload-", ".listenup.zip")
     try {
         var received = false
-        receiveMultipart().forEachPart { part ->
+        receiveMultipart(formFieldLimit = MAX_BACKUP_RESTORE_BYTES).forEachPart { part ->
             if (part is PartData.FileItem && !received) {
                 received = true
                 Files.newOutputStream(tmpFile).use { out ->
