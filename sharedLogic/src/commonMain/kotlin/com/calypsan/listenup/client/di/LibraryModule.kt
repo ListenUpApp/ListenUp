@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.remote.KtorScannerRpcFactory
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApi
@@ -97,6 +98,7 @@ val libraryModule: Module =
                 listeningEventRecorder = get(),
                 scannerRpcFactory = get(),
                 bookDao = get(),
+                listeningEventDao = get(),
                 ftsPopulator = get(),
                 scope =
                     get(

@@ -6,9 +6,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -126,6 +128,39 @@ class ListeningEventSyncDomainHandlerTest :
                 val row = db.listeningEventDao().getById("ev-5").shouldNotBeNull()
                 row.deletedAt shouldBe 555L
                 row.revision shouldBe 9L
+            }
+        }
+
+        // ── #532 regression: getUserId() must be used, not authState snapshot ────────────────
+
+        test("synced event is stamped with getUserId(), not blank, while authState is Initializing") {
+            // authState is still Initializing (startup race), but getUserId() has the persisted id.
+            // The handler must stamp getUserId() so the user-scoped stats query counts the row.
+            val auth = FakeAuthSession(userId = "user-123", authState = AuthState.Initializing)
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), auth)
+                    handler.onCatchUpItem(payload("e1", "book-1"), isTombstone = false)
+                    db.listeningEventDao().getById("e1").shouldNotBeNull().userId shouldBe "user-123"
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("synced event is skipped (not stamped blank) when getUserId() is null") {
+            // getUserId() returns null → signed out or storage unreadable; must not poison the DB.
+            val auth = FakeAuthSession(userId = null, authState = AuthState.Initializing)
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), auth)
+                    handler.onCatchUpItem(payload("e2", "book-1"), isTombstone = false)
+                    db.listeningEventDao().getById("e2").shouldBeNull()
+                } finally {
+                    db.close()
+                }
             }
         }
 

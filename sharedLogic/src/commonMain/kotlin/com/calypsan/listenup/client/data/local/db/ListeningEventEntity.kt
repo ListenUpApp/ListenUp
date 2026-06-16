@@ -306,6 +306,14 @@ interface ListeningEventDao {
     /** All rows (including tombstones) with [revision][ListeningEventEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM listening_events WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /**
+     * One-time repair (#532): re-stamp rows poisoned with a blank userId (written during a startup
+     * catch-up before auth resolved) with the now-known signed-in [userId]. Idempotent — a no-op
+     * once no blank rows remain. Returns the number of rows updated.
+     */
+    @Query("UPDATE listening_events SET userId = :userId WHERE userId = ''")
+    suspend fun reassignBlankUserId(userId: String): Int
 }
 
 /**
