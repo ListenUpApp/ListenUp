@@ -38,22 +38,32 @@ class UserPreferencesRepositoryImplTest :
                     }
                 val result = fixture(service).getPreferences()
                 result.shouldBeInstanceOf<AppResult.Success<*>>()
+                // Assert every field — distinct skip values (30 vs 10) would expose a forward/backward transposition.
                 (result as AppResult.Success).data.defaultPlaybackSpeed shouldBe 1.5f
+                result.data.defaultSkipForwardSec shouldBe 30
+                result.data.defaultSkipBackwardSec shouldBe 10
                 result.data.defaultSleepTimerMin shouldBe 20
                 result.data.shakeToResetSleepTimer shouldBe true
             }
         }
 
-        test("setDefaultPlaybackSpeed sends a single-field patch and returns Unit") {
-            runTest {
-                val service =
-                    mock<UserPreferencesService> {
-                        everySuspend { updateMyPreferences(any()) } returns
-                            AppResult.Success(UserPreferencesDto(2.0f, 30, 10, null, false))
-                    }
-                fixture(service).setDefaultPlaybackSpeed(2.0f) shouldBe AppResult.Success(Unit)
-                verifySuspend {
-                    service.updateMyPreferences(UpdateUserPreferencesRequest(defaultPlaybackSpeed = 2.0f))
+        // Each setter must send exactly one field on the patch, addressed to the right DTO field.
+        listOf<Triple<String, suspend UserPreferencesRepositoryImpl.() -> AppResult<Unit>, UpdateUserPreferencesRequest>>(
+            Triple("setDefaultPlaybackSpeed", { setDefaultPlaybackSpeed(2.0f) }, UpdateUserPreferencesRequest(defaultPlaybackSpeed = 2.0f)),
+            Triple("setDefaultSkipForwardSec", { setDefaultSkipForwardSec(45) }, UpdateUserPreferencesRequest(defaultSkipForwardSec = 45)),
+            Triple("setDefaultSkipBackwardSec", { setDefaultSkipBackwardSec(15) }, UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15)),
+            Triple("setDefaultSleepTimerMin", { setDefaultSleepTimerMin(20) }, UpdateUserPreferencesRequest(defaultSleepTimerMin = 20)),
+            Triple("setShakeToResetSleepTimer", { setShakeToResetSleepTimer(true) }, UpdateUserPreferencesRequest(shakeToResetSleepTimer = true)),
+        ).forEach { (name, call, expectedPatch) ->
+            test("$name sends only its field on the patch and returns Unit") {
+                runTest {
+                    val service =
+                        mock<UserPreferencesService> {
+                            everySuspend { updateMyPreferences(any()) } returns
+                                AppResult.Success(UserPreferencesDto(1.0f, 30, 10, null, false))
+                        }
+                    fixture(service).call() shouldBe AppResult.Success(Unit)
+                    verifySuspend { service.updateMyPreferences(expectedPatch) }
                 }
             }
         }
