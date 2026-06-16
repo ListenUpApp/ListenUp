@@ -83,12 +83,23 @@ class PendingApprovalViewModel(
         }
     }
 
-    private suspend fun handleDenied(message: String? = null) {
-        authSession.clearPendingRegistration()
+    private fun handleDenied(message: String? = null) {
+        // Surface the denial on-screen first. Clearing the pending registration here would flip
+        // AuthState and unmount this screen before the message is ever seen — so the consumer shows
+        // the denial, then calls [cancelRegistration] to clear it and return to login.
         _state.value =
             PendingApprovalUiState.Denied(
                 message ?: "Your registration was denied by an administrator.",
             )
+    }
+
+    /**
+     * Manually re-check approval status by re-opening the SSE stream — the server answers a fresh
+     * subscription with the current status. The "never stranded" manual fallback to the always-on
+     * stream; safe to tap repeatedly (each call cancels and replaces the previous subscription).
+     */
+    fun checkStatus() {
+        connectToSSE()
     }
 
     /** Cancel the pending registration and return to login. */

@@ -156,6 +156,27 @@ class AuthSessionStoreTest :
             }
         }
 
+        test("clearPendingRegistration removes pending data and returns state to NeedsLogin") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { storage.read("open_registration") } returns null
+                everySuspend { storage.save(any(), any()) } returns Unit
+                val store = createStore(storage = storage)
+                // Put the store into PendingApproval first.
+                store.savePendingRegistration(userId = "user-1", email = "reader@example.com")
+                store.authState.value.shouldBeInstanceOf<AuthState.PendingApproval>()
+
+                store.clearPendingRegistration()
+
+                verifySuspend { storage.delete("pending_user_id") }
+                verifySuspend { storage.delete("pending_email") }
+                // Leaving the pending state must route the user somewhere — back to login — not
+                // strand them on the pending screen (the Cancel-button bug).
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+            }
+        }
+
         test("isAuthenticated returns true when access token exists") {
             runTest {
                 val storage = createMockStorage()
