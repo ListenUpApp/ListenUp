@@ -20,6 +20,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.TagService
+import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -39,6 +40,7 @@ import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.profileModule
 import com.calypsan.listenup.server.di.publicProfileModule
+import com.calypsan.listenup.server.di.userPreferencesModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
@@ -283,6 +285,7 @@ private fun Application.installDependencies(
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
         modules += profileModule(homeDir.resolve("avatars"))
+        modules += userPreferencesModule()
         modules += backupModule(homeDir)
         modules += importModule(homeDir)
         if (seedProfile == SEED_PROFILE_DEMO) {
@@ -414,6 +417,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val socialService by inject<SocialService>()
     val activityService by inject<ActivityService>()
     val profileService by inject<ProfileService>()
+    val userPreferencesService by inject<UserPreferencesService>()
     val backupService by inject<BackupService>()
     val importService by inject<ImportService>()
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
@@ -453,6 +457,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             adminSettingsService,
             inviteService,
             profileService,
+            userPreferencesService,
             backupService,
             importService,
         )
