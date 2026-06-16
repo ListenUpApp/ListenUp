@@ -22,7 +22,7 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
  * Because filtering happens after the store reads a raw page, a naive single page could return
  * fewer than [feed]'s requested `limit` even when enough accessible rows exist further back. To
  * keep pages full, [feed] overfetches ([OVERFETCH]× the limit) and re-pages by the trailing
- * `created_at` cursor until it has `limit` visible rows or the log is exhausted.
+ * `occurred_at` cursor until it has `limit` visible rows or the log is exhausted.
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal; the Koin
  * singleton carries an unscoped placeholder [PrincipalProvider] that throws (fail-loud) if ever
@@ -53,7 +53,7 @@ internal class ActivityServiceImpl(
                     displayName = identity.displayName,
                     avatarType = identity.avatarType,
                     type = row.type,
-                    createdAtMs = row.createdAt,
+                    createdAtMs = row.occurredAt,
                     bookId = row.bookId,
                     isReread = row.isReread,
                     durationMs = row.durationMs,
@@ -70,7 +70,7 @@ internal class ActivityServiceImpl(
      * Overfetches raw pages and keeps the first [limit] rows the caller may see. A row passes when
      * it is non-book ([ActivityRow.bookId] is null), the caller is unconstrained ([accessible] is
      * null = ROOT/ADMIN), or its book is in the [accessible] set. Re-pages by the trailing
-     * `created_at` cursor until the page is full or the log is exhausted.
+     * `occurred_at` cursor until the page is full or the log is exhausted.
      */
     private suspend fun collectVisible(
         before: Long?,
@@ -87,7 +87,7 @@ internal class ActivityServiceImpl(
                 .filter { it.canBeSeenWith(accessible) }
                 .take(limit - visible.size)
                 .forEach { visible += it }
-            cursor = pageRows.last().createdAt
+            cursor = pageRows.last().occurredAt
             if (pageRows.size < limit * OVERFETCH) break // log exhausted
         }
         return visible

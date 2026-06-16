@@ -315,6 +315,26 @@ class ActivityServiceTest :
 
         // ── 6: unauthenticated caller → NotFound ─────────────────────────────────────
 
+        // ── 7: feed orders by occurred_at, not insert order ──────────────────────────
+
+        test("page orders by occurred_at, not insert order") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    // Insert at clock=1_000 but with occurredAt=1_000 (older real event)
+                    activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 1_000L)
+                    // Insert at clock=2_000 but with occurredAt=9_000 (newer real event)
+                    clock.set(Instant.fromEpochMilliseconds(2_000L))
+                    activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 9_000L)
+
+                    val page = activities.page(before = null, limit = 10)
+                    page.map { it.occurredAt } shouldBe listOf(9_000L, 1_000L)
+                }
+            }
+        }
+
         test("feed returns Failure(SocialError.NotFound) when caller is unauthenticated") {
             withInMemoryDatabase {
                 val db = this
