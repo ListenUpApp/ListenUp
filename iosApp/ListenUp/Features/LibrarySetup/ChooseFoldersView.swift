@@ -282,8 +282,7 @@ private struct FolderRow: View {
 #Preview("Choose Folders") {
     ChooseFoldersView(
         viewModel: LibrarySetupViewModelWrapper(
-            viewModel: Dependencies.shared.librarySetupViewModel,
-            syncRepository: Dependencies.shared.syncRepository
+            viewModel: Dependencies.shared.librarySetupViewModel
         )
     )
 }
