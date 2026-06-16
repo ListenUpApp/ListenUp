@@ -44,6 +44,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -352,6 +353,7 @@ private fun buildService(
                 coverImageStore = coverImageStore,
                 imageHome = Path(tempDir),
             ),
+        enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
         permissionPolicy = UserPermissionPolicy(db),
         db = db,
         genreRepository = genreRepo,

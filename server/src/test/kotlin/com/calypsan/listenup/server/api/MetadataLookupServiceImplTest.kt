@@ -42,6 +42,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -242,6 +243,7 @@ class MetadataLookupServiceImplTest :
                             genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
                             db = db,
                             ladderSource = { _, _ -> emptyList() },
+                            enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry),
                         )
                     val coverSelection =
                         MetadataApplySelection(
@@ -405,6 +407,7 @@ private fun makeService(
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
+        enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry),
         permissionPolicy = UserPermissionPolicy(db),
         db = db,
         genreRepository = genreRepo,

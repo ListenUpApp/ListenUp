@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -139,6 +140,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
+        enrichmentDeps = testEnrichmentDeps(db, bus, registry),
         permissionPolicy = UserPermissionPolicy(db),
         db = db,
         genreRepository = genreRepo,
