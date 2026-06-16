@@ -1012,13 +1012,9 @@ One beautiful library.</string>
     <string name="profile_new_password">New</string>
     <string name="profile_no_shelves_yet_create_one">No shelves yet. Create one to curate your favorite books!</string>
     <string name="profile_password_description">Set a new password for your account</string>
-    <string name="profile_password_min_chars">Must be at least %1$d characters</string>
-    <string name="profile_passwords_do_not_match">Passwords do not match</string>
     <string name="profile_profile_saved">Profile saved.</string>
     <string name="profile_recently_finished">Recently Finished</string>
     <string name="profile_remove_photo">Remove Photo</string>
-    <string name="profile_save_name">Save Name</string>
-    <string name="profile_save_tagline">Save Tagline</string>
     <string name="profile_shelf_books_count">%1$d books</string>
     <string name="profile_shelves">Shelves</string>
     <string name="profile_stat_best">Best</string>

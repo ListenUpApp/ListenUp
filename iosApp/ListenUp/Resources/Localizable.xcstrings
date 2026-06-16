@@ -10111,26 +10111,6 @@
         }
       }
     },
-    "profile.password_min_chars": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Must be at least %1$d characters"
-          }
-        }
-      }
-    },
-    "profile.passwords_do_not_match": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Passwords do not match"
-          }
-        }
-      }
-    },
     "profile.profile_saved": {
       "localizations": {
         "en": {
@@ -10157,26 +10137,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove Photo"
-          }
-        }
-      }
-    },
-    "profile.save_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save Name"
-          }
-        }
-      }
-    },
-    "profile.save_tagline": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save Tagline"
           }
         }
       }
