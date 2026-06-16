@@ -173,13 +173,9 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
             },
         )
     }
-    entry<AdminLibrarySettings> { args ->
-        val viewModel:
-            com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel =
-            koinViewModel {
-                org.koin.core.parameter
-                    .parametersOf(args.libraryId)
-            }
+    entry<AdminLibrarySettings> {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel =
+            koinViewModel()
         com.calypsan.listenup.client.features.admin.LibrarySettingsScreen(
             viewModel = viewModel,
             onBackClick = {

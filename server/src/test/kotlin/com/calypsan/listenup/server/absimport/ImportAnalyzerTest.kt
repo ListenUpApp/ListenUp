@@ -38,7 +38,7 @@ class ImportAnalyzerTest :
                 val analyzer = analyzerFor(db, paths)
 
                 runTest {
-                    val libId = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")).currentLibrary()
+                    val libId = LibraryRegistry(db).currentLibrary()
                     transaction(db) {
                         seedAnalyzerBooks(libId.value)
                         seedAnalyzerUser()
@@ -90,7 +90,7 @@ class ImportAnalyzerTest :
                 val analyzer = analyzerFor(db, paths)
 
                 runTest {
-                    val libId = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")).currentLibrary()
+                    val libId = LibraryRegistry(db).currentLibrary()
                     transaction(db) {
                         seedAnalyzerBooks(libId.value)
                         seedAnalyzerUser()
@@ -175,7 +175,7 @@ private fun analyzerFor(
         paths = paths,
         bookMatcher = BookMatcher(db),
         userMatcher = UserMatcher(),
-        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+        libraryRegistry = LibraryRegistry(db),
         db = db,
     )
 

@@ -6,22 +6,19 @@ import io.ktor.resources.Resource
  * REST mirror of the [com.calypsan.listenup.api.LibraryAdminService] RPC surface.
  * All routes live under `/api/v1/libraries`.
  *
- * Every route requires JWT authentication. Admin operations (create, rename,
- * delete, add/remove folder, scan) use `POST`, `PATCH`, or `DELETE` verbs;
- * read operations use `GET`.
+ * Every route requires JWT authentication. Admin operations (add/remove folder,
+ * scan) use `POST` or `DELETE` verbs; read operations use `GET`.
  *
- * The [Collection] class doubles as the parent resource and the route for
- * `GET /api/v1/libraries` (list all libraries).
+ * The [Collection] class serves as the parent resource for all nested routes and
+ * as the route for `GET /api/v1/libraries` (fetch THE library in the single-library model).
  */
 @Resource("/api/v1/libraries")
 class LibraryResources {
     /**
-     * REST mirror of [com.calypsan.listenup.api.LibraryAdminService.listLibraries] —
-     * `GET /api/v1/libraries` returns all non-deleted libraries with folders.
+     * `GET /api/v1/libraries` — REST mirror of
+     * [com.calypsan.listenup.api.LibraryAdminService.getLibrary].
      *
-     * Also `POST /api/v1/libraries` mirrors
-     * [com.calypsan.listenup.api.LibraryAdminService.createLibrary] with a
-     * [com.calypsan.listenup.api.dto.CreateLibraryRequest] body.
+     * Also serves as the parent anchor for all nested library resource routes.
      */
     @Resource("")
     class Collection(
@@ -50,44 +47,16 @@ class LibraryResources {
     )
 
     /**
-     * REST mirror for per-library operations:
-     * - `GET /api/v1/libraries/{id}` → [com.calypsan.listenup.api.LibraryAdminService.getLibrary]
-     * - `PATCH /api/v1/libraries/{id}` → [com.calypsan.listenup.api.LibraryAdminService.renameLibrary]
-     * - `DELETE /api/v1/libraries/{id}` → [com.calypsan.listenup.api.LibraryAdminService.deleteLibrary]
-     *   (cascade-deletes books + folders)
-     */
-    @Resource("{id}")
-    class Detail(
-        val parent: LibraryResources = LibraryResources(),
-        /** Library id string. */
-        val id: String,
-    )
-
-    /**
-     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.scanLibrary] —
-     * `POST /api/v1/libraries/{id}/scan` triggers a full scan of library [id].
-     */
-    @Resource("{id}/scan")
-    class Scan(
-        val parent: LibraryResources = LibraryResources(),
-        /** Library id string. */
-        val id: String,
-    )
-
-    /**
      * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.addFolder] —
-     * `POST /api/v1/libraries/{id}/folders` registers a new folder under library [id].
+     * `POST /api/v1/libraries/folders` registers a new root folder under THE library.
      */
-    @Resource("{id}/folders")
+    @Resource("folders")
     class Folders(
         val parent: LibraryResources = LibraryResources(),
-        /** Library id string. */
-        val id: String,
     )
 
     /**
      * REST mirror for per-folder operations:
-     * - `GET /api/v1/libraries/folders/{folderId}` — fetch a single folder.
      * - `DELETE /api/v1/libraries/folders/{folderId}` → [com.calypsan.listenup.api.LibraryAdminService.removeFolder]
      *   (cascade-deletes folder's books)
      */
@@ -108,5 +77,14 @@ class LibraryResources {
         val parent: LibraryResources = LibraryResources(),
         /** Folder id string. */
         val folderId: String,
+    )
+
+    /**
+     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.scanLibrary] —
+     * `POST /api/v1/libraries/scan` triggers a full scan of THE library.
+     */
+    @Resource("scan")
+    class Scan(
+        val parent: LibraryResources = LibraryResources(),
     )
 }

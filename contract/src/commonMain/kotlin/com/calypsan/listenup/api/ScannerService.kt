@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
-import com.calypsan.listenup.core.LibraryId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.annotations.Rpc
 
@@ -26,9 +25,7 @@ import kotlinx.rpc.annotations.Rpc
  *  - `lastScanResult()` returns the most-recent completed scan's full
  *    result — including the books list — for read-after-scan flows that
  *    don't want to subscribe.
- *  - `observeProgress(libraryId)` optionally filters the event stream to a
- *    single library when [libraryId] is non-null. Pass `null` (the default)
- *    to receive events from all libraries.
+ *  - `observeProgress()` receives events from THE library (single-library model).
  */
 @Rpc
 interface ScannerService {
@@ -36,5 +33,5 @@ interface ScannerService {
 
     suspend fun lastScanResult(): AppResult<ScanResult>
 
-    fun observeProgress(libraryId: LibraryId? = null): Flow<RpcEvent<ScanEvent>>
+    fun observeProgress(): Flow<RpcEvent<ScanEvent>>
 }

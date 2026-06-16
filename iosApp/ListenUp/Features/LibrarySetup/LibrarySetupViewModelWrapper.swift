@@ -20,45 +20,9 @@ struct DirectoryItem: Identifiable, Equatable {
     }
 }
 
-/// Live scan progress, flattened for the "Building your library" screen.
-struct ScanProgressItem: Equatable {
-    /// Progress over discovered files, or `nil` during the indeterminate "walking" phase
-    /// (total still unknown). Sourced from the shared contract's `progressFraction`.
-    let fraction: Double?
-    /// Human-readable file counter, e.g. `"666 / 1,647 files"`.
-    let filesLabel: String
-    let currentFile: String?
-    let books: Int
-    let authors: Int
-    let hours: Int
-
-    /// Flatten a KMP ``ScanProgressState`` into display-ready values.
-    init(from state: ScanProgressState) {
-        let total = Int(state.filesTotal)
-        let current = Int(state.current)
-        fraction = state.progressFraction.map { Double($0) }
-        filesLabel = "\(Self.grouped(current)) / \(Self.grouped(total)) files"
-        currentFile = state.currentFile
-        books = Int(state.books)
-        authors = Int(state.authors)
-        hours = Int(state.hours)
-    }
-
-    private static func grouped(_ value: Int) -> String {
-        Self.formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-    }
-
-    private static let formatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter
-    }()
-}
-
-/// Observes ``LibrarySetupViewModel`` — the `LibrarySetupUiState`, its one-shot
-/// `navActions` flow, and the cross-cutting `SyncRepository.scanProgress` — flattening
-/// all three into SwiftUI-native state. Thin over `FlowBridge`. Errors are mapped once
-/// here into ``errorMessage`` (no `errorBus`).
+/// Observes ``LibrarySetupViewModel`` — the `LibrarySetupUiState` and its one-shot
+/// `navActions` flow — flattening both into SwiftUI-native state. Thin over `FlowBridge`.
+/// Errors are mapped once here into ``errorMessage`` (no `errorBus`).
 @Observable
 @MainActor
 final class LibrarySetupViewModelWrapper {
@@ -87,22 +51,10 @@ final class LibrarySetupViewModelWrapper {
     // Library creation
     private(set) var isCreatingLibrary: Bool = false
 
-    /// The library name. Two-way bound by the view; writes forward to the shared VM.
-    var libraryName: String = "My Library" {
-        didSet {
-            guard libraryName != oldValue else { return }
-            viewModel.setLibraryName(name: libraryName)
-        }
-    }
-
-    // Scan progress (cross-cutting, from SyncRepository)
-    private(set) var scan: ScanProgressItem?
-
     // Error (mapped once from state.error)
     private(set) var errorMessage: String?
 
-    /// Navigation callbacks — set by the view.
-    var onLibraryCreated: (() -> Void)?
+    /// Navigation callbacks — set by the coordinator.
     var onFinished: (() -> Void)?
 
     /// The shared VM. Implicitly-unwrapped because the bridge-free test initializer
@@ -111,13 +63,10 @@ final class LibrarySetupViewModelWrapper {
     private let viewModel: LibrarySetupViewModel!
     private let bridge = FlowBridge()
 
-    init(viewModel: LibrarySetupViewModel, syncRepository: any SyncRepository) {
+    init(viewModel: LibrarySetupViewModel) {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
-        bridge.bind(syncRepository.scanProgress) { [weak self] state in
-            self?.scan = state.map(ScanProgressItem.init(from:))
-        }
     }
 
     /// Bridge-free initializer for wrapper-level unit tests. Skips flow binding so the
@@ -158,12 +107,8 @@ final class LibrarySetupViewModelWrapper {
         viewModel.clearSelection()
     }
 
-    func create() {
-        viewModel.createLibrary()
-    }
-
-    func finish() {
-        viewModel.finishOnboarding()
+    func completeSetup() {
+        viewModel.completeSetup()
     }
 
     func dismissError() {
@@ -189,18 +134,10 @@ final class LibrarySetupViewModelWrapper {
         directories = state.directories.map {
             DirectoryItem(from: $0, selectedPaths: selected)
         }
-
-        // Keep the editable name in sync with the source of truth without
-        // re-entering the `didSet` forward (the value is already identical there).
-        if libraryName != state.libraryName {
-            libraryName = state.libraryName
-        }
     }
 
     private func applyNav(_ action: LibrarySetupNavAction) {
         switch onEnum(of: action) {
-        case .libraryCreated:
-            onLibraryCreated?()
         case .finished:
             onFinished?()
         }
