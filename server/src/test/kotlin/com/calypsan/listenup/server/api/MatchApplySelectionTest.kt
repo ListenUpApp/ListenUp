@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -345,7 +346,7 @@ class MatchApplySelectionTest :
             }
         }
 
-        test("empty genres selection leaves the book's existing genres untouched") {
+        test("empty genres selection removes the book's existing genres") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -367,7 +368,7 @@ class MatchApplySelectionTest :
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    books.findById(BookId("b1"))!!.genres.map { it.name } shouldContainExactly listOf("Fantasy")
+                    books.findById(BookId("b1"))!!.genres.shouldBeEmpty()
                 }
             }
         }
