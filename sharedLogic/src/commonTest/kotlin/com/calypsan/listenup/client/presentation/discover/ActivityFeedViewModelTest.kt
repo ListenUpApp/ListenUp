@@ -85,7 +85,7 @@ class ActivityFeedViewModelTest :
                 id = id,
                 type = type,
                 userId = userId,
-                createdAtMs = 0L,
+                occurredAtMs = 0L,
                 user =
                     Activity.ActivityUser(
                         displayName = "Reader",

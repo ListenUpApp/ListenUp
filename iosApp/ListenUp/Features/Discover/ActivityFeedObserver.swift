@@ -75,7 +75,7 @@ struct ActivityRowItem: Identifiable, Equatable {
     let book: String?
     /// The book id, for navigation; nil for book-less activities.
     let bookId: String?
-    let createdAt: Date
+    let occurredAt: Date
 
     init(from model: ActivityUiModel) {
         self.id = model.id
@@ -85,7 +85,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.action = ActivityRowItem.action(for: model)
         self.book = model.bookTitle
         self.bookId = model.bookId
-        self.createdAt = Date(timeIntervalSince1970: TimeInterval(model.createdAt) / 1_000)
+        self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
     }
 
     init(
@@ -96,7 +96,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         action: String,
         book: String?,
         bookId: String?,
-        createdAt: Date
+        occurredAt: Date
     ) {
         self.id = id
         self.who = who
@@ -105,7 +105,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.action = action
         self.book = book
         self.bookId = bookId
-        self.createdAt = createdAt
+        self.occurredAt = occurredAt
     }
 
     /// Pure: map an activity's `type` (+ `isReread`) to its localized action phrase.

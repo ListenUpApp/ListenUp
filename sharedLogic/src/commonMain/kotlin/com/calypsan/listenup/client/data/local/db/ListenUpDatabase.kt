@@ -56,7 +56,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 30,
+    version = 31,
     exportSchema = true,
 )
 @TypeConverters(

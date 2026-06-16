@@ -10,14 +10,20 @@ import org.jetbrains.exposed.v1.core.Table
  *
  * Most columns are activity-type-specific and nullable / defaulted: a `book_started` row fills
  * `book_id`; a `shelf_created` row fills `shelf_id` + `shelf_name`; a milestone row fills
- * `milestone_value` + `milestone_unit`. The `idx_activities_created_at` index backs the
- * `created_at < before` keyset pagination the feed query performs.
+ * `milestone_value` + `milestone_unit`.
+ *
+ * Two timestamps serve different purposes:
+ * - [occurredAt] — the real event time; the feed orders and displays by this column. The
+ *   `idx_activities_occurred_at` index backs the `occurred_at < before` keyset pagination.
+ * - [createdAt] — insertion audit timestamp (when the row was written to the DB); retained for
+ *   diagnostic tracing but not used by the feed query.
  */
 internal object ActivitiesTable : Table("activities") {
     val id = varchar("id", 36)
     val userId = varchar("user_id", 36)
     val type = varchar("type", 32)
     val createdAt = long("created_at")
+    val occurredAt = long("occurred_at")
     val bookId = varchar("book_id", 36).nullable()
     val isReread = bool("is_reread").default(false)
     val durationMs = long("duration_ms").default(0L)
@@ -29,5 +35,6 @@ internal object ActivitiesTable : Table("activities") {
 
     init {
         index("idx_activities_created_at", false, createdAt)
+        index("idx_activities_occurred_at", false, occurredAt)
     }
 }

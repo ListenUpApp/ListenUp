@@ -11,7 +11,7 @@ import kotlinx.rpc.annotations.Rpc
  */
 @Rpc
 interface ActivityService {
-    /** Most-recent-first page; [before] is the `createdAtMs` cursor (exclusive); null = head. */
+    /** Most-recent-first page; [before] is the `occurredAtMs` cursor (exclusive); null = head. */
     suspend fun feed(
         before: Long? = null,
         limit: Int = 20,
