@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
@@ -96,6 +97,9 @@ private fun withDiscoverRepo(
         val tagRepository: TagRepository = mock()
         every { tagRepository.observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
 
+        val moodRepository: MoodRepository = mock()
+        every { moodRepository.observeMoodsForBook(any()) } returns MutableStateFlow(emptyList())
+
         val networkMonitor: NetworkMonitor = mock()
         every { networkMonitor.isOnline() } returns false
 
@@ -116,6 +120,7 @@ private fun withDiscoverRepo(
                 imageStorage = imageStorage,
                 genreRepository = genreRepository,
                 tagRepository = tagRepository,
+                moodRepository = moodRepository,
                 networkMonitor = networkMonitor,
                 bookRpcFactory = rpcFactory,
                 bookSyncDomainHandler = syncHandler,

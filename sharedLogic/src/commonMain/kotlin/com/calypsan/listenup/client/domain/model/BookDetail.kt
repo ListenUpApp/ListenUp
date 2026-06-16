@@ -48,6 +48,7 @@ data class BookDetail(
     val genres: List<Genre> = emptyList(),
     val tags: List<Tag> = emptyList(),
     val hasScanWarning: Boolean = false,
+    val moods: List<Mood> = emptyList(),
 ) : BookSummaryFields {
     /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value

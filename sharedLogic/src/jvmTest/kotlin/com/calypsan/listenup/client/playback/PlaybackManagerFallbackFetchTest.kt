@@ -140,6 +140,7 @@ class PlaybackManagerFallbackFetchTest :
                     imageStorage = imageStorage,
                     genreRepository = mock(),
                     tagRepository = mock(),
+                    moodRepository = mock(),
                     // intentionally unstubbed — this test exercises upsertWithAudioFiles, not the RPC fallback paths
                     networkMonitor = mock(),
                     bookRpcFactory = mock(),

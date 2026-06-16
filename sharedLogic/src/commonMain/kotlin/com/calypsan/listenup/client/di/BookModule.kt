@@ -73,6 +73,7 @@ val bookModule: Module =
                 imageStorage = get(),
                 genreRepository = get(),
                 tagRepository = get(),
+                moodRepository = get(),
                 networkMonitor = get(),
                 bookRpcFactory = get(),
                 bookSyncDomainHandler = get(),

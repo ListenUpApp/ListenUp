@@ -182,7 +182,7 @@ class BookWithContributorsMapperTest :
                     seriesSequences = makeSeriesSequences(),
                 )
 
-            val result = bookWithContributors.toDetail(imageStorage, genres, tags)
+            val result = bookWithContributors.toDetail(imageStorage, genres, tags, emptyList())
 
             // allContributors: every distinct contributor with all roles grouped.
             // The fixture has authorId (role: author), narratorId (role: narrator), narrator2Id (role: narrator) — 3 distinct contributors.
@@ -220,7 +220,7 @@ class BookWithContributorsMapperTest :
                     seriesSequences = emptyList(),
                 )
 
-            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
+            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList(), emptyList())
 
             result.allContributors.size shouldBe 1
             result.allContributors.first().roles shouldBe listOf("author", "narrator")
@@ -251,7 +251,7 @@ class BookWithContributorsMapperTest :
                     seriesSequences = emptyList(),
                 )
 
-            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
+            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList(), emptyList())
 
             result.allContributors.size shouldBe 1
             result.allContributors.first().name shouldBe "B. Sanderson (originally credited)"
@@ -280,7 +280,7 @@ class BookWithContributorsMapperTest :
                     seriesSequences = emptyList(),
                 )
 
-            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
+            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList(), emptyList())
 
             result.allContributors.first().name shouldBe "Brandon Sanderson"
         }
@@ -317,7 +317,7 @@ class BookWithContributorsMapperTest :
                     seriesSequences = emptyList(),
                 )
 
-            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
+            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList(), emptyList())
 
             result.libraryId shouldBe LibraryId("test-library")
             result.folderId shouldBe FolderId("test-folder")
@@ -336,7 +336,7 @@ class BookWithContributorsMapperTest :
                     seriesSequences = makeSeriesSequences(),
                 )
 
-            val viaDetail = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList()).toListItem()
+            val viaDetail = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList(), emptyList()).toListItem()
             val direct = bookWithContributors.toListItem(imageStorage)
 
             direct shouldBe viaDetail

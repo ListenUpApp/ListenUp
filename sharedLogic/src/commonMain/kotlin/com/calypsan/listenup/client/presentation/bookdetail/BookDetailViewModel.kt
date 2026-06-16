@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
@@ -289,6 +290,7 @@ class BookDetailViewModel(
             genres = detail.genres,
             genresList = detail.genres.map { it.name },
             tags = detail.tags,
+            moods = detail.moods,
         )
     }
 
@@ -568,6 +570,7 @@ sealed interface BookDetailUiState {
         val genresList: List<String> = emptyList(),
         val tags: List<Tag> = emptyList(),
         val allTags: List<Tag> = emptyList(),
+        val moods: List<Mood> = emptyList(),
         val isLoadingTags: Boolean = false,
         val showTagPicker: Boolean = false,
         val showShelfPicker: Boolean = false,

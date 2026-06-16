@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
@@ -69,6 +70,8 @@ import kotlinx.coroutines.flow.onEach
  *   into [observeBookDetail] so genre edits propagate to detail-screen consumers.
  * @property tagRepository Upstream Flow source for a book's tags, composed
  *   into [observeBookDetail] so tag edits propagate to detail-screen consumers.
+ * @property moodRepository Upstream Flow source for a book's moods, composed
+ *   into [observeBookDetail] so mood edits propagate to detail-screen consumers.
  * @property networkMonitor Snapshot online check gating the RPC fallbacks.
  * @property bookRpcFactory Supplies the [com.calypsan.listenup.api.BookService]
  *   RPC proxy for on-demand fetch and server-side search.
@@ -84,6 +87,7 @@ class BookRepositoryImpl(
     private val imageStorage: ImageStorage,
     private val genreRepository: GenreRepository,
     private val tagRepository: TagRepository,
+    private val moodRepository: MoodRepository,
     private val networkMonitor: NetworkMonitor,
     private val bookRpcFactory: BookRpcFactory,
     private val bookSyncDomainHandler: BookSyncDomainHandler,
@@ -211,8 +215,9 @@ class BookRepositoryImpl(
             bookDao.observeByIdWithContributors(bookId),
             genreRepository.observeGenresForBook(id),
             tagRepository.observeTagsForBook(id),
-        ) { row, genres, tags ->
-            row?.toDetail(imageStorage, genres, tags)
+            moodRepository.observeMoodsForBook(id),
+        ) { row, genres, tags, moods ->
+            row?.toDetail(imageStorage, genres, tags, moods)
         }.onEach { detail ->
             if (detail == null && !attemptedFetch && networkMonitor.isOnline()) {
                 attemptedFetch = true
@@ -248,7 +253,8 @@ class BookRepositoryImpl(
         val row = bookDao.getByIdWithContributors(bookId) ?: return null
         val genres = genreRepository.observeGenresForBook(id).first()
         val tags = tagRepository.observeTagsForBook(id).first()
-        return row.toDetail(imageStorage, genres, tags)
+        val moods = moodRepository.observeMoodsForBook(id).first()
+        return row.toDetail(imageStorage, genres, tags, moods)
     }
 
     /**

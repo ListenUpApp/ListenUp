@@ -213,6 +213,10 @@ private fun bookRepositoryWith(
         mock<com.calypsan.listenup.client.domain.repository.TagRepository> {
             every { observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
         }
+    val moodRepository =
+        mock<com.calypsan.listenup.client.domain.repository.MoodRepository> {
+            every { observeMoodsForBook(any()) } returns MutableStateFlow(emptyList())
+        }
     return BookRepositoryImpl(
         bookDao = db.bookDao(),
         chapterDao = mock<ChapterDao>(),
@@ -222,6 +226,7 @@ private fun bookRepositoryWith(
         imageStorage = imageStorage,
         genreRepository = genreRepository,
         tagRepository = tagRepository,
+        moodRepository = moodRepository,
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
@@ -243,6 +248,10 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         mock<com.calypsan.listenup.client.domain.repository.TagRepository> {
             every { observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
         }
+    val moodRepository =
+        mock<com.calypsan.listenup.client.domain.repository.MoodRepository> {
+            every { observeMoodsForBook(any()) } returns MutableStateFlow(emptyList())
+        }
     return BookRepositoryImpl(
         bookDao = db.bookDao(),
         chapterDao = mock<ChapterDao>(),
@@ -252,6 +261,7 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         imageStorage = mockImageStorage(),
         genreRepository = genreRepository,
         tagRepository = tagRepository,
+        moodRepository = moodRepository,
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
