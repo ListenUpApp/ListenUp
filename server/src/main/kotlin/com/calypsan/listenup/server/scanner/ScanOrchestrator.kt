@@ -37,7 +37,8 @@ private val logger = KotlinLogging.logger {}
  * 2. [scanLibrary] triggers a full scan via the coordinator (single-flight).
  * 3. [scanFolder] triggers an incremental reanalysis for the given folder.
  * 4. [onLibraryRemoved] tears down the scanner + coordinator and unmounts all watchers.
- * 5. [onFolderAdded] / [onFolderRemoved] adjust the watcher set.
+ * 5. [onFolderAdded] / [onFolderRemoved] rebuild the scanner bundle with the updated folder
+ *    list and mount/unmount only the affected watcher.
  *
  * **One library, many folders.** ListenUp is a single-library product. A second call
  * to [onLibraryAdded] replaces the existing bundle — it does not create a second one.
@@ -103,9 +104,13 @@ internal class ScanOrchestrator(
     }
 
     /**
-     * Mounts a new watcher for [folder] under [libraryId] and updates the
-     * in-memory bundle snapshot so that [scanFolder] can find the new folder
-     * immediately after this call returns.
+     * Rebuilds the scanner bundle with [folder] appended to the library's folder list,
+     * then mounts a watcher for the new folder only.
+     *
+     * Rebuilding (rather than patching the snapshot) is required because the [Scanner]
+     * captures [Library.folders] at construction time as its walk roots. A snapshot-only
+     * patch would leave the Scanner's internal roots stale, so a subsequent full scan
+     * would not walk the new folder.
      *
      * Called after a successful `addFolder` admin RPC.
      */
@@ -116,11 +121,10 @@ internal class ScanOrchestrator(
         mutex.withLock {
             val current = bundle
             if (current != null && current.library.id == libraryId) {
-                bundle = current.copy(
-                    library = current.library.copy(
-                        folders = current.library.folders + folder,
-                    ),
-                )
+                val updatedLibrary = current.library.copy(folders = current.library.folders + folder)
+                // Rebuild so the Scanner's captured folder list includes the new folder
+                // (a full scan walks the Scanner's roots; a snapshot-only patch wouldn't reach it).
+                bundle = scannerFactory(updatedLibrary)
             }
         }
         if (watchEnabled) {
@@ -133,11 +137,24 @@ internal class ScanOrchestrator(
     }
 
     /**
-     * Unmounts the watcher for [folderId].
+     * Rebuilds the scanner bundle with [folderId] removed from the library's folder list,
+     * then unmounts the watcher for that folder.
+     *
+     * Rebuilding ensures a subsequent full scan does not walk the removed folder's path
+     * (the [Scanner] captures its walk roots at construction time).
      *
      * Called after a successful `removeFolder` admin RPC.
      */
     suspend fun onFolderRemoved(folderId: FolderId) {
+        mutex.withLock {
+            val current = bundle
+            if (current != null) {
+                val updatedLibrary = current.library.copy(
+                    folders = current.library.folders.filterNot { it.id == folderId },
+                )
+                bundle = scannerFactory(updatedLibrary)
+            }
+        }
         watcherSupervisor.unmount(folderId)
         logger.info { "Folder removed: folder=${folderId.value}" }
     }

@@ -147,6 +147,44 @@ class ScanOrchestratorTest :
             }
         }
 
+        test("onFolderAdded rebuilds the scanner bundle so the new folder is in the Scanner's roots") {
+            runTest {
+                val factory = FakeScannerFactory()
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+
+                val library = testLib("lib-1", "/tmp/books")
+                orchestrator.onLibraryAdded(library)
+                factory.scannersCreated shouldBe 1
+
+                val newFolder = LibraryFolderRef(FolderId("f-extra"), "/tmp/extras")
+                orchestrator.onFolderAdded(LibraryId("lib-1"), newFolder)
+
+                // Factory must have been invoked a second time with the updated folder list.
+                factory.scannersCreated shouldBe 2
+                val rebuildLibrary = factory.librariesUsedForCreation.last()
+                rebuildLibrary.folders.map { it.id } shouldBe
+                    listOf(FolderId("lib-1-f-0"), FolderId("f-extra"))
+            }
+        }
+
+        test("onFolderRemoved rebuilds the scanner bundle so the removed folder is gone") {
+            runTest {
+                val factory = FakeScannerFactory()
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+
+                val library = testLib("lib-1", "/tmp/books")
+                orchestrator.onLibraryAdded(library)
+                factory.scannersCreated shouldBe 1
+
+                orchestrator.onFolderRemoved(FolderId("lib-1-f-0"))
+
+                // Factory must have been invoked a second time with the folder removed.
+                factory.scannersCreated shouldBe 2
+                val rebuildLibrary = factory.librariesUsedForCreation.last()
+                rebuildLibrary.folders shouldBe emptyList()
+            }
+        }
+
         test("scanFolder finds new folder after onFolderAdded updates the snapshot") {
             runTest {
                 val incrementalPaths = mutableListOf<java.nio.file.Path>()
@@ -239,12 +277,14 @@ private class FakeScannerFactory(
 ) {
     private val gateQueue = ArrayDeque(gates.toList())
     var scannersCreated = 0
+    val librariesUsedForCreation = mutableListOf<Library>()
 
     fun create(
         library: Library,
         scope: kotlinx.coroutines.CoroutineScope,
     ): ScannerBundle {
         scannersCreated++
+        librariesUsedForCreation += library
         val gate = if (gateQueue.isNotEmpty()) gateQueue.removeFirst() else null
         val scanner = FakeScanner()
         val coordinator =

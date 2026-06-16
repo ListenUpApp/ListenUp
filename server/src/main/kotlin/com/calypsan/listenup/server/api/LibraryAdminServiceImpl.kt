@@ -158,16 +158,8 @@ internal class LibraryAdminServiceImpl(
             is AppResult.Failure -> AppResult.Failure(result.error)
             is AppResult.Success -> {
                 val folder = LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = now)
-                // Re-register the library with the orchestrator so the Scanner picks up the
-                // updated folder list. onLibraryAdded rebuilds the scanner bundle (including a
-                // fresh Scanner instance that captures the current library.folders snapshot),
-                // while onFolderAdded only patches the existing bundle's library snapshot but
-                // NOT the Scanner's internal library copy. The re-registration is cheap: the
-                // scanner factory runs synchronously and no scan is in flight at this point.
-                val updatedLibrary = fetchLibrary()
-                if (updatedLibrary is AppResult.Success) {
-                    scanOrchestrator.onLibraryAdded(updatedLibrary.data)
-                }
+                val folderRef = LibraryFolderRef(id = folderId, rootPath = path)
+                scanOrchestrator.onFolderAdded(libraryId, folderRef)
                 AppResult.Success(folder)
             }
         }
