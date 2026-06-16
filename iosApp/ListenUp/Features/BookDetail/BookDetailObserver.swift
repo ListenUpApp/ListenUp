@@ -34,6 +34,8 @@ final class BookDetailObserver {
     private(set) var isComplete: Bool = false
     private(set) var chapters: [ChapterUiModel] = []
     private(set) var genres: [String] = []
+    private(set) var tags: [String] = []
+    private(set) var moods: [String] = []
 
     // MARK: - Derived from `book`
 
@@ -213,6 +215,8 @@ final class BookDetailObserver {
             isComplete = r.isComplete
             chapters = Array(r.chapters)
             genres = Array(r.genresList)
+            tags = r.tags.map { $0.name }
+            moods = r.moods.map { $0.name }
             showShelfPicker = r.showShelfPicker
             isAddingToShelf = r.isAddingToShelf
             shelfError = r.shelfError
