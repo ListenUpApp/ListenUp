@@ -175,7 +175,7 @@ class PlaybackPositionRepository(
             if (result is AppResult.Success && finished && !priorFinished) {
                 userStatsUpdater?.onPositionFinishedFlip(userId)
                 activeSessionRepo?.deleteForUserBook(userId, bookId)
-                activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId)
+                activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId, occurredAt = lastPlayedAt)
                 bookReadsRepository?.recordRead(
                     id = Uuid.random().toString(),
                     userId = userId,
@@ -186,9 +186,9 @@ class PlaybackPositionRepository(
             } else if (result is AppResult.Success && !finished) {
                 activeSessionRepo?.startOrRefresh(userId, bookId)
                 if (existing == null) {
-                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId)
+                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId, occurredAt = lastPlayedAt)
                 } else if (priorFinished) {
-                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId, isReread = true)
+                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId, isReread = true, occurredAt = lastPlayedAt)
                 }
             }
             result
