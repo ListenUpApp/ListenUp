@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +35,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -54,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ColorBlockHero
@@ -74,9 +79,9 @@ import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.presentation.admin.AdminUiState
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.admin_allow_anyone_to_request_an
 import listenup.composeapp.generated.resources.admin_inbox_setting_subtitle
 import listenup.composeapp.generated.resources.admin_inbox_setting_title
 import listenup.composeapp.generated.resources.admin_backup_restore
@@ -88,7 +93,13 @@ import listenup.composeapp.generated.resources.admin_invite_someone
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
 import listenup.composeapp.generated.resources.admin_no_pending_registrations
-import listenup.composeapp.generated.resources.admin_open_registration
+import listenup.composeapp.generated.resources.admin_registration_approval_desc
+import listenup.composeapp.generated.resources.admin_registration_closed_desc
+import listenup.composeapp.generated.resources.admin_registration_open_desc
+import listenup.composeapp.generated.resources.admin_registration_policy
+import listenup.composeapp.generated.resources.admin_registration_policy_approval
+import listenup.composeapp.generated.resources.admin_registration_policy_closed
+import listenup.composeapp.generated.resources.admin_registration_policy_open
 import listenup.composeapp.generated.resources.admin_organize_books_into_collections_for
 import listenup.composeapp.generated.resources.admin_pending_invites
 import listenup.composeapp.generated.resources.admin_pending_registrations
@@ -203,7 +214,7 @@ fun AdminScreen(
             is AdminUiState.Ready -> {
                 AdminContent(
                     state = current,
-                    onOpenRegistrationChange = { viewModel.setOpenRegistration(it) },
+                    onRegistrationPolicyChange = { viewModel.setRegistrationPolicy(it) },
                     onApproveUserClick = { viewModel.approveUser(it.id) },
                     onDenyUserClick = { userToDenyState.value = it },
                     onDeleteUserClick = { userToDeleteState.value = it },
@@ -306,7 +317,7 @@ private fun AdminConfirmationDialogs(
 @Composable
 private fun AdminContent(
     state: AdminUiState.Ready,
-    onOpenRegistrationChange: (Boolean) -> Unit,
+    onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
     onApproveUserClick: (AdminUserInfo) -> Unit,
     onDenyUserClick: (AdminUserInfo) -> Unit,
     onDeleteUserClick: (AdminUserInfo) -> Unit,
@@ -333,7 +344,7 @@ private fun AdminContent(
     if (isExpanded) {
         AdminTwoPaneContent(
             state = state,
-            onOpenRegistrationChange = onOpenRegistrationChange,
+            onRegistrationPolicyChange = onRegistrationPolicyChange,
             onApproveUserClick = onApproveUserClick,
             onDenyUserClick = onDenyUserClick,
             onDeleteUserClick = onDeleteUserClick,
@@ -370,7 +381,7 @@ private fun AdminContent(
                     onRemoteUrlChange = onRemoteUrlChange,
                     inboxEnabled = inboxEnabled,
                     onInboxEnabledChange = onInboxEnabledChange,
-                    onOpenRegistrationChange = onOpenRegistrationChange,
+                    onRegistrationPolicyChange = onRegistrationPolicyChange,
                 )
             }
 
@@ -402,7 +413,7 @@ private fun AdminContent(
 @Composable
 private fun AdminTwoPaneContent(
     state: AdminUiState.Ready,
-    onOpenRegistrationChange: (Boolean) -> Unit,
+    onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
     onApproveUserClick: (AdminUserInfo) -> Unit,
     onDenyUserClick: (AdminUserInfo) -> Unit,
     onDeleteUserClick: (AdminUserInfo) -> Unit,
@@ -439,7 +450,7 @@ private fun AdminTwoPaneContent(
                     onRemoteUrlChange = onRemoteUrlChange,
                     inboxEnabled = inboxEnabled,
                     onInboxEnabledChange = onInboxEnabledChange,
-                    onOpenRegistrationChange = onOpenRegistrationChange,
+                    onRegistrationPolicyChange = onRegistrationPolicyChange,
                 )
             }
 
@@ -485,7 +496,7 @@ private fun ServerSettingsSection(
     onRemoteUrlChange: (String) -> Unit,
     inboxEnabled: Boolean,
     onInboxEnabledChange: (Boolean) -> Unit,
-    onOpenRegistrationChange: (Boolean) -> Unit,
+    onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
 ) {
     SectionGroup(
         label = stringResource(Res.string.admin_server_settings),
@@ -511,21 +522,11 @@ private fun ServerSettingsSection(
                 leadingIcon = Icons.Outlined.CloudDownload,
             )
         }
-        SettingRow(
-            icon = Icons.Outlined.HowToReg,
-            title = stringResource(Res.string.admin_open_registration),
-            subtitle = stringResource(Res.string.admin_allow_anyone_to_request_an),
-            showDivider = true,
-        ) {
-            if (state.isTogglingOpenRegistration) {
-                ListenUpLoadingIndicatorSmall()
-            } else {
-                Switch(
-                    checked = state.openRegistration,
-                    onCheckedChange = onOpenRegistrationChange,
-                )
-            }
-        }
+        RegistrationPolicyControl(
+            policy = state.registrationPolicy,
+            isToggling = state.isTogglingRegistrationPolicy,
+            onChange = onRegistrationPolicyChange,
+        )
         SettingRow(
             icon = Icons.Outlined.Inbox,
             title = stringResource(Res.string.admin_inbox_setting_title),
@@ -539,6 +540,77 @@ private fun ServerSettingsSection(
         }
     }
 }
+
+/**
+ * Three-state registration control (Open / Approval / Closed) backed by the server's
+ * [RegistrationPolicy]. A single segmented selector — not a boolean switch — so all three
+ * states are visible and round-trip correctly. The subtitle reflects the *current* policy.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegistrationPolicyControl(
+    policy: RegistrationPolicy,
+    isToggling: Boolean,
+    onChange: (RegistrationPolicy) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val options = listOf(RegistrationPolicy.OPEN, RegistrationPolicy.APPROVAL_QUEUE, RegistrationPolicy.CLOSED)
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.HowToReg,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.admin_registration_policy),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(registrationPolicyDescription(policy)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (isToggling) {
+                ListenUpLoadingIndicatorSmall()
+            }
+        }
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = policy == option,
+                    onClick = { if (policy != option) onChange(option) },
+                    enabled = !isToggling,
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                ) {
+                    Text(stringResource(registrationPolicyLabel(option)))
+                }
+            }
+        }
+    }
+}
+
+private fun registrationPolicyLabel(policy: RegistrationPolicy): StringResource =
+    when (policy) {
+        RegistrationPolicy.OPEN -> Res.string.admin_registration_policy_open
+        RegistrationPolicy.APPROVAL_QUEUE -> Res.string.admin_registration_policy_approval
+        RegistrationPolicy.CLOSED -> Res.string.admin_registration_policy_closed
+    }
+
+private fun registrationPolicyDescription(policy: RegistrationPolicy): StringResource =
+    when (policy) {
+        RegistrationPolicy.OPEN -> Res.string.admin_registration_open_desc
+        RegistrationPolicy.APPROVAL_QUEUE -> Res.string.admin_registration_approval_desc
+        RegistrationPolicy.CLOSED -> Res.string.admin_registration_closed_desc
+    }
 
 // ---------------------------------------------------------------------------
 // Users section (users table + pending registrations + pending invites)
@@ -563,7 +635,7 @@ private fun LazyListScope.usersSection(
         )
     }
 
-    if (state.openRegistration) {
+    if (state.registrationPolicy == RegistrationPolicy.APPROVAL_QUEUE) {
         item {
             PendingRegistrationsGroup(
                 state = state,

@@ -941,6 +941,76 @@
         }
       }
     },
+    "admin.registration_approval_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New sign-ups need an admin's approval before they can join."
+          }
+        }
+      }
+    },
+    "admin.registration_closed_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Self-registration is off — people join by invite only."
+          }
+        }
+      }
+    },
+    "admin.registration_open_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone can register and join instantly."
+          }
+        }
+      }
+    },
+    "admin.registration_policy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration"
+          }
+        }
+      }
+    },
+    "admin.registration_policy_approval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approval"
+          }
+        }
+      }
+    },
+    "admin.registration_policy_closed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed"
+          }
+        }
+      }
+    },
+    "admin.registration_policy_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        }
+      }
+    },
     "admin.release_anyway": {
       "localizations": {
         "en": {

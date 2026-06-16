@@ -94,6 +94,13 @@
     <string name="admin_pending_registrations">Pending Registrations</string>
     <string name="admin_protected_user">Protected User</string>
     <string name="admin_recommended_for_full_restore_capability">Recommended for full restore capability</string>
+    <string name="admin_registration_approval_desc">New sign-ups need an admin\'s approval before they can join.</string>
+    <string name="admin_registration_closed_desc">Self-registration is off — people join by invite only.</string>
+    <string name="admin_registration_open_desc">Anyone can register and join instantly.</string>
+    <string name="admin_registration_policy">Registration</string>
+    <string name="admin_registration_policy_approval">Approval</string>
+    <string name="admin_registration_policy_closed">Closed</string>
+    <string name="admin_registration_policy_open">Open</string>
     <string name="admin_release_anyway">Release Anyway</string>
     <string name="admin_release_without_collections">Release Without Collections</string>
     <string name="admin_remote_url">Remote URL</string>
