@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -181,6 +182,100 @@ class UserStatsBackfillServiceTest :
                     stats.totalSecondsLast30Days shouldBe 120L
                     stats.booksStarted shouldBe 1
                     stats.booksFinished shouldBe 0
+                }
+            }
+        }
+
+        test("backfill delineates streak days in the user's home timezone, not per-event tz") {
+            // Event instants chosen so UTC and America/New_York (UTC-4 EDT) yield DIFFERENT streak
+            // results, proving the per-event tz field is ignored.
+            //
+            // Both events' stored tz = "UTC" (mimicking ABS imports).
+            //
+            // Event A: 2026-06-10T03:30:00Z  →  UTC day: June 10  |  NY day: June  9 (23:30 EDT)
+            // Event B: 2026-06-10T23:30:00Z  →  UTC day: June 10  |  NY day: June 10 (19:30 EDT)
+            //
+            // Under UTC:  both events land on June 10 → same day → streak stays at 1
+            // Under NY:   June 9 then June 10 → consecutive → streak becomes 2
+            //
+            // We set user.timezone = "America/New_York" → expect streak 2.
+            // If the code still reads event.tz ("UTC") the streak stays 1 → test fails (RED).
+
+            // 2026-06-10T03:30:00Z in epoch-millis
+            val eventAMs = 1_781_062_200_000L  // 2026-06-10 03:30:00 UTC → NY: 2026-06-09 23:30 EDT
+            // 2026-06-10T23:30:00Z in epoch-millis (same UTC calendar day, different NY day)
+            val eventBMs = 1_781_134_200_000L  // 2026-06-10 23:30:00 UTC → NY: 2026-06-10 19:30 EDT
+
+            // "now" = 2026-06-11T12:00:00Z — after both events
+            val testNowMs = 1_781_179_200_000L
+
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser(userId = "u1", timezone = "America/New_York")
+                val clock = FixedClock(Instant.fromEpochMilliseconds(testNowMs))
+                val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
+                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo, clock = clock)
+
+                runTest {
+                    // Both events store tz = "UTC" (like an ABS import) — the math must IGNORE this
+                    eventRepo.upsert(
+                        event("ea", "book-a", endedAtMs = eventAMs, wallSeconds = 60L),
+                        clientOpId = null,
+                        userId = "u1",
+                    )
+                    eventRepo.upsert(
+                        event("eb", "book-a", endedAtMs = eventBMs, wallSeconds = 60L),
+                        clientOpId = null,
+                        userId = "u1",
+                    )
+
+                    backfillService.backfillFor("u1")
+
+                    val stats = statsRepo.getForUser("u1").shouldNotBeNull()
+                    // NY delineation: June 9 → June 10 = consecutive days → streak = 2
+                    stats.currentStreakDays shouldBe 2
+                    stats.longestStreakDays shouldBe 2
+                    // lastEventDate should reflect June 10 in NY tz
+                    stats.lastEventDate shouldBe "2026-06-10"
+                }
+            }
+        }
+
+        test("backfill falls back to UTC without crashing when user.timezone is malformed") {
+            // 2026-06-10T03:30:00Z
+            val eventAMs = 1_781_062_200_000L
+            // 2026-06-10T23:30:00Z (same UTC day)
+            val eventBMs = 1_781_134_200_000L
+            val testNowMs = 1_781_179_200_000L
+
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser(userId = "u1", timezone = "Not/AZone")
+                val clock = FixedClock(Instant.fromEpochMilliseconds(testNowMs))
+                val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
+                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo, clock = clock)
+
+                runTest {
+                    eventRepo.upsert(
+                        event("ea", "book-a", endedAtMs = eventAMs, wallSeconds = 60L),
+                        clientOpId = null,
+                        userId = "u1",
+                    )
+                    eventRepo.upsert(
+                        event("eb", "book-a", endedAtMs = eventBMs, wallSeconds = 60L),
+                        clientOpId = null,
+                        userId = "u1",
+                    )
+
+                    // Must not throw even with a malformed timezone
+                    backfillService.backfillFor("u1")
+
+                    val stats = statsRepo.getForUser("u1").shouldNotBeNull()
+                    // Falls back to UTC: both events on June 10 UTC → same day → streak = 1
+                    stats.currentStreakDays shouldBe 1
+                    stats.lastEventDate shouldBe "2026-06-10"
                 }
             }
         }

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.ListeningEventTable
+import com.calypsan.listenup.server.db.UserTable
 import kotlin.math.max
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -17,6 +18,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -49,7 +51,9 @@ class UserStatsUpdater(
         event: ListeningEventSyncPayload,
     ) {
         val wallSeconds = (event.endedAt - event.startedAt) / 1_000L
-        val tz = TimeZone.of(event.tz)
+        // Use the user's home timezone for day-boundary math so the streak frame is
+        // consistent across devices and imports (which may store a different tz).
+        val tz = homeTimeZone(userId)
         val eventInstant = Instant.fromEpochMilliseconds(event.endedAt)
         val eventDateStr = eventInstant.toLocalDateTime(tz).date.toString()
 
@@ -186,6 +190,24 @@ class UserStatsUpdater(
                     (row[ListeningEventTable.endedAt] - row[ListeningEventTable.startedAt]) / 1_000L
                 }
         }
+    }
+
+    /**
+     * Resolves the home [TimeZone] for [userId] from the `users.timezone` column.
+     *
+     * Defaults to [TimeZone.UTC] when the user has no row or when the stored timezone
+     * name is malformed, so callers never need to handle these edge cases.
+     */
+    private suspend fun homeTimeZone(userId: String): TimeZone {
+        val name =
+            suspendTransaction(db) {
+                UserTable
+                    .select(UserTable.timezone)
+                    .where { UserTable.id eq userId }
+                    .firstOrNull()
+                    ?.get(UserTable.timezone)
+            } ?: "UTC"
+        return runCatching { TimeZone.of(name) }.getOrDefault(TimeZone.UTC)
     }
 
     private companion object {

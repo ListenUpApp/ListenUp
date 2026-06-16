@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -323,6 +324,52 @@ class UserStatsUpdaterTest :
 
                     updater.onPositionFinishedFlip("u1")
                     statsRepo.getForUser("u1").shouldNotBeNull().booksFinished shouldBe 2
+                }
+            }
+        }
+
+        test("onListeningEvent delineates days in the user's home timezone, not the event's stored tz") {
+            // Same instant construction as the backfill test: two events that in UTC land on
+            // the same calendar day (June 10) but in America/New_York land on different days
+            // (June 9 and June 10). The events' stored tz = "UTC" (ABS-import style).
+            //
+            // Under UTC:  same day → no streak increment (streak stays at 1 after second event)
+            // Under NY:   consecutive days → streak becomes 2
+            //
+            // clock is set to 2026-06-11T12:00:00Z so "now" is after both events.
+
+            // 2026-06-10T03:30:00Z — lands on June 9 in NY (23:30 EDT)
+            val eventAMs = 1_781_062_200_000L
+            // 2026-06-10T23:30:00Z — lands on June 10 in NY (19:30 EDT); still June 10 UTC
+            val eventBMs = 1_781_134_200_000L
+
+            val testClock = FixedClock(Instant.fromEpochMilliseconds(1_781_179_200_000L)) // 2026-06-11 12:00 UTC
+
+            withInMemoryDatabase {
+                seedTestUser(userId = "u1", timezone = "America/New_York")
+                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry(), clock = testClock)
+                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = testClock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
+
+                runTest {
+                    val evtA = eventAt("ea", "book-1", endedAtMs = eventAMs, tz = "UTC")
+                    eventRepo.upsert(evtA, clientOpId = null, userId = "u1")
+                    updater.onListeningEvent("u1", evtA)
+
+                    val evtB = eventAt("eb", "book-1", endedAtMs = eventBMs, tz = "UTC")
+                    eventRepo.upsert(evtB, clientOpId = null, userId = "u1")
+                    updater.onListeningEvent("u1", evtB)
+
+                    val stats = statsRepo.getForUser("u1").shouldNotBeNull()
+                    // NY delineation: June 9 → June 10 = consecutive → streak = 2
+                    stats.currentStreakDays shouldBe 2
+                    stats.longestStreakDays shouldBe 2
                 }
             }
         }
