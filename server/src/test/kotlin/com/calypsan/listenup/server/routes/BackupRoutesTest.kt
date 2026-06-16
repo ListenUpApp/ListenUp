@@ -243,6 +243,58 @@ class BackupRoutesTest :
             }
         }
 
+        test("POST upload accepts a body larger than Ktor's default 50 MiB formFieldLimit") {
+            // Structural limit test: streams 51 MiB of zero bytes as a multipart part.
+            // If receiveMultipart() were called without an explicit formFieldLimit the default
+            // 50 MiB cap would reject this body before it reached the archive validator;
+            // the route would return 413 instead of 422 CorruptArchive.
+            // We assert 422 (CorruptArchive from the validator) rather than 413, which proves the
+            // configured MAX_BACKUP_RESTORE_BYTES limit (5 GiB) was passed to receiveMultipart().
+            val homeDir = Files.createTempDirectory("listenup-backup-routes-limit-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, _) = client.setupRoot()
+
+                    // 51 MiB of zeros — exceeds Ktor's default 50 MiB cap but well within
+                    // MAX_BACKUP_RESTORE_BYTES (5 GiB). Content is intentionally invalid (not a
+                    // zip) so the archive validator rejects it with CorruptArchive (422).
+                    val fiftyOneMib = ByteArray(51 * 1024 * 1024)
+                    val response =
+                        client.post("/api/v1/admin/backups/upload") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append(
+                                            "file",
+                                            fiftyOneMib,
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "application/zip")
+                                                append(
+                                                    HttpHeaders.ContentDisposition,
+                                                    "filename=\"big.zip\"",
+                                                )
+                                            },
+                                        )
+                                    },
+                                ),
+                            )
+                        }
+                    // 422 = CorruptArchive from the validator — the upload was NOT rejected on
+                    // size (that would be 413 or a Ktor-internal failure).
+                    response.status shouldBe HttpStatusCode.UnprocessableEntity
+                    val error =
+                        contractJson.decodeFromString<AppError>(response.readRawBytes().decodeToString())
+                    error.shouldBeInstanceOf<BackupError.CorruptArchive>()
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
         test("non-admin MEMBER gets 403 PermissionDenied on POST upload") {
             val homeDir = Files.createTempDirectory("listenup-backup-routes-403up-")
             try {
