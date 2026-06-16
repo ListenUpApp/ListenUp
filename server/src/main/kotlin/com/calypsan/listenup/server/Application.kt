@@ -248,12 +248,11 @@ private fun Application.installCorePlugins() {
  * Installs Koin with the assembled module set. Every domain slice — auth, scanner, books,
  * metadata, playback, library, embedded-metadata, and sync — loads unconditionally so a
  * library-less boot can onboard a library at runtime without a restart. The seed module loads
- * only in the demo profile; [resolvedLibraryPath] supplies the first demo library path when present.
+ * only in the demo profile.
  */
 private fun Application.installDependencies(
     seedProfile: String?,
     applicationScope: CoroutineScope,
-    resolvedLibraryPath: Path?,
     homeDir: Path,
     metadataPrecedence: MetadataPrecedence,
     embeddedCoverCacheSize: Int,
@@ -284,7 +283,6 @@ private fun Application.installDependencies(
                 seedModule(
                     hasPlaybackModule = true,
                     hasBooksModule = true,
-                    demoLibraryPath = resolvedLibraryPath?.toString(),
                     hasGenresModule = true,
                     hasCollectionsModule = true,
                     hasShelvesModule = true,
@@ -321,7 +319,6 @@ fun Application.module() {
     installDependencies(
         seedProfile,
         applicationScope,
-        resolvedLibraryPaths.firstOrNull(),
         homeDir,
         metadataPrecedence,
         embeddedCoverCacheSize,
