@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -128,25 +129,21 @@ interface AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Get the current registration policy as a simple open/closed boolean.
+     * Get the current [RegistrationPolicy] — the full three-state value
+     * (`OPEN` / `APPROVAL_QUEUE` / `CLOSED`), not a lossy boolean. The admin UI
+     * needs all three states to render and round-trip the control correctly.
      *
-     * Returns `true` when registration policy is [com.calypsan.listenup.api.dto.auth.RegistrationPolicy.OPEN],
-     * `false` for all other policies (approval queue or closed). Callers do not need to
-     * depend on the contract enum — the VM needs only the boolean to drive the UI toggle.
-     *
-     * @return [AppResult] carrying `true` if registration is open, `false` otherwise, or a failure.
+     * @return [AppResult] carrying the current [RegistrationPolicy], or a failure.
      */
-    suspend fun getRegistrationPolicy(): AppResult<Boolean>
+    suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy>
 
     /**
-     * Enable or disable open registration.
+     * Set the registration policy.
      *
-     * When enabled, new users can register without an invite.
-     *
-     * @param enabled True to enable open registration
+     * @param policy the [RegistrationPolicy] to apply
      * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit>
+    suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit>
 
     /** Current server-identity settings (name + remote URL). */
     suspend fun getServerSettings(): AppResult<ServerSettings>

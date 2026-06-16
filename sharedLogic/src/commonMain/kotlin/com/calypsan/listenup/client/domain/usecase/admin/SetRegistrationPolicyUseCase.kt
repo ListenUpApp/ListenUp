@@ -5,10 +5,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
 /**
- * Retrieves the current [RegistrationPolicy] (`OPEN` / `APPROVAL_QUEUE` / `CLOSED`).
+ * Sets the server [RegistrationPolicy] (`OPEN` / `APPROVAL_QUEUE` / `CLOSED`).
  */
-open class GetRegistrationPolicyUseCase(
+open class SetRegistrationPolicyUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(): AppResult<RegistrationPolicy> = adminRepository.getRegistrationPolicy()
+    open suspend operator fun invoke(policy: RegistrationPolicy): AppResult<Unit> =
+        adminRepository.setRegistrationPolicy(policy)
 }
