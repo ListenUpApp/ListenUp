@@ -479,7 +479,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             importRoutes(importPaths)
         }
         scannerRoutes(scannerService, eventBus)
-        audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
+        audioRoutes(db, audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
 }
 
