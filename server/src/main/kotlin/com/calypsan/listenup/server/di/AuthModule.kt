@@ -42,8 +42,9 @@ import kotlin.time.ExperimentalTime
  * it); primitives (`Clock`, generators, hashers); then services that compose
  * primitives; then the top-level `AuthServiceImpl`.
  */
-fun authModule(config: ApplicationConfig): Module =
-    module {
+fun authModule(config: ApplicationConfig): Module {
+    config.rejectInsecureSecrets()
+    return module {
         single<Clock> { Clock.System }
 
         single<DatabaseHandle> {
@@ -150,6 +151,7 @@ fun authModule(config: ApplicationConfig): Module =
 
         single { RegistrationBroadcaster() }
     }
+}
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
 
@@ -175,3 +177,40 @@ private fun ApplicationConfig.resolveJdbcUrl(): String {
     val home = resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
     return resolveDatabaseUrl(configuredUrl = configured, listenupHome = home)
 }
+
+/**
+ * Fails fast if either the JWT signing secret or the refresh-token pepper equals
+ * the committed test default shipped in `application.conf`. Booting with either
+ * default in production allows token forgery (shared secret) or session hijacking
+ * (shared pepper).
+ *
+ * Override is possible only via `auth.allowInsecureSecrets = true` (mapped from
+ * `LISTENUP_ALLOW_INSECURE_SECRETS`). Set that flag ONLY in local development or
+ * test environments — never in any production or staging deployment.
+ */
+internal fun ApplicationConfig.rejectInsecureSecrets() {
+    val allow = propertyOrNull("auth.allowInsecureSecrets")?.getString() == "true"
+    if (allow) return
+
+    val secret = propertyOrNull("jwt.secret")?.getString()
+    check(secret != INSECURE_DEFAULT_JWT_SECRET) {
+        "JWT secret equals the committed test default. " +
+            "Set LISTENUP_JWT_SECRET to a 32+ byte random value before starting the server. " +
+            "For local development only, set LISTENUP_ALLOW_INSECURE_SECRETS=true to suppress this check."
+    }
+
+    val pepper = propertyOrNull("auth.refreshPepper")?.getString()
+    check(pepper != INSECURE_DEFAULT_REFRESH_PEPPER) {
+        "Refresh-token pepper equals the committed test default. " +
+            "Set LISTENUP_REFRESH_PEPPER to a 32+ byte random value before starting the server. " +
+            "For local development only, set LISTENUP_ALLOW_INSECURE_SECRETS=true to suppress this check."
+    }
+}
+
+/** Committed test default for the JWT signing secret — used only for the boot-time guard comparison. */
+internal const val INSECURE_DEFAULT_JWT_SECRET =
+    "test-jwt-secret-change-in-production-at-least-32-bytes-please"
+
+/** Committed test default for the refresh-token pepper — used only for the boot-time guard comparison. */
+internal const val INSECURE_DEFAULT_REFRESH_PEPPER =
+    "test-pepper-change-in-production-this-must-be-32-bytes-or-more"
