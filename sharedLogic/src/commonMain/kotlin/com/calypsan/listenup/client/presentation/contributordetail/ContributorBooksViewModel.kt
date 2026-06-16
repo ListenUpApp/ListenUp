@@ -91,8 +91,8 @@ class ContributorBooksViewModel(
 
         val seriesGroups =
             books
-                .filter { it.seriesName != null }
-                .groupBy { it.seriesName!! }
+                .mapNotNull { b -> b.seriesName?.let { b to it } }
+                .groupBy({ it.second }) { it.first }
                 .map { (seriesName, seriesBooks) ->
                     SeriesGroup(
                         seriesName = seriesName,
