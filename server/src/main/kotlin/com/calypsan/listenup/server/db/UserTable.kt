@@ -32,6 +32,7 @@ object UserTable : IdTable<String>("users") {
     val displayName = text("display_name")
     val tagline = text("tagline").nullable()
     val avatarType = text("avatar_type").default("auto")
+    val timezone = text("timezone").default("UTC")
     val status = enumerationByName("status", STATUS_COLUMN_LENGTH, UserStatusColumn::class)
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")
@@ -58,6 +59,7 @@ class UserEntity(
     var displayName by UserTable.displayName
     var tagline by UserTable.tagline
     var avatarType by UserTable.avatarType
+    var timezone by UserTable.timezone
     var status by UserTable.status
     var createdAt by UserTable.createdAt
     var updatedAt by UserTable.updatedAt
