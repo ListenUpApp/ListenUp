@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.ContributorRole as DomainContri
 import com.calypsan.listenup.client.domain.model.EditableCollection as DomainEditableCollection
 import com.calypsan.listenup.client.domain.model.EditableContributor as DomainEditableContributor
 import com.calypsan.listenup.client.domain.model.EditableGenre as DomainEditableGenre
+import com.calypsan.listenup.client.domain.model.EditableMood as DomainEditableMood
 import com.calypsan.listenup.client.domain.model.EditableSeries as DomainEditableSeries
 import com.calypsan.listenup.client.domain.model.EditableTag as DomainEditableTag
 
@@ -15,6 +16,7 @@ typealias EditableContributor = DomainEditableContributor
 typealias EditableSeries = DomainEditableSeries
 typealias EditableGenre = DomainEditableGenre
 typealias EditableTag = DomainEditableTag
+typealias EditableMood = DomainEditableMood
 typealias EditableCollection = DomainEditableCollection
 typealias ContributorRole = DomainContributorRole
 
@@ -57,6 +59,18 @@ val EditableGenre.parentPath: String?
  * "found-family" -> "Found Family"
  */
 fun EditableTag.displayName(): String =
+    slug
+        .split("-")
+        .joinToString(" ") { word ->
+            word.replaceFirstChar { it.titlecase() }
+        }
+
+/**
+ * Extension function for EditableMood display name.
+ * Human-readable display name derived from slug.
+ * "feel-good" -> "Feel Good"
+ */
+fun EditableMood.displayName(): String =
     slug
         .split("-")
         .joinToString(" ") { word ->
@@ -117,6 +131,13 @@ data class BookEditUiState(
     val tagSearchResults: List<EditableTag> = emptyList(),
     val tagSearchLoading: Boolean = false,
     val tagCreating: Boolean = false, // Creating a new tag
+    // Moods (global affective descriptors)
+    val moods: List<EditableMood> = emptyList(),
+    val allMoods: List<EditableMood> = emptyList(), // All available moods
+    val moodSearchQuery: String = "",
+    val moodSearchResults: List<EditableMood> = emptyList(),
+    val moodSearchLoading: Boolean = false,
+    val moodCreating: Boolean = false, // Creating a new mood
     // Collections (admin-only, select from existing)
     val collections: List<EditableCollection> = emptyList(),
     val allCollections: List<EditableCollection> = emptyList(), // All accessible collections
@@ -335,6 +356,28 @@ sealed interface BookEditUiEvent {
     /** User detached a tag from the book. */
     data class RemoveTag(
         val tag: EditableTag,
+    ) : BookEditUiEvent
+
+    // Mood management (select existing or create new)
+
+    /** User typed in the mood search box. */
+    data class MoodSearchQueryChanged(
+        val query: String,
+    ) : BookEditUiEvent
+
+    /** User picked an existing mood to attach. */
+    data class MoodSelected(
+        val mood: EditableMood,
+    ) : BookEditUiEvent
+
+    /** User submitted a new mood name; ViewModel creates the mood inline before attaching. */
+    data class MoodEntered(
+        val name: String,
+    ) : BookEditUiEvent
+
+    /** User detached a mood from the book. */
+    data class RemoveMood(
+        val mood: EditableMood,
     ) : BookEditUiEvent
 
     // Collection management (admin-only, select from existing)

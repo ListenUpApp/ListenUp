@@ -53,6 +53,16 @@ data class EditableTag(
 )
 
 /**
+ * Mood for editing.
+ *
+ * Moods are global affective descriptors identified by slug.
+ */
+data class EditableMood(
+    val id: String,
+    val slug: String,
+)
+
+/**
  * Collection membership for editing.
  *
  * Domain model representing a book's membership in an admin-owned collection.

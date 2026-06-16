@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -41,6 +42,7 @@ private val logger = KotlinLogging.logger {}
 open class UpdateBookUseCase(
     private val bookEditRepository: BookEditRepository,
     private val tagRepository: TagRepository,
+    private val moodRepository: MoodRepository,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
 ) {
@@ -111,6 +113,7 @@ open class UpdateBookUseCase(
 
         return suspendRunCatching {
             if (changes.tagsChanged) updateTags(current, original)
+            if (changes.moodsChanged) updateMoods(current, original)
             if (changes.coverChanged) commitAndUploadCover(current)
             logger.info { "Book ${current.bookId} saved successfully" }
         }
@@ -129,6 +132,7 @@ open class UpdateBookUseCase(
             seriesChanged = current.series != original.series,
             genresChanged = current.genres != original.genres,
             tagsChanged = current.tags != original.tags,
+            moodsChanged = current.moods != original.moods,
             coverChanged = current.pendingCover != null,
         )
 
@@ -235,6 +239,45 @@ open class UpdateBookUseCase(
         logger.debug { "Tags updated: +${addedSlugs.size}, -${removedSlugs.size}" }
     }
 
+    private suspend fun updateMoods(
+        current: BookUpdateRequest,
+        original: BookOriginalState,
+    ) {
+        logger.debug { "Updating moods for book ${current.bookId}" }
+
+        val currentSlugs = current.moods.map { it.slug }.toSet()
+        val originalSlugs = original.moods.map { it.slug }.toSet()
+
+        // Remove deleted moods
+        val removedSlugs = originalSlugs - currentSlugs
+        for (slug in removedSlugs) {
+            val moodId = original.moods.find { it.slug == slug }?.id ?: continue
+            when (val result = moodRepository.removeMoodFromBook(current.bookId, moodId)) {
+                is AppResult.Success -> { /* ok */ }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to remove mood '$slug' from book ${current.bookId}: ${result.error.message}" }
+                }
+                // Continue with other moods - mood removal is non-critical
+            }
+        }
+
+        // Add new moods
+        val addedSlugs = currentSlugs - originalSlugs
+        for (slug in addedSlugs) {
+            when (val result = moodRepository.addMoodToBook(current.bookId, slug)) {
+                is AppResult.Success -> { /* ok */ }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to add mood '$slug' to book ${current.bookId}: ${result.error.message}" }
+                }
+                // Continue with other moods - mood addition is non-critical
+            }
+        }
+
+        logger.debug { "Moods updated: +${addedSlugs.size}, -${removedSlugs.size}" }
+    }
+
     private suspend fun commitAndUploadCover(current: BookUpdateRequest) {
         val pendingCover = current.pendingCover ?: return
         val bookId = BookId(current.bookId)
@@ -276,12 +319,13 @@ open class UpdateBookUseCase(
         val seriesChanged: Boolean,
         val genresChanged: Boolean,
         val tagsChanged: Boolean,
+        val moodsChanged: Boolean,
         val coverChanged: Boolean,
     ) {
         val hasAnyChanges: Boolean
             get() =
                 metadataChanged || contributorsChanged || seriesChanged ||
-                    genresChanged || tagsChanged || coverChanged
+                    genresChanged || tagsChanged || moodsChanged || coverChanged
 
         fun summary(): String =
             buildList {
@@ -290,6 +334,7 @@ open class UpdateBookUseCase(
                 if (seriesChanged) add("series")
                 if (genresChanged) add("genres")
                 if (tagsChanged) add("tags")
+                if (moodsChanged) add("moods")
                 if (coverChanged) add("cover")
             }.joinToString(", ")
     }

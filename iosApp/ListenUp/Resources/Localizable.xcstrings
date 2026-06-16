@@ -2871,6 +2871,16 @@
         }
       }
     },
+    "book.edit_no_moods": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No moods yet."
+          }
+        }
+      }
+    },
     "book.edit_no_narrators": {
       "localizations": {
         "en": {

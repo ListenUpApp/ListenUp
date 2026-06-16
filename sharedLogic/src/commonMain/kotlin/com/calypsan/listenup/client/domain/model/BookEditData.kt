@@ -13,8 +13,10 @@ data class BookEditData(
     val series: List<EditableSeries>,
     val genres: List<EditableGenre>,
     val tags: List<EditableTag>,
+    val moods: List<EditableMood> = emptyList(),
     val allGenres: List<EditableGenre>,
     val allTags: List<EditableTag>,
+    val allMoods: List<EditableMood> = emptyList(),
     val coverPath: String?,
     val coverHash: String? = null,
 )
@@ -52,6 +54,7 @@ data class BookUpdateRequest(
     val series: List<EditableSeries>,
     val genres: List<EditableGenre>,
     val tags: List<EditableTag>,
+    val moods: List<EditableMood> = emptyList(),
     val pendingCover: PendingCover?,
 )
 

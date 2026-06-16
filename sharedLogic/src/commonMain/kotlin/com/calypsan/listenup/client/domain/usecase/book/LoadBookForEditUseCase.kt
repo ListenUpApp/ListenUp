@@ -8,12 +8,15 @@ import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.EditableContributor
 import com.calypsan.listenup.client.domain.model.EditableGenre
+import com.calypsan.listenup.client.domain.model.EditableMood
 import com.calypsan.listenup.client.domain.model.EditableSeries
 import com.calypsan.listenup.client.domain.model.EditableTag
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.api.result.notFoundError
@@ -42,6 +45,7 @@ open class LoadBookForEditUseCase(
     private val bookRepository: BookRepository,
     private val genreRepository: GenreRepository,
     private val tagRepository: TagRepository,
+    private val moodRepository: MoodRepository,
 ) {
     /**
      * Load a book and all related data for editing.
@@ -64,6 +68,8 @@ open class LoadBookForEditUseCase(
             val bookGenres = loadBookGenres(bookId)
             val allTags = loadAllTags()
             val bookTags = loadBookTags(bookId)
+            val allMoods = loadAllMoods()
+            val bookMoods = loadBookMoods(bookId)
 
             // Transform to editable format
             val editData =
@@ -74,8 +80,10 @@ open class LoadBookForEditUseCase(
                     series = book.toEditableSeries(),
                     genres = bookGenres,
                     tags = bookTags,
+                    moods = bookMoods,
                     allGenres = allGenres,
                     allTags = allTags,
+                    allMoods = allMoods,
                     coverPath = book.coverPath,
                     coverHash = book.coverHash,
                 )
@@ -85,7 +93,8 @@ open class LoadBookForEditUseCase(
                     "${editData.contributors.size} contributors, " +
                     "${editData.series.size} series, " +
                     "${editData.genres.size} genres, " +
-                    "${editData.tags.size} tags"
+                    "${editData.tags.size} tags, " +
+                    "${editData.moods.size} moods"
             }
 
             editData
@@ -129,6 +138,26 @@ open class LoadBookForEditUseCase(
             throw e
         } catch (e: Exception) {
             logger.error(e) { "Failed to load book tags" }
+            emptyList()
+        }
+
+    private suspend fun loadAllMoods(): List<EditableMood> =
+        try {
+            moodRepository.observeAllMoods().first().map { it.toEditable() }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to load all moods" }
+            emptyList()
+        }
+
+    private suspend fun loadBookMoods(bookId: String): List<EditableMood> =
+        try {
+            moodRepository.observeMoodsForBook(bookId).first().map { it.toEditable() }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to load book moods" }
             emptyList()
         }
 
@@ -177,6 +206,12 @@ open class LoadBookForEditUseCase(
 
     private fun Tag.toEditable(): EditableTag =
         EditableTag(
+            id = id,
+            slug = slug,
+        )
+
+    private fun Mood.toEditable(): EditableMood =
+        EditableMood(
             id = id,
             slug = slug,
         )

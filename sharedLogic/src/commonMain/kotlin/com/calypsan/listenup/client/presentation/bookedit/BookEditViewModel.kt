@@ -178,6 +178,8 @@ class BookEditViewModel(
                             allGenres = editData.allGenres,
                             tags = editData.tags,
                             allTags = editData.allTags,
+                            moods = editData.moods,
+                            allMoods = editData.allMoods,
                             hasChanges = false,
                         )
                     }
@@ -342,6 +344,23 @@ class BookEditViewModel(
                 genreTagDelegate.removeTag(event.tag)
             }
 
+            // Mood events - delegate to GenreTagEditDelegate
+            is BookEditUiEvent.MoodSearchQueryChanged -> {
+                genreTagDelegate.updateMoodSearchQuery(event.query)
+            }
+
+            is BookEditUiEvent.MoodSelected -> {
+                genreTagDelegate.selectMood(event.mood)
+            }
+
+            is BookEditUiEvent.MoodEntered -> {
+                genreTagDelegate.createAndAddMood(event.name)
+            }
+
+            is BookEditUiEvent.RemoveMood -> {
+                genreTagDelegate.removeMood(event.mood)
+            }
+
             // Collection events - delegate to CollectionEditDelegate
             is BookEditUiEvent.CollectionSearchQueryChanged -> {
                 collectionDelegate.updateCollectionSearchQuery(event.query)
@@ -406,6 +425,7 @@ class BookEditViewModel(
                 current.series != original.series ||
                 current.genres != original.genres ||
                 current.tags != original.tags ||
+                current.moods != original.moods ||
                 collectionDelegate.hasChanges() ||
                 current.pendingCoverData != null
 
@@ -509,6 +529,7 @@ class BookEditViewModel(
             series = series,
             genres = genres,
             tags = tags,
+            moods = moods,
             pendingCover =
                 if (pendingCoverData != null && pendingCoverFilename != null) {
                     PendingCover(

@@ -35,6 +35,7 @@ final class BookEditObserver {
     private(set) var series: [EditableSeries] = []
     private(set) var genres: [EditableGenre] = []
     private(set) var tags: [EditableTag] = []
+    private(set) var moods: [EditableMood] = []
 
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
@@ -88,6 +89,9 @@ final class BookEditObserver {
     func removeTag(_ value: EditableTag) {
         viewModel.onEvent(event: BookEditUiEventRemoveTag(tag: value))
     }
+    func removeMood(_ value: EditableMood) {
+        viewModel.onEvent(event: BookEditUiEventRemoveMood(mood: value))
+    }
 
     // MARK: - Actions
 
@@ -113,6 +117,7 @@ final class BookEditObserver {
         series = state.series
         genres = state.genres
         tags = state.tags
+        moods = state.moods
         hasChanges = state.hasChanges
         isSaving = state.isSaving
         error = state.error

@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.presentation.bookedit.delegates
 
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
+import com.calypsan.listenup.client.presentation.bookedit.EditableMood
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
 import com.calypsan.listenup.client.presentation.bookedit.displayName
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -28,13 +29,14 @@ private const val MIN_QUERY_LENGTH = 2
 private const val SEARCH_LIMIT = 10
 
 /**
- * Delegate handling genre and tag editing operations.
+ * Delegate handling genre, tag, and mood editing operations.
  *
  * Responsibilities:
  * - Genre filtering (local, from pre-loaded list)
  * - Tag search and selection (from pre-loaded list)
- * - Create new tags by entering raw text (normalized to slug)
- * - Add/remove genres and tags
+ * - Mood search and selection (from pre-loaded list)
+ * - Create new tags/moods by entering raw text (normalized to slug)
+ * - Add/remove genres, tags, and moods
  *
  * @property state Shared state flow owned by ViewModel
  * @property scope CoroutineScope for launching operations
@@ -46,9 +48,11 @@ class GenreTagEditDelegate(
     private val onChangesMade: () -> Unit,
 ) {
     private val tagQueryFlow = MutableStateFlow("")
+    private val moodQueryFlow = MutableStateFlow("")
 
     init {
         setupTagSearch()
+        setupMoodSearch()
     }
 
     /**
@@ -63,6 +67,20 @@ class GenreTagEditDelegate(
         data class Success(
             val results: List<EditableTag>,
         ) : TagSearchFlowResult
+    }
+
+    /**
+     * Internal result type for the reactive mood search flow.
+     */
+    private sealed interface MoodSearchFlowResult {
+        data object Empty : MoodSearchFlowResult
+
+        data object Loading : MoodSearchFlowResult
+
+        /** Search succeeded; [results] is filtered to exclude moods already attached to the book. */
+        data class Success(
+            val results: List<EditableMood>,
+        ) : MoodSearchFlowResult
     }
 
     // ========== Genre Methods ==========
@@ -214,6 +232,99 @@ class GenreTagEditDelegate(
         onChangesMade()
     }
 
+    // ========== Mood Methods ==========
+
+    /**
+     * Update the mood search query.
+     */
+    fun updateMoodSearchQuery(query: String) {
+        state.update { it.copy(moodSearchQuery = query) }
+        moodQueryFlow.value = query
+    }
+
+    /**
+     * Select a mood to add to the book.
+     */
+    fun selectMood(mood: EditableMood) {
+        state.update { current ->
+            // Check if already added
+            if (current.moods.any { it.id == mood.id }) {
+                return@update current.copy(
+                    moodSearchQuery = "",
+                    moodSearchResults = emptyList(),
+                )
+            }
+
+            current.copy(
+                moods = current.moods + mood,
+                moodSearchQuery = "",
+                moodSearchResults = emptyList(),
+            )
+        }
+        moodQueryFlow.value = ""
+        onChangesMade()
+    }
+
+    /**
+     * Create a new mood inline and add it to the book.
+     *
+     * Moods are normalized to slugs (e.g., "Feel-Good" -> "feel-good").
+     * The actual mood creation happens on the server when the book is saved.
+     */
+    fun createAndAddMood(name: String) {
+        if (name.isBlank()) return
+
+        val slug = normalizeToSlug(name)
+        if (slug.isEmpty()) return
+
+        // Check if mood with same slug already exists in allMoods
+        val existingMood = state.value.allMoods.find { it.slug == slug }
+
+        if (existingMood != null) {
+            // Use existing mood
+            selectMood(existingMood)
+            return
+        }
+
+        // Check if we already have this mood added
+        if (state.value.moods.any { it.slug == slug }) {
+            state.update {
+                it.copy(
+                    moodSearchQuery = "",
+                    moodSearchResults = emptyList(),
+                )
+            }
+            moodQueryFlow.value = ""
+            return
+        }
+
+        // Create a new editable mood (no ID yet - will be assigned by server)
+        val newMood = EditableMood(id = "", slug = slug)
+
+        state.update { current ->
+            current.copy(
+                moods = current.moods + newMood,
+                allMoods = current.allMoods + newMood, // Add to available moods
+                moodSearchQuery = "",
+                moodSearchResults = emptyList(),
+            )
+        }
+        moodQueryFlow.value = ""
+        onChangesMade()
+
+        logger.info { "Added new mood: $slug" }
+    }
+
+    /**
+     * Remove a mood from the book.
+     */
+    fun removeMood(mood: EditableMood) {
+        state.update { current ->
+            current.copy(moods = current.moods.filter { it.id != mood.id })
+        }
+        onChangesMade()
+    }
+
     // ========== Private Methods ==========
 
     private fun filterGenres(query: String) {
@@ -296,5 +407,62 @@ class GenreTagEditDelegate(
                 }.take(SEARCH_LIMIT)
 
         return TagSearchFlowResult.Success(filtered)
+    }
+
+    private fun setupMoodSearch() {
+        moodQueryFlow
+            .debounce(SEARCH_DEBOUNCE_MS)
+            .distinctUntilChanged()
+            .filter { it.length >= MIN_QUERY_LENGTH || it.isEmpty() }
+            .flatMapLatest { query ->
+                if (query.isBlank()) {
+                    flowOf<MoodSearchFlowResult>(MoodSearchFlowResult.Empty)
+                } else {
+                    flow<MoodSearchFlowResult> {
+                        emit(MoodSearchFlowResult.Loading)
+                        emit(performMoodSearch(query))
+                    }
+                }
+            }.onEach { result ->
+                when (result) {
+                    is MoodSearchFlowResult.Empty -> {
+                        state.update {
+                            it.copy(moodSearchResults = emptyList(), moodSearchLoading = false)
+                        }
+                    }
+
+                    is MoodSearchFlowResult.Loading -> {
+                        state.update { it.copy(moodSearchLoading = true) }
+                    }
+
+                    is MoodSearchFlowResult.Success -> {
+                        state.update {
+                            it.copy(moodSearchResults = result.results, moodSearchLoading = false)
+                        }
+                    }
+                }
+            }.launchIn(scope)
+    }
+
+    /**
+     * Perform mood search and return the result.
+     * Called from flatMapLatest flow - cancellation is handled automatically.
+     */
+    private fun performMoodSearch(query: String): MoodSearchFlowResult {
+        // Filter from allMoods (already loaded) by displayName
+        val lowerQuery = query.lowercase()
+        val currentSlugs =
+            state.value.moods
+                .map { it.slug }
+                .toSet()
+
+        val filtered =
+            state.value.allMoods
+                .filter { mood ->
+                    mood.slug !in currentSlugs &&
+                        mood.displayName().lowercase().contains(lowerQuery)
+                }.take(SEARCH_LIMIT)
+
+        return MoodSearchFlowResult.Success(filtered)
     }
 }

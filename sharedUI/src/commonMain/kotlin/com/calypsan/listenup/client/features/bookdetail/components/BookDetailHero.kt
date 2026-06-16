@@ -408,9 +408,11 @@ private fun HeroClassification(
     Row(
         modifier = modifier,
         horizontalArrangement =
-            Arrangement.spacedBy(10.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+            Arrangement.spacedBy(8.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // The most-specific genre reads as the same understated flag as Abridged/Unabridged — a
+        // plain uppercase label, not a filled pill.
         if (!genre.isNullOrBlank()) {
             Text(
                 text = genre.uppercase(),

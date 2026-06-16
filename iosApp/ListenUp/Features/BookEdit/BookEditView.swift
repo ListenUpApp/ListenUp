@@ -88,6 +88,7 @@ struct BookEditView: View {
             seriesSection(observer)
             genresSection(observer)
             tagsSection(observer)
+            moodsSection(observer)
         }
         .padding(.horizontal)
     }
@@ -224,6 +225,27 @@ struct BookEditView: View {
                             roleKind: nil,
                             removeLabel: String(format: String(localized: "common.remove_name"), label),
                             onRemove: { observer.removeTag(tag) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func moodsSection(_ observer: BookEditObserver) -> some View {
+        EditSection(title: String(localized: "book.detail_mood")) {
+            if observer.moods.isEmpty {
+                EmptyRelationHint(text: String(localized: "book.edit_no_moods"))
+            } else {
+                ChipFlow {
+                    ForEach(observer.moods, id: \.id) { mood in
+                        let label = BookEditFormatting.tagLabel(slug: mood.slug)
+                        RemovableChip(
+                            label: label,
+                            roleKind: nil,
+                            removeLabel: String(format: String(localized: "common.remove_name"), label),
+                            onRemove: { observer.removeMood(mood) }
                         )
                     }
                 }
