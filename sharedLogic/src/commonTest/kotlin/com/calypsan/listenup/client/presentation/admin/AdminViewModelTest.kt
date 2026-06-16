@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.AdminEvent
@@ -14,9 +15,10 @@ import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
+import dev.mokkery.matcher.any
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
@@ -40,9 +42,11 @@ class AdminViewModelTest :
     FunSpec({
         val testDispatcher = StandardTestDispatcher()
 
-        fun createMockGetRegistrationPolicyUseCase(isOpen: Boolean = false): GetRegistrationPolicyUseCase {
+        fun createMockGetRegistrationPolicyUseCase(
+            policy: RegistrationPolicy = RegistrationPolicy.CLOSED,
+        ): GetRegistrationPolicyUseCase {
             val useCase: GetRegistrationPolicyUseCase = mock()
-            everySuspend { useCase() } returns AppResult.Success(isOpen)
+            everySuspend { useCase() } returns AppResult.Success(policy)
             return useCase
         }
 
@@ -101,7 +105,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
@@ -117,7 +121,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
 
@@ -135,7 +139,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 val users = listOf(createUser("user-1"), createUser("user-2"))
                 val invites = listOf(createInvite("invite-1"))
@@ -153,7 +157,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
                 advanceUntilIdle()
@@ -161,6 +165,90 @@ class AdminViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
                 ready.users.size shouldBe 2
                 ready.pendingInvites.size shouldBe 1
+            }
+        }
+
+        test("setRegistrationPolicy(APPROVAL_QUEUE) round-trips to the approval-queue state on success") {
+            runTest {
+                val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(RegistrationPolicy.OPEN)
+                val loadUsersUseCase: LoadUsersUseCase = mock()
+                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
+                everySuspend { loadUsersUseCase() } returns AppResult.Success(listOf(createUser()))
+                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                everySuspend { setRegistrationPolicyUseCase(any()) } returns AppResult.Success(Unit)
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
+                        loadUsersUseCase = loadUsersUseCase,
+                        loadPendingUsersUseCase = loadPendingUsersUseCase,
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        eventStreamRepository = createMockEventStreamRepository(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .registrationPolicy shouldBe RegistrationPolicy.OPEN
+
+                viewModel.setRegistrationPolicy(RegistrationPolicy.APPROVAL_QUEUE)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.registrationPolicy shouldBe RegistrationPolicy.APPROVAL_QUEUE
+                ready.isTogglingRegistrationPolicy shouldBe false
+            }
+        }
+
+        test("setRegistrationPolicy failure surfaces an error and leaves the policy unchanged") {
+            runTest {
+                val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(RegistrationPolicy.OPEN)
+                val loadUsersUseCase: LoadUsersUseCase = mock()
+                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
+                everySuspend { loadUsersUseCase() } returns AppResult.Success(listOf(createUser()))
+                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                everySuspend { setRegistrationPolicyUseCase(any()) } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .InternalError(),
+                    )
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
+                        loadUsersUseCase = loadUsersUseCase,
+                        loadPendingUsersUseCase = loadPendingUsersUseCase,
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        eventStreamRepository = createMockEventStreamRepository(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.setRegistrationPolicy(RegistrationPolicy.CLOSED)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.registrationPolicy shouldBe RegistrationPolicy.OPEN
+                ready.error shouldBe
+                    com.calypsan.listenup.api.error
+                        .InternalError()
+                        .message
+                ready.isTogglingRegistrationPolicy shouldBe false
             }
         }
 
@@ -174,7 +262,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 val invites =
                     listOf(
@@ -195,7 +283,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
                 advanceUntilIdle()
@@ -216,7 +304,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 everySuspend { loadUsersUseCase() } returns Failure(RuntimeException("Network error"))
                 everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
@@ -232,7 +320,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
                 advanceUntilIdle()
@@ -252,7 +340,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 val users = listOf(createUser("user-1"), createUser("user-2"))
                 everySuspend { loadUsersUseCase() } returns AppResult.Success(users)
@@ -270,7 +358,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
                 advanceUntilIdle()
@@ -296,7 +384,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 val invites = listOf(createInvite("invite-1"), createInvite("invite-2"))
                 everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
@@ -314,7 +402,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
                 advanceUntilIdle()
@@ -338,7 +426,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 // Users succeeds to land in Ready; invites fails to surface transient error on Ready.
                 everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
@@ -355,7 +443,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
                 advanceUntilIdle()
@@ -374,7 +462,7 @@ class AdminViewModelTest :
                 val getRegistrationPolicyUseCase: GetRegistrationPolicyUseCase = mock()
                 everySuspend { getRegistrationPolicyUseCase() } calls {
                     delay(100)
-                    AppResult.Success(false)
+                    AppResult.Success(RegistrationPolicy.CLOSED)
                 }
 
                 val loadUsersUseCase: LoadUsersUseCase = mock()
@@ -384,7 +472,7 @@ class AdminViewModelTest :
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
                 val approveUserUseCase: ApproveUserUseCase = mock()
                 val denyUserUseCase: DenyUserUseCase = mock()
-                val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
+                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 everySuspend { loadUsersUseCase() } calls {
                     delay(100)
@@ -409,7 +497,7 @@ class AdminViewModelTest :
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
-                        setOpenRegistrationUseCase = setOpenRegistrationUseCase,
+                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
                         eventStreamRepository = createMockEventStreamRepository(),
                     )
 

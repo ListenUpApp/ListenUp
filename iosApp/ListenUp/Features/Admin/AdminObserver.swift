@@ -46,7 +46,7 @@ final class AdminObserver {
     func revokeInvite(id: String) { viewModel.revokeInvite(inviteId: id) }
     func approveUser(id: String) { viewModel.approveUser(userId: id) }
     func denyUser(id: String) { viewModel.denyUser(userId: id) }
-    func setOpenRegistration(_ enabled: Bool) { viewModel.setOpenRegistration(enabled: enabled) }
+    func setRegistrationPolicy(_ policy: RegistrationPolicy) { viewModel.setRegistrationPolicy(policy: policy) }
     func clearError() { viewModel.clearError() }
 
     // MARK: - State mapping
@@ -77,8 +77,8 @@ enum AdminPhase {
 /// The fully-flattened `Ready` snapshot the screen renders. Carries pre-mapped row models
 /// plus the per-action in-flight ids and the transient mutation error.
 struct AdminReadyModel {
-    let openRegistration: Bool
-    let isTogglingOpenRegistration: Bool
+    let registrationPolicy: RegistrationPolicy
+    let isTogglingRegistrationPolicy: Bool
     let users: [AdminUserRowModel]
     let pendingUsers: [AdminUserRowModel]
     let pendingInvites: [AdminInviteRowModel]
@@ -89,8 +89,8 @@ struct AdminReadyModel {
     let error: String?
 
     init(from ready: AdminUiStateReady) {
-        self.openRegistration = ready.openRegistration
-        self.isTogglingOpenRegistration = ready.isTogglingOpenRegistration
+        self.registrationPolicy = ready.registrationPolicy
+        self.isTogglingRegistrationPolicy = ready.isTogglingRegistrationPolicy
         self.users = ready.users.map(AdminUserRowModel.init(from:))
         self.pendingUsers = ready.pendingUsers.map(AdminUserRowModel.init(from:))
         self.pendingInvites = ready.pendingInvites.map(AdminInviteRowModel.init(from:))

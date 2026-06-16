@@ -94,6 +94,13 @@
     <string name="admin_pending_registrations">Pending Registrations</string>
     <string name="admin_protected_user">Protected User</string>
     <string name="admin_recommended_for_full_restore_capability">Recommended for full restore capability</string>
+    <string name="admin_registration_approval_desc">New sign-ups need an admin\'s approval before they can join.</string>
+    <string name="admin_registration_closed_desc">Self-registration is off — people join by invite only.</string>
+    <string name="admin_registration_open_desc">Anyone can register and join instantly.</string>
+    <string name="admin_registration_policy">Registration</string>
+    <string name="admin_registration_policy_approval">Approval</string>
+    <string name="admin_registration_policy_closed">Closed</string>
+    <string name="admin_registration_policy_open">Open</string>
     <string name="admin_release_anyway">Release Anyway</string>
     <string name="admin_release_without_collections">Release Without Collections</string>
     <string name="admin_remote_url">Remote URL</string>
@@ -141,6 +148,8 @@
     <string name="auth_cancel_registration">Cancel Registration</string>
     <string name="auth_change_server">Change Server</string>
     <string name="auth_check_input">Please check your input</string>
+    <string name="auth_check_status">Check Status</string>
+    <string name="auth_checking_automatically">Checking automatically</string>
     <string name="auth_confirm_password">Confirm Password</string>
     <string name="auth_confirm_password_placeholder">Confirm your password</string>
     <string name="auth_create_account">Create Account</string>
@@ -164,6 +173,13 @@ One beautiful library.</string>
     <string name="auth_password_placeholder">Enter your password</string>
     <string name="auth_passwords_dont_match">Passwords don\'t match</string>
     <string name="auth_pending_approval_message">Your account is pending administrator approval.</string>
+    <string name="auth_pending_review">Pending review</string>
+    <string name="auth_reg_step_account_created">Account created</string>
+    <string name="auth_reg_step_admin_approval">Admin approval</string>
+    <string name="auth_reg_step_admin_approval_sub">A server admin needs to review your request.</string>
+    <string name="auth_reg_step_in_progress">In progress</string>
+    <string name="auth_reg_step_start_listening">Start listening</string>
+    <string name="auth_reg_step_start_listening_sub">Your library unlocks the moment you\'re approved.</string>
     <string name="auth_request_account">Request Account</string>
     <string name="auth_server_administrator">Server administrator</string>
     <string name="auth_server_error">Server error. Please try again.</string>

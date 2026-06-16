@@ -98,7 +98,7 @@ val adminPresentationModule =
                 revokeInviteUseCase = get(),
                 approveUserUseCase = get(),
                 denyUserUseCase = get(),
-                setOpenRegistrationUseCase = get(),
+                setRegistrationPolicyUseCase = get(),
                 eventStreamRepository = get(),
             )
         }

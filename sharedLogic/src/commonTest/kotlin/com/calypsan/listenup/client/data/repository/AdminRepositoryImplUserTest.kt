@@ -242,13 +242,13 @@ class AdminRepositoryImplUserTest :
             info.permissions.canShare shouldBe false
         }
 
-        test("getRegistrationPolicy returns Success(true) when policy is OPEN") {
+        test("getRegistrationPolicy returns the full policy from the service") {
             val service = FakeAdminUserService()
             val repo = buildRepo(service)
 
             val result = repo.getRegistrationPolicy()
 
-            result shouldBe AppResult.Success(true)
+            result shouldBe AppResult.Success(RegistrationPolicy.OPEN)
         }
 
         test("a transport exception from the RPC factory becomes AppResult.Failure, not a throw") {
@@ -270,23 +270,31 @@ class AdminRepositoryImplUserTest :
             (repo.getUsers() is AppResult.Failure) shouldBe true
         }
 
-        test("setOpenRegistration(true) sets policy OPEN") {
+        test("setRegistrationPolicy(OPEN) sets policy OPEN") {
             val service = FakeAdminUserService()
             val repo = buildRepo(service)
-            val result = repo.setOpenRegistration(true)
+            val result = repo.setRegistrationPolicy(RegistrationPolicy.OPEN)
             (result is AppResult.Success) shouldBe true
             service.lastSetPolicy shouldBe RegistrationPolicy.OPEN
         }
 
-        test("setOpenRegistration(false) sets policy CLOSED") {
+        test("setRegistrationPolicy(APPROVAL_QUEUE) round-trips the approval-queue policy") {
             val service = FakeAdminUserService()
             val repo = buildRepo(service)
-            val result = repo.setOpenRegistration(false)
+            val result = repo.setRegistrationPolicy(RegistrationPolicy.APPROVAL_QUEUE)
+            (result is AppResult.Success) shouldBe true
+            service.lastSetPolicy shouldBe RegistrationPolicy.APPROVAL_QUEUE
+        }
+
+        test("setRegistrationPolicy(CLOSED) sets policy CLOSED") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+            val result = repo.setRegistrationPolicy(RegistrationPolicy.CLOSED)
             (result is AppResult.Success) shouldBe true
             service.lastSetPolicy shouldBe RegistrationPolicy.CLOSED
         }
 
-        test("setOpenRegistration returns Failure (never throws) when the RPC transport throws") {
+        test("setRegistrationPolicy returns Failure (never throws) when the RPC transport throws") {
             val throwingFactory =
                 object : AdminUserRpcFactory {
                     override suspend fun get(): AdminUserService = throw RuntimeException("WS 401")
@@ -301,7 +309,7 @@ class AdminRepositoryImplUserTest :
                     libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 )
-            val result = repo.setOpenRegistration(true)
+            val result = repo.setRegistrationPolicy(RegistrationPolicy.OPEN)
             (result is AppResult.Failure) shouldBe true
         }
     })

@@ -1,14 +1,22 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.User as ContractUser
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -22,11 +30,13 @@ import kotlinx.coroutines.test.runTest
 private class RegisterFixture {
     val authRepository: AuthRepository = mock()
     val authSession: AuthSession = mock()
+    val userRepository: UserRepository = mock()
 
     fun build(): RegisterUseCase =
         RegisterUseCase(
             authRepository = authRepository,
             authSession = authSession,
+            userRepository = userRepository,
             deviceInfoProvider = { DeviceInfo() },
         )
 }
@@ -34,10 +44,38 @@ private class RegisterFixture {
 private fun createFixture(): RegisterFixture {
     val fixture = RegisterFixture()
     everySuspend { fixture.authSession.savePendingRegistration(any(), any()) } returns Unit
+    everySuspend { fixture.authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
+    everySuspend { fixture.userRepository.saveUser(any()) } returns Unit
     return fixture
 }
 
 private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> = AppResult.Success(RegisterResult.PendingApproval(UserId(userId)))
+
+private fun authenticatedResult(
+    userId: String = "user-7",
+    email: String = "user@example.com",
+): AppResult<RegisterResult> =
+    AppResult.Success(
+        RegisterResult.Authenticated(
+            session =
+                ContractAuthSession(
+                    accessToken = AccessToken("access-123"),
+                    accessTokenExpiresAt = 1_000_000L,
+                    refreshToken = RefreshToken("refresh-456"),
+                    refreshTokenExpiresAt = 2_000_000L,
+                    sessionId = SessionId("session-789"),
+                    user =
+                        ContractUser(
+                            id = UserId(userId),
+                            email = email,
+                            displayName = "John Doe",
+                            role = UserRole.MEMBER,
+                            status = UserStatus.ACTIVE,
+                            createdAt = 1704067200000L,
+                        ),
+                ),
+        ),
+    )
 
 /**
  * Tests for [RegisterUseCase] over the contract surface.
@@ -162,6 +200,36 @@ class RegisterUseCaseTest :
                 }
                 verifySuspend {
                     fixture.authSession.savePendingRegistration(userId = "user-42", email = "user@example.com")
+                }
+            }
+        }
+
+        test("register persists the session and authenticates on an Authenticated (open-registration) result") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.register(any()) } returns
+                    authenticatedResult(userId = "user-7", email = "user@example.com")
+                val useCase = fixture.build()
+
+                val result =
+                    useCase(
+                        email = "user@example.com",
+                        password = "password123",
+                        firstName = "John",
+                        lastName = "Doe",
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                // The user is saved locally BEFORE auth state flips (mirrors LoginUseCase),
+                // so the post-login startup check never races an empty database.
+                verifySuspend { fixture.userRepository.saveUser(any()) }
+                verifySuspend {
+                    fixture.authSession.saveAuthTokens(
+                        access = AccessToken("access-123"),
+                        refresh = RefreshToken("refresh-456"),
+                        sessionId = "session-789",
+                        userId = "user-7",
+                    )
                 }
             }
         }

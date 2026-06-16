@@ -200,6 +200,11 @@ class AuthSessionStore(
     override suspend fun clearPendingRegistration() {
         secureStorage.delete(KEY_PENDING_USER_ID)
         secureStorage.delete(KEY_PENDING_EMAIL)
+        // Leaving the pending-approval state must drive navigation onward — back to login — so the
+        // user is never stranded on the pending screen (e.g. tapping Cancel). Navigation is
+        // AuthState-driven, so flip the state here rather than relying on a screen-level callback.
+        // Callers that delete the server URL too (disconnect) re-derive state immediately after.
+        _authState.value = DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
     }
 
     private companion object {

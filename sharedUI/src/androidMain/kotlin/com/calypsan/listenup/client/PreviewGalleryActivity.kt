@@ -5,9 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.features.auth.PendingApprovalContent
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPreviewGallery
 import com.calypsan.listenup.client.features.home.HomePreviewGallery
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingPreviewGallery
+import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 
 /**
  * Debug-only on-device gallery of a feature's components rendered with mock data, with dynamic
@@ -28,9 +30,27 @@ class PreviewGalleryActivity : ComponentActivity() {
         setContent {
             ListenUpTheme(dynamicColor = false) {
                 when (gallery) {
-                    "bookdetail" -> BookDetailPreviewGallery()
-                    "nowplaying" -> NowPlayingPreviewGallery()
-                    else -> HomePreviewGallery()
+                    "bookdetail" -> {
+                        BookDetailPreviewGallery()
+                    }
+
+                    "nowplaying" -> {
+                        NowPlayingPreviewGallery()
+                    }
+
+                    "pendingapproval" -> {
+                        PendingApprovalContent(
+                            state = PendingApprovalUiState.Waiting,
+                            email = "newreader@example.com",
+                            onCheckStatus = {},
+                            onSignIn = {},
+                            onCancel = {},
+                        )
+                    }
+
+                    else -> {
+                        HomePreviewGallery()
+                    }
                 }
             }
         }
