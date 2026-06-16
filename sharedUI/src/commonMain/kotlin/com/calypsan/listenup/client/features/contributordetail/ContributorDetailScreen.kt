@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CloudDownload
@@ -66,6 +65,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -83,7 +83,6 @@ import com.calypsan.listenup.client.presentation.contributordetail.RoleSection
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_book_count
 import listenup.composeapp.generated.resources.common_books_count
 import listenup.composeapp.generated.resources.contributor_aka
@@ -725,32 +724,10 @@ private fun NavigationBar(
     onDeleteClick: () -> Unit,
     surfaceColor: Color,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+    HeroNavRow(
+        onBack = onBackClick,
+        buttonBackground = surfaceColor.copy(alpha = 0.5f),
     ) {
-        IconButton(
-            onClick = onBackClick,
-            modifier =
-                Modifier
-                    .size(48.dp)
-                    .background(
-                        color = surfaceColor.copy(alpha = 0.5f),
-                        shape = CircleShape,
-                    ),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.common_back),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
         if (!LocalDeviceContext.current.isLeanback) {
             OverflowMenu(
                 onEditClick = onEditClick,
