@@ -15,9 +15,7 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.metadata.ImageStorage
-import com.calypsan.listenup.server.metadata.audible.ProductTagClassifier
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -25,9 +23,7 @@ import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
@@ -51,9 +47,9 @@ private val log = KotlinLogging.logger {}
  *    3-step cascade as the scanner (alias → [GenreNormalizer] → pending), written BEFORE the
  *    text `upsert` so the upsert's `readPayload` re-reads the junction and the genres ride the
  *    same SSE event + revision bump. An empty set leaves existing genres untouched.
- *  - **Enrichment** (always, best-effort) scrapes the matched ASIN's Audible product
- *    topic-tags, classifies them against the book's just-applied genre slugs, and writes the
- *    resulting moods + tropes additively. Never fails the match (see [applyEnrichmentBestEffort]).
+ *  - **Enrichment** (best-effort) writes the user's selected moods + tropes from the apply
+ *    [selection] additively (the values were scraped + classified at lookup time and chosen by the
+ *    user as chips). Never fails the match (see [applyEnrichmentBestEffort]).
  *  - **Cover** (when selected) downloads the wizard's chosen cover URL and stores it as
  *    [CoverSource.UPLOADED] — an explicit user choice that wins over any existing cover.
  *
@@ -94,11 +90,7 @@ internal class BookMetadataApplier(
 
             applyGenresBestEffort(bookId, asin, selection)
             applyGenreHierarchyBestEffort(bookId, asin, region, selection)
-
-            // Computed AFTER the genre apply so it reflects the user's actual selection
-            // (the just-linked junction rows), not the raw match. Read once, reused per tag.
-            val appliedGenreSlugs = appliedGenreSlugs(bookId)
-            applyEnrichmentBestEffort(bookId, asin, region, appliedGenreSlugs)
+            applyEnrichmentBestEffort(bookId, asin, selection)
 
             val updated =
                 existing.copy(
@@ -254,61 +246,40 @@ internal class BookMetadataApplier(
     }
 
     /**
-     * The canonical genre slugs currently linked to [bookId]. Joins the book's
-     * applied-genre ids ([BookGenreTable.genresForBook]) to their [GenreTable.slug]
-     * values in a single transaction, so the classifier's genre-exclusion check
-     * reflects the user's actual selection (the rows just linked by
-     * [applyGenresBestEffort] / [applyGenreHierarchyBestEffort]) rather than the raw
-     * match. Returns an empty set when the book has no linked genres.
-     */
-    private suspend fun appliedGenreSlugs(bookId: BookId): Set<String> =
-        suspendTransaction(db) {
-            val ids = BookGenreTable.genresForBook(bookId.value)
-            if (ids.isEmpty()) {
-                emptySet()
-            } else {
-                GenreTable
-                    .selectAll()
-                    .where { GenreTable.id inList ids }
-                    .mapTo(mutableSetOf()) { it[GenreTable.slug] }
-            }
-        }
-
-    /**
-     * Enriches [bookId] with the matched ASIN's Audible product topic-tags: scrapes the
-     * tags via [MetadataEnrichmentDeps.productTagSource] (matched [region] + [asin]),
-     * classifies them against [appliedGenreSlugs] via [ProductTagClassifier] (mood → moods,
-     * theme → tropes minus already-applied genres), then writes the classified moods and
-     * tropes additively through [BookMoodWriter][com.calypsan.listenup.server.services.BookMoodWriter]
-     * and [BookTagWriter][com.calypsan.listenup.server.services.BookTagWriter]. Both writers
-     * are add-only — existing moods/tags are never wiped.
+     * Writes the user's selected moods and tropes from [selection] additively through
+     * [BookMoodWriter][com.calypsan.listenup.server.services.BookMoodWriter] and
+     * [BookTagWriter][com.calypsan.listenup.server.services.BookTagWriter]. Both writers are
+     * add-only — existing moods/tags are never wiped.
      *
-     * Runs AFTER the genre apply so [appliedGenreSlugs] reflects the user's selection.
-     * Best-effort: a failure (scrape error, classify error, write error) is logged and
-     * skipped so the already-committed match is never rolled back. [CancellationException]
-     * is always re-raised. No-ops when the scrape yields no tags.
+     * The moods/tags were scraped + classified at lookup time (see
+     * `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and presented to the user as toggleable
+     * chips; the apply path honors that selection rather than re-scraping, so a deselected mood/tag
+     * is never written. An empty set for a dimension writes nothing for it.
      *
-     * Limitation (#573): re-matching a book ACCUMULATES moods/tropes — the writers are
-     * add-only, so a second apply adds the new match's tags on top of the first's. A future
+     * Best-effort: a write error is logged and skipped so the already-committed match is never
+     * rolled back. [CancellationException] is always re-raised. No-ops when both sets are empty.
+     *
+     * Limitation (#573): re-matching a book ACCUMULATES moods/tropes — the writers are add-only,
+     * so a second apply adds the new selection's tags on top of the first's. A future
      * selective-apply surface (#573) is the fix; for now accumulation is the accepted shape.
      */
     private suspend fun applyEnrichmentBestEffort(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
-        appliedGenreSlugs: Set<String>,
+        selection: MetadataApplySelection,
     ) {
+        if (selection.moods.isEmpty() && selection.tags.isEmpty()) return
         try {
-            val productTags = enrichmentDeps.productTagSource(region, asin)
-            if (productTags.isEmpty()) return
-
-            val classified = ProductTagClassifier.classify(productTags, appliedGenreSlugs)
-            enrichmentDeps.bookMoodWriter.writeMoods(bookId, classified.moods)
-            enrichmentDeps.bookTagWriter.writeScanTags(bookId, classified.tags)
+            if (selection.moods.isNotEmpty()) {
+                enrichmentDeps.bookMoodWriter.writeMoods(bookId, selection.moods.toList())
+            }
+            if (selection.tags.isNotEmpty()) {
+                enrichmentDeps.bookTagWriter.writeScanTags(bookId, selection.tags.toList())
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Audible enrichment failed for ${bookId.value} (ASIN $asin) — skipping" }
+            log.warn(e) { "Audible enrichment write failed for ${bookId.value} (ASIN $asin) — skipping" }
         }
     }
 

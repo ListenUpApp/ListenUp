@@ -78,8 +78,7 @@ private val TINY_JPEG =
         0x00,
     )
 
-// Genres are NOT selected here, so the applied-genre slug set is empty and the classifier's
-// genre-exclusion never fires — the test focuses purely on the mood/trope enrichment seam.
+// Base selection with no moods/tags chosen — used as the starting point each test copies from.
 private val ENRICH_SELECTION =
     MetadataApplySelection(
         title = true,
@@ -95,61 +94,61 @@ private val ENRICH_SELECTION =
     )
 
 /**
- * Task 7 — verifies the best-effort Audible mood/trope enrichment wired into the
- * metadata-apply path:
+ * Verifies the user-selected Audible mood/trope enrichment wired into the metadata-apply path.
  *
- *  - **Happy path:** a stubbed `productTagSource` returning known `mood` + `theme` tags
- *    persists the expected moods (`book_moods`) and tropes (`book_tags`); non-mood/theme
- *    types (`genre`) are dropped by the classifier.
- *  - **Best-effort boundary:** a `productTagSource` that THROWS leaves the match successful
- *    with no moods/tropes — enrichment never fails the apply.
- *  - **Additive re-match (#573):** re-applying with a second product-tag set accumulates the
+ * The applier no longer re-scrapes Audible at apply time: moods + tropes are scraped and
+ * classified at lookup time (see `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and
+ * presented to the user as toggleable chips. The apply path honors that selection —
+ * [MetadataApplySelection.moods] / [MetadataApplySelection.tags] — writing the chosen values
+ * additively. This test covers:
+ *
+ *  - **Happy path:** a selection carrying moods + tags persists them to `book_moods` /
+ *    `book_tags`; a value the user deselected is never written.
+ *  - **Empty selection:** a selection with no moods/tags writes nothing, but the match still
+ *    succeeds (the text metadata commits regardless).
+ *  - **Additive re-match (#573):** re-applying with a second selection accumulates the
  *    moods/tropes (the writers are add-only). Selective apply is the future #573 fix.
  *
- * Drives [BookMetadataApplier] directly (rather than through [MetadataLookupServiceImpl]) so
- * the stub `productTagSource` and the same mood/tag repositories used for assertion are
- * injected without round-tripping the DI module.
+ * Drives [BookMetadataApplier] directly (rather than through [MetadataLookupServiceImpl]) so the
+ * same mood/tag repositories used for assertion are injected without round-tripping the DI module.
+ * The `productTagSource` is no longer consulted by the apply path; the stub asserts that.
  */
 class MetadataApplyEnrichmentTest :
     FunSpec({
 
-        test("enrichment persists classified moods + tropes; non-mood/theme types dropped") {
+        test("apply persists the user-selected moods + tags") {
             withInMemoryDatabase {
                 val ctx = enrichmentCtx(this)
-                val productTags =
-                    listOf(
-                        ProductTag(type = "mood", name = "Feel-Good"),
-                        ProductTag(type = "mood", name = "Tense"),
-                        ProductTag(type = "theme", name = "Found Family"),
-                        ProductTag(type = "genre", name = "Fantasy"), // dropped by the classifier
+                // The apply path must NOT scrape — a throwing source proves moods/tags come from the selection.
+                val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
+                val selection =
+                    ENRICH_SELECTION.copy(
+                        moods = setOf("Feel-Good", "Tense"),
+                        tags = setOf("Found Family"),
                     )
-                val applier = ctx.applier { _, _ -> productTags }
 
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
 
-                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, ENRICH_SELECTION)
+                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, selection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
                     ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Found Family")
-                    // "Fantasy" (a genre-typed product tag) was never persisted as a trope.
-                    ctx.tagNamesForBook(BOOK_ID).none { it == "Fantasy" } shouldBe true
                 }
             }
         }
 
-        test("a throwing productTagSource still succeeds with no moods/tropes (best-effort)") {
+        test("an empty mood/tag selection writes nothing but still succeeds") {
             withInMemoryDatabase {
                 val ctx = enrichmentCtx(this)
-                val applier = ctx.applier { _, _ -> error("simulated scrape failure") }
+                val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
 
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
 
                     val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, ENRICH_SELECTION)
 
-                    // Best-effort: the match still committed despite the scrape throwing.
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     ctx.bookRepo.findById(BookId(BOOK_ID))?.description shouldBe "An enriched description."
 
@@ -159,66 +158,31 @@ class MetadataApplyEnrichmentTest :
             }
         }
 
-        // C3 integration seam: a theme product-tag whose CANONICAL slug matches an applied genre
-        // is dropped from tropes (it would otherwise leak the genre back in as a tag), while a
-        // non-colliding theme survives. Exercises the full
-        // applyGenresBestEffort → appliedGenreSlugs(read, post-apply) → classify(slugs) chain,
-        // not just ProductTagClassifier in isolation. Collision pair mirrors the classifier's own
-        // C3 case: applied genre "Science Fiction" + theme "Sci-Fi" both canonicalize to
-        // `science-fiction` via GenreNormalizer, so the alias-aware (not naive-slugify) exclusion fires.
-        test("a theme product-tag matching an applied genre is excluded from tropes") {
-            withInMemoryDatabase {
-                val ctx = enrichmentCtx(this)
-                val selectionWithGenre = ENRICH_SELECTION.copy(genres = setOf("Science Fiction"))
-                val productTags =
-                    listOf(
-                        ProductTag(type = "theme", name = "Sci-Fi"), // collides with applied genre → dropped
-                        ProductTag(type = "theme", name = "Survival"), // no collision → survives as a trope
-                        ProductTag(type = "mood", name = "Tense"), // a mood regardless of genres
-                    )
-                val applier = ctx.applier { _, _ -> productTags }
-
-                runTest {
-                    ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
-
-                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, selectionWithGenre)
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-
-                    // The applied genre is linked (so appliedGenreSlugs is non-empty and the exclusion can fire).
-                    ctx.bookRepo
-                        .findById(BookId(BOOK_ID))!!
-                        .genres
-                        .map { it.name } shouldContainExactlyInAnyOrder
-                        listOf("Science Fiction")
-
-                    // The colliding theme is gone; the non-colliding theme survives.
-                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Survival")
-                    ctx.tagNamesForBook(BOOK_ID).none { it == "Sci-Fi" } shouldBe true
-
-                    // Moods are unaffected by the genre-exclusion filter.
-                    ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Tense")
-                }
-            }
-        }
-
         // #573: re-matching ACCUMULATES moods/tropes because the writers are add-only.
         // A future selective-apply surface (#573) is the fix; for now accumulation is expected.
         test("re-match accumulates moods + tropes (additive, #573)") {
             withInMemoryDatabase {
                 val ctx = enrichmentCtx(this)
+                val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
 
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
 
-                    ctx
-                        .applier { _, _ -> listOf(ProductTag("mood", "Tense"), ProductTag("theme", "Heist")) }
-                        .apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, ENRICH_SELECTION)
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    applier
+                        .apply(
+                            BookId(BOOK_ID),
+                            ENRICH_ASIN,
+                            AudibleRegion.US,
+                            ENRICH_SELECTION.copy(moods = setOf("Tense"), tags = setOf("Heist")),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    ctx
-                        .applier { _, _ -> listOf(ProductTag("mood", "Hopeful"), ProductTag("theme", "Revenge")) }
-                        .apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, ENRICH_SELECTION)
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    applier
+                        .apply(
+                            BookId(BOOK_ID),
+                            ENRICH_ASIN,
+                            AudibleRegion.US,
+                            ENRICH_SELECTION.copy(moods = setOf("Hopeful"), tags = setOf("Revenge")),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Tense", "Hopeful")
                     ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Heist", "Revenge")

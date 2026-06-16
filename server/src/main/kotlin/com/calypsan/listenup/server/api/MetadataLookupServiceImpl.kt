@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.metadata.audible.ProductTagClassifier
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.metadata.provider.MetadataSource
 import com.calypsan.listenup.server.services.BookRepository
@@ -28,11 +29,15 @@ import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
+import com.calypsan.listenup.server.services.GenreNormalizer
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.exposed.v1.jdbc.Database
+
+private val log = KotlinLogging.logger {}
 
 /**
  * Server-side implementation of [MetadataLookupService].
@@ -123,7 +128,7 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> = audible.getBook(asin, region).enrichWithItunesCover()
+    ): AppResult<MetadataBook?> = audible.getBook(asin, region).enrichWithItunesCover().enrichWithMoodsAndTags(region)
 
     override suspend fun getBookChapters(
         asin: String,
@@ -154,7 +159,7 @@ internal class MetadataLookupServiceImpl(
         region: AudibleRegion,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return audible.getBook(asin, region, refresh = true).enrichWithItunesCover()
+        return audible.getBook(asin, region, refresh = true).enrichWithItunesCover().enrichWithMoodsAndTags(region)
     }
 
     /**
@@ -179,6 +184,39 @@ internal class MetadataLookupServiceImpl(
         val hit = (metadataService.findCover(book.title, author) as? AppResult.Success)?.data ?: return this
         val maxUrl = hit.maxSizeUrl.takeIf { it.isNotBlank() } ?: return this
         return AppResult.Success(book.copy(coverUrlMaxSize = maxUrl))
+    }
+
+    /**
+     * Grafts the matched book's Audible moods and tropes onto a single-book metadata result so
+     * the metadata wizard's preview can show them as toggleable chips alongside genres.
+     *
+     * Scrapes the matched ASIN's Audible product topic-tags via the same
+     * [MetadataEnrichmentDeps.productTagSource] the apply path uses, then classifies them via
+     * [ProductTagClassifier] — `mood` tags become [MetadataBook.moods], `theme` tags become
+     * [MetadataBook.tags] minus any theme that canonicalizes to a genre already on the match (the
+     * exclusion set is derived from the match's own [MetadataBook.genres] through
+     * [GenreNormalizer.normalizeToSlugs], mirroring the apply path's slug-based exclusion).
+     *
+     * Best-effort: a missing book, an empty scrape, or any classifier error leaves moods/tags
+     * empty so the rest of the metadata still flows. One product-page request per preview load —
+     * behind the existing loading state. [CancellationException] is always re-raised.
+     */
+    private suspend fun AppResult<MetadataBook?>.enrichWithMoodsAndTags(
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?> {
+        val book = (this as? AppResult.Success)?.data ?: return this
+        return try {
+            val productTags = enrichmentDeps.productTagSource(region, book.asin)
+            if (productTags.isEmpty()) return this
+            val appliedGenreSlugs = book.genres.flatMap { GenreNormalizer.normalizeToSlugs(it) }.toSet()
+            val classified = ProductTagClassifier.classify(productTags, appliedGenreSlugs)
+            AppResult.Success(book.copy(moods = classified.moods, tags = classified.tags))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn(e) { "Mood/tag enrichment failed for ASIN ${book.asin} in region $region — leaving empty" }
+            this
+        }
     }
 
     override suspend fun applyBookMetadata(
