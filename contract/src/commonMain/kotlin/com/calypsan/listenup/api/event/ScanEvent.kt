@@ -48,6 +48,13 @@ sealed interface ScanEvent {
         val errors: Int,
         /** Total files discovered (known after WALKING; 0 before). */
         val totalFiles: Int = 0,
+        /**
+         * Total candidate books to analyze — known once ANALYZING starts (0 before, during
+         * WALKING/GROUPING). The denominator for the scan progress bar: real progress is
+         * `booksAnalyzed / booksTotal`, which advances through the long ANALYZING phase rather
+         * than pinning at 100% the instant file-walking ends.
+         */
+        val booksTotal: Int = 0,
         /** Running count of distinct author names matched so far. */
         val authorsMatched: Int = 0,
         /** Running sum of matched book durations, milliseconds → "Hours" stat. */
