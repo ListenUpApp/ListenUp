@@ -142,16 +142,13 @@ internal class ScanOrchestrator(
     suspend fun onFolderRemoved(folderId: FolderId) {
         val staleCoordinator =
             mutex.withLock {
-                val current = bundle
-                if (current != null) {
+                bundle?.let { current ->
                     val updatedLibrary =
                         current.library.copy(
                             folders = current.library.folders.filterNot { it.id == folderId },
                         )
                     bundle = scannerFactory(updatedLibrary)
                     current.coordinator
-                } else {
-                    null
                 }
             }
         // Close the old coordinator outside the lock — closes the incremental channel,
