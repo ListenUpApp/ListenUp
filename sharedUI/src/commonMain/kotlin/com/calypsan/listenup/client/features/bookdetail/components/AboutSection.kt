@@ -11,7 +11,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -183,8 +182,9 @@ private fun AboutDescriptionBlock(
  *
  * Each block is preceded by a [Spacing.sectionGap] spacer and a matching [SectionOverline].
  * All three chip rows render through the single [FacetChipRow] component, switched by
- * [BookFacet]; the tag row maps each chip label back to its [Tag] to preserve tag-click
- * navigation. The [isLoadingTags] guard keeps the Tags block visible while tags are fetched.
+ * [BookFacet]; the tag row uses the generic overload so each chip closes its click over its own
+ * [Tag] — robust to display-name collisions. The [isLoadingTags] guard keeps the Tags block
+ * visible while tags are fetched.
  */
 @Composable
 private fun AboutClassificationBlocks(
@@ -218,12 +218,11 @@ private fun AboutClassificationBlocks(
         Spacer(modifier = Modifier.height(Spacing.sectionGap))
         SectionOverline(text = stringResource(Res.string.book_detail_tags))
         Spacer(modifier = Modifier.height(Spacing.titleGap))
-        // Map display name → Tag so the unified row can keep tag-click navigation.
-        val tagsByName = remember(tags) { tags.associateBy { it.displayName() } }
         FacetChipRow(
-            labels = tags.map { it.displayName() },
+            items = tags,
             facet = BookFacet.Tag,
-            onClick = { name -> tagsByName[name]?.let(onTagClick) },
+            label = { it.displayName() },
+            onClick = onTagClick,
         )
     }
 

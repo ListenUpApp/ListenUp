@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -61,8 +62,9 @@ private data class FacetStyle(
     val borderColor: Color?,
     val leadingIcon: ImageVector?,
     val textStyle: TextStyle,
+    val labelWeight: FontWeight,
     val contentPadding: PaddingValues,
-    val iconSpacing: androidx.compose.ui.unit.Dp,
+    val iconSpacing: Dp,
 )
 
 @Composable
@@ -76,6 +78,7 @@ private fun BookFacet.style(): FacetStyle =
                 borderColor = MaterialTheme.colorScheme.outlineVariant,
                 leadingIcon = null,
                 textStyle = MaterialTheme.typography.labelLarge,
+                labelWeight = FontWeight.Medium,
                 contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
                 iconSpacing = 0.dp,
             )
@@ -89,6 +92,7 @@ private fun BookFacet.style(): FacetStyle =
                 borderColor = null,
                 leadingIcon = Icons.Default.Tag,
                 textStyle = MaterialTheme.typography.labelMedium,
+                labelWeight = FontWeight.Bold,
                 contentPadding = PaddingValues(start = 11.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
                 iconSpacing = 7.dp,
             )
@@ -102,6 +106,7 @@ private fun BookFacet.style(): FacetStyle =
                 borderColor = null,
                 leadingIcon = Icons.Default.Mood,
                 textStyle = MaterialTheme.typography.labelMedium,
+                labelWeight = FontWeight.Bold,
                 contentPadding = PaddingValues(start = 11.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
                 iconSpacing = 7.dp,
             )
@@ -169,15 +174,56 @@ fun FacetChip(
         Text(
             text = label,
             style = style.textStyle,
-            fontWeight = FontWeight.Medium,
+            fontWeight = style.labelWeight,
             color = style.contentColor,
         )
     }
 }
 
 /**
- * A wrapping row of [FacetChip]s, all sharing one [facet]. Wraps to multiple lines via
- * [FlowRow] with 8.dp gaps. Returns early when [labels] is empty.
+ * A wrapping row of [FacetChip]s, all sharing one [facet], one chip per item in [items]. Each
+ * chip closes its click over its own item object via [label] — so two items whose [label] strings
+ * collide stay independently routable (a plain `displayName → item` map would drop one). Wraps to
+ * multiple lines via [FlowRow] with 8.dp gaps. Returns early when [items] is empty.
+ *
+ * @param items   The facet values, one chip each.
+ * @param facet   The classification axis for every chip in the row.
+ * @param label   Renders an item to its chip label.
+ * @param onClick Optional per-item click handler; chips are non-interactive when null.
+ * @param modifier Modifier for the row.
+ * @param horizontalArrangement Horizontal arrangement for the chips (defaults to start-aligned,
+ *                              8.dp gaps).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun <T> FacetChipRow(
+    items: List<T>,
+    facet: BookFacet,
+    label: (T) -> String,
+    onClick: ((T) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.Start),
+) {
+    if (items.isEmpty()) return
+
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = horizontalArrangement,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items.forEach { item ->
+            FacetChip(
+                label = label(item),
+                facet = facet,
+                onClick = onClick?.let { { it(item) } },
+            )
+        }
+    }
+}
+
+/**
+ * A wrapping row of [FacetChip]s for plain string facet values (genres, moods). Delegates to the
+ * generic [FacetChipRow] with the identity label.
  *
  * @param labels  The facet values, one chip each.
  * @param facet   The classification axis for every chip in the row.
@@ -186,7 +232,6 @@ fun FacetChip(
  * @param horizontalArrangement Horizontal arrangement for the chips (defaults to start-aligned,
  *                              8.dp gaps).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FacetChipRow(
     labels: List<String>,
@@ -195,19 +240,12 @@ fun FacetChipRow(
     modifier: Modifier = Modifier,
     horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.Start),
 ) {
-    if (labels.isEmpty()) return
-
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
+    FacetChipRow(
+        items = labels,
+        facet = facet,
+        label = { it },
+        onClick = onClick,
+        modifier = modifier,
         horizontalArrangement = horizontalArrangement,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        labels.forEach { label ->
-            FacetChip(
-                label = label,
-                facet = facet,
-                onClick = onClick?.let { { it(label) } },
-            )
-        }
-    }
+    )
 }
