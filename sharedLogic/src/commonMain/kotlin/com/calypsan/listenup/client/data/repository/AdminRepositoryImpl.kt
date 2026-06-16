@@ -227,12 +227,12 @@ class AdminRepositoryImpl(
 
     override suspend fun getLibrary(): AppResult<Library> =
         catching("getLibrary") {
-            libraryAdminRpc.get().fetchLibrary().map { it.toDomain() }
+            libraryAdminRpc.get().getLibrary().map { it.toDomain() }
         }
 
     override suspend fun addScanPath(path: String): AppResult<Library> =
         catching("addScanPath") {
-            libraryAdminRpc.get().addFolderToLibrary(path).flatMap { getLibrary() }
+            libraryAdminRpc.get().addFolder(path).flatMap { getLibrary() }
         }
 
     override suspend fun removeFolder(folderId: String): AppResult<Library> =
@@ -242,7 +242,7 @@ class AdminRepositoryImpl(
 
     override suspend fun triggerScan(): AppResult<Unit> =
         catching("triggerScan") {
-            libraryAdminRpc.get().triggerLibraryScan()
+            libraryAdminRpc.get().scanLibrary()
         }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =

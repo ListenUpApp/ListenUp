@@ -1,7 +1,6 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.AccessMode
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
@@ -63,21 +62,6 @@ class LibraryDtosContractTest :
             roundTrip<Library>(library) shouldBe library
         }
 
-        test("Library round-trips with inboxEnabled") {
-            val library =
-                Library(
-                    id = LibraryId("lib-003"),
-                    name = "Main",
-                    folders = emptyList(),
-                    metadataPrecedence = "embedded,abs,sidecar",
-                    accessMode = AccessMode.SHARED,
-                    createdByUserId = null,
-                    createdAt = 1L,
-                    inboxEnabled = true,
-                )
-            roundTrip<Library>(library) shouldBe library
-        }
-
         // ── LibraryFolder ─────────────────────────────────────────────────────
 
         test("LibraryFolder round-trips") {
@@ -102,44 +86,20 @@ class LibraryDtosContractTest :
             roundTrip<LibraryFolderRef>(ref) shouldBe ref
         }
 
-        // ── CreateLibraryRequest ──────────────────────────────────────────────
-
-        test("CreateLibraryRequest round-trips with multiple folder paths") {
-            val request =
-                CreateLibraryRequest(
-                    name = "My Library",
-                    folderPaths = listOf("/data/audiobooks", "/media/books", "/mnt/nas/audio"),
-                    metadataPrecedence = "embedded,abs,sidecar",
-                    skipInbox = true,
-                )
-            roundTrip<CreateLibraryRequest>(request) shouldBe request
-        }
-
-        test("CreateLibraryRequest round-trips with default metadataPrecedence and skipInbox") {
-            val request =
-                CreateLibraryRequest(
-                    name = "Simple Library",
-                    folderPaths = listOf("/data/audiobooks"),
-                )
-            roundTrip<CreateLibraryRequest>(request) shouldBe request
-            request.metadataPrecedence shouldBe null
-            request.skipInbox shouldBe false
-        }
-
         // ── SetupStatus ───────────────────────────────────────────────────────
 
         test("SetupStatus round-trips with needsSetup = true") {
-            val status = SetupStatus(needsSetup = true, libraryCount = 0)
+            val status = SetupStatus(needsSetup = true)
             roundTrip<SetupStatus>(status) shouldBe status
         }
 
-        test("SetupStatus round-trips with needsSetup = false and multiple libraries") {
-            val status = SetupStatus(needsSetup = false, libraryCount = 3)
+        test("SetupStatus round-trips with needsSetup = false") {
+            val status = SetupStatus(needsSetup = false)
             roundTrip<SetupStatus>(status) shouldBe status
         }
 
         test("SetupStatus round-trips with isScanning = true") {
-            val status = SetupStatus(needsSetup = false, libraryCount = 3, isScanning = true)
+            val status = SetupStatus(needsSetup = false, isScanning = true)
             roundTrip<SetupStatus>(status) shouldBe status
         }
 

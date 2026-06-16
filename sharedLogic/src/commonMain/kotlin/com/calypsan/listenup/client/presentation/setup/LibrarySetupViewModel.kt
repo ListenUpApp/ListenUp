@@ -36,7 +36,7 @@ sealed interface LibrarySetupNavAction {
  * - Checking if library setup is needed ([checkLibraryStatus])
  * - Browsing the server filesystem ([browseFilesystem])
  * - Selecting one or more folders to add to THE library
- * - Registering each folder via [addFolderToLibrary] and kicking off the initial scan
+ * - Registering each folder via [addFolder] and kicking off the initial scan
  *
  * Replaces the legacy multi-library loop. There is one library; the wizard selects
  * how many folders it watches.
@@ -209,7 +209,7 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isCreatingLibrary = true, error = null) }
             for (path in current.selectedPaths) {
-                when (val result = libraryAdminRpcFactory.get().addFolderToLibrary(path)) {
+                when (val result = libraryAdminRpcFactory.get().addFolder(path)) {
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         state.update { it.copy(isCreatingLibrary = false, error = result.error.message) }
@@ -227,7 +227,7 @@ class LibrarySetupViewModel(
     /**
      * Kick the first scan off on [appScope] so it outlives the wizard teardown.
      *
-     * Runs on [appScope], not [viewModelScope]: the server's `triggerLibraryScan` suspends
+     * Runs on [appScope], not [viewModelScope]: the server's `scanLibrary` suspends
      * for the full scan, which easily outlives this wizard (it's torn down the moment
      * onboarding finishes and the host navigates to the Shell). Tying it to the wizard's
      * scope would cancel the scan mid-flight. Progress streams to the Shell over SSE;
@@ -235,7 +235,7 @@ class LibrarySetupViewModel(
      */
     private fun triggerInitialScan() {
         appScope.launch {
-            when (val result = libraryAdminRpcFactory.get().triggerLibraryScan()) {
+            when (val result = libraryAdminRpcFactory.get().scanLibrary()) {
                 is AppResult.Success -> logger.info { "Initial scan started" }
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)

@@ -286,7 +286,7 @@ private suspend fun seedLibrary(
         scanOrchestrator = noOpOrchestrator(),
         libraryRegistry = LibraryRegistry(db = db),
     ).copyWith(principal)
-        .addFolderToLibrary(dir.absolutePath)
+        .addFolder(dir.absolutePath)
 }
 
 private fun noOpOrchestrator(): ScanOrchestrator =

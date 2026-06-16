@@ -17,20 +17,20 @@ import kotlinx.rpc.annotations.Rpc
  * that replace the legacy `SetupApiContract` REST surface.
  *
  * The library is server-wide (cross-user). All folder-mutating methods
- * ([addFolderToLibrary], [removeFolder], [scanFolder], [triggerLibraryScan]) and the
+ * ([addFolder], [removeFolder], [scanFolder], [scanLibrary]) and the
  * filesystem-exposing [browseFilesystem] require ROOT/ADMIN; non-admins receive
  * [com.calypsan.listenup.api.error.AuthError.PermissionDenied]. The read-only
- * [fetchLibrary] and [getSetupStatus] stay open to any authenticated caller so
+ * [getLibrary] and [getSetupStatus] stay open to any authenticated caller so
  * members can browse content and the onboarding wizard can run before an admin exists.
  *
  * REST mirrors are defined in
  * [com.calypsan.listenup.api.resources.LibraryResources].
  *
  * Two surface categories:
- * - **Observation + setup** — [fetchLibrary], [getSetupStatus], [browseFilesystem]
+ * - **Observation + setup** — [getLibrary], [getSetupStatus], [browseFilesystem]
  *   are safe to call repeatedly; they read state only.
- * - **Folder lifecycle + scan** — [addFolderToLibrary], [removeFolder],
- *   [triggerLibraryScan], [scanFolder] mutate server state and should be called
+ * - **Folder lifecycle + scan** — [addFolder], [removeFolder],
+ *   [scanLibrary], [scanFolder] mutate server state and should be called
  *   once per user intent.
  */
 @Rpc
@@ -43,7 +43,7 @@ interface LibraryAdminService {
      * In the single-library model there is exactly one library; this resolves it without
      * an id. Open to any authenticated caller.
      */
-    suspend fun fetchLibrary(): AppResult<Library>
+    suspend fun getLibrary(): AppResult<Library>
 
     // ── Setup / onboarding ───────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ interface LibraryAdminService {
      * Validates the path (must exist and be a readable directory). Admin-only —
      * non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
-    suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder>
+    suspend fun addFolder(path: String): AppResult<LibraryFolder>
 
     /**
      * Removes the folder identified by [folderId] and cascade-deletes its books.
@@ -109,7 +109,7 @@ interface LibraryAdminService {
      * Triggers a full scan of THE library. Fire-and-forget: returns once the scan is
      * accepted; progress streams over SSE. Admin-only.
      */
-    suspend fun triggerLibraryScan(): AppResult<Unit>
+    suspend fun scanLibrary(): AppResult<Unit>
 
     /**
      * Triggers an incremental scan of the folder identified by [folderId].

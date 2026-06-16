@@ -43,7 +43,7 @@ class LibraryDomainSeederTest :
             }
         }
 
-        test("seed() registers the demo folder path via addFolderToLibrary") {
+        test("seed() registers the demo folder path via addFolder") {
             withInMemoryDatabase {
                 val fake = FakeLibraryAdminService()
                 val seeder =
@@ -124,7 +124,7 @@ class LibraryDomainSeederTest :
 
 /**
  * Minimal fake [com.calypsan.listenup.api.LibraryAdminService] that records
- * [addFolderToLibrary] calls and optionally returns [LibraryError.DuplicateFolder]
+ * [addFolder] calls and optionally returns [LibraryError.DuplicateFolder]
  * on the second call to simulate the idempotency scenario.
  */
 private class FakeLibraryAdminService(
@@ -132,7 +132,7 @@ private class FakeLibraryAdminService(
 ) : com.calypsan.listenup.api.LibraryAdminService {
     val addFolderCalls = mutableListOf<String>()
 
-    override suspend fun fetchLibrary(): AppResult<Library> =
+    override suspend fun getLibrary(): AppResult<Library> =
         AppResult.Success(
             Library(
                 id = LibraryId("lib-1"),
@@ -150,7 +150,7 @@ private class FakeLibraryAdminService(
 
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> = AppResult.Success(emptyList())
 
-    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
+    override suspend fun addFolder(path: String): AppResult<LibraryFolder> {
         addFolderCalls.add(path)
         if (failSecondAdd && addFolderCalls.size > 1) {
             return AppResult.Failure(LibraryError.DuplicateFolder())
@@ -167,7 +167,7 @@ private class FakeLibraryAdminService(
 
     override suspend fun removeFolder(folderId: FolderId): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun triggerLibraryScan(): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun scanLibrary(): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> = AppResult.Success(Unit)
 }

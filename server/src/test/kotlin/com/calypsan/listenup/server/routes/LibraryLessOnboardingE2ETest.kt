@@ -39,7 +39,7 @@ import kotlinx.serialization.Serializable
  * in a single running process and with no restart:
  *
  *  1. report `needsSetup == true` (no folder yet),
- *  2. accept a wizard `addFolderToLibrary` call (`POST /api/v1/libraries/folders`),
+ *  2. accept a wizard `addFolder` call (`POST /api/v1/libraries/folders`),
  *  3. live-mount + scan the new folder via the already-running `ScanOrchestrator`,
  *  4. serve the scanned books over the always-loaded `/api/v1/sync/books` substrate.
  *

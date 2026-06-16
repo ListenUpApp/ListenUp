@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.AccessMode
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
@@ -27,7 +26,6 @@ private fun contractLibrary(
     id: String = "lib1",
     name: String = "My Library",
     folders: List<LibraryFolderRef> = emptyList(),
-    inboxEnabled: Boolean = false,
 ) = Library(
     id = LibraryId(id),
     name = name,
@@ -36,7 +34,6 @@ private fun contractLibrary(
     accessMode = AccessMode.SHARED,
     createdByUserId = null,
     createdAt = 1_000L,
-    inboxEnabled = inboxEnabled,
 )
 
 /**
@@ -45,9 +42,9 @@ private fun contractLibrary(
  */
 private class FakeLibraryAdminService : LibraryAdminService {
     val libraries = mutableMapOf<String, Library>()
-    var addFolderToLibraryCalls = mutableListOf<String>()
+    var addFolderCalls = mutableListOf<String>()
     var removedFolderIds = mutableListOf<String>()
-    var triggerLibraryScanCount = 0
+    var scanLibraryCount = 0
     var browsePaths = mutableListOf<String>()
     var browseResult: List<DirectoryEntry> = emptyList()
     private var folderSeq = 0
@@ -58,54 +55,17 @@ private class FakeLibraryAdminService : LibraryAdminService {
 
     private fun theLibrary(): Library = libraries.values.first()
 
-    override suspend fun listLibraries(): AppResult<List<Library>> = AppResult.Success(libraries.values.toList())
+    override suspend fun getLibrary(): AppResult<Library> = AppResult.Success(theLibrary())
 
-    override suspend fun getLibrary(id: LibraryId): AppResult<Library?> = AppResult.Success(libraries[id.value])
-
-    override suspend fun fetchLibrary(): AppResult<Library> = AppResult.Success(theLibrary())
-
-    override suspend fun getSetupStatus(): AppResult<SetupStatus> = AppResult.Success(SetupStatus(needsSetup = libraries.isEmpty(), libraryCount = libraries.size))
+    override suspend fun getSetupStatus(): AppResult<SetupStatus> = AppResult.Success(SetupStatus(needsSetup = libraries.isEmpty()))
 
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> {
         browsePaths += path
         return AppResult.Success(browseResult)
     }
 
-    override suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library> {
-        val lib = contractLibrary(id = "new", name = request.name)
-        libraries[lib.id.value] = lib
-        return AppResult.Success(lib)
-    }
-
-    override suspend fun renameLibrary(
-        id: LibraryId,
-        name: String,
-    ): AppResult<Library> {
-        val updated = libraries.getValue(id.value).copy(name = name)
-        libraries[id.value] = updated
-        return AppResult.Success(updated)
-    }
-
-    override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> {
-        libraries.remove(id.value)
-        return AppResult.Success(Unit)
-    }
-
-    override suspend fun addFolder(
-        libraryId: LibraryId,
-        path: String,
-    ): AppResult<LibraryFolder> {
-        val folderId = FolderId("f${folderSeq++}")
-        val existing = libraries.getValue(libraryId.value)
-        libraries[libraryId.value] =
-            existing.copy(folders = existing.folders + LibraryFolderRef(id = folderId, rootPath = path))
-        return AppResult.Success(
-            LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = 1L),
-        )
-    }
-
-    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
-        addFolderToLibraryCalls += path
+    override suspend fun addFolder(path: String): AppResult<LibraryFolder> {
+        addFolderCalls += path
         val lib = theLibrary()
         val folderId = FolderId("f${folderSeq++}")
         libraries[lib.id.value] =
@@ -120,12 +80,8 @@ private class FakeLibraryAdminService : LibraryAdminService {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> {
-        return AppResult.Success(Unit)
-    }
-
-    override suspend fun triggerLibraryScan(): AppResult<Unit> {
-        triggerLibraryScanCount++
+    override suspend fun scanLibrary(): AppResult<Unit> {
+        scanLibraryCount++
         return AppResult.Success(Unit)
     }
 
@@ -177,27 +133,27 @@ class AdminRepositoryImplLibraryTest :
             lib.folders.map { it.rootPath } shouldBe listOf("/audiobooks", null)
         }
 
-        test("addScanPath calls addFolderToLibrary then returns the re-fetched library") {
+        test("addScanPath calls addFolder then returns the re-fetched library") {
             val service = FakeLibraryAdminService()
             service.seed(contractLibrary(id = "lib1"))
             val repo = buildRepo(service)
 
             val result = repo.addScanPath("/new/path")
 
-            service.addFolderToLibraryCalls shouldBe listOf("/new/path")
+            service.addFolderCalls shouldBe listOf("/new/path")
             (result is AppResult.Success) shouldBe true
             val lib = (result as AppResult.Success).data
             lib.folders.map { it.rootPath } shouldBe listOf("/new/path")
         }
 
-        test("triggerScan calls triggerLibraryScan") {
+        test("triggerScan calls scanLibrary") {
             val service = FakeLibraryAdminService()
             service.seed(contractLibrary(id = "lib1"))
             val repo = buildRepo(service)
 
             val result = repo.triggerScan()
 
-            service.triggerLibraryScanCount shouldBe 1
+            service.scanLibraryCount shouldBe 1
             (result is AppResult.Success) shouldBe true
         }
 

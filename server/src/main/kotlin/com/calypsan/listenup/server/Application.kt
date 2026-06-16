@@ -725,7 +725,7 @@ private val SYSTEM_BOOTSTRAP_PRINCIPAL =
  *     (creates a path-less row named "Library" if the DB is empty — idempotent across boots).
  *  2. Seeds [libraryPaths] as folders of the singleton, but ONLY when the library currently
  *     has no folders. This guards against re-adding on subsequent boots while still honoring
- *     the env var on a fresh install. Folders that [addFolderToLibrary] rejects (invalid path,
+ *     the env var on a fresh install. Folders that [addFolder] rejects (invalid path,
  *     duplicate) are logged and skipped — they never crash the bootstrap.
  *  3. Registers the library with [scanOrchestrator] via [ScanOrchestrator.onLibraryAdded] so
  *     the watcher and scanner bundle are warmed up, then kicks off a scan when [rescanOnStartup]
@@ -750,18 +750,18 @@ internal suspend fun bootstrapLibraries(
     libraryRegistry.currentLibrary()
 
     // Seed env paths as folders only when the library has none yet (idempotent across boots).
-    val current = service.fetchLibrary()
+    val current = service.getLibrary()
     val hasFolders = current is AppResult.Success && current.data.folders.isNotEmpty()
     if (!hasFolders) {
         for (path in libraryPaths) {
-            when (val added = service.addFolderToLibrary(path.toString())) {
+            when (val added = service.addFolder(path.toString())) {
                 is AppResult.Failure -> logger.warn { "bootstrap: skipped folder $path — ${added.error.code}" }
                 is AppResult.Success -> logger.info { "bootstrap: seeded folder $path" }
             }
         }
     }
 
-    when (val lib = service.fetchLibrary()) {
+    when (val lib = service.getLibrary()) {
         is AppResult.Success -> {
             scanOrchestrator.onLibraryAdded(lib.data)
             if (rescanOnStartup && lib.data.folders.isNotEmpty()) {

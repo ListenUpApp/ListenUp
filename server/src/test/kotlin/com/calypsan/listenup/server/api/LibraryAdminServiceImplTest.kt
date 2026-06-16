@@ -48,14 +48,14 @@ class LibraryAdminServiceImplTest :
 
         // ── Observation methods ───────────────────────────────────────────────────
 
-        test("fetchLibrary returns the singleton library with its folders") {
+        test("getLibrary returns the singleton library with its folders") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    service.addFolderToLibrary(dir.absolutePath)
+                    service.addFolder(dir.absolutePath)
 
-                    val result = service.fetchLibrary()
+                    val result = service.getLibrary()
                     result.shouldBeInstanceOf<AppResult.Success<Library>>()
                     val library = (result as AppResult.Success).data
                     library.folders shouldHaveSize 1
@@ -64,35 +64,35 @@ class LibraryAdminServiceImplTest :
             }
         }
 
-        test("fetchLibrary returns Failure(NotFound) when the singleton library does not exist") {
+        test("getLibrary returns Failure(NotFound) when the singleton library does not exist") {
             // The registry bootstraps the library on first access; this test verifies the
             // fallthrough path where the library row has been deleted externally.
             // We test by directly checking the result after setup (registry ensures library exists).
-            // In normal operation fetchLibrary always succeeds since the registry ensures the row.
+            // In normal operation getLibrary always succeeds since the registry ensures the row.
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     // No folders yet — but the library exists (singleton bootstrap).
-                    // fetchLibrary succeeds (library has no folders but that's valid).
-                    val result = service.fetchLibrary()
+                    // getLibrary succeeds (library has no folders but that's valid).
+                    val result = service.getLibrary()
                     result.shouldBeInstanceOf<AppResult.Success<Library>>()
                     (result as AppResult.Success).data.folders shouldHaveSize 0
                 }
             }
         }
 
-        test("fetchLibrary redacts folder rootPath for a member but exposes it to an admin") {
+        test("getLibrary redacts folder rootPath for a member but exposes it to an admin") {
             withInMemoryDatabase {
                 val (admin) = makeService(db = this, role = UserRole.ADMIN)
                 val (member) = makeService(db = this, role = UserRole.MEMBER)
                 runTest {
                     val dir = createTempDir()
-                    admin.addFolderToLibrary(dir.absolutePath)
+                    admin.addFolder(dir.absolutePath)
 
-                    val adminView = (admin.fetchLibrary() as AppResult.Success).data
+                    val adminView = (admin.getLibrary() as AppResult.Success).data
                     adminView.folders.first().rootPath shouldBe dir.absolutePath
 
-                    val memberView = (member.fetchLibrary() as AppResult.Success).data
+                    val memberView = (member.getLibrary() as AppResult.Success).data
                     // Count + identity preserved, absolute path redacted.
                     memberView.folders shouldHaveSize 1
                     memberView.folders.first().id shouldBe adminView.folders.first().id
@@ -119,7 +119,7 @@ class LibraryAdminServiceImplTest :
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    service.addFolderToLibrary(dir.absolutePath)
+                    service.addFolder(dir.absolutePath)
 
                     val result = service.getSetupStatus()
                     result.shouldBeInstanceOf<AppResult.Success<SetupStatus>>()
@@ -191,14 +191,14 @@ class LibraryAdminServiceImplTest :
             }
         }
 
-        // ── addFolderToLibrary ────────────────────────────────────────────────────
+        // ── addFolder ───────────────────────────────────────────────────────────────
 
-        test("addFolderToLibrary creates new folder under the singleton") {
+        test("addFolder creates new folder under the singleton") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    val result = service.addFolderToLibrary(dir.absolutePath)
+                    val result = service.addFolder(dir.absolutePath)
                     result.shouldBeInstanceOf<AppResult.Success<LibraryFolder>>()
                     val folder = (result as AppResult.Success).data
                     folder.rootPath shouldBe dir.absolutePath
@@ -206,54 +206,54 @@ class LibraryAdminServiceImplTest :
             }
         }
 
-        test("addFolderToLibrary stamps createdAt from the injected clock") {
+        test("addFolder stamps createdAt from the injected clock") {
             withInMemoryDatabase {
                 val fixed = 1_700_000_000_000L
                 val (service) = makeService(db = this, clock = FixedClock(Instant.fromEpochMilliseconds(fixed)))
                 runTest {
-                    val folder = (service.addFolderToLibrary(createTempDir().absolutePath) as AppResult.Success).data
+                    val folder = (service.addFolder(createTempDir().absolutePath) as AppResult.Success).data
                     folder.createdAt shouldBe fixed
                 }
             }
         }
 
-        test("addFolderToLibrary returns Failure(DuplicateFolder) when path already registered") {
+        test("addFolder returns Failure(DuplicateFolder) when path already registered") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    service.addFolderToLibrary(dir.absolutePath)
+                    service.addFolder(dir.absolutePath)
 
-                    val result = service.addFolderToLibrary(dir.absolutePath)
+                    val result = service.addFolder(dir.absolutePath)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     (result as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.DuplicateFolder>()
                 }
             }
         }
 
-        test("addFolderToLibrary returns Failure(InvalidPath) when path does not exist") {
+        test("addFolder returns Failure(InvalidPath) when path does not exist") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
-                    val result = service.addFolderToLibrary("/no/such/path/xyz")
+                    val result = service.addFolder("/no/such/path/xyz")
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     (result as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.InvalidPath>()
                 }
             }
         }
 
-        test("addFolderToLibrary can add multiple folders to the singleton") {
+        test("addFolder can add multiple folders to the singleton") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir1 = createTempDir()
                     val dir2 = createTempDir()
                     val dir3 = createTempDir()
-                    service.addFolderToLibrary(dir1.absolutePath)
-                    service.addFolderToLibrary(dir2.absolutePath)
-                    service.addFolderToLibrary(dir3.absolutePath)
+                    service.addFolder(dir1.absolutePath)
+                    service.addFolder(dir2.absolutePath)
+                    service.addFolder(dir3.absolutePath)
 
-                    val library = (service.fetchLibrary() as AppResult.Success).data
+                    val library = (service.getLibrary() as AppResult.Success).data
                     library.folders shouldHaveSize 3
                 }
             }
@@ -267,8 +267,8 @@ class LibraryAdminServiceImplTest :
                 runTest {
                     val dir1 = createTempDir()
                     val dir2 = createTempDir()
-                    service.addFolderToLibrary(dir1.absolutePath)
-                    val added = (service.addFolderToLibrary(dir2.absolutePath) as AppResult.Success).data
+                    service.addFolder(dir1.absolutePath)
+                    val added = (service.addFolder(dir2.absolutePath) as AppResult.Success).data
 
                     val result = service.removeFolder(added.id)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -295,21 +295,21 @@ class LibraryAdminServiceImplTest :
 
         // ── Scan triggers ─────────────────────────────────────────────────────────
 
-        test("triggerLibraryScan delegates to scanOrchestrator; returns Success") {
+        test("scanLibrary delegates to scanOrchestrator; returns Success") {
             withInMemoryDatabase {
                 val orchestrator = noOpOrchestrator(this)
                 val (service) = makeService(db = this, orchestrator = orchestrator)
                 runTest {
                     // Add a folder so the orchestrator's onLibraryAdded path runs via
-                    // the service's addFolderToLibrary → onFolderAdded chain. The orchestrator
+                    // the service's addFolder → onFolderAdded chain. The orchestrator
                     // must have the library pre-registered (as bootstrapLibraries does on startup)
                     // before the scan can proceed. Seed it directly here.
                     val dir = createTempDir()
-                    service.addFolderToLibrary(dir.absolutePath)
-                    val library = (service.fetchLibrary() as AppResult.Success).data
+                    service.addFolder(dir.absolutePath)
+                    val library = (service.getLibrary() as AppResult.Success).data
                     orchestrator.onLibraryAdded(library)
 
-                    val result = service.triggerLibraryScan()
+                    val result = service.scanLibrary()
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 }
             }
@@ -320,7 +320,7 @@ class LibraryAdminServiceImplTest :
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    val added = (service.addFolderToLibrary(dir.absolutePath) as AppResult.Success).data
+                    val added = (service.addFolder(dir.absolutePath) as AppResult.Success).data
 
                     val result = service.scanFolder(added.id)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -341,13 +341,13 @@ class LibraryAdminServiceImplTest :
 
         // ── Multi-user: admin-gated structural ops ────────────────────────────────
 
-        test("addFolderToLibrary by a MEMBER is denied with PermissionDenied") {
+        test("addFolder by a MEMBER is denied with PermissionDenied") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this, role = UserRole.MEMBER)
                 runTest {
                     val dir = createTempDir()
                     service
-                        .addFolderToLibrary(dir.absolutePath)
+                        .addFolder(dir.absolutePath)
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<AuthError.PermissionDenied>()
@@ -369,28 +369,28 @@ class LibraryAdminServiceImplTest :
             }
         }
 
-        test("fetchLibrary by a MEMBER is allowed (member library browsing stays open)") {
+        test("getLibrary by a MEMBER is allowed (member library browsing stays open)") {
             withInMemoryDatabase {
                 val (memberService) = makeService(db = this, role = UserRole.MEMBER)
                 val (adminService) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
-                    adminService.addFolderToLibrary(dir.absolutePath)
+                    adminService.addFolder(dir.absolutePath)
 
-                    val result = memberService.fetchLibrary()
+                    val result = memberService.getLibrary()
                     result.shouldBeInstanceOf<AppResult.Success<Library>>()
                     (result as AppResult.Success).data.folders shouldHaveSize 1
                 }
             }
         }
 
-        test("addFolderToLibrary by an ADMIN succeeds") {
+        test("addFolder by an ADMIN succeeds") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
                     service
-                        .addFolderToLibrary(dir.absolutePath)
+                        .addFolder(dir.absolutePath)
                         .shouldBeInstanceOf<AppResult.Success<LibraryFolder>>()
                 }
             }

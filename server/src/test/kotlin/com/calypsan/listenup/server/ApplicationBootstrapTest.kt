@@ -52,7 +52,7 @@ class ApplicationBootstrapTest :
                         rescanOnStartup = false,
                     )
 
-                    val result = service.fetchLibrary()
+                    val result = service.getLibrary()
                     val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
                     library.folders.shouldBeEmpty()
                 }
@@ -75,7 +75,7 @@ class ApplicationBootstrapTest :
                         rescanOnStartup = false,
                     )
 
-                    val result = service.fetchLibrary()
+                    val result = service.getLibrary()
                     val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
                     library.folders shouldHaveSize 2
                     val rootPaths = library.folders.map { it.rootPath }.toSet()
@@ -92,7 +92,7 @@ class ApplicationBootstrapTest :
                 val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
                 val registry = LibraryRegistry(db = db)
                 runTest {
-                    // addFolderToLibrary rejects non-directories via LibraryError.InvalidPath
+                    // addFolder rejects non-directories via LibraryError.InvalidPath
                     bootstrapLibraries(
                         libraryAdminService = service,
                         scanOrchestrator = orchestrator,
@@ -101,7 +101,7 @@ class ApplicationBootstrapTest :
                         rescanOnStartup = false,
                     )
 
-                    val result = service.fetchLibrary()
+                    val result = service.getLibrary()
                     val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
                     // Only the real directory was seeded; the temp file was skipped
                     library.folders shouldHaveSize 1
@@ -136,7 +136,7 @@ class ApplicationBootstrapTest :
                         rescanOnStartup = false,
                     )
 
-                    val result = service2.fetchLibrary()
+                    val result = service2.getLibrary()
                     val library = result.shouldBeInstanceOf<AppResult.Success<Library>>().data
                     // Still exactly one folder — no duplicates
                     library.folders shouldHaveSize 1

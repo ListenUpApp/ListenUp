@@ -16,7 +16,7 @@ import io.ktor.resources.Resource
 class LibraryResources {
     /**
      * `GET /api/v1/libraries` — REST mirror of
-     * [com.calypsan.listenup.api.LibraryAdminService.fetchLibrary].
+     * [com.calypsan.listenup.api.LibraryAdminService.getLibrary].
      *
      * Also serves as the parent anchor for all nested library resource routes.
      */
@@ -47,7 +47,7 @@ class LibraryResources {
     )
 
     /**
-     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.addFolderToLibrary] —
+     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.addFolder] —
      * `POST /api/v1/libraries/folders` registers a new root folder under THE library.
      */
     @Resource("folders")
@@ -80,7 +80,7 @@ class LibraryResources {
     )
 
     /**
-     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.triggerLibraryScan] —
+     * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.scanLibrary] —
      * `POST /api/v1/libraries/scan` triggers a full scan of THE library.
      */
     @Resource("scan")

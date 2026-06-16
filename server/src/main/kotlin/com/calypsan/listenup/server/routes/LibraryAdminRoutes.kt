@@ -34,11 +34,11 @@ import kotlinx.serialization.Serializable
  * `403`; the read routes stay open.
  *
  * Route mapping:
- * - `GET  /api/v1/libraries`                         → [LibraryAdminService.fetchLibrary]
+ * - `GET  /api/v1/libraries`                         → [LibraryAdminService.getLibrary]
  * - `GET  /api/v1/libraries/setup-status`            → [LibraryAdminService.getSetupStatus]
  * - `GET  /api/v1/libraries/browse?path=…`           → [LibraryAdminService.browseFilesystem]
- * - `POST /api/v1/libraries/folders`                 → [LibraryAdminService.addFolderToLibrary]
- * - `POST /api/v1/libraries/scan`                    → [LibraryAdminService.triggerLibraryScan]
+ * - `POST /api/v1/libraries/folders`                 → [LibraryAdminService.addFolder]
+ * - `POST /api/v1/libraries/scan`                    → [LibraryAdminService.scanLibrary]
  * - `DELETE /api/v1/libraries/folders/{folderId}`    → [LibraryAdminService.removeFolder]
  * - `POST /api/v1/libraries/folders/{folderId}/scan` → [LibraryAdminService.scanFolder]
  */
@@ -50,7 +50,7 @@ fun Route.libraryAdminRoutes(service: LibraryAdminService) {
 private fun Route.libraryCollectionRoutes(service: LibraryAdminService) {
     // GET /api/v1/libraries — fetch THE library
     get<LibraryResources.Collection> {
-        when (val result = call.scopedToCaller(service).fetchLibrary()) {
+        when (val result = call.scopedToCaller(service).getLibrary()) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondLibraryError(result.error)
         }
@@ -74,7 +74,7 @@ private fun Route.libraryCollectionRoutes(service: LibraryAdminService) {
 
     // POST /api/v1/libraries/scan — trigger a full scan of THE library
     post<LibraryResources.Scan> {
-        when (val result = call.scopedToCaller(service).triggerLibraryScan()) {
+        when (val result = call.scopedToCaller(service).scanLibrary()) {
             is AppResult.Success -> call.respond(HttpStatusCode.Accepted)
             is AppResult.Failure -> call.respondLibraryError(result.error)
         }
@@ -85,7 +85,7 @@ private fun Route.libraryFolderRoutes(service: LibraryAdminService) {
     // POST /api/v1/libraries/folders — add a folder to THE library
     post<LibraryResources.Folders> {
         val body = call.receive<AddFolderBody>()
-        when (val result = call.scopedToCaller(service).addFolderToLibrary(body.path)) {
+        when (val result = call.scopedToCaller(service).addFolder(body.path)) {
             is AppResult.Success -> call.respond(HttpStatusCode.Created, result.data)
             is AppResult.Failure -> call.respondLibraryError(result.error)
         }
@@ -108,7 +108,7 @@ private fun Route.libraryFolderRoutes(service: LibraryAdminService) {
     }
 }
 
-/** Request body for [LibraryAdminService.addFolderToLibrary]. */
+/** Request body for [LibraryAdminService.addFolder]. */
 @Serializable
 private data class AddFolderBody(
     val path: String,

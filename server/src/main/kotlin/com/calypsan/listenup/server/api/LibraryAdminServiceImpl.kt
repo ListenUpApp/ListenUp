@@ -40,7 +40,7 @@ private val logger = KotlinLogging.logger {}
  * Library structure is ADMIN territory. Every mutating op — add/remove folder,
  * scan triggers — and the filesystem-exposing [browseFilesystem] are gated through
  * [requireAdmin] (ROOT/ADMIN pass; everyone else gets [AuthError.PermissionDenied]).
- * The read-only [fetchLibrary] and [getSetupStatus] stay open to any authenticated
+ * The read-only [getLibrary] and [getSetupStatus] stay open to any authenticated
  * caller: members need to resolve the library for normal content browsing, and the
  * setup status drives first-launch onboarding.
  *
@@ -60,7 +60,7 @@ internal class LibraryAdminServiceImpl(
 ) : LibraryAdminService {
     // ── Observation ──────────────────────────────────────────────────────────
 
-    override suspend fun fetchLibrary(): AppResult<Library> {
+    override suspend fun getLibrary(): AppResult<Library> {
         // Open to any authenticated caller: single-library resolution without an id.
         val id = libraryRegistry.currentLibrary()
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
@@ -122,7 +122,7 @@ internal class LibraryAdminServiceImpl(
 
     // ── Folder lifecycle ─────────────────────────────────────────────────────
 
-    override suspend fun addFolderToLibrary(path: String): AppResult<LibraryFolder> {
+    override suspend fun addFolder(path: String): AppResult<LibraryFolder> {
         requireAdmin()?.let { return AppResult.Failure(it) }
         return addFolderTo(libraryRegistry.currentLibrary(), path)
     }
@@ -192,7 +192,7 @@ internal class LibraryAdminServiceImpl(
 
     // ── Scan triggers ────────────────────────────────────────────────────────
 
-    override suspend fun triggerLibraryScan(): AppResult<Unit> {
+    override suspend fun scanLibrary(): AppResult<Unit> {
         // Admin-only: triggering a scan is a privileged server operation.
         requireAdmin()?.let { return AppResult.Failure(it) }
         return scanOrchestrator.scanLibraryAsync(libraryRegistry.currentLibrary())

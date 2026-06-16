@@ -37,7 +37,7 @@ import kotlinx.coroutines.test.resetMain
  * Covers:
  * - Setup status check on init → `getSetupStatus()` path
  * - Filesystem browsing → `browseFilesystem()` path; parentPath/isRoot derived client-side
- * - [completeSetup] adds each selected folder via [addFolderToLibrary], triggers the scan,
+ * - [completeSetup] adds each selected folder via [addFolder], triggers the scan,
  *   then emits [LibrarySetupNavAction.Finished]
  * - [completeSetup] with no selected paths sets an error and does not finish
  *
@@ -61,8 +61,8 @@ class LibrarySetupViewModelTest :
 
         fun makeService(): LibraryAdminService =
             mock<LibraryAdminService> {
-                // Default: triggerLibraryScan is a no-op success unless a test overrides it.
-                everySuspend { triggerLibraryScan() } returns AppResult.Success(Unit)
+                // Default: scanLibrary is a no-op success unless a test overrides it.
+                everySuspend { scanLibrary() } returns AppResult.Success(Unit)
             }
 
         fun makeFactory(service: LibraryAdminService): LibraryAdminRpcFactory =
@@ -101,7 +101,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
@@ -115,7 +115,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                    AppResult.Success(SetupStatus(needsSetup = true))
                 everySuspend { service.browseFilesystem(any()) } returns
                     AppResult.Success(emptyList())
 
@@ -153,7 +153,7 @@ class LibrarySetupViewModelTest :
                         DirectoryEntry(name = "music", path = "/data/music", hasChildren = false, itemCount = 0),
                     )
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
                 everySuspend { service.browseFilesystem("/data") } returns
                     AppResult.Success(entries)
 
@@ -173,7 +173,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
                 everySuspend { service.browseFilesystem("/") } returns
                     AppResult.Success(emptyList())
 
@@ -192,7 +192,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
                 everySuspend { service.browseFilesystem("/data/audiobooks") } returns
                     AppResult.Success(emptyList())
 
@@ -212,7 +212,7 @@ class LibrarySetupViewModelTest :
                 val service = makeService()
                 val error = InternalError()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
                 everySuspend { service.browseFilesystem(any()) } returns AppResult.Failure(error)
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
@@ -232,9 +232,9 @@ class LibrarySetupViewModelTest :
                 val service = makeService()
                 val folder = makeLibraryFolder()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.addFolderToLibrary(any()) } returns AppResult.Success(folder)
-                everySuspend { service.triggerLibraryScan() } returns AppResult.Success(Unit)
+                    AppResult.Success(SetupStatus(needsSetup = false))
+                everySuspend { service.addFolder(any()) } returns AppResult.Success(folder)
+                everySuspend { service.scanLibrary() } returns AppResult.Success(Unit)
 
                 val appScope = CoroutineScope(testDispatcher)
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), appScope)
@@ -250,9 +250,9 @@ class LibrarySetupViewModelTest :
                     awaitItem() shouldBe LibrarySetupNavAction.Finished
                 }
 
-                verifySuspend { service.addFolderToLibrary("/audio/a") }
-                verifySuspend { service.addFolderToLibrary("/audio/b") }
-                verifySuspend { service.triggerLibraryScan() }
+                verifySuspend { service.addFolder("/audio/a") }
+                verifySuspend { service.addFolder("/audio/b") }
+                verifySuspend { service.scanLibrary() }
             }
         }
 
@@ -260,7 +260,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
@@ -276,13 +276,13 @@ class LibrarySetupViewModelTest :
             }
         }
 
-        test("completeSetup addFolderToLibrary failure sets error and does not finish") {
+        test("completeSetup addFolder failure sets error and does not finish") {
             runTest {
                 val service = makeService()
                 val error = InternalError()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
-                everySuspend { service.addFolderToLibrary(any()) } returns AppResult.Failure(error)
+                    AppResult.Success(SetupStatus(needsSetup = false))
+                everySuspend { service.addFolder(any()) } returns AppResult.Failure(error)
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
@@ -306,7 +306,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
@@ -321,7 +321,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
@@ -337,7 +337,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
@@ -353,7 +353,7 @@ class LibrarySetupViewModelTest :
             runTest {
                 val service = makeService()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()

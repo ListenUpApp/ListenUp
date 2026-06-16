@@ -15,13 +15,13 @@ private val logger = KotlinLogging.logger {}
  * Seeds the demo library — ensures the singleton library has the pre-generated
  * synthetic audiobook folder registered (produced by `:server:generateSeedLibrary`).
  *
- * Writes through [LibraryAdminService.addFolderToLibrary] — the real domain
+ * Writes through [LibraryAdminService.addFolder] — the real domain
  * write-path — so the seeded folder is indistinguishable from one added via the
  * REST surface. The scanner will pick up the pre-generated files once a scan is
  * triggered.
  *
  * Idempotency: [isAlreadySeeded] returns `true` when any active library row exists
- * (the singleton library is always bootstrapped on first access). [addFolderToLibrary]
+ * (the singleton library is always bootstrapped on first access). [addFolder]
  * silently returns [com.calypsan.listenup.api.error.LibraryError.DuplicateFolder] on
  * a second call with the same path; [seed] swallows that so re-running is safe.
  *
@@ -50,13 +50,13 @@ internal class LibraryDomainSeeder(
         }
 
     override suspend fun seed() {
-        when (val result = libraryAdminService.addFolderToLibrary(demoLibraryPath)) {
+        when (val result = libraryAdminService.addFolder(demoLibraryPath)) {
             is AppResult.Success -> {
                 logger.info { "seed [$domainName]: Demo folder registered id=${result.data.id.value} path=$demoLibraryPath" }
             }
 
             is AppResult.Failure -> {
-                logger.warn { "seed [$domainName]: addFolderToLibrary returned ${result.error.code} — skipping" }
+                logger.warn { "seed [$domainName]: addFolder returned ${result.error.code} — skipping" }
             }
         }
     }
