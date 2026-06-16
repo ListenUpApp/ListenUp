@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.api
 
 import app.cash.turbine.test
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -285,8 +284,9 @@ private suspend fun seedLibrary(
         libraryFolderRepository = folderRepo,
         bookRepository = bookRepo,
         scanOrchestrator = noOpOrchestrator(),
+        libraryRegistry = LibraryRegistry(db = db),
     ).copyWith(principal)
-        .createLibrary(CreateLibraryRequest(name = "Default", folderPaths = listOf(dir.absolutePath)))
+        .addFolder(dir.absolutePath)
 }
 
 private fun noOpOrchestrator(): ScanOrchestrator =

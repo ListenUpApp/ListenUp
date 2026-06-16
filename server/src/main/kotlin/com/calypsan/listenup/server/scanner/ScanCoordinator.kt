@@ -82,6 +82,9 @@ internal class ScanCoordinator(
     /** True while a scan currently holds this library's single-flight lock. */
     fun isScanning(): Boolean = mutex.isLocked
 
+    /** True after [close] has been called. Used in tests to verify teardown. */
+    fun isChannelClosed(): Boolean = incrementalChannel.isClosedForSend
+
     suspend fun scanFull(): AppResult<ScanResult> {
         if (!mutex.tryLock()) {
             return AppResult.Failure(ScanError.AlreadyRunning())
@@ -126,5 +129,17 @@ internal class ScanCoordinator(
             val sent = incrementalChannel.trySend(bookRoot).isSuccess
             if (!sent) pendingPaths.remove(bookRoot)
         }
+    }
+
+    /**
+     * Releases this coordinator's own resources: closes [incrementalChannel], which
+     * causes the `for (path in incrementalChannel)` worker to drain and exit its loop,
+     * ending the coroutine launched in the constructor without cancelling the shared
+     * application [scope].
+     *
+     * Safe to call more than once — [Channel.close] is idempotent.
+     */
+    fun close() {
+        incrementalChannel.close()
     }
 }

@@ -382,7 +382,7 @@ data class GenreEntity(
     tableName = "activities",
     indices = [
         Index(value = ["userId"]),
-        Index(value = ["createdAt"]),
+        Index(value = ["occurredAt"]),
     ],
 )
 data class ActivityEntity(
@@ -392,8 +392,8 @@ data class ActivityEntity(
     val userId: String,
     /** Activity type: started_book, finished_book, streak_milestone, listening_milestone, shelf_created, listening_session */
     val type: String,
-    /** When the activity was created (epoch ms) */
-    val createdAt: Long,
+    /** When the activity occurred (epoch ms) */
+    val occurredAt: Long,
     // Denormalized user info for offline display
     val userDisplayName: String,
     val userAvatarColor: String,

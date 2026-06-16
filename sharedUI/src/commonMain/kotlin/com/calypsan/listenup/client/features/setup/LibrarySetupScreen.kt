@@ -31,15 +31,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -59,14 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.library_setup_add_another_folder
 import listenup.composeapp.generated.resources.library_setup_choose_audiobook_folders
 import listenup.composeapp.generated.resources.library_setup_choose_folders_title
-import listenup.composeapp.generated.resources.library_setup_library_created
 import listenup.composeapp.generated.resources.library_setup_no_subfolders_here
 import listenup.composeapp.generated.resources.library_setup_no_subfolders_select_hint
 import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
-import listenup.composeapp.generated.resources.library_setup_scanned_shortly
 import listenup.composeapp.generated.resources.library_setup_select_one_or_more
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.api.dto.DirectoryEntry
@@ -75,8 +66,6 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.FolderRow
-import com.calypsan.listenup.client.features.setup.components.LibrarySummaryCard
-import com.calypsan.listenup.client.features.setup.components.ScallopBadge
 import com.calypsan.listenup.client.features.setup.components.SetupBreadcrumb
 import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
@@ -85,12 +74,12 @@ import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Library-setup wizard — choose audiobook folders, create a library, then confirm.
+ * Library-setup wizard — choose audiobook folders, then confirm.
  *
  * Adaptive from the actual available width (via [BoxWithConstraints]): a phone shell
- * below [TwoPaneMinWidth], a brand/content split panel at or above it. Supports the
- * multi-library loop driven by [LibrarySetupViewModel.navActions]; this is a visual
- * redesign over unchanged state.
+ * below [TwoPaneMinWidth], a brand/content split panel at or above it. The single
+ * primary action is [LibrarySetupViewModel.completeSetup] which registers all selected
+ * folders and navigates away via [LibrarySetupNavAction.Finished].
  */
 @Composable
 fun LibrarySetupScreen(
@@ -103,7 +92,6 @@ fun LibrarySetupScreen(
     LaunchedEffect(Unit) {
         viewModel.navActions.collect { action ->
             when (action) {
-                is LibrarySetupNavAction.LibraryCreated -> Unit
                 LibrarySetupNavAction.Finished -> onSetupComplete()
             }
         }
@@ -114,40 +102,32 @@ fun LibrarySetupScreen(
         if (state.error != null) viewModel.clearError()
     }
 
-    val showConfirmation = state.createdLibraries.isNotEmpty() && state.selectedPaths.isEmpty()
-
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         BoxWithConstraints {
             val isWide = maxWidth >= TwoPaneMinWidth
             when {
-                state.isCheckingStatus || (!state.needsSetup && !showConfirmation) -> {
+                state.isCheckingStatus || !state.needsSetup -> {
                     FullScreenLoadingIndicator()
                 }
 
                 isWide -> {
                     DesktopLayout(
                         state = state,
-                        showConfirmation = showConfirmation,
                         onOpen = viewModel::loadDirectory,
                         onToggle = viewModel::togglePath,
                         onSelectCurrent = { viewModel.selectPath(state.currentPath) },
                         onBack = viewModel::navigateUp,
-                        onContinue = viewModel::createLibrary,
-                        onAddAnother = { viewModel.loadDirectory("/") },
-                        onDone = viewModel::finishOnboarding,
+                        onContinue = viewModel::completeSetup,
                     )
                 }
 
                 else -> {
                     PhoneLayout(
                         state = state,
-                        showConfirmation = showConfirmation,
                         onOpen = viewModel::loadDirectory,
                         onToggle = viewModel::togglePath,
                         onSelectCurrent = { viewModel.selectPath(state.currentPath) },
-                        onContinue = viewModel::createLibrary,
-                        onAddAnother = { viewModel.loadDirectory("/") },
-                        onDone = viewModel::finishOnboarding,
+                        onContinue = viewModel::completeSetup,
                     )
                 }
             }
@@ -160,18 +140,11 @@ fun LibrarySetupScreen(
 @Composable
 private fun PhoneLayout(
     state: LibrarySetupUiState,
-    showConfirmation: Boolean,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,
     onContinue: () -> Unit,
-    onAddAnother: () -> Unit,
-    onDone: () -> Unit,
 ) {
-    if (showConfirmation) {
-        ConfirmationContent(state = state, onDone = onDone, onAddAnother = onAddAnother, wide = false)
-        return
-    }
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier =
@@ -282,14 +255,11 @@ private fun DockedSelectionBar(
 @Composable
 private fun DesktopLayout(
     state: LibrarySetupUiState,
-    showConfirmation: Boolean,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
-    onAddAnother: () -> Unit,
-    onDone: () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(modifier = Modifier.fillMaxHeight()) {
@@ -336,18 +306,14 @@ private fun DesktopLayout(
                     .systemBarsPadding()
                     .padding(48.dp),
         ) {
-            if (showConfirmation) {
-                ConfirmationContent(state = state, onDone = onDone, onAddAnother = onAddAnother, wide = true)
-            } else {
-                DesktopPickerPanel(
-                    state = state,
-                    onOpen = onOpen,
-                    onToggle = onToggle,
-                    onSelectCurrent = onSelectCurrent,
-                    onBack = onBack,
-                    onContinue = onContinue,
-                )
-            }
+            DesktopPickerPanel(
+                state = state,
+                onOpen = onOpen,
+                onToggle = onToggle,
+                onSelectCurrent = onSelectCurrent,
+                onBack = onBack,
+                onContinue = onContinue,
+            )
         }
     }
 }
@@ -547,126 +513,5 @@ private fun EmptyFolder(
         )
         Spacer(Modifier.height(24.dp))
         ListenUpButton(text = "Select this folder", onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
-    }
-}
-
-@Composable
-private fun ConfirmationContent(
-    state: LibrarySetupUiState,
-    onDone: () -> Unit,
-    onAddAnother: () -> Unit,
-    wide: Boolean,
-) {
-    val library = state.createdLibraries.last()
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(horizontal = if (wide) 0.dp else 26.dp)
-                .verticalScroll(rememberScrollState()),
-        horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally,
-    ) {
-        if (!wide) Spacer(Modifier.height(40.dp))
-        Box {
-            ScallopBadge(size = if (wide) 108.dp else 132.dp, fill = MaterialTheme.colorScheme.tertiaryContainer) {
-                Icon(
-                    imageVector = Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(if (wide) 56.dp else 66.dp),
-                )
-            }
-            ScallopBadge(
-                size = if (wide) 40.dp else 44.dp,
-                fill = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(if (wide) 20.dp else 22.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(28.dp))
-        Text(
-            text = stringResource(Res.string.library_setup_library_created),
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = stringResource(Res.string.library_setup_scanned_shortly),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(max = 360.dp),
-        )
-        Spacer(Modifier.height(28.dp))
-        LibrarySummaryCard(
-            name = library.name,
-            folderCount = library.folders.size,
-            firstPath = library.folders.firstOrNull()?.rootPath,
-            modifier = Modifier.widthIn(max = 460.dp),
-        )
-        Spacer(Modifier.height(30.dp))
-        ConfirmationActions(onDone = onDone, onAddAnother = onAddAnother, wide = wide)
-        Spacer(Modifier.height(6.dp))
-    }
-}
-
-@Composable
-private fun ConfirmationActions(
-    onDone: () -> Unit,
-    onAddAnother: () -> Unit,
-    wide: Boolean,
-) {
-    if (wide) {
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            ListenUpButton(
-                text = "Done",
-                onClick = onDone,
-                fillMaxWidth = false,
-                leadingIcon = Icons.Rounded.CheckCircle,
-            )
-            ListenUpButton(
-                text = stringResource(Res.string.library_setup_add_another_folder),
-                onClick = onAddAnother,
-                filled = false,
-                fillMaxWidth = false,
-                leadingIcon = Icons.Rounded.Add,
-            )
-        }
-    } else {
-        Column(
-            modifier = Modifier.fillMaxWidth().widthIn(max = 460.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            ListenUpButton(
-                text = "Done",
-                onClick = onDone,
-                leadingIcon = Icons.Rounded.CheckCircle,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onAddAnother).padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(Res.string.library_setup_add_another_folder),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
     }
 }

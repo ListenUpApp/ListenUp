@@ -163,51 +163,34 @@ interface AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Get all libraries.
+     * Get THE library (single-library model).
      *
-     * @return [AppResult] carrying list of all libraries, or a failure.
-     */
-    suspend fun getLibraries(): AppResult<List<Library>>
-
-    /**
-     * Get a specific library.
-     *
-     * @param libraryId The library ID
      * @return [AppResult] carrying the library, or a failure.
      */
-    suspend fun getLibrary(libraryId: String): AppResult<Library>
+    suspend fun getLibrary(): AppResult<Library>
 
     /**
-     * Add a scan path to a library.
+     * Add a scan path to THE library.
      *
-     * @param libraryId The library ID
      * @param path Absolute filesystem path to add
      * @return [AppResult] carrying the updated library, or a failure.
      */
-    suspend fun addScanPath(
-        libraryId: String,
-        path: String,
-    ): AppResult<Library>
+    suspend fun addScanPath(path: String): AppResult<Library>
 
     /**
-     * Remove a folder from a library by its folder id, cascade-deleting its books.
+     * Remove a folder from THE library by its folder id, cascade-deleting its books.
      *
-     * @param libraryId The library the folder belongs to (used to re-fetch the updated aggregate).
      * @param folderId The folder id to remove.
      * @return [AppResult] carrying the updated library, or a failure.
      */
-    suspend fun removeFolder(
-        libraryId: String,
-        folderId: String,
-    ): AppResult<Library>
+    suspend fun removeFolder(folderId: String): AppResult<Library>
 
     /**
-     * Trigger a manual library rescan.
+     * Trigger a manual rescan of THE library.
      *
-     * @param libraryId The library ID
      * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun triggerScan(libraryId: String): AppResult<Unit>
+    suspend fun triggerScan(): AppResult<Unit>
 
     /**
      * Browse the server filesystem.

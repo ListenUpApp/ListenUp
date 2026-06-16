@@ -45,9 +45,8 @@ internal class ScannerServiceImpl(
         orchestrator.lastResult(resolveLibraryId())?.let { AppResult.Success(it) }
             ?: AppResult.Failure(ScanError.LibraryPathNotConfigured())
 
-    override fun observeProgress(libraryId: LibraryId?): Flow<RpcEvent<ScanEvent>> =
+    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> =
         eventBus
-            .let { bus -> if (libraryId != null) bus.filter { it.libraryId == libraryId } else bus }
             // Progress monitoring needs only the lightweight lifecycle/progress events. Each
             // [ScanEvent.Change] carries a full [AnalyzedBook] (metadata + artwork) — a 1000-book
             // scan would stream multi-MB frames and OOM a subscriber that just wants progress.

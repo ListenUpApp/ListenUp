@@ -169,6 +169,7 @@ class ForceReconcileWhileActiveTest :
                             listeningEventRecorder = recorder,
                             scannerRpcFactory = scannerRpcFactory,
                             bookDao = db.bookDao(),
+                            listeningEventDao = db.listeningEventDao(),
                             ftsPopulator = ftsPopulator,
                             scope = scope,
                         )

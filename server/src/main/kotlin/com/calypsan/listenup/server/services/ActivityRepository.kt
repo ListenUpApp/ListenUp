@@ -18,12 +18,16 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * `started_book` row fills [bookId], a `shelf_created` row fills [shelfId] + [shelfName], a
  * milestone row fills [milestoneValue] + [milestoneUnit]. The service layer joins identity,
  * ACL-filters, and projects this onto the wire `ActivityEvent`.
+ *
+ * [occurredAt] is the real event time; the feed orders and displays by it. [createdAt] is the
+ * insertion audit timestamp retained for diagnostics.
  */
 data class ActivityRow(
     val id: String,
     val userId: String,
     val type: String,
     val createdAt: Long,
+    val occurredAt: Long,
     val bookId: String?,
     val isReread: Boolean,
     val durationMs: Long,
@@ -57,14 +61,17 @@ class ActivityRepository(
         milestoneUnit: String? = null,
         shelfId: String? = null,
         shelfName: String? = null,
+        occurredAt: Long? = null,
     ): String =
         suspendTransaction(db) {
+            val now = clock.now().toEpochMilliseconds()
             val rowId = Uuid.random().toString()
             ActivitiesTable.insert {
                 it[ActivitiesTable.id] = rowId
                 it[ActivitiesTable.userId] = userId
                 it[ActivitiesTable.type] = type
-                it[ActivitiesTable.createdAt] = clock.now().toEpochMilliseconds()
+                it[ActivitiesTable.createdAt] = now
+                it[ActivitiesTable.occurredAt] = occurredAt ?: now
                 it[ActivitiesTable.bookId] = bookId
                 it[ActivitiesTable.isReread] = isReread
                 it[ActivitiesTable.durationMs] = durationMs
@@ -77,7 +84,7 @@ class ActivityRepository(
         }
 
     /**
-     * Raw most-recent-first page (`created_at < before` when set, for keyset pagination); the
+     * Raw most-recent-first page (`occurred_at < before` when set, for keyset pagination); the
      * service ACL-filters and overfetches on top of this.
      */
     suspend fun page(
@@ -86,9 +93,9 @@ class ActivityRepository(
     ): List<ActivityRow> =
         suspendTransaction(db) {
             val query = ActivitiesTable.selectAll()
-            val filtered = if (before != null) query.where { ActivitiesTable.createdAt less before } else query
+            val filtered = if (before != null) query.where { ActivitiesTable.occurredAt less before } else query
             filtered
-                .orderBy(ActivitiesTable.createdAt, SortOrder.DESC)
+                .orderBy(ActivitiesTable.occurredAt to SortOrder.DESC, ActivitiesTable.id to SortOrder.DESC)
                 .limit(limit)
                 .map { it.toRow() }
         }
@@ -99,6 +106,7 @@ class ActivityRepository(
             userId = this[ActivitiesTable.userId],
             type = this[ActivitiesTable.type],
             createdAt = this[ActivitiesTable.createdAt],
+            occurredAt = this[ActivitiesTable.occurredAt],
             bookId = this[ActivitiesTable.bookId],
             isReread = this[ActivitiesTable.isReread],
             durationMs = this[ActivitiesTable.durationMs],

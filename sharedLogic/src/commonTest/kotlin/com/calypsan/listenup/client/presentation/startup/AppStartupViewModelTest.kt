@@ -163,7 +163,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.refreshCurrentUser() } returns adminUser
                 everySuspend { userRepository.getCurrentUser() } returns adminUser
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                    AppResult.Success(SetupStatus(needsSetup = true))
 
                 // When
                 val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
@@ -190,7 +190,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.refreshCurrentUser() } returns adminUser
                 everySuspend { userRepository.getCurrentUser() } returns adminUser
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                    AppResult.Success(SetupStatus(needsSetup = true))
                 val authState = MutableStateFlow<AuthState>(AuthState.NeedsLogin(openRegistration = false))
                 val authSession = mock<AuthSession>()
                 every { authSession.authState } returns authState
@@ -319,7 +319,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.refreshCurrentUser() } returns adminUser
                 everySuspend { userRepository.getCurrentUser() } returns adminUser
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                    AppResult.Success(SetupStatus(needsSetup = true))
 
                 // When
                 val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
@@ -370,7 +370,7 @@ class AppStartupViewModelTest :
 
                 // Flip the stub to success and retry
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 // When
                 viewModel.retryLibrarySetupCheck()
@@ -393,7 +393,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.refreshCurrentUser() } returns adminUser
                 everySuspend { userRepository.getCurrentUser() } returns adminUser
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                    AppResult.Success(SetupStatus(needsSetup = true))
 
                 val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
                 advanceUntilIdle()

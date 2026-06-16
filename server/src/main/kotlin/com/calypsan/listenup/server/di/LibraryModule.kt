@@ -45,6 +45,7 @@ fun libraryModule(): Module =
                 libraryFolderRepository = get(),
                 bookRepository = get(),
                 scanOrchestrator = get(),
+                libraryRegistry = get(),
                 clock = get(),
             )
         }

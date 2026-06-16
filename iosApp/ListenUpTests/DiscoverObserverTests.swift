@@ -122,7 +122,7 @@ struct ActivityFeedObserverTests {
             id: "a1",
             userId: "u1",
             type: type,
-            createdAt: 1_609_459_200_000,
+            occurredAt: 1_609_459_200_000,
             userDisplayName: "Marcus Lee",
             userAvatarColor: "#2E8BFF",
             userAvatarType: "initials",

@@ -68,7 +68,7 @@ private fun sampleRoutes(): List<Route> =
         add(AdminInbox)
         add(AdminCategories)
         add(AdminUserDetail(userId = "test-user-id"))
-        add(AdminLibrarySettings(libraryId = "test-library-id"))
+        add(AdminLibrarySettings)
 
         // Admin Backup
         add(AdminBackups)

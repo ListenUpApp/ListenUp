@@ -14,7 +14,7 @@ class ActivityDtosTest :
                     displayName = "Alice",
                     avatarType = "auto",
                     type = "finished_book",
-                    createdAtMs = 100L,
+                    occurredAtMs = 100L,
                     bookId = "b1",
                     isReread = false,
                     durationMs = 0L,

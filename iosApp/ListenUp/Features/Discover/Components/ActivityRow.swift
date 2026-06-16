@@ -13,7 +13,7 @@ struct ActivityRow: View {
     }()
 
     private var timeLabel: String {
-        Self.relativeFormatter.localizedString(for: item.createdAt, relativeTo: Date())
+        Self.relativeFormatter.localizedString(for: item.occurredAt, relativeTo: Date())
     }
 
     var body: some View {

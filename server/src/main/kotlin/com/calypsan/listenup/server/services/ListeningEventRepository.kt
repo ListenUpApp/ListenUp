@@ -79,6 +79,7 @@ class ListeningEventRepository(
                     ActivityType.LISTENING_SESSION,
                     bookId = value.bookId,
                     durationMs = value.endedAt - value.startedAt,
+                    occurredAt = value.endedAt,
                 )
             }
             result

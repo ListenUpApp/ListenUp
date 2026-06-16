@@ -105,7 +105,7 @@ class LibraryReadinessTest :
             runTest(dispatcher) {
                 val service = mock<LibraryAdminService>()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+                    AppResult.Success(SetupStatus(needsSetup = true))
                 val scanning = MutableStateFlow(false)
                 // Start unauthenticated so the setup check fires on the transition, as in real launch.
                 val authState = MutableStateFlow<AuthState>(AuthState.NeedsLogin(openRegistration = false))
@@ -144,7 +144,7 @@ class LibraryReadinessTest :
             runTest(dispatcher) {
                 val service = mock<LibraryAdminService>()
                 everySuspend { service.getSetupStatus() } returns
-                    AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+                    AppResult.Success(SetupStatus(needsSetup = false))
 
                 val vm =
                     AppStartupViewModel(

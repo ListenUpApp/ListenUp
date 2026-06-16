@@ -1,4 +1,4 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlin.time.ExperimentalTime::class)
 
 package com.calypsan.listenup.server.services
 
@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.ListeningEventId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -16,6 +17,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -189,20 +191,59 @@ class ListeningEventRepositoryTest :
                 }
             }
         }
+
+        // Regression: imported listening sessions (whose real end time is in the past) were
+        // stamped at clock.now() (import time) instead of the session's real endedAt.
+        // The feed orders by occurred_at, so import sessions landed at import time in the feed
+        // rather than at their actual play date.
+        test("imported listening session stamps the activity at the session's real end time") {
+            withInMemoryDatabase {
+                val realEndedAt = 1_000_000L
+                val fixedNow = 9_999_999_999L
+                val fixedClock = FixedClock(Instant.fromEpochMilliseconds(fixedNow))
+                val activities = ActivityRepository(db = this, clock = fixedClock)
+                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val repo =
+                    ListeningEventRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        clock = fixedClock,
+                        activityRecorder = recorder,
+                    )
+                runTest {
+                    val payload =
+                        listeningEventPayload(
+                            "evt-import-1",
+                            "book-import-1",
+                            startedAt = realEndedAt - 60_000L,
+                            endedAt = realEndedAt,
+                        )
+                    repo.upsert(payload, clientOpId = null, userId = "u-import")
+
+                    val activity =
+                        activities.page(before = null, limit = 10).single { it.type == ActivityType.LISTENING_SESSION }
+                    activity.occurredAt shouldBe realEndedAt
+                    activity.createdAt shouldBe fixedNow
+                }
+            }
+        }
     })
 
 private fun listeningEventPayload(
     id: String,
     bookId: String,
     startPositionMs: Long = 0L,
+    startedAt: Long = 1_730_000_000_000L,
+    endedAt: Long = 1_730_000_060_000L,
 ): ListeningEventSyncPayload =
     ListeningEventSyncPayload(
         id = id,
         bookId = bookId,
         startPositionMs = startPositionMs,
         endPositionMs = startPositionMs + 60_000L,
-        startedAt = 1_730_000_000_000L,
-        endedAt = 1_730_000_060_000L,
+        startedAt = startedAt,
+        endedAt = endedAt,
         playbackSpeed = 1.0f,
         tz = "Europe/London",
         deviceLabel = null,

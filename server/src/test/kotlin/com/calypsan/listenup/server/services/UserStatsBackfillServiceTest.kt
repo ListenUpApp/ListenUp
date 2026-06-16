@@ -126,8 +126,66 @@ class UserStatsBackfillServiceTest :
                     //              -29d=Apr-23, -20d=May-02, -10d=May-12, -5d=May-17,
                     //              -3d=May-19, -2d=May-20
                     // Apr-19→Apr-20→Apr-21 forms a 3-day streak (longestStreak = 3).
-                    // Last two events May-19→May-20 form a 2-day streak (currentStreak = 2).
-                    stats.currentStreakDays shouldBe 2
+                    // Last event is May-20; today (clock) is May-22 — neither today nor yesterday →
+                    // currentStreak lapses to 0.
+                    stats.currentStreakDays shouldBe 0
+                    stats.longestStreakDays shouldBe 3
+                }
+            }
+        }
+
+        test("backfill: an old-only import yields currentStreak 0 but keeps longest + total") {
+            withInMemoryDatabase {
+                val db = this
+                val clock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
+                val bus = ChangeBus()
+                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = SyncRegistry(), clock = clock)
+                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo, clock = clock)
+
+                runTest {
+                    // 3 consecutive days, all ~90 days before "now" (well outside today/yesterday window).
+                    // day-90, day-89, day-88 → consecutive 3-day run → longestStreak = 3.
+                    // Last event is day-88 ago — neither today nor yesterday → currentStreak should lapse to 0.
+                    val base = nowMs - 90 * dayMs
+                    listOf(
+                        event("e1", "book-a", endedAtMs = base, wallSeconds = 60L),
+                        event("e2", "book-a", endedAtMs = base + dayMs, wallSeconds = 60L),
+                        event("e3", "book-a", endedAtMs = base + 2 * dayMs, wallSeconds = 60L),
+                    ).forEach { eventRepo.upsert(it, clientOpId = null, userId = "u1") }
+
+                    backfillService.backfillFor("u1")
+
+                    val stats = statsRepo.getForUser("u1").shouldNotBeNull()
+                    stats.currentStreakDays shouldBe 0
+                    stats.longestStreakDays shouldBe 3
+                    stats.totalSecondsAllTime shouldBe 180L
+                }
+            }
+        }
+
+        test("backfill: events ending today keep the current streak") {
+            withInMemoryDatabase {
+                val db = this
+                val clock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
+                val bus = ChangeBus()
+                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = SyncRegistry(), clock = clock)
+                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo, clock = clock)
+
+                runTest {
+                    // 3 consecutive days ending today (nowMs is 2026-05-22 12:00 UTC).
+                    // day-2, day-1, today → consecutive → currentStreak = 3.
+                    listOf(
+                        event("e1", "book-a", endedAtMs = nowMs - 2 * dayMs, wallSeconds = 60L),
+                        event("e2", "book-a", endedAtMs = nowMs - dayMs, wallSeconds = 60L),
+                        event("e3", "book-a", endedAtMs = nowMs, wallSeconds = 60L),
+                    ).forEach { eventRepo.upsert(it, clientOpId = null, userId = "u1") }
+
+                    backfillService.backfillFor("u1")
+
+                    val stats = statsRepo.getForUser("u1").shouldNotBeNull()
+                    stats.currentStreakDays shouldBe 3
                     stats.longestStreakDays shouldBe 3
                 }
             }
