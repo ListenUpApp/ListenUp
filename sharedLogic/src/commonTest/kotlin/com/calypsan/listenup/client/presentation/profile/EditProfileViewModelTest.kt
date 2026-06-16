@@ -2,9 +2,10 @@ package com.calypsan.listenup.client.presentation.profile
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
@@ -17,7 +18,6 @@ import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,13 +62,14 @@ class EditProfileViewModelTest :
 
         fun TestScope.createFixture(): TestFixture = TestFixture()
 
+        /** Subscribe to state so stateIn(WhileSubscribed) stays hot throughout the test. */
         fun TestScope.keepStateHot(viewModel: EditProfileViewModel) {
             backgroundScope.launch { viewModel.state.collect { } }
         }
 
         fun createUser(
             id: String = "user-1",
-            displayName: String = "Alice",
+            displayName: String = "Alice Smith",
             firstName: String? = "Alice",
             lastName: String? = "Smith",
             tagline: String? = "Hello world",
@@ -99,11 +100,12 @@ class EditProfileViewModelTest :
             Dispatchers.resetMain()
         }
 
+        // ── Initial state ─────────────────────────────────────────────────────
+
         test("initial state is Loading before pipeline emits") {
             runTest {
                 val fixture = createFixture().apply { configure(currentUser = null) }
                 val viewModel = fixture.build()
-                // No keepStateHot here — stateIn with no subscriber returns the initial value.
 
                 viewModel.state.value shouldBe EditProfileUiState.Loading
             }
@@ -121,7 +123,7 @@ class EditProfileViewModelTest :
             }
         }
 
-        test("state emits Ready when user is present") {
+        test("state emits Ready when user is present with form seeded from user") {
             runTest {
                 val user = createUser()
                 val fixture = createFixture().apply { configure(currentUser = user) }
@@ -131,14 +133,19 @@ class EditProfileViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
                 ready.user shouldBe user
+                ready.firstName shouldBe "Alice"
+                ready.lastName shouldBe "Smith"
+                ready.tagline shouldBe "Hello world"
                 ready.isSaving shouldBe false
+                ready.isDirty shouldBe false
             }
         }
 
         test("Ready reflects cached avatar path when avatar is an image") {
             runTest {
                 val user = createUser(avatarType = "image", avatarValue = "avatar.jpg")
-                val fixture = createFixture().apply { configure(currentUser = user, isAvatarCached = true) }
+                val fixture =
+                    createFixture().apply { configure(currentUser = user, isAvatarCached = true) }
                 val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
@@ -148,137 +155,9 @@ class EditProfileViewModelTest :
             }
         }
 
-        test("saveTagline success emits TaglineSaved and toggles isSaving") {
-            runTest {
-                val user = createUser(tagline = null)
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.updateTagline(any()) } returns AppResult.Success(Unit)
-                    }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
+        // ── isDirty ───────────────────────────────────────────────────────────
 
-                viewModel.events.test {
-                    viewModel.saveTagline("new tagline")
-                    advanceUntilIdle()
-                    awaitItem() shouldBe EditProfileEvent.TaglineSaved
-                }
-                verifySuspend { fixture.profileEditRepository.updateTagline("new tagline") }
-                (viewModel.state.value as EditProfileUiState.Ready).isSaving shouldBe false
-            }
-        }
-
-        test("saveTagline normalizes empty to null and truncates at max length") {
-            runTest {
-                val user = createUser()
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.updateTagline(any()) } returns AppResult.Success(Unit)
-                    }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
-
-                viewModel.saveTagline("")
-                advanceUntilIdle()
-                verifySuspend { fixture.profileEditRepository.updateTagline(null) }
-
-                val longTagline = "x".repeat(EditProfileViewModel.MAX_TAGLINE_LENGTH + 10)
-                viewModel.saveTagline(longTagline)
-                advanceUntilIdle()
-                verifySuspend {
-                    fixture.profileEditRepository.updateTagline("x".repeat(EditProfileViewModel.MAX_TAGLINE_LENGTH))
-                }
-            }
-        }
-
-        test("saveTagline failure emits SaveFailed") {
-            runTest {
-                val user = createUser()
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.updateTagline(any()) } returns
-                            AppResult.Failure(InternalError(debugInfo = "db error"))
-                    }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
-
-                viewModel.events.test {
-                    viewModel.saveTagline("new")
-                    advanceUntilIdle()
-                    val event = awaitItem().shouldBeInstanceOf<EditProfileEvent.SaveFailed>()
-                    event.message shouldBe "Failed to save tagline"
-                }
-            }
-        }
-
-        test("saveName success emits NameSaved") {
-            runTest {
-                val user = createUser()
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.updateName(any(), any()) } returns AppResult.Success(Unit)
-                    }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
-
-                viewModel.events.test {
-                    viewModel.saveName("Bob", "Jones")
-                    advanceUntilIdle()
-                    awaitItem() shouldBe EditProfileEvent.NameSaved
-                }
-                verifySuspend { fixture.profileEditRepository.updateName("Bob", "Jones") }
-            }
-        }
-
-        test("uploadAvatar success emits AvatarUpdated") {
-            runTest {
-                val user = createUser()
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.uploadAvatar(any(), any()) } returns AppResult.Success(Unit)
-                    }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
-
-                viewModel.events.test {
-                    viewModel.uploadAvatar(byteArrayOf(1, 2, 3), "image/jpeg")
-                    advanceUntilIdle()
-                    awaitItem() shouldBe EditProfileEvent.AvatarUpdated
-                }
-            }
-        }
-
-        test("revertToAutoAvatar success emits AvatarUpdated") {
-            runTest {
-                val user = createUser()
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.revertToAutoAvatar() } returns AppResult.Success(Unit)
-                    }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
-
-                viewModel.events.test {
-                    viewModel.revertToAutoAvatar()
-                    advanceUntilIdle()
-                    awaitItem() shouldBe EditProfileEvent.AvatarUpdated
-                }
-            }
-        }
-
-        test("changePassword rejects passwords shorter than minimum") {
+        test("isDirty is false initially") {
             runTest {
                 val user = createUser()
                 val fixture = createFixture().apply { configure(currentUser = user) }
@@ -286,74 +165,297 @@ class EditProfileViewModelTest :
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
+                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe false
+            }
+        }
+
+        test("isDirty becomes true after setTagline changes the tagline") {
+            runTest {
+                val user = createUser(tagline = "original")
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.setTagline("updated tagline")
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe true
+            }
+        }
+
+        test("isDirty becomes true after any password field is set") {
+            runTest {
+                val user = createUser()
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.setNewPassword("somepass1")
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe true
+            }
+        }
+
+        test("isDirty becomes true after stageAvatarUpload") {
+            runTest {
+                val user = createUser()
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.stageAvatarUpload(byteArrayOf(1, 2, 3), "image/jpeg")
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe true
+            }
+        }
+
+        // ── save() — only tagline changed ─────────────────────────────────────
+
+        test("save() with only tagline changed calls updateProfile(firstName=null, lastName=null, tagline, password=null)") {
+            runTest {
+                val user = createUser(tagline = "old")
+                val fixture =
+                    createFixture().apply {
+                        configure(currentUser = user)
+                        everySuspend {
+                            profileEditRepository.updateProfile(
+                                firstName = any(),
+                                lastName = any(),
+                                tagline = any(),
+                                password = any(),
+                            )
+                        } returns AppResult.Success(Unit)
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.setTagline("x")
+                advanceUntilIdle()
+                viewModel.save()
+                advanceUntilIdle()
+
+                verifySuspend {
+                    fixture.profileEditRepository.updateProfile(
+                        firstName = null,
+                        lastName = null,
+                        tagline = "x",
+                        password = null,
+                    )
+                }
+            }
+        }
+
+        // ── save() — staged avatar + name ─────────────────────────────────────
+
+        test("save() with staged avatar upload calls uploadAvatar then updateProfile with name") {
+            runTest {
+                val user = createUser(firstName = "Alice", lastName = "Smith")
+                val fixture =
+                    createFixture().apply {
+                        configure(currentUser = user)
+                        everySuspend { profileEditRepository.uploadAvatar(any(), any()) } returns
+                            AppResult.Success(Unit)
+                        everySuspend {
+                            profileEditRepository.updateProfile(any(), any(), any(), any())
+                        } returns AppResult.Success(Unit)
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.stageAvatarUpload(byteArrayOf(9, 8, 7), "image/jpeg")
+                viewModel.setFirstName("Bob")
+                advanceUntilIdle()
+                viewModel.save()
+                advanceUntilIdle()
+
+                verifySuspend { fixture.profileEditRepository.uploadAvatar(any(), "image/jpeg") }
+                verifySuspend {
+                    fixture.profileEditRepository.updateProfile(
+                        firstName = "Bob",
+                        lastName = "Smith",
+                        tagline = null,
+                        password = null,
+                    )
+                }
+            }
+        }
+
+        // ── save() — password validation ──────────────────────────────────────
+
+        test("save() when newPassword != confirmPassword emits SaveFailed and does not call repo") {
+            runTest {
+                val user = createUser()
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.setCurrentPassword("currentpass1")
+                viewModel.setNewPassword("newpass123")
+                viewModel.setConfirmPassword("differentpass")
+                advanceUntilIdle()
+
                 viewModel.events.test {
-                    viewModel.changePassword("currentpass1", "short")
+                    viewModel.save()
                     advanceUntilIdle()
                     val event = awaitItem().shouldBeInstanceOf<EditProfileEvent.SaveFailed>()
-                    event.message shouldContain "$PASSWORD_MIN"
+                    event.message shouldBe "Passwords do not match."
+                }
+
+                // Repo must not have been called.
+                verifySuspend(dev.mokkery.verify.VerifyMode.not) {
+                    fixture.profileEditRepository.updateProfile(any(), any(), any(), any())
                 }
             }
         }
 
-        test("changePassword success emits PasswordChanged") {
+        test("save() when newPassword is shorter than PASSWORD_MIN emits SaveFailed and does not call repo") {
             runTest {
                 val user = createUser()
-                val fixture =
-                    createFixture().apply {
-                        configure(currentUser = user)
-                        everySuspend { profileEditRepository.changePassword(any(), any()) } returns AppResult.Success(Unit)
-                    }
+                val fixture = createFixture().apply { configure(currentUser = user) }
                 val viewModel = fixture.build()
                 keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.setCurrentPassword("currentpass1")
+                viewModel.setNewPassword("short")
+                viewModel.setConfirmPassword("short")
                 advanceUntilIdle()
 
                 viewModel.events.test {
-                    viewModel.changePassword("currentpass1", "strongpass1")
+                    viewModel.save()
                     advanceUntilIdle()
-                    awaitItem() shouldBe EditProfileEvent.PasswordChanged
+                    val event = awaitItem().shouldBeInstanceOf<EditProfileEvent.SaveFailed>()
+                    event.message shouldBe "Password must be at least $PASSWORD_MIN characters."
                 }
-                verifySuspend { fixture.profileEditRepository.changePassword("currentpass1", "strongpass1") }
+
+                verifySuspend(dev.mokkery.verify.VerifyMode.not) {
+                    fixture.profileEditRepository.updateProfile(any(), any(), any(), any())
+                }
             }
         }
 
-        test("isSaving returns to false after save completes") {
+        // ── save() — success / failure outcomes ───────────────────────────────
+
+        test("save() success emits SaveSucceeded and clears password fields and avatarChange") {
             runTest {
-                // StateFlow conflates rapid true→false transitions, so we can't reliably
-                // observe the intermediate isSaving=true state with a non-suspending mock.
-                // Instead, verify the final state is unlocked for further edits.
-                val user = createUser()
+                val user = createUser(tagline = "old")
                 val fixture =
                     createFixture().apply {
                         configure(currentUser = user)
-                        everySuspend { profileEditRepository.updateTagline(any()) } returns AppResult.Success(Unit)
+                        everySuspend {
+                            profileEditRepository.updateProfile(any(), any(), any(), any())
+                        } returns AppResult.Success(Unit)
                     }
                 val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                viewModel.saveTagline("new")
+                viewModel.setTagline("new tagline")
+                viewModel.setCurrentPassword("currentpass1")
+                viewModel.setNewPassword("newstrongpass1")
+                viewModel.setConfirmPassword("newstrongpass1")
+                viewModel.stageAvatarUpload(byteArrayOf(1), "image/jpeg")
+
+                // Avatar must be mocked too since we staged one.
+                everySuspend { fixture.profileEditRepository.uploadAvatar(any(), any()) } returns
+                    AppResult.Success(Unit)
+
                 advanceUntilIdle()
 
+                viewModel.events.test {
+                    viewModel.save()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EditProfileEvent.SaveSucceeded
+                }
+
                 val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
+                ready.currentPassword shouldBe ""
+                ready.newPassword shouldBe ""
+                ready.confirmPassword shouldBe ""
+                ready.avatarChange shouldBe AvatarChange.None
                 ready.isSaving shouldBe false
             }
         }
 
-        test("state updates reactively when user changes") {
+        test("save() failure emits SaveFailed and keeps form intact") {
             runTest {
-                val user1 = createUser(displayName = "Before")
-                val user2 = createUser(displayName = "After", updatedAtMs = 2000L)
-                val fixture = createFixture().apply { configure(currentUser = user1) }
+                val user = createUser(tagline = "old")
+                val fixture =
+                    createFixture().apply {
+                        configure(currentUser = user)
+                        everySuspend {
+                            profileEditRepository.updateProfile(any(), any(), any(), any())
+                        } returns AppResult.Failure(InternalError(debugInfo = "server error"))
+                    }
                 val viewModel = fixture.build()
                 keepStateHot(viewModel)
                 advanceUntilIdle()
-                (viewModel.state.value as EditProfileUiState.Ready).user.displayName shouldBe "Before"
 
-                fixture.currentUserFlow.value = user2
+                viewModel.setTagline("new tagline")
+                advanceUntilIdle()
+
+                viewModel.events.test {
+                    viewModel.save()
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<EditProfileEvent.SaveFailed>()
+                }
+
+                // Form is intact — tagline still shows the edited value.
+                val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
+                ready.tagline shouldBe "new tagline"
+                ready.isSaving shouldBe false
+            }
+        }
+
+        // ── setTagline truncation ─────────────────────────────────────────────
+
+        test("setTagline truncates at MAX_TAGLINE_LENGTH") {
+            runTest {
+                val user = createUser()
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                val longTagline = "x".repeat(EditProfileViewModel.MAX_TAGLINE_LENGTH + 10)
+                viewModel.setTagline(longTagline)
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
-                ready.user.displayName shouldBe "After"
+                ready.tagline shouldBe "x".repeat(EditProfileViewModel.MAX_TAGLINE_LENGTH)
+            }
+        }
+
+        // ── isSaving ─────────────────────────────────────────────────────────
+
+        test("isSaving returns to false after save completes") {
+            runTest {
+                val user = createUser(tagline = "old")
+                val fixture =
+                    createFixture().apply {
+                        configure(currentUser = user)
+                        everySuspend {
+                            profileEditRepository.updateProfile(any(), any(), any(), any())
+                        } returns AppResult.Success(Unit)
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.setTagline("new")
+                advanceUntilIdle()
+                viewModel.save()
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isSaving shouldBe false
             }
         }
     })
