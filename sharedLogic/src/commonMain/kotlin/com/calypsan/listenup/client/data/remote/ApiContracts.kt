@@ -690,37 +690,6 @@ data class SeriesEditResponse(
 )
 
 /**
- * Contract interface for user settings API operations.
- *
- * Handles syncing user playback settings across devices.
- * Server endpoint: /api/v1/settings (GET/PATCH)
- */
-interface UserPreferencesApiContract {
-    /**
-     * Get user settings from the server.
-     *
-     * Endpoint: GET /api/v1/settings
-     * Auth: Required
-     *
-     * @return Result containing user settings or error
-     */
-    suspend fun getPreferences(): AppResult<UserPreferencesResponse>
-
-    /**
-     * Update user settings on the server.
-     *
-     * Endpoint: PATCH /api/v1/settings
-     * Auth: Required
-     *
-     * Uses PATCH semantics - only non-null fields are updated.
-     *
-     * @param request The settings to update (only non-null fields are sent)
-     * @return Result containing updated settings or error
-     */
-    suspend fun updatePreferences(request: UserPreferencesRequest): AppResult<UserPreferencesResponse>
-}
-
-/**
  * Contract interface for user-profile API operations.
  *
  * Retains only the `getCurrentUser` endpoint. The `getBookReaders` and
@@ -758,43 +727,6 @@ data class CurrentUserResponse(
     val avatarType: String = "auto",
     val avatarValue: String? = null,
     val avatarColor: String = "#6B7280",
-)
-
-/**
- * Response from user settings endpoint.
- *
- * Contains all user-level playback settings that sync across devices.
- * These apply to all books unless overridden per-book.
- */
-data class UserPreferencesResponse(
-    /** Default playback speed for new books (0.5 - 3.0) */
-    val defaultPlaybackSpeed: Float,
-    /** Default skip forward duration in seconds (10, 15, 30, 45, 60) */
-    val defaultSkipForwardSec: Int = 30,
-    /** Default skip backward duration in seconds (5, 10, 15, 30) */
-    val defaultSkipBackwardSec: Int = 10,
-    /** Default sleep timer duration in minutes (null = disabled) */
-    val defaultSleepTimerMin: Int? = null,
-    /** Whether shaking device resets sleep timer */
-    val shakeToResetSleepTimer: Boolean = false,
-)
-
-/**
- * Request to update user settings.
- *
- * All fields are optional - only non-null fields are updated (PATCH semantics).
- */
-data class UserPreferencesRequest(
-    /** Default playback speed for new books (0.5 - 3.0) */
-    val defaultPlaybackSpeed: Float? = null,
-    /** Default skip forward duration in seconds */
-    val defaultSkipForwardSec: Int? = null,
-    /** Default skip backward duration in seconds */
-    val defaultSkipBackwardSec: Int? = null,
-    /** Default sleep timer duration in minutes (null to disable) */
-    val defaultSleepTimerMin: Int? = null,
-    /** Whether shaking device resets sleep timer */
-    val shakeToResetSleepTimer: Boolean? = null,
 )
 
 // =============================================================================

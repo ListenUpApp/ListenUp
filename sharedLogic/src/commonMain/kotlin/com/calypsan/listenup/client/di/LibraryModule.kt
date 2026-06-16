@@ -2,10 +2,10 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.KtorScannerRpcFactory
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorUserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApi
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.remote.UserPreferencesApi
-import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
+import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PendingOperationRepositoryImpl
@@ -58,10 +58,13 @@ val libraryModule: Module =
             SyncApi(clientFactory = get())
         }
 
-        // UserPreferencesApi for syncing user preferences across devices
-        single {
-            UserPreferencesApi(clientFactory = get())
-        } bind UserPreferencesApiContract::class
+        // UserPreferencesRpcFactory — kotlinx.rpc proxy for UserPreferencesService (#599).
+        single<UserPreferencesRpcFactory> {
+            KtorUserPreferencesRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         single {
             LibraryResetHelper(
@@ -110,7 +113,7 @@ val libraryModule: Module =
         // UserPreferencesRepository for syncing user preferences across devices
         single<UserPreferencesRepository> {
             UserPreferencesRepositoryImpl(
-                userPreferencesApi = get(),
+                rpcFactory = get(),
             )
         }
 
