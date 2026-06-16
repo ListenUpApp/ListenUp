@@ -163,11 +163,11 @@ class ActivityServiceTest :
                     // Most-recent-first: book-b (2_000) before book-a (1_000).
                     result[0].bookId shouldBe "book-b"
                     result[0].type shouldBe ActivityType.FINISHED_BOOK
-                    result[0].createdAtMs shouldBe 2_000L
+                    result[0].occurredAtMs shouldBe 2_000L
                     result[0].displayName shouldBe "Alice"
                     result[0].avatarType shouldBe "image"
                     result[1].bookId shouldBe "book-a"
-                    result[1].createdAtMs shouldBe 1_000L
+                    result[1].occurredAtMs shouldBe 1_000L
                 }
             }
         }
@@ -272,7 +272,7 @@ class ActivityServiceTest :
 
                     // Only rows with created_at < 3_000, most-recent-first.
                     result shouldHaveSize 2
-                    result.map { it.createdAtMs } shouldBe listOf(2_000L, 1_000L)
+                    result.map { it.occurredAtMs } shouldBe listOf(2_000L, 1_000L)
                 }
             }
         }

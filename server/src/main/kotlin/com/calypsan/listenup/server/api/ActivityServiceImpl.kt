@@ -53,7 +53,7 @@ internal class ActivityServiceImpl(
                     displayName = identity.displayName,
                     avatarType = identity.avatarType,
                     type = row.type,
-                    createdAtMs = row.occurredAt,
+                    occurredAtMs = row.occurredAt,
                     bookId = row.bookId,
                     isReread = row.isReread,
                     durationMs = row.durationMs,
