@@ -12,21 +12,32 @@ import java.io.IOException
  * 1. Seek to [audioStart] (just past the ID3v2 tag, or 0 if no tag).
  * 2. Read a small sniff window and locate the first MPEG sync (`0xFFE` top
  *    11 bits) within it.
- * 3. Decode bitrate and sample rate from the 4-byte frame header.
- * 4. Compute audio-region size = `source.length - syncFileOffset - footerSize`.
- * 5. Duration = audioBytes * 8 / bitrate (CBR approximation).
+ * 3. Decode bitrate, sample rate, MPEG version, and channel mode from the
+ *    4-byte frame header.
+ * 4. Check for a Xing/Info VBR header at the version/channel-mode-dependent
+ *    offset past the frame sync, or a VBRI header at the fixed +32 offset.
+ *    If a frame-count field is present, derive duration from frame count ×
+ *    1152 samples/frame ÷ sample-rate (exact for VBR).
+ * 5. Fall back to CBR approximation when no VBR header is found:
+ *    duration = audioBytes × 8 × 1000 / bitrate.
  *
  * Returns `0` if no MPEG frame can be located in the sniff window or the
  * frame header is invalid — the parser still surfaces tags successfully;
  * only duration is unknown.
  *
- * TODO(VBR): Xing/VBRI VBR-header parsing is deferred. CBR is the common case
- * for audiobook MP3s; revisit when a VBR file surfaces in the live validation
- * harness. Reference: `/home/simonh/Code/audiometa/internal/mp3/technical.go`.
+ * VBR header offsets (byte offset from start of frame header):
+ * - Xing/Info: 4 + sideInfoSize, where sideInfoSize depends on MPEG version
+ *   and channel mode:
+ *     MPEG-1 Stereo/JS/Dual → 32  → Xing at offset 36
+ *     MPEG-1 Mono           → 17  → Xing at offset 21
+ *     MPEG-2/2.5 Stereo/JS/Dual → 17 → Xing at offset 21
+ *     MPEG-2/2.5 Mono       → 9   → Xing at offset 13
+ * - VBRI: fixed offset 32 (produced by Fraunhofer encoder).
  *
- * MagicNumber suppressed: MPEG-1 Layer III frame-header field widths, the 11-bit
- * `0xFFE` sync mask, and the bytes→bits×milliseconds duration arithmetic are fixed
- * by ISO/IEC 11172-3.
+ * MagicNumber suppressed: MPEG-1 Layer III frame-header field widths, the
+ * 11-bit `0xFFE` sync mask, side-information sizes, the Xing/VBRI field
+ * offsets, and the samples-per-frame constant (1152) are fixed by
+ * ISO/IEC 11172-3 and the Fraunhofer/Xing VBR specifications.
  */
 @Suppress("MagicNumber")
 internal object MpegDurationCalculator {
@@ -48,6 +59,10 @@ internal object MpegDurationCalculator {
         val syncInPrefix = locateMpegSync(prefix) ?: return 0
         val frame = decodeFrameHeader(prefix, syncInPrefix) ?: return 0
 
+        // VBR path: check for Xing/Info or VBRI header in the sniff window.
+        vbrDurationMs(prefix, syncInPrefix, frame)?.let { return it }
+
+        // CBR fallback: estimate from audio-region byte count.
         val syncFileOffset = audioStart + syncInPrefix
         val footer = if (hasV1Footer) ID3V1_LEN.toLong() else 0L
         val audioBytes = source.length - syncFileOffset - footer
@@ -55,9 +70,70 @@ internal object MpegDurationCalculator {
         return audioBytes * 8 * 1000 / frame.bitrate
     }
 
+    /**
+     * Returns the exact VBR duration in milliseconds if a Xing/Info or VBRI
+     * header is present in [prefix] at [syncOffset], or `null` if neither
+     * header is found and the caller should fall back to CBR estimation.
+     */
+    private fun vbrDurationMs(
+        prefix: ByteArray,
+        syncOffset: Int,
+        frame: FrameHeader,
+    ): Long? = xingDurationMs(prefix, syncOffset, frame) ?: vbriDurationMs(prefix, syncOffset, frame)
+
+    /**
+     * Parses a Xing or Info VBR header at the version/channel-mode-dependent
+     * offset past [syncOffset] in [prefix]. Returns the frame-count-derived
+     * duration in milliseconds, or `null` if no valid Xing/Info header is found.
+     *
+     * Xing offset = 4 (frame header) + sideInfoSize (17 or 32 bytes depending
+     * on MPEG version and channel mode).
+     */
+    private fun xingDurationMs(
+        prefix: ByteArray,
+        syncOffset: Int,
+        frame: FrameHeader,
+    ): Long? {
+        val xingOffset = syncOffset + 4 + frame.sideInfoSize
+        if (xingOffset + 12 > prefix.size) return null
+        val tag = String(prefix, xingOffset, 4, Charsets.ISO_8859_1)
+        if (tag != "Xing" && tag != "Info") return null
+        val flags = readInt32BE(prefix, xingOffset + 4)
+        // Bit 0: frames field is present.
+        if (flags and 0x0001 == 0) return null
+        val frameCount = readInt32BE(prefix, xingOffset + 8).toLong()
+        if (frameCount <= 0) return null
+        return frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate
+    }
+
+    /**
+     * Parses a VBRI header (Fraunhofer encoder) at the fixed offset of 32 bytes
+     * past [syncOffset] in [prefix]. Returns the frame-count-derived duration in
+     * milliseconds, or `null` if no valid VBRI header is found.
+     *
+     * VBRI layout: tag(4) + version(2) + delay(2) + quality(2) + bytes(4) + frames(4).
+     * Frame count is at byte offset 14 within the VBRI block.
+     */
+    private fun vbriDurationMs(
+        prefix: ByteArray,
+        syncOffset: Int,
+        frame: FrameHeader,
+    ): Long? {
+        val vbriOffset = syncOffset + 32
+        if (vbriOffset + 18 > prefix.size) return null
+        val tag = String(prefix, vbriOffset, 4, Charsets.ISO_8859_1)
+        if (tag != "VBRI") return null
+        val frameCount = readInt32BE(prefix, vbriOffset + 14).toLong()
+        if (frameCount <= 0) return null
+        return frameCount * SAMPLES_PER_FRAME * 1000L / frame.sampleRate
+    }
+
     private data class FrameHeader(
         val bitrate: Int,
         val sampleRate: Int,
+        /** Size of the MPEG side-information region in bytes. Used to locate
+         *  the Xing/Info VBR header, which immediately follows the side info. */
+        val sideInfoSize: Int,
     )
 
     private fun decodeFrameHeader(
@@ -77,7 +153,29 @@ internal object MpegDurationCalculator {
         val bitrate = BITRATE_TABLE[bitrateIdx] * 1000
         val sampleRate = SAMPLE_RATE_TABLE[sampleRateIdx]
         if (bitrate == 0 || sampleRate == 0) return null
-        return FrameHeader(bitrate = bitrate, sampleRate = sampleRate)
+
+        // MPEG version: bits 20..19. 0b11=MPEG-1, 0b10=MPEG-2, 0b00=MPEG-2.5.
+        val mpegVersion = (header ushr 19) and 0x3
+        // Channel mode: bits 7..6. 0b11=Mono, else stereo-family.
+        val channelMode = (header ushr 6) and 0x3
+        val isMono = channelMode == 3
+        // Side-information size per ISO 11172-3 §2.4.3.1:
+        //   MPEG-1 stereo=32, mono=17; MPEG-2/2.5 stereo=17, mono=9.
+        val sideInfoSize =
+            when {
+                mpegVersion == 3 && !isMono -> 32
+
+                // MPEG-1 stereo/JS/dual
+                mpegVersion == 3 && isMono -> 17
+
+                // MPEG-1 mono
+                !isMono -> 17
+
+                // MPEG-2/2.5 stereo/JS/dual
+                else -> 9 // MPEG-2/2.5 mono
+            }
+
+        return FrameHeader(bitrate = bitrate, sampleRate = sampleRate, sideInfoSize = sideInfoSize)
     }
 
     private fun locateMpegSync(bytes: ByteArray): Int? {
@@ -91,18 +189,33 @@ internal object MpegDurationCalculator {
         return null
     }
 
+    /** Read a big-endian 32-bit unsigned integer from [buf] at [offset]. */
+    private fun readInt32BE(
+        buf: ByteArray,
+        offset: Int,
+    ): Int =
+        ((buf[offset].toInt() and 0xFF) shl 24) or
+            ((buf[offset + 1].toInt() and 0xFF) shl 16) or
+            ((buf[offset + 2].toInt() and 0xFF) shl 8) or
+            (buf[offset + 3].toInt() and 0xFF)
+
     /** MPEG-1 Layer III bitrate table in kbps. */
     private val BITRATE_TABLE = intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
 
     /** MPEG-1 sample-rate table in Hz. */
     private val SAMPLE_RATE_TABLE = intArrayOf(44_100, 48_000, 32_000, 0)
 
+    /** MPEG-1 Layer III: 1152 PCM samples per encoded audio frame. */
+    private const val SAMPLES_PER_FRAME = 1152
+
     /**
      * 64 KB sniff window for the first MPEG sync byte. Real-world ID3v2 tags
      * declare their own size — there is no padding between tag and audio in
      * standard files. 64 KB leaves generous headroom for files with a short
      * non-standard gap; sync byte not found within this window → duration
-     * reported as 0 (best-effort, parser still returns tags).
+     * reported as 0 (best-effort, parser still returns tags). Also large
+     * enough to contain the VBR header that immediately follows the first
+     * frame's side-information region.
      */
     private const val SNIFF_WINDOW_BYTES = 64 * 1024
     private const val ID3V1_LEN = 128

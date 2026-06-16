@@ -25,9 +25,11 @@ import java.io.IOException
  * - **Artwork.** `APIC` frames are scanned in tag order; the highest-priority
  *   match wins (picture type 3 "Cover (front)" beats every other type;
  *   otherwise first APIC wins).
- * - **Duration.** CBR-only — read bitrate and sample rate from the first
- *   MPEG frame header found within a 64 KB sniff window past the tag,
- *   then derive duration from the audio-region size.
+ * - **Duration.** Reads bitrate, sample rate, MPEG version, and channel mode
+ *   from the first MPEG frame header found within a 64 KB sniff window past
+ *   the tag. If the frame is followed by a Xing/Info or VBRI VBR header,
+ *   exact duration is derived from the declared frame count. Otherwise falls
+ *   back to the CBR approximation (audio-region size ÷ bitrate).
  *
  * Streaming contract: the parser only reads bounded regions out of [source]
  * — the ID3v2 tag (capped at [ID3V2_SOFT_LIMIT_BYTES]), the trailing 128-byte
@@ -36,11 +38,6 @@ import java.io.IOException
  *
  * Failure mapping:
  * - File-level read errors → [AudioMetadataError.IoError].
- *
- * TODO(VBR): Xing/VBRI VBR-header parsing is deferred. Real-world audiobook
- * MP3s are overwhelmingly CBR; the duration approximation is good enough for
- * the scan summary. When a VBR file surfaces, port the `parseVBRHeader` block
- * from `/home/simonh/Code/audiometa/internal/mp3/technical.go`.
  */
 internal class Mp3Parser : AudioFormatParser {
     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp3)

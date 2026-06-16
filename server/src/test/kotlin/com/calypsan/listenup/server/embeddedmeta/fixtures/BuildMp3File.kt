@@ -14,10 +14,9 @@ import kotlinx.io.readByteArray
  * - [Mp3Builder.id3v2] — emit an ID3v2.3 or 2.4 tag with a configurable frame set
  * - [Mp3Builder.id3v1] — emit a 128-byte ID3v1 footer (used for fallback tests)
  * - [Mp3Builder.mpegFrames] — emit N MPEG audio frames computed from a target duration
- *
- * NOT covered (out-of-scope for tests): true audio data, lyrics frames,
- * encrypted frames, VBR (Xing/VBRI) headers. Add as needed when a parser
- * test demands them.
+ * - [Mp3Builder.xingVbrFrames] — emit a single MPEG frame with a Xing/Info VBR header
+ *   declaring a known frame count (all remaining bytes zeroed so VBR path is exercised)
+ * - [Mp3Builder.vbriVbrFrames] — emit a single MPEG frame with a VBRI header
  */
 internal fun buildMp3File(block: Mp3Builder.() -> Unit): ByteArray = Mp3Builder().apply(block).build()
 
@@ -90,6 +89,110 @@ internal class Mp3Builder internal constructor() {
             out.write(header)
             out.write(padding)
         }
+    }
+
+    /**
+     * Emit a single MPEG-1 Layer III stereo frame containing a Xing (VBR) or
+     * Info (CBR-with-TOC) header that declares [frameCount] frames. The
+     * remainder of the file is zeroed byte padding so the CBR formula on the
+     * same bytes would produce a different (wrong) answer — thereby proving
+     * that the VBR path engaged.
+     *
+     * The Xing/Info tag sits at byte offset 36 within the frame
+     * (4-byte frame header + 32-byte MPEG-1 stereo side information).
+     *
+     * @param tag       "Xing" for a true VBR file, "Info" for CBR-but-has-header.
+     * @param frameCount declared frame count embedded in the Xing/Info header.
+     * @param sampleRate sample rate to encode in the frame header.
+     * @param bitrate    nominal bitrate to encode in the frame header (only
+     *                   used to size the frame; the VBR path ignores it for
+     *                   duration).
+     * @param extraPaddingBytes extra zero bytes appended after the frame so
+     *                   the CBR formula (file size / bitrate) produces a
+     *                   measurably different duration from the VBR formula.
+     */
+    @Suppress("MagicNumber")
+    fun xingVbrFrames(
+        frameCount: Int,
+        tag: String = "Xing",
+        sampleRate: Int = 44_100,
+        bitrate: Int = 128_000,
+        extraPaddingBytes: Int = 0,
+    ) {
+        require(tag == "Xing" || tag == "Info") { "tag must be 'Xing' or 'Info'" }
+        require(frameCount > 0) { "frameCount must be positive" }
+        val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate)
+        val frameSize = (144 * bitrate) / sampleRate
+        require(frameSize >= 4 + 32 + 12) { "frame too small to hold Xing header" }
+
+        // Build the frame: 4-byte header + 32-byte side info (zeroed) + Xing header + padding.
+        val frame = ByteArray(frameSize)
+        frameHeader.copyInto(frame)
+        // Xing/Info tag at offset 36 = 4 (frame header) + 32 (MPEG-1 stereo side info).
+        val xingOffset = 36
+        tag.toByteArray(Charsets.ISO_8859_1).copyInto(frame, xingOffset)
+        // Flags = 0x0001: frames field present.
+        frame[xingOffset + 4] = 0x00
+        frame[xingOffset + 5] = 0x00
+        frame[xingOffset + 6] = 0x00
+        frame[xingOffset + 7] = 0x01
+        // Frame count (big-endian 32-bit).
+        frame[xingOffset + 8] = ((frameCount ushr 24) and 0xFF).toByte()
+        frame[xingOffset + 9] = ((frameCount ushr 16) and 0xFF).toByte()
+        frame[xingOffset + 10] = ((frameCount ushr 8) and 0xFF).toByte()
+        frame[xingOffset + 11] = (frameCount and 0xFF).toByte()
+        out.write(frame)
+        if (extraPaddingBytes > 0) out.write(ByteArray(extraPaddingBytes))
+    }
+
+    /**
+     * Emit a single MPEG-1 Layer III stereo frame containing a VBRI header
+     * (produced by the Fraunhofer encoder) that declares [frameCount] frames.
+     *
+     * The VBRI tag sits at fixed byte offset 32 from the start of the frame
+     * (4-byte frame header + 28 bytes). VBRI layout within its block:
+     * tag(4) + version(2) + delay(2) + quality(2) + bytes(4) + frames(4).
+     *
+     * @param frameCount declared frame count.
+     * @param sampleRate sample rate to encode in the frame header.
+     * @param bitrate    nominal bitrate for the frame header.
+     */
+    @Suppress("MagicNumber")
+    fun vbriVbrFrames(
+        frameCount: Int,
+        sampleRate: Int = 44_100,
+        bitrate: Int = 128_000,
+    ) {
+        require(frameCount > 0) { "frameCount must be positive" }
+        val frameHeader = mpegFrameHeader(bitrate = bitrate, sampleRate = sampleRate)
+        val frameSize = (144 * bitrate) / sampleRate
+        require(frameSize >= 32 + 18) { "frame too small to hold VBRI header" }
+
+        val frame = ByteArray(frameSize)
+        frameHeader.copyInto(frame)
+        // VBRI tag at fixed offset 32 from the frame start.
+        val vbriOffset = 32
+        "VBRI".toByteArray(Charsets.ISO_8859_1).copyInto(frame, vbriOffset)
+        // version (2 bytes, big-endian): 1
+        frame[vbriOffset + 4] = 0x00
+        frame[vbriOffset + 5] = 0x01
+        // delay (2 bytes): 0
+        frame[vbriOffset + 6] = 0x00
+        frame[vbriOffset + 7] = 0x00
+        // quality (2 bytes): 0
+        frame[vbriOffset + 8] = 0x00
+        frame[vbriOffset + 9] = 0x00
+        // bytes (4 bytes): 0 (not needed for duration)
+        frame[vbriOffset + 10] = 0x00
+        frame[vbriOffset + 11] = 0x00
+        frame[vbriOffset + 12] = 0x00
+        frame[vbriOffset + 13] = 0x00
+        // frames (4 bytes, big-endian): frameCount
+        frame[vbriOffset + 14] = ((frameCount ushr 24) and 0xFF).toByte()
+        frame[vbriOffset + 15] = ((frameCount ushr 16) and 0xFF).toByte()
+        frame[vbriOffset + 16] = ((frameCount ushr 8) and 0xFF).toByte()
+        frame[vbriOffset + 17] = (frameCount and 0xFF).toByte()
+        out.write(frame)
     }
 
     fun build(): ByteArray = out.readByteArray()
