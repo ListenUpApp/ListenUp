@@ -9951,6 +9951,16 @@
         }
       }
     },
+    "profile.avatar_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shown across your profile and reviews."
+          }
+        }
+      }
+    },
     "profile.books_finished": {
       "localizations": {
         "en": {
@@ -10051,6 +10061,16 @@
         }
       }
     },
+    "profile.name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
     "profile.name_description": {
       "localizations": {
         "en": {
@@ -10107,6 +10127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Passwords do not match"
+          }
+        }
+      }
+    },
+    "profile.profile_saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile saved."
           }
         }
       }

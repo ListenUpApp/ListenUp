@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.profile
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,16 +64,20 @@ import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_save_changes
 import listenup.composeapp.generated.resources.profile_avatar
+import listenup.composeapp.generated.resources.profile_avatar_description
 import listenup.composeapp.generated.resources.profile_change_password
 import listenup.composeapp.generated.resources.profile_current_password
 import listenup.composeapp.generated.resources.profile_edit_profile_title
+import listenup.composeapp.generated.resources.profile_name
 import listenup.composeapp.generated.resources.profile_name_description
+import listenup.composeapp.generated.resources.profile_profile_saved
 import listenup.composeapp.generated.resources.profile_new_password
 import listenup.composeapp.generated.resources.profile_password_description
 import listenup.composeapp.generated.resources.profile_remove_photo
@@ -88,7 +91,6 @@ import listenup.composeapp.generated.resources.auth_last_name
 
 private val CARD_CONTENT_PADDING = 20.dp
 private val SECTION_GAP = 16.dp
-private val CARD_SHAPE_SIZE = 24.dp
 private val AVATAR_SCALLOP_SIZE = 92.dp
 private val DESKTOP_MAX_WIDTH = 1040.dp
 
@@ -117,7 +119,7 @@ fun EditProfileScreen(
         viewModel.events.collect { event ->
             when (event) {
                 is EditProfileEvent.SaveSucceeded -> {
-                    snackbarHostState.showSnackbar("Profile saved.")
+                    snackbarHostState.showSnackbar(getString(Res.string.profile_profile_saved))
                     onBack()
                 }
 
@@ -354,7 +356,7 @@ private fun AvatarCard(
 ) {
     ProfileSectionCard(
         title = stringResource(Res.string.profile_avatar),
-        subtitle = "Shown across your profile and reviews.",
+        subtitle = stringResource(Res.string.profile_avatar_description),
         modifier = modifier,
     ) {
         AvatarEditRow(
@@ -520,7 +522,7 @@ private fun NameCard(
     modifier: Modifier = Modifier,
 ) {
     ProfileSectionCard(
-        title = "Name",
+        title = stringResource(Res.string.profile_name),
         subtitle = stringResource(Res.string.profile_name_description),
         modifier = modifier,
     ) {

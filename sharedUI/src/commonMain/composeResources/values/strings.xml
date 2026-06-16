@@ -996,6 +996,7 @@ One beautiful library.</string>
     <string name="player_up_next">Up next</string>
     <string name="player_view_all_chapters">View all %1$d chapters</string>
     <string name="profile_avatar">Avatar</string>
+    <string name="profile_avatar_description">Shown across your profile and reviews.</string>
     <string name="profile_books_finished">Books Finished</string>
     <string name="profile_change_password">Change Password</string>
     <string name="profile_create_shelf">Create shelf</string>
@@ -1006,12 +1007,14 @@ One beautiful library.</string>
     <string name="profile_edit_profile_title">Edit Profile</string>
     <string name="profile_hours_listened">Hours Listened</string>
     <string name="profile_in_progress">In Progress</string>
+    <string name="profile_name">Name</string>
     <string name="profile_name_description">Update your first and last name</string>
     <string name="profile_new_password">New</string>
     <string name="profile_no_shelves_yet_create_one">No shelves yet. Create one to curate your favorite books!</string>
     <string name="profile_password_description">Set a new password for your account</string>
     <string name="profile_password_min_chars">Must be at least %1$d characters</string>
     <string name="profile_passwords_do_not_match">Passwords do not match</string>
+    <string name="profile_profile_saved">Profile saved.</string>
     <string name="profile_recently_finished">Recently Finished</string>
     <string name="profile_remove_photo">Remove Photo</string>
     <string name="profile_save_name">Save Name</string>
