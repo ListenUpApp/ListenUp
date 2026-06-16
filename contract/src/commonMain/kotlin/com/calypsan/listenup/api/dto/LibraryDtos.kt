@@ -23,7 +23,7 @@ import kotlinx.serialization.Serializable
 data class Library(
     /** Stable library identifier. UUIDv7 at the storage layer. */
     val id: LibraryId,
-    /** Human-readable name, e.g. "My Audiobooks" or "Kids Library". */
+    /** Human-readable name. Defaults to "Library" for the bootstrapped singleton. */
     val name: String,
     /** Lightweight refs to every root folder registered under this library. */
     val folders: List<LibraryFolderRef>,

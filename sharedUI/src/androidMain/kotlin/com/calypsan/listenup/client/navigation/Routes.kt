@@ -289,10 +289,10 @@ data class AdminUserDetail(
 ) : Route
 
 /**
- * Admin library settings screen - view and edit library settings.
+ * Admin library settings screen — manage the library's scan folders.
  *
- * Shows library information and allows changing access mode and inbox settings.
- * Operates on THE singleton library — no id parameter required.
+ * Operates on THE singleton library — no id parameter required. (Inbox quarantine
+ * is a server-wide Admin Setting, not a per-library toggle.)
  */
 @Serializable
 data object AdminLibrarySettings : Route

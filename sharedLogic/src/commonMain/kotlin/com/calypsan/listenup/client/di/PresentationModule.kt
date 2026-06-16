@@ -70,9 +70,9 @@ val authPresentationModule =
             com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel(
                 libraryAdminRpcFactory = get(),
                 errorBus = get(),
-                // App-lifetime scope: the initial scan triggered after createLibrary must
-                // outlive this wizard (torn down when onboarding finishes and we navigate
-                // to the Shell), so it can't ride viewModelScope.
+                // App-lifetime scope: the initial scan triggered after onboarding adds its
+                // folders must outlive this wizard (torn down when onboarding finishes and we
+                // navigate to the Shell), so it can't ride viewModelScope.
                 appScope =
                     get(
                         qualifier =
