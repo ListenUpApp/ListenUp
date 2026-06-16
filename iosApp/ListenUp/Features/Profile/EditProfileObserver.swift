@@ -110,6 +110,8 @@ final class EditProfileObserver {
     private func applyEvent(_ event: EditProfileEvent) {
         switch onEnum(of: event) {
         case .saveSucceeded:
+            // The VM clears its staged avatar on success; drop our local preview copy too.
+            pickedImage = nil
             savedToken += 1
         case .saveFailed(let failure):
             lastError = failure.message
