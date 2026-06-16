@@ -3,20 +3,17 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.ListeningEventTable
 import com.calypsan.listenup.server.db.PlaybackPositionTable
-import com.calypsan.listenup.server.db.UserTable
 import kotlin.math.max
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -56,7 +53,7 @@ class UserStatsBackfillService(
         //    All day-boundary math uses the user's home timezone — one consistent frame
         //    per user. The per-event tz field is ignored here because it can be "UTC" for
         //    ABS imports and mixed-frame for travelers, producing wrong streaks.
-        val userTz = homeTimeZone(userId)
+        val userTz = db.homeTimeZone(userId)
         var totalAllTime = 0L
         val distinctBooks = mutableSetOf<String>()
         var lastDate: LocalDate? = null
@@ -128,24 +125,5 @@ class UserStatsBackfillService(
                 deletedAt = null,
             )
         userStatsRepo.upsert(rebuilt, clientOpId = null, userId = userId)
-    }
-
-    /**
-     * Resolves the home [TimeZone] for [userId] from the `users.timezone` column.
-     *
-     * Defaults to [TimeZone.UTC] when the user has no row (e.g. a deleted account being
-     * backfilled) or when the stored timezone name is malformed. The caller never needs to
-     * handle these edge cases — they just get a safe fallback.
-     */
-    private suspend fun homeTimeZone(userId: String): TimeZone {
-        val name =
-            suspendTransaction(db) {
-                UserTable
-                    .select(UserTable.timezone)
-                    .where { UserTable.id eq userId }
-                    .firstOrNull()
-                    ?.get(UserTable.timezone)
-            } ?: "UTC"
-        return runCatching { TimeZone.of(name) }.getOrDefault(TimeZone.UTC)
     }
 }
