@@ -9,7 +9,6 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.v1.core.and
@@ -49,7 +48,9 @@ class UserStatsUpdater(
         event: ListeningEventSyncPayload,
     ) {
         val wallSeconds = (event.endedAt - event.startedAt) / 1_000L
-        val tz = TimeZone.of(event.tz)
+        // Use the user's home timezone for day-boundary math so the streak frame is
+        // consistent across devices and imports (which may store a different tz).
+        val tz = db.homeTimeZone(userId)
         val eventInstant = Instant.fromEpochMilliseconds(event.endedAt)
         val eventDateStr = eventInstant.toLocalDateTime(tz).date.toString()
 

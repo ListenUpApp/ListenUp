@@ -14,12 +14,19 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.util.runCatchingCancellable
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.encodeURLParameter
 import kotlin.time.Clock
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * [PlaybackService] implementation. Combines signed audio URLs from
@@ -43,6 +50,7 @@ internal class PlaybackServiceImpl(
     private val userStatsRepository: UserStatsRepository,
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
+    private val db: Database,
     private val clock: Clock = Clock.System,
 ) : PlaybackService {
 
@@ -141,7 +149,17 @@ internal class PlaybackServiceImpl(
             createdAt = now,
             deletedAt = null,
         )
-        return listeningEventRepository.upsert(payload, clientOpId = null, userId = userId)
+        val result = listeningEventRepository.upsert(payload, clientOpId = null, userId = userId)
+        // Best-effort: keep the user's home timezone current as they travel. Only the live
+        // path (here) updates it — imports carry tz="UTC" and must never overwrite the real tz.
+        if (result is AppResult.Success && request.tz.isNotBlank()) {
+            runCatchingCancellable {
+                suspendTransaction(db) {
+                    UserEntity.findById(userId)?.timezone = request.tz
+                }
+            }.onFailure { logger.warn(it) { "Failed to refresh timezone for user $userId — ignoring" } }
+        }
+        return result
     }
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -155,6 +173,7 @@ internal class PlaybackServiceImpl(
             userStatsRepository = userStatsRepository,
             accessPolicy = accessPolicy,
             principal = principal,
+            db = db,
             clock = clock,
         )
 }
