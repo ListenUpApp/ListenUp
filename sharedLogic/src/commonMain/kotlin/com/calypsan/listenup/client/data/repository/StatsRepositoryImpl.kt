@@ -152,10 +152,13 @@ private fun computeStreaks(
     today: LocalDate,
 ): Pair<Int, Int> {
     if (endedAtMs.isEmpty()) return 0 to 0
+    // distinct().sorted() (multiplatform-safe; toSortedSet/TreeSet are JVM-only) → ascending unique days.
     val days =
         endedAtMs
             .map { Instant.fromEpochMilliseconds(it).toLocalDateTime(tz).date }
-            .toSortedSet()
+            .distinct()
+            .sorted()
+    val daySet = days.toSet()
     var longest = 0
     var run = 0
     var prev: LocalDate? = null
@@ -169,7 +172,7 @@ private fun computeStreaks(
         if (last == today || last == today.minus(DatePeriod(days = 1))) {
             var c = 0
             var cursor = last
-            while (cursor in days) {
+            while (cursor in daySet) {
                 c++
                 cursor = cursor.minus(DatePeriod(days = 1))
             }
