@@ -10,14 +10,13 @@ import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
@@ -49,8 +48,8 @@ fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
     AvatarUploader { imageData, contentType ->
         try {
             val client = clientFactory.getClient()
-            client
-                .submitFormWithBinaryData(
+            val response =
+                client.submitFormWithBinaryData(
                     url = AVATAR_UPLOAD_PATH,
                     formData =
                         formData {
@@ -63,8 +62,16 @@ fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
                                 },
                             )
                         },
-                ).body<ApiResponse<Unit>>()
-            AppResult.Success(Unit)
+                )
+            // The server returns 204 No Content on success — do not attempt to deserialize
+            // an empty body. Check the status code directly instead.
+            if (response.status.isSuccess()) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Failure(
+                    ErrorMapper.map(IllegalStateException("avatar upload failed: ${response.status}")),
+                )
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -75,8 +82,10 @@ fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
 /**
  * Repository for profile editing operations.
  *
- * Mutations call [ProfileRpcFactory] to invoke [com.calypsan.listenup.api.ProfileService]
- * over RPC, then update local Room on success so the UI reflects the change immediately.
+ * [updateProfile] consolidates all text-field changes (name, tagline, password) into one
+ * [com.calypsan.listenup.api.ProfileService.updateMyProfile] RPC call, then updates local
+ * Room on success so the UI reflects changes immediately.
+ *
  * Avatar upload delegates to [AvatarUploader] (a REST multipart POST) and flips the local
  * [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` on success.
  */
@@ -86,9 +95,18 @@ class ProfileEditRepositoryImpl(
     private val avatarUploader: AvatarUploader,
 ) : ProfileEditRepository {
     /**
-     * Update the user's tagline.
+     * Persist all changed profile text fields in one RPC call.
+     *
+     * Null arguments are forwarded as-is to [UpdateProfileRequest], which the server treats
+     * as "no change for this field." On success, Room is updated for name and tagline if
+     * the corresponding argument is non-null; password changes have no local cache effect.
      */
-    override suspend fun updateTagline(tagline: String?): AppResult<Unit> =
+    override suspend fun updateProfile(
+        firstName: String?,
+        lastName: String?,
+        tagline: String?,
+        password: PasswordChange?,
+    ): AppResult<Unit> =
         withContext(IODispatcher) {
             val user =
                 userDao.getCurrentUser() ?: run {
@@ -97,25 +115,59 @@ class ProfileEditRepositoryImpl(
                         ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
                     )
                 }
-            rpcCall { profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(tagline = tagline)) }
-                .also { result ->
-                    if (result is AppResult.Success) {
+
+            // Build the displayName for the RPC only when a name change is requested.
+            val displayName =
+                if (firstName != null || lastName != null) {
+                    listOfNotNull(
+                        firstName ?: user.firstName,
+                        lastName ?: user.lastName,
+                    ).joinToString(" ").ifBlank { null }
+                } else {
+                    null
+                }
+
+            rpcCall {
+                profileRpcFactory.get().updateMyProfile(
+                    UpdateProfileRequest(
+                        displayName = displayName,
+                        tagline = tagline,
+                        password = password,
+                    ),
+                )
+            }.also { result ->
+                if (result is AppResult.Success) {
+                    val now = currentEpochMilliseconds()
+                    if (firstName != null || lastName != null) {
+                        userDao.updateName(
+                            userId = user.id.value,
+                            firstName = firstName ?: user.firstName ?: "",
+                            lastName = lastName ?: user.lastName ?: "",
+                            displayName = displayName ?: user.displayName,
+                            updatedAt = now,
+                        )
+                        logger.info { "Name updated in local cache" }
+                    }
+                    if (tagline != null) {
                         userDao.updateTagline(
                             userId = user.id.value,
-                            tagline = tagline,
-                            updatedAt = currentEpochMilliseconds(),
+                            tagline = tagline.ifEmpty { null },
+                            updatedAt = now,
                         )
-                        logger.info { "Tagline updated" }
+                        logger.info { "Tagline updated in local cache" }
                     }
-                }.toUnit()
+                    if (password != null) {
+                        logger.info { "Password changed successfully" }
+                    }
+                }
+            }.toUnit()
         }
 
     /**
      * Upload a new avatar image via multipart POST to the REST avatar endpoint.
      *
      * Flips [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` locally
-     * on success so the UI can immediately switch to the avatar-render path. Avatar download
-     * (Task 10) wires up the full URL; this task only persists the type change.
+     * on success so the UI can immediately switch to the avatar-render path.
      */
     override suspend fun uploadAvatar(
         imageData: ByteArray,
@@ -174,74 +226,6 @@ class ProfileEditRepositoryImpl(
                         logger.info { "Reverted to auto avatar" }
                     }
                 }.toUnit()
-        }
-
-    /**
-     * Update the user's name.
-     */
-    override suspend fun updateName(
-        firstName: String,
-        lastName: String,
-    ): AppResult<Unit> =
-        withContext(IODispatcher) {
-            val user =
-                userDao.getCurrentUser() ?: run {
-                    logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
-                    return@withContext AppResult.Failure(
-                        ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
-                    )
-                }
-            val displayName = "$firstName $lastName".trim()
-            rpcCall {
-                profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(displayName = displayName))
-            }.also { result ->
-                if (result is AppResult.Success) {
-                    userDao.updateName(
-                        userId = user.id.value,
-                        firstName = firstName,
-                        lastName = lastName,
-                        displayName = displayName,
-                        updatedAt = currentEpochMilliseconds(),
-                    )
-                    logger.info { "Name updated" }
-                }
-            }.toUnit()
-        }
-
-    /**
-     * Change the user's password.
-     *
-     * Requires the current password for server-side verification.
-     * Returns [com.calypsan.listenup.api.error.ProfileError.WrongPassword] on mismatch.
-     */
-    override suspend fun changePassword(
-        currentPassword: String,
-        newPassword: String,
-    ): AppResult<Unit> =
-        withContext(IODispatcher) {
-            userDao.getCurrentUser() ?: run {
-                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
-                return@withContext AppResult.Failure(
-                    ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
-                )
-            }
-            rpcCall {
-                profileRpcFactory.get().updateMyProfile(
-                    UpdateProfileRequest(
-                        password =
-                            PasswordChange(
-                                currentPassword = currentPassword,
-                                newPassword = newPassword,
-                            ),
-                    ),
-                )
-            }.also { result ->
-                if (result is AppResult.Success) {
-                    logger.info { "Password changed successfully" }
-                } else {
-                    logger.error { "Password change failed" }
-                }
-            }.toUnit()
         }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────

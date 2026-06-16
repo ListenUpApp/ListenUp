@@ -3,8 +3,8 @@ package com.calypsan.listenup.client.presentation.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
+import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
@@ -18,19 +18,58 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** How the avatar will be changed when the user taps Save. */
+sealed interface AvatarChange {
+    /** No pending avatar change. */
+    data object None : AvatarChange
+
+    /** Revert to auto-generated initials avatar. */
+    data object RevertToAuto : AvatarChange
+
+    /** Upload [bytes] as the new avatar with the given [contentType]. */
+    data class Upload(
+        val bytes: ByteArray,
+        val contentType: String,
+    ) : AvatarChange {
+        // ByteArray identity semantics — equals/hashCode on content, not reference.
+        override fun equals(other: Any?): Boolean =
+            other is Upload && bytes.contentEquals(other.bytes) && contentType == other.contentType
+
+        override fun hashCode(): Int = 31 * bytes.contentHashCode() + contentType.hashCode()
+    }
+}
 
 /** UI state for the Edit Profile screen. */
 sealed interface EditProfileUiState {
     /** Initial state before the observe pipeline emits. */
     data object Loading : EditProfileUiState
 
-    /** User loaded; ready to edit. [isSaving] overlays on top of data during mutations. */
+    /**
+     * User loaded; ready to edit.
+     *
+     * The editable fields (name, tagline, passwords, avatarChange) live here so that the
+     * UI only needs to reflect state — no separate `rememberSaveable` islands.
+     *
+     * [isDirty] is true whenever any field differs from the loaded [user] or a pending
+     * avatar change is staged.
+     * [isSaving] overlays on top of data while a save is in flight.
+     */
     data class Ready(
         val user: User,
         val localAvatarPath: String?,
+        val firstName: String,
+        val lastName: String,
+        val tagline: String,
+        val currentPassword: String,
+        val newPassword: String,
+        val confirmPassword: String,
+        val avatarChange: AvatarChange,
+        val isDirty: Boolean,
         val isSaving: Boolean,
     ) : EditProfileUiState
 
@@ -40,15 +79,10 @@ sealed interface EditProfileUiState {
     ) : EditProfileUiState
 }
 
-/** One-shot outcomes the screen surfaces via snackbar. */
+/** One-shot outcomes the screen surfaces via snackbar / navigation. */
 sealed interface EditProfileEvent {
-    data object TaglineSaved : EditProfileEvent
-
-    data object NameSaved : EditProfileEvent
-
-    data object AvatarUpdated : EditProfileEvent
-
-    data object PasswordChanged : EditProfileEvent
+    /** All staged changes were saved successfully. */
+    data object SaveSucceeded : EditProfileEvent
 
     /** A save operation failed; [message] is surfaced in a snackbar. */
     data class SaveFailed(
@@ -56,15 +90,31 @@ sealed interface EditProfileEvent {
     ) : EditProfileEvent
 }
 
+// ── Private form state ────────────────────────────────────────────────────────
+
+/**
+ * Mutable edit-buffer that sits inside [EditProfileViewModel].
+ * Initialized once from the first non-null [User] emission.
+ */
+private data class FormState(
+    val firstName: String = "",
+    val lastName: String = "",
+    val tagline: String = "",
+    val currentPassword: String = "",
+    val newPassword: String = "",
+    val confirmPassword: String = "",
+    val avatarChange: AvatarChange = AvatarChange.None,
+)
+
 /**
  * ViewModel for the Edit Profile screen.
  *
- * Observes the current user from local storage (offline-first) and layers an `isSaving`
- * overlay on top while a write is in flight. Save outcomes surface via the [events]
- * channel — the UI collects them and shows snackbars without polling state flags.
+ * Holds the entire form state ([FormState]) so the UI is a pure reflection of [state].
+ * [save] performs validation, applies any staged avatar operation, then calls
+ * [ProfileEditRepository.updateProfile] for all text-field changes in a single RPC.
  *
- * Text input state (tagline, first/last name, passwords) lives in the UI as
- * `rememberSaveable` — the VM receives complete values at save time.
+ * Save outcomes surface via [events] (a `Channel`-backed `Flow`) so the UI can show
+ * a snackbar without polling state flags.
  */
 class EditProfileViewModel(
     private val profileEditRepository: ProfileEditRepository,
@@ -72,18 +122,55 @@ class EditProfileViewModel(
     private val imageRepository: ImageRepository,
 ) : ViewModel() {
     private val savingFlow = MutableStateFlow(false)
+    private val formFlow = MutableStateFlow(FormState())
+    private var formInitialized = false
 
     private val eventChannel = Channel<EditProfileEvent>(Channel.BUFFERED)
     val events: Flow<EditProfileEvent> = eventChannel.receiveAsFlow()
 
     val state: StateFlow<EditProfileUiState> =
-        combine(userRepository.observeCurrentUser(), savingFlow) { user, isSaving ->
+        combine(
+            userRepository.observeCurrentUser(),
+            formFlow,
+            savingFlow,
+        ) { user, form, isSaving ->
             if (user == null) {
                 EditProfileUiState.Error("No user data available")
             } else {
+                // Seed the form exactly once from the first non-null user so that
+                // re-emissions from Room don't overwrite edits already in progress.
+                if (!formInitialized) {
+                    formInitialized = true
+                    formFlow.value =
+                        FormState(
+                            firstName = user.firstName ?: "",
+                            lastName = user.lastName ?: "",
+                            tagline = user.tagline ?: "",
+                        )
+                    // Return Loading briefly — the next emission will carry the seeded form.
+                    return@combine EditProfileUiState.Loading
+                }
+
+                val isDirty =
+                    form.firstName != (user.firstName ?: "") ||
+                        form.lastName != (user.lastName ?: "") ||
+                        form.tagline != (user.tagline ?: "") ||
+                        form.currentPassword.isNotEmpty() ||
+                        form.newPassword.isNotEmpty() ||
+                        form.confirmPassword.isNotEmpty() ||
+                        form.avatarChange != AvatarChange.None
+
                 EditProfileUiState.Ready(
                     user = user,
                     localAvatarPath = resolveLocalAvatarPath(user),
+                    firstName = form.firstName,
+                    lastName = form.lastName,
+                    tagline = form.tagline,
+                    currentPassword = form.currentPassword,
+                    newPassword = form.newPassword,
+                    confirmPassword = form.confirmPassword,
+                    avatarChange = form.avatarChange,
+                    isDirty = isDirty,
                     isSaving = isSaving,
                 )
             }
@@ -93,76 +180,158 @@ class EditProfileViewModel(
             initialValue = EditProfileUiState.Loading,
         )
 
-    fun saveTagline(tagline: String) {
-        val normalized = tagline.take(MAX_TAGLINE_LENGTH).ifEmpty { null }
-        runSave(EditProfileEvent.TaglineSaved, "Failed to save tagline") {
-            profileEditRepository.updateTagline(normalized)
-        }
-    }
+    // ── Setters ───────────────────────────────────────────────────────────────
 
-    fun saveName(
-        firstName: String,
-        lastName: String,
-    ) {
-        runSave(EditProfileEvent.NameSaved, "Failed to save name") {
-            profileEditRepository.updateName(firstName, lastName)
-        }
-    }
+    fun setFirstName(value: String) = formFlow.update { it.copy(firstName = value) }
 
-    fun uploadAvatar(
-        imageData: ByteArray,
+    fun setLastName(value: String) = formFlow.update { it.copy(lastName = value) }
+
+    fun setTagline(value: String) = formFlow.update { it.copy(tagline = value.take(MAX_TAGLINE_LENGTH)) }
+
+    fun setCurrentPassword(value: String) = formFlow.update { it.copy(currentPassword = value) }
+
+    fun setNewPassword(value: String) = formFlow.update { it.copy(newPassword = value) }
+
+    fun setConfirmPassword(value: String) = formFlow.update { it.copy(confirmPassword = value) }
+
+    fun stageAvatarUpload(
+        bytes: ByteArray,
         contentType: String,
-    ) {
-        runSave(EditProfileEvent.AvatarUpdated, "Failed to upload avatar") {
-            profileEditRepository.uploadAvatar(imageData, contentType)
-        }
-    }
+    ) = formFlow.update { it.copy(avatarChange = AvatarChange.Upload(bytes, contentType)) }
 
-    fun revertToAutoAvatar() {
-        runSave(EditProfileEvent.AvatarUpdated, "Failed to revert avatar") {
-            profileEditRepository.revertToAutoAvatar()
-        }
-    }
+    fun stageAvatarRevert() = formFlow.update { it.copy(avatarChange = AvatarChange.RevertToAuto) }
 
-    fun changePassword(
-        currentPassword: String,
-        newPassword: String,
-    ) {
-        if (newPassword.length < PASSWORD_MIN) {
-            eventChannel.trySend(
-                EditProfileEvent.SaveFailed("Password must be at least $PASSWORD_MIN characters"),
-            )
-            return
-        }
-        runSave(EditProfileEvent.PasswordChanged, "Failed to change password") {
-            profileEditRepository.changePassword(currentPassword, newPassword)
-        }
-    }
+    // ── Save ─────────────────────────────────────────────────────────────────
 
-    private fun runSave(
-        onSuccess: EditProfileEvent,
-        failureMessage: String,
-        op: suspend () -> AppResult<*>,
-    ) {
+    /**
+     * Validate the form, apply any staged avatar operation, then persist all text-field
+     * changes in a single [ProfileEditRepository.updateProfile] call.
+     *
+     * Password validation (match + minimum length) runs before touching the network.
+     * On success, transient state (password fields, avatarChange) is cleared and
+     * [EditProfileEvent.SaveSucceeded] is emitted.
+     * On any failure, the form is kept intact and [EditProfileEvent.SaveFailed] is emitted.
+     */
+    fun save() {
+        val ready = state.value as? EditProfileUiState.Ready ?: return
+        val form = formFlow.value
+        val user = ready.user
+
+        if (anyPasswordField(form) && !passwordFieldsValid(form)) return
+
         viewModelScope.launch {
             savingFlow.value = true
+            // No catch: a cancellation propagates through `finally` (which clears the
+            // saving flag) and is never swallowed.
             try {
-                when (val result = op()) {
-                    is AppResult.Success -> {
-                        eventChannel.trySend(onSuccess)
-                        logger.info { "Save succeeded: $onSuccess" }
-                    }
+                if (!applyAvatarChange(form.avatarChange)) return@launch
+                if (!applyProfileChanges(form, user)) return@launch
 
-                    is AppResult.Failure -> {
-                        logger.error { "Save failed: $failureMessage — ${result.message}" }
-                        eventChannel.trySend(EditProfileEvent.SaveFailed(failureMessage))
-                    }
+                // Success — clear transient fields.
+                formFlow.update {
+                    it.copy(
+                        currentPassword = "",
+                        newPassword = "",
+                        confirmPassword = "",
+                        avatarChange = AvatarChange.None,
+                    )
                 }
+                logger.info { "Profile save succeeded" }
+                eventChannel.trySend(EditProfileEvent.SaveSucceeded)
             } finally {
                 savingFlow.value = false
             }
         }
     }
+
+    /** True when the user has started typing into any of the three password fields. */
+    private fun anyPasswordField(form: FormState): Boolean =
+        form.currentPassword.isNotEmpty() ||
+            form.newPassword.isNotEmpty() ||
+            form.confirmPassword.isNotEmpty()
+
+    /** Validate the staged password change; emits [EditProfileEvent.SaveFailed] and returns false on error. */
+    private fun passwordFieldsValid(form: FormState): Boolean {
+        if (form.newPassword != form.confirmPassword) {
+            eventChannel.trySend(EditProfileEvent.SaveFailed("Passwords do not match."))
+            return false
+        }
+        if (form.newPassword.length < PASSWORD_MIN) {
+            eventChannel.trySend(
+                EditProfileEvent.SaveFailed("Password must be at least $PASSWORD_MIN characters."),
+            )
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Apply any staged avatar operation (a separate REST transport that must complete before
+     * the profile RPC). Returns true to continue, or emits [EditProfileEvent.SaveFailed] and
+     * returns false on error.
+     */
+    private suspend fun applyAvatarChange(change: AvatarChange): Boolean {
+        val result =
+            when (change) {
+                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType)
+                AvatarChange.RevertToAuto -> profileEditRepository.revertToAutoAvatar()
+                AvatarChange.None -> return true
+            }
+        return when (result) {
+            is AppResult.Success -> {
+                true
+            }
+            is AppResult.Failure -> {
+                logger.error { "Avatar change failed: ${result.error}" }
+                val message = if (change is AvatarChange.Upload) "Failed to upload avatar." else "Failed to revert avatar."
+                eventChannel.trySend(EditProfileEvent.SaveFailed(message))
+                false
+            }
+        }
+    }
+
+    /**
+     * Persist all changed text fields (and password, if staged) in a single
+     * [ProfileEditRepository.updateProfile] call — only the fields that actually changed are
+     * sent. Returns true (including the no-op case) or emits [EditProfileEvent.SaveFailed] and
+     * returns false on error.
+     */
+    private suspend fun applyProfileChanges(
+        form: FormState,
+        user: User,
+    ): Boolean {
+        val changedTagline = form.tagline.takeIf { it != (user.tagline ?: "") }
+        val nameChanged = form.firstName != (user.firstName ?: "") || form.lastName != (user.lastName ?: "")
+        val passwordChange =
+            if (anyPasswordField(form)) {
+                PasswordChange(currentPassword = form.currentPassword, newPassword = form.newPassword)
+            } else {
+                null
+            }
+
+        if (!nameChanged && changedTagline == null && passwordChange == null) return true
+
+        return when (
+            val result =
+                profileEditRepository.updateProfile(
+                    firstName = if (nameChanged) form.firstName else null,
+                    lastName = if (nameChanged) form.lastName else null,
+                    tagline = changedTagline,
+                    password = passwordChange,
+                )
+        ) {
+            is AppResult.Success -> {
+                true
+            }
+            is AppResult.Failure -> {
+                logger.error { "Profile update failed: ${result.error}" }
+                eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to save profile."))
+                false
+            }
+        }
+    }
+
+    // ── Internal helpers ──────────────────────────────────────────────────────
 
     private fun resolveLocalAvatarPath(user: User): String? =
         if (user.avatarType == "image" && imageRepository.userAvatarExists(user.id.value)) {

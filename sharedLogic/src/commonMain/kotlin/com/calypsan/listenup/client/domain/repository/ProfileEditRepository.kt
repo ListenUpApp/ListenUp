@@ -1,36 +1,48 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.result.AppResult
 
 /**
  * Repository contract for profile editing operations.
  *
- * Provides methods for modifying user profile data.
- * Uses offline-first pattern: changes are applied locally immediately
- * and queued for sync to server.
+ * Provides a single [updateProfile] for all text-field changes (name, tagline, password)
+ * and separate methods for avatar binary transport ([uploadAvatar], [revertToAutoAvatar]).
  *
- * Part of the domain layer - implementations live in the data layer.
+ * Implementations apply changes via the [com.calypsan.listenup.api.ProfileService] RPC and
+ * update the local Room cache on success so the UI reflects changes immediately.
  */
 interface ProfileEditRepository {
     /**
-     * Update the user's tagline.
+     * Persist all changed profile text fields in one RPC call.
      *
-     * Applies update locally and queues for server sync.
+     * Only non-null arguments are sent to the server; null means "no change for this field."
+     * On success, the local Room cache is updated for any changed field so the UI
+     * reflects the change immediately without waiting for the next sync.
      *
-     * @param tagline The new tagline (or null to clear)
-     * @return Result indicating success or failure
+     * @param firstName The user's first name, or null to leave unchanged.
+     * @param lastName The user's last name, or null to leave unchanged.
+     * @param tagline The user's tagline (empty string clears it), or null to leave unchanged.
+     * @param password A [PasswordChange] carrying the current and new passwords, or null to
+     *   skip the password change.
+     * @return [AppResult.Success] on success, or a typed [AppResult.Failure].
      */
-    suspend fun updateTagline(tagline: String?): AppResult<Unit>
+    suspend fun updateProfile(
+        firstName: String?,
+        lastName: String?,
+        tagline: String?,
+        password: PasswordChange?,
+    ): AppResult<Unit>
 
     /**
-     * Upload a new avatar image.
+     * Upload a new avatar image via multipart REST POST.
      *
-     * Stores the image data for offline sync and queues for server upload.
-     * The avatar type is set to "image" locally with a pending indicator.
+     * Sets the local avatar type to `"image"` on success so the UI immediately
+     * switches to the uploaded-image render path.
      *
-     * @param imageData The compressed image bytes
-     * @param contentType The MIME type of the image (e.g., "image/jpeg")
-     * @return Result indicating success or failure
+     * @param imageData The compressed image bytes.
+     * @param contentType The MIME type of the image (e.g., `"image/jpeg"`).
+     * @return [AppResult.Success] on success, or a typed [AppResult.Failure].
      */
     suspend fun uploadAvatar(
         imageData: ByteArray,
@@ -38,42 +50,12 @@ interface ProfileEditRepository {
     ): AppResult<Unit>
 
     /**
-     * Revert to auto-generated avatar.
+     * Revert to the auto-generated avatar.
      *
-     * Sets avatar type to "auto" locally and queues for server sync.
+     * Sends an RPC update that sets `avatarType = "auto"` on the server and mirrors
+     * the change locally so the UI immediately switches to the initials render path.
      *
-     * @return Result indicating success or failure
+     * @return [AppResult.Success] on success, or a typed [AppResult.Failure].
      */
     suspend fun revertToAutoAvatar(): AppResult<Unit>
-
-    /**
-     * Update the user's name.
-     *
-     * Queues update for server sync. Server computes displayName from firstName + lastName.
-     * Local cache is updated when sync completes.
-     *
-     * @param firstName The user's first name
-     * @param lastName The user's last name
-     * @return Result indicating success or failure
-     */
-    suspend fun updateName(
-        firstName: String,
-        lastName: String,
-    ): AppResult<Unit>
-
-    /**
-     * Change the user's password.
-     *
-     * This is NOT an offline-first operation - requires immediate server confirmation.
-     * The server verifies [currentPassword] before storing [newPassword].
-     * Returns [com.calypsan.listenup.api.error.ProfileError.WrongPassword] if the current password is incorrect.
-     *
-     * @param currentPassword The user's current password (verified server-side)
-     * @param newPassword The new password to set
-     * @return Result indicating success or failure
-     */
-    suspend fun changePassword(
-        currentPassword: String,
-        newPassword: String,
-    ): AppResult<Unit>
 }

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
@@ -19,15 +20,18 @@ import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 
 /**
- * Unit tests for [ProfileEditRepositoryImpl] — RPC-dispatched mutations + local Room updates.
+ * Unit tests for [ProfileEditRepositoryImpl].
  *
- * Verifies that each edit method calls [ProfileService] with the correct request, maps the
- * contract-layer [WireAppResult] to the client [AppResult], and updates local Room on success.
- * [uploadAvatar] relies on [AvatarUploader] (tested via integration with the REST endpoint);
- * the RPC-path methods are unit-tested here.
+ * Covers [ProfileEditRepositoryImpl.updateProfile] — the consolidated RPC call for all
+ * text-field changes — plus the avatar REST transport helpers. Each test verifies that the
+ * correct [ProfileService.updateMyProfile] request is sent and that Room is updated on success.
  */
 class ProfileEditRepositoryImplTest :
     FunSpec({
@@ -58,7 +62,7 @@ class ProfileEditRepositoryImplTest :
                 updatedAt = 1_000L,
             )
 
-        /** No-op [AvatarUploader] — upload is not exercised in these unit tests. */
+        /** No-op [AvatarUploader] — avatar upload is not exercised in unit tests. */
         val noOpUploader = AvatarUploader { _, _ -> AppResult.Success(Unit) }
 
         fun repo(
@@ -74,7 +78,9 @@ class ProfileEditRepositoryImplTest :
             )
         }
 
-        test("updateTagline calls ProfileService with correct request and updates local Room on success") {
+        // ── updateProfile — tagline only ──────────────────────────────────────
+
+        test("updateProfile sends only tagline when name and password are null") {
             runTest {
                 val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
@@ -84,7 +90,13 @@ class ProfileEditRepositoryImplTest :
                 } returns WireAppResult.Success(stubProfile)
                 everySuspend { userDao.updateTagline(any(), any(), any()) } returns Unit
 
-                val result = repo(userDao = userDao, service = service).updateTagline("Hi")
+                val result =
+                    repo(userDao = userDao, service = service).updateProfile(
+                        firstName = null,
+                        lastName = null,
+                        tagline = "Hi",
+                        password = null,
+                    )
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { service.updateMyProfile(UpdateProfileRequest(tagline = "Hi")) }
@@ -92,7 +104,7 @@ class ProfileEditRepositoryImplTest :
             }
         }
 
-        test("updateTagline returns Failure when service returns wire failure") {
+        test("updateProfile returns Failure when service returns wire failure") {
             runTest {
                 val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
@@ -101,47 +113,135 @@ class ProfileEditRepositoryImplTest :
                     service.updateMyProfile(UpdateProfileRequest(tagline = "Hi"))
                 } returns WireAppResult.Failure(ProfileError.WrongPassword())
 
-                val result = repo(userDao = userDao, service = service).updateTagline("Hi")
+                val result =
+                    repo(userDao = userDao, service = service).updateProfile(
+                        firstName = null,
+                        lastName = null,
+                        tagline = "Hi",
+                        password = null,
+                    )
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
             }
         }
 
-        test("changePassword calls service with PasswordChange and maps WrongPassword failure to core Failure") {
+        // ── updateProfile — name only ─────────────────────────────────────────
+
+        test("updateProfile sends displayName computed from firstName+lastName and updates Room") {
+            runTest {
+                val service = mock<ProfileService>()
+                val userDao = mock<UserDao>()
+                everySuspend { userDao.getCurrentUser() } returns userEntity
+                everySuspend {
+                    service.updateMyProfile(UpdateProfileRequest(displayName = "Bob Jones"))
+                } returns WireAppResult.Success(stubProfile)
+                everySuspend { userDao.updateName(any(), any(), any(), any(), any()) } returns Unit
+
+                val result =
+                    repo(userDao = userDao, service = service).updateProfile(
+                        firstName = "Bob",
+                        lastName = "Jones",
+                        tagline = null,
+                        password = null,
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend {
+                    service.updateMyProfile(UpdateProfileRequest(displayName = "Bob Jones"))
+                }
+                verifySuspend {
+                    userDao.updateName(userId, "Bob", "Jones", "Bob Jones", any())
+                }
+            }
+        }
+
+        // ── updateProfile — password ──────────────────────────────────────────
+
+        test("updateProfile with password sends PasswordChange and returns WrongPassword failure") {
             runTest {
                 val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
                 everySuspend { userDao.getCurrentUser() } returns userEntity
                 val expectedRequest =
-                    UpdateProfileRequest(password = PasswordChange("cur12345", "newpass12"))
+                    UpdateProfileRequest(
+                        password = PasswordChange(currentPassword = "cur12345", newPassword = "newpass12"),
+                    )
                 everySuspend {
                     service.updateMyProfile(expectedRequest)
                 } returns WireAppResult.Failure(ProfileError.WrongPassword())
 
-                val result = repo(userDao = userDao, service = service).changePassword("cur12345", "newpass12")
+                val result =
+                    repo(userDao = userDao, service = service).updateProfile(
+                        firstName = null,
+                        lastName = null,
+                        tagline = null,
+                        password = PasswordChange(currentPassword = "cur12345", newPassword = "newpass12"),
+                    )
 
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<ProfileError.WrongPassword>()
             }
         }
 
-        test("changePassword success calls service and returns Success") {
+        test("updateProfile with password success returns Success") {
             runTest {
                 val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
                 everySuspend { userDao.getCurrentUser() } returns userEntity
                 val expectedRequest =
-                    UpdateProfileRequest(password = PasswordChange("cur12345", "newpass12"))
+                    UpdateProfileRequest(
+                        password = PasswordChange(currentPassword = "cur12345", newPassword = "newpass12"),
+                    )
                 everySuspend {
                     service.updateMyProfile(expectedRequest)
                 } returns WireAppResult.Success(stubProfile)
 
-                val result = repo(userDao = userDao, service = service).changePassword("cur12345", "newpass12")
+                val result =
+                    repo(userDao = userDao, service = service).updateProfile(
+                        firstName = null,
+                        lastName = null,
+                        tagline = null,
+                        password = PasswordChange(currentPassword = "cur12345", newPassword = "newpass12"),
+                    )
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend {
-                    service.updateMyProfile(UpdateProfileRequest(password = PasswordChange("cur12345", "newpass12")))
+                    service.updateMyProfile(
+                        UpdateProfileRequest(
+                            password = PasswordChange(currentPassword = "cur12345", newPassword = "newpass12"),
+                        ),
+                    )
                 }
+            }
+        }
+
+        // ── Avatar upload (REST multipart, not RPC) ──────────────────────────────────────
+
+        /*
+         * Regression guard for #592: the server returns 204 No Content on a successful avatar
+         * upload. The original avatarUploaderOf called `.body<ApiResponse<Unit>>()` on the
+         * response, which tried to deserialize an empty body as JSON and threw, causing the
+         * upload to report failure even though the server had accepted the image.
+         *
+         * This test drives avatarUploaderOf against a mock engine that returns 204 with an
+         * empty body. The fix is to check HttpResponse.status.isSuccess() instead of
+         * deserializing the body.
+         */
+        test("avatarUploaderOf returns Success when server responds 204 No Content") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.NoContent)
+                    }
+                val fakeClient = HttpClient(engine)
+                val fakeFactory =
+                    mock<ApiClientFactory> {
+                        everySuspend { getClient() } returns fakeClient
+                    }
+
+                val result = avatarUploaderOf(fakeFactory).upload(ByteArray(4), "image/jpeg")
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
     })

@@ -1,29 +1,26 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// Presented sheet for editing the current user's profile: avatar, tagline, name, and
-/// (optionally) password. Bound to `EditProfileViewModel` via `EditProfileObserver`.
+/// Edit-the-current-user's-profile sheet: avatar, tagline, name, and password, committed
+/// by a single Save (the scaffold's nav-bar Done).
 ///
-/// Text input lives here as `@State`, seeded once from the loaded user; Save dispatches
-/// only the fields that actually changed. The sheet dismisses on the first successful
-/// save and stays open (surfacing an alert) on failure.
+/// The VM owns the entire form buffer, so this view keeps **no** parallel `@State` copy —
+/// every field binds get/set straight through the observer, and `isDirty` / `isSaving`
+/// come from the VM. The sheet dismisses on the first successful save and stays open
+/// (surfacing an alert) on failure.
 struct EditProfileView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
 
     @State private var observer: EditProfileObserver?
 
-    @State private var seeded = false
-    @State private var tagline = ""
-    @State private var firstName = ""
-    @State private var lastName = ""
-    @State private var currentPassword = ""
-    @State private var newPassword = ""
+    /// The two-column layout kicks in past this width — wide enough to hold Tagline and
+    /// Name side by side with comfortable margins, narrow enough that every iPhone and
+    /// narrow Split View stays single-column.
+    private static let wideThreshold: CGFloat = 700
+    private static let readableMaxWidth: CGFloat = 820
 
-    /// The values the fields were seeded with, used to detect what changed on Save.
-    @State private var originalTagline = ""
-    @State private var originalFirstName = ""
-    @State private var originalLastName = ""
+    @State private var width: CGFloat = 0
 
     var body: some View {
         Group {
@@ -43,28 +40,16 @@ struct EditProfileView: View {
     private func sheet(_ observer: EditProfileObserver) -> some View {
         EditSheetScaffold(
             title: String(localized: "profile.edit_profile_title"),
-            canSave: hasChanges,
+            canSave: observer.isDirty,
             isSaving: observer.isSaving,
             onCancel: { dismiss() },
-            onSave: { save(observer) }
+            onSave: { observer.save() }
         ) {
-            VStack(spacing: 22) {
-                ImageEditHeader(
-                    shape: .circle,
-                    size: 104,
-                    isUploading: observer.isSaving,
-                    canRemove: false,
-                    onPicked: { observer.uploadAvatar($0) },
-                    onRemove: {}
-                ) {
-                    UserAvatarView(user: observer.user, size: 104)
-                }
-                .padding(.top, 8)
-
-                taglineSection
-                nameSection
-                passwordSection
-            }
+            sections(observer)
+                .frame(maxWidth: Self.readableMaxWidth)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         }
         .alert(
             String(localized: "common.error"),
@@ -74,78 +59,179 @@ struct EditProfileView: View {
         } message: {
             Text(observer.lastError ?? "")
         }
-        .onChange(of: observer.user) { _, user in seedIfNeeded(from: user) }
         .onChange(of: observer.savedToken) { _, _ in dismiss() }
-        .onAppear { seedIfNeeded(from: observer.user) }
+    }
+
+    // MARK: - Layout
+
+    /// Single column on narrow widths; on a wide width Tagline and Name sit side by side
+    /// while Avatar and Password span full width. Driven off the measured content width,
+    /// not the horizontal size class (so narrow Split View reads as compact).
+    @ViewBuilder
+    private func sections(_ observer: EditProfileObserver) -> some View {
+        let isWide = width >= Self.wideThreshold
+
+        VStack(spacing: 22) {
+            avatarSection(observer)
+
+            if isWide {
+                HStack(alignment: .top, spacing: 16) {
+                    taglineSection(observer)
+                    nameSection(observer)
+                }
+            } else {
+                taglineSection(observer)
+                nameSection(observer)
+            }
+
+            passwordSection(observer)
+        }
     }
 
     // MARK: - Sections
 
-    private var taglineSection: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            AppTextField(
-                placeholder: String(localized: "profile.tagline_placeholder"),
-                text: $tagline,
-                label: String(localized: "profile.tagline")
-            )
-            .fieldCard()
-
-            Text(taglineCount)
-                .font(.caption2)
-                .foregroundStyle(Color.luLabel3)
-                .padding(.trailing, 6)
+    @ViewBuilder
+    private func avatarSection(_ observer: EditProfileObserver) -> some View {
+        ProfileEditSection(
+            title: String(localized: "profile.avatar"),
+            subtitle: String(localized: "profile.avatar_description")
+        ) {
+            ImageEditHeader(
+                shape: .circle,
+                size: 104,
+                isUploading: observer.isSaving,
+                canRemove: canRemoveAvatar(observer),
+                onPicked: { observer.stageAvatarUpload($0) },
+                onRemove: { observer.stageAvatarRevert() }
+            ) {
+                avatarPreview(observer)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal)
     }
 
-    private var nameSection: some View {
-        VStack(spacing: 0) {
-            AppTextField(
-                placeholder: String(localized: "auth.first_name_placeholder"),
-                text: $firstName,
-                label: String(localized: "auth.first_name"),
-                isLast: false
-            )
-            AppTextField(
-                placeholder: String(localized: "auth.last_name_placeholder"),
-                text: $lastName,
-                label: String(localized: "auth.last_name")
-            )
+    @ViewBuilder
+    private func avatarPreview(_ observer: EditProfileObserver) -> some View {
+        switch observer.stagedAvatar {
+        case .image(let data):
+            if let uiImage = UIImage(data: data) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                UserAvatarView(user: observer.user, size: 104)
+            }
+        case .reverted, .none:
+            // Reverted → initials; None → the user's current avatar (initials today).
+            UserAvatarView(user: observer.user, size: 104)
         }
-        .fieldCard()
-        .padding(.horizontal)
     }
 
-    private var passwordSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    @ViewBuilder
+    private func taglineSection(_ observer: EditProfileObserver) -> some View {
+        ProfileEditSection(
+            title: String(localized: "profile.tagline"),
+            subtitle: String(localized: "profile.tagline_description")
+        ) {
+            VStack(alignment: .trailing, spacing: 6) {
+                AppTextField(
+                    placeholder: String(localized: "profile.tagline_placeholder"),
+                    text: binding(observer.tagline, observer.setTagline),
+                    label: String(localized: "profile.tagline")
+                )
+                .fieldCard()
+
+                Text(taglineCount(observer.tagline))
+                    .font(.caption2)
+                    .foregroundStyle(Color.luLabel3)
+                    .padding(.trailing, 6)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func nameSection(_ observer: EditProfileObserver) -> some View {
+        ProfileEditSection(
+            title: String(localized: "profile.name"),
+            subtitle: String(localized: "profile.name_description")
+        ) {
             VStack(spacing: 0) {
                 AppTextField(
-                    placeholder: String(localized: "profile.current_password"),
-                    text: $currentPassword,
-                    label: String(localized: "profile.current_password"),
-                    kind: .secure,
-                    isLast: false
+                    placeholder: String(localized: "auth.first_name_placeholder"),
+                    text: binding(observer.firstName, observer.setFirstName),
+                    label: String(localized: "auth.first_name"),
+                    isLast: false,
+                    textContentType: .givenName,
+                    autocapitalization: .words
                 )
                 AppTextField(
-                    placeholder: String(localized: "profile.new_password"),
-                    text: $newPassword,
-                    label: String(localized: "profile.new_password"),
-                    kind: .secure
+                    placeholder: String(localized: "auth.last_name_placeholder"),
+                    text: binding(observer.lastName, observer.setLastName),
+                    label: String(localized: "auth.last_name"),
+                    textContentType: .familyName,
+                    autocapitalization: .words
                 )
             }
             .fieldCard()
-
-            Text(String(localized: "profile.password_description"))
-                .font(.caption2)
-                .foregroundStyle(Color.luLabel3)
-                .padding(.leading, 6)
         }
-        .padding(.horizontal)
+    }
+
+    @ViewBuilder
+    private func passwordSection(_ observer: EditProfileObserver) -> some View {
+        ProfileEditSection(
+            title: String(localized: "profile.change_password"),
+            subtitle: String(localized: "profile.password_description")
+        ) {
+            VStack(spacing: 0) {
+                AppTextField(
+                    placeholder: String(localized: "profile.current_password"),
+                    text: binding(observer.currentPassword, observer.setCurrentPassword),
+                    label: String(localized: "profile.current_password"),
+                    kind: .secure,
+                    isLast: false,
+                    textContentType: .password
+                )
+                AppTextField(
+                    placeholder: String(localized: "profile.new_password"),
+                    text: binding(observer.newPassword, observer.setNewPassword),
+                    label: String(localized: "profile.new_password"),
+                    kind: .secure,
+                    isLast: false,
+                    textContentType: .newPassword
+                )
+                AppTextField(
+                    placeholder: String(localized: "auth.confirm_password"),
+                    text: binding(observer.confirmPassword, observer.setConfirmPassword),
+                    label: String(localized: "auth.confirm_password"),
+                    kind: .secure,
+                    textContentType: .newPassword
+                )
+            }
+            .fieldCard()
+        }
     }
 
     // MARK: - Derived
 
-    private var taglineCount: String {
+    private func canRemoveAvatar(_ observer: EditProfileObserver) -> Bool {
+        Self.canRemoveAvatar(staged: observer.stagedAvatar, hasImageAvatar: observer.user?.hasImageAvatar ?? false)
+    }
+
+    /// Remove is offered when there's a real image avatar to clear, or an upload is staged
+    /// (so the user can back out of a fresh pick) — never when already reverted. Pure so
+    /// the decision is unit-tested without constructing live VM state.
+    nonisolated static func canRemoveAvatar(staged: StagedAvatar, hasImageAvatar: Bool) -> Bool {
+        switch staged {
+        case .image:
+            return true
+        case .reverted:
+            return false
+        case .none:
+            return hasImageAvatar
+        }
+    }
+
+    private func taglineCount(_ tagline: String) -> String {
         String(
             format: String(localized: "profile.tagline_char_count"),
             tagline.count,
@@ -153,36 +239,34 @@ struct EditProfileView: View {
         )
     }
 
-    private var hasChanges: Bool {
-        tagline != originalTagline
-            || firstName != originalFirstName
-            || lastName != originalLastName
-            || (!currentPassword.isEmpty && !newPassword.isEmpty)
+    /// A `Binding` that reads observer state and writes through a VM setter — the view
+    /// owns no field state of its own.
+    private func binding(_ value: String, _ set: @escaping (String) -> Void) -> Binding<String> {
+        Binding(get: { value }, set: set)
     }
+}
 
-    // MARK: - Seeding & save
+// MARK: - Section helper
 
-    private func seedIfNeeded(from user: User_?) {
-        guard !seeded, let user else { return }
-        seeded = true
-        let line = user.tagline ?? ""
-        tagline = line
-        originalTagline = line
-        firstName = user.firstName ?? ""
-        originalFirstName = firstName
-        lastName = user.lastName ?? ""
-        originalLastName = lastName
-    }
+/// A titled profile-edit section: a `.headline` header, a secondary `.subheadline`
+/// subtitle, then `.fieldCard()`-wrapped content. The iOS realization of the mockup's
+/// titled cards — no Android card chrome, just the native edit-sheet look.
+private struct ProfileEditSection<Content: View>: View {
+    let title: String
+    let subtitle: String
+    @ViewBuilder var content: () -> Content
 
-    private func save(_ observer: EditProfileObserver) {
-        if tagline != originalTagline {
-            observer.saveTagline(tagline)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            content()
         }
-        if firstName != originalFirstName || lastName != originalLastName {
-            observer.saveName(firstName: firstName, lastName: lastName)
-        }
-        if !currentPassword.isEmpty && !newPassword.isEmpty {
-            observer.changePassword(current: currentPassword, new: newPassword)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
