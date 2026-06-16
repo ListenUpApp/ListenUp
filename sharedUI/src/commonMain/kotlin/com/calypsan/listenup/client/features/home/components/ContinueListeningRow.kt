@@ -31,9 +31,9 @@ private val ContinueCardWidth = 176.dp
  *
  * Renders [ContinueListeningItem.Ready] items as full [BookCard]s and
  * [ContinueListeningItem.Loading] items as skeleton placeholder cards that
- * match the real card's dimensions. Rendered in a [LazyRow] (not a carousel) so the cards' soft
- * cover shadows aren't clipped at the item bounds; the list order is stable, so a Loading item
- * transitions to Ready in place — no flicker or re-enter animation.
+ * match the real card's dimensions. Rendered in a snap [BrowseCarousel] (an unmasked LazyRow) so the
+ * cards' soft cover shadows aren't clipped at the item bounds; the list order is stable, so a Loading
+ * item transitions to Ready in place — no flicker or re-enter animation.
  *
  * @param items List of [ContinueListeningItem] — Ready or Loading
  * @param onBookClick Callback when a ready book card is clicked
