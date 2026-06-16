@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -65,6 +64,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -691,22 +691,20 @@ private fun NarrowWorkSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyRow(
+        BrowseCarousel(
+            items = section.previewBooks,
+            itemWidth = 150.dp,
+            itemSpacing = 16.dp,
             contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            items(
-                items = section.previewBooks,
-                key = { it.id.value },
-            ) { book ->
-                BookCard(
-                    cover = book.toCoverModel(),
-                    onClick = { onBookClick(book.id.value) },
-                    duration = book.formatDuration(),
-                    progress = bookProgress[book.id],
-                    cardWidth = 150.dp,
-                )
-            }
+            key = { it.id.value },
+        ) { book ->
+            BookCard(
+                cover = book.toCoverModel(),
+                onClick = { onBookClick(book.id.value) },
+                duration = book.formatDuration(),
+                progress = bookProgress[book.id],
+                cardWidth = 150.dp,
+            )
         }
     }
 }

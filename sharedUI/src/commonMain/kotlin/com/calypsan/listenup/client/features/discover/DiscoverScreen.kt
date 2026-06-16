@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import com.calypsan.listenup.client.design.components.AvatarSize
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
@@ -335,20 +335,18 @@ private fun UserShelvesSection(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Horizontal scroll of shelves
-        LazyRow(
+        BrowseCarousel(
+            items = userShelves.shelves,
+            itemWidth = 140.dp,
+            itemSpacing = 12.dp,
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(
-                items = userShelves.shelves,
-                key = { it.id },
-            ) { shelf ->
-                DiscoverShelfCard(
-                    shelf = shelf,
-                    avatarColor = avatarColor,
-                    onClick = { onShelfClick(shelf.id) },
-                )
-            }
+            key = { it.id },
+        ) { shelf ->
+            DiscoverShelfCard(
+                shelf = shelf,
+                avatarColor = avatarColor,
+                onClick = { onShelfClick(shelf.id) },
+            )
         }
     }
 }

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -40,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -383,22 +383,20 @@ private fun SeriesCarouselSection(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Horizontal carousel
-        LazyRow(
+        BrowseCarousel(
+            items = seriesGroup.books,
+            itemWidth = 150.dp,
+            itemSpacing = 16.dp,
             contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            items(
-                items = seriesGroup.books,
-                key = { it.id.value },
-            ) { book ->
-                BookCard(
-                    cover = book.toCoverModel(),
-                    onClick = { onBookClick(book.id.value) },
-                    duration = book.formatDuration(),
-                    progress = bookProgress[book.id],
-                    cardWidth = 150.dp,
-                )
-            }
+            key = { it.id.value },
+        ) { book ->
+            BookCard(
+                cover = book.toCoverModel(),
+                onClick = { onBookClick(book.id.value) },
+                duration = book.formatDuration(),
+                progress = bookProgress[book.id],
+                cardWidth = 150.dp,
+            )
         }
     }
 }
