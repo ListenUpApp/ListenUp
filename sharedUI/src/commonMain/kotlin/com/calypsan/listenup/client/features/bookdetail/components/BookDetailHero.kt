@@ -32,8 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
-import com.calypsan.listenup.client.design.components.BookFacet
-import com.calypsan.listenup.client.design.components.FacetChip
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -387,11 +385,12 @@ fun WideHeroBand(
 }
 
 /**
- * The classification row shared by both heroes: the most-specific [genre] rendered as an outlined
- * [FacetChip] beside the Abridged/Unabridged flag, in the brand-accent [classificationColor].
+ * The classification row shared by both heroes: the most-specific [genre] rendered as a plain
+ * uppercase label — matching the Abridged/Unabridged flag rather than a filled pill — in the
+ * brand-accent [classificationColor], the two set off by a middot.
  *
- * The genre chip is omitted when [genre] is null; the flag is always shown. [centered] aligns the
- * row for the compact (centered) hero versus the wide (left-aligned) band.
+ * The genre is omitted when null; the flag is always shown. [centered] aligns the row for the
+ * compact (centered) hero versus the wide (left-aligned) band.
  */
 @Composable
 private fun HeroClassification(
@@ -408,11 +407,22 @@ private fun HeroClassification(
     Row(
         modifier = modifier,
         horizontalArrangement =
-            Arrangement.spacedBy(10.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
+            Arrangement.spacedBy(8.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // The most-specific genre reads as the same understated flag as Abridged/Unabridged — a
+        // plain uppercase label, not a filled pill — set off from it by a middot.
         if (!genre.isNullOrBlank()) {
-            FacetChip(label = genre, facet = BookFacet.Genre)
+            Text(
+                text = genre.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = classificationColor,
+            )
+            Text(
+                text = "·",
+                style = MaterialTheme.typography.labelMedium,
+                color = classificationColor,
+            )
         }
         Text(
             text = classification.uppercase(),
