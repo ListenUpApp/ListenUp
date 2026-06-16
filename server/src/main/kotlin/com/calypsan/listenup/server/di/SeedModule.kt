@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.seed.DomainSeeder
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.server.seed.InviteDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
+import com.calypsan.listenup.server.seed.MoodDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
 import com.calypsan.listenup.server.seed.PublicProfileDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
@@ -46,6 +47,11 @@ import org.koin.dsl.module
  *   [GenreDomainSeeder] is registered to seed the default genre taxonomy (3 roots,
  *   ~70 nodes total) ported from Go's `internal/genre/defaults.go`. Like tags, the
  *   genre tree is curator-controlled and independent of the scanner.
+ * @param hasMoodsModule whether the moods slice is active. When true,
+ *   [MoodDomainSeeder] is registered to seed the canonical Audible mood vocabulary
+ *   (≈24 affective labels). Like genres, moods are curator-controlled dedupe anchors
+ *   and independent of the scanner. The moods bindings live in [booksModule], so this
+ *   is true exactly when [hasBooksModule] is.
  * @param hasCollectionsModule whether the collections slice is active. When true,
  *   [CollectionDomainSeeder] is registered to seed the demo library's inbox plus one
  *   demo collection. The collections bindings live in [booksModule], so this is true
@@ -63,6 +69,7 @@ fun seedModule(
     hasBooksModule: Boolean = false,
     hasTagsModule: Boolean = false,
     hasGenresModule: Boolean = false,
+    hasMoodsModule: Boolean = false,
     hasCollectionsModule: Boolean = false,
     hasShelvesModule: Boolean = false,
 ): Module =
@@ -106,6 +113,7 @@ fun seedModule(
                         hasBooksModule = hasBooksModule,
                         hasTagsModule = hasTagsModule,
                         hasGenresModule = hasGenresModule,
+                        hasMoodsModule = hasMoodsModule,
                         hasCollectionsModule = hasCollectionsModule,
                         hasShelvesModule = hasShelvesModule,
                     ),
@@ -125,6 +133,7 @@ private fun assembleSeeders(
     hasBooksModule: Boolean,
     hasTagsModule: Boolean,
     hasGenresModule: Boolean,
+    hasMoodsModule: Boolean,
     hasCollectionsModule: Boolean,
     hasShelvesModule: Boolean,
 ): List<DomainSeeder> =
@@ -145,6 +154,9 @@ private fun assembleSeeders(
         }
         if (hasGenresModule) {
             add(koin.get<GenreDomainSeeder>())
+        }
+        if (hasMoodsModule) {
+            add(koin.get<MoodDomainSeeder>())
         }
         if (hasCollectionsModule) {
             add(koin.get<CollectionDomainSeeder>())

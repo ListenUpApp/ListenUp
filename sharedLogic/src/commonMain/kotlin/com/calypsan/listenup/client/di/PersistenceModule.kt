@@ -33,6 +33,8 @@ val persistenceModule: Module =
         single { get<ListenUpDatabase>().shelfDao() }
         single { get<ListenUpDatabase>().shelfBookDao() }
         single { get<ListenUpDatabase>().tagDao() }
+        single { get<ListenUpDatabase>().moodDao() }
+        single { get<ListenUpDatabase>().bookMoodDao() }
         single { get<ListenUpDatabase>().genreDao() }
         single { get<ListenUpDatabase>().audioFileDao() }
         single { get<ListenUpDatabase>().listeningEventDao() }

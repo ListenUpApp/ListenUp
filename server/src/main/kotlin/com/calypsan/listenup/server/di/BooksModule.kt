@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
+import com.calypsan.listenup.server.seed.MoodDomainSeeder
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
@@ -16,13 +18,16 @@ import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
+import com.calypsan.listenup.server.api.MoodServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
+import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverResponder
@@ -34,6 +39,7 @@ import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.AnalyzedBookMapper
 import com.calypsan.listenup.server.services.BookGenreWriter
 import com.calypsan.listenup.server.services.BookIngestPort
+import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
@@ -192,6 +198,7 @@ fun booksModule(
                 principal = unscopedPlaceholder("TagService"),
             )
         }
+        moodBindings()
         single<GenreService> {
             GenreServiceImpl(
                 genreRepository = get<GenreRepository>(),
@@ -221,6 +228,37 @@ fun booksModule(
         genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
+
+/**
+ * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):
+ *  - [BookMoodWriter] — scan/enrich-time find-or-create-then-link writer (add-only).
+ *  - [MoodService] / [MoodServiceImpl] — the interactive curation surface.
+ *  - [MoodDomainSeeder] — seeds the canonical Audible mood vocabulary on fresh installs
+ *    (`isAlreadySeeded()` makes re-runs no-ops); invoked by `Application.launchSeeders`.
+ *
+ * The [MoodRepository] / [BookMoodRepository] syncable singletons live in [syncModule] so
+ * the moods/book_moods domains register with `SyncRegistry` at bootstrap (like tags). Split
+ * out of [booksModule] to keep that module body under the length budget.
+ */
+private fun Module.moodBindings() {
+    single {
+        BookMoodWriter(
+            clock = get(),
+            moodRepository = get<MoodRepository>(),
+            bookMoodRepository = get<BookMoodRepository>(),
+        )
+    }
+    single<MoodService> {
+        MoodServiceImpl(
+            moodRepository = get<MoodRepository>(),
+            bookMoodRepository = get<BookMoodRepository>(),
+            db = get(),
+            permissionPolicy = get<UserPermissionPolicy>(),
+            principal = unscopedPlaceholder("MoodService"),
+        )
+    }
+    single { MoodDomainSeeder(db = get(), moodRepository = get<MoodRepository>()) }
+}
 
 /**
  * Boot-time genre bindings invoked by `Application.launchSeeders`:

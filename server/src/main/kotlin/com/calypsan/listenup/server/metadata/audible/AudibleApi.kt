@@ -78,4 +78,25 @@ interface AudibleApi {
         region: AudibleRegion,
         name: String,
     ): AppResult<List<AudibleContributorProfile>>
+
+    /**
+     * Scrapes the typed topic tags (moods, themes, …) from the Audible product
+     * page at `www.audible.{tld}/pd/{asin}` in [region].
+     *
+     * The catalog API does not expose these recommendation tags, so the product
+     * page is scraped — gated behind the storefront locale cookie (Task 4) so
+     * `/pd` returns 200 rather than 503. Classification into Moods / Tropes is
+     * [ProductTagClassifier]'s job; this method returns the raw typed tags.
+     *
+     * Best-effort: a missing page or transport failure yields an empty list or a
+     * typed [com.calypsan.listenup.api.error.MetadataError]; it never throws past
+     * the boundary.
+     *
+     * @return [AppResult.Success] with a (possibly empty) tag list on success,
+     *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
+     */
+    suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>>
 }

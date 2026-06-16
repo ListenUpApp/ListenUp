@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
@@ -169,6 +170,9 @@ private fun withTestRepo(
         val tagRepository: TagRepository = mock()
         every { tagRepository.observeTagsForBook(any()) } returns emptyFlowOf()
 
+        val moodRepository: MoodRepository = mock()
+        every { moodRepository.observeMoodsForBook(any()) } returns emptyFlowOf()
+
         val transactionRunner = RoomTransactionRunner(db)
         val syncHandler =
             BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
@@ -181,8 +185,7 @@ private fun withTestRepo(
                 searchDao = db.searchDao(),
                 transactionRunner = transactionRunner,
                 imageStorage = imageStorage,
-                genreRepository = genreRepository,
-                tagRepository = tagRepository,
+                joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
                 networkMonitor = networkMonitor,
                 bookRpcFactory = rpcFactory,
                 bookSyncDomainHandler = syncHandler,

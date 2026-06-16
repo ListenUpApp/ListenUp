@@ -313,6 +313,40 @@ data class BookWithTags(
 )
 
 /**
+ * Sync-substrate junction entity for the many-to-many relationship between books and moods.
+ *
+ * A book can have multiple moods; a mood can be applied to multiple books (curator model —
+ * the mood set is global, not per-user). Soft-deletes are tombstoned via [deletedAt]; the
+ * sync engine applies tombstones from [com.calypsan.listenup.api.sync.BookMoodSyncPayload]
+ * into this table.
+ *
+ * No [ForeignKey] constraints are declared — junction integrity is maintained by the sync
+ * handlers, which process parent (moods, books) events before junction events during catch-up.
+ * This avoids FK-constraint failures when event ordering is not guaranteed.
+ *
+ * @property bookId The book this mood is applied to.
+ * @property moodId The mood applied to [bookId].
+ * @property createdAt Epoch millis when this junction row was first created.
+ * @property revision Monotonic server revision, bumped on create or soft-delete.
+ * @property deletedAt Epoch ms tombstone; null when the junction row is live.
+ */
+@Entity(
+    tableName = "book_moods",
+    primaryKeys = ["bookId", "moodId"],
+    indices = [
+        Index(value = ["moodId"]),
+        Index(value = ["deletedAt"]),
+    ],
+)
+data class BookMoodEntity(
+    val bookId: String,
+    val moodId: String,
+    val createdAt: Long,
+    val revision: Long = 0,
+    val deletedAt: Long? = null,
+)
+
+/**
  * Junction entity mapping contributors to their aliases (pen names, former names).
  *
  * Replaces the legacy [ContributorEntity.aliases] comma-separated string, which

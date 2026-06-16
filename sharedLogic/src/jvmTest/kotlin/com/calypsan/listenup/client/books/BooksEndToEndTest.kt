@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
@@ -18,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
@@ -164,6 +166,8 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
     every { genreRepository.observeGenresForBook(any()) } returns MutableStateFlow(emptyList())
     val tagRepository: TagRepository = mock()
     every { tagRepository.observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
+    val moodRepository: MoodRepository = mock()
+    every { moodRepository.observeMoodsForBook(any()) } returns MutableStateFlow(emptyList())
 
     val transactionRunner = RoomTransactionRunner(database)
     val syncHandler =
@@ -176,8 +180,7 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
         searchDao = database.searchDao(),
         transactionRunner = transactionRunner,
         imageStorage = imageStorage,
-        genreRepository = genreRepository,
-        tagRepository = tagRepository,
+        joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = networkMonitor,
         bookRpcFactory = rpcFactory,
         bookSyncDomainHandler = syncHandler,

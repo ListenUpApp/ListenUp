@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.TagRepository
@@ -35,6 +36,7 @@ import org.koin.test.verify.verify
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [GenreRepository] — owned by `genreTagModule`.
  *  - [TagRepository] — owned by `genreTagModule`.
+ *  - [MoodRepository] — owned by `genreTagModule`.
  *  - [CollectionRpcFactory] — owned by `collectionModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
@@ -59,6 +61,7 @@ class BookModuleVerifyTest :
                         ServerConfig::class,
                         GenreRepository::class,
                         TagRepository::class,
+                        MoodRepository::class,
                         CollectionRpcFactory::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,

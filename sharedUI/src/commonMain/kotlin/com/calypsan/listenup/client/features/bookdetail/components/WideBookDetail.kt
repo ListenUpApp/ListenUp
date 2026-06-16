@@ -257,6 +257,7 @@ private fun WideLeftColumn(
             description = state.description,
             genres = state.genresList,
             tags = state.tags,
+            moods = state.moods,
             isLoadingTags = state.isLoadingTags,
             isCard = true,
             isDescriptionExpanded = isDescriptionExpanded,

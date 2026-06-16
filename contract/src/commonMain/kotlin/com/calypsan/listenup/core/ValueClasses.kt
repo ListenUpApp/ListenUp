@@ -231,6 +231,32 @@ value class TagId(
 }
 
 /**
+ * Type-safe wrapper for Mood IDs.
+ *
+ * Moods are global (cross-user, single server) — the affective axis of a book
+ * ("Feel-Good", "Tense", "Scary"), independent of genre and tag. Wrapping the id
+ * prevents accidentally passing a [BookId], [TagId], [GenreId], or any other string
+ * id where a mood id is expected — particularly at `MoodService` call sites that
+ * thread mood, book, and user identifiers through curation operations.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying mood ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class MoodId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Mood ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Collection IDs.
  *
  * Collections are user-scoped: each user owns their own inbox and any manually

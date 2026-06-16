@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
@@ -200,6 +201,7 @@ private fun Application.launchSeeders(
         }
     } else if (libraryConfigured) {
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        val moodSeeder by inject<com.calypsan.listenup.server.seed.MoodDomainSeeder>()
         val pendingGenrePromotion by inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
         // Synchronous on the module init thread — `module()` returns only after the
         // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
@@ -210,6 +212,11 @@ private fun Application.launchSeeders(
             runCatching {
                 if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
             }.onFailure { it.logUnlessCancelled("genre default-taxonomy seeding failed — server keeps running") }
+            // Seed the canonical Audible mood vocabulary on fresh installs (curator
+            // dedupe anchors, not demo content). Idempotent via `isAlreadySeeded`.
+            runCatching {
+                if (!moodSeeder.isAlreadySeeded()) moodSeeder.seed()
+            }.onFailure { it.logUnlessCancelled("mood vocabulary seeding failed — server keeps running") }
             // One-time: drain the legacy pending-genre backlog into live genres so an
             // existing library lights up. Runs after seeding (resolution prefers the
             // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
@@ -284,6 +291,7 @@ private fun Application.installDependencies(
                     hasPlaybackModule = true,
                     hasBooksModule = true,
                     hasGenresModule = true,
+                    hasMoodsModule = true,
                     hasCollectionsModule = true,
                     hasShelvesModule = true,
                 )
@@ -399,6 +407,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val searchService by inject<SearchService>()
     val libraryAdminService by inject<LibraryAdminService>()
     val tagService by inject<TagService>()
+    val moodService by inject<MoodService>()
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
@@ -434,6 +443,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             searchService,
             libraryAdminService,
             tagService,
+            moodService,
             genreService,
             collectionService,
             shelfService,

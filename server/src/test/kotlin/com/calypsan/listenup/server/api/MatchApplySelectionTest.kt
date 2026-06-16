@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -180,6 +181,9 @@ class MatchApplySelectionTest :
                 genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
                 db = db,
                 ladderSource = { _, _ -> ladders },
+                // Fresh bus/registry for the (independent, unasserted) mood/tag writer domains;
+                // empty product-tag source keeps enrichment a no-op for this selection-focused suite.
+                enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
             )
         }
 

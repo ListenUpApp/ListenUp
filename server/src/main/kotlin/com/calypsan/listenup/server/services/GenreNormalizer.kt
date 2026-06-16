@@ -265,6 +265,13 @@ object GenreNormalizer {
             // ===========================================
             "thriller" to listOf(Slug.MYSTERY_THRILLER),
             "suspense" to listOf(Slug.MYSTERY_THRILLER),
+            "thriller-suspense" to listOf(Slug.MYSTERY_THRILLER),
+            "thriller-and-suspense" to listOf(Slug.MYSTERY_THRILLER),
+            "thriller & suspense" to listOf(Slug.MYSTERY_THRILLER),
+            "suspense-thriller" to listOf(Slug.MYSTERY_THRILLER),
+            "mystery-suspense" to listOf(Slug.MYSTERY_THRILLER),
+            "mysteries" to listOf(Slug.MYSTERY_THRILLER),
+            "thrillers" to listOf(Slug.MYSTERY_THRILLER),
             "mystery-thriller" to listOf(Slug.MYSTERY_THRILLER),
             "mystery" to listOf(Slug.MYSTERY_THRILLER),
             "crime" to listOf(Slug.CRIME_FICTION),
