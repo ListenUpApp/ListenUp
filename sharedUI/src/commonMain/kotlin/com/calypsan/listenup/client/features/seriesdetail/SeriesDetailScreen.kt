@@ -8,13 +8,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -57,6 +61,7 @@ import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
+import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -93,7 +98,10 @@ fun SeriesDetailScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Scaffold { paddingValues ->
+    // The color hero bleeds edge-to-edge behind the status bar (the system clock sits on the
+    // color block, matching the design), so the Scaffold keeps only the bottom (nav-bar) inset;
+    // HeroNavRow re-insets the floating back/edit controls below the status bar.
+    Scaffold(contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom)) { paddingValues ->
         Box(
             modifier =
                 Modifier
@@ -260,13 +268,33 @@ private fun SeriesColorHero(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 8.dp, bottom = 28.dp),
+                    .padding(bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+            HeroNavRow(onBack = onBackClick) {
+                if (!LocalDeviceContext.current.isLeanback) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier =
+                            Modifier
+                                .size(48.dp)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), CircleShape),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(Res.string.series_edit_series),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.height(4.dp))
-            HeroBody(state)
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                HeroBody(state)
+            }
         }
     }
 }
