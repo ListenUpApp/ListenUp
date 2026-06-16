@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
@@ -21,6 +22,11 @@ import kotlinx.coroutines.test.runTest
 class FtsPopulatorRebuildIfEmptyTest :
     FunSpec({
 
+        val passThrough =
+            object : TransactionRunner {
+                override suspend fun <R> atomically(block: suspend () -> R): R = block()
+            }
+
         fun populator(
             searchDao: SearchDao,
             bookDao: BookDao = mock { everySuspend { getAllLive() } returns emptyList() },
@@ -31,6 +37,7 @@ class FtsPopulatorRebuildIfEmptyTest :
             contributorDao = contributorDao,
             seriesDao = seriesDao,
             searchDao = searchDao,
+            transactionRunner = passThrough,
         )
 
         test("rebuildIfEmpty rebuilds the index when it is empty") {
@@ -41,6 +48,10 @@ class FtsPopulatorRebuildIfEmptyTest :
                         everySuspend { clearBooksFts() } returns Unit
                         everySuspend { clearContributorsFts() } returns Unit
                         everySuspend { clearSeriesFts() } returns Unit
+                        everySuspend { getAllPrimaryAuthorNames() } returns emptyList()
+                        everySuspend { getAllPrimaryNarratorNames() } returns emptyList()
+                        everySuspend { getAllSeriesNamesGrouped() } returns emptyList()
+                        everySuspend { getAllGenreNamesGrouped() } returns emptyList()
                     }
 
                 populator(searchDao).rebuildIfEmpty()

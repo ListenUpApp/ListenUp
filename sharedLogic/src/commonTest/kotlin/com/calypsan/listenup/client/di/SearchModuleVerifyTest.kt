@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.kotest.core.spec.style.FunSpec
@@ -21,6 +22,7 @@ import org.koin.test.verify.verify
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [ContributorDao] — owned by `persistenceModule`.
  *  - [SeriesDao] — owned by `persistenceModule`.
+ *  - [TransactionRunner] — owned by `persistenceModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class SearchModuleVerifyTest :
@@ -36,6 +38,7 @@ class SearchModuleVerifyTest :
                         ContributorDao::class,
                         SeriesDao::class,
                         ApiClientFactory::class,
+                        TransactionRunner::class,
                     ),
             )
         }

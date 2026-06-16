@@ -5,11 +5,14 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
 import kotlin.time.measureTime
 
 private val logger = KotlinLogging.logger {}
+
+private const val FTS_INSERT_CHUNK_SIZE = 200
 
 /**
  * Populates FTS5 tables for offline full-text search.
@@ -23,16 +26,23 @@ private val logger = KotlinLogging.logger {}
  * we could optimize with incremental updates, but full rebuild is fast enough
  * for typical library sizes (<5k books) and avoids complexity of tracking changes.
  *
+ * The book rebuild issues four aggregate SQL queries (one per denormalized dimension)
+ * instead of four per-book queries, then inserts in chunks of [FTS_INSERT_CHUNK_SIZE]
+ * rows inside a write transaction per chunk. This removes the O(n) query storm that
+ * previously caused heap pressure on large libraries.
+ *
  * @property bookDao DAO for reading books
  * @property contributorDao DAO for reading contributors
  * @property seriesDao DAO for reading series
  * @property searchDao DAO for FTS operations
+ * @property transactionRunner Wraps chunked FTS inserts in write transactions
  */
 class FtsPopulator(
     private val bookDao: BookDao,
     private val contributorDao: ContributorDao,
     private val seriesDao: SeriesDao,
     private val searchDao: SearchDao,
+    private val transactionRunner: TransactionRunner,
 ) : FtsPopulatorContract {
     /**
      * Rebuild all FTS tables from main tables.
@@ -76,8 +86,14 @@ class FtsPopulator(
     /**
      * Rebuild book FTS entries.
      *
-     * Denormalizes author, narrator, and series name into the FTS table
+     * Denormalizes author, narrator, series name, and genre names into the FTS table
      * for rich search results.
+     *
+     * Uses four aggregate SQL queries (one per dimension) instead of four per-book
+     * queries, eliminating the O(n) query storm on large libraries. Each dimension
+     * is collected into a map keyed by bookId, then looked up in O(1) per book
+     * during the insert pass. Inserts are grouped into chunks of [FTS_INSERT_CHUNK_SIZE]
+     * rows, each chunk wrapped in a write transaction to bound lock-hold time.
      *
      * @return Number of books inserted into FTS
      */
@@ -87,34 +103,37 @@ class FtsPopulator(
         // Clear existing entries
         searchDao.clearBooksFts()
 
-        // Get all books
+        // Load all books and all four denormalized dimensions in parallel batch queries.
+        // O(4) queries total instead of O(4 * n).
         val books = bookDao.getAllLive()
+        val authorsByBookId = searchDao.getAllPrimaryAuthorNames().associate { it.bookId to it.authorName }
+        val narratorsByBookId = searchDao.getAllPrimaryNarratorNames().associate { it.bookId to it.authorName }
+        val seriesByBookId = searchDao.getAllSeriesNamesGrouped().associate { it.bookId to it.authorName }
+        val genresByBookId = searchDao.getAllGenreNamesGrouped().associate { it.bookId to it.authorName }
 
-        // Insert each book with denormalized data
+        // Insert in chunks; each chunk is one write transaction to bound lock-hold time.
         var insertCount = 0
-        for (book in books) {
-            try {
-                // Get denormalized data for FTS indexing
-                val authorName = searchDao.getPrimaryAuthorName(book.id.value)
-                val narratorName = searchDao.getPrimaryNarratorName(book.id.value)
-                val seriesNames = searchDao.getSeriesNamesForBook(book.id.value)
-                val genreNames = searchDao.getGenreNamesForBook(book.id.value)
-
-                searchDao.insertBookFts(
-                    bookId = book.id.value,
-                    title = book.title,
-                    subtitle = book.subtitle,
-                    description = book.description,
-                    author = authorName,
-                    narrator = narratorName,
-                    seriesName = seriesNames,
-                    genres = genreNames,
-                )
-                insertCount++
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "Failed to insert book ${book.id} into FTS" }
+        for (chunk in books.chunked(FTS_INSERT_CHUNK_SIZE)) {
+            transactionRunner.atomically {
+                for (book in chunk) {
+                    try {
+                        searchDao.insertBookFts(
+                            bookId = book.id.value,
+                            title = book.title,
+                            subtitle = book.subtitle,
+                            description = book.description,
+                            author = authorsByBookId[book.id.value],
+                            narrator = narratorsByBookId[book.id.value],
+                            seriesName = seriesByBookId[book.id.value],
+                            genres = genresByBookId[book.id.value],
+                        )
+                        insertCount++
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Failed to insert book ${book.id} into FTS" }
+                    }
+                }
             }
         }
 
