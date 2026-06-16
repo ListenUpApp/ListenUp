@@ -44,6 +44,14 @@ data class MetadataBook(
     val moods: List<String> = emptyList(),
     /** Trope/theme tag labels scraped from Audible's product topic-tags (may be empty). */
     val tags: List<String> = emptyList(),
+    /**
+     * `false` only when the Audible product-tag scrape *failed* — e.g. the title isn't in the
+     * selected region, or Audible was unreachable — as distinct from a successful scrape that
+     * simply found no mood/tag topics. Lets the client show an actionable "try a different region"
+     * hint instead of silently rendering nothing (which reads as broken). Defaults to `true` so
+     * non-enriched read paths are treated as "known".
+     */
+    val moodsTagsAvailable: Boolean = true,
     /** Audible cover thumbnail URL (typically 500×500). */
     val coverUrl: String?,
     /** High-resolution cover URL from iTunes (up to 7000×7000), or `null` if unavailable. */

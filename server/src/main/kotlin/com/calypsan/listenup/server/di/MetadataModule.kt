@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
-import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
@@ -240,7 +239,7 @@ private fun Module.metadataEnrichmentBindings() {
                     bookTagRepository = get<BookTagRepository>(),
                 ),
             productTagSource = { region, asin ->
-                get<AudibleApi>().getProductTags(region, asin).getOrElse { emptyList() }
+                get<AudibleApi>().getProductTags(region, asin)
             },
         )
     }

@@ -106,11 +106,12 @@ struct MetadataSelectBody: View {
                 ForEach(preview.seriesItems) { seriesRow($0) }
             }
 
-            if !preview.genres.isEmpty || !preview.moods.isEmpty || !preview.tags.isEmpty {
+            if !preview.genres.isEmpty || !preview.moods.isEmpty || !preview.tags.isEmpty || !preview.moodsTagsAvailable {
                 section(String(localized: "metadata.section_classification")) {
                     if !preview.genres.isEmpty { genresRow }
                     if !preview.moods.isEmpty { moodsRow }
                     if !preview.tags.isEmpty { tagsRow }
+                    if !preview.moodsTagsAvailable { moodsTagsUnavailableHint }
                 }
             }
 
@@ -249,6 +250,22 @@ struct MetadataSelectBody: View {
             }
             .padding(.top, 4)
         }
+    }
+
+    /// Honest note when the Audible mood/tag scrape failed for the selected region — points the
+    /// user at a different region rather than leaving the classification silently empty.
+    private var moodsTagsUnavailableHint: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "info.circle")
+                .font(.footnote)
+                .foregroundStyle(Color.luLabel2)
+            Text(String(localized: "metadata.moods_tags_unavailable"))
+                .font(.footnote)
+                .foregroundStyle(Color.luLabel2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private var chaptersSection: some View {

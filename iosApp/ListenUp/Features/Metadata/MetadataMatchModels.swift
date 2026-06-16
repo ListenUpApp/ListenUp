@@ -56,6 +56,9 @@ struct MetadataPreview: Equatable {
     let genres: [MetadataGenreSelection]
     let moods: [MetadataGenreSelection]
     let tags: [MetadataGenreSelection]
+    /// `false` when the Audible mood/tag scrape failed for the selected region — drives an
+    /// actionable "try a different region" hint instead of a silently-empty classification.
+    let moodsTagsAvailable: Bool
 
     let descriptionField: MetadataFieldSelection?
 

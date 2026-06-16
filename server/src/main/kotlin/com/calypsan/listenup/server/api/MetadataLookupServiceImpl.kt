@@ -206,16 +206,29 @@ internal class MetadataLookupServiceImpl(
     ): AppResult<MetadataBook?> {
         val book = (this as? AppResult.Success)?.data ?: return this
         return try {
-            val productTags = enrichmentDeps.productTagSource(region, book.asin)
-            if (productTags.isEmpty()) return this
-            val appliedGenreSlugs = book.genres.flatMap { GenreNormalizer.normalizeToSlugs(it) }.toSet()
-            val classified = ProductTagClassifier.classify(productTags, appliedGenreSlugs)
-            AppResult.Success(book.copy(moods = classified.moods, tags = classified.tags))
+            when (val scrape = enrichmentDeps.productTagSource(region, book.asin)) {
+                is AppResult.Success -> {
+                    val appliedGenreSlugs = book.genres.flatMap { GenreNormalizer.normalizeToSlugs(it) }.toSet()
+                    val classified = ProductTagClassifier.classify(scrape.data, appliedGenreSlugs)
+                    AppResult.Success(
+                        book.copy(moods = classified.moods, tags = classified.tags, moodsTagsAvailable = true),
+                    )
+                }
+
+                // Scrape couldn't run (e.g. title not in this region) — distinct from "found none".
+                // Flag it so the client can nudge "try a different region" instead of showing nothing.
+                is AppResult.Failure -> {
+                    log.info {
+                        "Mood/tag scrape unavailable for ASIN ${book.asin} in region $region: ${scrape.error.code}"
+                    }
+                    AppResult.Success(book.copy(moodsTagsAvailable = false))
+                }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Mood/tag enrichment failed for ASIN ${book.asin} in region $region — leaving empty" }
-            this
+            log.warn(e) { "Mood/tag enrichment failed for ASIN ${book.asin} in region $region — flagging unavailable" }
+            AppResult.Success(book.copy(moodsTagsAvailable = false))
         }
     }
 

@@ -9371,6 +9371,16 @@
         }
       }
     },
+    "metadata.moods_tags_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load moods & tags for this region. Try a different Audible region."
+          }
+        }
+      }
+    },
     "metadata.more_chapters": {
       "localizations": {
         "en": {

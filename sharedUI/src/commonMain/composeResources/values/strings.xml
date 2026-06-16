@@ -938,6 +938,7 @@ One beautiful library.</string>
     <string name="metadata_matches_count">%1$d matches found</string>
     <string name="metadata_matching">Matching</string>
     <string name="metadata_metadata_is_up_to_date">Metadata is up to date</string>
+    <string name="metadata_moods_tags_unavailable">Couldn\'t load moods &amp; tags for this region. Try a different Audible region.</string>
     <string name="metadata_more_chapters">+ %1$d more chapters</string>
     <string name="metadata_no_matches_found">No matches found</string>
     <string name="metadata_no_matches_subtitle">Try a different search term or region.</string>

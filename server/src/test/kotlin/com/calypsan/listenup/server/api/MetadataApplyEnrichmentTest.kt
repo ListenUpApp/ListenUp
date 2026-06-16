@@ -204,7 +204,7 @@ private class EnrichmentCtx(
     val bookTagRepo: BookTagRepository,
     val tempDir: String,
 ) {
-    fun applier(productTagSource: suspend (AudibleRegion, String) -> List<ProductTag>): BookMetadataApplier =
+    fun applier(productTagSource: suspend (AudibleRegion, String) -> AppResult<List<ProductTag>>): BookMetadataApplier =
         BookMetadataApplier(
             bookRepository = bookRepo,
             contributorRepository = contributorRepo,

@@ -91,6 +91,7 @@ import listenup.composeapp.generated.resources.metadata_field_moods
 import listenup.composeapp.generated.resources.metadata_field_narrators
 import listenup.composeapp.generated.resources.metadata_field_publisher
 import listenup.composeapp.generated.resources.metadata_field_tags
+import listenup.composeapp.generated.resources.metadata_moods_tags_unavailable
 import listenup.composeapp.generated.resources.metadata_field_subtitle
 import listenup.composeapp.generated.resources.metadata_field_title
 import listenup.composeapp.generated.resources.metadata_metadata_is_up_to_date
@@ -469,7 +470,8 @@ private fun LazyListScope.metadataFieldsSection(
     val hasClassification =
         newMetadata.genres.isNotEmpty() ||
             newMetadata.moods.isNotEmpty() ||
-            newMetadata.tags.isNotEmpty()
+            newMetadata.tags.isNotEmpty() ||
+            !newMetadata.moodsTagsAvailable
     if (hasClassification) {
         item {
             FieldGroup(
@@ -497,6 +499,11 @@ private fun LazyListScope.metadataFieldsSection(
                         selectedTags = selections.selectedTags,
                         onToggle = onToggleTag,
                     )
+                }
+                // Honest signal: the scrape failed for this region (not "no tags"), so nudge the
+                // user toward a different Audible region rather than silently showing nothing.
+                if (!newMetadata.moodsTagsAvailable) {
+                    MoodsTagsUnavailableHint()
                 }
             }
         }
@@ -1199,6 +1206,32 @@ private fun GenreFieldRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * Honest note shown when the Audible product-tag scrape *failed* for the selected region (as
+ * opposed to a title that genuinely has no mood/tag topics, which renders nothing). Points the
+ * user at the region picker so an empty classification never just reads as broken.
+ */
+@Composable
+private fun MoodsTagsUnavailableHint() {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = stringResource(Res.string.metadata_moods_tags_unavailable),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

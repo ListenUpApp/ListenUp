@@ -83,6 +83,7 @@ enum MetadataMatchMapping {
             genres: genres,
             moods: moods,
             tags: tags,
+            moodsTagsAvailable: book.moodsTagsAvailable,
             descriptionField: description,
             coverEnabled: sel.cover,
             coverValueText: String(localized: "metadata.field_cover_value"),

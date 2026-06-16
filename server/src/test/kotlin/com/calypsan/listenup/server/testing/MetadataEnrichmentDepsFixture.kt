@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.testing
 
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.services.BookMoodWriter
@@ -30,7 +31,8 @@ internal fun testEnrichmentDeps(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-    productTagSource: suspend (AudibleRegion, String) -> List<ProductTag> = { _, _ -> emptyList() },
+    productTagSource: suspend (AudibleRegion, String) -> AppResult<List<ProductTag>> =
+        { _, _ -> AppResult.Success(emptyList()) },
 ): MetadataEnrichmentDeps =
     MetadataEnrichmentDeps(
         bookMoodWriter =

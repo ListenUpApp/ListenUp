@@ -160,6 +160,7 @@ struct MetadataMatchMappingTests {
         genres: [String] = [],
         moods: [String] = [],
         tags: [String] = [],
+        moodsTagsAvailable: Bool = true,
         coverUrl: String? = nil
     ) -> MetadataBook {
         MetadataBook(
@@ -177,6 +178,7 @@ struct MetadataMatchMappingTests {
             genres: genres,
             moods: moods,
             tags: tags,
+            moodsTagsAvailable: moodsTagsAvailable,
             coverUrl: coverUrl,
             coverUrlMaxSize: nil
         )

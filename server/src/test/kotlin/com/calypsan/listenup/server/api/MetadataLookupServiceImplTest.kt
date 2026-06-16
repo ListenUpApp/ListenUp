@@ -190,7 +190,8 @@ class MetadataLookupServiceImplTest :
                         ProductTag(type = "theme", name = "Found Family"),
                         ProductTag(type = "genre", name = "Fantasy"), // dropped by the classifier
                     )
-                val service = makeService(audible = audible, db = this, productTagSource = { _, _ -> productTags })
+                val service =
+                    makeService(audible = audible, db = this, productTagSource = { _, _ -> AppResult.Success(productTags) })
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -198,6 +199,7 @@ class MetadataLookupServiceImplTest :
                     book.shouldNotBeNull()
                     book.moods shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
                     book.tags shouldContainExactlyInAnyOrder listOf("Found Family")
+                    book.moodsTagsAvailable shouldBe true
                 }
             }
         }
@@ -212,7 +214,8 @@ class MetadataLookupServiceImplTest :
                         ProductTag(type = "theme", name = "Survival"), // no collision → survives
                         ProductTag(type = "mood", name = "Tense"),
                     )
-                val service = makeService(audible = audible, db = this, productTagSource = { _, _ -> productTags })
+                val service =
+                    makeService(audible = audible, db = this, productTagSource = { _, _ -> AppResult.Success(productTags) })
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -224,7 +227,7 @@ class MetadataLookupServiceImplTest :
             }
         }
 
-        test("getBookMetadata leaves moods + tags empty when the product-tag scrape throws") {
+        test("getBookMetadata flags moodsTagsAvailable=false when the product-tag scrape throws") {
             withInMemoryDatabase {
                 val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
                 val service =
@@ -236,6 +239,28 @@ class MetadataLookupServiceImplTest :
                     book.shouldNotBeNull()
                     book.moods shouldHaveSize 0
                     book.tags shouldHaveSize 0
+                    book.moodsTagsAvailable shouldBe false
+                }
+            }
+        }
+
+        test("getBookMetadata flags moodsTagsAvailable=false when the scrape returns a typed failure (e.g. wrong region)") {
+            withInMemoryDatabase {
+                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val service =
+                    makeService(
+                        audible = audible,
+                        db = this,
+                        productTagSource = { _, _ -> AppResult.Failure(MetadataError.NotFound()) },
+                    )
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.moods shouldHaveSize 0
+                    book.tags shouldHaveSize 0
+                    book.moodsTagsAvailable shouldBe false
                 }
             }
         }
@@ -449,7 +474,7 @@ private fun makeService(
     audible: AudibleApi,
     db: Database,
     itunes: ITunesApi = NoOpITunesApi(),
-    productTagSource: suspend (AudibleRegion, String) -> List<ProductTag> = { _, _ -> emptyList() },
+    productTagSource: suspend (AudibleRegion, String) -> AppResult<List<ProductTag>> = { _, _ -> AppResult.Success(emptyList()) },
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
