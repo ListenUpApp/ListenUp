@@ -36,6 +36,7 @@ val searchModule: Module =
                 contributorDao = get(),
                 seriesDao = get(),
                 searchDao = get(),
+                transactionRunner = get(),
             )
         } bind FtsPopulatorContract::class
 

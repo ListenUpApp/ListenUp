@@ -279,4 +279,122 @@ interface SearchDao {
     """,
     )
     suspend fun getGenreNamesForBook(bookId: String): String?
+
+    // ==================== BATCH QUERIES FOR FULL REBUILD ====================
+
+    /**
+     * Fetch the alphabetically-first author name for every book that has at
+     * least one author contributor, in a single query.
+     *
+     * Using [MIN] over contributor names rather than an arbitrary `LIMIT 1`
+     * produces a deterministic result when a book has multiple authors — the
+     * same author is always chosen across rebuild runs. The per-book
+     * [getPrimaryAuthorName] uses `LIMIT 1` without ordering, which has the
+     * same single-author semantics but is non-deterministic for multi-author
+     * books; this batch variant is strictly more consistent.
+     *
+     * @return List of `(bookId, authorName)` pairs — one row per book that has an author.
+     *   Books with no author contributor are absent from the result.
+     */
+    @Query(
+        """
+        SELECT bc.bookId AS bookId, MIN(c.name) AS authorName
+        FROM contributors c
+        INNER JOIN book_contributors bc ON bc.contributorId = c.id
+        WHERE LOWER(bc.role) = 'author'
+        GROUP BY bc.bookId
+    """,
+    )
+    suspend fun getAllPrimaryAuthorNames(): List<BookIdNameRow>
+
+    /**
+     * Fetch the alphabetically-first narrator name for every book that has at
+     * least one narrator contributor, in a single query.
+     *
+     * Mirrors [getAllPrimaryAuthorNames] with `role = 'narrator'`.
+     *
+     * @return List of `(bookId, authorName)` pairs — one row per book that has a narrator.
+     *   Books with no narrator are absent.
+     */
+    @Query(
+        """
+        SELECT bc.bookId AS bookId, MIN(c.name) AS authorName
+        FROM contributors c
+        INNER JOIN book_contributors bc ON bc.contributorId = c.id
+        WHERE LOWER(bc.role) = 'narrator'
+        GROUP BY bc.bookId
+    """,
+    )
+    suspend fun getAllPrimaryNarratorNames(): List<BookIdNameRow>
+
+    /**
+     * Fetch the comma-joined, alphabetically-sorted series names for every
+     * book that belongs to at least one series, in a single query.
+     *
+     * Reproduces exactly the `ORDER BY name COLLATE NOCASE ASC` + `GROUP_CONCAT`
+     * logic of [getSeriesNamesForBook], extended across all books at once.
+     * The inner `ORDER BY` is applied before `GROUP_CONCAT` via the subquery,
+     * so the joined string is identical to what the per-book query would return.
+     *
+     * @return List of `(bookId, authorName)` pairs — one row per book that belongs to a series.
+     *   Books in no series are absent.
+     */
+    @Query(
+        """
+        SELECT bookId, GROUP_CONCAT(name, ', ') AS authorName
+        FROM (
+            SELECT bs.bookId AS bookId, s.name AS name
+            FROM series s
+            INNER JOIN book_series bs ON s.id = bs.seriesId
+            ORDER BY bs.bookId, s.name COLLATE NOCASE ASC
+        )
+        GROUP BY bookId
+    """,
+    )
+    suspend fun getAllSeriesNamesGrouped(): List<BookIdNameRow>
+
+    /**
+     * Fetch the comma-joined, alphabetically-sorted genre names for every
+     * book that has at least one genre, in a single query.
+     *
+     * Mirrors [getAllSeriesNamesGrouped] for the `book_genres` junction.
+     *
+     * @return List of `(bookId, authorName)` pairs — one row per book that has a genre.
+     *   Books with no genre are absent.
+     */
+    @Query(
+        """
+        SELECT bookId, GROUP_CONCAT(name, ', ') AS authorName
+        FROM (
+            SELECT bg.bookId AS bookId, g.name AS name
+            FROM genres g
+            INNER JOIN book_genres bg ON g.id = bg.genreId
+            ORDER BY bg.bookId, g.name COLLATE NOCASE ASC
+        )
+        GROUP BY bookId
+    """,
+    )
+    suspend fun getAllGenreNamesGrouped(): List<BookIdNameRow>
 }
+
+/**
+ * A `(bookId, name)` projection returned by the batch FTS-rebuild queries.
+ *
+ * Each batch query returns one row per book: the book's ID and the
+ * pre-aggregated value for a single dimension (author name, narrator name,
+ * series names, or genre names). [FtsPopulator] assembles these into maps
+ * keyed by [bookId] so it can look up each dimension in O(1) while
+ * iterating the book list for FTS inserts.
+ *
+ * Column alias `authorName` is reused across all four batch queries so a
+ * single data class serves all four projections without introducing four
+ * identical types.
+ *
+ * @property bookId The book's primary key.
+ * @property authorName The aggregated name string for this dimension (author,
+ *   narrator, series names, or genre names depending on the calling query).
+ */
+data class BookIdNameRow(
+    val bookId: String,
+    val authorName: String,
+)
