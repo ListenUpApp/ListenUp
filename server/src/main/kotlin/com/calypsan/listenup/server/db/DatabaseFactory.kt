@@ -48,13 +48,29 @@ object DatabaseFactory {
         )
     }
 
-    private fun buildPool(config: DatabaseConfig): HikariDataSource =
+    /**
+     * A media request blocked on a saturated pool must fail fast, not hang for Hikari's 30s
+     * default `connectionTimeout` — a 20s hang is exactly what lets an audio seek time out into
+     * a "broken pipe" (#598).
+     */
+    private const val CONNECTION_TIMEOUT_MS = 10_000L
+
+    /**
+     * Logs the acquiring stack of any connection held longer than this — turns the residual
+     * "what saturates the 8-connection pool during playback?" question (#598) into a
+     * self-identifying log line the next time it happens.
+     */
+    private const val LEAK_DETECTION_MS = 20_000L
+
+    internal fun buildPool(config: DatabaseConfig): HikariDataSource =
         HikariDataSource(
             HikariConfig().apply {
                 jdbcUrl = config.jdbcUrl
                 username = config.username
                 password = config.password
                 maximumPoolSize = config.maxPoolSize
+                connectionTimeout = CONNECTION_TIMEOUT_MS
+                leakDetectionThreshold = LEAK_DETECTION_MS
                 isAutoCommit = false
                 transactionIsolation = "TRANSACTION_SERIALIZABLE"
                 // SQLite has FK enforcement off per-connection by default. The property
