@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
-import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -35,10 +34,14 @@ private val logger = KotlinLogging.logger {}
  * Deleted handling — the catch-up pass converges it).
  *
  * **Ownership stamping.** The wire payload omits `userId` — the server only streams a
- * client its *own* user's events. Synced rows are stamped with the signed-in user's id (read
- * from [authSession]) so they share the id of locally-recorded events; without this they'd land
+ * client its *own* user's events. Synced rows are stamped with the signed-in user's id via
+ * [AuthSession.getUserId] (reads persisted secure storage; does not race [AuthSession.authState])
+ * so they share the id of locally-recorded events. Without this stamping the rows would land
  * with a blank id and the user-scoped stats query ([com.calypsan.listenup.client.data.local.db.ListeningEventDao.observeWithinWindow])
  * would silently exclude cross-device listening from the Home stats.
+ *
+ * If [AuthSession.getUserId] returns `null` (signed out or storage unreadable) the item is
+ * skipped entirely; a later catch-up pass re-applies it once the user is signed in.
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
@@ -106,9 +109,15 @@ class ListeningEventSyncDomainHandler(
         val existing = database.listeningEventDao().getById(payload.id)
         if (existing != null) return
 
-        // The wire payload omits userId — stamp the signed-in user so the row shares the id of
-        // locally-recorded events and the user-scoped stats query counts it (cross-device totals).
-        val currentUserId = (authSession.authState.value as? AuthState.Authenticated)?.userId?.value ?: ""
+        // Resolve the signed-in id from persisted storage (race-free) — authState may still be
+        // Initializing during the startup catch-up, which previously poisoned rows with "".
+        val currentUserId = authSession.getUserId()
+        if (currentUserId == null) {
+            logger.warn {
+                "[$domainName] no signed-in user while applying ${payload.id} — skipping; a later catch-up re-applies"
+            }
+            return
+        }
 
         database.listeningEventDao().upsert(
             ListeningEventEntity(

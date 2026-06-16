@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import org.jetbrains.compose.resources.stringResource
@@ -33,6 +34,13 @@ private val PREVIEW_TAGS =
     listOf(
         Tag(id = "1", name = "Found Family", slug = "found-family"),
         Tag(id = "2", name = "War & Conflict", slug = "war-conflict"),
+    )
+
+private val PREVIEW_MOODS =
+    listOf(
+        Mood(id = "1", name = "Dark", slug = "dark"),
+        Mood(id = "2", name = "Epic", slug = "epic"),
+        Mood(id = "3", name = "Tense", slug = "tense"),
     )
 
 @Composable
@@ -64,6 +72,7 @@ private fun AboutSectionCardLight() {
             description = PREVIEW_DESCRIPTION,
             genres = PREVIEW_GENRES,
             tags = PREVIEW_TAGS,
+            moods = PREVIEW_MOODS,
             isLoadingTags = false,
             isCard = true,
             isDescriptionExpanded = expanded,
@@ -84,6 +93,7 @@ private fun AboutSectionCardDark() {
             description = PREVIEW_DESCRIPTION,
             genres = PREVIEW_GENRES,
             tags = PREVIEW_TAGS,
+            moods = PREVIEW_MOODS,
             isLoadingTags = false,
             isCard = true,
             isDescriptionExpanded = expanded,
@@ -106,6 +116,7 @@ private fun AboutSectionFramelessLight() {
             description = PREVIEW_DESCRIPTION,
             genres = PREVIEW_GENRES,
             tags = PREVIEW_TAGS,
+            moods = PREVIEW_MOODS,
             isLoadingTags = false,
             isCard = false,
             isDescriptionExpanded = expanded,
@@ -125,6 +136,7 @@ private fun AboutSectionFramelessDark() {
             description = PREVIEW_DESCRIPTION,
             genres = PREVIEW_GENRES,
             tags = PREVIEW_TAGS,
+            moods = PREVIEW_MOODS,
             isLoadingTags = false,
             isCard = false,
             isDescriptionExpanded = expanded,

@@ -44,9 +44,8 @@ sealed interface LibraryError : AppError {
     /**
      * A supplied folder path does not exist or is not readable by the server process.
      *
-     * Returned by [com.calypsan.listenup.api.LibraryAdminService.createLibrary]
-     * and [com.calypsan.listenup.api.LibraryAdminService.addFolder] when the
-     * server cannot verify the path is accessible.
+     * Returned by [com.calypsan.listenup.api.LibraryAdminService.addFolder] when
+     * the server cannot verify the path is accessible.
      */
     @Serializable
     @SerialName("LibraryError.InvalidPath")

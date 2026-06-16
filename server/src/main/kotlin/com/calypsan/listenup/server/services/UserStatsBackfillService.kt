@@ -8,7 +8,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.v1.core.and
@@ -51,6 +51,10 @@ class UserStatsBackfillService(
             }
 
         // 2. Walk events to compute totals, distinct books, and streaks.
+        //    All day-boundary math uses the user's home timezone — one consistent frame
+        //    per user. The per-event tz field is ignored here because it can be "UTC" for
+        //    ABS imports and mixed-frame for travelers, producing wrong streaks.
+        val userTz = db.homeTimeZone(userId)
         var totalAllTime = 0L
         val distinctBooks = mutableSetOf<String>()
         var lastDate: LocalDate? = null
@@ -62,11 +66,10 @@ class UserStatsBackfillService(
             totalAllTime += wallSeconds
             distinctBooks.add(event[ListeningEventTable.bookId])
 
-            val tz = TimeZone.of(event[ListeningEventTable.tz])
             val eventDate =
                 Instant
                     .fromEpochMilliseconds(event[ListeningEventTable.endedAt])
-                    .toLocalDateTime(tz)
+                    .toLocalDateTime(userTz)
                     .date
 
             currentStreak =
@@ -105,7 +108,18 @@ class UserStatsBackfillService(
                     .size
             }
 
-        // 5. Upsert the rebuilt row. The substrate assigns revision and timestamps.
+        // 5. The walk's currentStreak is the streak as of lastDate; the *current* streak is only that
+        // value if the last event was today or yesterday — otherwise the streak has lapsed. "Today"
+        // is resolved in the user's home timezone (same frame as the walk above), not the per-event tz.
+        val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(userTz).date
+        val currentStreakAsOfToday =
+            when {
+                lastDate == null -> 0
+                lastDate == today || lastDate == today.minus(DatePeriod(days = 1)) -> currentStreak
+                else -> 0
+            }
+
+        // 6. Upsert the rebuilt row. The substrate assigns revision and timestamps.
         val rebuilt =
             UserStatsSyncPayload(
                 id = userId,
@@ -114,7 +128,7 @@ class UserStatsBackfillService(
                 totalSecondsLast30Days = last30,
                 booksStarted = distinctBooks.size,
                 booksFinished = booksFinished,
-                currentStreakDays = currentStreak,
+                currentStreakDays = currentStreakAsOfToday,
                 longestStreakDays = longestStreak,
                 lastEventDate = lastDate?.toString(),
                 revision = 0L,

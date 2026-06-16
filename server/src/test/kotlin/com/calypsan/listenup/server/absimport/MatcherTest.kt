@@ -171,7 +171,7 @@ private fun withSeededLibrary(block: suspend (matcher: BookMatcher, libId: Libra
     withInMemoryDatabase {
         val db = this
         runTest {
-            val libId = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")).currentLibrary()
+            val libId = LibraryRegistry(db).currentLibrary()
             transaction(db) { seedBooks(libId.value) }
             block(BookMatcher(db), libId)
         }

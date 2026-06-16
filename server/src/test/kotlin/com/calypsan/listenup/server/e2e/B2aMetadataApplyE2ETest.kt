@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributor
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
+import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
@@ -43,6 +44,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -351,6 +353,7 @@ private fun buildService(
                 coverImageStore = coverImageStore,
                 imageHome = Path(tempDir),
             ),
+        enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
         permissionPolicy = UserPermissionPolicy(db),
         db = db,
         genreRepository = genreRepo,
@@ -439,6 +442,11 @@ private class SingleBookFakeAudibleApi(
         region: AudibleRegion,
         name: String,
     ): AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList())
+
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
 }
 
 /** Stub [ITunesApi] that never finds a cover. */

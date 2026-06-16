@@ -110,6 +110,8 @@ struct BookDetailView: View {
                 BookDescriptionSection(
                     description: observer.bookDescription,
                     genres: observer.genres,
+                    tags: observer.tags,
+                    moods: observer.moods,
                     tint: observer.tint
                 )
 
@@ -153,6 +155,8 @@ struct BookDetailView: View {
                 BookDescriptionSection(
                     description: observer.bookDescription,
                     genres: observer.genres,
+                    tags: observer.tags,
+                    moods: observer.moods,
                     tint: observer.tint
                 )
 

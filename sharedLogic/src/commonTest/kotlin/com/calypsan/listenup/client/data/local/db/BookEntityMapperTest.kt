@@ -232,10 +232,10 @@ class BookEntityMapperTest :
             val imageStorage = mock<ImageStorage> { every { exists(any()) } returns false }
 
             bookWithContributors(hasScanWarning = true)
-                .toDetail(imageStorage, genres = emptyList(), tags = emptyList())
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
                 .hasScanWarning shouldBe true
             bookWithContributors(hasScanWarning = false)
-                .toDetail(imageStorage, genres = emptyList(), tags = emptyList())
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
                 .hasScanWarning shouldBe false
         }
     })

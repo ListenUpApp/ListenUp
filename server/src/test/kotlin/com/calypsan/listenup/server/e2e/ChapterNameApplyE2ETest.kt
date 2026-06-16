@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
+import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
@@ -41,6 +42,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -174,6 +176,7 @@ private fun wire(
                     coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), 10L * 1024 * 1024)),
                     imageHome = Path(tempDir.toString()),
                 ),
+            enrichmentDeps = testEnrichmentDeps(db, bus, registry),
             permissionPolicy = UserPermissionPolicy(db),
             db = db,
             genreRepository = genreRepo,
@@ -254,6 +257,11 @@ private class ChapterFakeAudibleApi(
         region: AudibleRegion,
         name: String,
     ): AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList())
+
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
 }
 
 private class NoOpITunes : ITunesApi {

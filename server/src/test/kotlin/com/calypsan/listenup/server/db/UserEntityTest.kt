@@ -34,4 +34,52 @@ class UserEntityTest :
                 u.status shouldBe UserStatusColumn.ACTIVE
             }
         }
+
+        test("timezone defaults to UTC for new users") {
+            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+
+            transaction(db) {
+                UserEntity.new("u-tz-default") {
+                    email = "bob@example.com"
+                    emailNormalized = "bob@example.com"
+                    passwordHash = "phc-string"
+                    role = UserRoleColumn.MEMBER
+                    displayName = "Bob"
+                    status = UserStatusColumn.ACTIVE
+                    createdAt = 1L
+                    updatedAt = 1L
+                }
+            }
+
+            transaction(db) {
+                UserEntity["u-tz-default"].timezone shouldBe "UTC"
+            }
+        }
+
+        test("timezone persists when updated") {
+            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+
+            transaction(db) {
+                UserEntity.new("u-tz-update") {
+                    email = "carol@example.com"
+                    emailNormalized = "carol@example.com"
+                    passwordHash = "phc-string"
+                    role = UserRoleColumn.MEMBER
+                    displayName = "Carol"
+                    status = UserStatusColumn.ACTIVE
+                    createdAt = 1L
+                    updatedAt = 1L
+                }
+            }
+
+            transaction(db) {
+                UserEntity["u-tz-update"].timezone = "Europe/London"
+            }
+
+            transaction(db) {
+                UserEntity["u-tz-update"].timezone shouldBe "Europe/London"
+            }
+        }
     })

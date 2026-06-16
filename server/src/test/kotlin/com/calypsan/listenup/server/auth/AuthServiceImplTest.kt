@@ -203,6 +203,22 @@ class AuthServiceImplTest :
             }
         }
 
+        test("login persists the device timezone on the user row") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice")).shouldSucceed()
+
+                val s = svc.login(LoginRequest("alice@x", "x".repeat(8), timezone = "Europe/London")).shouldSucceed()
+
+                val storedTimezone =
+                    suspendTransaction(svc.db) {
+                        UserEntity[s.user.id.value].timezone
+                    }
+                storedTimezone shouldBe "Europe/London"
+            }
+        }
+
         test("login errors InvalidCredentials on unknown email") {
             val svc = newSvc()
             runTest {

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.BookTagDao
 import com.calypsan.listenup.client.data.local.db.GenreDao
+import com.calypsan.listenup.client.data.local.db.MoodDao
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -19,6 +20,7 @@ import org.koin.test.verify.verify
  *  - [GenreDao] — owned by `persistenceModule`.
  *  - [TagDao] — owned by `persistenceModule`.
  *  - [BookTagDao] — owned by `persistenceModule`.
+ *  - [MoodDao] — owned by `persistenceModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class GenreTagModuleVerifyTest :
@@ -31,6 +33,7 @@ class GenreTagModuleVerifyTest :
                         GenreDao::class,
                         TagDao::class,
                         BookTagDao::class,
+                        MoodDao::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
                     ),

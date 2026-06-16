@@ -71,7 +71,7 @@ fun CreditsSection(
     }
 }
 
-/** Section heading — matches TagsSection / ChaptersSection heading style. */
+/** Section heading — matches AboutSection / ChaptersSection heading style. */
 @Composable
 private fun CreditsSectionHeader(modifier: Modifier = Modifier) {
     Text(

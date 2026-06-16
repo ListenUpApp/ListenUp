@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
+import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
@@ -386,6 +387,11 @@ private open class FakeAudibleApi(
             contributorSearchCalls++
             contributorSearchResult
         }
+
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
 }
 
 private class FakeITunesApi(

@@ -10,7 +10,7 @@ package com.calypsan.listenup.client.domain.model
  * @property id Unique identifier
  * @property type Activity type (started_book, finished_book, streak_milestone, listening_milestone, shelf_created, listening_session)
  * @property userId User who performed the activity
- * @property createdAtMs When the activity occurred
+ * @property occurredAtMs When the activity occurred (real event time, epoch ms)
  * @property user User display information
  * @property book Book information (if applicable)
  * @property isReread Whether this is a re-read/re-listen
@@ -24,7 +24,7 @@ data class Activity(
     val id: String,
     val type: String,
     val userId: String,
-    val createdAtMs: Long,
+    val occurredAtMs: Long,
     val user: ActivityUser,
     val book: ActivityBook?,
     val isReread: Boolean,

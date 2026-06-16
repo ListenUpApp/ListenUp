@@ -296,6 +296,31 @@ data class TagEntity(
 )
 
 /**
+ * Sync-substrate entity for a global (cross-user) mood.
+ *
+ * Moods are the affective axis of a book ("Feel-Good", "Tense", "Scary"), applied by
+ * curators — mirrors [TagEntity] in shape and sync discipline. Tombstones are
+ * soft-deletes via [deletedAt]; observation queries exclude tombstoned rows.
+ */
+@Entity(
+    tableName = "moods",
+    indices = [Index(value = ["slug"])],
+)
+data class MoodEntity(
+    @PrimaryKey val id: String,
+    /** Human-readable display name, e.g. "Feel-Good". Mutable via rename. */
+    val name: String,
+    /** URL-safe slug derived from [name] at creation time, e.g. "feel-good". Immutable. */
+    val slug: String,
+    /** Monotonic server revision, advanced on every committed change. */
+    val revision: Long = 0,
+    /** Epoch ms tombstone; null when the mood is live. */
+    val deletedAt: Long? = null,
+    /** Last server update timestamp in epoch milliseconds. */
+    val updatedAt: Long,
+)
+
+/**
  * Genre entity for offline-first genre display.
  *
  * Genres are system-defined hierarchical categories (e.g., Fiction > Fantasy > Epic).
@@ -357,7 +382,7 @@ data class GenreEntity(
     tableName = "activities",
     indices = [
         Index(value = ["userId"]),
-        Index(value = ["createdAt"]),
+        Index(value = ["occurredAt"]),
     ],
 )
 data class ActivityEntity(
@@ -367,8 +392,8 @@ data class ActivityEntity(
     val userId: String,
     /** Activity type: started_book, finished_book, streak_milestone, listening_milestone, shelf_created, listening_session */
     val type: String,
-    /** When the activity was created (epoch ms) */
-    val createdAt: Long,
+    /** When the activity occurred (epoch ms) */
+    val occurredAt: Long,
     // Denormalized user info for offline display
     val userDisplayName: String,
     val userAvatarColor: String,

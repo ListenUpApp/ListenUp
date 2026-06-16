@@ -28,6 +28,7 @@ import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.TimeZone
 
 private class LoginFixture {
     val authRepository: AuthRepository = mock()
@@ -144,6 +145,7 @@ class LoginUseCaseTest :
                             email = "user@example.com",
                             password = "password123",
                             deviceInfo = DeviceInfo(),
+                            timezone = TimeZone.currentSystemDefault().id,
                         ),
                     )
                 }
@@ -165,6 +167,7 @@ class LoginUseCaseTest :
                             email = "u@x.co",
                             password = "password1",
                             deviceInfo = DeviceInfo(deviceModel = "Pixel 10"),
+                            timezone = TimeZone.currentSystemDefault().id,
                         ),
                     )
                 }

@@ -210,6 +210,7 @@ internal fun withTestApplication(
                     userStatsRepository = statsRepo,
                     accessPolicy = BookAccessPolicy(db),
                     principal = PrincipalProvider { error("unscoped — copyWith required") },
+                    db = db,
                 )
             listeningEventRepo = eventRepo
             userStatsRepo = statsRepo

@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.EngineSnapshot
@@ -64,6 +65,7 @@ class SyncRepositoryImpl(
     private val listeningEventRecorder: ListeningEventRecorder,
     private val scannerRpcFactory: ScannerRpcFactory,
     private val bookDao: BookDao,
+    private val listeningEventDao: ListeningEventDao,
     private val ftsPopulator: FtsPopulatorContract,
     private val scope: CoroutineScope,
 ) : SyncRepository {
@@ -183,6 +185,11 @@ class SyncRepositoryImpl(
     private suspend fun startEngineForCurrentUser(): AppResult<Unit> =
         suspendRunCatching {
             val userId = authSession.getUserId() ?: return@suspendRunCatching Unit
+            // One-time repair (#532): re-stamp rows written with a blank userId during a startup
+            // catch-up race (authState still Initializing when insertIfAbsent ran). Idempotent.
+            listeningEventDao.reassignBlankUserId(userId).let { repaired ->
+                if (repaired > 0) logger.info { "Repaired $repaired listening_events rows with a blank userId" }
+            }
             syncEngine.start(userId)
             startScanProgressObserver()
             // Self-heal: an install whose library is already in Room but whose search index was

@@ -25,7 +25,7 @@ object ActivityType {
  * @property displayName The acting user's public display name.
  * @property avatarType `"auto"` or `"image"`.
  * @property type One of [ActivityType].
- * @property createdAtMs Epoch-ms; also the pagination cursor (`before`).
+ * @property occurredAtMs Epoch-ms of the real event; also the pagination cursor (`before`).
  * @property bookId The book (for book-bearing types); guaranteed caller-accessible.
  * @property isReread True for a re-read `started_book`.
  * @property durationMs Session duration (for `listening_session`).
@@ -42,7 +42,7 @@ data class ActivityEvent(
     val displayName: String,
     val avatarType: String,
     val type: String,
-    val createdAtMs: Long,
+    val occurredAtMs: Long,
     val bookId: String? = null,
     val isReread: Boolean = false,
     val durationMs: Long = 0L,

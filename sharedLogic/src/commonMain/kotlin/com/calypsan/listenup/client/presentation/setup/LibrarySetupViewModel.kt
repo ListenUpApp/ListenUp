@@ -2,9 +2,7 @@ package com.calypsan.listenup.client.presentation.setup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.DirectoryEntry
-import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.core.error.ErrorBus
@@ -20,38 +18,28 @@ import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
-private const val DEFAULT_LIBRARY_NAME = "My Library"
-
 /**
  * One-shot navigation events emitted by [LibrarySetupViewModel].
  *
- * [LibraryCreated] fires after each successful library creation — the wizard
- * loops back to allow adding another. [Finished] fires when [LibrarySetupViewModel.finishOnboarding]
- * is called, signalling the host to navigate away from the wizard.
+ * [Finished] fires when [LibrarySetupViewModel.completeSetup] succeeds, signalling
+ * the host to navigate away from the wizard.
  */
 sealed interface LibrarySetupNavAction {
-    /** A library was successfully created. The wizard may loop for another. */
-    data class LibraryCreated(
-        val library: Library,
-    ) : LibrarySetupNavAction
-
-    /** The user tapped "Done" — all library setup is complete. */
+    /** Onboarding complete — host should navigate away from the wizard. */
     data object Finished : LibrarySetupNavAction
 }
 
 /**
  * ViewModel for the library setup wizard.
  *
- * Manages the initial library configuration flow, supporting creation of multiple
- * libraries in a single onboarding session:
- * - Checking if library setup is needed ([getSetupStatus])
+ * Manages the initial library configuration flow for the single-library model:
+ * - Checking if library setup is needed ([checkLibraryStatus])
  * - Browsing the server filesystem ([browseFilesystem])
- * - Selecting one or more folders for the library
- * - Creating the library with the chosen configuration
- * - Looping back for another library or finishing
+ * - Selecting one or more folders to add to THE library
+ * - Registering each folder via [addFolder] and kicking off the initial scan
  *
- * Replaces the legacy [com.calypsan.listenup.client.data.remote.SetupApiContract] surface
- * with [LibraryAdminRpcFactory] backed by the [com.calypsan.listenup.api.LibraryAdminService] RPC.
+ * Replaces the legacy multi-library loop. There is one library; the wizard selects
+ * how many folders it watches.
  */
 class LibrarySetupViewModel(
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
@@ -81,7 +69,7 @@ class LibrarySetupViewModel(
             when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
                 is AppResult.Success -> {
                     val status = result.data
-                    logger.info { "Setup status: needsSetup=${status.needsSetup}, libraryCount=${status.libraryCount}" }
+                    logger.info { "Setup status: needsSetup=${status.needsSetup}" }
                     state.update {
                         it.copy(
                             isCheckingStatus = false,
@@ -201,14 +189,6 @@ class LibrarySetupViewModel(
     }
 
     /**
-     * Update the library name.
-     * @param name The new library name
-     */
-    fun setLibraryName(name: String) {
-        state.update { it.copy(libraryName = name) }
-    }
-
-    /**
      * Clear the error state.
      */
     fun clearError() {
@@ -216,106 +196,59 @@ class LibrarySetupViewModel(
     }
 
     /**
-     * Create the library with the current configuration.
-     *
-     * On success, appends the created library to [LibrarySetupUiState.createdLibraries],
-     * resets folder selection and library name for the next entry, and emits a
-     * [LibrarySetupNavAction.LibraryCreated] nav action. Does NOT flip
-     * [LibrarySetupUiState.setupComplete] — only [finishOnboarding] does that.
-     *
-     * Requires at least one selected path and a non-blank library name.
+     * Finish onboarding: register each selected folder under THE library, kick off the
+     * initial scan on [appScope] (it outlives the wizard), then emit [LibrarySetupNavAction.Finished].
+     * Multi-folder selection is preserved; there is no second library.
      */
-    fun createLibrary() {
-        val currentState = state.value
-        if (currentState.selectedPaths.isEmpty()) {
+    fun completeSetup() {
+        val current = state.value
+        if (current.selectedPaths.isEmpty()) {
             state.update { it.copy(error = "Please select at least one folder for your library") }
             return
         }
-
-        if (currentState.libraryName.isBlank()) {
-            state.update { it.copy(error = "Please enter a name for your library") }
-            return
-        }
-
         viewModelScope.launch {
             state.update { it.copy(isCreatingLibrary = true, error = null) }
-
-            val request =
-                CreateLibraryRequest(
-                    name = currentState.libraryName.trim(),
-                    folderPaths = currentState.selectedPaths.toList(),
-                )
-
-            when (val result = libraryAdminRpcFactory.get().createLibrary(request)) {
-                is AppResult.Success -> {
-                    val library = result.data
-                    logger.info { "Library created: id=${library.id}, name=${library.name}" }
-                    state.update {
-                        it.copy(
-                            isCreatingLibrary = false,
-                            createdLibraries = it.createdLibraries + library,
-                            selectedPaths = emptySet(),
-                            libraryName = DEFAULT_LIBRARY_NAME,
-                            error = null,
-                        )
+            for (path in current.selectedPaths) {
+                when (val result = libraryAdminRpcFactory.get().addFolder(path)) {
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        state.update { it.copy(isCreatingLibrary = false, error = result.error.message) }
+                        return@launch
                     }
-                    _navActions.trySend(LibrarySetupNavAction.LibraryCreated(library))
-                    triggerInitialScan(library)
-                }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to create library: ${result.error.message}" }
-                    state.update {
-                        it.copy(
-                            isCreatingLibrary = false,
-                            error = result.error.message,
-                        )
+                    is AppResult.Success -> {
+                        // folder registered; continue to next path
                     }
                 }
             }
+            state.update { it.copy(isCreatingLibrary = false) }
+            triggerInitialScan()
+            _navActions.trySend(LibrarySetupNavAction.Finished)
         }
     }
 
     /**
-     * Kick off the initial scan of a freshly-created [library].
+     * Kick the first scan off on [appScope] so it outlives the wizard teardown.
      *
-     * The server creates and live-mounts the library on `createLibrary`, but a mounted
-     * watcher only reacts to *future* filesystem changes — existing files are invisible
-     * until an explicit scan walks them. So the wizard must trigger that first scan, or
-     * an onboarded library never yields any books.
-     *
-     * Runs on [appScope], not [viewModelScope]: the server's `scanLibrary` suspends for
-     * the full scan, which easily outlives this wizard (it's torn down the moment
+     * Runs on [appScope], not [viewModelScope]: the server's `scanLibrary` suspends
+     * for the full scan, which easily outlives this wizard (it's torn down the moment
      * onboarding finishes and the host navigates to the Shell). Tying it to the wizard's
      * scope would cancel the scan mid-flight. Progress streams to the Shell over SSE;
      * a failure surfaces on the global error bus.
      */
-    private fun triggerInitialScan(library: Library) {
+    private fun triggerInitialScan() {
         appScope.launch {
-            when (val result = libraryAdminRpcFactory.get().scanLibrary(library.id)) {
+            when (val result = libraryAdminRpcFactory.get().scanLibrary()) {
                 is AppResult.Success -> {
-                    logger.info { "Initial scan completed for library ${library.id}" }
+                    logger.info { "Initial scan started" }
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Initial scan failed for library ${library.id}: ${result.error.message}" }
+                    logger.error { "Initial scan failed: ${result.error.message}" }
                 }
             }
         }
-    }
-
-    /**
-     * Signal that onboarding is complete — the user is done adding libraries.
-     *
-     * Flips [LibrarySetupUiState.setupComplete] and emits [LibrarySetupNavAction.Finished]
-     * so the host screen can navigate away. Only call this after at least one library
-     * has been created.
-     */
-    fun finishOnboarding() {
-        state.update { it.copy(setupComplete = true) }
-        _navActions.trySend(LibrarySetupNavAction.Finished)
     }
 }
 
@@ -335,10 +268,6 @@ data class LibrarySetupUiState(
     // Selection
     val selectedPaths: Set<String> = emptySet(),
     // Setup
-    val libraryName: String = DEFAULT_LIBRARY_NAME,
     val isCreatingLibrary: Boolean = false,
-    // Results
-    val createdLibraries: List<Library> = emptyList(),
-    val setupComplete: Boolean = false,
     val error: String? = null,
 )

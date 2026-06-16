@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 
@@ -166,12 +167,13 @@ fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
  *
  * Computes [BookDetail.allContributors] via dedup-and-role-aggregation — same
  * algorithm as the (deleted in Task 12) private mapper in BookRepositoryImpl.
- * Genres and tags are loaded externally and passed through.
+ * Genres, tags, and moods are loaded externally and passed through.
  */
 fun BookWithContributors.toDetail(
     imageStorage: ImageStorage,
     genres: List<Genre>,
     tags: List<Tag>,
+    moods: List<Mood>,
 ): BookDetail {
     val contributorsById = contributors.associateBy { it.id }
 
@@ -235,5 +237,6 @@ fun BookWithContributors.toDetail(
         genres = genres,
         tags = tags,
         hasScanWarning = book.hasScanWarning,
+        moods = moods,
     )
 }

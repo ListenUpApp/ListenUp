@@ -23,7 +23,6 @@ private val logger = KotlinLogging.logger {}
  * - Scan folder management (add, remove, browse, scan trigger)
  */
 class LibrarySettingsViewModel(
-    private val libraryId: String,
     private val adminRepository: AdminRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -44,7 +43,7 @@ class LibrarySettingsViewModel(
      */
     private fun loadLibrary() {
         viewModelScope.launch {
-            when (val result = adminRepository.getLibrary(libraryId)) {
+            when (val result = adminRepository.getLibrary()) {
                 is AppResult.Success -> {
                     val library = result.data
                     state.update { current ->
@@ -63,7 +62,7 @@ class LibrarySettingsViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to load library: $libraryId — ${result.error}" }
+                    logger.error { "Failed to load library — ${result.error}" }
                     state.update { current ->
                         if (current is LibrarySettingsUiState.Ready) {
                             current.copy(error = result.error)
@@ -84,10 +83,10 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true) }
 
-            when (val result = adminRepository.removeFolder(libraryId, folderId)) {
+            when (val result = adminRepository.removeFolder(folderId)) {
                 is AppResult.Success -> {
                     val updatedLibrary = result.data
-                    logger.info { "Removed folder $folderId from library $libraryId" }
+                    logger.info { "Removed folder $folderId" }
                     updateReady {
                         it.copy(
                             isSaving = false,
@@ -98,7 +97,7 @@ class LibrarySettingsViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to remove folder from library: $libraryId — ${result.error}" }
+                    logger.error { "Failed to remove folder — ${result.error}" }
                     updateReady {
                         it.copy(
                             isSaving = false,
@@ -118,10 +117,10 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, showFolderBrowser = false) }
 
-            when (val result = adminRepository.addScanPath(libraryId, path)) {
+            when (val result = adminRepository.addScanPath(path)) {
                 is AppResult.Success -> {
                     val updatedLibrary = result.data
-                    logger.info { "Added scan path to library $libraryId: $path" }
+                    logger.info { "Added scan path: $path" }
                     updateReady {
                         it.copy(
                             isSaving = false,
@@ -132,7 +131,7 @@ class LibrarySettingsViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to add scan path to library: $libraryId — ${result.error}" }
+                    logger.error { "Failed to add scan path — ${result.error}" }
                     updateReady {
                         it.copy(
                             isSaving = false,
@@ -152,15 +151,15 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isScanning = true) }
 
-            when (val result = adminRepository.triggerScan(libraryId)) {
+            when (val result = adminRepository.triggerScan()) {
                 is AppResult.Success -> {
-                    logger.info { "Triggered scan for library $libraryId" }
+                    logger.info { "Triggered library scan" }
                     updateReady { it.copy(isScanning = false) }
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to trigger scan for library: $libraryId — ${result.error}" }
+                    logger.error { "Failed to trigger scan — ${result.error}" }
                     updateReady {
                         it.copy(
                             isScanning = false,

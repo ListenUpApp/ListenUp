@@ -264,7 +264,7 @@ private fun persister(
 ): BookPersister =
     BookPersister(
         ingest = ingest,
-        libraryRegistry = LibraryRegistry(db, env = mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+        libraryRegistry = LibraryRegistry(db),
         libraryRepository = LibraryRepository(db, ChangeBus(), SyncRegistry()),
         collectionService = inertCollectionService(db),
         db = db,

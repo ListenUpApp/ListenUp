@@ -62,6 +62,7 @@ internal class MetadataLookupServiceImpl(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val imageDeps: MetadataImageDeps,
+    private val enrichmentDeps: MetadataEnrichmentDeps,
     private val permissionPolicy: UserPermissionPolicy,
     private val db: Database,
     private val genreRepository: GenreRepository,
@@ -84,6 +85,7 @@ internal class MetadataLookupServiceImpl(
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
             imageDeps = imageDeps,
+            enrichmentDeps = enrichmentDeps,
             permissionPolicy = permissionPolicy,
             db = db,
             genreRepository = genreRepository,
@@ -202,6 +204,7 @@ internal class MetadataLookupServiceImpl(
                     is AppResult.Failure -> emptyList()
                 }
             },
+            enrichmentDeps = enrichmentDeps,
         ).apply(bookId, asin, region, selection)
     }
 

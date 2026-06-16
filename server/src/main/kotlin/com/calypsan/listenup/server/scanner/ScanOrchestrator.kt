@@ -36,8 +36,8 @@ private val logger = KotlinLogging.logger {}
  *    creates the scanner + coordinator pair and mounts watchers for each folder.
  * 2. [scanLibrary] triggers a full scan via the coordinator (single-flight).
  * 3. [scanFolder] triggers an incremental reanalysis for the given folder.
- * 4. [onLibraryRemoved] tears down the scanner + coordinator and unmounts all watchers.
- * 5. [onFolderAdded] / [onFolderRemoved] adjust the watcher set.
+ * 4. [onFolderAdded] / [onFolderRemoved] rebuild the scanner bundle with the updated folder
+ *    list and mount/unmount only the affected watcher.
  *
  * **One library, many folders.** ListenUp is a single-library product. A second call
  * to [onLibraryAdded] replaces the existing bundle — it does not create a second one.
@@ -72,9 +72,9 @@ internal class ScanOrchestrator(
      * Registers [library] with the orchestrator: creates a [Scanner] +
      * [ScanCoordinator] pair and mounts file-system watchers for each folder.
      *
-     * Called at server startup for the configured library and after a
-     * successful `createLibrary` admin RPC. A second call replaces the existing
-     * bundle — there is only ever one library active at a time.
+     * Called at server startup (bootstrap) to register the singleton library.
+     * A second call replaces the existing bundle — there is only ever one library
+     * active at a time.
      */
     suspend fun onLibraryAdded(library: Library) {
         val newBundle = scannerFactory(library)
@@ -91,19 +91,13 @@ internal class ScanOrchestrator(
     }
 
     /**
-     * Removes the library from the orchestrator: tears down the scanner bundle
-     * and unmounts all associated file-system watchers.
+     * Rebuilds the scanner bundle with [folder] appended to the library's folder list,
+     * then mounts a watcher for the new folder only.
      *
-     * Called after a successful `deleteLibrary` admin RPC.
-     */
-    suspend fun onLibraryRemoved(libraryId: LibraryId) {
-        mutex.withLock { if (bundle?.library?.id == libraryId) bundle = null }
-        watcherSupervisor.unmountAllForLibrary(libraryId)
-        logger.info { "Library removed: id=${libraryId.value}" }
-    }
-
-    /**
-     * Mounts a new watcher for [folder] under [libraryId].
+     * Rebuilding (rather than patching the snapshot) is required because the [Scanner]
+     * captures [Library.folders] at construction time as its walk roots. A snapshot-only
+     * patch would leave the Scanner's internal roots stale, so a subsequent full scan
+     * would not walk the new folder.
      *
      * Called after a successful `addFolder` admin RPC.
      */
@@ -111,6 +105,22 @@ internal class ScanOrchestrator(
         libraryId: LibraryId,
         folder: LibraryFolderRef,
     ) {
+        val staleCoordinator =
+            mutex.withLock {
+                val current = bundle
+                if (current != null && current.library.id == libraryId) {
+                    val updatedLibrary = current.library.copy(folders = current.library.folders + folder)
+                    // Rebuild so the Scanner's captured folder list includes the new folder
+                    // (a full scan walks the Scanner's roots; a snapshot-only patch wouldn't reach it).
+                    bundle = scannerFactory(updatedLibrary)
+                    current.coordinator
+                } else {
+                    null
+                }
+            }
+        // Close the old coordinator outside the lock — closes the incremental channel,
+        // letting its worker coroutine drain and exit without cancelling the shared scope.
+        staleCoordinator?.close()
         if (watchEnabled) {
             watcherSupervisor.mount(libraryId, folder) { libId, path -> onFileChanged(libId, path) }
         }
@@ -121,11 +131,29 @@ internal class ScanOrchestrator(
     }
 
     /**
-     * Unmounts the watcher for [folderId].
+     * Rebuilds the scanner bundle with [folderId] removed from the library's folder list,
+     * then unmounts the watcher for that folder.
+     *
+     * Rebuilding ensures a subsequent full scan does not walk the removed folder's path
+     * (the [Scanner] captures its walk roots at construction time).
      *
      * Called after a successful `removeFolder` admin RPC.
      */
     suspend fun onFolderRemoved(folderId: FolderId) {
+        val staleCoordinator =
+            mutex.withLock {
+                bundle?.let { current ->
+                    val updatedLibrary =
+                        current.library.copy(
+                            folders = current.library.folders.filterNot { it.id == folderId },
+                        )
+                    bundle = scannerFactory(updatedLibrary)
+                    current.coordinator
+                }
+            }
+        // Close the old coordinator outside the lock — closes the incremental channel,
+        // letting its worker coroutine drain and exit without cancelling the shared scope.
+        staleCoordinator?.close()
         watcherSupervisor.unmount(folderId)
         logger.info { "Folder removed: folder=${folderId.value}" }
     }

@@ -14,9 +14,8 @@ import SwiftUI
 /// Errors surface as a native alert; navigation is driven by the wrapper's callbacks.
 struct ChooseFoldersView: View {
 
-    /// The shared wrapper, owned by the coordinator. `@Bindable` so the inline
-    /// library-name field can two-way bind `libraryName`.
-    @Bindable var viewModel: LibrarySetupViewModelWrapper
+    /// The shared wrapper, owned by the coordinator.
+    var viewModel: LibrarySetupViewModelWrapper
 
     /// True once at least one leaf folder (or the current folder, via "Select this
     /// folder") has been chosen — the gate for creating the library. Reads the wrapper's
@@ -30,14 +29,13 @@ struct ChooseFoldersView: View {
             header
             pathBar
             directorySection
-            nameSection
         } footer: {
             selectionSummary
             AuthPrimaryButton(
-                title: String(localized: "library_setup.create_library"),
+                title: String(localized: "library_setup.start_scanning"),
                 isLoading: viewModel.isCreatingLibrary
             ) {
-                viewModel.create()
+                viewModel.completeSetup()
             }
             .disabled(!hasSelection || viewModel.isCreatingLibrary)
         }
@@ -162,24 +160,6 @@ struct ChooseFoldersView: View {
         .padding(.vertical, 10)
     }
 
-    // MARK: - Library name
-
-    private var nameSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "library_setup.library_name").uppercased())
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            AuthFieldGroup {
-                AppTextField(
-                    placeholder: String(localized: "library_setup.library_name_placeholder"),
-                    text: $viewModel.libraryName,
-                    icon: "books.vertical",
-                    autocapitalization: .words
-                )
-            }
-        }
-    }
-
     // MARK: - Footer summary
 
     private var selectionSummary: some View {
@@ -302,8 +282,7 @@ private struct FolderRow: View {
 #Preview("Choose Folders") {
     ChooseFoldersView(
         viewModel: LibrarySetupViewModelWrapper(
-            viewModel: Dependencies.shared.librarySetupViewModel,
-            syncRepository: Dependencies.shared.syncRepository
+            viewModel: Dependencies.shared.librarySetupViewModel
         )
     )
 }

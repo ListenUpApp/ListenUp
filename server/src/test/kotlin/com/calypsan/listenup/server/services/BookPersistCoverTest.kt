@@ -96,7 +96,7 @@ class BookPersistCoverTest :
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val registry = LibraryRegistry(db)
                         val libId = registry.currentLibrary()
 
                         val artworkBytes = fakeJpeg()
@@ -218,7 +218,7 @@ class BookPersistCoverTest :
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val registry = LibraryRegistry(db)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
                         val analyzed = minimalBook("Author/Sticky")
@@ -287,7 +287,7 @@ class BookPersistCoverTest :
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val registry = LibraryRegistry(db)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
                         val analyzed = minimalBook("Author/Control")
@@ -348,7 +348,7 @@ class BookPersistCoverTest :
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val registry = LibraryRegistry(db)
                         val libId = registry.currentLibrary()
                         // LibraryRegistry.currentLibrary() publishes an event — capture the
                         // pre-test baseline so we only count events AFTER resolveOrInsert.
@@ -418,7 +418,7 @@ class BookPersistCoverTest :
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val registry = LibraryRegistry(db)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
 
@@ -507,7 +507,7 @@ class BookPersistCoverTest :
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val registry = LibraryRegistry(db)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
                         val analyzed = minimalBook("Author/NoOrphan")

@@ -10,8 +10,8 @@ import com.calypsan.listenup.server.seed.ContributorEnrichmentSeeder
 import com.calypsan.listenup.server.seed.DomainSeeder
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.server.seed.InviteDomainSeeder
-import com.calypsan.listenup.server.seed.LibraryDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
+import com.calypsan.listenup.server.seed.MoodDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
 import com.calypsan.listenup.server.seed.PublicProfileDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
@@ -40,11 +40,6 @@ import org.koin.dsl.module
  *   path is configured). When false, [ContributorEnrichmentSeeder] is omitted —
  *   it depends on [com.calypsan.listenup.server.services.ContributorRepository]
  *   which is only bound when the books module is loaded.
- * @param demoLibraryPath absolute path to the pre-generated synthetic library
- *   (typically `build/seed-library`). When non-null, [LibraryDomainSeeder] is
- *   registered and seeds a "Demo Library" pointing at that path. When null
- *   (synthetic library not yet generated), the library seeder is omitted and
- *   the library will be empty until the next restart after generation.
  * @param hasTagsModule whether the `:tags` slice is active. When true, [TagDomainSeeder]
  *   is registered to seed a curated set of demo tags. Tags are independent of the
  *   scanner, so this can be true even without a library configured.
@@ -52,6 +47,11 @@ import org.koin.dsl.module
  *   [GenreDomainSeeder] is registered to seed the default genre taxonomy (3 roots,
  *   ~70 nodes total) ported from Go's `internal/genre/defaults.go`. Like tags, the
  *   genre tree is curator-controlled and independent of the scanner.
+ * @param hasMoodsModule whether the moods slice is active. When true,
+ *   [MoodDomainSeeder] is registered to seed the canonical Audible mood vocabulary
+ *   (≈24 affective labels). Like genres, moods are curator-controlled dedupe anchors
+ *   and independent of the scanner. The moods bindings live in [booksModule], so this
+ *   is true exactly when [hasBooksModule] is.
  * @param hasCollectionsModule whether the collections slice is active. When true,
  *   [CollectionDomainSeeder] is registered to seed the demo library's inbox plus one
  *   demo collection. The collections bindings live in [booksModule], so this is true
@@ -67,18 +67,15 @@ import org.koin.dsl.module
 fun seedModule(
     hasPlaybackModule: Boolean = false,
     hasBooksModule: Boolean = false,
-    demoLibraryPath: String? = null,
     hasTagsModule: Boolean = false,
     hasGenresModule: Boolean = false,
+    hasMoodsModule: Boolean = false,
     hasCollectionsModule: Boolean = false,
     hasShelvesModule: Boolean = false,
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
         single { InviteDomainSeeder(db = get(), inviteService = get<InviteServiceImpl>()) }
-        if (demoLibraryPath != null) {
-            single { LibraryDomainSeeder(db = get(), libraryAdminService = get(), demoLibraryPath = demoLibraryPath) }
-        }
         if (hasPlaybackModule) {
             single { PlaybackPositionDomainSeeder(db = get(), playbackPositionRepository = get()) }
             single { ListeningEventDomainSeeder(db = get(), listeningEventRepository = get()) }
@@ -114,9 +111,9 @@ fun seedModule(
                         koin = this,
                         hasPlaybackModule = hasPlaybackModule,
                         hasBooksModule = hasBooksModule,
-                        demoLibraryPath = demoLibraryPath,
                         hasTagsModule = hasTagsModule,
                         hasGenresModule = hasGenresModule,
+                        hasMoodsModule = hasMoodsModule,
                         hasCollectionsModule = hasCollectionsModule,
                         hasShelvesModule = hasShelvesModule,
                     ),
@@ -134,18 +131,15 @@ private fun assembleSeeders(
     koin: Scope,
     hasPlaybackModule: Boolean,
     hasBooksModule: Boolean,
-    demoLibraryPath: String?,
     hasTagsModule: Boolean,
     hasGenresModule: Boolean,
+    hasMoodsModule: Boolean,
     hasCollectionsModule: Boolean,
     hasShelvesModule: Boolean,
 ): List<DomainSeeder> =
     buildList {
         add(koin.get<UserDomainSeeder>())
         add(koin.get<InviteDomainSeeder>())
-        if (demoLibraryPath != null) {
-            add(koin.get<LibraryDomainSeeder>())
-        }
         if (hasPlaybackModule) {
             add(koin.get<PlaybackPositionDomainSeeder>())
             add(koin.get<ListeningEventDomainSeeder>())
@@ -160,6 +154,9 @@ private fun assembleSeeders(
         }
         if (hasGenresModule) {
             add(koin.get<GenreDomainSeeder>())
+        }
+        if (hasMoodsModule) {
+            add(koin.get<MoodDomainSeeder>())
         }
         if (hasCollectionsModule) {
             add(koin.get<CollectionDomainSeeder>())

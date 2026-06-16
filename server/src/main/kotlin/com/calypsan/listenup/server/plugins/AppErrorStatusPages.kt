@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.ScanError
@@ -94,7 +95,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is MetadataError -> toHttpStatus()
 
-        is TagError -> toHttpStatus()
+        // TagError + MoodError share one branch (delegating to an exhaustive helper) to keep
+        // this function's cyclomatic complexity under the project threshold while preserving
+        // per-variant exhaustiveness for both families.
+        is TagError, is MoodError -> tagOrMoodHttpStatus()
 
         is CollectionError -> toHttpStatus()
 
@@ -175,8 +179,11 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
             withCorrelationId(id)
         }
 
-        is TagError -> {
-            withCorrelationId(id)
+        // TagError + MoodError share one branch (delegating to an exhaustive helper) to keep
+        // this function's cyclomatic complexity under the project threshold while preserving
+        // per-variant exhaustiveness for both families.
+        is TagError, is MoodError -> {
+            tagOrMoodWithCorrelationId(id)
         }
 
         is CollectionError -> {
@@ -451,6 +458,30 @@ private fun LibraryError.withCorrelationId(id: String?): LibraryError =
         is LibraryError.FolderNotFound -> copy(correlationId = id)
     }
 
+/**
+ * Re-dispatches the grouped `TagError`/`MoodError` branch of [toHttpStatus] to each family's
+ * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under
+ * the project threshold; the `else` is unreachable (only called from the grouped branch above).
+ */
+private fun AppError.tagOrMoodHttpStatus(): HttpStatusCode =
+    when (this) {
+        is TagError -> toHttpStatus()
+        is MoodError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+/**
+ * Re-dispatches the grouped `TagError`/`MoodError` branch of [withCorrelationId] to each family's
+ * own exhaustive `copy`. Split out solely to keep [withCorrelationId]'s cyclomatic complexity under
+ * the project threshold; the `else` is unreachable (only called from the grouped branch above).
+ */
+private fun AppError.tagOrMoodWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is TagError -> withCorrelationId(id)
+        is MoodError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
 private fun TagError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is TagError.NotFound -> HttpStatusCode.NotFound
@@ -465,6 +496,22 @@ private fun TagError.withCorrelationId(id: String?): TagError =
         is TagError.BookNotFound -> copy(correlationId = id)
         is TagError.InvalidName -> copy(correlationId = id)
         is TagError.NameTooLong -> copy(correlationId = id)
+    }
+
+private fun MoodError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is MoodError.NotFound -> HttpStatusCode.NotFound
+        is MoodError.BookNotFound -> HttpStatusCode.NotFound
+        is MoodError.InvalidName -> HttpStatusCode.BadRequest
+        is MoodError.NameTooLong -> HttpStatusCode.BadRequest
+    }
+
+private fun MoodError.withCorrelationId(id: String?): MoodError =
+    when (this) {
+        is MoodError.NotFound -> copy(correlationId = id)
+        is MoodError.BookNotFound -> copy(correlationId = id)
+        is MoodError.InvalidName -> copy(correlationId = id)
+        is MoodError.NameTooLong -> copy(correlationId = id)
     }
 
 private fun BookError.toHttpStatus(): HttpStatusCode =

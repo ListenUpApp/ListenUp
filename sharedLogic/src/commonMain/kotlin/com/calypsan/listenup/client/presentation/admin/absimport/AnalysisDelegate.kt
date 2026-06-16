@@ -113,32 +113,37 @@ internal class AnalysisDelegate(
                 statusResponse = pollStatus(analysisId) ?: return@launch
             }
 
-            if (statusResponse.status == "failed") {
-                val failureDetail = statusResponse.error ?: "Analysis failed"
-                logger.error { "Analysis reported failed status: $failureDetail" }
-                state.updateReady {
-                    it.copy(
-                        isAnalyzing = false,
-                        step = ABSImportStep.SOURCE_SELECTION,
-                        error = ImportError.AnalysisFailed(debugInfo = failureDetail),
-                    )
-                }
-                return@launch
-            }
+            // Resolve result: failed status or missing result both route to AnalysisFailed.
+            val result =
+                statusResponse.result?.takeIf { statusResponse.status != "failed" }
+                    ?: run {
+                        val detail =
+                            if (statusResponse.status == "failed") {
+                                statusResponse.error ?: "Analysis failed"
+                            } else {
+                                "Analysis returned no result"
+                            }
+                        logger.error { "Analysis did not complete successfully: $detail" }
+                        state.updateReady {
+                            it.copy(
+                                isAnalyzing = false,
+                                step = ABSImportStep.SOURCE_SELECTION,
+                                error = ImportError.AnalysisFailed(debugInfo = detail),
+                            )
+                        }
+                        return@launch
+                    }
 
-            val result = statusResponse.result!!
-
-            // Build initial mappings from server-matched items
-            // All items with listenupId are auto-matched; users can review and change
+            // Items with listenupId are auto-matched; users can review and change
             val initialUserMappings =
                 result.userMatches
-                    .filter { it.listenupId != null }
-                    .associate { it.absUserId to it.listenupId!! }
+                    .mapNotNull { m -> m.listenupId?.let { m.absUserId to it } }
+                    .toMap()
 
             val initialBookMappings =
                 result.bookMatches
-                    .filter { it.listenupId != null }
-                    .associate { it.absItemId to it.listenupId!! }
+                    .mapNotNull { m -> m.listenupId?.let { m.absItemId to it } }
+                    .toMap()
 
             // Pre-populate display info for auto-matched books
             val initialBookDisplays = buildInitialBookDisplays(result)
@@ -181,9 +186,8 @@ internal class AnalysisDelegate(
 
     private fun buildInitialBookDisplays(result: AnalyzeABSResponse): Map<String, SelectedBookDisplay> =
         result.bookMatches
-            .filter { it.listenupId != null }
-            .associate { match ->
-                val listenupId = match.listenupId!!
+            .mapNotNull { match -> match.listenupId?.let { match to it } }
+            .associate { (match, listenupId) ->
                 // Try to find the matched book in suggestions for full details
                 val matchedSuggestion = match.suggestions.firstOrNull { it.bookId == listenupId }
                 // Fallback to first suggestion if matched book not in list

@@ -6,11 +6,13 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookEntity
+import com.calypsan.listenup.client.data.local.db.BookIdNameRow
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -39,12 +41,19 @@ class FtsPopulatorTest :
             val seriesDao: SeriesDao = mock()
             val searchDao: SearchDao = mock()
 
+            // Inline fake that executes the block directly — no DB needed in mock tests.
+            val transactionRunner: TransactionRunner =
+                object : TransactionRunner {
+                    override suspend fun <R> atomically(block: suspend () -> R): R = block()
+                }
+
             fun build(): FtsPopulator =
                 FtsPopulator(
                     bookDao = bookDao,
                     contributorDao = contributorDao,
                     seriesDao = seriesDao,
                     searchDao = searchDao,
+                    transactionRunner = transactionRunner,
                 )
         }
 
@@ -60,10 +69,13 @@ class FtsPopulatorTest :
             everySuspend { fixture.searchDao.clearBooksFts() } returns Unit
             everySuspend { fixture.searchDao.clearContributorsFts() } returns Unit
             everySuspend { fixture.searchDao.clearSeriesFts() } returns Unit
-            everySuspend { fixture.searchDao.getPrimaryAuthorName(any()) } returns null
-            everySuspend { fixture.searchDao.getPrimaryNarratorName(any()) } returns null
-            everySuspend { fixture.searchDao.getSeriesNamesForBook(any()) } returns null
-            everySuspend { fixture.searchDao.getGenreNamesForBook(any()) } returns null
+
+            // Batch query stubs (the new API — no per-book queries)
+            everySuspend { fixture.searchDao.getAllPrimaryAuthorNames() } returns emptyList()
+            everySuspend { fixture.searchDao.getAllPrimaryNarratorNames() } returns emptyList()
+            everySuspend { fixture.searchDao.getAllSeriesNamesGrouped() } returns emptyList()
+            everySuspend { fixture.searchDao.getAllGenreNamesGrouped() } returns emptyList()
+
             everySuspend { fixture.searchDao.insertBookFts(any(), any(), any(), any(), any(), any(), any(), any()) } returns
                 Unit
             everySuspend { fixture.searchDao.insertContributorFts(any(), any(), any()) } returns Unit
@@ -234,15 +246,17 @@ class FtsPopulatorTest :
             }
         }
 
-        test("rebuildAll includes author and narrator names from lookup") {
+        test("rebuildAll includes author and narrator names from batch lookup") {
             runTest {
                 // Given
                 val fixture = createFixture()
                 val book = createBookEntity(id = "book-1", title = "Test Book")
 
                 everySuspend { fixture.bookDao.getAllLive() } returns listOf(book)
-                everySuspend { fixture.searchDao.getPrimaryAuthorName("book-1") } returns "John Author"
-                everySuspend { fixture.searchDao.getPrimaryNarratorName("book-1") } returns "Jane Narrator"
+                everySuspend { fixture.searchDao.getAllPrimaryAuthorNames() } returns
+                    listOf(BookIdNameRow(bookId = "book-1", authorName = "John Author"))
+                everySuspend { fixture.searchDao.getAllPrimaryNarratorNames() } returns
+                    listOf(BookIdNameRow(bookId = "book-1", authorName = "Jane Narrator"))
                 val ftsPopulator = fixture.build()
 
                 // When
@@ -264,9 +278,9 @@ class FtsPopulatorTest :
             }
         }
 
-        test("rebuildAll includes genres in FTS") {
+        test("rebuildAll includes genres in FTS via batch lookup") {
             runTest {
-                // Given - genre names now come from book_genres junction via getGenreNamesForBook
+                // Given — genre names come from getAllGenreNamesGrouped batch query
                 val fixture = createFixture()
                 val book =
                     createBookEntity(
@@ -275,13 +289,14 @@ class FtsPopulatorTest :
                     )
 
                 everySuspend { fixture.bookDao.getAllLive() } returns listOf(book)
-                everySuspend { fixture.searchDao.getGenreNamesForBook("book-1") } returns "Fantasy, Adventure"
+                everySuspend { fixture.searchDao.getAllGenreNamesGrouped() } returns
+                    listOf(BookIdNameRow(bookId = "book-1", authorName = "Fantasy, Adventure"))
                 val ftsPopulator = fixture.build()
 
                 // When
                 ftsPopulator.rebuildAll()
 
-                // Then - both series and genre names come from junction tables, not BookEntity
+                // Then — both series and genre names come from batch queries, not per-book calls
                 verifySuspend {
                     fixture.searchDao.insertBookFts(
                         "book-1",
@@ -290,8 +305,8 @@ class FtsPopulatorTest :
                         null,
                         null,
                         null,
-                        null, // Series comes from junction table
-                        "Fantasy, Adventure", // Genres come from junction table
+                        null, // Series comes from batch query
+                        "Fantasy, Adventure", // Genres come from batch query
                     )
                 }
             }

@@ -2,11 +2,15 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorMoodRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorTagRpcFactory
+import com.calypsan.listenup.client.data.remote.MoodRpcFactory
 import com.calypsan.listenup.client.data.remote.TagRpcFactory
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
+import com.calypsan.listenup.client.data.repository.MoodRepositoryImpl
 import com.calypsan.listenup.client.data.repository.TagRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import org.koin.core.module.Module
 import org.koin.dsl.binds
@@ -52,6 +56,23 @@ val genreTagModule: Module =
                 tagRpcFactory = get(),
                 tagDao = get(),
                 bookTagDao = get(),
+            )
+        }
+
+        // MoodRpcFactory — kotlinx.rpc proxy for MoodService (observations from Room; mutations via RPC).
+        single<MoodRpcFactory> {
+            KtorMoodRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // MoodRepository — observations from Room, mutations via RPC (Mood phase).
+        // moodDao provided by persistenceModule.
+        single<MoodRepository> {
+            MoodRepositoryImpl(
+                moodRpcFactory = get(),
+                moodDao = get(),
             )
         }
     }

@@ -289,16 +289,13 @@ data class AdminUserDetail(
 ) : Route
 
 /**
- * Admin library settings screen - view and edit library settings.
+ * Admin library settings screen — manage the library's scan folders.
  *
- * Shows library information and allows changing access mode and inbox settings.
- *
- * @property libraryId The unique ID of the library to configure.
+ * Operates on THE singleton library — no id parameter required. (Inbox quarantine
+ * is a server-wide Admin Setting, not a per-library toggle.)
  */
 @Serializable
-data class AdminLibrarySettings(
-    val libraryId: String,
-) : Route
+data object AdminLibrarySettings : Route
 
 // Admin Backup Routes
 

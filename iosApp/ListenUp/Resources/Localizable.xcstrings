@@ -701,16 +701,6 @@
         }
       }
     },
-    "admin.library_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library name"
-          }
-        }
-      }
-    },
     "admin.link_copied": {
       "localizations": {
         "en": {
@@ -2087,6 +2077,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mark as Read"
+          }
+        }
+      }
+    },
+    "book.detail_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moods"
           }
         }
       }
@@ -8481,56 +8481,6 @@
         }
       }
     },
-    "library_setup.add_another_folder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add another folder"
-          }
-        }
-      }
-    },
-    "library_setup.browse_while_building": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browse library while it builds"
-          }
-        }
-      }
-    },
-    "library_setup.building_progress_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Building library, %1$d percent complete. %2$d books, %3$d authors, %4$d hours."
-          }
-        }
-      }
-    },
-    "library_setup.building_starting_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Building library, starting scan."
-          }
-        }
-      }
-    },
-    "library_setup.building_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scanning your folders and reading audiobook tags. You can start listening right away — it keeps working in the background."
-          }
-        }
-      }
-    },
     "library_setup.building_title": {
       "localizations": {
         "en": {
@@ -8567,16 +8517,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose your folders"
-          }
-        }
-      }
-    },
-    "library_setup.create_library": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create Library"
           }
         }
       }
@@ -8651,36 +8591,6 @@
         }
       }
     },
-    "library_setup.library_created": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library created!"
-          }
-        }
-      }
-    },
-    "library_setup.library_name": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library name"
-          }
-        }
-      }
-    },
-    "library_setup.library_name_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "My Library"
-          }
-        }
-      }
-    },
     "library_setup.loading_folders": {
       "localizations": {
         "en": {
@@ -8741,16 +8651,6 @@
         }
       }
     },
-    "library_setup.scanned_shortly": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your audiobooks will be scanned and available shortly."
-          }
-        }
-      }
-    },
     "library_setup.select_at_least_one": {
       "localizations": {
         "en": {
@@ -8781,42 +8681,12 @@
         }
       }
     },
-    "library_setup.starting_scan": {
+    "library_setup.start_scanning": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Starting scan..."
-          }
-        }
-      }
-    },
-    "library_setup.stat_authors": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Authors"
-          }
-        }
-      }
-    },
-    "library_setup.stat_books": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books"
-          }
-        }
-      }
-    },
-    "library_setup.stat_hours": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hours"
+            "value": "Start Scanning"
           }
         }
       }

@@ -285,6 +285,44 @@ class AudibleClientTest :
             }
         }
 
+        test("getContributor sends the storefront locale Cookie header on the web-host request") {
+            runTest {
+                var sentCookie: String? = null
+                val engine =
+                    MockEngine { request ->
+                        sentCookie = request.headers["Cookie"]
+                        respond(
+                            content = CONTRIBUTOR_PAGE_WITH_OG_IMAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                client.getContributor(AudibleRegion.UK, "B000APZOQA")
+
+                sentCookie shouldBe "lc-acbuk=en_GB; i18n-prefs=GBP"
+            }
+        }
+
+        test("searchContributors sends the storefront locale Cookie header — fixes non-US lookups (#551)") {
+            runTest {
+                var sentCookie: String? = null
+                val engine =
+                    MockEngine { request ->
+                        sentCookie = request.headers["Cookie"]
+                        respond(
+                            content = "<html><body></body></html>",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                client.searchContributors(AudibleRegion.DE, "Frank Herbert")
+
+                sentCookie shouldBe "lc-acbde=de_DE; i18n-prefs=EUR"
+            }
+        }
+
         test("getContributor returns null when page has no bc-heading h1 — generic/unknown page") {
             runTest {
                 val engine =
@@ -300,6 +338,64 @@ class AudibleClientTest :
 
                 result.shouldBeInstanceOf<AppResult.Success<*>>()
                 (result as AppResult.Success<*>).data shouldBe null
+            }
+        }
+
+        // ─── getProductTags ─────────────────────────────────────────────────────
+
+        test("getProductTags returns Success with parsed typed tags on 200") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = PRODUCT_TAGS_PAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                val result = client.getProductTags(AudibleRegion.US, "B0CBP6NQVR")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val tags = (result as AppResult.Success<List<ProductTag>>).data
+                tags shouldBe
+                    listOf(
+                        ProductTag("mood", "Witty"),
+                        ProductTag("theme", "LitRPG"),
+                    )
+            }
+        }
+
+        test("getProductTags returns empty list (Success) on 404") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.NotFound)
+                    }
+                val client = makeClient(engine)
+                val result = client.getProductTags(AudibleRegion.US, "UNKNOWN")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                (result as AppResult.Success<List<ProductTag>>).data shouldBe emptyList()
+            }
+        }
+
+        test("getProductTags sends the storefront locale Cookie on the /pd web-host request") {
+            runTest {
+                var sentCookie: String? = null
+                val engine =
+                    MockEngine { request ->
+                        sentCookie = request.headers["Cookie"]
+                        respond(
+                            content = PRODUCT_TAGS_PAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                client.getProductTags(AudibleRegion.UK, "B0CBP6NQVR")
+
+                sentCookie shouldBe "lc-acbuk=en_GB; i18n-prefs=GBP"
             }
         }
     })
@@ -417,6 +513,22 @@ private val CONTRIBUTOR_PAGE_WITH_OG_IMAGE =
 <body>
 <h1 class="bc-heading">Frank Herbert</h1>
 <div class="bc-expander-content">Author of Dune</div>
+</body>
+</html>
+    """.trimIndent()
+
+// ─── Product page topic-tag fixture ───────────────────────────────────────────
+
+/** Minimal `/pd` page slice with one `mood` and one `theme` topic-tag anchor (with tracking params). */
+private val PRODUCT_TAGS_PAGE =
+    """
+<!DOCTYPE html>
+<html>
+<body>
+<div class="product-topictag-impression">
+  <a href="/tag/mood/Witty-Audiobooks/adbl_rec_tag_001?ref=a_pd">Witty</a>
+  <a href="/tag/theme/LitRPG-Audiobooks/adbl_rec_tag_002?ref=a_pd">LitRPG</a>
+</div>
 </body>
 </html>
     """.trimIndent()

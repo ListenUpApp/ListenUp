@@ -165,6 +165,26 @@ class AudibleClient(
         return raw.map { it ?: emptyList() }
     }
 
+    /**
+     * Scrapes typed topic tags from the Audible product page by ASIN.
+     *
+     * Endpoint: `GET https://www.audible.{tld}/pd/{asin}`
+     *
+     * Reuses [webGet] (web host + storefront locale cookie from Task 4, which
+     * turns Audible's 503-without-cookie into a 200; the request follows the
+     * redirect to the canonical slug URL). Best-effort: a 404 maps the `null`
+     * body to an empty list; any transport failure stays a typed [MetadataError].
+     */
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> {
+        rateLimiter.await(region)
+        return webGet(region, "/pd/$asin") { body ->
+            parseProductTags(body)
+        }.map { it ?: emptyList() }
+    }
+
     // ─── Private infrastructure ───────────────────────────────────────────────
 
     /**
@@ -253,6 +273,10 @@ class AudibleClient(
                         "User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     )
+                    // The storefront locale cookie forces the correct regional catalog and turns
+                    // Audible's 503-without-cookie into a 200 (covers /pd product pages + the
+                    // contributor scrape, fixing non-US contributor lookups — #551 residual).
+                    header("Cookie", region.localeCookie())
                     queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
             when (response.status) {
@@ -342,7 +366,7 @@ private fun extractH1Text(
 ): String? {
     val pattern = Regex("""<h1[^>]*class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</h1>""", RegexOption.DOT_MATCHES_ALL)
     val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
-    return stripHtml(raw).takeIf { it.isNotBlank() }
+    return stripHtmlEntities(raw).takeIf { it.isNotBlank() }
 }
 
 /** Extracts the trimmed text content of the first element with [cssClass] as a class. */
@@ -352,7 +376,7 @@ private fun extractElementText(
 ): String? {
     val pattern = Regex("""class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</""", RegexOption.DOT_MATCHES_ALL)
     val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
-    return stripHtml(raw).trim().takeIf { it.isNotBlank() }
+    return stripHtmlEntities(raw).trim().takeIf { it.isNotBlank() }
 }
 
 /** Extracts the `content` attribute of `<meta property="og:image" ...>`. */
@@ -371,18 +395,6 @@ private fun extractImgSrc(
     return pattern.find(html)?.groupValues?.get(1)
         ?: Regex("""<img[^>]*src="([^"]+)"[^>]*class="[^"]*\b$cssClass\b[^"]*"""").find(html)?.groupValues?.get(1)
 }
-
-/** Removes HTML tags and decodes common HTML entities. */
-private fun stripHtml(html: String): String =
-    html
-        .replace(Regex("<[^>]+>"), "")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&nbsp;", " ")
-        .trim()
 
 // ─── Contributor search HTML scraping ────────────────────────────────────────
 
@@ -421,7 +433,7 @@ internal fun parseContributorSearch(html: String): List<AudibleContributorProfil
         val asin = match.groupValues[1]
         if (!seen.add(asin)) return@forEach // an author repeats across product listings — dedupe
 
-        val name = stripHtml(match.groupValues[2]).trim().takeIf { it.isNotBlank() } ?: return@forEach
+        val name = stripHtmlEntities(match.groupValues[2]).trim().takeIf { it.isNotBlank() } ?: return@forEach
         results += AudibleContributorProfile(asin = asin, name = name, biography = "", imageUrl = "")
     }
 

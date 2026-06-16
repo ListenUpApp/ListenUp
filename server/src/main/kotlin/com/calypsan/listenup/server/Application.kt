@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
@@ -61,6 +62,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.auth.UserRoleLookup
@@ -101,7 +103,6 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.syncRoutes
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scanner.RescanScheduler
@@ -200,6 +201,7 @@ private fun Application.launchSeeders(
         }
     } else if (libraryConfigured) {
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        val moodSeeder by inject<com.calypsan.listenup.server.seed.MoodDomainSeeder>()
         val pendingGenrePromotion by inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
         // Synchronous on the module init thread — `module()` returns only after the
         // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
@@ -210,6 +212,11 @@ private fun Application.launchSeeders(
             runCatching {
                 if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
             }.onFailure { it.logUnlessCancelled("genre default-taxonomy seeding failed — server keeps running") }
+            // Seed the canonical Audible mood vocabulary on fresh installs (curator
+            // dedupe anchors, not demo content). Idempotent via `isAlreadySeeded`.
+            runCatching {
+                if (!moodSeeder.isAlreadySeeded()) moodSeeder.seed()
+            }.onFailure { it.logUnlessCancelled("mood vocabulary seeding failed — server keeps running") }
             // One-time: drain the legacy pending-genre backlog into live genres so an
             // existing library lights up. Runs after seeding (resolution prefers the
             // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
@@ -248,12 +255,11 @@ private fun Application.installCorePlugins() {
  * Installs Koin with the assembled module set. Every domain slice — auth, scanner, books,
  * metadata, playback, library, embedded-metadata, and sync — loads unconditionally so a
  * library-less boot can onboard a library at runtime without a restart. The seed module loads
- * only in the demo profile; [resolvedLibraryPath] supplies its demo library path when present.
+ * only in the demo profile.
  */
 private fun Application.installDependencies(
     seedProfile: String?,
     applicationScope: CoroutineScope,
-    resolvedLibraryPath: Path?,
     homeDir: Path,
     metadataPrecedence: MetadataPrecedence,
     embeddedCoverCacheSize: Int,
@@ -284,8 +290,8 @@ private fun Application.installDependencies(
                 seedModule(
                     hasPlaybackModule = true,
                     hasBooksModule = true,
-                    demoLibraryPath = resolvedLibraryPath?.toString(),
                     hasGenresModule = true,
+                    hasMoodsModule = true,
                     hasCollectionsModule = true,
                     hasShelvesModule = true,
                 )
@@ -310,7 +316,10 @@ fun Application.module() {
 
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
-    val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
+    val resolvedLibraryPaths =
+        resolveLibraryPaths().ifEmpty {
+            resolveDemoLibraryFallback(seedProfile)?.let { listOf(it) } ?: emptyList()
+        }
     val homeDir = resolveImageHome()
     val metadataPrecedence = resolveMetadataPrecedence()
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
@@ -318,7 +327,6 @@ fun Application.module() {
     installDependencies(
         seedProfile,
         applicationScope,
-        resolvedLibraryPath,
         homeDir,
         metadataPrecedence,
         embeddedCoverCacheSize,
@@ -326,7 +334,7 @@ fun Application.module() {
     )
 
     backfillPublicProfiles()
-    launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
+    launchSeeders(applicationScope, seedProfile, resolvedLibraryPaths.isNotEmpty())
 
     installRequestPipeline()
     installMaintenanceGate(koinGet<MaintenanceState>())
@@ -337,7 +345,7 @@ fun Application.module() {
 
     installAppRoutes(homeDir)
 
-    startBackgroundTasks(applicationScope, resolvedLibraryPath)
+    startBackgroundTasks(applicationScope, resolvedLibraryPaths)
     installGracefulShutdown(applicationScope)
 }
 
@@ -399,6 +407,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val searchService by inject<SearchService>()
     val libraryAdminService by inject<LibraryAdminService>()
     val tagService by inject<TagService>()
+    val moodService by inject<MoodService>()
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
@@ -434,6 +443,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             searchService,
             libraryAdminService,
             tagService,
+            moodService,
             genreService,
             collectionService,
             shelfService,
@@ -474,23 +484,32 @@ private fun Application.installAppRoutes(homeDir: Path) {
 }
 
 /**
- * Reads `scanner.libraryPath` from configuration. Returns null when unset,
- * blank, or pointing at a non-directory — the server still starts in those
- * cases, just without an active scanner.
+ * Reads `scanner.libraryPath` from configuration. Accepts a OS-path-separator-delimited
+ * list of folder paths (e.g. `/audio/books:/audio/podcasts` on Unix). Each entry is
+ * trimmed and validated; non-directory entries are skipped with a warning. Returns an
+ * empty list when the config key is unset or blank — the server still starts in that
+ * case, just without any seeded folders.
  */
-private fun Application.resolveLibraryPath(): Path? {
+private fun Application.resolveLibraryPaths(): List<Path> {
     val raw =
         environment.config
             .propertyOrNull("scanner.libraryPath")
             ?.getString()
             .orEmpty()
-    if (raw.isBlank()) return null
-    val path = Path.of(raw)
-    if (!Files.isDirectory(path)) {
-        logger.warn { "scanner.libraryPath '$raw' does not point to a directory — scanner disabled" }
-        return null
-    }
-    return path
+    if (raw.isBlank()) return emptyList()
+    return raw
+        .split(java.io.File.pathSeparatorChar)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val path = Path.of(entry)
+            if (Files.isDirectory(path)) {
+                path
+            } else {
+                logger.warn { "scanner.libraryPath entry '$entry' is not a directory — skipping" }
+                null
+            }
+        }
 }
 
 /**
@@ -593,20 +612,20 @@ private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? 
 /**
  * Starts all background scheduler tasks. Every task — session cleanup, the
  * scanner-dependent cleanup tasks, and library bootstrap — runs unconditionally:
- * the library-dependent Koin modules now load regardless of whether a library
- * path is configured, and [bootstrapLibraries] handles the zero-library case by
- * idling until a client onboards a library at runtime.
+ * the library-dependent Koin modules now load regardless of whether library
+ * paths are configured, and [bootstrapLibraries] handles the zero-paths case by
+ * ensuring the singleton library exists and idling until a client adds folders.
  *
- * [libraryPath] (the env-var / config path, nullable) is forwarded to
- * [bootstrapLibraries] so a configured path still creates the default library
- * while a library-less boot starts cleanly and awaits client onboarding.
+ * [libraryPaths] (the env-var / config paths, possibly empty) is forwarded to
+ * [bootstrapLibraries] so configured paths are seeded as folders of the singleton
+ * while a path-less boot starts cleanly and awaits client onboarding.
  *
  * [bootstrapLibraries] is launched in the background — callers should not
  * assume it has completed when this function returns.
  */
 private fun Application.startBackgroundTasks(
     scope: CoroutineScope,
-    libraryPath: Path?,
+    libraryPaths: List<Path>,
 ) {
     // Session cleanup runs unconditionally — sessions exist regardless of library config.
     inject<ExpiredSessionCleanupTask>().value.start(scope)
@@ -614,6 +633,7 @@ private fun Application.startBackgroundTasks(
     val orchestrator by inject<ScanOrchestrator>()
     val bookPersister by inject<BookPersister>()
     val libraryAdminService by inject<LibraryAdminService>()
+    val libraryRegistry by inject<LibraryRegistry>()
 
     // BookPersister must be subscribed to the scan-result bus before any scan can run
     // — a scan can now be triggered at runtime via the wizard on a library-less boot.
@@ -632,7 +652,8 @@ private fun Application.startBackgroundTasks(
             bootstrapLibraries(
                 libraryAdminService = libraryAdminService,
                 scanOrchestrator = orchestrator,
-                libraryPath = libraryPath?.toString(),
+                libraryRegistry = libraryRegistry,
+                libraryPaths = libraryPaths,
                 rescanOnStartup = rescanOnStartup,
             )
         }.onFailure { e ->
@@ -706,22 +727,16 @@ private val SYSTEM_BOOTSTRAP_PRINCIPAL =
 /**
  * One-shot library bootstrap called at server startup and in [ApplicationBootstrapTest].
  *
- * Rules (Task 18):
- *  - If libraries already exist → register each with [scanOrchestrator] via
- *    [ScanOrchestrator.onLibraryAdded] so the watcher and scanner bundle are
- *    warmed up. When [rescanOnStartup] is true each library is also kicked off
- *    via [ScanOrchestrator.scanLibraryAsync] to catch changes made while the
- *    server was down.
- *  - If no libraries exist and [libraryPath] is non-null → create a single
- *    default "My Library" pointing at that path. [LibraryAdminServiceImpl.createLibrary]
- *    internally calls [ScanOrchestrator.onLibraryAdded], so we don't need to.
- *    The `runCatching` guard handles the narrow race where a concurrent caller
- *    (e.g. a test fixture seeding the DB) inserts the same root_path between
- *    our `listLibraries` check and the `createLibrary` insert. On any error,
- *    we re-read the table and call `onLibraryAdded` for whatever ended up there.
- *    When [rescanOnStartup] is true the library is scanned immediately after.
- *  - If no libraries exist and [libraryPath] is null → log and return; the
- *    operator must create a library via the LibraryAdmin REST surface.
+ * Singleton model:
+ *  1. Ensures the singleton library exists by calling [LibraryRegistry.currentLibrary]
+ *     (creates a path-less row named "Library" if the DB is empty — idempotent across boots).
+ *  2. Seeds [libraryPaths] as folders of the singleton, but ONLY when the library currently
+ *     has no folders. This guards against re-adding on subsequent boots while still honoring
+ *     the env var on a fresh install. Folders that [addFolder] rejects (invalid path,
+ *     duplicate) are logged and skipped — they never crash the bootstrap.
+ *  3. Registers the library with [scanOrchestrator] via [ScanOrchestrator.onLibraryAdded] so
+ *     the watcher and scanner bundle are warmed up, then kicks off a scan when [rescanOnStartup]
+ *     is true and the library has at least one folder.
  *
  * Startup scans are gated by [rescanOnStartup] so tests can opt out and avoid
  * racing scanner coroutines against test fixture assertions.
@@ -729,98 +744,40 @@ private val SYSTEM_BOOTSTRAP_PRINCIPAL =
 internal suspend fun bootstrapLibraries(
     libraryAdminService: LibraryAdminService,
     scanOrchestrator: ScanOrchestrator,
-    libraryPath: String?,
+    libraryRegistry: LibraryRegistry,
+    libraryPaths: List<Path>,
     rescanOnStartup: Boolean = true,
 ) {
-    // Startup bootstrap is a system operation — it creates the default library from the
-    // env var before any user has signed in. Scope the admin-gated service to a synthetic
-    // ROOT caller so the structural-op gate sees the system, not an absent principal.
+    // Startup bootstrap is a system operation — it runs before any user has signed in.
+    // Scope the admin-gated service to a synthetic ROOT caller so the structural-op gate
+    // sees the system, not an absent principal.
     val service = (libraryAdminService as LibraryAdminServiceImpl).copyWith(SYSTEM_BOOTSTRAP_PRINCIPAL)
-    val existingResult = service.listLibraries()
-    if (existingResult is AppResult.Failure) {
-        logger.warn { "bootstrap: could not list libraries — ${existingResult.error.message}" }
-        return
-    }
-    val existing = (existingResult as AppResult.Success).data
 
-    when {
-        existing.isNotEmpty() -> {
-            logger.info { "bootstrap: ${existing.size} library(s) already configured; env var ignored" }
-            val library = existing.firstOrNull()
-            if (library != null) {
-                scanOrchestrator.onLibraryAdded(library)
-                if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(library.id)
-            }
-        }
+    // The singleton always exists (LibraryRegistry creates it on first resolve).
+    libraryRegistry.currentLibrary()
 
-        libraryPath != null -> {
-            bootstrapCreateDefaultLibrary(service, scanOrchestrator, libraryPath, rescanOnStartup)
-        }
-
-        else -> {
-            logger.info {
-                "bootstrap: no libraries and no env var; awaiting client onboarding via LibraryAdminService.createLibrary"
+    // Seed env paths as folders only when the library has none yet (idempotent across boots).
+    val current = service.getLibrary()
+    val hasFolders = current is AppResult.Success && current.data.folders.isNotEmpty()
+    if (!hasFolders) {
+        for (path in libraryPaths) {
+            when (val added = service.addFolder(path.toString())) {
+                is AppResult.Failure -> logger.warn { "bootstrap: skipped folder $path — ${added.error.code}" }
+                is AppResult.Success -> logger.info { "bootstrap: seeded folder $path" }
             }
         }
     }
-}
 
-/**
- * Re-reads the library table after a failed [bootstrapCreateDefaultLibrary] attempt
- * and registers whatever ended up there (handles the concurrent-insert race). When
- * [rescanOnStartup] is true each library is also kicked off via
- * [ScanOrchestrator.scanLibraryAsync].
- */
-private suspend fun bootstrapRecheckAndRegister(
-    libraryAdminService: LibraryAdminService,
-    scanOrchestrator: ScanOrchestrator,
-    rescanOnStartup: Boolean,
-) {
-    val recheck = libraryAdminService.listLibraries()
-    if (recheck is AppResult.Success && recheck.data.isNotEmpty()) {
-        logger.info {
-            "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator"
+    when (val lib = service.getLibrary()) {
+        is AppResult.Success -> {
+            scanOrchestrator.onLibraryAdded(lib.data)
+            if (rescanOnStartup && lib.data.folders.isNotEmpty()) {
+                scanOrchestrator.scanLibraryAsync(lib.data.id)
+            }
         }
-        val library = recheck.data.firstOrNull()
-        if (library != null) {
-            scanOrchestrator.onLibraryAdded(library)
-            if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(library.id)
-        }
-    }
-}
 
-/**
- * Creates the "My Library" default library from [libraryPath] and registers it with
- * the [scanOrchestrator]. A `runCatching` guard handles the narrow race where a
- * concurrent caller inserts the same root path between the `listLibraries` check and
- * this insert — on any error the DB is re-read and whatever ended up there is
- * registered instead.
- */
-private suspend fun bootstrapCreateDefaultLibrary(
-    libraryAdminService: LibraryAdminService,
-    scanOrchestrator: ScanOrchestrator,
-    libraryPath: String,
-    rescanOnStartup: Boolean = true,
-) {
-    logger.info { "bootstrap: no libraries configured; creating default from env var path=$libraryPath" }
-    val created =
-        runCatching {
-            libraryAdminService.createLibrary(
-                CreateLibraryRequest(name = "My Library", folderPaths = listOf(libraryPath)),
-            )
-        }.onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e }
-            .getOrNull()
-    if (created is AppResult.Success) {
-        logger.info { "bootstrap: default library created id=${created.data.id.value}" }
-        if (rescanOnStartup) scanOrchestrator.scanLibraryAsync(created.data.id)
-    } else {
-        // Either createLibrary returned Failure or threw — re-check the DB.
-        // A concurrent insert (test fixture race) may have already added a library.
-        if (created is AppResult.Failure) {
-            logger.warn { "bootstrap: createLibrary returned ${created.error.code} — re-checking" }
-        } else {
-            logger.warn { "bootstrap: createLibrary threw — re-checking for concurrent inserts" }
+        is AppResult.Failure -> {
+            logger.warn { "bootstrap: could not resolve the library — ${lib.error.message}" }
         }
-        bootstrapRecheckAndRegister(libraryAdminService, scanOrchestrator, rescanOnStartup)
     }
 }

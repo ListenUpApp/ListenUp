@@ -136,6 +136,7 @@ fun Database.seedTestUser(
     canEdit: Boolean = true,
     canShare: Boolean = true,
     deletedAt: Long? = null,
+    timezone: String = "UTC",
 ) {
     transaction(this) {
         UserEntity.new(userId) {
@@ -150,6 +151,7 @@ fun Database.seedTestUser(
             this.canEdit = canEdit
             this.canShare = canShare
             this.deletedAt = deletedAt
+            this.timezone = timezone
         }
     }
 }

@@ -362,6 +362,28 @@ class ImportApplierTest :
             }
         }
 
+        test("an imported event does not change the user's home timezone") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    // Seed the user with a non-UTC home timezone — import must not overwrite it.
+                    transaction(db) { UserEntity.findById(LU_USER)?.timezone = "Europe/London" }
+
+                    applier.apply(staged.importId) {}
+
+                    // ABS sessions carry tz="UTC"; the import path goes through
+                    // ListeningEventRepository.upsert directly (never PlaybackServiceImpl),
+                    // so the home timezone must remain "Europe/London".
+                    val tz = suspendTransaction(db) { UserEntity.findById(LU_USER)?.timezone }
+                    tz shouldBe "Europe/London"
+                }
+            }
+        }
+
         test("validateMapping accepts a valid mapping") {
             withInMemoryDatabase {
                 val db = this
@@ -439,7 +461,7 @@ private suspend fun stageAnalyzedImport(
             paths = paths,
             bookMatcher = BookMatcher(db),
             userMatcher = UserMatcher(),
-            libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+            libraryRegistry = LibraryRegistry(db),
             db = db,
         )
     analyzer.analyze(importId) {}
@@ -484,7 +506,7 @@ private suspend fun confirmSimonMapping(
 
 /** Seeds the ListenUp library + the `simon` user, returning the resolved library id. */
 private suspend fun seedLibraryUser(db: Database): LibraryId {
-    val libId = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")).currentLibrary()
+    val libId = LibraryRegistry(db).currentLibrary()
     transaction(db) {
         UserEntity.new(LU_USER) {
             email = "simon@x.test"

@@ -20,8 +20,6 @@ package com.calypsan.listenup.client.domain.model
  * @property createdByUserId User ID of the library creator, null until multi-user enforcement.
  * @property createdAt Creation timestamp as Unix epoch milliseconds.
  * @property revision Monotonic server revision, advanced on every committed change.
- * @property inboxEnabled When true, newly-scanned books are quarantined in the
- *   library's inbox (admin-only) until released, rather than becoming visible to members.
  * @property folders Lightweight refs to every root folder registered under this library.
  *   Empty for projections that do not carry folder data; admins see each folder's
  *   [LibraryFolderRef.rootPath].
@@ -35,7 +33,6 @@ data class Library(
     val createdByUserId: String?,
     val createdAt: Long,
     val revision: Long,
-    val inboxEnabled: Boolean = false,
 )
 
 /**

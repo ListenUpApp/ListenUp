@@ -73,11 +73,20 @@ class SyncRegistryPerKoinTest :
                 try {
                     val registry: SyncRegistry = koin.koin.get()
                     // syncModule wires the tag domains (TagRepository "tags",
-                    // BookTagRepository "book_tags") and the collection domains
+                    // BookTagRepository "book_tags"), the mood domains (MoodRepository
+                    // "moods", BookMoodRepository "book_moods"), and the collection domains
                     // (CollectionRepository "collections", CollectionBookRepository
                     // "collection_books", CollectionShareRepository "collection_shares").
                     registry.knownDomains().toSet() shouldBe
-                        setOf("tags", "book_tags", "collections", "collection_books", "collection_shares")
+                        setOf(
+                            "tags",
+                            "book_tags",
+                            "moods",
+                            "book_moods",
+                            "collections",
+                            "collection_books",
+                            "collection_shares",
+                        )
                 } finally {
                     koin.close()
                 }

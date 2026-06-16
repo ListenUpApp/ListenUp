@@ -163,11 +163,11 @@ class ActivityServiceTest :
                     // Most-recent-first: book-b (2_000) before book-a (1_000).
                     result[0].bookId shouldBe "book-b"
                     result[0].type shouldBe ActivityType.FINISHED_BOOK
-                    result[0].createdAtMs shouldBe 2_000L
+                    result[0].occurredAtMs shouldBe 2_000L
                     result[0].displayName shouldBe "Alice"
                     result[0].avatarType shouldBe "image"
                     result[1].bookId shouldBe "book-a"
-                    result[1].createdAtMs shouldBe 1_000L
+                    result[1].occurredAtMs shouldBe 1_000L
                 }
             }
         }
@@ -272,7 +272,7 @@ class ActivityServiceTest :
 
                     // Only rows with created_at < 3_000, most-recent-first.
                     result shouldHaveSize 2
-                    result.map { it.createdAtMs } shouldBe listOf(2_000L, 1_000L)
+                    result.map { it.occurredAtMs } shouldBe listOf(2_000L, 1_000L)
                 }
             }
         }
@@ -314,6 +314,41 @@ class ActivityServiceTest :
         }
 
         // ── 6: unauthenticated caller → NotFound ─────────────────────────────────────
+
+        // ── 7: feed orders by occurred_at, not insert order ──────────────────────────
+
+        test("page orders by occurred_at, not insert order") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                    val activities = ActivityRepository(db = db, clock = clock)
+                    // Insert at clock=1_000 but with occurredAt=1_000 (older real event)
+                    activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 1_000L)
+                    // Insert at clock=2_000 but with occurredAt=9_000 (newer real event)
+                    clock.set(Instant.fromEpochMilliseconds(2_000L))
+                    activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 9_000L)
+
+                    val page = activities.page(before = null, limit = 10)
+                    page.map { it.occurredAt } shouldBe listOf(9_000L, 1_000L)
+                }
+            }
+        }
+
+        test("page breaks occurred_at ties deterministically by id DESC") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val activities = ActivityRepository(db = db, clock = MutableClock(Instant.fromEpochMilliseconds(1_000L)))
+                    // Two activities sharing the same occurredAt — the secondary `id DESC` sort must order them.
+                    val idA = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
+                    val idB = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
+
+                    val page = activities.page(before = null, limit = 10)
+                    page.map { it.id } shouldBe listOf(idA, idB).sortedDescending()
+                }
+            }
+        }
 
         test("feed returns Failure(SocialError.NotFound) when caller is unauthenticated") {
             withInMemoryDatabase {

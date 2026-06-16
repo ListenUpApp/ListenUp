@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.result.getOrElse
+import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -20,12 +22,17 @@ import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.metadata.provider.ITunesCoverProvider
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
+import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookSummary
+import com.calypsan.listenup.server.services.BookTagWriter
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
+import com.calypsan.listenup.server.sync.BookTagRepository
+import com.calypsan.listenup.server.sync.TagRepository
+import kotlin.time.Clock
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -166,6 +173,8 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
+        metadataEnrichmentBindings()
+
         single<MetadataLookupService> {
             MetadataLookupServiceImpl(
                 metadataService = get(),
@@ -180,6 +189,7 @@ fun metadataModule(imageHome: Path): Module =
                         coverImageStore = get<CoverImageStore>(),
                         imageHome = imageHome,
                     ),
+                enrichmentDeps = get<MetadataEnrichmentDeps>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 db = get(),
                 genreRepository = get<GenreRepository>(),
@@ -190,13 +200,48 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
-        single { MetadataCacheCleanupTask(cache = get()) }
-
-        single {
-            OrphanImageCleanupTask(
-                contributorRepository = get(),
-                seriesRepository = get(),
-                imageHome = imageHome,
-            )
-        }
+        metadataCleanupBindings(imageHome)
     }
+
+/**
+ * Scheduled-maintenance bindings for the metadata slice — the metadata-cache TTL sweep and the
+ * orphan-image reaper. Split out of [metadataModule] to keep that module body under the length
+ * budget.
+ */
+private fun Module.metadataCleanupBindings(imageHome: Path) {
+    single { MetadataCacheCleanupTask(cache = get()) }
+    single {
+        OrphanImageCleanupTask(
+            contributorRepository = get(),
+            seriesRepository = get(),
+            imageHome = imageHome,
+        )
+    }
+}
+
+/**
+ * Audible mood/trope enrichment bindings for the metadata-apply path:
+ *  - [MetadataEnrichmentDeps] — bundles the add-only [BookMoodWriter] / [BookTagWriter] junction
+ *    writers and the best-effort [AudibleApi.getProductTags] scrape (empty list on failure) that
+ *    [com.calypsan.listenup.server.api.BookMetadataApplier] consumes after a genre apply.
+ *
+ * [BookMoodWriter] is a shared single (it also backs the scanner); [BookTagWriter] is constructed
+ * here from its repository deps, mirroring [BookRepository]'s inline construction. Split out of
+ * [metadataModule] to keep that module body under the length budget.
+ */
+private fun Module.metadataEnrichmentBindings() {
+    single {
+        MetadataEnrichmentDeps(
+            bookMoodWriter = get<BookMoodWriter>(),
+            bookTagWriter =
+                BookTagWriter(
+                    clock = get<Clock>(),
+                    tagRepository = get<TagRepository>(),
+                    bookTagRepository = get<BookTagRepository>(),
+                ),
+            productTagSource = { region, asin ->
+                get<AudibleApi>().getProductTags(region, asin).getOrElse { emptyList() }
+            },
+        )
+    }
+}
