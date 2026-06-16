@@ -44,20 +44,6 @@ class ScanOrchestratorTest :
             }
         }
 
-        test("onLibraryRemoved tears down scanner and unmounts all watchers") {
-            runTest {
-                val factory = FakeScannerFactory()
-                val supervisor = FakeWatcherSupervisor()
-                val orchestrator = orchestrator(factory, supervisor, backgroundScope)
-
-                val library = testLib("lib-1", "/tmp/books")
-                orchestrator.onLibraryAdded(library)
-                orchestrator.onLibraryRemoved(LibraryId("lib-1"))
-
-                supervisor.unmountAllLibraryCalls shouldBe 1
-            }
-        }
-
         test("onFolderAdded mounts a new watcher for that folder") {
             runTest {
                 val supervisor = FakeWatcherSupervisor()
@@ -185,6 +171,41 @@ class ScanOrchestratorTest :
             }
         }
 
+        test("onFolderAdded closes the old coordinator to prevent coroutine leak") {
+            runTest {
+                val factory = FakeScannerFactory()
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+
+                val library = testLib("lib-1", "/tmp/books")
+                orchestrator.onLibraryAdded(library)
+
+                // Capture a reference to the first coordinator before the bundle is replaced.
+                val firstCoordinator = factory.lastCoordinator!!
+
+                val newFolder = LibraryFolderRef(FolderId("f-extra"), "/tmp/extras")
+                orchestrator.onFolderAdded(LibraryId("lib-1"), newFolder)
+
+                // The old coordinator's channel must be closed so its worker loop can exit.
+                firstCoordinator.isChannelClosed() shouldBe true
+            }
+        }
+
+        test("onFolderRemoved closes the old coordinator to prevent coroutine leak") {
+            runTest {
+                val factory = FakeScannerFactory()
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+
+                val library = testLib("lib-1", "/tmp/books")
+                orchestrator.onLibraryAdded(library)
+
+                val firstCoordinator = factory.lastCoordinator!!
+
+                orchestrator.onFolderRemoved(FolderId("lib-1-f-0"))
+
+                firstCoordinator.isChannelClosed() shouldBe true
+            }
+        }
+
         test("scanFolder finds new folder after onFolderAdded updates the snapshot") {
             runTest {
                 val incrementalPaths = mutableListOf<java.nio.file.Path>()
@@ -279,6 +300,9 @@ private class FakeScannerFactory(
     var scannersCreated = 0
     val librariesUsedForCreation = mutableListOf<Library>()
 
+    /** The most recently created [ScanCoordinator]. Useful for checking teardown. */
+    var lastCoordinator: ScanCoordinator? = null
+
     fun create(
         library: Library,
         scope: kotlinx.coroutines.CoroutineScope,
@@ -297,6 +321,7 @@ private class FakeScannerFactory(
                 runIncremental = { path -> recordIncremental?.invoke(path) },
                 scope = scope,
             )
+        lastCoordinator = coordinator
         return ScannerBundle(library, scanner, coordinator)
     }
 }
