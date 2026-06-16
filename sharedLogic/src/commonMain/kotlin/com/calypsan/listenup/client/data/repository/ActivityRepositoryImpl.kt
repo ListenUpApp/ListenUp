@@ -82,7 +82,7 @@ class ActivityRepositoryImpl(
             id = id,
             type = type,
             userId = userId,
-            createdAtMs = createdAtMs,
+            occurredAtMs = occurredAtMs,
             user =
                 Activity.ActivityUser(
                     displayName = displayName,
@@ -135,7 +135,7 @@ private fun ActivityEntity.toDomain(): Activity =
         id = id,
         type = type,
         userId = userId,
-        createdAtMs = createdAt,
+        occurredAtMs = occurredAt,
         user =
             Activity.ActivityUser(
                 displayName = userDisplayName,
@@ -170,7 +170,7 @@ private fun Activity.toEntity(): ActivityEntity =
         id = id,
         userId = userId,
         type = type,
-        createdAt = createdAtMs,
+        occurredAt = occurredAtMs,
         userDisplayName = user.displayName,
         userAvatarColor = user.avatarColor,
         userAvatarType = user.avatarType,

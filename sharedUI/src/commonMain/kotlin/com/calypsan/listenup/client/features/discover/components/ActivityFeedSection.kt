@@ -208,7 +208,7 @@ private fun ActivityItem(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = relativeTime(activity.createdAt),
+                text = relativeTime(activity.occurredAt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -333,9 +333,9 @@ private const val HOURS_PER_DAY = 24L
 
 /** Compact relative timestamp ("Just now", "5m ago", "3h ago", "2d ago") from an epoch-ms instant. */
 @Composable
-private fun relativeTime(createdAtMs: Long): String {
+private fun relativeTime(occurredAtMs: Long): String {
     val nowMs = Clock.System.now().toEpochMilliseconds()
-    val minutes = (nowMs - createdAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
+    val minutes = (nowMs - occurredAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
     return when {
         minutes < 1L -> {
             stringResource(Res.string.discover_time_ago_now)

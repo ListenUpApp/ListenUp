@@ -20,7 +20,6 @@ import org.koin.dsl.module
  * External dependencies (owned by other modules):
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
  *  - [com.calypsan.listenup.client.data.local.db.ListeningEventDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.data.local.db.UserStatsDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.GenreDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.PlaybackPositionDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.TransactionRunner] — `persistenceModule`
@@ -39,7 +38,6 @@ val listeningModule: Module =
         single<StatsRepository> {
             StatsRepositoryImpl(
                 listeningEventDao = get(),
-                userStatsDao = get(),
                 genreDao = get(),
                 authSession = get(),
             )

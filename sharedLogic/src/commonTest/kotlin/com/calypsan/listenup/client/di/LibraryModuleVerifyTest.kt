@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
@@ -30,6 +31,7 @@ import org.koin.test.verify.verify
  *  - [AuthSession] — owned by `clientAuthModule`.
  *  - [ListeningEventRecorder] — owned by platform playback modules.
  *  - [BookDao] — owned by `persistenceModule`.
+ *  - [ListeningEventDao] — owned by `persistenceModule`.
  *  - [PlaybackPositionDao] — owned by `persistenceModule`.
  *  - [LibraryDao] — owned by `persistenceModule`.
  *  - [LibraryFolderDao] — owned by `persistenceModule`.
@@ -53,6 +55,7 @@ class LibraryModuleVerifyTest :
                         AuthSession::class,
                         ListeningEventRecorder::class,
                         BookDao::class,
+                        ListeningEventDao::class,
                         PlaybackPositionDao::class,
                         CoroutineScope::class,
                         BookRepository::class,

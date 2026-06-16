@@ -11,16 +11,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Minimal [AuthSession] test fake backed by a fixed [authState].
+ * Minimal [AuthSession] test fake.
  *
- * Most consumers only read [authState] (for the current user id); every other method is a no-op.
- * Pass [userId] to control who the session reports as signed in.
+ * Supports two independent control points so tests can simulate the startup race that
+ * caused issue #532 — [authState] still `Initializing` while [getUserId] already has the
+ * persisted id from secure storage:
+ *
+ * - [authState]: the reactive state observable. Defaults to [AuthState.Authenticated] so
+ *   existing tests that only read `authState` are unaffected.
+ * - [getUserIdResult]: what [getUserId] returns (the persisted id, `null` when signed out).
+ *   Defaults to the non-null [userId] string for backwards compatibility.
+ *
+ * Use the named-parameter overload for the race scenario:
+ * ```kotlin
+ * FakeAuthSession(authState = AuthState.Initializing, userId = "user-123")
+ * FakeAuthSession(authState = AuthState.Initializing, userId = null) // signed-out
+ * ```
  */
 class FakeAuthSession(
-    userId: String = "u1",
+    userId: String? = "u1",
+    authState: AuthState = AuthState.Authenticated(UserId(userId ?: "u1"), SessionId("session")),
 ) : AuthSession {
-    override val authState: StateFlow<AuthState> =
-        MutableStateFlow(AuthState.Authenticated(UserId(userId), SessionId("session")))
+    override val authState: StateFlow<AuthState> = MutableStateFlow(authState)
+
+    private val getUserIdResult: String? = userId
 
     override suspend fun saveAuthTokens(
         access: AccessToken,
@@ -35,7 +49,7 @@ class FakeAuthSession(
 
     override suspend fun getSessionId(): String? = null
 
-    override suspend fun getUserId(): String? = null
+    override suspend fun getUserId(): String? = getUserIdResult
 
     override suspend fun updateAccessToken(token: AccessToken) = Unit
 
