@@ -178,9 +178,7 @@ class InstanceRepositoryImpl(
     private var cachedInstance: Instance? = null
 
     override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> {
-        if (!forceRefresh && cachedInstance != null) {
-            return AppResult.Success(cachedInstance!!)
-        }
+        cachedInstance?.takeIf { !forceRefresh }?.let { return AppResult.Success(it) }
 
         val serverUrl = getServerUrl()
         if (serverUrl == null) {
