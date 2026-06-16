@@ -5,8 +5,6 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
-import com.calypsan.listenup.client.data.local.db.UserStatsDao
-import com.calypsan.listenup.client.data.local.db.UserStatsEntity
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.WeeklyStats
@@ -25,7 +23,11 @@ import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
@@ -34,17 +36,20 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
  * [StatsRepository] implementation that derives weekly home-screen stats
  * (daily buckets, streaks, genre breakdown) entirely from local Room data.
  *
- * Reactive: republishes whenever new events land or `user_stats` is updated
- * by sync, so the home screen updates without manual refresh and works fully
- * offline.
+ * Reactive: republishes whenever new events land, so the home screen updates
+ * without manual refresh and works fully offline.
  *
- * Streak counters are read directly from [UserStatsDao] rather than recomputed
- * locally — the server is authoritative for streak math (timezone-aware, handles
- * cross-device sessions). Genre seconds use wall-clock time (`endedAt - startedAt`)
- * so fast-forwarded or slow-mo sessions don't inflate genre totals.
+ * Streak counters are computed client-side from the full [ListeningEventDao.observeEndedAt]
+ * history in the device timezone — real-time, tz-correct, and self-correcting on idle days
+ * via the [midnightPulse] ticker. This deliberately diverges from the old server-authoritative
+ * streak math: the server [UserStatsDao] still drives the cross-user leaderboard (a different
+ * consumer); the Home display derives locally for immediate reactivity and correct tz handling
+ * of imported events (which land in UTC but belong to the device's calendar day).
  *
- * @param listeningEventDao DAO for reactive window queries.
- * @param userStatsDao DAO for server-maintained streak counters.
+ * Genre seconds use wall-clock time (`endedAt - startedAt`) so fast-forwarded or slow-mo
+ * sessions don't inflate genre totals.
+ *
+ * @param listeningEventDao DAO for reactive window queries and full history for streak math.
  * @param genreDao DAO for bulk book→genre name resolution.
  * @param authSession Source of the current user's ID via the auth state flow.
  * @param clock Injected for deterministic testing; defaults to [Clock.System].
@@ -56,7 +61,6 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
  */
 class StatsRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
-    private val userStatsDao: UserStatsDao,
     private val genreDao: GenreDao,
     private val authSession: AuthSession,
     private val clock: Clock = Clock.System,
@@ -79,16 +83,16 @@ class StatsRepositoryImpl(
                 val (startMs, endMs) = LeaderboardPeriod.Week.bounds(clock.now(), tz)
                 combine(
                     listeningEventDao.observeWithinWindow(userId, startMs, endMs),
-                    userStatsDao.observe(userId),
-                ) { events, stats -> aggregate(events, stats, tz) }
+                    listeningEventDao.observeEndedAt(userId),
+                ) { events, allEndedAt -> aggregate(events, allEndedAt, tz) }
             }
 
     private suspend fun aggregate(
         events: List<ListeningEventEntity>,
-        stats: UserStatsEntity?,
+        allEndedAt: List<Long>,
         tz: TimeZone,
     ): WeeklyStats {
-        if (events.isEmpty() && stats == null) return WeeklyStats.empty()
+        if (events.isEmpty() && allEndedAt.isEmpty()) return WeeklyStats.empty()
 
         val today = clock.now().toLocalDateTime(tz).date
         val buckets = MutableList(7) { offset -> DayBucket(dayOffsetFromToday = offset, totalSeconds = 0L) }
@@ -120,14 +124,60 @@ class StatsRepositoryImpl(
                 .take(3)
                 .map { GenreShare(it.key, it.value) }
 
+        val (currentStreak, longestStreak) = computeStreaks(allEndedAt, tz, today)
+
         return WeeklyStats(
             dailyBuckets = buckets,
-            currentStreakDays = stats?.currentStreakDays ?: 0,
-            longestStreakDays = stats?.longestStreakDays ?: 0,
+            currentStreakDays = currentStreak,
+            longestStreakDays = longestStreak,
             topGenres = topGenres,
             totalSecondsThisWeek = totalSeconds,
         )
     }
+}
+
+/**
+ * Derives current and longest listening streaks from a flat list of [endedAt] epoch-ms values.
+ *
+ * A "streak day" is any calendar day (in [tz]) on which at least one live event exists.
+ * Multiple sessions on the same day count as one streak day. The current streak is the
+ * consecutive run anchored on [today] or [today]-1 (yesterday still active if today has no
+ * listen yet). The longest streak is the maximum consecutive run across all history.
+ *
+ * @return Pair of (currentStreak, longestStreak) in days.
+ */
+private fun computeStreaks(
+    endedAtMs: List<Long>,
+    tz: TimeZone,
+    today: LocalDate,
+): Pair<Int, Int> {
+    if (endedAtMs.isEmpty()) return 0 to 0
+    val days =
+        endedAtMs
+            .map { Instant.fromEpochMilliseconds(it).toLocalDateTime(tz).date }
+            .toSortedSet()
+    var longest = 0
+    var run = 0
+    var prev: LocalDate? = null
+    for (d in days) {
+        run = if (prev != null && d == prev.plus(DatePeriod(days = 1))) run + 1 else 1
+        longest = maxOf(longest, run)
+        prev = d
+    }
+    val last = days.last()
+    val current =
+        if (last == today || last == today.minus(DatePeriod(days = 1))) {
+            var c = 0
+            var cursor = last
+            while (cursor in days) {
+                c++
+                cursor = cursor.minus(DatePeriod(days = 1))
+            }
+            c
+        } else {
+            0
+        }
+    return current to longest
 }
 
 /**
