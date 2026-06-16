@@ -253,6 +253,10 @@ class AudibleClient(
                         "User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     )
+                    // The storefront locale cookie forces the correct regional catalog and turns
+                    // Audible's 503-without-cookie into a 200 (covers /pd product pages + the
+                    // contributor scrape, fixing non-US contributor lookups — #551 residual).
+                    header("Cookie", region.localeCookie())
                     queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
             when (response.status) {

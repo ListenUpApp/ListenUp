@@ -44,3 +44,28 @@ internal val AudibleRegion.webHost: String
             AudibleRegion.IN -> "www.audible.in"
             AudibleRegion.ES -> "www.audible.es"
         }
+
+/**
+ * The storefront locale cookie for this region, sent on web-host scrapes.
+ *
+ * Audible's website (`/pd/{ASIN}` product pages, the author page, and the
+ * author-search page) returns **HTTP 503** without a storefront locale cookie
+ * and **HTTP 200** with one. Sending the right cookie both unblocks product-tag
+ * scraping and fixes the non-US contributor lookup (issue #551 residual).
+ *
+ * Ported from Go's `Region.localeCookie()` in
+ * `server/internal/metadata/audible/types.go` — values match exactly.
+ */
+internal fun AudibleRegion.localeCookie(): String =
+    when (this) {
+        AudibleRegion.US -> "lc-main=en_US; i18n-prefs=USD"
+        AudibleRegion.UK -> "lc-acbuk=en_GB; i18n-prefs=GBP"
+        AudibleRegion.DE -> "lc-acbde=de_DE; i18n-prefs=EUR"
+        AudibleRegion.FR -> "lc-acbfr=fr_FR; i18n-prefs=EUR"
+        AudibleRegion.AU -> "lc-acbau=en_AU; i18n-prefs=AUD"
+        AudibleRegion.CA -> "lc-acbca=en_CA; i18n-prefs=CAD"
+        AudibleRegion.JP -> "lc-acbjp=ja_JP; i18n-prefs=JPY"
+        AudibleRegion.IT -> "lc-acbit=it_IT; i18n-prefs=EUR"
+        AudibleRegion.IN -> "lc-acbin=en_IN; i18n-prefs=INR"
+        AudibleRegion.ES -> "lc-acbes=es_ES; i18n-prefs=EUR"
+    }

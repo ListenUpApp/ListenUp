@@ -285,6 +285,44 @@ class AudibleClientTest :
             }
         }
 
+        test("getContributor sends the storefront locale Cookie header on the web-host request") {
+            runTest {
+                var sentCookie: String? = null
+                val engine =
+                    MockEngine { request ->
+                        sentCookie = request.headers["Cookie"]
+                        respond(
+                            content = CONTRIBUTOR_PAGE_WITH_OG_IMAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                client.getContributor(AudibleRegion.UK, "B000APZOQA")
+
+                sentCookie shouldBe "lc-acbuk=en_GB; i18n-prefs=GBP"
+            }
+        }
+
+        test("searchContributors sends the storefront locale Cookie header — fixes non-US lookups (#551)") {
+            runTest {
+                var sentCookie: String? = null
+                val engine =
+                    MockEngine { request ->
+                        sentCookie = request.headers["Cookie"]
+                        respond(
+                            content = "<html><body></body></html>",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                client.searchContributors(AudibleRegion.DE, "Frank Herbert")
+
+                sentCookie shouldBe "lc-acbde=de_DE; i18n-prefs=EUR"
+            }
+        }
+
         test("getContributor returns null when page has no bc-heading h1 — generic/unknown page") {
             runTest {
                 val engine =
