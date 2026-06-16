@@ -10,14 +10,13 @@ import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
@@ -49,8 +48,8 @@ fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
     AvatarUploader { imageData, contentType ->
         try {
             val client = clientFactory.getClient()
-            client
-                .submitFormWithBinaryData(
+            val response =
+                client.submitFormWithBinaryData(
                     url = AVATAR_UPLOAD_PATH,
                     formData =
                         formData {
@@ -63,8 +62,16 @@ fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
                                 },
                             )
                         },
-                ).body<ApiResponse<Unit>>()
-            AppResult.Success(Unit)
+                )
+            // The server returns 204 No Content on success — do not attempt to deserialize
+            // an empty body. Check the status code directly instead.
+            if (response.status.isSuccess()) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Failure(
+                    ErrorMapper.map(IllegalStateException("avatar upload failed: ${response.status}")),
+                )
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {

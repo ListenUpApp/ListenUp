@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
@@ -19,6 +20,10 @@ import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -142,6 +147,36 @@ class ProfileEditRepositoryImplTest :
                 verifySuspend {
                     service.updateMyProfile(UpdateProfileRequest(password = PasswordChange("cur12345", "newpass12")))
                 }
+            }
+        }
+
+        // ── Avatar upload (REST multipart, not RPC) ──────────────────────────────────────
+
+        /**
+         * Regression guard for #592: the server returns 204 No Content on a successful avatar
+         * upload. The original [avatarUploaderOf] called `.body<ApiResponse<Unit>>()` on the
+         * response, which tried to deserialize an empty body as JSON and threw, causing the
+         * upload to report failure even though the server had accepted the image.
+         *
+         * This test drives [avatarUploaderOf] against a mock engine that returns 204 with an
+         * empty body. The fix is to check [HttpResponse.status.isSuccess()] instead of
+         * deserializing the body.
+         */
+        test("avatarUploaderOf returns Success when server responds 204 No Content") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.NoContent)
+                    }
+                val fakeClient = HttpClient(engine)
+                val fakeFactory =
+                    mock<ApiClientFactory> {
+                        everySuspend { getClient() } returns fakeClient
+                    }
+
+                val result = avatarUploaderOf(fakeFactory).upload(ByteArray(4), "image/jpeg")
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
     })
