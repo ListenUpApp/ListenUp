@@ -54,6 +54,8 @@ struct MetadataPreview: Equatable {
     let narrators: [MetadataContributorSelection]
     let seriesItems: [MetadataSeriesSelection]
     let genres: [MetadataGenreSelection]
+    let moods: [MetadataGenreSelection]
+    let tags: [MetadataGenreSelection]
 
     let descriptionField: MetadataFieldSelection?
 
