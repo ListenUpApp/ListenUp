@@ -22,8 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -59,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -635,14 +634,15 @@ private fun RecentBooksRow(
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyRow(
+    BrowseCarousel(
+        items = books,
         modifier = modifier,
+        itemWidth = 140.dp,
+        itemSpacing = 16.dp,
         contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        items(books, key = { it.bookId }) { book ->
-            RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
-        }
+        key = { it.bookId },
+    ) { book ->
+        RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
     }
 }
 
