@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
@@ -224,9 +225,7 @@ private fun bookRepositoryWith(
         searchDao = db.searchDao(),
         transactionRunner = transactionRunner,
         imageStorage = imageStorage,
-        genreRepository = genreRepository,
-        tagRepository = tagRepository,
-        moodRepository = moodRepository,
+        joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
@@ -259,9 +258,7 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         searchDao = db.searchDao(),
         transactionRunner = transactionRunner,
         imageStorage = mockImageStorage(),
-        genreRepository = genreRepository,
-        tagRepository = tagRepository,
-        moodRepository = moodRepository,
+        joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =

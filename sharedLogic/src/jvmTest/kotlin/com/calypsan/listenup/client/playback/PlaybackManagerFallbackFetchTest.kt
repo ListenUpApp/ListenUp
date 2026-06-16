@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.remote.model.BookResponse
+import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
@@ -138,9 +139,7 @@ class PlaybackManagerFallbackFetchTest :
                     searchDao = db.searchDao(),
                     transactionRunner = txRunner,
                     imageStorage = imageStorage,
-                    genreRepository = mock(),
-                    tagRepository = mock(),
-                    moodRepository = mock(),
+                    joinSources = BookDetailJoinSources(mock(), mock(), mock()),
                     // intentionally unstubbed — this test exercises upsertWithAudioFiles, not the RPC fallback paths
                     networkMonitor = mock(),
                     bookRpcFactory = mock(),

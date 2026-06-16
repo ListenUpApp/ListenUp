@@ -42,7 +42,7 @@ complexity:
   LongParameterList:
     active: true
     functionThreshold: 12  # Compose state hoisting + seam-extraction functions require many params
-    constructorThreshold: 13  # DI constructors can be large (e.g. BookRepositoryImpl: genre/tag/mood join sources)
+    constructorThreshold: 12  # DI constructors can be large
     ignoreDefaultParameters: true
     ignoreDataClasses: true
     ignoreAnnotatedParameter: [Composable]

@@ -41,6 +41,29 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 
 /**
+ * Cohesive bundle of the Flow sources joined into a book's detail view by
+ * [BookRepositoryImpl].
+ *
+ * Groups the three repositories that exist on the impl solely to be `combine`d
+ * into [BookRepositoryImpl.observeBookDetail] / [BookRepositoryImpl.getBookDetail] —
+ * genres ([genreRepository]), tags ([tagRepository]), and moods ([moodRepository]) —
+ * into a single injected value so the constructor stays cohesive rather than
+ * carrying three loose params.
+ *
+ * @property genreRepository Upstream Flow source for a book's genres, composed
+ *   into the detail views so genre edits propagate to detail-screen consumers.
+ * @property tagRepository Upstream Flow source for a book's tags, composed
+ *   into the detail views so tag edits propagate to detail-screen consumers.
+ * @property moodRepository Upstream Flow source for a book's moods, composed
+ *   into the detail views so mood edits propagate to detail-screen consumers.
+ */
+data class BookDetailJoinSources(
+    val genreRepository: GenreRepository,
+    val tagRepository: TagRepository,
+    val moodRepository: MoodRepository,
+)
+
+/**
  * Repository for book data operations.
  *
  * Implements offline-first pattern:
@@ -66,12 +89,8 @@ import kotlinx.coroutines.flow.onEach
  * @property searchDao Room FTS5 DAO backing the offline [search] fallback.
  * @property transactionRunner Runs multi-table writes atomically
  * @property imageStorage Storage for resolving cover image paths
- * @property genreRepository Upstream Flow source for a book's genres, composed
- *   into [observeBookDetail] so genre edits propagate to detail-screen consumers.
- * @property tagRepository Upstream Flow source for a book's tags, composed
- *   into [observeBookDetail] so tag edits propagate to detail-screen consumers.
- * @property moodRepository Upstream Flow source for a book's moods, composed
- *   into [observeBookDetail] so mood edits propagate to detail-screen consumers.
+ * @property joinSources The genre/tag/mood Flow sources composed into the
+ *   book-detail views — see [BookDetailJoinSources].
  * @property networkMonitor Snapshot online check gating the RPC fallbacks.
  * @property bookRpcFactory Supplies the [com.calypsan.listenup.api.BookService]
  *   RPC proxy for on-demand fetch and server-side search.
@@ -85,9 +104,7 @@ class BookRepositoryImpl(
     private val searchDao: SearchDao,
     private val transactionRunner: TransactionRunner,
     private val imageStorage: ImageStorage,
-    private val genreRepository: GenreRepository,
-    private val tagRepository: TagRepository,
-    private val moodRepository: MoodRepository,
+    private val joinSources: BookDetailJoinSources,
     private val networkMonitor: NetworkMonitor,
     private val bookRpcFactory: BookRpcFactory,
     private val bookSyncDomainHandler: BookSyncDomainHandler,
@@ -213,9 +230,9 @@ class BookRepositoryImpl(
         var attemptedFetch = false
         return combine(
             bookDao.observeByIdWithContributors(bookId),
-            genreRepository.observeGenresForBook(id),
-            tagRepository.observeTagsForBook(id),
-            moodRepository.observeMoodsForBook(id),
+            joinSources.genreRepository.observeGenresForBook(id),
+            joinSources.tagRepository.observeTagsForBook(id),
+            joinSources.moodRepository.observeMoodsForBook(id),
         ) { row, genres, tags, moods ->
             row?.toDetail(imageStorage, genres, tags, moods)
         }.onEach { detail ->
@@ -251,9 +268,9 @@ class BookRepositoryImpl(
     override suspend fun getBookDetail(id: String): BookDetail? {
         val bookId = BookId(id)
         val row = bookDao.getByIdWithContributors(bookId) ?: return null
-        val genres = genreRepository.observeGenresForBook(id).first()
-        val tags = tagRepository.observeTagsForBook(id).first()
-        val moods = moodRepository.observeMoodsForBook(id).first()
+        val genres = joinSources.genreRepository.observeGenresForBook(id).first()
+        val tags = joinSources.tagRepository.observeTagsForBook(id).first()
+        val moods = joinSources.moodRepository.observeMoodsForBook(id).first()
         return row.toDetail(imageStorage, genres, tags, moods)
     }
 

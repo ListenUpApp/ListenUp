@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
@@ -179,9 +180,7 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
         searchDao = database.searchDao(),
         transactionRunner = transactionRunner,
         imageStorage = imageStorage,
-        genreRepository = genreRepository,
-        tagRepository = tagRepository,
-        moodRepository = moodRepository,
+        joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = networkMonitor,
         bookRpcFactory = rpcFactory,
         bookSyncDomainHandler = syncHandler,

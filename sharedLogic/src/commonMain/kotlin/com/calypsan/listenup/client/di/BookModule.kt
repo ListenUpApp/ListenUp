@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
@@ -71,9 +72,12 @@ val bookModule: Module =
                 searchDao = get(),
                 transactionRunner = get(),
                 imageStorage = get(),
-                genreRepository = get(),
-                tagRepository = get(),
-                moodRepository = get(),
+                joinSources =
+                    BookDetailJoinSources(
+                        genreRepository = get(),
+                        tagRepository = get(),
+                        moodRepository = get(),
+                    ),
                 networkMonitor = get(),
                 bookRpcFactory = get(),
                 bookSyncDomainHandler = get(),
