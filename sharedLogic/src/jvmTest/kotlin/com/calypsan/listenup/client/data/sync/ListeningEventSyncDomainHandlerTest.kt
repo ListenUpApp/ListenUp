@@ -142,7 +142,11 @@ class ListeningEventSyncDomainHandlerTest :
                 try {
                     val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), auth)
                     handler.onCatchUpItem(payload("e1", "book-1"), isTombstone = false)
-                    db.listeningEventDao().getById("e1").shouldNotBeNull().userId shouldBe "user-123"
+                    db
+                        .listeningEventDao()
+                        .getById("e1")
+                        .shouldNotBeNull()
+                        .userId shouldBe "user-123"
                 } finally {
                     db.close()
                 }

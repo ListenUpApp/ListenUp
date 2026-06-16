@@ -113,7 +113,9 @@ class ListeningEventSyncDomainHandler(
         // Initializing during the startup catch-up, which previously poisoned rows with "".
         val currentUserId = authSession.getUserId()
         if (currentUserId == null) {
-            logger.warn { "[$domainName] no signed-in user while applying ${payload.id} — skipping; a later catch-up re-applies" }
+            logger.warn {
+                "[$domainName] no signed-in user while applying ${payload.id} — skipping; a later catch-up re-applies"
+            }
             return
         }
 
