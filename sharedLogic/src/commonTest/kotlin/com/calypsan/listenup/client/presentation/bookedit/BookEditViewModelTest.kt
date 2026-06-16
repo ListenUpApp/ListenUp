@@ -118,8 +118,10 @@ class BookEditViewModelTest :
             series: List<EditableSeries> = emptyList(),
             genres: List<EditableGenre> = emptyList(),
             tags: List<EditableTag> = emptyList(),
+            moods: List<EditableMood> = emptyList(),
             allGenres: List<EditableGenre> = emptyList(),
             allTags: List<EditableTag> = emptyList(),
+            allMoods: List<EditableMood> = emptyList(),
             coverPath: String? = null,
         ): BookEditData =
             BookEditData(
@@ -142,8 +144,10 @@ class BookEditViewModelTest :
                 series = series,
                 genres = genres,
                 tags = tags,
+                moods = moods,
                 allGenres = allGenres,
                 allTags = allTags,
+                allMoods = allMoods,
                 coverPath = coverPath,
             )
 
@@ -579,6 +583,55 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.tags.size shouldBe 0
+                (viewModel.state.value.hasChanges) shouldBe true
+            }
+        }
+
+        // ========== Mood Management Tests ==========
+
+        test("selecting mood adds to book") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1")
+                val mood = EditableMood(id = "mood-1", slug = "feel-good")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When
+                viewModel.onEvent(BookEditUiEvent.MoodSelected(mood))
+
+                // Then
+                viewModel.state.value.moods.size shouldBe 1
+                viewModel.state.value.moods
+                    .first()
+                    .displayName() shouldBe "Feel Good"
+                (viewModel.state.value.hasChanges) shouldBe true
+            }
+        }
+
+        test("removing mood updates state") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val mood = EditableMood(id = "mood-1", slug = "feel-good")
+                val editData = createBookEditData(bookId = "book-1", moods = listOf(mood))
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.state.value.moods.size shouldBe 1
+
+                // When
+                val editableMood =
+                    viewModel.state.value.moods
+                        .first()
+                viewModel.onEvent(BookEditUiEvent.RemoveMood(editableMood))
+
+                // Then
+                viewModel.state.value.moods.size shouldBe 0
                 (viewModel.state.value.hasChanges) shouldBe true
             }
         }

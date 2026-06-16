@@ -12,10 +12,12 @@ import com.calypsan.listenup.client.domain.model.PendingCover
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.EditableContributor
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
+import com.calypsan.listenup.client.presentation.bookedit.EditableMood
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
 import com.calypsan.listenup.core.BookId
@@ -56,6 +58,7 @@ class UpdateBookUseCaseTest :
         class TestFixture {
             val bookEditRepository: BookEditRepository = mock()
             val tagRepository: TagRepository = mock()
+            val moodRepository: MoodRepository = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
 
@@ -63,6 +66,7 @@ class UpdateBookUseCaseTest :
                 UpdateBookUseCase(
                     bookEditRepository = bookEditRepository,
                     tagRepository = tagRepository,
+                    moodRepository = moodRepository,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
                 )
@@ -79,6 +83,8 @@ class UpdateBookUseCaseTest :
             everySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns AppResult.Success(TestData.tag())
             everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.moodRepository.addMoodToBook(any(), any()) } returns AppResult.Success(TestData.mood())
+            everySuspend { fixture.moodRepository.removeMoodFromBook(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns AppResult.Success(Unit)
             everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns AppResult.Success("https://example.com/cover.jpg")
 
@@ -121,8 +127,10 @@ class UpdateBookUseCaseTest :
             series: List<EditableSeries> = emptyList(),
             genres: List<EditableGenre> = emptyList(),
             tags: List<EditableTag> = emptyList(),
+            moods: List<EditableMood> = emptyList(),
             allGenres: List<EditableGenre> = emptyList(),
             allTags: List<EditableTag> = emptyList(),
+            allMoods: List<EditableMood> = emptyList(),
             coverPath: String? = null,
         ): BookEditData =
             BookEditData(
@@ -132,8 +140,10 @@ class UpdateBookUseCaseTest :
                 series = series,
                 genres = genres,
                 tags = tags,
+                moods = moods,
                 allGenres = allGenres,
                 allTags = allTags,
+                allMoods = allMoods,
                 coverPath = coverPath,
             )
 
@@ -144,6 +154,7 @@ class UpdateBookUseCaseTest :
             series: List<EditableSeries> = emptyList(),
             genres: List<EditableGenre> = emptyList(),
             tags: List<EditableTag> = emptyList(),
+            moods: List<EditableMood> = emptyList(),
             pendingCover: PendingCover? = null,
         ): BookUpdateRequest =
             BookUpdateRequest(
@@ -153,6 +164,7 @@ class UpdateBookUseCaseTest :
                 series = series,
                 genres = genres,
                 tags = tags,
+                moods = moods,
                 pendingCover = pendingCover,
             )
 
@@ -194,6 +206,15 @@ class UpdateBookUseCaseTest :
             slug: String = "favorites",
         ): EditableTag =
             EditableTag(
+                id = id,
+                slug = slug,
+            )
+
+        fun createEditableMood(
+            id: String = "m1",
+            slug: String = "feel-good",
+        ): EditableMood =
+            EditableMood(
                 id = id,
                 slug = slug,
             )
@@ -563,6 +584,104 @@ class UpdateBookUseCaseTest :
             }
         }
 
+        // ========== Mood Change Tests ==========
+
+        test("adds new moods") {
+            runTest {
+                // Given
+                val originalMoods = listOf(createEditableMood(id = "m1", slug = "feel-good"))
+                val currentMoods =
+                    listOf(
+                        createEditableMood(id = "m1", slug = "feel-good"),
+                        createEditableMood(id = "m2", slug = "tense"),
+                    )
+                val original = createOriginalState(moods = originalMoods)
+                val current = createUpdateRequest(moods = currentMoods)
+
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend { fixture.moodRepository.addMoodToBook("book-1", "tense") }
+            }
+        }
+
+        test("removes deleted moods") {
+            runTest {
+                // Given
+                val originalMoods =
+                    listOf(
+                        createEditableMood(id = "m1", slug = "feel-good"),
+                        createEditableMood(id = "m2", slug = "tense"),
+                    )
+                val currentMoods = listOf(createEditableMood(id = "m1", slug = "feel-good"))
+                val original = createOriginalState(moods = originalMoods)
+                val current = createUpdateRequest(moods = currentMoods)
+
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend { fixture.moodRepository.removeMoodFromBook("book-1", "m2") }
+            }
+        }
+
+        test("adds and removes moods in single operation") {
+            runTest {
+                // Given
+                val originalMoods =
+                    listOf(
+                        createEditableMood(id = "m1", slug = "feel-good"),
+                        createEditableMood(id = "m2", slug = "tense"),
+                    )
+                val currentMoods =
+                    listOf(
+                        createEditableMood(id = "m1", slug = "feel-good"),
+                        createEditableMood(id = "m3", slug = "scary"),
+                    )
+                val original = createOriginalState(moods = originalMoods)
+                val current = createUpdateRequest(moods = currentMoods)
+
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend { fixture.moodRepository.removeMoodFromBook("book-1", "m2") }
+                verifySuspend { fixture.moodRepository.addMoodToBook("book-1", "scary") }
+            }
+        }
+
+        test("does not update moods when unchanged") {
+            runTest {
+                // Given
+                val moods = listOf(createEditableMood(id = "m1", slug = "feel-good"))
+                val original = createOriginalState(moods = moods)
+                val current = createUpdateRequest(moods = moods)
+
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                useCase(current, original)
+
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.moodRepository.addMoodToBook(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.moodRepository.removeMoodFromBook(any(), any()) }
+            }
+        }
+
         // ========== Cover Upload Tests ==========
 
         test("commits and uploads cover when pending") {
@@ -739,6 +858,9 @@ class UpdateBookUseCaseTest :
                 val originalTags = listOf(createEditableTag(id = "t1", slug = "old-tag"))
                 val currentTags = listOf(createEditableTag(id = "t2", slug = "new-tag"))
 
+                val originalMoods = listOf(createEditableMood(id = "m1", slug = "old-mood"))
+                val currentMoods = listOf(createEditableMood(id = "m2", slug = "new-mood"))
+
                 val pendingCover = PendingCover(data = byteArrayOf(1), filename = "cover.jpg")
 
                 val original =
@@ -748,6 +870,7 @@ class UpdateBookUseCaseTest :
                         series = originalSeries,
                         genres = originalGenres,
                         tags = originalTags,
+                        moods = originalMoods,
                     )
                 val current =
                     createUpdateRequest(
@@ -756,6 +879,7 @@ class UpdateBookUseCaseTest :
                         series = currentSeries,
                         genres = currentGenres,
                         tags = currentTags,
+                        moods = currentMoods,
                         pendingCover = pendingCover,
                     )
 
@@ -773,6 +897,8 @@ class UpdateBookUseCaseTest :
                 verifySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) }
                 verifySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) }
                 verifySuspend { fixture.tagRepository.addTagToBook(any(), any()) }
+                verifySuspend { fixture.moodRepository.removeMoodFromBook(any(), any()) }
+                verifySuspend { fixture.moodRepository.addMoodToBook(any(), any()) }
                 verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) }
                 verifySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) }
             }

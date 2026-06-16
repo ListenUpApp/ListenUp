@@ -272,6 +272,7 @@ One beautiful library.</string>
     <string name="book_edit_narrators">Narrators</string>
     <string name="book_edit_no_authors">No authors yet.</string>
     <string name="book_edit_no_genres">No genres yet.</string>
+    <string name="book_edit_no_moods">No moods yet.</string>
     <string name="book_edit_no_narrators">No narrators yet.</string>
     <string name="book_edit_no_series">Not part of a series.</string>
     <string name="book_edit_no_tags">No tags yet.</string>

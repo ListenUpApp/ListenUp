@@ -359,32 +359,7 @@ private fun SingleColumnCardsLayout(
         }
 
         // Card 5: Classification
-        StudioCard(title = stringResource(Res.string.book_edit_classification)) {
-            ClassificationSection(
-                genres = state.genres,
-                genreSearchQuery = state.genreSearchQuery,
-                genreSearchResults = state.genreSearchResults,
-                tags = state.tags,
-                tagSearchQuery = state.tagSearchQuery,
-                tagSearchResults = state.tagSearchResults,
-                isTagSearching = state.tagSearchLoading,
-                isTagCreating = state.tagCreating,
-                isAdmin = state.isAdmin,
-                collections = state.collections,
-                collectionSearchQuery = state.collectionSearchQuery,
-                collectionSearchResults = state.collectionSearchResults,
-                onGenreSearchQueryChange = { onEvent(BookEditUiEvent.GenreSearchQueryChanged(it)) },
-                onGenreSelected = { onEvent(BookEditUiEvent.GenreSelected(it)) },
-                onRemoveGenre = { onEvent(BookEditUiEvent.RemoveGenre(it)) },
-                onTagSearchQueryChange = { onEvent(BookEditUiEvent.TagSearchQueryChanged(it)) },
-                onTagSelected = { onEvent(BookEditUiEvent.TagSelected(it)) },
-                onTagEntered = { onEvent(BookEditUiEvent.TagEntered(it)) },
-                onRemoveTag = { onEvent(BookEditUiEvent.RemoveTag(it)) },
-                onCollectionSearchQueryChange = { onEvent(BookEditUiEvent.CollectionSearchQueryChanged(it)) },
-                onCollectionSelected = { onEvent(BookEditUiEvent.CollectionSelected(it)) },
-                onRemoveCollection = { onEvent(BookEditUiEvent.RemoveCollection(it)) },
-            )
-        }
+        ClassificationCard(state = state, onEvent = onEvent)
 
         // Card 6: Talent
         StudioCard(title = stringResource(Res.string.book_edit_talent)) {
@@ -419,6 +394,52 @@ private fun SingleColumnCardsLayout(
                 onRemoveRoleSection = { onEvent(BookEditUiEvent.RemoveRoleSection(it)) },
             )
         }
+    }
+}
+
+/**
+ * Classification card (genres, tags, moods, collections) — shared by the single-column and
+ * two-column layouts so the lengthy [ClassificationSection] wiring lives in one place.
+ */
+@Composable
+private fun ClassificationCard(
+    state: BookEditUiState,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    StudioCard(title = stringResource(Res.string.book_edit_classification)) {
+        ClassificationSection(
+            genres = state.genres,
+            genreSearchQuery = state.genreSearchQuery,
+            genreSearchResults = state.genreSearchResults,
+            tags = state.tags,
+            tagSearchQuery = state.tagSearchQuery,
+            tagSearchResults = state.tagSearchResults,
+            isTagSearching = state.tagSearchLoading,
+            isTagCreating = state.tagCreating,
+            moods = state.moods,
+            moodSearchQuery = state.moodSearchQuery,
+            moodSearchResults = state.moodSearchResults,
+            isMoodSearching = state.moodSearchLoading,
+            isMoodCreating = state.moodCreating,
+            isAdmin = state.isAdmin,
+            collections = state.collections,
+            collectionSearchQuery = state.collectionSearchQuery,
+            collectionSearchResults = state.collectionSearchResults,
+            onGenreSearchQueryChange = { onEvent(BookEditUiEvent.GenreSearchQueryChanged(it)) },
+            onGenreSelected = { onEvent(BookEditUiEvent.GenreSelected(it)) },
+            onRemoveGenre = { onEvent(BookEditUiEvent.RemoveGenre(it)) },
+            onTagSearchQueryChange = { onEvent(BookEditUiEvent.TagSearchQueryChanged(it)) },
+            onTagSelected = { onEvent(BookEditUiEvent.TagSelected(it)) },
+            onTagEntered = { onEvent(BookEditUiEvent.TagEntered(it)) },
+            onRemoveTag = { onEvent(BookEditUiEvent.RemoveTag(it)) },
+            onMoodSearchQueryChange = { onEvent(BookEditUiEvent.MoodSearchQueryChanged(it)) },
+            onMoodSelected = { onEvent(BookEditUiEvent.MoodSelected(it)) },
+            onMoodEntered = { onEvent(BookEditUiEvent.MoodEntered(it)) },
+            onRemoveMood = { onEvent(BookEditUiEvent.RemoveMood(it)) },
+            onCollectionSearchQueryChange = { onEvent(BookEditUiEvent.CollectionSearchQueryChanged(it)) },
+            onCollectionSelected = { onEvent(BookEditUiEvent.CollectionSelected(it)) },
+            onRemoveCollection = { onEvent(BookEditUiEvent.RemoveCollection(it)) },
+        )
     }
 }
 
@@ -515,32 +536,7 @@ private fun TwoColumnCardsLayout(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                StudioCard(title = stringResource(Res.string.book_edit_classification)) {
-                    ClassificationSection(
-                        genres = state.genres,
-                        genreSearchQuery = state.genreSearchQuery,
-                        genreSearchResults = state.genreSearchResults,
-                        tags = state.tags,
-                        tagSearchQuery = state.tagSearchQuery,
-                        tagSearchResults = state.tagSearchResults,
-                        isTagSearching = state.tagSearchLoading,
-                        isTagCreating = state.tagCreating,
-                        isAdmin = state.isAdmin,
-                        collections = state.collections,
-                        collectionSearchQuery = state.collectionSearchQuery,
-                        collectionSearchResults = state.collectionSearchResults,
-                        onGenreSearchQueryChange = { onEvent(BookEditUiEvent.GenreSearchQueryChanged(it)) },
-                        onGenreSelected = { onEvent(BookEditUiEvent.GenreSelected(it)) },
-                        onRemoveGenre = { onEvent(BookEditUiEvent.RemoveGenre(it)) },
-                        onTagSearchQueryChange = { onEvent(BookEditUiEvent.TagSearchQueryChanged(it)) },
-                        onTagSelected = { onEvent(BookEditUiEvent.TagSelected(it)) },
-                        onTagEntered = { onEvent(BookEditUiEvent.TagEntered(it)) },
-                        onRemoveTag = { onEvent(BookEditUiEvent.RemoveTag(it)) },
-                        onCollectionSearchQueryChange = { onEvent(BookEditUiEvent.CollectionSearchQueryChanged(it)) },
-                        onCollectionSelected = { onEvent(BookEditUiEvent.CollectionSelected(it)) },
-                        onRemoveCollection = { onEvent(BookEditUiEvent.RemoveCollection(it)) },
-                    )
-                }
+                ClassificationCard(state = state, onEvent = onEvent)
 
                 StudioCard(title = stringResource(Res.string.book_edit_talent)) {
                     TalentSection(

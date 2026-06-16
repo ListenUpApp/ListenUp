@@ -98,12 +98,14 @@ val bookModule: Module =
                 bookRepository = get(),
                 genreRepository = get(),
                 tagRepository = get(),
+                moodRepository = get(),
             )
         }
         factory {
             UpdateBookUseCase(
                 bookEditRepository = get(),
                 tagRepository = get(),
+                moodRepository = get(),
                 imageRepository = get(),
                 imageStagingRepository = get(),
             )

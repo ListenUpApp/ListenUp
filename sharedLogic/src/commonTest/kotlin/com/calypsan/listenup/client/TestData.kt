@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 
 /**
@@ -208,6 +209,20 @@ object TestData {
         name: String = slug.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } },
     ): Tag =
         Tag(
+            id = id,
+            name = name,
+            slug = slug,
+        )
+
+    /**
+     * Creates a sample Mood.
+     */
+    fun mood(
+        id: String = "mood-1",
+        slug: String = "feel-good",
+        name: String = slug.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } },
+    ): Mood =
+        Mood(
             id = id,
             name = name,
             slug = slug,

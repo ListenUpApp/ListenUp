@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
 import dev.mokkery.answering.returns
@@ -44,12 +45,14 @@ class LoadBookForEditUseCaseTest :
             val bookRepository: BookRepository = mock()
             val genreRepository: GenreRepository = mock()
             val tagRepository: TagRepository = mock()
+            val moodRepository: MoodRepository = mock()
 
             fun build(): LoadBookForEditUseCase =
                 LoadBookForEditUseCase(
                     bookRepository = bookRepository,
                     genreRepository = genreRepository,
                     tagRepository = tagRepository,
+                    moodRepository = moodRepository,
                 )
         }
 
@@ -61,6 +64,8 @@ class LoadBookForEditUseCaseTest :
             everySuspend { fixture.genreRepository.getGenresForBook(any()) } returns emptyList()
             every { fixture.tagRepository.observeAllTags() } returns flowOf(emptyList())
             every { fixture.tagRepository.observeTagsForBook(any()) } returns flowOf(emptyList())
+            every { fixture.moodRepository.observeAllMoods() } returns flowOf(emptyList())
+            every { fixture.moodRepository.observeMoodsForBook(any()) } returns flowOf(emptyList())
 
             return fixture
         }
@@ -441,6 +446,85 @@ class LoadBookForEditUseCaseTest :
             }
         }
 
+        // ========== Mood Loading Tests ==========
+
+        test("loads all moods for picker") {
+            runTest {
+                // Given
+                val allMoods =
+                    listOf(
+                        TestData.mood(id = "m1", slug = "feel-good"),
+                        TestData.mood(id = "m2", slug = "tense"),
+                        TestData.mood(id = "m3", slug = "scary"),
+                    )
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                every { fixture.moodRepository.observeAllMoods() } returns flowOf(allMoods)
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase("book-1")
+
+                // Then
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.allMoods.size shouldBe 3
+                (editData.allMoods.any { it.id == "m1" && it.slug == "feel-good" }) shouldBe true
+                (editData.allMoods.any { it.id == "m2" && it.slug == "tense" }) shouldBe true
+                (editData.allMoods.any { it.id == "m3" && it.slug == "scary" }) shouldBe true
+            }
+        }
+
+        test("loads moods assigned to book") {
+            runTest {
+                // Given
+                val bookMoods =
+                    listOf(
+                        TestData.mood(id = "m1", slug = "feel-good"),
+                    )
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                every { fixture.moodRepository.observeMoodsForBook("book-1") } returns flowOf(bookMoods)
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase("book-1")
+
+                // Then
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.moods.size shouldBe 1
+                editData.moods.first().id shouldBe "m1"
+                editData.moods.first().slug shouldBe "feel-good"
+            }
+        }
+
+        test("returns empty moods when mood loading fails") {
+            runTest {
+                // Given
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                every { fixture.moodRepository.observeAllMoods() } throws Exception("Network error")
+                every { fixture.moodRepository.observeMoodsForBook(any()) } throws Exception("Network error")
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase("book-1")
+
+                // Then - should still succeed, just with empty moods
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.allMoods.isEmpty() shouldBe true
+                editData.moods.isEmpty() shouldBe true
+            }
+        }
+
         // ========== Cover Path Tests ==========
 
         test("includes cover path from book") {
@@ -526,6 +610,12 @@ class LoadBookForEditUseCaseTest :
                         TestData.tag(id = "t2", slug = "to-read"),
                     )
                 val bookTags = listOf(allTags[0])
+                val allMoods =
+                    listOf(
+                        TestData.mood(id = "m1", slug = "feel-good"),
+                        TestData.mood(id = "m2", slug = "tense"),
+                    )
+                val bookMoods = listOf(allMoods[1])
 
                 val fixture = createFixture()
                 everySuspend { fixture.bookRepository.getBookDetail("stormlight-1") } returns book
@@ -533,6 +623,8 @@ class LoadBookForEditUseCaseTest :
                 everySuspend { fixture.genreRepository.getGenresForBook("stormlight-1") } returns bookGenres
                 every { fixture.tagRepository.observeAllTags() } returns flowOf(allTags)
                 every { fixture.tagRepository.observeTagsForBook("stormlight-1") } returns flowOf(bookTags)
+                every { fixture.moodRepository.observeAllMoods() } returns flowOf(allMoods)
+                every { fixture.moodRepository.observeMoodsForBook("stormlight-1") } returns flowOf(bookMoods)
                 val useCase = fixture.build()
 
                 // When
@@ -555,6 +647,9 @@ class LoadBookForEditUseCaseTest :
                 editData.allTags.size shouldBe 2
                 editData.tags.size shouldBe 1
                 editData.tags.first().slug shouldBe "favorites"
+                editData.allMoods.size shouldBe 2
+                editData.moods.size shouldBe 1
+                editData.moods.first().slug shouldBe "tense"
                 editData.coverPath shouldBe "/covers/way-of-kings.jpg"
             }
         }
