@@ -159,6 +159,48 @@ class MetadataApplyEnrichmentTest :
             }
         }
 
+        // C3 integration seam: a theme product-tag whose CANONICAL slug matches an applied genre
+        // is dropped from tropes (it would otherwise leak the genre back in as a tag), while a
+        // non-colliding theme survives. Exercises the full
+        // applyGenresBestEffort → appliedGenreSlugs(read, post-apply) → classify(slugs) chain,
+        // not just ProductTagClassifier in isolation. Collision pair mirrors the classifier's own
+        // C3 case: applied genre "Science Fiction" + theme "Sci-Fi" both canonicalize to
+        // `science-fiction` via GenreNormalizer, so the alias-aware (not naive-slugify) exclusion fires.
+        test("a theme product-tag matching an applied genre is excluded from tropes") {
+            withInMemoryDatabase {
+                val ctx = enrichmentCtx(this)
+                val selectionWithGenre = ENRICH_SELECTION.copy(genres = setOf("Science Fiction"))
+                val productTags =
+                    listOf(
+                        ProductTag(type = "theme", name = "Sci-Fi"), // collides with applied genre → dropped
+                        ProductTag(type = "theme", name = "Survival"), // no collision → survives as a trope
+                        ProductTag(type = "mood", name = "Tense"), // a mood regardless of genres
+                    )
+                val applier = ctx.applier { _, _ -> productTags }
+
+                runTest {
+                    ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
+
+                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, selectionWithGenre)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // The applied genre is linked (so appliedGenreSlugs is non-empty and the exclusion can fire).
+                    ctx.bookRepo
+                        .findById(BookId(BOOK_ID))!!
+                        .genres
+                        .map { it.name } shouldContainExactlyInAnyOrder
+                        listOf("Science Fiction")
+
+                    // The colliding theme is gone; the non-colliding theme survives.
+                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Survival")
+                    ctx.tagNamesForBook(BOOK_ID).none { it == "Sci-Fi" } shouldBe true
+
+                    // Moods are unaffected by the genre-exclusion filter.
+                    ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Tense")
+                }
+            }
+        }
+
         // #573: re-matching ACCUMULATES moods/tropes because the writers are add-only.
         // A future selective-apply surface (#573) is the fix; for now accumulation is expected.
         test("re-match accumulates moods + tropes (additive, #573)") {
