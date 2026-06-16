@@ -165,6 +165,26 @@ class AudibleClient(
         return raw.map { it ?: emptyList() }
     }
 
+    /**
+     * Scrapes typed topic tags from the Audible product page by ASIN.
+     *
+     * Endpoint: `GET https://www.audible.{tld}/pd/{asin}`
+     *
+     * Reuses [webGet] (web host + storefront locale cookie from Task 4, which
+     * turns Audible's 503-without-cookie into a 200; the request follows the
+     * redirect to the canonical slug URL). Best-effort: a 404 maps the `null`
+     * body to an empty list; any transport failure stays a typed [MetadataError].
+     */
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> {
+        rateLimiter.await(region)
+        return webGet(region, "/pd/$asin") { body ->
+            parseProductTags(body)
+        }.map { it ?: emptyList() }
+    }
+
     // ─── Private infrastructure ───────────────────────────────────────────────
 
     /**
