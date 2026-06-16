@@ -37,8 +37,10 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -48,6 +50,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 class PlaybackServiceImplTest :
     FunSpec({
@@ -123,6 +126,7 @@ class PlaybackServiceImplTest :
                 userStatsRepository = statsRepo,
                 accessPolicy = accessPolicy,
                 principal = principal(userId, role),
+                db = db,
             )
 
         test("prepare returns PreparedPlayback with audio files ordered by index for an unplayed book") {
@@ -549,6 +553,74 @@ class PlaybackServiceImplTest :
                     val u1Stats = deps.statsRepo.getForUser("u1").shouldNotBeNull()
                     u1Stats.totalSecondsAllTime shouldBe 60L
                     deps.statsRepo.getForUser("u2").shouldBeNull()
+                }
+            }
+        }
+
+        // ─── timezone refresh on live ingest ─────────────────────────────────────
+
+        test("a live listening event refreshes the user's home timezone") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1") // starts with timezone = "UTC" (column default)
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("book-tz"))
+                    val service = deps.service(db, "u1")
+
+                    val startedAt = 1_779_451_200_000L
+                    service.recordListeningEvent(
+                        RecordListeningEventRequest(
+                            id = "evt-tz",
+                            bookId = "book-tz",
+                            startPositionMs = 0L,
+                            endPositionMs = 60_000L,
+                            startedAt = startedAt,
+                            endedAt = startedAt + 60_000L,
+                            playbackSpeed = 1.0f,
+                            tz = "America/New_York",
+                            deviceLabel = null,
+                        ),
+                    ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
+
+                    val tz = suspendTransaction(db) { UserEntity.findById("u1")?.timezone }
+                    tz shouldBe "America/New_York"
+                }
+            }
+        }
+
+        test("a failed access-gate check does not update the user's timezone") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("member")
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
+                    deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
+                    deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
+
+                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+
+                    val startedAt = 1_779_451_200_000L
+                    service.recordListeningEvent(
+                        RecordListeningEventRequest(
+                            id = "evt-gate",
+                            bookId = "private-book",
+                            startPositionMs = 0L,
+                            endPositionMs = 60_000L,
+                            startedAt = startedAt,
+                            endedAt = startedAt + 60_000L,
+                            playbackSpeed = 1.0f,
+                            tz = "America/Chicago",
+                            deviceLabel = null,
+                        ),
+                    ).shouldBeInstanceOf<AppResult.Failure>()
+
+                    // Access was denied — timezone must not have been updated.
+                    val tz = suspendTransaction(db) { UserEntity.findById("member")?.timezone }
+                    tz shouldBe "UTC"
                 }
             }
         }
