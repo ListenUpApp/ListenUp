@@ -260,6 +260,7 @@ class SyncRepositoryScanProgressTest :
                             booksAnalyzed = 28,
                             errors = 0,
                             totalFiles = 1647,
+                            booksTotal = 1600,
                             authorsMatched = 9,
                             totalDurationMs = 7_200_000L,
                             currentFile = "A/B.m4b",
@@ -275,6 +276,7 @@ class SyncRepositoryScanProgressTest :
                     setStartedAt = {},
                 )
                 progress!!.filesTotal shouldBe 1647
+                progress!!.booksTotal shouldBe 1600
                 progress!!.books shouldBe 28
                 progress!!.authors shouldBe 9
                 progress!!.hours shouldBe 2

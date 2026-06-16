@@ -422,6 +422,7 @@ internal suspend fun applyScanEvent(
                         removed = 0,
                         filesTotal = event.totalFiles,
                         books = event.booksAnalyzed,
+                        booksTotal = event.booksTotal,
                         authors = event.authorsMatched,
                         durationMs = event.totalDurationMs,
                         currentFile = event.currentFile,

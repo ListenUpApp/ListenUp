@@ -16,6 +16,7 @@ data class ScanProgressState(
     val removed: Int,
     val filesTotal: Int = 0,
     val books: Int = 0,
+    val booksTotal: Int = 0,
     val authors: Int = 0,
     val durationMs: Long = 0,
     val currentFile: String? = null,
@@ -35,9 +36,13 @@ data class ScanProgressState(
                 else -> phase.replaceFirstChar { it.uppercase() }
             }
 
-    /** Progress fraction (0..1) over discovered files, or null if unknown. */
+    /**
+     * Progress fraction (0..1) over analyzed books, or null while the book total is unknown
+     * (WALKING/GROUPING → indeterminate bar). Driven by booksAnalyzed/booksTotal so it advances
+     * through the long ANALYZING phase instead of pinning at 100% the instant file-walking ends.
+     */
     val progressFraction: Float?
-        get() = if (filesTotal > 0) (current.toFloat() / filesTotal).coerceIn(0f, 1f) else null
+        get() = if (booksTotal > 0) (books.toFloat() / booksTotal).coerceIn(0f, 1f) else null
 
     /** Total matched audio rounded to whole hours, for the "Hours" stat. */
     val hours: Int
