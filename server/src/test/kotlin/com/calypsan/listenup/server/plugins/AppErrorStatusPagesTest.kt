@@ -22,6 +22,7 @@ import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import io.ktor.util.cio.ChannelWriteException
 import io.ktor.utils.io.ClosedByteChannelException
 import java.io.IOException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
@@ -178,6 +179,12 @@ class AppErrorStatusPagesTest :
 
         test("isClientDisconnect is true for an IOException broken pipe") {
             isClientDisconnect(IOException("Broken pipe")) shouldBe true
+        }
+
+        test("isClientDisconnect matches a ChannelWriteException structurally, message aside") {
+            // Its own message ("Cannot write to channel") carries no disconnect marker — the
+            // structural ChannelIOException check is what catches it.
+            isClientDisconnect(ChannelWriteException("Cannot write to channel", IOException("upstream"))) shouldBe true
         }
 
         test("isClientDisconnect is true for an IOException connection reset by peer") {

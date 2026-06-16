@@ -36,40 +36,10 @@ import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.uri
 import io.ktor.server.response.respond
-import io.ktor.utils.io.ClosedByteChannelException
 import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
-import java.io.IOException
 
 private val logger = LoggerFactory.getLogger("AppErrorStatusPages")
-
-/** Substrings (case-insensitive) that mark a socket write failing because the peer closed it. */
-private val CLIENT_DISCONNECT_MARKERS = listOf("broken pipe", "connection reset")
-
-/**
- * Whether [throwable] (or anything in its cause chain) is a client closing the connection
- * mid-response — a seek/skip/pause/background during audio streaming, or any aborted download.
- *
- * Matches a [ClosedByteChannelException] (Ktor's response-channel-closed signal) or an
- * [IOException] whose message marks a broken pipe / connection reset. A genuine server-side
- * disk [IOException] (e.g. "Input/output error", "No space left on device") has a different
- * message and is deliberately NOT matched — it stays a real 500.
- */
-internal fun isClientDisconnect(throwable: Throwable): Boolean {
-    val seen = HashSet<Throwable>()
-    var current: Throwable? = throwable
-    while (current != null && seen.add(current)) {
-        if (current is ClosedByteChannelException) return true
-        val message = current.message
-        if (current is IOException && message != null &&
-            CLIENT_DISCONNECT_MARKERS.any { message.contains(it, ignoreCase = true) }
-        ) {
-            return true
-        }
-        current = current.cause
-    }
-    return false
-}
 
 /**
  * Surfaces unexpected throwables — genuine bugs, framework errors, OOM —
