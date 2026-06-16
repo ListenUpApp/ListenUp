@@ -53,6 +53,59 @@ internal class BookMoodWriter(
     }
 
     /**
+     * Reconciles [bookId]'s `book_moods` to exactly the moods in [rawMoods] (replace) — the
+     * match-apply path: find-or-creates each by slug, soft-deletes links no longer wanted, adds
+     * new ones. Unlike [writeMoods] (add-only, scanner), a re-match swaps the old set and a
+     * deselected mood is removed; an empty [rawMoods] removes all of the book's moods (explicit
+     * "none" from the review).
+     *
+     * Inputs are case-insensitive-deduped and blank-skipped, matching [writeMoods]. Both
+     * [BookMoodRepository.softDelete] and [BookMoodRepository.upsert] open their own substrate
+     * transactions, so this method does NOT need a surrounding `suspendTransaction { }`.
+     */
+    suspend fun setBookMoods(
+        bookId: BookId,
+        rawMoods: List<String>,
+    ) {
+        val targetMoodIds =
+            rawMoods
+                .distinctBy { it.trim().lowercase() }
+                .filterNot { it.isBlank() }
+                .mapNotNull { resolveMoodId(it) }
+                .toSet()
+        val currentMoodIds =
+            bookMoodRepository
+                .findAllForBook(bookId.value)
+                .filter { it.deletedAt == null }
+                .map { it.moodId }
+                .toSet()
+        val now = clock.now().toEpochMilliseconds()
+        for (moodId in currentMoodIds - targetMoodIds) {
+            bookMoodRepository.softDelete(bookId.value, moodId, clientOpId = null)
+        }
+        for (moodId in targetMoodIds - currentMoodIds) {
+            bookMoodRepository.upsert(
+                BookMoodSyncPayload(
+                    bookId = bookId.value,
+                    moodId = moodId,
+                    createdAt = now,
+                    revision = 0L,
+                    deletedAt = null,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Resolves a single raw mood [name] to a live mood id, creating the catalog row if absent.
+     * Returns null when [name] normalizes to a blank slug or no row can be materialized.
+     */
+    private suspend fun resolveMoodId(name: String): String? {
+        val slug = MoodSlug.normalize(name).getOrElse { return null }
+        return (moodRepository.findBySlug(slug) ?: createMood(name, slug))?.id
+    }
+
+    /**
      * Resolves a single raw mood [name] to a live [Mood] (creating it if absent) and
      * links [bookId] to it. A blank-after-normalize name is skipped; a lost
      * create race re-resolves by slug so the link still lands.
@@ -61,18 +114,13 @@ internal class BookMoodWriter(
         bookId: BookId,
         name: String,
     ) {
-        val slug = MoodSlug.normalize(name).getOrElse { return }
-
-        val mood =
-            moodRepository.findBySlug(slug)
-                ?: createMood(name, slug)
-                ?: return
+        val moodId = resolveMoodId(name) ?: return
 
         val now = clock.now().toEpochMilliseconds()
         bookMoodRepository.upsert(
             BookMoodSyncPayload(
                 bookId = bookId.value,
-                moodId = mood.id,
+                moodId = moodId,
                 createdAt = now,
                 revision = 0L,
                 deletedAt = null,
