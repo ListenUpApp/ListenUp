@@ -1,5 +1,16 @@
 package com.calypsan.listenup.server.auth
 
+import com.calypsan.listenup.server.db.resolveListenupHome
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.server.config.ApplicationConfig
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.PosixFilePermission
+import java.security.SecureRandom
+import java.util.Base64
+import java.util.Properties
+
 /** The JWT signing secret and refresh-token pepper, resolved once at startup. */
 data class ServerSecrets(
     val jwtSecret: String,
@@ -48,4 +59,97 @@ internal fun resolveSecret(
         return explicit
     }
     return if (configValue == committedDefault) store.getOrGenerate(storeKey) else configValue
+}
+
+private val logger = KotlinLogging.logger {}
+
+private const val SECRETS_FILENAME = "secrets.properties"
+private const val SECRET_BYTE_LENGTH = 48
+
+/**
+ * Persists server secrets as a Java `Properties` file at `$home/secrets.properties`,
+ * locked to the owner. Each [getOrGenerate] reuses an existing key verbatim — the
+ * generate-once invariant that keeps the refresh pepper stable across restarts.
+ */
+class FileSecretStore(
+    private val home: Path,
+) : SecretStore {
+    private val file: Path = home.resolve(SECRETS_FILENAME)
+
+    override fun getOrGenerate(key: String): String {
+        load().getProperty(key)?.takeIf { it.isNotBlank() }?.let { return it }
+
+        val generated = generate()
+        persist(key, generated)
+        logger.info { "Generated and persisted a new server secret to $file" }
+        return generated
+    }
+
+    private fun load(): Properties {
+        val props = Properties()
+        if (Files.exists(file)) {
+            Files.newInputStream(file).use { props.load(it) }
+        }
+        return props
+    }
+
+    private fun persist(
+        key: String,
+        value: String,
+    ) {
+        Files.createDirectories(home)
+        val props = load().apply { setProperty(key, value) }
+        val tmp = Files.createTempFile(home, SECRETS_FILENAME, ".tmp")
+        Files.newOutputStream(tmp).use { props.store(it, "ListenUp server secrets — auto-generated, keep private") }
+        restrictToOwner(tmp)
+        Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        restrictToOwner(file)
+    }
+
+    /** Best-effort `600` permissions; a no-op on non-POSIX filesystems. */
+    private fun restrictToOwner(path: Path) {
+        runCatching {
+            Files.setPosixFilePermissions(
+                path,
+                setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
+            )
+        }.onFailure { logger.debug(it) { "Could not restrict permissions on $path" } }
+    }
+
+    private fun generate(): String {
+        val bytes = ByteArray(SECRET_BYTE_LENGTH)
+        SecureRandom().nextBytes(bytes)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    }
+}
+
+/**
+ * Resolves both server secrets from [config] at startup. Reads the raw
+ * `LISTENUP_JWT_SECRET` / `LISTENUP_REFRESH_PEPPER` env vars (the explicit channel)
+ * and `LISTENUP_HOME` directly, then delegates to [resolveSecret]. Unconfigured
+ * secrets are generated/persisted under `$LISTENUP_HOME/secrets.properties`.
+ */
+fun resolveServerSecrets(config: ApplicationConfig): ServerSecrets {
+    val home = resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
+    val store = FileSecretStore(home)
+    return ServerSecrets(
+        jwtSecret =
+            resolveSecret(
+                rawEnv = System.getenv("LISTENUP_JWT_SECRET"),
+                configValue = config.property("jwt.secret").getString(),
+                committedDefault = INSECURE_DEFAULT_JWT_SECRET,
+                store = store,
+                storeKey = "jwt.secret",
+                envVarName = "LISTENUP_JWT_SECRET",
+            ),
+        refreshPepper =
+            resolveSecret(
+                rawEnv = System.getenv("LISTENUP_REFRESH_PEPPER"),
+                configValue = config.property("auth.refreshPepper").getString(),
+                committedDefault = INSECURE_DEFAULT_REFRESH_PEPPER,
+                store = store,
+                storeKey = "auth.refreshPepper",
+                envVarName = "LISTENUP_REFRESH_PEPPER",
+            ),
+    )
 }
