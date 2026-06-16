@@ -1481,6 +1481,26 @@
         }
       }
     },
+    "auth.check_status": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Status"
+          }
+        }
+      }
+    },
+    "auth.checking_automatically": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking automatically"
+          }
+        }
+      }
+    },
     "auth.confirm_password": {
       "localizations": {
         "en": {
@@ -1697,6 +1717,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your account is pending administrator approval."
+          }
+        }
+      }
+    },
+    "auth.pending_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending review"
+          }
+        }
+      }
+    },
+    "auth.reg_step_account_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account created"
+          }
+        }
+      }
+    },
+    "auth.reg_step_admin_approval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin approval"
+          }
+        }
+      }
+    },
+    "auth.reg_step_admin_approval_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A server admin needs to review your request."
+          }
+        }
+      }
+    },
+    "auth.reg_step_in_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In progress"
+          }
+        }
+      }
+    },
+    "auth.reg_step_start_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start listening"
+          }
+        }
+      }
+    },
+    "auth.reg_step_start_listening_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your library unlocks the moment you're approved."
           }
         }
       }

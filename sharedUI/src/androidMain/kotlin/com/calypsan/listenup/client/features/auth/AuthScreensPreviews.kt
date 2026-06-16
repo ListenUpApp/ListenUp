@@ -108,6 +108,7 @@ private fun PendingApprovalPreviewBody(state: PendingApprovalUiState) {
     PendingApprovalContent(
         state = state,
         email = "newreader@example.com",
+        onCheckStatus = {},
         onSignIn = {},
         onCancel = {},
     )

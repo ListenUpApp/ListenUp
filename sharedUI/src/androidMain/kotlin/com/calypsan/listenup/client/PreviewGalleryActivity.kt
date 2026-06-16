@@ -42,6 +42,7 @@ class PreviewGalleryActivity : ComponentActivity() {
                         PendingApprovalContent(
                             state = PendingApprovalUiState.Waiting,
                             email = "newreader@example.com",
+                            onCheckStatus = {},
                             onSignIn = {},
                             onCancel = {},
                         )
