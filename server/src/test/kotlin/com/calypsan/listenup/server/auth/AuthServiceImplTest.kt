@@ -211,9 +211,10 @@ class AuthServiceImplTest :
 
                 val s = svc.login(LoginRequest("alice@x", "x".repeat(8), timezone = "Europe/London")).shouldSucceed()
 
-                val storedTimezone = suspendTransaction(svc.db) {
-                    UserEntity[s.user.id.value].timezone
-                }
+                val storedTimezone =
+                    suspendTransaction(svc.db) {
+                        UserEntity[s.user.id.value].timezone
+                    }
                 storedTimezone shouldBe "Europe/London"
             }
         }

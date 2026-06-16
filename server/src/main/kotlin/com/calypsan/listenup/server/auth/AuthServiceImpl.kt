@@ -339,7 +339,10 @@ class AuthServiceImpl(
         return AppResult.Success(list)
     }
 
-    private suspend fun markLastLogin(userId: String, timezone: String) {
+    private suspend fun markLastLogin(
+        userId: String,
+        timezone: String,
+    ) {
         val now = clock.now().toEpochMilliseconds()
         suspendTransaction(db) {
             val user = UserEntity[userId]

@@ -202,9 +202,9 @@ class UserStatsBackfillServiceTest :
             // If the code still reads event.tz ("UTC") the streak stays 1 → test fails (RED).
 
             // 2026-06-10T03:30:00Z in epoch-millis
-            val eventAMs = 1_781_062_200_000L  // 2026-06-10 03:30:00 UTC → NY: 2026-06-09 23:30 EDT
+            val eventAMs = 1_781_062_200_000L // 2026-06-10 03:30:00 UTC → NY: 2026-06-09 23:30 EDT
             // 2026-06-10T23:30:00Z in epoch-millis (same UTC calendar day, different NY day)
-            val eventBMs = 1_781_134_200_000L  // 2026-06-10 23:30:00 UTC → NY: 2026-06-10 19:30 EDT
+            val eventBMs = 1_781_134_200_000L // 2026-06-10 23:30:00 UTC → NY: 2026-06-10 19:30 EDT
 
             // "now" = 2026-06-11T12:00:00Z — after both events
             val testNowMs = 1_781_179_200_000L

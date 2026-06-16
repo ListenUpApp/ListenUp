@@ -570,19 +570,20 @@ class PlaybackServiceImplTest :
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
-                    service.recordListeningEvent(
-                        RecordListeningEventRequest(
-                            id = "evt-tz",
-                            bookId = "book-tz",
-                            startPositionMs = 0L,
-                            endPositionMs = 60_000L,
-                            startedAt = startedAt,
-                            endedAt = startedAt + 60_000L,
-                            playbackSpeed = 1.0f,
-                            tz = "America/New_York",
-                            deviceLabel = null,
-                        ),
-                    ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
+                    service
+                        .recordListeningEvent(
+                            RecordListeningEventRequest(
+                                id = "evt-tz",
+                                bookId = "book-tz",
+                                startPositionMs = 0L,
+                                endPositionMs = 60_000L,
+                                startedAt = startedAt,
+                                endedAt = startedAt + 60_000L,
+                                playbackSpeed = 1.0f,
+                                tz = "America/New_York",
+                                deviceLabel = null,
+                            ),
+                        ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
 
                     val tz = suspendTransaction(db) { UserEntity.findById("u1")?.timezone }
                     tz shouldBe "America/New_York"
@@ -604,19 +605,20 @@ class PlaybackServiceImplTest :
                     val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
 
                     val startedAt = 1_779_451_200_000L
-                    service.recordListeningEvent(
-                        RecordListeningEventRequest(
-                            id = "evt-gate",
-                            bookId = "private-book",
-                            startPositionMs = 0L,
-                            endPositionMs = 60_000L,
-                            startedAt = startedAt,
-                            endedAt = startedAt + 60_000L,
-                            playbackSpeed = 1.0f,
-                            tz = "America/Chicago",
-                            deviceLabel = null,
-                        ),
-                    ).shouldBeInstanceOf<AppResult.Failure>()
+                    service
+                        .recordListeningEvent(
+                            RecordListeningEventRequest(
+                                id = "evt-gate",
+                                bookId = "private-book",
+                                startPositionMs = 0L,
+                                endPositionMs = 60_000L,
+                                startedAt = startedAt,
+                                endedAt = startedAt + 60_000L,
+                                playbackSpeed = 1.0f,
+                                tz = "America/Chicago",
+                                deviceLabel = null,
+                            ),
+                        ).shouldBeInstanceOf<AppResult.Failure>()
 
                     // Access was denied — timezone must not have been updated.
                     val tz = suspendTransaction(db) { UserEntity.findById("member")?.timezone }
