@@ -335,6 +335,21 @@ class ActivityServiceTest :
             }
         }
 
+        test("page breaks occurred_at ties deterministically by id DESC") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val activities = ActivityRepository(db = db, clock = MutableClock(Instant.fromEpochMilliseconds(1_000L)))
+                    // Two activities sharing the same occurredAt — the secondary `id DESC` sort must order them.
+                    val idA = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
+                    val idB = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
+
+                    val page = activities.page(before = null, limit = 10)
+                    page.map { it.id } shouldBe listOf(idA, idB).sortedDescending()
+                }
+            }
+        }
+
         test("feed returns Failure(SocialError.NotFound) when caller is unauthenticated") {
             withInMemoryDatabase {
                 val db = this
