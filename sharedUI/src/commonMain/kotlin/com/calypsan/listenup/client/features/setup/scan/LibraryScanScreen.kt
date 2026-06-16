@@ -224,10 +224,15 @@ private fun ScanProgressBlock(progress: ScanProgressState) {
         )
     }
     Spacer(Modifier.height(14.dp))
-    LinearWavyProgressIndicator(
-        progress = { progress.progressFraction ?: 0f },
-        modifier = Modifier.fillMaxWidth(),
-    )
+    val fraction = progress.progressFraction
+    if (fraction != null) {
+        LinearWavyProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    } else {
+        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+    }
     Spacer(Modifier.height(12.dp))
     ScanProgressLabel(progress = progress)
 }
@@ -245,8 +250,18 @@ private fun ScanProgressLabel(progress: ScanProgressState) {
             delay(ETA_TICK_MS)
         }
     }
-    val pct = ((progress.progressFraction ?: 0f) * 100).roundToInt()
-    val eta = etaMinutes(nowMs - progress.startedAtMs, progress.progressFraction ?: 0f)
+    val fraction = progress.progressFraction
+    if (fraction == null) {
+        Text(
+            text = progress.phaseDisplayName,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val pct = (fraction * 100).roundToInt()
+    val eta = etaMinutes(nowMs - progress.startedAtMs, fraction)
     Text(
         text = if (eta != null) "$pct% complete  ·  about $eta min left" else "$pct% complete",
         style = MaterialTheme.typography.labelLarge,

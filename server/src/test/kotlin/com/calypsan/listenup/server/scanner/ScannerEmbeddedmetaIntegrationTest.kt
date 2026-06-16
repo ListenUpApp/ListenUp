@@ -139,6 +139,28 @@ class ScannerEmbeddedmetaIntegrationTest :
                 }
             }
         }
+
+        test("scan progress carries booksTotal (candidate count) from ANALYZING onward") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    seedThreeBookLibrary(fixture)
+                    val (scanner, eventBus) = newScanner(fixture)
+
+                    scanner.runFullScan()
+
+                    // The fixture groups to exactly 3 candidate books, all of which
+                    // analyze successfully — so the final Progress tick must carry
+                    // booksTotal == 3 and, with every candidate analyzed, booksTotal
+                    // == booksAnalyzed.
+                    val last =
+                        eventBus.replayCache
+                            .filterIsInstance<ScanEvent.Progress>()
+                            .last { it.booksAnalyzed > 0 }
+                    last.booksTotal shouldBe 3
+                    last.booksTotal shouldBe last.booksAnalyzed
+                }
+            }
+        }
     })
 
 private fun seedThreeBookLibrary(fixture: AudioLibraryFixture) {

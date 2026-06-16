@@ -106,7 +106,15 @@ internal class Scanner(
         emitProgress(correlationId, ScanPhase.GROUPING, allFiles.size, 0, 0)
         val candidates = grouper.group(allFiles.asFlow()).toList()
 
-        emitProgress(correlationId, ScanPhase.ANALYZING, allFiles.size, 0, 0, totalFiles = allFiles.size)
+        emitProgress(
+            correlationId,
+            ScanPhase.ANALYZING,
+            allFiles.size,
+            0,
+            0,
+            totalFiles = allFiles.size,
+            booksTotal = candidates.size,
+        )
         // Analyzer uses the first folder root as the libraryRoot anchor for
         // computing rootRelPath and resolving error paths. When the library has
         // multiple folders, each folder's books will be at absolute paths inside
@@ -136,6 +144,7 @@ internal class Scanner(
             books.size,
             errors.size,
             totalFiles = allFiles.size,
+            booksTotal = candidates.size,
             authorsMatched = pass.authorsMatched,
             totalDurationMs = pass.totalDurationMs,
             currentFile = pass.currentFile,
@@ -300,6 +309,7 @@ internal class Scanner(
                     books.size,
                     errors.size,
                     totalFiles = fileCount,
+                    booksTotal = candidates.size,
                     authorsMatched = authorsSeen.size,
                     totalDurationMs = durationMsSum,
                     currentFile = currentFile,
@@ -316,6 +326,7 @@ internal class Scanner(
             books.size,
             errors.size,
             totalFiles = fileCount,
+            booksTotal = candidates.size,
             authorsMatched = authorsSeen.size,
             totalDurationMs = durationMsSum,
             currentFile = currentFile,
@@ -369,6 +380,7 @@ internal class Scanner(
         booksAnalyzed: Int,
         errors: Int,
         totalFiles: Int = 0,
+        booksTotal: Int = 0,
         authorsMatched: Int = 0,
         totalDurationMs: Long = 0,
         currentFile: String? = null,
@@ -383,6 +395,7 @@ internal class Scanner(
                 booksAnalyzed = booksAnalyzed,
                 errors = errors,
                 totalFiles = totalFiles,
+                booksTotal = booksTotal,
                 authorsMatched = authorsMatched,
                 totalDurationMs = totalDurationMs,
                 currentFile = currentFile,

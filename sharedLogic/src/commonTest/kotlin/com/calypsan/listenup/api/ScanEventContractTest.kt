@@ -22,6 +22,7 @@ class ScanEventContractTest :
                     booksAnalyzed = 174,
                     errors = 2,
                     totalFiles = 1647,
+                    booksTotal = 980,
                     authorsMatched = 21,
                     totalDurationMs = 252_000_000L,
                     currentFile = "Sanderson, Brandon/Mistborn/01.m4b",
@@ -29,5 +30,6 @@ class ScanEventContractTest :
                 )
             val decoded = json.decodeFromString(ScanEvent.serializer(), json.encodeToString(ScanEvent.serializer(), event))
             decoded shouldBe event
+            (decoded as ScanEvent.Progress).booksTotal shouldBe 980
         }
     })

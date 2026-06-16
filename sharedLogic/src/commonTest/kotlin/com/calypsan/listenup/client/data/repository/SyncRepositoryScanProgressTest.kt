@@ -221,7 +221,10 @@ class SyncRepositoryScanProgressTest :
             }
         }
 
-        test("recentBooks accumulation caps at MAX_ACCUMULATED_RECENT_BOOKS, dropping the oldest") {
+        // #587: the marquee shows the front (oldest) tiles and deliberately falls behind; dropping
+        // from the front to honour a cap yanked visible tiles out, causing the blink/swap. Accumulation
+        // is now pure append-only — every matched book is retained, in order.
+        test("recentBooks accumulation is append-only — nothing is dropped from the front") {
             runTest {
                 var progress: ScanProgressState? = null
                 val apply: suspend (ScanBookRef) -> Unit = { book ->
@@ -236,13 +239,12 @@ class SyncRepositoryScanProgressTest :
                     )
                 }
 
-                val total = MAX_ACCUMULATED_RECENT_BOOKS + 5
+                val total = 250
                 repeat(total) { i -> apply(ScanBookRef("Book $i", "Author")) }
 
                 val recent = progress!!.recentBooks
-                recent.size shouldBe MAX_ACCUMULATED_RECENT_BOOKS
-                // Oldest five dropped; the newest is last.
-                recent.first() shouldBe ScanBookRef("Book 5", "Author")
+                recent.size shouldBe total
+                recent.first() shouldBe ScanBookRef("Book 0", "Author")
                 recent.last() shouldBe ScanBookRef("Book ${total - 1}", "Author")
             }
         }
@@ -260,6 +262,7 @@ class SyncRepositoryScanProgressTest :
                             booksAnalyzed = 28,
                             errors = 0,
                             totalFiles = 1647,
+                            booksTotal = 1600,
                             authorsMatched = 9,
                             totalDurationMs = 7_200_000L,
                             currentFile = "A/B.m4b",
@@ -275,6 +278,7 @@ class SyncRepositoryScanProgressTest :
                     setStartedAt = {},
                 )
                 progress!!.filesTotal shouldBe 1647
+                progress!!.booksTotal shouldBe 1600
                 progress!!.books shouldBe 28
                 progress!!.authors shouldBe 9
                 progress!!.hours shouldBe 2

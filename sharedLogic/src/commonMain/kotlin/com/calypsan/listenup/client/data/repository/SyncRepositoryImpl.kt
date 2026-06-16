@@ -41,14 +41,6 @@ private val logger = KotlinLogging.logger {}
 private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
 
 /**
- * Upper bound on the accumulated "recently matched" carousel. The server streams a small rolling
- * window per [ScanEvent.Progress]; the client accumulates across events (see [mergeRecentBooks]) so
- * the strip grows instead of looping the same few titles. This cap keeps that growth bounded on a
- * large library — the oldest matches scroll off and are dropped.
- */
-internal const val MAX_ACCUMULATED_RECENT_BOOKS = 60
-
-/**
  * Bridges the domain sync facade to the renovated client sync engine.
  *
  * Also hosts orphan-span recovery: on the first successful [startEngineForCurrentUser]
@@ -422,6 +414,7 @@ internal suspend fun applyScanEvent(
                         removed = 0,
                         filesTotal = event.totalFiles,
                         books = event.booksAnalyzed,
+                        booksTotal = event.booksTotal,
                         authors = event.authorsMatched,
                         durationMs = event.totalDurationMs,
                         currentFile = event.currentFile,
@@ -462,8 +455,12 @@ internal suspend fun applyScanEvent(
  * Merge a freshly-streamed [incoming] window of matched books into the already-accumulated
  * [existing] strip for the "recently matched" carousel. New titles append at the end; books already
  * present keep their position (dedupe by [ScanBookRef] value — title + author), so a tile never gets
- * its contents swapped for a different book just because that book was just scanned. The result is
- * trimmed to the newest [MAX_ACCUMULATED_RECENT_BOOKS], dropping the oldest off the front.
+ * its contents swapped for a different book just because that book was just scanned.
+ *
+ * Append-only with no cap: the marquee deliberately drifts slowly and shows the front (oldest) tiles,
+ * so trimming from the front would yank visible tiles out and make the strip blink/swap (#587).
+ * [ScanBookRef] is tiny (title + author) and a scan is bounded, so retaining all matched books is
+ * negligible and the rendering `LazyRow` stays lazy.
  */
 internal fun mergeRecentBooks(
     existing: List<ScanBookRef>,
@@ -473,11 +470,7 @@ internal fun mergeRecentBooks(
     val seen = existing.toHashSet()
     val merged = existing.toMutableList()
     for (book in incoming) if (seen.add(book)) merged += book
-    return if (merged.size > MAX_ACCUMULATED_RECENT_BOOKS) {
-        merged.subList(merged.size - MAX_ACCUMULATED_RECENT_BOOKS, merged.size).toList()
-    } else {
-        merged
-    }
+    return merged
 }
 
 /**
