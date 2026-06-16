@@ -88,8 +88,8 @@ data class BookSeriesPayload(
  * One audio file on disk that contributes to a book's playback.
  *
  * `index` mirrors the on-disk order so multi-file books play correctly.
- * `format` and `codec` are informational — clients use them to decide whether
- * to request a transcode.
+ * `format` and `codec` are informational source-file metadata surfaced to the
+ * playback pipeline.
  */
 @Serializable
 @SerialName("BookAudioFilePayload")

@@ -268,12 +268,6 @@ interface PlaybackPreferences {
      * This is a synced setting - will be pushed to server.
      */
     suspend fun setDefaultPlaybackSpeed(speed: Float)
-
-    /** Get whether spatial (5.1 surround) audio is preferred. */
-    suspend fun getSpatialPlayback(): Boolean
-
-    /** Set spatial audio preference (per-device setting). */
-    suspend fun setSpatialPlayback(enabled: Boolean)
 }
 
 /**

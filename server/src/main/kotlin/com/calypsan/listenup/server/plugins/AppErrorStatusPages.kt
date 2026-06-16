@@ -342,14 +342,12 @@ private fun DownloadError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is DownloadError.DownloadFailed -> HttpStatusCode.ServiceUnavailable
         is DownloadError.InsufficientStorage -> HttpStatusCode.InsufficientStorage
-        is DownloadError.TranscodeTimeout -> HttpStatusCode.ServiceUnavailable
     }
 
 private fun DownloadError.withCorrelationId(id: String?): DownloadError =
     when (this) {
         is DownloadError.DownloadFailed -> copy(correlationId = id)
         is DownloadError.InsufficientStorage -> copy(correlationId = id)
-        is DownloadError.TranscodeTimeout -> copy(correlationId = id)
     }
 
 private fun ImportError.toHttpStatus(): HttpStatusCode =

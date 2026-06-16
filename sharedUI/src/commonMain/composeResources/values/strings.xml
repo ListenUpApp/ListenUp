@@ -1081,7 +1081,6 @@ One beautiful library.</string>
     <string name="series_stat_finished">Finished</string>
     <string name="series_stat_total">Total</string>
     <string name="series_x_of_y">%d of %d</string>
-    <string name="settings_51_surround_sound_for_immersive">5.1 surround sound for immersive listening</string>
     <string name="settings_app_version">App version</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_are_you_sure_you_want">Are you sure you want to sign out? You\'ll need to sign in again to access your library.</string>
@@ -1128,7 +1127,6 @@ One beautiful library.</string>
     <string name="settings_skip_forward">Skip forward</string>
     <string name="settings_sleep_timer">Sleep Timer</string>
     <string name="settings_sort_ignoring_leading_articles_a">Sort ignoring leading articles (A, An, The)</string>
-    <string name="settings_spatial_audio">Spatial audio</string>
     <string name="settings_speed_used_for_new_books">Speed used for new books</string>
     <string name="settings_storage_available">%1$s available</string>
     <string name="settings_storage_size_files">%1$s · %2$d files</string>

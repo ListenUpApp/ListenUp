@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.SurroundSound
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
@@ -79,7 +78,6 @@ import listenup.composeapp.generated.resources.common_sign_out
 import listenup.composeapp.generated.resources.common_storage
 import listenup.composeapp.generated.resources.common_theme
 import listenup.composeapp.generated.resources.devices_manage_active_sessions
-import listenup.composeapp.generated.resources.settings_51_surround_sound_for_immersive
 import listenup.composeapp.generated.resources.settings_app_version
 import listenup.composeapp.generated.resources.settings_appearance
 import listenup.composeapp.generated.resources.settings_are_you_sure_you_want
@@ -103,7 +101,6 @@ import listenup.composeapp.generated.resources.settings_skip_backward
 import listenup.composeapp.generated.resources.settings_skip_forward
 import listenup.composeapp.generated.resources.settings_sleep_timer
 import listenup.composeapp.generated.resources.settings_sort_ignoring_leading_articles_a
-import listenup.composeapp.generated.resources.settings_spatial_audio
 import listenup.composeapp.generated.resources.settings_speed_used_for_new_books
 import listenup.composeapp.generated.resources.settings_view_and_manage_downloaded_audiobooks
 import listenup.composeapp.generated.resources.settings_view_thirdparty_licenses
@@ -181,7 +178,7 @@ private val ContentMaxWidth = 640.dp
  *
  * Displays user-configurable settings organized by category, each as an accent-themed group:
  * - Appearance: Theme, dynamic colors
- * - Playback: Speed, skip intervals, auto-rewind, spatial audio
+ * - Playback: Speed, skip intervals, auto-rewind
  * - Sleep Timer: Default duration
  * - Library: Sorting and display options
  * - Account: Server info, devices, sign out
@@ -394,16 +391,7 @@ private fun PlaybackSection(
             subtitle = stringResource(Res.string.settings_rewind_a_few_seconds_when),
             checked = state.autoRewindEnabled,
             onCheckedChange = viewModel::setAutoRewindEnabled,
-            showDivider = true,
-        )
-        ToggleRow(
-            icon = Icons.Default.SurroundSound,
-            accent = accent,
-            title = stringResource(Res.string.settings_spatial_audio),
-            subtitle = stringResource(Res.string.settings_51_surround_sound_for_immersive),
-            checked = state.spatialPlayback,
-            onCheckedChange = viewModel::setSpatialPlayback,
-            showDivider = true,
+            showDivider = false,
         )
     }
 }
