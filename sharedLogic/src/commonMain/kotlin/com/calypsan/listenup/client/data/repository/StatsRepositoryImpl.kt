@@ -42,7 +42,7 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
  * Streak counters are computed client-side from the full [ListeningEventDao.observeEndedAt]
  * history in the device timezone — real-time, tz-correct, and self-correcting on idle days
  * via the [midnightPulse] ticker. This deliberately diverges from the old server-authoritative
- * streak math: the server [UserStatsDao] still drives the cross-user leaderboard (a different
+ * streak math: the server's `user_stats` still drives the cross-user leaderboard (a different
  * consumer); the Home display derives locally for immediate reactivity and correct tz handling
  * of imported events (which land in UTC but belong to the device's calendar day).
  *
