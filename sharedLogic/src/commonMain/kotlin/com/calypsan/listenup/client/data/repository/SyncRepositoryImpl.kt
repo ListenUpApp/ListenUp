@@ -67,6 +67,14 @@ class SyncRepositoryImpl(
     private val ftsPopulator: FtsPopulatorContract,
     private val scope: CoroutineScope,
 ) : SyncRepository {
+    /**
+     * Guards the at-most-once launch of orphan recovery. [startEngineForCurrentUser] can be called
+     * concurrently (sync + connectRealtime + resetForNewLibrary) on the multi-threaded [scope], so
+     * the launch decision must be a single atomic check-and-set, not a plain var read. A dedicated
+     * mutex (not reused from [scanObserverMutex]) avoids cross-blocking the two independent launches.
+     */
+    private val orphanRecoveryMutex = Mutex()
+
     /** Ensures [ListeningEventRecorder.recoverOrphan] runs at most once per process lifetime. */
     private var orphanRecovered = false
 
@@ -187,8 +195,16 @@ class SyncRepositoryImpl(
             } catch (e: Exception) {
                 logger.warn(e) { "Search index self-heal failed; will retry on next startup" }
             }
-            if (!orphanRecovered) {
-                orphanRecovered = true
+            val shouldRecover =
+                orphanRecoveryMutex.withLock {
+                    if (orphanRecovered) {
+                        false
+                    } else {
+                        orphanRecovered = true
+                        true
+                    }
+                }
+            if (shouldRecover) {
                 try {
                     listeningEventRecorder.recoverOrphan()
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
