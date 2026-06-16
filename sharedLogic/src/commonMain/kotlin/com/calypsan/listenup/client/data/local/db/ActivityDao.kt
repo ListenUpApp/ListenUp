@@ -14,12 +14,12 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ActivityDao {
     /**
-     * Observe all activities ordered by creation time (newest first).
+     * Observe all activities ordered by occurrence time (newest first).
      * Used for the Activity Feed section on Discover screen.
      *
      * @return Flow emitting list of activities
      */
-    @Query("SELECT * FROM activities ORDER BY createdAt DESC")
+    @Query("SELECT * FROM activities ORDER BY occurredAt DESC")
     fun observeAll(): Flow<List<ActivityEntity>>
 
     /**
@@ -29,17 +29,17 @@ interface ActivityDao {
      * @param limit Maximum number of activities to return
      * @return Flow emitting list of activities
      */
-    @Query("SELECT * FROM activities ORDER BY createdAt DESC LIMIT :limit")
+    @Query("SELECT * FROM activities ORDER BY occurredAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ActivityEntity>>
 
     /**
      * Get activities older than a cursor for pagination.
      *
-     * @param beforeMs Epoch milliseconds - only return activities created before this
+     * @param beforeMs Epoch milliseconds - only return activities that occurred before this
      * @param limit Maximum number of activities to return
      * @return List of older activities
      */
-    @Query("SELECT * FROM activities WHERE createdAt < :beforeMs ORDER BY createdAt DESC LIMIT :limit")
+    @Query("SELECT * FROM activities WHERE occurredAt < :beforeMs ORDER BY occurredAt DESC LIMIT :limit")
     suspend fun getOlderThan(
         beforeMs: Long,
         limit: Int,
@@ -50,7 +50,7 @@ interface ActivityDao {
      *
      * @return Epoch milliseconds of newest activity, or null if none
      */
-    @Query("SELECT MAX(createdAt) FROM activities")
+    @Query("SELECT MAX(occurredAt) FROM activities")
     suspend fun getNewestTimestamp(): Long?
 
     /**
@@ -82,10 +82,10 @@ interface ActivityDao {
      * Delete activities older than the given cutoff.
      * Used to prune old activities (> 30 days) to save storage.
      *
-     * @param cutoffMs Epoch milliseconds - activities with createdAt before this are deleted
+     * @param cutoffMs Epoch milliseconds - activities with occurredAt before this are deleted
      * @return Number of activities deleted
      */
-    @Query("DELETE FROM activities WHERE createdAt < :cutoffMs")
+    @Query("DELETE FROM activities WHERE occurredAt < :cutoffMs")
     suspend fun deleteOlderThan(cutoffMs: Long): Int
 
     /**
@@ -128,7 +128,7 @@ interface ActivityDao {
             COALESCE(SUM(CASE WHEN a.type = 'listening_session' AND a.durationMs > 0 THEN a.durationMs ELSE 0 END), 0) as totalTimeMs,
             COUNT(DISTINCT CASE WHEN a.type = 'finished_book' THEN a.bookId END) as booksCount
         FROM user_profiles up
-        LEFT JOIN activities a ON a.userId = up.id AND a.createdAt >= :sinceMs
+        LEFT JOIN activities a ON a.userId = up.id AND a.occurredAt >= :sinceMs
         GROUP BY up.id
         ORDER BY totalTimeMs DESC
     """,
@@ -152,7 +152,7 @@ interface ActivityDao {
             COUNT(DISTINCT CASE WHEN a.type = 'finished_book' THEN a.bookId END) as totalBooks,
             (SELECT COUNT(*) FROM user_profiles) as activeUsers
         FROM user_profiles up
-        LEFT JOIN activities a ON a.userId = up.id AND a.createdAt >= :sinceMs
+        LEFT JOIN activities a ON a.userId = up.id AND a.occurredAt >= :sinceMs
     """,
     )
     fun observeCommunityStats(sinceMs: Long): Flow<CommunityStatsProjection>
