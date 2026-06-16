@@ -32,7 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
-import com.calypsan.listenup.client.design.components.GenreChip
+import com.calypsan.listenup.client.design.components.BookFacet
+import com.calypsan.listenup.client.design.components.FacetChip
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -387,7 +388,7 @@ fun WideHeroBand(
 
 /**
  * The classification row shared by both heroes: the most-specific [genre] rendered as an outlined
- * [GenreChip] beside the Abridged/Unabridged flag, in the brand-accent [classificationColor].
+ * [FacetChip] beside the Abridged/Unabridged flag, in the brand-accent [classificationColor].
  *
  * The genre chip is omitted when [genre] is null; the flag is always shown. [centered] aligns the
  * row for the compact (centered) hero versus the wide (left-aligned) band.
@@ -411,7 +412,7 @@ private fun HeroClassification(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (!genre.isNullOrBlank()) {
-            GenreChip(genre = genre)
+            FacetChip(label = genre, facet = BookFacet.Genre)
         }
         Text(
             text = classification.uppercase(),

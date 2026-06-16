@@ -22,7 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.GenreChipRow
+import com.calypsan.listenup.client.design.components.BookFacet
+import com.calypsan.listenup.client.design.components.FacetChipRow
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -278,13 +279,18 @@ private fun GenresVsTagsSection() {
         modifier = horizontalGutter(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        GenreChipRow(
-            genres = mockGenres,
-            onGenreClick = {},
+        FacetChipRow(
+            labels = mockGenres,
+            facet = BookFacet.Genre,
+            onClick = {},
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         )
-        TagsSection(tags = mockTags, isLoading = false, onTagClick = {}, showHeader = false)
-        MoodSection(moods = mockMoods, showHeader = false)
+        FacetChipRow(
+            labels = mockTags.map { it.displayName() },
+            facet = BookFacet.Tag,
+            onClick = {},
+        )
+        FacetChipRow(labels = mockMoods.map { it.name }, facet = BookFacet.Mood)
     }
 }
 

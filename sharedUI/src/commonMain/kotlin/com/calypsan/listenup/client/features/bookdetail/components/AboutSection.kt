@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,21 +11,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calypsan.listenup.client.design.components.GenreChipRow
+import com.calypsan.listenup.client.design.components.BookFacet
+import com.calypsan.listenup.client.design.components.FacetChipRow
 import com.calypsan.listenup.client.design.components.MarkdownText
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
-import com.calypsan.listenup.client.features.bookdetail.MoodSection
-import com.calypsan.listenup.client.features.bookdetail.TagsSection
 import com.calypsan.listenup.client.util.toPlainTextPreview
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_about_this_book
@@ -52,15 +50,15 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 200
  * 1. "About" heading
  * 2. Expandable [description] via [MarkdownText] with inline Read-more toggle
  * 3. [creditsSlot] (if provided), prefixed with a "Credits" overline
- * 4. "Genres" overline + [GenreChipRow] (only when [genres] is non-empty)
- * 5. "Tags" overline + [TagsSection] with header suppressed (only when [tags] is non-empty or loading)
- * 6. "Mood" overline + [MoodSection] with header suppressed (only when [moods] is non-empty)
+ * 4. "Genres" overline + outlined [FacetChipRow] (only when [genres] is non-empty)
+ * 5. "Tags" overline + filled-secondary [FacetChipRow] (only when [tags] is non-empty or loading)
+ * 6. "Moods" overline + filled-tertiary [FacetChipRow] (only when [moods] is non-empty)
  *
  * @param description   Markdown-formatted book description.
  * @param genres        Genre names to display as outlined chips.
  * @param tags          Tags to display as filled `secondaryContainer` chips.
  * @param moods         Moods to display as filled `tertiaryContainer` chips (the affective axis).
- * @param isLoadingTags True while tags are being fetched; [TagsSection] shows a loading state.
+ * @param isLoadingTags True while tags are being fetched; the Tags block stays visible meanwhile.
  * @param isCard        When true, wraps content in a [surfaceContainerLow] card; otherwise
  *                      renders frameless.
  * @param isDescriptionExpanded   Whether the description is currently fully expanded.
@@ -181,10 +179,12 @@ private fun AboutDescriptionBlock(
 }
 
 /**
- * Credits slot (optional), Genres row, and Tags section — the lower classification blocks.
+ * Credits slot (optional), then the three classification facet rows — Genres, Tags, Moods.
  *
- * Each block is preceded by a [Spacing.sectionGap] spacer. A matching [SectionOverline] is shown
- * for each block; [TagsSection] is rendered with [showHeader] = false to avoid a double label.
+ * Each block is preceded by a [Spacing.sectionGap] spacer and a matching [SectionOverline].
+ * All three chip rows render through the single [FacetChipRow] component, switched by
+ * [BookFacet]; the tag row maps each chip label back to its [Tag] to preserve tag-click
+ * navigation. The [isLoadingTags] guard keeps the Tags block visible while tags are fetched.
  */
 @Composable
 private fun AboutClassificationBlocks(
@@ -207,10 +207,10 @@ private fun AboutClassificationBlocks(
         Spacer(modifier = Modifier.height(Spacing.sectionGap))
         SectionOverline(text = stringResource(Res.string.common_genres))
         Spacer(modifier = Modifier.height(Spacing.titleGap))
-        GenreChipRow(
-            genres = genres,
-            onGenreClick = onGenreClick,
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
+        FacetChipRow(
+            labels = genres,
+            facet = BookFacet.Genre,
+            onClick = onGenreClick,
         )
     }
 
@@ -218,11 +218,12 @@ private fun AboutClassificationBlocks(
         Spacer(modifier = Modifier.height(Spacing.sectionGap))
         SectionOverline(text = stringResource(Res.string.book_detail_tags))
         Spacer(modifier = Modifier.height(Spacing.titleGap))
-        TagsSection(
-            tags = tags,
-            isLoading = isLoadingTags,
-            onTagClick = onTagClick,
-            showHeader = false,
+        // Map display name → Tag so the unified row can keep tag-click navigation.
+        val tagsByName = remember(tags) { tags.associateBy { it.displayName() } }
+        FacetChipRow(
+            labels = tags.map { it.displayName() },
+            facet = BookFacet.Tag,
+            onClick = { name -> tagsByName[name]?.let(onTagClick) },
         )
     }
 
@@ -230,9 +231,9 @@ private fun AboutClassificationBlocks(
         Spacer(modifier = Modifier.height(Spacing.sectionGap))
         SectionOverline(text = stringResource(Res.string.book_detail_mood))
         Spacer(modifier = Modifier.height(Spacing.titleGap))
-        MoodSection(
-            moods = moods,
-            showHeader = false,
+        FacetChipRow(
+            labels = moods.map { it.name },
+            facet = BookFacet.Mood,
         )
     }
 }
