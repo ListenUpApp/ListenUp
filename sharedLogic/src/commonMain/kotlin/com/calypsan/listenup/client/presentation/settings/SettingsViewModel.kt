@@ -63,7 +63,6 @@ data class SettingsUiState(
     val autoRemoveFinished: Boolean = false,
     val hapticFeedbackEnabled: Boolean = true,
     // Library display settings (local)
-    val spatialPlayback: Boolean = true,
     val ignoreTitleArticles: Boolean = true,
     val hideSingleBookSeries: Boolean = true,
     // Server info (read-only)
@@ -144,7 +143,6 @@ class SettingsViewModel(
     private fun loadSettings() {
         viewModelScope.launch {
             // Load local settings that aren't reactive StateFlows
-            val spatialPlayback = playbackPreferences.getSpatialPlayback()
             val ignoreTitleArticles = libraryPreferences.getIgnoreTitleArticles()
             val hideSingleBookSeries = libraryPreferences.getHideSingleBookSeries()
             val defaultPlaybackSpeed = playbackPreferences.getDefaultPlaybackSpeed()
@@ -154,7 +152,6 @@ class SettingsViewModel(
 
             internalState.update {
                 it.copy(
-                    spatialPlayback = spatialPlayback,
                     ignoreTitleArticles = ignoreTitleArticles,
                     hideSingleBookSeries = hideSingleBookSeries,
                     defaultPlaybackSpeed = defaultPlaybackSpeed,
@@ -346,17 +343,6 @@ class SettingsViewModel(
     fun setHapticFeedbackEnabled(enabled: Boolean) {
         viewModelScope.launch {
             localPreferences.setHapticFeedbackEnabled(enabled)
-        }
-    }
-
-    /**
-     * Set spatial (5.1 surround) audio preference.
-     * Device-local setting for audio hardware capability.
-     */
-    fun setSpatialPlayback(enabled: Boolean) {
-        viewModelScope.launch {
-            playbackPreferences.setSpatialPlayback(enabled)
-            internalState.update { it.copy(spatialPlayback = enabled) }
         }
     }
 

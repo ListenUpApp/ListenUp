@@ -145,13 +145,10 @@ struct AdminView: View {
                     .padding(.top, 10)
             }
             Spacer().frame(height: 14)
-            ToggleRow(
-                systemImage: "person.badge.plus",
-                tint: .green,
-                title: String(localized: "admin.open_registration"),
-                subtitle: String(localized: "admin.allow_anyone_to_request_an"),
-                isOn: openRegistrationBinding(admin: admin, ready: ready),
-                isBusy: ready.isTogglingOpenRegistration
+            RegistrationPolicyCard(
+                policy: ready.registrationPolicy,
+                isBusy: ready.isTogglingRegistrationPolicy,
+                onSelect: { admin.setRegistrationPolicy($0) }
             )
             .fieldCard()
             Spacer().frame(height: 10)
@@ -197,7 +194,7 @@ struct AdminView: View {
     private func usersColumn(admin: AdminObserver, ready: AdminReadyModel) -> some View {
         VStack(alignment: .leading, spacing: 26) {
             usersSection(admin: admin, ready: ready)
-            if ready.openRegistration {
+            if ready.registrationPolicy == .approvalQueue {
                 pendingRegistrationsSection(admin: admin, ready: ready)
             }
             if !ready.pendingInvites.isEmpty {
@@ -354,9 +351,6 @@ struct AdminView: View {
         Binding(get: { model?.remoteUrl ?? "" }, set: { settings.setRemoteUrl($0) })
     }
 
-    private func openRegistrationBinding(admin: AdminObserver, ready: AdminReadyModel) -> Binding<Bool> {
-        Binding(get: { ready.openRegistration }, set: { admin.setOpenRegistration($0) })
-    }
 
     private func settingsModel(_ settings: AdminSettingsObserver) -> AdminSettingsReadyModel? {
         if case .ready(let model) = settings.phase { return model }
@@ -486,6 +480,61 @@ private struct CopiedToast: View {
         .padding(.vertical, 10)
         .background(.black.opacity(0.82), in: Capsule())
         .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+    }
+}
+
+// MARK: - Registration policy control
+
+/// Three-state registration control (Open / Approval / Closed) backed by the server's
+/// `RegistrationPolicy` — a segmented selector, not a boolean switch, so all three states are
+/// visible and round-trip correctly. The subtitle reflects the current policy.
+private struct RegistrationPolicyCard: View {
+    let policy: RegistrationPolicy
+    let isBusy: Bool
+    let onSelect: (RegistrationPolicy) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "person.badge.plus")
+                    .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "admin.registration_policy"))
+                        .font(.body.weight(.semibold))
+                    Text(Self.subtitle(policy))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if isBusy { ProgressView() }
+            }
+            Picker("", selection: Binding(get: { policy }, set: onSelect)) {
+                ForEach(Array(RegistrationPolicy.allCases), id: \.self) { option in
+                    Text(Self.label(option)).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(isBusy)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private static func label(_ policy: RegistrationPolicy) -> String {
+        switch policy {
+        case .open: return String(localized: "admin.registration_policy_open")
+        case .approvalQueue: return String(localized: "admin.registration_policy_approval")
+        case .closed: return String(localized: "admin.registration_policy_closed")
+        default: return ""
+        }
+    }
+
+    private static func subtitle(_ policy: RegistrationPolicy) -> String {
+        switch policy {
+        case .open: return String(localized: "admin.registration_open_desc")
+        case .approvalQueue: return String(localized: "admin.registration_approval_desc")
+        case .closed: return String(localized: "admin.registration_closed_desc")
+        default: return ""
+        }
     }
 }
 

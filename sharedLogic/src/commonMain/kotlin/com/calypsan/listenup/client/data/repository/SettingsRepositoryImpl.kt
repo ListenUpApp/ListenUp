@@ -102,7 +102,6 @@ class SettingsRepositoryImpl(
         private const val KEY_HIDE_SINGLE_BOOK_SERIES = "hide_single_book_series"
 
         // Playback preferences (synced)
-        private const val KEY_SPATIAL_PLAYBACK = "spatial_playback"
         private const val KEY_DEFAULT_PLAYBACK_SPEED = "default_playback_speed"
 
         // Local preferences (device-specific, NOT synced)
@@ -288,15 +287,6 @@ class SettingsRepositoryImpl(
 
     override suspend fun setHideSingleBookSeries(hide: Boolean) {
         secureStorage.save(KEY_HIDE_SINGLE_BOOK_SERIES, hide.toString())
-    }
-
-    // Playback preferences
-
-    override suspend fun getSpatialPlayback(): Boolean =
-        secureStorage.read(KEY_SPATIAL_PLAYBACK)?.toBooleanStrictOrNull() ?: true
-
-    override suspend fun setSpatialPlayback(enabled: Boolean) {
-        secureStorage.save(KEY_SPATIAL_PLAYBACK, enabled.toString())
     }
 
     // Universal playback speed (synced across devices)

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +17,7 @@ import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +42,7 @@ class AdminViewModel(
     private val revokeInviteUseCase: RevokeInviteUseCase,
     private val approveUserUseCase: ApproveUserUseCase,
     private val denyUserUseCase: DenyUserUseCase,
-    private val setOpenRegistrationUseCase: SetOpenRegistrationUseCase,
+    private val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase,
     private val eventStreamRepository: EventStreamRepository,
 ) : ViewModel() {
     val state: StateFlow<AdminUiState>
@@ -109,10 +110,10 @@ class AdminViewModel(
             val deferredPending = async { loadPendingUsersUseCase() }
             val deferredInvites = async { loadInvitesUseCase() }
 
-            val openRegistration =
+            val registrationPolicy =
                 when (val result = deferredOpenReg.await()) {
                     is AppResult.Success -> result.data
-                    is AppResult.Failure -> false
+                    is AppResult.Failure -> RegistrationPolicy.CLOSED
                 }
 
             val usersResult = deferredUsers.await()
@@ -160,7 +161,7 @@ class AdminViewModel(
             state.update { current ->
                 if (current is AdminUiState.Ready) {
                     current.copy(
-                        openRegistration = openRegistration,
+                        registrationPolicy = registrationPolicy,
                         users = sortedUsers,
                         pendingUsers = pendingUsers,
                         pendingInvites = pendingInvites,
@@ -170,7 +171,7 @@ class AdminViewModel(
                     // First emission (from Loading) or recovering from Error:
                     // transition to Ready with fresh data and default UI fields.
                     AdminUiState.Ready(
-                        openRegistration = openRegistration,
+                        registrationPolicy = registrationPolicy,
                         users = sortedUsers,
                         pendingUsers = pendingUsers,
                         pendingInvites = pendingInvites,
@@ -300,16 +301,16 @@ class AdminViewModel(
         }
     }
 
-    fun setOpenRegistration(enabled: Boolean) {
+    fun setRegistrationPolicy(policy: RegistrationPolicy) {
         viewModelScope.launch {
-            updateReady { it.copy(isTogglingOpenRegistration = true) }
+            updateReady { it.copy(isTogglingRegistrationPolicy = true) }
 
-            when (val result = setOpenRegistrationUseCase(enabled)) {
+            when (val result = setRegistrationPolicyUseCase(policy)) {
                 is AppResult.Success -> {
                     updateReady {
                         it.copy(
-                            isTogglingOpenRegistration = false,
-                            openRegistration = enabled,
+                            isTogglingRegistrationPolicy = false,
+                            registrationPolicy = policy,
                         )
                     }
                 }
@@ -317,7 +318,7 @@ class AdminViewModel(
                 is AppResult.Failure -> {
                     updateReady {
                         it.copy(
-                            isTogglingOpenRegistration = false,
+                            isTogglingRegistrationPolicy = false,
                             error = result.message,
                         )
                     }
@@ -342,10 +343,10 @@ class AdminViewModel(
  *
  * Sealed hierarchy:
  * - [Loading] before the first `loadData()` emission.
- * - [Ready] once data has loaded; carries openRegistration, users,
+ * - [Ready] once data has loaded; carries registrationPolicy, users,
  *   pendingUsers, pendingInvites, per-action overlays
  *   (`deletingUserId`, `revokingInviteId`, `approvingUserId`,
- *   `denyingUserId`, `isTogglingOpenRegistration`), and a transient
+ *   `denyingUserId`, `isTogglingRegistrationPolicy`), and a transient
  *   `error` surfaced as a snackbar.
  * - [Error] terminal state when the initial users load (or a retry from
  *   [Error]) fails. Refresh failures after we've reached [Ready] surface
@@ -359,7 +360,7 @@ sealed interface AdminUiState {
      * per-action overlays, and a transient `error` surfaced as a snackbar.
      */
     data class Ready(
-        val openRegistration: Boolean = false,
+        val registrationPolicy: RegistrationPolicy = RegistrationPolicy.CLOSED,
         val users: List<AdminUserInfo> = emptyList(),
         val pendingUsers: List<AdminUserInfo> = emptyList(),
         val pendingInvites: List<InviteInfo> = emptyList(),
@@ -367,7 +368,7 @@ sealed interface AdminUiState {
         val revokingInviteId: String? = null,
         val approvingUserId: String? = null,
         val denyingUserId: String? = null,
-        val isTogglingOpenRegistration: Boolean = false,
+        val isTogglingRegistrationPolicy: Boolean = false,
         val error: String? = null,
     ) : AdminUiState
 

@@ -61,10 +61,10 @@ import org.jetbrains.compose.resources.stringResource
  * @param coverPath Local cover file path, or null to show the placeholder
  * @param bookId Book ID for server-URL fallback cover loading
  * @param title Book title (max 2 lines, ellipsised)
- * @param genre Most-specific genre name shown as a chip above the title (e.g. "Progression
- *   Fantasy"); null hides the chip
+ * @param genre Most-specific genre name shown as an uppercase label above the title (e.g. "Progression
+ *   Fantasy"); null hides it
  * @param abridged Whether the book is abridged — drives the Abridged/Unabridged flag beside the
- *   genre chip
+ *   genre label
  * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
  *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
  * @param series Series memberships rendered as tappable chips; empty hides the row
@@ -125,7 +125,7 @@ fun CompactHero(
             }
         }
 
-        // Classification — most-specific genre chip beside the Abridged/Unabridged flag
+        // Classification — most-specific genre label beside the Abridged/Unabridged flag
         HeroClassification(
             genre = genre,
             abridged = abridged,
@@ -225,10 +225,10 @@ fun CompactHero(
  * @param coverPath Local cover file path, or null to show the placeholder
  * @param bookId Book ID for server-URL fallback cover loading
  * @param title Book title (max 2 lines, ellipsised)
- * @param genre Most-specific genre name shown as a chip above the title (e.g. "Progression
- *   Fantasy"); null hides the chip
+ * @param genre Most-specific genre name shown as an uppercase label above the title (e.g. "Progression
+ *   Fantasy"); null hides it
  * @param abridged Whether the book is abridged — drives the Abridged/Unabridged flag beside the
- *   genre chip
+ *   genre label
  * @param subtitle Independent subtitle line (e.g. "The Final Empire"); null/blank hides it. The
  *   caller suppresses subtitles that merely restate a series, so this is shown verbatim when present
  * @param series Series memberships rendered as tappable chips; empty hides the row
@@ -324,7 +324,7 @@ fun WideHeroBand(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    // Classification — most-specific genre chip beside the Abridged/Unabridged flag
+                    // Classification — most-specific genre label beside the Abridged/Unabridged flag
                     HeroClassification(
                         genre = genre,
                         abridged = abridged,
@@ -385,9 +385,10 @@ fun WideHeroBand(
 }
 
 /**
- * The classification row shared by both heroes: the most-specific [genre] rendered as a plain
- * uppercase label — matching the Abridged/Unabridged flag rather than a filled pill — in the
- * brand-accent [classificationColor], the two set off by a middot.
+ * The classification row shared by both heroes: the most-specific [genre] and the
+ * Abridged/Unabridged flag, both rendered as plain uppercase `labelMedium` text in the brand-accent
+ * [classificationColor] — the hero's flag style, not a pill. (`FacetChip` pills are reserved for the
+ * list/section surfaces where the facet is interactive.)
  *
  * The genre is omitted when null; the flag is always shown. [centered] aligns the row for the
  * compact (centered) hero versus the wide (left-aligned) band.
@@ -411,15 +412,10 @@ private fun HeroClassification(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The most-specific genre reads as the same understated flag as Abridged/Unabridged — a
-        // plain uppercase label, not a filled pill — set off from it by a middot.
+        // plain uppercase label, not a filled pill.
         if (!genre.isNullOrBlank()) {
             Text(
                 text = genre.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = classificationColor,
-            )
-            Text(
-                text = "·",
                 style = MaterialTheme.typography.labelMedium,
                 color = classificationColor,
             )

@@ -122,9 +122,9 @@ class AdminRepositoryImpl(
             adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
         }
 
-    override suspend fun getRegistrationPolicy(): AppResult<Boolean> =
+    override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
         catching("getRegistrationPolicy") {
-            adminUserRpc.get().getRegistrationPolicy().map { it == RegistrationPolicy.OPEN }
+            adminUserRpc.get().getRegistrationPolicy()
         }
 
     /**
@@ -186,11 +186,9 @@ class AdminRepositoryImpl(
     // SERVER SETTINGS
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> =
-        catching("setOpenRegistration") {
-            adminUserRpc.get().setRegistrationPolicy(
-                if (enabled) RegistrationPolicy.OPEN else RegistrationPolicy.CLOSED,
-            )
+    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> =
+        catching("setRegistrationPolicy") {
+            adminUserRpc.get().setRegistrationPolicy(policy)
         }
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =

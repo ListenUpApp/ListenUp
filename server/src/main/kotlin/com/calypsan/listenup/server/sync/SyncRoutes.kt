@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.plugins.isClientDisconnect
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -321,25 +322,6 @@ private suspend fun ServerSSESession.sendStreamError(e: Exception) {
             event = SSE_EVENT_CONTROL,
         )
     }
-}
-
-/**
- * True when [e] (or anything in its cause chain) is a client-closed-connection write —
- * the expected outcome when an SSE subscriber navigates away, backgrounds, or restarts.
- *
- * These surface as Ktor's `ClosedWriteChannelException` / `ChannelWriteException`, usually
- * wrapping a `java.io.IOException: Broken pipe`. We match on simple names + the broken-pipe
- * IOException rather than importing engine-internal types, so the check stays transport-agnostic.
- */
-private fun isClientDisconnect(e: Throwable): Boolean {
-    var cur: Throwable? = e
-    while (cur != null) {
-        val name = cur::class.simpleName
-        if (name == "ClosedWriteChannelException" || name == "ChannelWriteException") return true
-        if (cur is java.io.IOException && cur.message?.contains("Broken pipe", ignoreCase = true) == true) return true
-        cur = cur.cause
-    }
-    return false
 }
 
 /**

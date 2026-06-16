@@ -91,7 +91,6 @@ class SettingsViewModelTest :
 
             // Default stubs for playback preferences - getters
             everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
-            everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns true
 
             // Default stubs for library preferences - getters
             everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
@@ -146,7 +145,6 @@ class SettingsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns 1.5f
-                everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns false
                 everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns false
                 everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns false
                 everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
@@ -169,7 +167,6 @@ class SettingsViewModelTest :
                 val state = viewModel.state.value
                 state.isLoading shouldBe false
                 state.defaultPlaybackSpeed shouldBe 1.5f
-                state.spatialPlayback shouldBe false
                 state.ignoreTitleArticles shouldBe false
                 state.hideSingleBookSeries shouldBe false
             }
@@ -187,7 +184,6 @@ class SettingsViewModelTest :
                 // Then - should use defaults
                 val state = viewModel.state.value
                 state.defaultPlaybackSpeed shouldBe PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
-                state.spatialPlayback shouldBe true
                 state.ignoreTitleArticles shouldBe true
                 state.hideSingleBookSeries shouldBe true
             }
@@ -248,45 +244,6 @@ class SettingsViewModelTest :
 
                 // Then - UI still updated (optimistic), no error shown
                 viewModel.state.value.defaultPlaybackSpeed shouldBe 2.0f
-            }
-        }
-
-        // ========== Spatial Playback Tests ==========
-
-        test("setSpatialPlayback updates setting") {
-            runTest {
-                // Given
-                val fixture = createFixture()
-                everySuspend { fixture.playbackPreferences.setSpatialPlayback(false) } returns Unit
-                val viewModel = fixture.build()
-                advanceUntilIdle()
-
-                // When
-                viewModel.setSpatialPlayback(false)
-                advanceUntilIdle()
-
-                // Then
-                verifySuspend { fixture.playbackPreferences.setSpatialPlayback(false) }
-                viewModel.state.value.spatialPlayback shouldBe false
-            }
-        }
-
-        test("setSpatialPlayback toggles correctly") {
-            runTest {
-                // Given
-                val fixture = createFixture()
-                everySuspend { fixture.playbackPreferences.getSpatialPlayback() } returns true
-                everySuspend { fixture.playbackPreferences.setSpatialPlayback(false) } returns Unit
-                val viewModel = fixture.build()
-                advanceUntilIdle()
-                viewModel.state.value.spatialPlayback shouldBe true
-
-                // When
-                viewModel.setSpatialPlayback(false)
-                advanceUntilIdle()
-
-                // Then
-                viewModel.state.value.spatialPlayback shouldBe false
             }
         }
 

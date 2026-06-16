@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin.import
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.import.AbsItemRef
 import com.calypsan.listenup.api.dto.import.AbsUserMatch
@@ -1066,9 +1067,9 @@ private class FakeAdminRepository(
 
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun getRegistrationPolicy(): AppResult<Boolean> = AppResult.Success(false)
+    override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> = AppResult.Success(RegistrationPolicy.CLOSED)
 
-    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = "Test", remoteUrl = null))
 

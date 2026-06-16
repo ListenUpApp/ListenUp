@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.presentation.auth.LoginUiState
+import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.auth_create_account
@@ -100,4 +101,39 @@ private fun CreateAdminHeroDark() {
 @Composable
 private fun CreateAdminSplitDark() {
     PreviewTheme(dark = true) { CreateAdminPreviewBody(onBack = {}) }
+}
+
+@Composable
+private fun PendingApprovalPreviewBody(state: PendingApprovalUiState) {
+    PendingApprovalContent(
+        state = state,
+        email = "newreader@example.com",
+        onCheckStatus = {},
+        onSignIn = {},
+        onCancel = {},
+    )
+}
+
+@Preview(name = "Pending approval · waiting · light", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
+@Composable
+private fun PendingApprovalWaitingLight() {
+    PreviewTheme(dark = false) { PendingApprovalPreviewBody(PendingApprovalUiState.Waiting) }
+}
+
+@Preview(name = "Pending approval · waiting · dark", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
+@Composable
+private fun PendingApprovalWaitingDark() {
+    PreviewTheme(dark = true) { PendingApprovalPreviewBody(PendingApprovalUiState.Waiting) }
+}
+
+@Preview(name = "Pending approval · approved · light", widthDp = PHONE_WIDTH, heightDp = PHONE_HEIGHT)
+@Composable
+private fun PendingApprovalApprovedLight() {
+    PreviewTheme(dark = false) { PendingApprovalPreviewBody(PendingApprovalUiState.Approved) }
+}
+
+@Preview(name = "Pending approval · waiting · split", widthDp = DESK_WIDTH, heightDp = DESK_HEIGHT)
+@Composable
+private fun PendingApprovalWaitingSplit() {
+    PreviewTheme(dark = false) { PendingApprovalPreviewBody(PendingApprovalUiState.Waiting) }
 }

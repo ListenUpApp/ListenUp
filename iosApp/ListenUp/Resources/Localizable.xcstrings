@@ -941,6 +941,76 @@
         }
       }
     },
+    "admin.registration_approval_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New sign-ups need an admin's approval before they can join."
+          }
+        }
+      }
+    },
+    "admin.registration_closed_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Self-registration is off — people join by invite only."
+          }
+        }
+      }
+    },
+    "admin.registration_open_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone can register and join instantly."
+          }
+        }
+      }
+    },
+    "admin.registration_policy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration"
+          }
+        }
+      }
+    },
+    "admin.registration_policy_approval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approval"
+          }
+        }
+      }
+    },
+    "admin.registration_policy_closed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed"
+          }
+        }
+      }
+    },
+    "admin.registration_policy_open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        }
+      }
+    },
     "admin.release_anyway": {
       "localizations": {
         "en": {
@@ -1411,6 +1481,26 @@
         }
       }
     },
+    "auth.check_status": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Status"
+          }
+        }
+      }
+    },
+    "auth.checking_automatically": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking automatically"
+          }
+        }
+      }
+    },
     "auth.confirm_password": {
       "localizations": {
         "en": {
@@ -1627,6 +1717,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your account is pending administrator approval."
+          }
+        }
+      }
+    },
+    "auth.pending_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending review"
+          }
+        }
+      }
+    },
+    "auth.reg_step_account_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account created"
+          }
+        }
+      }
+    },
+    "auth.reg_step_admin_approval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin approval"
+          }
+        }
+      }
+    },
+    "auth.reg_step_admin_approval_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A server admin needs to review your request."
+          }
+        }
+      }
+    },
+    "auth.reg_step_in_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In progress"
+          }
+        }
+      }
+    },
+    "auth.reg_step_start_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start listening"
+          }
+        }
+      }
+    },
+    "auth.reg_step_start_listening_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your library unlocks the moment you're approved."
           }
         }
       }
@@ -10811,16 +10971,6 @@
         }
       }
     },
-    "settings.51_surround_sound_for_immersive": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "5.1 surround sound for immersive listening"
-          }
-        }
-      }
-    },
     "settings.app_version": {
       "localizations": {
         "en": {
@@ -11277,16 +11427,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort ignoring leading articles (A, An, The)"
-          }
-        }
-      }
-    },
-    "settings.spatial_audio": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Spatial audio"
           }
         }
       }

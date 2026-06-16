@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +27,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmarks
@@ -56,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -69,7 +73,6 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_displayname_avatar
 import listenup.composeapp.generated.resources.profile_create_shelf
 import listenup.composeapp.generated.resources.profile_edit_profile
@@ -107,7 +110,10 @@ fun UserProfileScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Scaffold(modifier = modifier) { paddingValues ->
+    Scaffold(
+        modifier = modifier,
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
+    ) { paddingValues ->
         Box(
             modifier =
                 Modifier
@@ -233,18 +239,21 @@ private fun ProfileColorHero(
         )
 
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
-            // Nav row
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back), tint = ink)
-                }
-                Spacer(Modifier.weight(1f))
+            HeroNavRow(onBack = onBack) {
                 if (state.isOwnProfile) {
-                    IconButton(onClick = onEditClick) {
-                        Icon(Icons.Default.Edit, stringResource(Res.string.profile_edit_profile), tint = ink)
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier =
+                            Modifier.size(48.dp).background(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                CircleShape,
+                            ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(Res.string.profile_edit_profile),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                 }
             }
