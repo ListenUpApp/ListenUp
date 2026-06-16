@@ -43,13 +43,14 @@ private val log = KotlinLogging.logger {}
  *    touched. Names resolve through [ContributorRepository.resolveOrCreate].
  *  - **Series** are replaced when [MetadataApplySelection.seriesAsins] is non-empty, else
  *    left untouched. Resolved through [SeriesRepository.resolveOrCreate].
- *  - **Genres** (when [MetadataApplySelection.genres] is non-empty) are replaced via the same
- *    3-step cascade as the scanner (alias → [GenreNormalizer] → pending), written BEFORE the
- *    text `upsert` so the upsert's `readPayload` re-reads the junction and the genres ride the
- *    same SSE event + revision bump. An empty set leaves existing genres untouched.
- *  - **Enrichment** (best-effort) writes the user's selected moods + tropes from the apply
- *    [selection] additively (the values were scraped + classified at lookup time and chosen by the
- *    user as chips). Never fails the match (see [applyEnrichmentBestEffort]).
+ *  - **Genres** are reconciled to [MetadataApplySelection.genres] via the same 3-step cascade as
+ *    the scanner (alias → [GenreNormalizer] → pending), written BEFORE the text `upsert` so the
+ *    upsert's `readPayload` re-reads the junction and the genres ride the same SSE event + revision
+ *    bump. An empty set removes all genres.
+ *  - **Enrichment** (best-effort) reconciles the book's moods + tropes to the user's selected values
+ *    from the apply [selection] (the values were scraped + classified at lookup time and chosen by
+ *    the user as chips); an empty set removes all of that dimension's links. Never fails the match
+ *    (see [applyEnrichmentBestEffort]).
  *  - **Cover** (when selected) downloads the wizard's chosen cover URL and stores it as
  *    [CoverSource.UPLOADED] — an explicit user choice that wins over any existing cover.
  *
@@ -188,16 +189,17 @@ internal class BookMetadataApplier(
         }
 
     /**
-     * Applies [selection]'s genres to [bookId] via [BookRepository.setBookGenres] when the selection
-     * is non-empty; no-ops otherwise. Best-effort: a failure is logged and skipped so text metadata
-     * already committed is not rolled back. [CancellationException] is always re-raised.
+     * Reconciles [bookId]'s genres to exactly [selection]'s chosen values via
+     * [BookRepository.setBookGenres] (which wipes the junction then re-links). An empty selection
+     * removes all genres (explicit "none" from the review). Best-effort: a failure is logged and
+     * skipped so text metadata already committed is not rolled back. [CancellationException] is
+     * always re-raised.
      */
     private suspend fun applyGenresBestEffort(
         bookId: BookId,
         asin: String,
         selection: MetadataApplySelection,
     ) {
-        if (selection.genres.isEmpty()) return
         try {
             bookRepository.setBookGenres(bookId, selection.genres.toList())
         } catch (e: CancellationException) {
@@ -246,40 +248,33 @@ internal class BookMetadataApplier(
     }
 
     /**
-     * Writes the user's selected moods and tropes from [selection] additively through
-     * [BookMoodWriter][com.calypsan.listenup.server.services.BookMoodWriter] and
-     * [BookTagWriter][com.calypsan.listenup.server.services.BookTagWriter]. Both writers are
-     * add-only — existing moods/tags are never wiped.
+     * Reconciles the book's moods and tropes to exactly [selection]'s chosen values (replace, not
+     * add) through the match-apply writers
+     * [BookMoodWriter.setBookMoods][com.calypsan.listenup.server.services.BookMoodWriter.setBookMoods]
+     * and [BookTagWriter.setBookTags][com.calypsan.listenup.server.services.BookTagWriter.setBookTags].
      *
      * The moods/tags were scraped + classified at lookup time (see
      * `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and presented to the user as toggleable
-     * chips; the apply path honors that selection rather than re-scraping, so a deselected mood/tag
-     * is never written. An empty set for a dimension writes nothing for it.
+     * chips; the apply path honors that selection rather than re-scraping. A re-match swaps the old
+     * set for the new — a deselected mood/tag is dropped — and an empty set removes all of that
+     * dimension's links (explicit "none" from the review). This is the #573 fix: re-matching no
+     * longer accumulates.
      *
      * Best-effort: a write error is logged and skipped so the already-committed match is never
-     * rolled back. [CancellationException] is always re-raised. No-ops when both sets are empty.
-     *
-     * Limitation (#573): re-matching a book ACCUMULATES moods/tropes — the writers are add-only,
-     * so a second apply adds the new selection's tags on top of the first's. A future
-     * selective-apply surface (#573) is the fix; for now accumulation is the accepted shape.
+     * rolled back. [CancellationException] is always re-raised.
      */
     private suspend fun applyEnrichmentBestEffort(
         bookId: BookId,
         asin: String,
         selection: MetadataApplySelection,
     ) {
-        if (selection.moods.isEmpty() && selection.tags.isEmpty()) return
         try {
-            if (selection.moods.isNotEmpty()) {
-                enrichmentDeps.bookMoodWriter.writeMoods(bookId, selection.moods.toList())
-            }
-            if (selection.tags.isNotEmpty()) {
-                enrichmentDeps.bookTagWriter.writeScanTags(bookId, selection.tags.toList())
-            }
+            enrichmentDeps.bookMoodWriter.setBookMoods(bookId, selection.moods.toList())
+            enrichmentDeps.bookTagWriter.setBookTags(bookId, selection.tags.toList())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Audible enrichment write failed for ${bookId.value} (ASIN $asin) — skipping" }
+            log.warn(e) { "Mood/tag reconcile failed for ${bookId.value} (ASIN $asin) — skipping" }
         }
     }
 

@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
@@ -38,6 +39,49 @@ class BookMoodWriterTest :
 
                     val names = liveMoodNamesForBook(moodRepository, bookMoodRepository, "book-1")
                     names shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
+                }
+            }
+        }
+
+        test("setBookMoods reconciles to exactly the selection — adds new, removes absent, keeps kept") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("book-1")
+
+                val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val moodRepository = MoodRepository(db, bus, registry)
+                val bookMoodRepository = BookMoodRepository(db, bus, registry)
+                val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
+
+                runTest {
+                    writer.writeMoods(BookId("book-1"), listOf("Cozy", "Tense"))
+                    writer.setBookMoods(BookId("book-1"), listOf("Cozy", "Hopeful"))
+
+                    val names = liveMoodNamesForBook(moodRepository, bookMoodRepository, "book-1")
+                    names shouldContainExactlyInAnyOrder listOf("Cozy", "Hopeful")
+                }
+            }
+        }
+
+        test("setBookMoods with an empty selection removes all of the book's moods") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("book-1")
+
+                val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val moodRepository = MoodRepository(db, bus, registry)
+                val bookMoodRepository = BookMoodRepository(db, bus, registry)
+                val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
+
+                runTest {
+                    writer.writeMoods(BookId("book-1"), listOf("Cozy", "Tense"))
+                    writer.setBookMoods(BookId("book-1"), emptyList())
+
+                    bookMoodRepository.findAllForBook("book-1") shouldBe emptyList()
                 }
             }
         }

@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
@@ -38,6 +39,49 @@ class BookTagWriterTest :
 
                     val names = liveTagNamesForBook(tagRepository, bookTagRepository, "book-1")
                     names shouldContainExactlyInAnyOrder listOf("Found Family", "Time Loop")
+                }
+            }
+        }
+
+        test("setBookTags reconciles to exactly the selection — adds new, removes absent, keeps kept") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("book-1")
+
+                val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val tagRepository = TagRepository(db, bus, registry)
+                val bookTagRepository = BookTagRepository(db, bus, registry)
+                val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
+
+                runTest {
+                    writer.writeScanTags(BookId("book-1"), listOf("Found Family", "Slow Burn"))
+                    writer.setBookTags(BookId("book-1"), listOf("Found Family", "Enemies to Lovers"))
+
+                    val names = liveTagNamesForBook(tagRepository, bookTagRepository, "book-1")
+                    names shouldContainExactlyInAnyOrder listOf("Found Family", "Enemies to Lovers")
+                }
+            }
+        }
+
+        test("setBookTags with an empty selection removes all of the book's tags") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("book-1")
+
+                val registry = SyncRegistry()
+                val bus = ChangeBus()
+                val tagRepository = TagRepository(db, bus, registry)
+                val bookTagRepository = BookTagRepository(db, bus, registry)
+                val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
+
+                runTest {
+                    writer.writeScanTags(BookId("book-1"), listOf("Found Family", "Slow Burn"))
+                    writer.setBookTags(BookId("book-1"), emptyList())
+
+                    bookTagRepository.findAllForBook("book-1") shouldBe emptyList()
                 }
             }
         }

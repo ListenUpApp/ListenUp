@@ -54,6 +54,59 @@ internal class BookTagWriter(
     }
 
     /**
+     * Reconciles [bookId]'s `book_tags` to exactly the tags in [rawTags] (replace) — the
+     * match-apply path: find-or-creates each by slug, soft-deletes links no longer wanted, adds
+     * new ones. Unlike [writeScanTags] (add-only, scanner), a re-match swaps the old set and a
+     * deselected tag is removed; an empty [rawTags] removes all of the book's tags (explicit
+     * "none" from the review).
+     *
+     * Inputs are case-insensitive-deduped and blank-skipped, matching [writeScanTags]. Both
+     * [BookTagRepository.softDelete] and [BookTagRepository.upsert] open their own substrate
+     * transactions, so this method does NOT need a surrounding `suspendTransaction { }`.
+     */
+    suspend fun setBookTags(
+        bookId: BookId,
+        rawTags: List<String>,
+    ) {
+        val targetTagIds =
+            rawTags
+                .distinctBy { it.trim().lowercase() }
+                .filterNot { it.isBlank() }
+                .mapNotNull { resolveTagId(it) }
+                .toSet()
+        val currentTagIds =
+            bookTagRepository
+                .findAllForBook(bookId.value)
+                .filter { it.deletedAt == null }
+                .map { it.tagId }
+                .toSet()
+        val now = clock.now().toEpochMilliseconds()
+        for (tagId in currentTagIds - targetTagIds) {
+            bookTagRepository.softDelete(bookId.value, tagId, clientOpId = null)
+        }
+        for (tagId in targetTagIds - currentTagIds) {
+            bookTagRepository.upsert(
+                BookTagSyncPayload(
+                    bookId = bookId.value,
+                    tagId = tagId,
+                    createdAt = now,
+                    revision = 0L,
+                    deletedAt = null,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Resolves a single raw tag [name] to a live tag id, creating the catalog row if absent.
+     * Returns null when [name] normalizes to a blank slug or no row can be materialized.
+     */
+    private suspend fun resolveTagId(name: String): String? {
+        val slug = TagSlug.normalize(name).getOrElse { return null }
+        return (tagRepository.findBySlug(slug) ?: createTag(name, slug))?.id
+    }
+
+    /**
      * Resolves a single raw tag [name] to a live [Tag] (creating it if absent) and
      * links [bookId] to it. A blank-after-normalize name is skipped; a lost
      * create race re-resolves by slug so the link still lands.
@@ -62,18 +115,13 @@ internal class BookTagWriter(
         bookId: BookId,
         name: String,
     ) {
-        val slug = TagSlug.normalize(name).getOrElse { return }
-
-        val tag =
-            tagRepository.findBySlug(slug)
-                ?: createTag(name, slug)
-                ?: return
+        val tagId = resolveTagId(name) ?: return
 
         val now = clock.now().toEpochMilliseconds()
         bookTagRepository.upsert(
             BookTagSyncPayload(
                 bookId = bookId.value,
-                tagId = tag.id,
+                tagId = tagId,
                 createdAt = now,
                 revision = 0L,
                 deletedAt = null,

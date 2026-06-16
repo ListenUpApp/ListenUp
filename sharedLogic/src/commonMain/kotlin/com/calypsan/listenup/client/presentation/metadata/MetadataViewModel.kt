@@ -8,7 +8,10 @@ import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
+import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -19,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -194,6 +198,9 @@ sealed interface PreviewLoadState {
         val applyError: String?,
         val previewNotFound: Boolean,
         val chapterSuggestion: ChapterSuggestion,
+        val genreCandidates: List<String>,
+        val moodCandidates: List<String>,
+        val tagCandidates: List<String>,
     ) : PreviewLoadState
 
     /** Preview fetch failed; [message] is shown in-line. */
@@ -229,6 +236,9 @@ sealed interface MetadataEvent {
 class MetadataViewModel(
     private val metadataRepository: MetadataRepository,
     private val bookRepository: BookRepository,
+    private val genreRepository: GenreRepository,
+    private val moodRepository: MoodRepository,
+    private val tagRepository: TagRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
@@ -678,25 +688,39 @@ class MetadataViewModel(
         }
     }
 
-    private fun transitionToReady(
+    private suspend fun transitionToReady(
         match: MetadataBook,
         preview: MetadataBook,
         previewNotFound: Boolean,
         bookId: String,
         region: AudibleRegion,
     ) {
+        // Read the book's current items (local Room, offline-first) and union them
+        // with the match's proposed ones. The server reconciles a match-apply by
+        // replacing the book's genres/moods/tags with exactly the apply selection,
+        // so current items must be in the selection or they'd be silently dropped.
+        val currentGenres = genreRepository.getGenresForBook(bookId).map { it.name }
+        val currentMoods = moodRepository.observeMoodsForBook(bookId).first().map { it.name }
+        val currentTags = tagRepository.observeTagsForBook(bookId).first().map { it.name }
+        val genreCandidates = unionCandidates(currentGenres, preview.genres)
+        val moodCandidates = unionCandidates(currentMoods, preview.moods)
+        val tagCandidates = unionCandidates(currentTags, preview.tags)
+
         _state.update { latest ->
             if (latest !is MetadataUiState.Preview || latest.match.asin != match.asin) return@update latest
             val ready =
                 PreviewLoadState.Ready(
                     preview = preview,
-                    selections = initializeSelections(preview),
+                    selections = initializeSelections(preview, genreCandidates, moodCandidates, tagCandidates),
                     coverEntries = buildCoverEntries(preview),
                     selectedCoverUrl = null,
                     isApplying = false,
                     applyError = null,
                     previewNotFound = previewNotFound,
                     chapterSuggestion = ChapterSuggestion.Unavailable,
+                    genreCandidates = genreCandidates,
+                    moodCandidates = moodCandidates,
+                    tagCandidates = tagCandidates,
                 )
             latest.copy(loadState = ready)
         }
@@ -735,7 +759,12 @@ class MetadataViewModel(
             tags = selectedTags,
         )
 
-    private fun initializeSelections(preview: MetadataBook): MetadataSelections =
+    private fun initializeSelections(
+        preview: MetadataBook,
+        genreCandidates: List<String>,
+        moodCandidates: List<String>,
+        tagCandidates: List<String>,
+    ): MetadataSelections =
         MetadataSelections(
             cover = preview.coverUrl != null,
             title = preview.title.isNotBlank(),
@@ -747,10 +776,29 @@ class MetadataViewModel(
             selectedAuthors = preview.authors.mapNotNull { it.asin }.toSet(),
             selectedNarrators = preview.narrators.mapNotNull { it.asin }.toSet(),
             selectedSeries = preview.series.mapNotNull { it.asin }.toSet(),
-            selectedGenres = preview.genres.toSet(),
-            selectedMoods = preview.moods.toSet(),
-            selectedTags = preview.tags.toSet(),
+            // Seeded all-on from union(current, proposed) so kept current items survive
+            // the server's replace-style reconcile on apply.
+            selectedGenres = genreCandidates.toSet(),
+            selectedMoods = moodCandidates.toSet(),
+            selectedTags = tagCandidates.toSet(),
         )
+
+    /**
+     * Unions the book's [current] labels with the match's [proposed] ones,
+     * current-first and deduped by trimmed, lower-cased label. Empty labels are
+     * dropped; the first-seen spelling of each label is preserved.
+     */
+    private fun unionCandidates(
+        current: List<String>,
+        proposed: List<String>,
+    ): List<String> {
+        val seen = LinkedHashMap<String, String>()
+        for (label in current + proposed) {
+            val key = label.trim().lowercase()
+            if (key.isNotEmpty() && key !in seen) seen[key] = label.trim()
+        }
+        return seen.values.toList()
+    }
 
     /**
      * Derives cover options from the preview book's Audible thumbnail and

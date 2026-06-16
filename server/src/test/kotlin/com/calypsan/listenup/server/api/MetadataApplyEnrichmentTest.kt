@@ -99,15 +99,15 @@ private val ENRICH_SELECTION =
  * The applier no longer re-scrapes Audible at apply time: moods + tropes are scraped and
  * classified at lookup time (see `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and
  * presented to the user as toggleable chips. The apply path honors that selection —
- * [MetadataApplySelection.moods] / [MetadataApplySelection.tags] — writing the chosen values
- * additively. This test covers:
+ * [MetadataApplySelection.moods] / [MetadataApplySelection.tags] — reconciling the book's moods/tags
+ * to exactly the chosen values (replace, not add). This test covers:
  *
  *  - **Happy path:** a selection carrying moods + tags persists them to `book_moods` /
  *    `book_tags`; a value the user deselected is never written.
- *  - **Empty selection:** a selection with no moods/tags writes nothing, but the match still
- *    succeeds (the text metadata commits regardless).
- *  - **Additive re-match (#573):** re-applying with a second selection accumulates the
- *    moods/tropes (the writers are add-only). Selective apply is the future #573 fix.
+ *  - **Empty selection:** a selection with no moods/tags removes all of the book's moods/tags
+ *    (explicit "none"), but the match still succeeds (the text metadata commits regardless).
+ *  - **Reconciling re-match (#573):** re-applying with a second selection replaces the first —
+ *    a deselected mood/tag is dropped, only the new selection survives.
  *
  * Drives [BookMetadataApplier] directly (rather than through [MetadataLookupServiceImpl]) so the
  * same mood/tag repositories used for assertion are injected without round-tripping the DI module.
@@ -158,9 +158,9 @@ class MetadataApplyEnrichmentTest :
             }
         }
 
-        // #573: re-matching ACCUMULATES moods/tropes because the writers are add-only.
-        // A future selective-apply surface (#573) is the fix; for now accumulation is expected.
-        test("re-match accumulates moods + tropes (additive, #573)") {
+        // #573: re-matching now RECONCILES moods/tropes to the new selection (replace, not add).
+        // A deselected mood/tag from the first apply is dropped; only the second selection survives.
+        test("re-matching reconciles moods/tropes to the new selection instead of accumulating (#573)") {
             withInMemoryDatabase {
                 val ctx = enrichmentCtx(this)
                 val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
@@ -173,7 +173,7 @@ class MetadataApplyEnrichmentTest :
                             BookId(BOOK_ID),
                             ENRICH_ASIN,
                             AudibleRegion.US,
-                            ENRICH_SELECTION.copy(moods = setOf("Tense"), tags = setOf("Heist")),
+                            ENRICH_SELECTION.copy(moods = setOf("Tense", "Hopeful"), tags = setOf("Heist")),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     applier
@@ -181,11 +181,13 @@ class MetadataApplyEnrichmentTest :
                             BookId(BOOK_ID),
                             ENRICH_ASIN,
                             AudibleRegion.US,
-                            ENRICH_SELECTION.copy(moods = setOf("Hopeful"), tags = setOf("Revenge")),
+                            ENRICH_SELECTION.copy(moods = setOf("Hopeful", "Wistful"), tags = setOf("Revenge")),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Tense", "Hopeful")
-                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Heist", "Revenge")
+                    // Live (non-deleted) moods == {Hopeful, Wistful}; Tense dropped, Wistful added.
+                    ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Hopeful", "Wistful")
+                    // Live (non-deleted) tags == {Revenge}; Heist dropped.
+                    ctx.tagNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Revenge")
                 }
             }
         }

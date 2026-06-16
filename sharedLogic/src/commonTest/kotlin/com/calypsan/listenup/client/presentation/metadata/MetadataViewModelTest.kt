@@ -11,12 +11,19 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
+import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -26,6 +33,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -68,7 +76,30 @@ class MetadataViewModelTest :
         fun buildVm(
             repo: MetadataRepository,
             bookRepo: BookRepository = mock { everySuspend { getChapters(any()) } returns emptyList() },
-        ): MetadataViewModel = MetadataViewModel(metadataRepository = repo, bookRepository = bookRepo, errorBus = ErrorBus())
+            currentGenres: List<String> = emptyList(),
+            currentMoods: List<String> = emptyList(),
+            currentTags: List<String> = emptyList(),
+        ): MetadataViewModel =
+            MetadataViewModel(
+                metadataRepository = repo,
+                bookRepository = bookRepo,
+                genreRepository =
+                    mock {
+                        everySuspend { getGenresForBook(any()) } returns
+                            currentGenres.mapIndexed { i, name -> Genre(id = "g$i", name = name, slug = name, path = "/$name") }
+                    },
+                moodRepository =
+                    mock {
+                        every { observeMoodsForBook(any()) } returns
+                            MutableStateFlow(currentMoods.mapIndexed { i, name -> Mood(id = "m$i", name = name, slug = name) })
+                    },
+                tagRepository =
+                    mock {
+                        every { observeTagsForBook(any()) } returns
+                            MutableStateFlow(currentTags.mapIndexed { i, name -> Tag(id = "t$i", name = name, slug = name) })
+                    },
+                errorBus = ErrorBus(),
+            )
 
         suspend fun TestScope.readyVmWithTwoChapters(): MetadataViewModel {
             val book = makeBook(asin = "B001", title = "Dune")
@@ -547,6 +578,75 @@ class MetadataViewModelTest :
                         .shouldBeInstanceOf<PreviewLoadState.Ready>()
                 ready.isApplying shouldBe false
                 ready.applyError shouldBe error.message
+            }
+        }
+
+        // ── current + proposed candidate union ────────────────────────────────
+
+        test("preview candidate lists union the book's current moods with the match's proposed, seeded all-on") {
+            runTest {
+                val book =
+                    makeBook(asin = "B001", title = "Dune").copy(
+                        genres = listOf("Fantasy"),
+                        moods = listOf("Cozy", "Tense"),
+                        tags = listOf("Slow Burn"),
+                    )
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm =
+                    buildVm(
+                        repo,
+                        currentGenres = listOf("Sci-Fi"),
+                        currentMoods = listOf("Cozy"),
+                        currentTags = listOf("Found Family"),
+                    )
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready =
+                    vm.state.value
+                        .shouldBeInstanceOf<MetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<PreviewLoadState.Ready>()
+
+                // current-first, deduped
+                ready.moodCandidates shouldBe listOf("Cozy", "Tense")
+                ready.genreCandidates shouldBe listOf("Sci-Fi", "Fantasy")
+                ready.tagCandidates shouldBe listOf("Found Family", "Slow Burn")
+
+                // all-on
+                ready.selections.selectedMoods shouldBe setOf("Cozy", "Tense")
+                ready.selections.selectedGenres shouldBe setOf("Sci-Fi", "Fantasy")
+                ready.selections.selectedTags shouldBe setOf("Found Family", "Slow Burn")
+            }
+        }
+
+        test("a current item with no proposed counterpart still appears and is selected (preserved on apply)") {
+            runTest {
+                val book =
+                    makeBook(asin = "B001", title = "Dune").copy(
+                        genres = emptyList(),
+                        moods = emptyList(),
+                        tags = emptyList(),
+                    )
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo, currentMoods = listOf("Cozy"))
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready =
+                    vm.state.value
+                        .shouldBeInstanceOf<MetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<PreviewLoadState.Ready>()
+
+                ready.moodCandidates shouldBe listOf("Cozy")
+                ready.selections.selectedMoods shouldBe setOf("Cozy")
             }
         }
 
