@@ -557,6 +557,7 @@ private fun ImmersiveBookDetail(
                     description = state.description,
                     genres = state.genresList,
                     tags = state.tags,
+                    moods = state.moods,
                     isLoadingTags = state.isLoadingTags,
                     isCard = false,
                     isDescriptionExpanded = isDescriptionExpanded,

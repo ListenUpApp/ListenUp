@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.design.components.GenreChipRow
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersContent
@@ -99,6 +100,13 @@ private val mockTags =
         Tag(id = "t2", name = "Slow Burn", slug = "slow-burn"),
         Tag(id = "t3", name = "Magic System", slug = "magic-system"),
         Tag(id = "t4", name = "Morally Grey", slug = "morally-grey"),
+    )
+
+private val mockMoods =
+    listOf(
+        Mood(id = "m1", name = "Epic", slug = "epic"),
+        Mood(id = "m2", name = "Tense", slug = "tense"),
+        Mood(id = "m3", name = "Hopeful", slug = "hopeful"),
     )
 
 private const val MOCK_DESCRIPTION =
@@ -276,6 +284,7 @@ private fun GenresVsTagsSection() {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         )
         TagsSection(tags = mockTags, isLoading = false, onTagClick = {}, showHeader = false)
+        MoodSection(moods = mockMoods, showHeader = false)
     }
 }
 
@@ -286,6 +295,7 @@ private fun AboutSectionGallery() {
         description = MOCK_DESCRIPTION,
         genres = mockGenres,
         tags = mockTags,
+        moods = mockMoods,
         isLoadingTags = false,
         isCard = false,
         isDescriptionExpanded = false,
@@ -300,6 +310,7 @@ private fun AboutSectionGallery() {
         description = MOCK_DESCRIPTION,
         genres = mockGenres,
         tags = mockTags,
+        moods = mockMoods,
         isLoadingTags = false,
         isCard = true,
         isDescriptionExpanded = false,

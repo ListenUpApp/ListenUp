@@ -2091,6 +2091,16 @@
         }
       }
     },
+    "book.detail_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mood"
+          }
+        }
+      }
+    },
     "book.detail_more_options": {
       "localizations": {
         "en": {

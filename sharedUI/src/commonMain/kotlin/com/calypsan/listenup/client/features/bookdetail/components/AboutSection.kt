@@ -23,12 +23,15 @@ import com.calypsan.listenup.client.design.components.MarkdownText
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.features.bookdetail.MoodSection
 import com.calypsan.listenup.client.features.bookdetail.TagsSection
 import com.calypsan.listenup.client.util.toPlainTextPreview
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_about_this_book
 import listenup.composeapp.generated.resources.book_detail_credits
+import listenup.composeapp.generated.resources.book_detail_mood
 import listenup.composeapp.generated.resources.book_detail_read_less
 import listenup.composeapp.generated.resources.book_detail_read_more
 import listenup.composeapp.generated.resources.book_detail_tags
@@ -51,10 +54,12 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 200
  * 3. [creditsSlot] (if provided), prefixed with a "Credits" overline
  * 4. "Genres" overline + [GenreChipRow] (only when [genres] is non-empty)
  * 5. "Tags" overline + [TagsSection] with header suppressed (only when [tags] is non-empty or loading)
+ * 6. "Mood" overline + [MoodSection] with header suppressed (only when [moods] is non-empty)
  *
  * @param description   Markdown-formatted book description.
  * @param genres        Genre names to display as outlined chips.
- * @param tags          Tags to display as filled chips.
+ * @param tags          Tags to display as filled `secondaryContainer` chips.
+ * @param moods         Moods to display as filled `tertiaryContainer` chips (the affective axis).
  * @param isLoadingTags True while tags are being fetched; [TagsSection] shows a loading state.
  * @param isCard        When true, wraps content in a [surfaceContainerLow] card; otherwise
  *                      renders frameless.
@@ -71,6 +76,7 @@ fun AboutSection(
     description: String,
     genres: List<String>,
     tags: List<Tag>,
+    moods: List<Mood>,
     isLoadingTags: Boolean,
     isCard: Boolean,
     isDescriptionExpanded: Boolean,
@@ -111,6 +117,7 @@ fun AboutSection(
                 genres = genres,
                 onGenreClick = onGenreClick,
                 tags = tags,
+                moods = moods,
                 isLoadingTags = isLoadingTags,
                 onTagClick = onTagClick,
             )
@@ -185,6 +192,7 @@ private fun AboutClassificationBlocks(
     genres: List<String>,
     onGenreClick: ((String) -> Unit)?,
     tags: List<Tag>,
+    moods: List<Mood>,
     isLoadingTags: Boolean,
     onTagClick: (Tag) -> Unit,
 ) {
@@ -214,6 +222,16 @@ private fun AboutClassificationBlocks(
             tags = tags,
             isLoading = isLoadingTags,
             onTagClick = onTagClick,
+            showHeader = false,
+        )
+    }
+
+    if (moods.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(Spacing.sectionGap))
+        SectionOverline(text = stringResource(Res.string.book_detail_mood))
+        Spacer(modifier = Modifier.height(Spacing.titleGap))
+        MoodSection(
+            moods = moods,
             showHeader = false,
         )
     }
