@@ -221,7 +221,10 @@ struct MetadataMatchMappingTests {
             isApplying: false,
             applyError: nil,
             previewNotFound: false,
-            chapterSuggestion: ChapterSuggestionUnavailable.shared
+            chapterSuggestion: ChapterSuggestionUnavailable.shared,
+            genreCandidates: book.genres,
+            moodCandidates: book.moods,
+            tagCandidates: book.tags
         )
     }
 }
