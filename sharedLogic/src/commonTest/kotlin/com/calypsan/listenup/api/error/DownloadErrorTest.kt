@@ -30,18 +30,4 @@ class DownloadErrorTest :
             err.bookTitle shouldBe "Foundation"
             err.message.isNotBlank() shouldBe true
         }
-
-        test("TranscodeTimeout has stable code and is auto-retryable") {
-            val err: AppError = DownloadError.TranscodeTimeout(transcodeJobId = "job-123")
-            err.message.isNotBlank() shouldBe true
-            err.code shouldBe "DOWNLOAD_TRANSCODE_TIMEOUT"
-            err.isRetryable shouldBe true
-        }
-
-        test("TranscodeTimeout carries the transcodeJobId and bookTitle payload") {
-            val err = DownloadError.TranscodeTimeout(transcodeJobId = "job-456", bookTitle = "Hyperion")
-            err.transcodeJobId shouldBe "job-456"
-            err.bookTitle shouldBe "Hyperion"
-            err.message.isNotBlank() shouldBe true
-        }
     })

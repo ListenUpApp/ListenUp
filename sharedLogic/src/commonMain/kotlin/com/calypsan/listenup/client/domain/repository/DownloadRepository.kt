@@ -60,11 +60,7 @@ interface DownloadRepository {
 
     suspend fun markPaused(audioFileId: String): AppResult<Unit>
 
-    /**
-     * Mark the file as cancelled by user action. Distinct from [markPaused] (system-pause)
-     * so the SSE handler can recognize and silently drop late `transcode.complete` events for
-     * cancelled jobs.
-     */
+    /** Mark the file as cancelled by user action. Distinct from [markPaused] (system-pause). */
     suspend fun markCancelled(audioFileId: String): AppResult<Unit>
 
     suspend fun markFailed(
