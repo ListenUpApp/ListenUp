@@ -8,6 +8,17 @@ import java.nio.file.Files
 class DatabaseFactoryTest :
     FunSpec({
 
+        test("pool fails fast on exhaustion and detects connection leaks, not Hikari's 30s default") {
+            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
+            val pool = DatabaseFactory.buildPool(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+            try {
+                pool.connectionTimeout shouldBe 10_000L
+                pool.leakDetectionThreshold shouldBe 20_000L
+            } finally {
+                pool.close()
+            }
+        }
+
         test("init runs Flyway migrations and yields a usable Exposed Database") {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val cfg = DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}", username = "", password = "")

@@ -55,6 +55,13 @@ fun Application.installAppErrorStatusPages() {
         exception<Throwable> { call, ex ->
             // Cancellation must always re-raise — never swallow it.
             if (ex is CancellationException) throw ex
+            // A client closing the connection mid-stream (audio seek/skip/pause/background) is
+            // normal, not a server fault: log at DEBUG and don't dress it up as a 500 on an
+            // already-committed response.
+            if (isClientDisconnect(ex)) {
+                logger.debug("client disconnected mid-response on {} — {}", call.request.uri, ex.toString())
+                return@exception
+            }
             val correlationId = call.callId
             logger.error("unhandled exception on {} correlationId={}", call.request.uri, correlationId, ex)
             val body: AppError = InternalError(correlationId)

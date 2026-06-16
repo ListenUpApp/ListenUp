@@ -22,6 +22,9 @@ import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import io.ktor.util.cio.ChannelWriteException
+import io.ktor.utils.io.ClosedByteChannelException
+import java.io.IOException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 import io.ktor.serialization.kotlinx.json.json as serverJson
 
@@ -168,6 +171,36 @@ class AppErrorStatusPagesTest :
         test("ProfileError.InvalidImage maps to 422 UnprocessableEntity") {
             val err: AppError = ProfileError.InvalidImage()
             err.toHttpStatus() shouldBe HttpStatusCode.UnprocessableEntity
+        }
+
+        test("isClientDisconnect is true for a ClosedByteChannelException") {
+            isClientDisconnect(ClosedByteChannelException(IOException("Broken pipe"))) shouldBe true
+        }
+
+        test("isClientDisconnect is true for an IOException broken pipe") {
+            isClientDisconnect(IOException("Broken pipe")) shouldBe true
+        }
+
+        test("isClientDisconnect matches a ChannelWriteException structurally, message aside") {
+            // Its own message ("Cannot write to channel") carries no disconnect marker — the
+            // structural ChannelIOException check is what catches it.
+            isClientDisconnect(ChannelWriteException("Cannot write to channel", IOException("upstream"))) shouldBe true
+        }
+
+        test("isClientDisconnect is true for an IOException connection reset by peer") {
+            isClientDisconnect(IOException("Connection reset by peer")) shouldBe true
+        }
+
+        test("isClientDisconnect walks the cause chain") {
+            isClientDisconnect(RuntimeException("wrapper", IOException("Broken pipe"))) shouldBe true
+        }
+
+        test("isClientDisconnect is false for a genuine bug") {
+            isClientDisconnect(IllegalStateException("simulated bug")) shouldBe false
+        }
+
+        test("isClientDisconnect is false for a disk IO error (not a socket abort)") {
+            isClientDisconnect(IOException("Input/output error")) shouldBe false
         }
 
         test("unknown paths return structured JSON 404") {
