@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,12 +8,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.ContentShapes
@@ -56,26 +54,27 @@ fun ContinueListeningRow(
 
         Spacer(modifier = Modifier.height(Spacing.titleGap))
 
-        LazyRow(
+        BrowseCarousel(
+            items = items,
+            itemWidth = ContinueCardWidth,
+            itemSpacing = Spacing.itemGap,
             contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
-        ) {
-            items(items, key = { it.bookId }) { item ->
-                when (item) {
-                    is ContinueListeningItem.Ready -> {
-                        BookCard(
-                            cover = item.book.toCoverModel(),
-                            onClick = { onBookClick(item.bookId) },
-                            progress = item.book.progress,
-                            timeRemaining = item.book.timeRemainingFormatted,
-                            isPlaying = item.book.bookId == playingBookId,
-                            cardWidth = ContinueCardWidth,
-                        )
-                    }
+            key = { it.bookId },
+        ) { item ->
+            when (item) {
+                is ContinueListeningItem.Ready -> {
+                    BookCard(
+                        cover = item.book.toCoverModel(),
+                        onClick = { onBookClick(item.bookId) },
+                        progress = item.book.progress,
+                        timeRemaining = item.book.timeRemainingFormatted,
+                        isPlaying = item.book.bookId == playingBookId,
+                        cardWidth = ContinueCardWidth,
+                    )
+                }
 
-                    is ContinueListeningItem.Loading -> {
-                        ContinueListeningSkeletonCard()
-                    }
+                is ContinueListeningItem.Loading -> {
+                    ContinueListeningSkeletonCard()
                 }
             }
         }

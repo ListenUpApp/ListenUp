@@ -6,13 +6,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -70,21 +69,21 @@ fun MyShelvesRow(
                 }
             }
         } else {
-            // LazyRow (not a clipping carousel) so the cards' rounded corners aren't cropped, and the
-            // gutter matches the title (screenMargin).
-            LazyRow(
+            // Snap carousel; the gutter matches the title (screenMargin).
+            BrowseCarousel(
+                items = shelves,
+                itemWidth = 180.dp,
+                itemSpacing = Spacing.itemGap,
                 contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
-            ) {
-                items(shelves, key = { it.id }) { shelf ->
-                    val (container, content) = shelfColors(shelves.indexOf(shelf))
-                    ShelfCard(
-                        shelf = shelf,
-                        containerColor = container,
-                        contentColor = content,
-                        onClick = { onShelfClick(shelf.id) },
-                    )
-                }
+                key = { it.id },
+            ) { shelf ->
+                val (container, content) = shelfColors(shelves.indexOf(shelf))
+                ShelfCard(
+                    shelf = shelf,
+                    containerColor = container,
+                    contentColor = content,
+                    onClick = { onShelfClick(shelf.id) },
+                )
             }
         }
     }
