@@ -171,13 +171,6 @@ struct SettingsView: View {
                 )
             }
 
-            Toggle(isOn: boolBinding(observer.spatialPlayback, observer.setSpatialPlayback)) {
-                SettingsLabel(
-                    title: String(localized: "settings.spatial_audio"),
-                    systemImage: "headphones",
-                    tint: .luTint
-                )
-            }
         }
     }
 

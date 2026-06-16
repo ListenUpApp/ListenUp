@@ -29,7 +29,6 @@ final class SettingsObserver {
     private(set) var wifiOnlyDownloads: Bool = true
     private(set) var autoRemoveFinished: Bool = false
     private(set) var hapticFeedbackEnabled: Bool = true
-    private(set) var spatialPlayback: Bool = true
     private(set) var ignoreTitleArticles: Bool = true
     private(set) var hideSingleBookSeries: Bool = true
 
@@ -67,7 +66,6 @@ final class SettingsObserver {
         wifiOnlyDownloads = state.wifiOnlyDownloads
         autoRemoveFinished = state.autoRemoveFinished
         hapticFeedbackEnabled = state.hapticFeedbackEnabled
-        spatialPlayback = state.spatialPlayback
         ignoreTitleArticles = state.ignoreTitleArticles
         hideSingleBookSeries = state.hideSingleBookSeries
         serverUrl = state.serverUrl
@@ -82,7 +80,6 @@ final class SettingsObserver {
     func setDefaultSkipForwardSec(_ seconds: Int) { viewModel.setDefaultSkipForwardSec(seconds: Int32(seconds)) }
     func setDefaultSkipBackwardSec(_ seconds: Int) { viewModel.setDefaultSkipBackwardSec(seconds: Int32(seconds)) }
     func setAutoRewindEnabled(_ enabled: Bool) { viewModel.setAutoRewindEnabled(enabled: enabled) }
-    func setSpatialPlayback(_ enabled: Bool) { viewModel.setSpatialPlayback(enabled: enabled) }
 
     func setDefaultSleepTimerMin(_ minutes: Int?) {
         viewModel.setDefaultSleepTimerMin(minutes: minutes.map { KotlinInt(int: Int32($0)) })

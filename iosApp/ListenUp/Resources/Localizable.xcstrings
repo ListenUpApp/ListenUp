@@ -10811,16 +10811,6 @@
         }
       }
     },
-    "settings.51_surround_sound_for_immersive": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "5.1 surround sound for immersive listening"
-          }
-        }
-      }
-    },
     "settings.app_version": {
       "localizations": {
         "en": {
@@ -11277,16 +11267,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort ignoring leading articles (A, An, The)"
-          }
-        }
-      }
-    },
-    "settings.spatial_audio": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Spatial audio"
           }
         }
       }
