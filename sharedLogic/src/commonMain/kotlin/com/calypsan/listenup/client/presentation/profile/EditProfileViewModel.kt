@@ -187,8 +187,7 @@ class EditProfileViewModel(
 
     fun setLastName(value: String) = formFlow.update { it.copy(lastName = value) }
 
-    fun setTagline(value: String) =
-        formFlow.update { it.copy(tagline = value.take(MAX_TAGLINE_LENGTH)) }
+    fun setTagline(value: String) = formFlow.update { it.copy(tagline = value.take(MAX_TAGLINE_LENGTH)) }
 
     fun setCurrentPassword(value: String) = formFlow.update { it.copy(currentPassword = value) }
 
@@ -249,6 +248,7 @@ class EditProfileViewModel(
                                 profileEditRepository.uploadAvatar(avatarChange.bytes, avatarChange.contentType)
                         ) {
                             is AppResult.Success -> { /* continue */ }
+
                             is AppResult.Failure -> {
                                 logger.error { "Avatar upload failed: ${result.error}" }
                                 eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to upload avatar."))
@@ -256,9 +256,11 @@ class EditProfileViewModel(
                             }
                         }
                     }
+
                     is AvatarChange.RevertToAuto -> {
                         when (val result = profileEditRepository.revertToAutoAvatar()) {
                             is AppResult.Success -> { /* continue */ }
+
                             is AppResult.Failure -> {
                                 logger.error { "Avatar revert failed: ${result.error}" }
                                 eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to revert avatar."))
@@ -266,6 +268,7 @@ class EditProfileViewModel(
                             }
                         }
                     }
+
                     AvatarChange.None -> { /* nothing to do */ }
                 }
 
@@ -297,6 +300,7 @@ class EditProfileViewModel(
                             )
                     ) {
                         is AppResult.Success -> { /* fall through */ }
+
                         is AppResult.Failure -> {
                             logger.error { "Profile update failed: ${result.error}" }
                             eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to save profile."))

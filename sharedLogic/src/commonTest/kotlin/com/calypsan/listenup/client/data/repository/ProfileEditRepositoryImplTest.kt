@@ -217,15 +217,15 @@ class ProfileEditRepositoryImplTest :
 
         // ── Avatar upload (REST multipart, not RPC) ──────────────────────────────────────
 
-        /**
+        /*
          * Regression guard for #592: the server returns 204 No Content on a successful avatar
-         * upload. The original [avatarUploaderOf] called `.body<ApiResponse<Unit>>()` on the
+         * upload. The original avatarUploaderOf called `.body<ApiResponse<Unit>>()` on the
          * response, which tried to deserialize an empty body as JSON and threw, causing the
          * upload to report failure even though the server had accepted the image.
          *
-         * This test drives [avatarUploaderOf] against a mock engine that returns 204 with an
-         * empty body. The fix is to check [io.ktor.http.HttpResponse.status.isSuccess()] instead
-         * of deserializing the body.
+         * This test drives avatarUploaderOf against a mock engine that returns 204 with an
+         * empty body. The fix is to check HttpResponse.status.isSuccess() instead of
+         * deserializing the body.
          */
         test("avatarUploaderOf returns Success when server responds 204 No Content") {
             runTest {

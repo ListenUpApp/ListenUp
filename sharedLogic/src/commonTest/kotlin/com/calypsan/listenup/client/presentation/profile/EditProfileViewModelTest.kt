@@ -165,7 +165,9 @@ class EditProfileViewModelTest :
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe false
+                viewModel.state.value
+                    .shouldBeInstanceOf<EditProfileUiState.Ready>()
+                    .isDirty shouldBe false
             }
         }
 
@@ -180,7 +182,9 @@ class EditProfileViewModelTest :
                 viewModel.setTagline("updated tagline")
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe true
+                viewModel.state.value
+                    .shouldBeInstanceOf<EditProfileUiState.Ready>()
+                    .isDirty shouldBe true
             }
         }
 
@@ -195,7 +199,9 @@ class EditProfileViewModelTest :
                 viewModel.setNewPassword("somepass1")
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe true
+                viewModel.state.value
+                    .shouldBeInstanceOf<EditProfileUiState.Ready>()
+                    .isDirty shouldBe true
             }
         }
 
@@ -210,7 +216,9 @@ class EditProfileViewModelTest :
                 viewModel.stageAvatarUpload(byteArrayOf(1, 2, 3), "image/jpeg")
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isDirty shouldBe true
+                viewModel.state.value
+                    .shouldBeInstanceOf<EditProfileUiState.Ready>()
+                    .isDirty shouldBe true
             }
         }
 
@@ -455,7 +463,9 @@ class EditProfileViewModelTest :
                 viewModel.save()
                 advanceUntilIdle()
 
-                viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>().isSaving shouldBe false
+                viewModel.state.value
+                    .shouldBeInstanceOf<EditProfileUiState.Ready>()
+                    .isSaving shouldBe false
             }
         }
     })
