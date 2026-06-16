@@ -186,9 +186,20 @@ class PlaybackPositionRepository(
             } else if (result is AppResult.Success && !finished) {
                 activeSessionRepo?.startOrRefresh(userId, bookId)
                 if (existing == null) {
-                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId, occurredAt = lastPlayedAt)
+                    activityRecorder?.record(
+                        userId,
+                        ActivityType.STARTED_BOOK,
+                        bookId = bookId,
+                        occurredAt = lastPlayedAt,
+                    )
                 } else if (priorFinished) {
-                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId, isReread = true, occurredAt = lastPlayedAt)
+                    activityRecorder?.record(
+                        userId,
+                        ActivityType.STARTED_BOOK,
+                        bookId = bookId,
+                        isReread = true,
+                        occurredAt = lastPlayedAt,
+                    )
                 }
             }
             result

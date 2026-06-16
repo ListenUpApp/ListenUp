@@ -13,6 +13,8 @@ val MIGRATION_30_31: Migration =
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("DROP INDEX IF EXISTS `index_activities_createdAt`")
             connection.execSQL("ALTER TABLE `activities` RENAME COLUMN `createdAt` TO `occurredAt`")
-            connection.execSQL("CREATE INDEX IF NOT EXISTS `index_activities_occurredAt` ON `activities` (`occurredAt`)")
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_activities_occurredAt` ON `activities` (`occurredAt`)",
+            )
         }
     }

@@ -30,7 +30,18 @@ class ActivityRecorder(
         occurredAt: Long? = null,
     ) {
         runCatchingCancellable {
-            repo.record(userId, type, bookId, isReread, durationMs, milestoneValue, milestoneUnit, shelfId, shelfName, occurredAt)
+            repo.record(
+                userId,
+                type,
+                bookId,
+                isReread,
+                durationMs,
+                milestoneValue,
+                milestoneUnit,
+                shelfId,
+                shelfName,
+                occurredAt,
+            )
             bus.broadcastControl(SyncControl.ActivityChanged)
         }.onFailure { log.warn(it) { "failed to record activity type=$type user=$userId" } }
     }

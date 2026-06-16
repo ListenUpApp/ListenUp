@@ -57,7 +57,7 @@ class Migration30To31Test :
                         stmt.step().shouldBeTrue()
                         stmt.getText(0) shouldBe "act-1"
                         stmt.getText(1) shouldBe "finished_book"
-                        stmt.getLong(2) shouldBe 1704067200000L
+                        stmt.getLong(2) shouldBe 1_704_067_200_000L
                     }
             } finally {
                 helper.close()
@@ -93,7 +93,7 @@ class Migration30To31Test :
                     .use { stmt ->
                         stmt.step().shouldBeTrue()
                         stmt.getText(0) shouldBe "started_book"
-                        stmt.getLong(1) shouldBe 1704100000000L
+                        stmt.getLong(1) shouldBe 1_704_100_000_000L
                     }
             } finally {
                 helper.close()
