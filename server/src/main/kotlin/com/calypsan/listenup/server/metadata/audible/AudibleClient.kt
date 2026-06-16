@@ -366,7 +366,7 @@ private fun extractH1Text(
 ): String? {
     val pattern = Regex("""<h1[^>]*class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</h1>""", RegexOption.DOT_MATCHES_ALL)
     val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
-    return stripHtml(raw).takeIf { it.isNotBlank() }
+    return stripHtmlEntities(raw).takeIf { it.isNotBlank() }
 }
 
 /** Extracts the trimmed text content of the first element with [cssClass] as a class. */
@@ -376,7 +376,7 @@ private fun extractElementText(
 ): String? {
     val pattern = Regex("""class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</""", RegexOption.DOT_MATCHES_ALL)
     val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
-    return stripHtml(raw).trim().takeIf { it.isNotBlank() }
+    return stripHtmlEntities(raw).trim().takeIf { it.isNotBlank() }
 }
 
 /** Extracts the `content` attribute of `<meta property="og:image" ...>`. */
@@ -395,18 +395,6 @@ private fun extractImgSrc(
     return pattern.find(html)?.groupValues?.get(1)
         ?: Regex("""<img[^>]*src="([^"]+)"[^>]*class="[^"]*\b$cssClass\b[^"]*"""").find(html)?.groupValues?.get(1)
 }
-
-/** Removes HTML tags and decodes common HTML entities. */
-private fun stripHtml(html: String): String =
-    html
-        .replace(Regex("<[^>]+>"), "")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&nbsp;", " ")
-        .trim()
 
 // ─── Contributor search HTML scraping ────────────────────────────────────────
 
@@ -445,7 +433,7 @@ internal fun parseContributorSearch(html: String): List<AudibleContributorProfil
         val asin = match.groupValues[1]
         if (!seen.add(asin)) return@forEach // an author repeats across product listings — dedupe
 
-        val name = stripHtml(match.groupValues[2]).trim().takeIf { it.isNotBlank() } ?: return@forEach
+        val name = stripHtmlEntities(match.groupValues[2]).trim().takeIf { it.isNotBlank() } ?: return@forEach
         results += AudibleContributorProfile(asin = asin, name = name, biography = "", imageUrl = "")
     }
 

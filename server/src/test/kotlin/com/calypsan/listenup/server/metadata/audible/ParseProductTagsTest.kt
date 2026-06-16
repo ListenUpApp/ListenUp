@@ -33,6 +33,12 @@ class ParseProductTagsTest :
             parseProductTags(html) shouldBe listOf(ProductTag(type = "mood", name = "Scary"))
         }
 
+        test("decodes &lt; and &gt; entities in tag labels (shared strip helper)") {
+            val html =
+                """<a href="/tag/theme/AB-Audiobooks/adbl_rec_tag_020?ref=x">A &lt;B&gt; C</a>"""
+            parseProductTags(html) shouldBe listOf(ProductTag(type = "theme", name = "A <B> C"))
+        }
+
         test("returns empty when the page has no topic-tag anchors") {
             parseProductTags("<html><body><p>nothing here</p></body></html>") shouldBe emptyList()
         }

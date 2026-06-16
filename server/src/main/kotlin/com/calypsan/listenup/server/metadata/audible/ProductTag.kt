@@ -46,7 +46,7 @@ internal fun parseProductTags(html: String): List<ProductTag> {
 
     anchorPattern.findAll(html).forEach { match ->
         val type = match.groupValues[1].trim().takeIf { it.isNotBlank() } ?: return@forEach
-        val name = decodeTagText(match.groupValues[2]).takeIf { it.isNotBlank() } ?: return@forEach
+        val name = stripHtmlEntities(match.groupValues[2]).takeIf { it.isNotBlank() } ?: return@forEach
         if (seen.add(type to name)) {
             results += ProductTag(type = type, name = name)
         }
@@ -54,13 +54,3 @@ internal fun parseProductTags(html: String): List<ProductTag> {
 
     return results
 }
-
-/** Strips any inner markup and decodes the common HTML entities Audible emits in tag labels. */
-private fun decodeTagText(raw: String): String =
-    raw
-        .replace(Regex("<[^>]+>"), "")
-        .replace("&amp;", "&")
-        .replace("&#39;", "'")
-        .replace("&quot;", "\"")
-        .replace("&nbsp;", " ")
-        .trim()
