@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -83,7 +82,6 @@ class LibraryLessOnboardingE2ETest :
                     // 3. Wizard fetches THE library to confirm it exists (singleton model).
                     val libraryResponse = client.get("/api/v1/libraries") { bearerAuth(adminToken) }
                     libraryResponse.status shouldBe HttpStatusCode.OK
-                    val library = libraryResponse.body<Library>()
 
                     // 4. Wizard adds a folder to THE library pointing at the temp dir.
                     val addFolderResponse =
@@ -124,7 +122,9 @@ private const val POLL_INTERVAL_MS = 100L
 
 /** Request body for `POST /api/v1/libraries/folders`. */
 @Serializable
-private data class AddFolderBody(val path: String)
+private data class AddFolderBody(
+    val path: String,
+)
 
 private suspend fun HttpClient.mintRootToken(): String =
     post("/api/v1/auth/setup") {

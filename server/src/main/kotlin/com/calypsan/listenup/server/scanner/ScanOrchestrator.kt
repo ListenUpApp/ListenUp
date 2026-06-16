@@ -149,9 +149,10 @@ internal class ScanOrchestrator(
         mutex.withLock {
             val current = bundle
             if (current != null) {
-                val updatedLibrary = current.library.copy(
-                    folders = current.library.folders.filterNot { it.id == folderId },
-                )
+                val updatedLibrary =
+                    current.library.copy(
+                        folders = current.library.folders.filterNot { it.id == folderId },
+                    )
                 bundle = scannerFactory(updatedLibrary)
             }
         }

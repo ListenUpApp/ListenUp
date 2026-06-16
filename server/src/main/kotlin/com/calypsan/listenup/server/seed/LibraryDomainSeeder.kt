@@ -52,7 +52,9 @@ internal class LibraryDomainSeeder(
     override suspend fun seed() {
         when (val result = libraryAdminService.addFolder(demoLibraryPath)) {
             is AppResult.Success -> {
-                logger.info { "seed [$domainName]: Demo folder registered id=${result.data.id.value} path=$demoLibraryPath" }
+                logger.info {
+                    "seed [$domainName]: Demo folder registered id=${result.data.id.value} path=$demoLibraryPath"
+                }
             }
 
             is AppResult.Failure -> {

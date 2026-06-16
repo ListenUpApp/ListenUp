@@ -96,7 +96,10 @@ class LibraryAdminServiceImplTest :
                     // Count + identity preserved, absolute path redacted.
                     memberView.folders shouldHaveSize 1
                     memberView.folders.first().id shouldBe adminView.folders.first().id
-                    memberView.folders.first().rootPath.shouldBeNull()
+                    memberView.folders
+                        .first()
+                        .rootPath
+                        .shouldBeNull()
                 }
             }
         }

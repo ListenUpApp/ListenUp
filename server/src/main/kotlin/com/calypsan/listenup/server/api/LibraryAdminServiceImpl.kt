@@ -143,7 +143,12 @@ internal class LibraryAdminServiceImpl(
         if (duplicateCheck != null) return AppResult.Failure((duplicateCheck as AppResult.Failure).error)
 
         val now = clock.now().toEpochMilliseconds()
-        val folderId = FolderId(java.util.UUID.randomUUID().toString())
+        val folderId =
+            FolderId(
+                java.util.UUID
+                    .randomUUID()
+                    .toString(),
+            )
         val folderPayload =
             LibraryFolderSyncPayload(
                 id = folderId.value,
@@ -155,7 +160,10 @@ internal class LibraryAdminServiceImpl(
                 deletedAt = null,
             )
         return when (val result = libraryFolderRepository.upsert(folderPayload)) {
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
+
             is AppResult.Success -> {
                 val folder = LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = now)
                 val folderRef = LibraryFolderRef(id = folderId, rootPath = path)

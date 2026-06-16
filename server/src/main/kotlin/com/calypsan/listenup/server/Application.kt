@@ -768,6 +768,9 @@ internal suspend fun bootstrapLibraries(
                 scanOrchestrator.scanLibraryAsync(lib.data.id)
             }
         }
-        is AppResult.Failure -> logger.warn { "bootstrap: could not resolve the library — ${lib.error.message}" }
+
+        is AppResult.Failure -> {
+            logger.warn { "bootstrap: could not resolve the library — ${lib.error.message}" }
+        }
     }
 }

@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.AccessMode
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
-import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
@@ -145,8 +144,7 @@ private class FakeLibraryAdminService(
             ),
         )
 
-    override suspend fun getSetupStatus(): AppResult<SetupStatus> =
-        AppResult.Success(SetupStatus(needsSetup = true, isScanning = false))
+    override suspend fun getSetupStatus(): AppResult<SetupStatus> = AppResult.Success(SetupStatus(needsSetup = true, isScanning = false))
 
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> = AppResult.Success(emptyList())
 

@@ -34,9 +34,11 @@ class LibraryRegistryTest :
 
                     transaction(db) {
                         // Exactly one non-deleted library row named "Library"
-                        val rows = LibraryTable.selectAll()
-                            .where { LibraryTable.deletedAt.isNull() }
-                            .toList()
+                        val rows =
+                            LibraryTable
+                                .selectAll()
+                                .where { LibraryTable.deletedAt.isNull() }
+                                .toList()
                         rows.size shouldBe 1
                         rows[0][LibraryTable.name] shouldBe "Library"
                         rows[0][LibraryTable.id] shouldBe id.value

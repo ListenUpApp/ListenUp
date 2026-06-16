@@ -215,7 +215,10 @@ class LibrarySetupViewModel(
                         state.update { it.copy(isCreatingLibrary = false, error = result.error.message) }
                         return@launch
                     }
-                    is AppResult.Success -> Unit
+
+                    is AppResult.Success -> {
+                        // folder registered; continue to next path
+                    }
                 }
             }
             state.update { it.copy(isCreatingLibrary = false) }
@@ -236,7 +239,10 @@ class LibrarySetupViewModel(
     private fun triggerInitialScan() {
         appScope.launch {
             when (val result = libraryAdminRpcFactory.get().scanLibrary()) {
-                is AppResult.Success -> logger.info { "Initial scan started" }
+                is AppResult.Success -> {
+                    logger.info { "Initial scan started" }
+                }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Initial scan failed: ${result.error.message}" }
