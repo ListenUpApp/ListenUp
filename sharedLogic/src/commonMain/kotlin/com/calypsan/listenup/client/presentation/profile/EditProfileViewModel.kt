@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -218,96 +217,15 @@ class EditProfileViewModel(
         val form = formFlow.value
         val user = ready.user
 
-        // Validate password fields when any of them is non-empty.
-        val anyPasswordField =
-            form.currentPassword.isNotEmpty() ||
-                form.newPassword.isNotEmpty() ||
-                form.confirmPassword.isNotEmpty()
-
-        if (anyPasswordField) {
-            if (form.newPassword != form.confirmPassword) {
-                eventChannel.trySend(EditProfileEvent.SaveFailed("Passwords do not match."))
-                return
-            }
-            if (form.newPassword.length < PASSWORD_MIN) {
-                eventChannel.trySend(
-                    EditProfileEvent.SaveFailed("Password must be at least $PASSWORD_MIN characters."),
-                )
-                return
-            }
-        }
+        if (anyPasswordField(form) && !passwordFieldsValid(form)) return
 
         viewModelScope.launch {
             savingFlow.value = true
+            // No catch: a cancellation propagates through `finally` (which clears the
+            // saving flag) and is never swallowed.
             try {
-                // 1. Avatar operation (separate REST transport) — must complete before the RPC.
-                when (val avatarChange = form.avatarChange) {
-                    is AvatarChange.Upload -> {
-                        when (
-                            val result =
-                                profileEditRepository.uploadAvatar(avatarChange.bytes, avatarChange.contentType)
-                        ) {
-                            is AppResult.Success -> { /* continue */ }
-
-                            is AppResult.Failure -> {
-                                logger.error { "Avatar upload failed: ${result.error}" }
-                                eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to upload avatar."))
-                                return@launch
-                            }
-                        }
-                    }
-
-                    is AvatarChange.RevertToAuto -> {
-                        when (val result = profileEditRepository.revertToAutoAvatar()) {
-                            is AppResult.Success -> { /* continue */ }
-
-                            is AppResult.Failure -> {
-                                logger.error { "Avatar revert failed: ${result.error}" }
-                                eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to revert avatar."))
-                                return@launch
-                            }
-                        }
-                    }
-
-                    AvatarChange.None -> { /* nothing to do */ }
-                }
-
-                // 2. Profile text-field update — only send changed fields.
-                val changedFirstName = form.firstName.takeIf { it != (user.firstName ?: "") }
-                val changedLastName = form.lastName.takeIf { it != (user.lastName ?: "") }
-                val changedTagline = form.tagline.takeIf { it != (user.tagline ?: "") }
-                val passwordChange =
-                    if (anyPasswordField) {
-                        PasswordChange(
-                            currentPassword = form.currentPassword,
-                            newPassword = form.newPassword,
-                        )
-                    } else {
-                        null
-                    }
-
-                val nameChanged = changedFirstName != null || changedLastName != null
-                val profileChanged = nameChanged || changedTagline != null || passwordChange != null
-
-                if (profileChanged) {
-                    when (
-                        val result =
-                            profileEditRepository.updateProfile(
-                                firstName = if (nameChanged) form.firstName else null,
-                                lastName = if (nameChanged) form.lastName else null,
-                                tagline = changedTagline,
-                                password = passwordChange,
-                            )
-                    ) {
-                        is AppResult.Success -> { /* fall through */ }
-
-                        is AppResult.Failure -> {
-                            logger.error { "Profile update failed: ${result.error}" }
-                            eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to save profile."))
-                            return@launch
-                        }
-                    }
-                }
+                if (!applyAvatarChange(form.avatarChange)) return@launch
+                if (!applyProfileChanges(form, user)) return@launch
 
                 // Success — clear transient fields.
                 formFlow.update {
@@ -320,10 +238,95 @@ class EditProfileViewModel(
                 }
                 logger.info { "Profile save succeeded" }
                 eventChannel.trySend(EditProfileEvent.SaveSucceeded)
-            } catch (e: CancellationException) {
-                throw e
             } finally {
                 savingFlow.value = false
+            }
+        }
+    }
+
+    /** True when the user has started typing into any of the three password fields. */
+    private fun anyPasswordField(form: FormState): Boolean =
+        form.currentPassword.isNotEmpty() ||
+            form.newPassword.isNotEmpty() ||
+            form.confirmPassword.isNotEmpty()
+
+    /** Validate the staged password change; emits [EditProfileEvent.SaveFailed] and returns false on error. */
+    private fun passwordFieldsValid(form: FormState): Boolean {
+        if (form.newPassword != form.confirmPassword) {
+            eventChannel.trySend(EditProfileEvent.SaveFailed("Passwords do not match."))
+            return false
+        }
+        if (form.newPassword.length < PASSWORD_MIN) {
+            eventChannel.trySend(
+                EditProfileEvent.SaveFailed("Password must be at least $PASSWORD_MIN characters."),
+            )
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Apply any staged avatar operation (a separate REST transport that must complete before
+     * the profile RPC). Returns true to continue, or emits [EditProfileEvent.SaveFailed] and
+     * returns false on error.
+     */
+    private suspend fun applyAvatarChange(change: AvatarChange): Boolean {
+        val result =
+            when (change) {
+                is AvatarChange.Upload -> profileEditRepository.uploadAvatar(change.bytes, change.contentType)
+                AvatarChange.RevertToAuto -> profileEditRepository.revertToAutoAvatar()
+                AvatarChange.None -> return true
+            }
+        return when (result) {
+            is AppResult.Success -> {
+                true
+            }
+            is AppResult.Failure -> {
+                logger.error { "Avatar change failed: ${result.error}" }
+                val message = if (change is AvatarChange.Upload) "Failed to upload avatar." else "Failed to revert avatar."
+                eventChannel.trySend(EditProfileEvent.SaveFailed(message))
+                false
+            }
+        }
+    }
+
+    /**
+     * Persist all changed text fields (and password, if staged) in a single
+     * [ProfileEditRepository.updateProfile] call — only the fields that actually changed are
+     * sent. Returns true (including the no-op case) or emits [EditProfileEvent.SaveFailed] and
+     * returns false on error.
+     */
+    private suspend fun applyProfileChanges(
+        form: FormState,
+        user: User,
+    ): Boolean {
+        val changedTagline = form.tagline.takeIf { it != (user.tagline ?: "") }
+        val nameChanged = form.firstName != (user.firstName ?: "") || form.lastName != (user.lastName ?: "")
+        val passwordChange =
+            if (anyPasswordField(form)) {
+                PasswordChange(currentPassword = form.currentPassword, newPassword = form.newPassword)
+            } else {
+                null
+            }
+
+        if (!nameChanged && changedTagline == null && passwordChange == null) return true
+
+        return when (
+            val result =
+                profileEditRepository.updateProfile(
+                    firstName = if (nameChanged) form.firstName else null,
+                    lastName = if (nameChanged) form.lastName else null,
+                    tagline = changedTagline,
+                    password = passwordChange,
+                )
+        ) {
+            is AppResult.Success -> {
+                true
+            }
+            is AppResult.Failure -> {
+                logger.error { "Profile update failed: ${result.error}" }
+                eventChannel.trySend(EditProfileEvent.SaveFailed("Failed to save profile."))
+                false
             }
         }
     }
