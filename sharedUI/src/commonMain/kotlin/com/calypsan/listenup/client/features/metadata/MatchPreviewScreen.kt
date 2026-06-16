@@ -87,8 +87,10 @@ import listenup.composeapp.generated.resources.metadata_field_authors
 import listenup.composeapp.generated.resources.metadata_field_description
 import listenup.composeapp.generated.resources.metadata_field_genres
 import listenup.composeapp.generated.resources.metadata_field_language
+import listenup.composeapp.generated.resources.metadata_field_moods
 import listenup.composeapp.generated.resources.metadata_field_narrators
 import listenup.composeapp.generated.resources.metadata_field_publisher
+import listenup.composeapp.generated.resources.metadata_field_tags
 import listenup.composeapp.generated.resources.metadata_field_subtitle
 import listenup.composeapp.generated.resources.metadata_field_title
 import listenup.composeapp.generated.resources.metadata_metadata_is_up_to_date
@@ -142,22 +144,12 @@ fun MatchPreviewScreen(
     onToggleNarrator: (String) -> Unit,
     onToggleSeries: (String) -> Unit,
     onToggleGenre: (String) -> Unit,
+    onToggleMood: (String) -> Unit,
+    onToggleTag: (String) -> Unit,
     onApply: () -> Unit,
     onBack: () -> Unit,
 ) {
-    // Check if any field is selected
-    val hasAnySelected =
-        selections.cover ||
-            selections.title ||
-            selections.subtitle ||
-            selections.description ||
-            selections.publisher ||
-            selections.releaseDate ||
-            selections.language ||
-            selections.selectedAuthors.isNotEmpty() ||
-            selections.selectedNarrators.isNotEmpty() ||
-            selections.selectedSeries.isNotEmpty() ||
-            selections.selectedGenres.isNotEmpty()
+    val hasAnySelected = selections.hasAnySelected()
 
     Scaffold(
         topBar = {
@@ -212,21 +204,7 @@ fun MatchPreviewScreen(
                     }
                 }
 
-                // Check if there's any metadata available
-                val hasAnyData =
-                    newMetadata.coverUrl != null ||
-                        newMetadata.title.isNotBlank() ||
-                        !newMetadata.subtitle.isNullOrBlank() ||
-                        newMetadata.authors.isNotEmpty() ||
-                        newMetadata.narrators.isNotEmpty() ||
-                        newMetadata.series.isNotEmpty() ||
-                        newMetadata.genres.isNotEmpty() ||
-                        !newMetadata.description.isNullOrBlank() ||
-                        !newMetadata.publisher.isNullOrBlank() ||
-                        !newMetadata.language.isNullOrBlank() ||
-                        !newMetadata.releaseDate.isNullOrBlank()
-
-                if (!hasAnyData) {
+                if (!newMetadata.hasAnyData()) {
                     item {
                         if (previewNotFound) {
                             NoMetadataAvailableMessage(selectedRegion = selectedRegion)
@@ -250,12 +228,46 @@ fun MatchPreviewScreen(
                         onToggleNarrator = onToggleNarrator,
                         onToggleSeries = onToggleSeries,
                         onToggleGenre = onToggleGenre,
+                        onToggleMood = onToggleMood,
+                        onToggleTag = onToggleTag,
                     )
                 }
             }
         }
     }
 }
+
+/** True when at least one metadata field is selected for apply — gates the Apply button. */
+private fun MetadataSelections.hasAnySelected(): Boolean =
+    cover ||
+        title ||
+        subtitle ||
+        description ||
+        publisher ||
+        releaseDate ||
+        language ||
+        selectedAuthors.isNotEmpty() ||
+        selectedNarrators.isNotEmpty() ||
+        selectedSeries.isNotEmpty() ||
+        selectedGenres.isNotEmpty() ||
+        selectedMoods.isNotEmpty() ||
+        selectedTags.isNotEmpty()
+
+/** True when the match carries any displayable metadata — gates the "no metadata" placeholder. */
+private fun MetadataBook.hasAnyData(): Boolean =
+    coverUrl != null ||
+        title.isNotBlank() ||
+        !subtitle.isNullOrBlank() ||
+        authors.isNotEmpty() ||
+        narrators.isNotEmpty() ||
+        series.isNotEmpty() ||
+        genres.isNotEmpty() ||
+        moods.isNotEmpty() ||
+        tags.isNotEmpty() ||
+        !description.isNullOrBlank() ||
+        !publisher.isNullOrBlank() ||
+        !language.isNullOrBlank() ||
+        !releaseDate.isNullOrBlank()
 
 /** UPPERCASE muted overline label, matching the grouped-section heading idiom. */
 @Composable
@@ -428,6 +440,8 @@ private fun LazyListScope.metadataFieldsSection(
     onToggleNarrator: (String) -> Unit,
     onToggleSeries: (String) -> Unit,
     onToggleGenre: (String) -> Unit,
+    onToggleMood: (String) -> Unit,
+    onToggleTag: (String) -> Unit,
 ) {
     // ── IDENTITY ──
     item {
@@ -452,18 +466,38 @@ private fun LazyListScope.metadataFieldsSection(
     }
 
     // ── CLASSIFICATION ──
-    if (newMetadata.genres.isNotEmpty()) {
+    val hasClassification =
+        newMetadata.genres.isNotEmpty() ||
+            newMetadata.moods.isNotEmpty() ||
+            newMetadata.tags.isNotEmpty()
+    if (hasClassification) {
         item {
             FieldGroup(
                 label = stringResource(Res.string.metadata_section_classification),
                 icon = Icons.Outlined.Category,
                 accent = MaterialTheme.colorScheme.tertiary,
             ) {
-                GenreFieldRow(
-                    genres = newMetadata.genres,
-                    selectedGenres = selections.selectedGenres,
-                    onToggle = onToggleGenre,
-                )
+                if (newMetadata.genres.isNotEmpty()) {
+                    GenreFieldRow(
+                        genres = newMetadata.genres,
+                        selectedGenres = selections.selectedGenres,
+                        onToggle = onToggleGenre,
+                    )
+                }
+                if (newMetadata.moods.isNotEmpty()) {
+                    MoodFieldRow(
+                        moods = newMetadata.moods,
+                        selectedMoods = selections.selectedMoods,
+                        onToggle = onToggleMood,
+                    )
+                }
+                if (newMetadata.tags.isNotEmpty()) {
+                    TagFieldRow(
+                        tags = newMetadata.tags,
+                        selectedTags = selections.selectedTags,
+                        onToggle = onToggleTag,
+                    )
+                }
             }
         }
     }
@@ -1162,6 +1196,66 @@ private fun GenreFieldRow(
                     label = genre,
                     selected = genre in selectedGenres,
                     onClick = { onToggle(genre) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MoodFieldRow(
+    moods: List<String>,
+    selectedMoods: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Text(
+            text = stringResource(Res.string.metadata_field_moods),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            moods.forEach { mood ->
+                GenreToggleChip(
+                    label = mood,
+                    selected = mood in selectedMoods,
+                    onClick = { onToggle(mood) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagFieldRow(
+    tags: List<String>,
+    selectedTags: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Text(
+            text = stringResource(Res.string.metadata_field_tags),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tags.forEach { tag ->
+                GenreToggleChip(
+                    label = tag,
+                    selected = tag in selectedTags,
+                    onClick = { onToggle(tag) },
                 )
             }
         }

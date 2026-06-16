@@ -55,13 +55,16 @@ enum MetadataMatchMapping {
         let narrators = contributors(book.narrators, selected: sel.selectedNarrators)
         let seriesItems = series(book.series, selected: sel.selectedSeries)
         let genres = genreSelections(book.genres, selected: sel.selectedGenres)
+        let moods = genreSelections(book.moods, selected: sel.selectedMoods)
+        let tags = genreSelections(book.tags, selected: sel.selectedTags)
         let description = descriptionField(book: book, selections: sel)
 
         let scalarFields = identity + details + (description.map { [$0] } ?? [])
         let counts = selectionCounts(
             scalarFields: scalarFields,
             groups: [authors.map(\.isSelected), narrators.map(\.isSelected),
-                     seriesItems.map(\.isSelected), genres.map(\.isSelected)],
+                     seriesItems.map(\.isSelected), genres.map(\.isSelected),
+                     moods.map(\.isSelected), tags.map(\.isSelected)],
             coverEnabled: sel.cover
         )
 
@@ -78,6 +81,8 @@ enum MetadataMatchMapping {
             narrators: narrators,
             seriesItems: seriesItems,
             genres: genres,
+            moods: moods,
+            tags: tags,
             descriptionField: description,
             coverEnabled: sel.cover,
             coverValueText: String(localized: "metadata.field_cover_value"),

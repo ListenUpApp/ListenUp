@@ -45,6 +45,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -173,6 +174,68 @@ class MetadataLookupServiceImplTest :
                     book.shouldNotBeNull()
                     book.coverUrl shouldBe "https://audible.test/cover.jpg"
                     book.coverUrlMaxSize shouldBe null
+                }
+            }
+        }
+
+        // ── getBookMetadata mood/tag enrichment ───────────────────────────────
+
+        test("getBookMetadata populates moods + tags from the classified product tags") {
+            withInMemoryDatabase {
+                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val productTags =
+                    listOf(
+                        ProductTag(type = "mood", name = "Feel-Good"),
+                        ProductTag(type = "mood", name = "Tense"),
+                        ProductTag(type = "theme", name = "Found Family"),
+                        ProductTag(type = "genre", name = "Fantasy"), // dropped by the classifier
+                    )
+                val service = makeService(audible = audible, db = this, productTagSource = { _, _ -> productTags })
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.moods shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
+                    book.tags shouldContainExactlyInAnyOrder listOf("Found Family")
+                }
+            }
+        }
+
+        test("getBookMetadata excludes a theme whose canonical slug matches one of the book's genres") {
+            withInMemoryDatabase {
+                // The book carries genre "Science Fiction"; a "Sci-Fi" theme canonicalizes to the same slug.
+                val audible = BookStubAudibleApi(bookWithGenres(listOf("Science Fiction")))
+                val productTags =
+                    listOf(
+                        ProductTag(type = "theme", name = "Sci-Fi"), // collides with the book genre → dropped
+                        ProductTag(type = "theme", name = "Survival"), // no collision → survives
+                        ProductTag(type = "mood", name = "Tense"),
+                    )
+                val service = makeService(audible = audible, db = this, productTagSource = { _, _ -> productTags })
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.tags shouldContainExactlyInAnyOrder listOf("Survival")
+                    book.moods shouldContainExactlyInAnyOrder listOf("Tense")
+                }
+            }
+        }
+
+        test("getBookMetadata leaves moods + tags empty when the product-tag scrape throws") {
+            withInMemoryDatabase {
+                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val service =
+                    makeService(audible = audible, db = this, productTagSource = { _, _ -> error("scrape failed") })
+
+                runTest {
+                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
+                    book.shouldNotBeNull()
+                    book.moods shouldHaveSize 0
+                    book.tags shouldHaveSize 0
                 }
             }
         }
@@ -316,6 +379,25 @@ private fun bookWithCover(coverUrl: String): AudibleBook =
         ratingCount = 0,
     )
 
+private fun bookWithGenres(genres: List<String>): AudibleBook =
+    AudibleBook(
+        asin = "B0TESTASIN",
+        title = "The Way of Kings",
+        subtitle = "",
+        authors = emptyList(),
+        narrators = emptyList(),
+        publisher = "",
+        releaseDate = "",
+        runtimeMinutes = 0,
+        description = "",
+        coverUrl = "",
+        series = emptyList(),
+        genres = genres,
+        language = "",
+        rating = 0f,
+        ratingCount = 0,
+    )
+
 private fun bookFixture(bookId: String): BookSyncPayload =
     BookSyncPayload(
         id = bookId,
@@ -367,6 +449,7 @@ private fun makeService(
     audible: AudibleApi,
     db: Database,
     itunes: ITunesApi = NoOpITunesApi(),
+    productTagSource: suspend (AudibleRegion, String) -> List<ProductTag> = { _, _ -> emptyList() },
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
@@ -407,7 +490,7 @@ private fun makeService(
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
-        enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry),
+        enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry, productTagSource = productTagSource),
         permissionPolicy = UserPermissionPolicy(db),
         db = db,
         genreRepository = genreRepo,

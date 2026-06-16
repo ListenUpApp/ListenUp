@@ -158,6 +158,8 @@ struct MetadataMatchMappingTests {
         narrators: [MetadataContributorRef] = [],
         series: [MetadataSeriesRef] = [],
         genres: [String] = [],
+        moods: [String] = [],
+        tags: [String] = [],
         coverUrl: String? = nil
     ) -> MetadataBook {
         MetadataBook(
@@ -173,6 +175,8 @@ struct MetadataMatchMappingTests {
             narrators: narrators,
             series: series,
             genres: genres,
+            moods: moods,
+            tags: tags,
             coverUrl: coverUrl,
             coverUrlMaxSize: nil
         )
@@ -184,7 +188,9 @@ struct MetadataMatchMappingTests {
         authors: Set<String> = [],
         narrators: Set<String> = [],
         series: Set<String> = [],
-        genres: Set<String> = []
+        genres: Set<String> = [],
+        moods: Set<String> = [],
+        tags: Set<String> = []
     ) -> MetadataSelections {
         MetadataSelections(
             cover: cover,
@@ -197,7 +203,9 @@ struct MetadataMatchMappingTests {
             selectedAuthors: authors,
             selectedNarrators: narrators,
             selectedSeries: series,
-            selectedGenres: genres
+            selectedGenres: genres,
+            selectedMoods: moods,
+            selectedTags: tags
         )
     }
 

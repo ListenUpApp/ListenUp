@@ -150,6 +150,8 @@ fun MatchPreviewRoute(
                 onToggleNarrator = metadataViewModel::toggleNarrator,
                 onToggleSeries = metadataViewModel::toggleSeries,
                 onToggleGenre = metadataViewModel::toggleGenre,
+                onToggleMood = metadataViewModel::toggleMood,
+                onToggleTag = metadataViewModel::toggleTag,
                 onApply = metadataViewModel::applyMatch,
                 onBack = onBack,
             )

@@ -920,11 +920,13 @@ One beautiful library.</string>
     <string name="metadata_field_description">Description</string>
     <string name="metadata_field_genres">Genres</string>
     <string name="metadata_field_language">Language</string>
+    <string name="metadata_field_moods">Moods</string>
     <string name="metadata_field_narrators">Narrators</string>
     <string name="metadata_field_publisher">Publisher</string>
     <string name="metadata_field_release_date">Release date</string>
     <string name="metadata_field_series">Series</string>
     <string name="metadata_field_subtitle">Subtitle</string>
+    <string name="metadata_field_tags">Tags</string>
     <string name="metadata_field_title">Title</string>
     <string name="metadata_fields_selected">%1$d of %2$d selected</string>
     <string name="metadata_find_on_audible">Find on Audible</string>

@@ -527,6 +527,8 @@
     "field_authors": "Authors",
     "field_narrators": "Narrators",
     "field_genres": "Genres",
+    "field_moods": "Moods",
+    "field_tags": "Tags",
     "field_description": "Description",
     "field_publisher": "Publisher",
     "field_language": "Language",

@@ -59,6 +59,8 @@ class MetadataViewModelTest :
                 narrators = listOf(MetadataContributorRef(asin = "N1", name = "Narrator One")),
                 series = emptyList(),
                 genres = listOf("Fantasy", "Sci-Fi"),
+                moods = listOf("Dark", "Hopeful"),
+                tags = listOf("Found Family", "Slow Burn"),
                 coverUrl = "https://example.com/cover.jpg",
                 coverUrlMaxSize = "https://example.com/cover-max.jpg",
             )
@@ -387,6 +389,8 @@ class MetadataViewModelTest :
                             narratorAsins = setOf("N1"),
                             seriesAsins = emptySet(),
                             genres = setOf("Fantasy", "Sci-Fi"),
+                            moods = setOf("Dark", "Hopeful"),
+                            tags = setOf("Found Family", "Slow Burn"),
                         ),
                     )
                 }
@@ -427,6 +431,8 @@ class MetadataViewModelTest :
                             seriesAsins = emptySet(),
                             coverUrl = "https://itunes/hd.jpg",
                             genres = setOf("Fantasy", "Sci-Fi"),
+                            moods = setOf("Dark", "Hopeful"),
+                            tags = setOf("Found Family", "Slow Burn"),
                         ),
                     )
                 }
@@ -467,6 +473,51 @@ class MetadataViewModelTest :
                             seriesAsins = emptySet(),
                             coverUrl = null,
                             genres = setOf("Fantasy"),
+                            moods = setOf("Dark", "Hopeful"),
+                            tags = setOf("Found Family", "Slow Burn"),
+                        ),
+                    )
+                }
+            }
+        }
+
+        test("applyMatch forwards selected moods + tags; initializeSelections seeds them from the preview") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.applyBookMetadata(any(), any(), any(), any()) } returns AppResult.Success(Unit)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.toggleMood("Hopeful") // turn one mood off
+                vm.toggleTag("Slow Burn") // turn one tag off
+                vm.applyMatch()
+                advanceUntilIdle()
+
+                verifySuspend {
+                    repo.applyBookMetadata(
+                        BookId("b1"),
+                        "B001",
+                        AudibleRegion.US,
+                        MetadataApplySelection(
+                            title = true,
+                            subtitle = true,
+                            description = true,
+                            publisher = true,
+                            releaseDate = true,
+                            language = true,
+                            cover = true,
+                            authorAsins = setOf("A1"),
+                            narratorAsins = setOf("N1"),
+                            seriesAsins = emptySet(),
+                            coverUrl = null,
+                            genres = setOf("Fantasy", "Sci-Fi"),
+                            moods = setOf("Dark"),
+                            tags = setOf("Found Family"),
                         ),
                     )
                 }

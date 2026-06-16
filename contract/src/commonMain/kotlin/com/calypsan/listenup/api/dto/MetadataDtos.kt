@@ -40,6 +40,10 @@ data class MetadataBook(
     val series: List<MetadataSeriesRef>,
     /** Genre labels as returned by Audible (may be empty). */
     val genres: List<String>,
+    /** Mood labels scraped from Audible's product topic-tags (may be empty). */
+    val moods: List<String> = emptyList(),
+    /** Trope/theme tag labels scraped from Audible's product topic-tags (may be empty). */
+    val tags: List<String> = emptyList(),
     /** Audible cover thumbnail URL (typically 500×500). */
     val coverUrl: String?,
     /** High-resolution cover URL from iTunes (up to 7000×7000), or `null` if unavailable. */
@@ -217,6 +221,10 @@ data class CoverSearchResults(
  * [genres] carries the raw Audible genre labels selected by the user; the server resolves
  * them through the same 3-step cascade used by the scanner (alias → [GenreNormalizer] →
  * pending). An empty set leaves the book's genres untouched.
+ *
+ * [moods] and [tags] carry the raw Audible mood / trope labels selected by the user; the
+ * server writes the selected values additively through the add-only mood/tag junction writers.
+ * An empty set writes nothing for that dimension.
  */
 @Serializable
 @SerialName("MetadataApplySelection")
@@ -235,4 +243,8 @@ data class MetadataApplySelection(
     @SerialName("coverUrl") val coverUrl: String? = null,
     /** Selected raw genre labels from the match; resolved server-side through the genre cascade. Empty = leave genres untouched. */
     @SerialName("genres") val genres: Set<String> = emptySet(),
+    /** Selected raw mood labels from the match; written additively server-side. Empty = write no moods. */
+    @SerialName("moods") val moods: Set<String> = emptySet(),
+    /** Selected raw trope/tag labels from the match; written additively server-side. Empty = write no tags. */
+    @SerialName("tags") val tags: Set<String> = emptySet(),
 )

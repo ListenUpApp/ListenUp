@@ -106,9 +106,11 @@ struct MetadataSelectBody: View {
                 ForEach(preview.seriesItems) { seriesRow($0) }
             }
 
-            if !preview.genres.isEmpty {
+            if !preview.genres.isEmpty || !preview.moods.isEmpty || !preview.tags.isEmpty {
                 section(String(localized: "metadata.section_classification")) {
-                    genresRow
+                    if !preview.genres.isEmpty { genresRow }
+                    if !preview.moods.isEmpty { moodsRow }
+                    if !preview.tags.isEmpty { tagsRow }
                 }
             }
 
@@ -213,6 +215,42 @@ struct MetadataSelectBody: View {
         }
     }
 
+    private var moodsRow: some View {
+        MetadataFieldRow(
+            systemImage: "theatermasks",
+            label: String(localized: "metadata.field_moods"),
+            isOn: preview.moods.contains { $0.isSelected },
+            onToggle: { toggleAllMoods() }
+        ) {
+            FlowLayout(spacing: 8) {
+                ForEach(preview.moods) { mood in
+                    MetadataGenreChip(label: mood.label, isOn: mood.isSelected) {
+                        observer.toggleMood(mood.id)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var tagsRow: some View {
+        MetadataFieldRow(
+            systemImage: "number",
+            label: String(localized: "metadata.field_tags"),
+            isOn: preview.tags.contains { $0.isSelected },
+            onToggle: { toggleAllTags() }
+        ) {
+            FlowLayout(spacing: 8) {
+                ForEach(preview.tags) { tag in
+                    MetadataGenreChip(label: tag.label, isOn: tag.isSelected) {
+                        observer.toggleTag(tag.id)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
     private var chaptersSection: some View {
         section(String(localized: "metadata.section_chapters")) {
             Button(action: onReviewChapters) {
@@ -258,6 +296,20 @@ struct MetadataSelectBody: View {
         let anySelected = preview.genres.contains { $0.isSelected }
         for genre in preview.genres where genre.isSelected == anySelected {
             observer.toggleGenre(genre.id)
+        }
+    }
+
+    private func toggleAllMoods() {
+        let anySelected = preview.moods.contains { $0.isSelected }
+        for mood in preview.moods where mood.isSelected == anySelected {
+            observer.toggleMood(mood.id)
+        }
+    }
+
+    private func toggleAllTags() {
+        let anySelected = preview.tags.contains { $0.isSelected }
+        for tag in preview.tags where tag.isSelected == anySelected {
+            observer.toggleTag(tag.id)
         }
     }
 

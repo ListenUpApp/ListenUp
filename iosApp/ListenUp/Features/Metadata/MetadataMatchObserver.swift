@@ -86,6 +86,8 @@ final class MetadataMatchObserver {
     func toggleNarrator(_ asin: String) { viewModel.toggleNarrator(asin: asin) }
     func toggleSeries(_ asin: String) { viewModel.toggleSeries(asin: asin) }
     func toggleGenre(_ genre: String) { viewModel.toggleGenre(genre: genre) }
+    func toggleMood(_ mood: String) { viewModel.toggleMood(mood: mood) }
+    func toggleTag(_ tag: String) { viewModel.toggleTag(tag: tag) }
     func selectCover(_ url: String?) { viewModel.selectCover(coverUrl: url) }
 
     func applyMatch() { viewModel.applyMatch() }

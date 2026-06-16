@@ -82,6 +82,8 @@ class MetadataLookupContractTest :
                         ),
                     series = listOf(MetadataSeriesRef(asin = "B001S1", title = "Stormlight Archive", sequence = "1")),
                     genres = listOf("Fantasy", "Epic Fantasy"),
+                    moods = listOf("Adventurous", "Epic"),
+                    tags = listOf("Chosen One", "Magic System"),
                     coverUrl = "https://m.media-amazon.com/images/I/example.jpg",
                     coverUrlMaxSize = "https://is1-ssl.mzstatic.com/image/thumb/example/7000x7000bb.jpg",
                 )
@@ -116,8 +118,8 @@ class MetadataLookupContractTest :
                 MetadataSearchResults(
                     hits =
                         listOf(
-                            MetadataBook("B001", "Book A", null, null, null, null, 600, null, emptyList(), emptyList(), emptyList(), emptyList(), null, null),
-                            MetadataBook("B002", "Book B", "Sub B", null, "Pub B", "2020-01-01", 720, "en-US", emptyList(), emptyList(), emptyList(), emptyList(), "http://cover.jpg", null),
+                            MetadataBook("B001", "Book A", null, null, null, null, 600, null, emptyList(), emptyList(), emptyList(), emptyList(), coverUrl = null, coverUrlMaxSize = null),
+                            MetadataBook("B002", "Book B", "Sub B", null, "Pub B", "2020-01-01", 720, "en-US", emptyList(), emptyList(), emptyList(), emptyList(), coverUrl = "http://cover.jpg", coverUrlMaxSize = null),
                         ),
                 )
             roundTrip<MetadataSearchResults>(results) shouldBe results

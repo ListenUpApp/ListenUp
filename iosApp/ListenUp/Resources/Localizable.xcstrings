@@ -9191,6 +9191,16 @@
         }
       }
     },
+    "metadata.field_moods": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moods"
+          }
+        }
+      }
+    },
     "metadata.field_narrators": {
       "localizations": {
         "en": {
@@ -9237,6 +9247,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Subtitle"
+          }
+        }
+      }
+    },
+    "metadata.field_tags": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tags"
           }
         }
       }

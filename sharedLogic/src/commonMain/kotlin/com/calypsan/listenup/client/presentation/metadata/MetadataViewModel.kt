@@ -38,6 +38,8 @@ data class MetadataSelections(
     val selectedNarrators: Set<String> = emptySet(),
     val selectedSeries: Set<String> = emptySet(),
     val selectedGenres: Set<String> = emptySet(),
+    val selectedMoods: Set<String> = emptySet(),
+    val selectedTags: Set<String> = emptySet(),
 )
 
 /** Simple metadata fields that can be toggled as a unit. */
@@ -424,6 +426,10 @@ class MetadataViewModel(
 
     fun toggleGenre(genre: String) = updateReadySelections { it.copy(selectedGenres = it.selectedGenres.toggle(genre)) }
 
+    fun toggleMood(mood: String) = updateReadySelections { it.copy(selectedMoods = it.selectedMoods.toggle(mood)) }
+
+    fun toggleTag(tag: String) = updateReadySelections { it.copy(selectedTags = it.selectedTags.toggle(tag)) }
+
     /** Pick a cover URL (null = use the Audible default from the preview). */
     fun selectCover(coverUrl: String?) {
         updateReady { it.copy(selectedCoverUrl = coverUrl) }
@@ -725,6 +731,8 @@ class MetadataViewModel(
             seriesAsins = selectedSeries,
             coverUrl = coverUrl,
             genres = selectedGenres,
+            moods = selectedMoods,
+            tags = selectedTags,
         )
 
     private fun initializeSelections(preview: MetadataBook): MetadataSelections =
@@ -740,6 +748,8 @@ class MetadataViewModel(
             selectedNarrators = preview.narrators.mapNotNull { it.asin }.toSet(),
             selectedSeries = preview.series.mapNotNull { it.asin }.toSet(),
             selectedGenres = preview.genres.toSet(),
+            selectedMoods = preview.moods.toSet(),
+            selectedTags = preview.tags.toSet(),
         )
 
     /**

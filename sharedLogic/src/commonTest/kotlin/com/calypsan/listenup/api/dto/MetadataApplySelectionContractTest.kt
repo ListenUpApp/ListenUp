@@ -45,6 +45,27 @@ class MetadataApplySelectionContractTest :
             json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection
         }
 
+        test("MetadataApplySelection round-trips with selected moods and tags") {
+            val selection =
+                MetadataApplySelection(
+                    title = true,
+                    subtitle = false,
+                    description = true,
+                    publisher = false,
+                    releaseDate = true,
+                    language = false,
+                    cover = true,
+                    authorAsins = setOf("B01AUTHOR"),
+                    narratorAsins = emptySet(),
+                    seriesAsins = emptySet(),
+                    coverUrl = null,
+                    genres = setOf("Fantasy"),
+                    moods = setOf("Dark", "Tense"),
+                    tags = setOf("Found Family", "Slow Burn"),
+                )
+            json.decodeFromString(MetadataApplySelection.serializer(), json.encodeToString(MetadataApplySelection.serializer(), selection)) shouldBe selection
+        }
+
         test("MetadataApplySelection survives a JSON round-trip") {
             val selection =
                 MetadataApplySelection(
