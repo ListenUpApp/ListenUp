@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession as AuthSessionStore
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import kotlinx.datetime.TimeZone
 
 /**
  * Authenticate the user against the server.
@@ -43,6 +44,7 @@ open class LoginUseCase(
                     email = trimmedEmail,
                     password = password,
                     deviceInfo = deviceInfoProvider.current(),
+                    timezone = TimeZone.currentSystemDefault().id,
                 ),
             ).flatMap { session -> persistSession(session) }
     }
