@@ -14,6 +14,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+/**
+ * Pins [HeroNavRow]'s interactive contract: the back control fires `onBack`, and the trailing
+ * `actions` slot renders.
+ *
+ * The status-bar inset itself (the #595 / #563 guard) is NOT asserted pixel-wise: Robolectric
+ * reports zero system-bar insets, so `windowInsetsPadding(WindowInsets.statusBars)` resolves to
+ * 0.dp here and a positional assertion could not distinguish inset-applied from inset-absent. The
+ * inset is instead guaranteed structurally — it is baked into the component and toggled only by the
+ * explicit `applyStatusBarInset` flag — so every screen that composes `HeroNavRow` is inset-safe by
+ * construction. This test guards that the consolidation kept a working back button + actions slot.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
 class HeroNavRowTest {

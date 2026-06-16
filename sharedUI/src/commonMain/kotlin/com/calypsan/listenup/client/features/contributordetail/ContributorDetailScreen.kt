@@ -334,13 +334,15 @@ private fun WideHeroHeader(
     ) {
         HeroBlob(modifier = Modifier.align(Alignment.TopEnd).offset(x = 60.dp, y = (-60).dp).size(240.dp))
         Column(modifier = Modifier.padding(24.dp)) {
-            // Navigation bar
+            // Navigation bar — the wide hero is an already-inset rounded panel (padding(24.dp) inside
+            // a clipped card), so it must NOT re-apply the status-bar inset or it gains dead space.
             NavigationBar(
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
                 surfaceColor = MaterialTheme.colorScheme.surface,
+                applyStatusBarInset = false,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -723,10 +725,12 @@ private fun NavigationBar(
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
     surfaceColor: Color,
+    applyStatusBarInset: Boolean = true,
 ) {
     HeroNavRow(
         onBack = onBackClick,
         buttonBackground = surfaceColor.copy(alpha = 0.5f),
+        applyStatusBarInset = applyStatusBarInset,
     ) {
         if (!LocalDeviceContext.current.isLeanback) {
             OverflowMenu(

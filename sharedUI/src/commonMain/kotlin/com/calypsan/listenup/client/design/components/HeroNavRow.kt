@@ -41,6 +41,10 @@ private val HERO_NAV_BUTTON_SIZE = 48.dp
  * @param modifier Modifier for the row.
  * @param buttonBackground Frosted circular background behind the back control (typically the
  *   screen surface at ~50% alpha so the glyph reads on the color-block).
+ * @param applyStatusBarInset Whether to inset the row by the status bar. `true` (default) for the
+ *   edge-to-edge color heroes that bleed behind the system bar; set `false` when the row sits inside
+ *   an already-inset panel (e.g. the wide/tablet hero card), where the status-bar inset would add
+ *   dead space at the top of the panel.
  * @param actions Trailing controls (an overflow menu, an edit button, …). Empty by default.
  */
 @Composable
@@ -48,15 +52,17 @@ fun HeroNavRow(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     buttonBackground: Color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+    applyStatusBarInset: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                // The hero Surface bleeds edge-to-edge behind the status bar; inset the
-                // controls so the back/overflow buttons clear the system clock and stay tappable.
-                .windowInsetsPadding(WindowInsets.statusBars)
+                // The hero Surface bleeds edge-to-edge behind the status bar; inset the controls so
+                // the back/overflow buttons clear the system clock and stay tappable. Skipped when the
+                // row already sits inside an inset panel (the wide hero card).
+                .then(if (applyStatusBarInset) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
                 .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
