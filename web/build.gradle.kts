@@ -1,3 +1,6 @@
+import com.calypsan.listenup.gradle.TailwindGenerateTask
+import com.calypsan.listenup.gradle.TailwindResolveCliTask
+
 plugins {
     id("listenup.jvm")
     alias(libs.plugins.kotlinSerialization)
@@ -35,4 +38,38 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// Tailwind: scan :web .kt files for class names and emit one stylesheet at
+// classpath `web/app.css` (served at /assets/app.css). Uses the Tailwind v3 standalone
+// CLI (no npm/Node). Binary resolution: TAILWIND_CLI env -> a pinned linux-x64 binary
+// auto-downloaded into build/tailwind/ -> `tailwindcss` on PATH. Non-linux devs: set TAILWIND_CLI.
+val tailwindVersion = "3.4.17"
+val tailwindGenRoot = layout.buildDirectory.dir("generated-resources/tailwind")
+val tailwindBinFile = layout.buildDirectory.file("tailwind/tailwindcss")
+
+val tailwindResolveCli by tasks.registering(TailwindResolveCliTask::class) {
+    description = "Ensure a Tailwind standalone CLI binary is available."
+    outputBin.set(tailwindBinFile)
+    version.set(tailwindVersion)
+    tailwindCliEnv.set(providers.environmentVariable("TAILWIND_CLI"))
+}
+
+val tailwindGenerate by tasks.registering(TailwindGenerateTask::class) {
+    dependsOn(tailwindResolveCli)
+    group = "web"
+    description = "Generate the Tailwind stylesheet for the web UI."
+    configFilePath.set(layout.projectDirectory.file("tailwind.config.js").asFile.absolutePath)
+    inputCssPath.set(layout.projectDirectory.file("src/main/tailwind/input.css").asFile.absolutePath)
+    outputCss.set(tailwindGenRoot.map { it.file("web/app.css") })
+    downloadedBin.set(tailwindBinFile)
+    tailwindCliEnv.set(providers.environmentVariable("TAILWIND_CLI"))
+}
+
+sourceSets.main {
+    resources.srcDir(tailwindGenRoot)
+}
+
+tasks.named("processResources") {
+    dependsOn(tailwindGenerate)
 }

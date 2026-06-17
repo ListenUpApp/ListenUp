@@ -36,4 +36,15 @@ class WebShellRoutesTest :
                 response.bodyAsText() shouldContain "htmx"
             }
         }
+
+        test("GET /assets/app.css serves generated Tailwind utilities") {
+            testApplication {
+                useIsolatedTestConfig()
+                application { module() }
+
+                val response = client.get("/assets/app.css")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain ".mx-auto"
+            }
+        }
     })

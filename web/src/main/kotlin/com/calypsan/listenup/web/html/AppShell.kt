@@ -29,7 +29,7 @@ fun HTML.appShell(
         script(src = "/assets/htmx.min.js") {}
     }
     body {
-        main {
+        main(classes = "mx-auto") {
             content()
         }
     }
