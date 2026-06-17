@@ -100,6 +100,7 @@ import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
+import com.calypsan.listenup.server.openapi.openApiRoutes
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.syncRoutes
@@ -433,6 +434,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
 
     routing {
         healthRoutes()
+        openApiRoutes()
         instanceRoutes(instanceService)
         sseRoutes()
         authRoutes(authService)
