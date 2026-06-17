@@ -4,15 +4,19 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Ktor-backed HTTP adapter for the Audible catalog API.
@@ -180,9 +184,22 @@ class AudibleClient(
         asin: String,
     ): AppResult<List<ProductTag>> {
         rateLimiter.await(region)
-        return webGet(region, "/pd/$asin") { body ->
-            parseProductTags(body)
-        }.map { it ?: emptyList() }
+        val result =
+            webGet(region, "/pd/$asin", failOnGeoRedirect = true) { body ->
+                parseProductTags(body)
+            }.map { it ?: emptyList() }
+        if (result is AppResult.Failure) {
+            // Distinguish a geo-redirect / fetch failure from a genuine "title has no tags" empty:
+            // Audible IP-redirects the regional storefront when the server isn't located in that
+            // region (see [webGet]), so the /pd page — and its moods/tags — never loads. The caller
+            // flattens this to an empty list (best-effort), so without this log it would be silent.
+            logger.warn {
+                "Product-tag scrape for ASIN $asin in $region failed (${result.error.debugInfo}); " +
+                    "moods/tags will be empty. Audible geo-gates storefronts by IP — pick the Audible " +
+                    "region matching the server's country."
+            }
+        }
+        return result
     }
 
     // ─── Private infrastructure ───────────────────────────────────────────────
@@ -262,6 +279,7 @@ class AudibleClient(
         region: AudibleRegion,
         path: String,
         queryParams: Map<String, String> = emptyMap(),
+        failOnGeoRedirect: Boolean = false,
         decode: (String) -> T?,
     ): AppResult<T?> =
         try {
@@ -279,23 +297,32 @@ class AudibleClient(
                     header("Cookie", region.localeCookie())
                     queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
-            when (response.status) {
-                HttpStatusCode.OK -> {
+            when {
+                failOnGeoRedirect && response.geoRedirectedAwayFrom(region) -> {
+                    AppResult.Failure(
+                        MetadataError.ExternalUnavailable(
+                            debugInfo =
+                                "Audible IP-redirected the $region storefront to " +
+                                    "${response.call.request.url.host} — region unavailable from this server's location",
+                        ),
+                    )
+                }
+
+                response.status == HttpStatusCode.OK -> {
                     AppResult.Success(decode(response.bodyAsText()))
                 }
 
-                HttpStatusCode.NotFound -> {
+                response.status == HttpStatusCode.NotFound -> {
                     AppResult.Success(null)
                 }
 
-                HttpStatusCode.TooManyRequests -> {
+                response.status == HttpStatusCode.TooManyRequests -> {
                     AppResult.Failure(MetadataError.ExternalRateLimited())
                 }
 
                 else -> {
-                    val status = response.status.value
                     AppResult.Failure(
-                        MetadataError.ExternalUnavailable(debugInfo = "HTTP $status"),
+                        MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )
                 }
             }
@@ -304,6 +331,20 @@ class AudibleClient(
         } catch (e: Exception) {
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
+
+    /**
+     * True when Audible redirected this web-host request off [region]'s storefront — i.e. the final
+     * URL is on a different host than [region]'s [webHost], or carries Audible's `ipRedirectFrom`
+     * IP-geo marker. Audible gates each regional storefront by request IP: a server outside the
+     * region is bounced to its own country's store (often the homepage), so the `/pd` product page
+     * never loads. A same-host canonical-slug redirect (e.g. `/pd/{asin}` → `/pd/Title/{asin}`) is
+     * NOT flagged.
+     */
+    private fun HttpResponse.geoRedirectedAwayFrom(region: AudibleRegion): Boolean {
+        val finalUrl = call.request.url
+        return !finalUrl.host.equals(region.webHost, ignoreCase = true) ||
+            finalUrl.parameters.contains("ipRedirectFrom")
+    }
 
     private companion object {
         /** Query parameter key for Audible response groups. */
