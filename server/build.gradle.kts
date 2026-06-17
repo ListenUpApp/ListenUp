@@ -277,11 +277,10 @@ graalvmNative {
         // ("Frame states being merged are incompatible: mismatch in rethrowException flag", #647).
         buildArgs.add("-H:+ReportExceptionStackTraces")
         // Bound the heap so RSS is predictable on RAM-constrained NAS/mini-PC targets (native-image
-        // otherwise sizes max heap to a big fraction of host RAM). 512m leaves headroom for Argon2's
-        // 64MB-per-hash overlapping a library scan — 128m/256m OOM that combo. Measured: ~211MB idle
-        // for the auth-only path, bounded well below the equivalent JVM build (~405/508MB). Tunable
-        // at runtime with -Xmx. (#647)
-        buildArgs.add("-R:MaxHeapSize=512m")
+        // otherwise sizes max heap to a big fraction of host RAM). 256m is safe now that Argon2 uses
+        // OWASP's 19MiB/hash (the old 64MiB forced 512m to avoid OOM when a hash overlapped a scan).
+        // Tunable at runtime with -Xmx. (#647)
+        buildArgs.add("-R:MaxHeapSize=256m")
         // Canonical Kotlin-on-native-image fix for the annotation/deprecation enums that get
         // initialized during image build.
         // Minimal build-time-init: only the specific Kotlin stdlib classes native-image flags
