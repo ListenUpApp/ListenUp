@@ -177,6 +177,7 @@ jobs:
   build-android:
     name: Build (Android)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # Don't build the APK unless Kotlin lint + JVM tests pass.
     needs: [lint, test-jvm]
 
@@ -208,6 +209,7 @@ jobs:
   build-ios:
     name: Build (iOS)
     runs-on: macos-26
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # The expensive build (~16m) — gate it behind lint + JVM tests + iOS tests so we
     # never spend it on code that already failed an earlier stage.
     needs: [lint, test-jvm, test-ios]
