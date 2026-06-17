@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -54,6 +55,7 @@ class AdminRepositoryImpl(
     private val inviteRpc: InviteRpcFactory,
     private val libraryAdminRpc: LibraryAdminRpcFactory,
     private val serverConfig: ServerConfig,
+    private val rpcCacheInvalidator: RpcCacheInvalidator = RpcCacheInvalidator {},
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
     // USER MANAGEMENT
@@ -147,7 +149,14 @@ class AdminRepositoryImpl(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "admin user RPC $op failed at the transport boundary" }
+            // An exception reaching this catch is a transport-level failure (the data layer returns
+            // typed failures rather than raising them). The cached kotlinx.rpc proxy is likely bound
+            // to a dead/cancelled RpcClient after a reconnect to the same server — so drop the caches
+            // now and the next call (or a screen re-entry) rebinds to the live connection instead of
+            // stranding the user until app restart (#619). No auto-retry: this path also wraps
+            // non-idempotent writes, so re-firing the same call could double-apply.
+            logger.warn(e) { "admin RPC $op failed at the transport boundary; invalidating RPC caches" }
+            rpcCacheInvalidator.invalidateAll()
             AppResult.Failure(InternalError())
         }
 

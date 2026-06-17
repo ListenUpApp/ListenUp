@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.data.connection
 
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
+import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -36,6 +38,9 @@ private val logger = KotlinLogging.logger {}
  * @param networkMonitor drives the network-regain trigger
  * @param invalidator drops all cached remote connections
  * @param scope app-lifetime scope the observers run on
+ * @param engineState firehose connection state; a reconnect to the same server invalidates the
+ *   stale RPC proxy caches (see [start]). Defaults to an idle holder so existing call sites that
+ *   don't drive reconnects (tests) need no change; production wires the live engine state.
  */
 class ConnectionCoordinator(
     private val serverConfig: ServerConfig,
@@ -44,6 +49,7 @@ class ConnectionCoordinator(
     private val networkMonitor: NetworkMonitor,
     private val invalidator: RpcCacheInvalidator,
     private val scope: CoroutineScope,
+    private val engineState: SyncEngineState = SyncEngineState(),
 ) {
     private val relocationMutex = Mutex()
 
@@ -72,6 +78,26 @@ class ConnectionCoordinator(
                     reevaluate()
                 }
                 wasOnline = online
+            }
+        }
+        scope.launch {
+            // A firehose reconnect to the SAME server (host:port unchanged, so the URL observer
+            // above never fires) leaves every cached kotlinx.rpc proxy bound to the prior, now-dead
+            // RpcClient — so every RPC call throws "RpcClient was cancelled" until the app restarts.
+            // Sweep the caches on each reconnect (not the initial connect) so the next RPC call
+            // rebinds to the live connection. Never-stranded: recovery without a relaunch.
+            var wasConnected = false
+            var hasConnectedOnce = false
+            engineState.observe().collect { snapshot ->
+                val connected = snapshot.connection is ConnectionState.Connected
+                if (connected && !wasConnected) {
+                    if (hasConnectedOnce) {
+                        logger.info { "Firehose reconnected; invalidating stale RPC proxy caches" }
+                        invalidator.invalidateAll()
+                    }
+                    hasConnectedOnce = true
+                }
+                wasConnected = connected
             }
         }
     }
