@@ -24,7 +24,11 @@ import kotlinx.rpc.annotations.Rpc
  */
 @Rpc
 interface AdminUserService {
-    /** Returns every user on the instance, regardless of status. */
+    /**
+     * Returns the instance's **active** members. Pending and denied registrations are excluded —
+     * they have their own surfaces ([listPendingUsers] / the approval flow) and must not appear in
+     * the active user roster. Soft-deleted users are always excluded.
+     */
     suspend fun listUsers(): AppResult<List<User>>
 
     /** Returns only users awaiting an approval decision (PENDING_APPROVAL). */

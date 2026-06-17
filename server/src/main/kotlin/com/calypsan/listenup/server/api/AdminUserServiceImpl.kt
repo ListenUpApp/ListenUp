@@ -86,7 +86,11 @@ class AdminUserServiceImpl(
         requireAdmin()?.let { return it }
         return suspendTransaction(db) {
             AppResult.Success(
-                UserEntity.find { UserTable.deletedAt eq null }.map { it.toContract() },
+                // ACTIVE only: pending/denied registrations have their own surfaces and must not
+                // appear in the active roster (#624). Soft-deleted users are excluded as always.
+                UserEntity
+                    .find { (UserTable.deletedAt eq null) and (UserTable.status eq UserStatusColumn.ACTIVE) }
+                    .map { it.toContract() },
             )
         }
     }
