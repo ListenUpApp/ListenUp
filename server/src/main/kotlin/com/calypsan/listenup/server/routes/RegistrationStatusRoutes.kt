@@ -4,7 +4,10 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationDecision
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import io.ktor.server.sse.ServerSSESession
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
@@ -29,10 +32,11 @@ private const val STATUS_RECHECK_INTERVAL_MILLIS = 3_000L
 private const val STATUS_PENDING = "pending"
 
 /**
- * Mounts the unauthenticated registration-status SSE stream:
- *  - `GET /api/v1/auth/registration-status/{userId}/stream`
+ * Mounts the unauthenticated registration-status surface:
+ *  - `GET /api/v1/auth/registration-status/{userId}` — one-shot status (the pull fallback)
+ *  - `GET /api/v1/auth/registration-status/{userId}/stream` — SSE push stream
  *
- * A registrant awaiting approval has no JWT yet, so this route lives OUTSIDE the auth wall.
+ * A registrant awaiting approval has no JWT yet, so these routes live OUTSIDE the auth wall.
  *
  * On connect it emits the registrant's **persisted** status via [currentStatus]: a registrant who
  * connects (or reconnects, or taps "check status") *after* the admin's decision learns it
@@ -52,6 +56,18 @@ fun Route.registrationStatusRoutes(
     broadcaster: RegistrationBroadcaster,
     currentStatus: suspend (userId: String) -> RegistrationStatusEvent,
 ) {
+    // Plain request/response status check — the "never stranded" pull fallback for clients where
+    // the SSE stream doesn't deliver (e.g. the iOS Darwin engine). "Check Status" / a poll / an
+    // on-launch check hit this and learn the persisted decision with no streaming or WebSocket.
+    get("/api/v1/auth/registration-status/{userId}") {
+        val userId = call.parameters["userId"]
+        if (userId.isNullOrBlank()) {
+            call.respond(HttpStatusCode.BadRequest)
+        } else {
+            call.respond(currentStatus(userId))
+        }
+    }
+
     sse("/api/v1/auth/registration-status/{userId}/stream") {
         val userId = call.parameters["userId"] ?: return@sse
 

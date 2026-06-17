@@ -19,6 +19,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -69,6 +70,30 @@ class RegistrationStatusRoutesTest :
 
                     statuses shouldBe listOf("pending", "approved")
                 }
+            }
+        }
+
+        test("one-shot GET registration-status reports the persisted decision (pull fallback)") {
+            // The "never stranded" pull path: a client whose SSE stream never delivers (e.g. iOS
+            // Darwin) can still learn it was approved via a plain request/response GET.
+            testApplication {
+                useIsolatedTestConfig(registrationPolicy = "APPROVAL_QUEUE")
+                application { module() }
+                val rest = createClient { install(ContentNegotiation) { json(contractJson) } }
+                val rootToken = rest.setupRoot()
+                val pendingId = rest.registerPending("darlene")
+
+                rest
+                    .get("/api/v1/auth/registration-status/$pendingId")
+                    .body<RegistrationStatusEvent>()
+                    .status shouldBe "pending"
+
+                rest.approve(rootToken, pendingId)
+
+                rest
+                    .get("/api/v1/auth/registration-status/$pendingId")
+                    .body<RegistrationStatusEvent>()
+                    .status shouldBe "approved"
             }
         }
 
