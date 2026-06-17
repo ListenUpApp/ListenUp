@@ -1,9 +1,18 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.ShelfService
+import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
@@ -58,6 +67,33 @@ fun main(args: Array<String>) =
                 val authed =
                     authedHttp.rpc("$base/api/rpc/authed") { rpcConfig { serialization { json() } } }
                 println("RPC_SMOKE authed currentUser -> ${authed.withService<AuthServiceAuthed>().currentUser()}")
+
+                // Coverage map: call a no-arg read on each data service. A throw means missing native
+                // serialization/reflection metadata for that DTO family; an AppResult (Success/Failure)
+                // means the wire round-trip worked.
+                suspend fun probe(
+                    name: String,
+                    call: suspend () -> Any?,
+                ) {
+                    val outcome =
+                        runCatching { call() }.fold(
+                            { v -> "OK ${v.toString().take(70)}" },
+                            { e -> "ERR ${e::class.simpleName}: ${e.message?.take(120)}" },
+                        )
+                    println("RPC_COV $name -> $outcome")
+                }
+
+                probe("genres") { authed.withService<GenreService>().listGenres() }
+                probe("tags") { authed.withService<TagService>().listTags() }
+                probe("collections") { authed.withService<CollectionService>().listCollections() }
+                probe("shelves") { authed.withService<ShelfService>().listMyShelves() }
+                probe("profile") { authed.withService<ProfileService>().getMyProfile() }
+                probe("libraries") { authed.withService<LibraryAdminService>().listLibraries() }
+                probe("setupStatus") { authed.withService<LibraryAdminService>().getSetupStatus() }
+                probe("adminUsers") { authed.withService<AdminUserService>().listUsers() }
+                probe("regPolicy") { authed.withService<AdminUserService>().getRegistrationPolicy() }
+                probe("serverSettings") { authed.withService<AdminSettingsService>().getServerSettings() }
+                probe("currentlyListening") { authed.withService<SocialService>().currentlyListening() }
             } finally {
                 authedHttp.close()
             }
