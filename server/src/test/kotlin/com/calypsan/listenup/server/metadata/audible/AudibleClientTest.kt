@@ -274,9 +274,10 @@ class AudibleClientTest :
                 val profile = (result as AppResult.Success<AudibleContributorProfile?>).data
                 profile.shouldNotBeNull()
                 profile.name shouldBe "Brandon Sanderson"
+                // The 120px thumbnail src is upsized to a 600px rendition (#615).
                 profile.imageUrl shouldBe
                     "https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/" +
-                    "o1ehbft4gejvtoskr22jt89eit.__01_SX120_CR0,0,120,120__.jpg"
+                    "o1ehbft4gejvtoskr22jt89eit._SX600_.jpg"
             }
         }
 

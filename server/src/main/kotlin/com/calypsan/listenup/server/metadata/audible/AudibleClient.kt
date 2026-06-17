@@ -349,15 +349,38 @@ internal fun parseContributorProfile(
     // Biography: text inside the first element with class "bc-expander-content"
     val biography = extractElementText(html, "bc-expander-content") ?: ""
 
-    // Image: prefer og:image meta tag; fall back to author-image-outline img src
+    // Image: prefer og:image meta tag; fall back to author-image-outline img src. The
+    // author-image-outline thumbnail is a tiny 120px rendition — upsize it (#615).
     val imageUrl =
-        extractOgImage(html)?.takeUnless { it.contains(PLACEHOLDER_IMAGE_FRAGMENT) }
-            ?: extractImgSrc(html, "author-image-outline") ?: ""
+        upsizeAmazonImage(
+            extractOgImage(html)?.takeUnless { it.contains(PLACEHOLDER_IMAGE_FRAGMENT) }
+                ?: extractImgSrc(html, "author-image-outline") ?: "",
+        )
 
     return AudibleContributorProfile(asin = asin, name = name, biography = biography, imageUrl = imageUrl)
 }
 
 private const val PLACEHOLDER_IMAGE_FRAGMENT = "Facebook_Placement"
+
+/** Target width (px) requested from Amazon's image server for contributor photos. */
+private const val AUTHOR_IMAGE_TARGET_PX = 600
+
+/**
+ * Rewrites an Amazon image URL's size operator to request a larger rendition. Audible's
+ * `author-image-outline` photo is served as a 120px thumbnail (e.g.
+ * `…/{id}.__01_SX120_CR0,0,120,120__.jpg`); Amazon's image server honours a `._SX{n}_` operator,
+ * so this swaps whichever operator block is present for `._SX600_` to fetch a sharp avatar (#615).
+ * Non-Amazon URLs (and URLs with no operator block) are returned unchanged.
+ */
+private fun upsizeAmazonImage(url: String): String {
+    if (!url.contains("media-amazon", ignoreCase = true) && !url.contains("images-amazon", ignoreCase = true)) {
+        return url
+    }
+    // Matches the `.<__…__|_…_>.ext` size-operator block (the underscore count is back-referenced
+    // so `.__01_SX120_CR0,0,120,120__.jpg` and `._SX120_.jpg` both collapse to `._SX600_.ext`).
+    val operatorBlock = Regex("""\.(_{1,2})[^./]*\1\.(jpe?g|png)$""", RegexOption.IGNORE_CASE)
+    return operatorBlock.replace(url, "._SX${AUTHOR_IMAGE_TARGET_PX}_.$2")
+}
 
 /** Extracts the trimmed text content of the first `<h1 class="...{cssClass}...">` element. */
 private fun extractH1Text(
