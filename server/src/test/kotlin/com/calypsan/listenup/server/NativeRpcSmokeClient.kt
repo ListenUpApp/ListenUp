@@ -59,6 +59,7 @@ fun main(args: Array<String>) =
             println("RPC_SMOKE login -> ${(login as? AppResult.Success)?.data?.user?.email ?: login}")
 
             val token = session.accessToken.value
+            println("RPC_TOKEN=$token")
             val authedHttp =
                 HttpClient(CIO) {
                     installKrpc()
