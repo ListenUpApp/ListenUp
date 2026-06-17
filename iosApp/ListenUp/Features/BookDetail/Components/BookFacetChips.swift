@@ -7,36 +7,44 @@ import SwiftUI
 ///
 /// - ``genre`` — *where the book lives* on the shelf (e.g. "Epic Fantasy").
 ///   Neutral fill, no icon: it's the structural home, not a flavour.
-/// - ``tag`` — *the tropes inside it* (e.g. "Found Family", "Slow Burn"). A
-///   secondary-tinted chip with a leading symbol, distinct from the genre's
-///   neutral home.
+/// - ``tag`` — *the tropes inside it* (e.g. "Found Family"). A neutral *outlined*
+///   chip — border, transparent fill, no icon — distinct from the genre's solid fill
+///   and the mood's accent.
 /// - ``mood`` — *how it feels* to read (e.g. "Tense", "Atmospheric"). An
 ///   accent-tinted chip that leans on the per-book cover accent, with a leading
-///   symbol — the most expressive of the three.
+///   `sparkles` symbol — the most expressive of the three.
 ///
-/// The styling contract (icon vs. no-icon, accent vs. neutral) is exposed as pure
-/// properties so it can be pinned by unit tests without constructing SwiftUI views.
+/// The styling contract (icon vs. no-icon, accent vs. neutral, outlined vs. filled) is
+/// exposed as pure properties so it can be pinned by unit tests without constructing SwiftUI views.
 enum BookFacetKind: CaseIterable, Hashable {
     case genre
     case tag
     case mood
 
-    /// Leading SF Symbol for the chip, or `nil` for the neutral genre axis.
+    /// Leading SF Symbol for the chip, or `nil` if the axis carries no icon.
     /// The symbol is decorative — the accessibility label carries the meaning.
     var symbolName: String? {
         switch self {
         case .genre: nil
-        case .tag: "tag"
-        case .mood: "theatermasks"
+        case .tag: nil
+        case .mood: "sparkles"
         }
     }
 
-    /// Whether the chip leans on the per-book cover accent. Genres stay neutral;
-    /// tags and moods take the accent so the expressive axes pop.
+    /// Whether the chip leans on the per-book cover accent. Only moods do now;
+    /// tags are a neutral outlined facet.
     var usesAccent: Bool {
         switch self {
-        case .genre: false
-        case .tag, .mood: true
+        case .genre, .tag: false
+        case .mood: true
+        }
+    }
+
+    /// Whether the chip is a transparent, border-stroked capsule (tags) vs a filled one.
+    var isOutlined: Bool {
+        switch self {
+        case .tag: true
+        case .genre, .mood: false
         }
     }
 
@@ -88,7 +96,13 @@ struct BookFacetChips: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(background, in: Capsule())
+        .background {
+            if kind.isOutlined {
+                Capsule().strokeBorder(Color.luSeparator, lineWidth: 1.5)
+            } else {
+                Capsule().fill(background)
+            }
+        }
         .foregroundStyle(foreground)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(kind.accessibilityLabel(for: value))
@@ -99,9 +113,10 @@ struct BookFacetChips: View {
         kind.usesAccent ? tint.opacity(0.15) : .luFill
     }
 
-    /// Chip foreground: the accent for tag/mood, a secondary label for genres.
+    /// Chip foreground: accent for moods, primary label for outlined tags, secondary for genres.
     private var foreground: Color {
-        kind.usesAccent ? tint : .luLabel2
+        if kind.usesAccent { return tint }
+        return kind.isOutlined ? .primary : .luLabel2
     }
 }
 
