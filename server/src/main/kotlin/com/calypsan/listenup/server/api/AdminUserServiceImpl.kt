@@ -123,8 +123,10 @@ class AdminUserServiceImpl(
         val needle = query.trim()
         return suspendTransaction(db) {
             AppResult.Success(
+                // ACTIVE only: search is an active-roster operation; pending/denied registrations
+                // have their own surfaces and must not leak in (#624, sibling of listUsers).
                 UserEntity
-                    .find { UserTable.deletedAt eq null }
+                    .find { (UserTable.deletedAt eq null) and (UserTable.status eq UserStatusColumn.ACTIVE) }
                     .filter {
                         it.displayName.contains(needle, ignoreCase = true) ||
                             it.email.contains(needle, ignoreCase = true)

@@ -328,6 +328,25 @@ class AdminUserServiceImplTest :
             }
         }
 
+        test("searchUsers returns only ACTIVE members, excluding pending and denied registrations") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedUserWithStatus("activeAlice", userStatus = UserStatusColumn.ACTIVE)
+                seedUserWithStatus("pendingAlice", userStatus = UserStatusColumn.PENDING_APPROVAL)
+                seedUserWithStatus("deniedAlice", userStatus = UserStatusColumn.DENIED)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    // Search is an active-roster operation — pending/denied have their own surfaces
+                    // and must not leak in (#624, sibling of the listUsers filter).
+                    val ids = svc.searchUsers("alice").shouldSucceed().map { it.id.value }
+                    ids shouldContain "activeAlice"
+                    ids shouldNotContain "pendingAlice"
+                    ids shouldNotContain "deniedAlice"
+                }
+            }
+        }
+
         test("listUsers returns only ACTIVE members, excluding pending and denied registrations") {
             withInMemoryDatabase {
                 val db = this

@@ -296,9 +296,9 @@ class AdminViewModelTest :
             }
         }
 
-        test("loadData initial users failure transitions to Error") {
+        test("loadData users failure degrades to Ready and keeps the registration-policy control usable (#620)") {
             runTest {
-                val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
+                val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(RegistrationPolicy.OPEN)
                 val loadUsersUseCase: LoadUsersUseCase = mock()
                 val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -311,6 +311,7 @@ class AdminViewModelTest :
                 everySuspend { loadUsersUseCase() } returns Failure(RuntimeException("Network error"))
                 everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                everySuspend { setRegistrationPolicyUseCase(any()) } returns AppResult.Success(Unit)
 
                 val viewModel =
                     AdminViewModel(
@@ -327,8 +328,20 @@ class AdminViewModelTest :
                     )
                 advanceUntilIdle()
 
-                val error = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Error>()
-                error.message shouldContain "users"
+                // #620: a users-load failure must NOT black out the page. It degrades to Ready —
+                // policy loaded, users empty, and the failure surfaced honestly — so the
+                // (independent) registration-policy control stays reachable.
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.registrationPolicy shouldBe RegistrationPolicy.OPEN
+                ready.users.shouldBeEmpty()
+                ready.error.shouldBeInstanceOf<String>() shouldContain "users"
+
+                // The control now actually works: changing the policy takes effect.
+                viewModel.setRegistrationPolicy(RegistrationPolicy.CLOSED)
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .registrationPolicy shouldBe RegistrationPolicy.CLOSED
             }
         }
 

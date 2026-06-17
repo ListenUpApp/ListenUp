@@ -161,21 +161,20 @@ class AdminViewModel(
             val pendingResult = deferredPending.await()
             val invitesResult = deferredInvites.await()
 
-            // Users fetch is the primary load. If it fails on initial load, surface as Error.
-            // If already Ready (refresh), surface as transient error on Ready.
-            if (usersResult is AppResult.Failure) {
-                val message = "Failed to load users: ${usersResult.message}"
-                state.update { current ->
-                    if (current is AdminUiState.Ready) {
-                        current.copy(error = message)
-                    } else {
-                        AdminUiState.Error(message)
-                    }
+            // Every section degrades independently. A single failed fetch must never black out the
+            // whole page — that strands the admin without the (independent) registration-policy
+            // control and every other section (#620). Failures surface as a sectional error banner
+            // on Ready, never as a full Error screen.
+            val users =
+                when (usersResult) {
+                    is AppResult.Success -> usersResult.data
+                    is AppResult.Failure -> emptyList()
                 }
-                return@launch
-            }
-
-            val users = (usersResult as AppResult.Success).data
+            val usersError =
+                when (usersResult) {
+                    is AppResult.Success -> null
+                    is AppResult.Failure -> "Failed to load users: ${usersResult.message}"
+                }
             val pendingUsers =
                 when (pendingResult) {
                     is AppResult.Success -> pendingResult.data
@@ -191,6 +190,7 @@ class AdminViewModel(
                     is AppResult.Success -> null
                     is AppResult.Failure -> "Failed to load invites: ${invitesResult.message}"
                 }
+            val loadError = listOfNotNull(usersError, invitesError).joinToString("; ").ifEmpty { null }
 
             // Sort users: root user first, then by creation date (oldest first)
             val sortedUsers =
@@ -206,7 +206,7 @@ class AdminViewModel(
                         users = sortedUsers,
                         pendingUsers = pendingUsers,
                         pendingInvites = pendingInvites,
-                        error = invitesError,
+                        error = loadError,
                     )
                 } else {
                     // First emission (from Loading) or recovering from Error:
@@ -216,7 +216,7 @@ class AdminViewModel(
                         users = sortedUsers,
                         pendingUsers = pendingUsers,
                         pendingInvites = pendingInvites,
-                        error = invitesError,
+                        error = loadError,
                     )
                 }
             }
