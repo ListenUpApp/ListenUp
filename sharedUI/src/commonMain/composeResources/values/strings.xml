@@ -322,6 +322,9 @@ One beautiful library.</string>
     <string name="book_edit_unsaved_changes">Unsaved Changes</string>
     <string name="book_edit_year">Year</string>
     <string name="book_edit_you_have_unsaved_changes_are">You have unsaved changes. Are you sure you want to discard them?</string>
+    <string name="book_facet_a11y_genre">Genre: %1$s</string>
+    <string name="book_facet_a11y_mood">Mood: %1$s</string>
+    <string name="book_facet_a11y_tag">Tag: %1$s</string>
     <string name="book_show_all_chapters">Show all %1$d chapters</string>
     <string name="book_tag_add">Add Tag</string>
     <string name="book_tag_add_placeholder">Add tag...</string>

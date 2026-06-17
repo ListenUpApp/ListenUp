@@ -3211,6 +3211,36 @@
         }
       }
     },
+    "book.facet_a11y_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre: %1$@"
+          }
+        }
+      }
+    },
+    "book.facet_a11y_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mood: %1$@"
+          }
+        }
+      }
+    },
+    "book.facet_a11y_tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tag: %1$@"
+          }
+        }
+      }
+    },
     "book.show_all_chapters": {
       "localizations": {
         "en": {

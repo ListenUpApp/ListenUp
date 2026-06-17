@@ -52,9 +52,9 @@ enum BookFacetKind: CaseIterable, Hashable {
     /// doesn't say which facet it belongs to.
     func accessibilityLabel(for value: String) -> String {
         switch self {
-        case .genre: "Genre: \(value)"
-        case .tag: "Tag: \(value)"
-        case .mood: "Mood: \(value)"
+        case .genre: String(format: String(localized: "book.facet_a11y_genre"), value)
+        case .tag: String(format: String(localized: "book.facet_a11y_tag"), value)
+        case .mood: String(format: String(localized: "book.facet_a11y_mood"), value)
         }
     }
 }

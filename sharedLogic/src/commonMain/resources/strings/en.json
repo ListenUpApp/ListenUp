@@ -378,7 +378,10 @@
     "edit_you_have_unsaved_changes_are": "You have unsaved changes. Are you sure you want to discard them?",
     "delete_download": "Delete Download",
     "detail_stream_now": "Play Now",
-    "show_all_chapters": "Show all %1$d chapters"
+    "show_all_chapters": "Show all %1$d chapters",
+    "facet_a11y_genre": "Genre: %1$s",
+    "facet_a11y_tag": "Tag: %1$s",
+    "facet_a11y_mood": "Mood: %1$s"
   },
   "series": {
     "book_sequence": "Book %1$s",
