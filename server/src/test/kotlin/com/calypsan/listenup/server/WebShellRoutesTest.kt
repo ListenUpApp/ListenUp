@@ -31,7 +31,9 @@ class WebShellRoutesTest :
                 useIsolatedTestConfig()
                 application { module() }
 
-                client.get("/assets/htmx.min.js").status shouldBe HttpStatusCode.OK
+                val response = client.get("/assets/htmx.min.js")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "htmx"
             }
         }
     })

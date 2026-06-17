@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.html
 
 import kotlinx.html.HTML
+import kotlinx.html.MAIN
 import kotlinx.html.body
 import kotlinx.html.head
 import kotlinx.html.lang
@@ -17,7 +18,7 @@ import kotlinx.html.title
  */
 fun HTML.appShell(
     pageTitle: String = "ListenUp",
-    content: kotlinx.html.MAIN.() -> Unit,
+    content: MAIN.() -> Unit,
 ) {
     lang = "en"
     head {
