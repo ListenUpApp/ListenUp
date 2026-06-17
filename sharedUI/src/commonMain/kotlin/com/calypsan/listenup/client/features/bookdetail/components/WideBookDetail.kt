@@ -254,7 +254,7 @@ private fun WideLeftColumn(
     Column(modifier = modifier) {
         // About — description + Credits grid + Genres + Tags, framed in a surfaceContainerLow card.
         AboutSection(
-            description = state.description,
+            description = state.descriptionText,
             genres = state.genresList,
             tags = state.tags,
             moods = state.moods,

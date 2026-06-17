@@ -18,6 +18,9 @@ struct BookDetailHero: View {
     /// Pre-formatted series label (e.g. "A Song of Ice and Fire · Book 1").
     /// The series pill is omitted when this is `nil`.
     let series: String?
+    /// Tappable author chips; falls back to `author` text when empty.
+    let authors: [BookContributor]
+    /// Plain authors string for the no-contributors fallback.
     let author: String
     /// Tappable narrator chips; falls back to `narratorsText` when empty.
     let narrators: [BookContributor]
@@ -45,12 +48,8 @@ struct BookDetailHero: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, 12)
 
-            if !author.isEmpty {
-                Text(author)
-                    .font(.callout)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 6)
-            }
+            authorsLine
+                .padding(.top, 6)
 
             narratorsLine
                 .padding(.top, 2)
@@ -96,6 +95,21 @@ struct BookDetailHero: View {
         .accessibilityLabel(Text(String(format: String(localized: "book.detail_series_pill_a11y"), series)))
     }
 
+    // MARK: - Authors
+
+    @ViewBuilder
+    private var authorsLine: some View {
+        if !authors.isEmpty {
+            // Comma-separated tappable author names, centered under the title.
+            contributorChips(prefix: nil, contributors: authors)
+                .font(.callout)
+        } else if !author.isEmpty {
+            Text(author)
+                .font(.callout)
+                .multilineTextAlignment(.center)
+        }
+    }
+
     // MARK: - Narrators
 
     @ViewBuilder
@@ -109,24 +123,34 @@ struct BookDetailHero: View {
             }
         } else {
             // "Narrated by " prefix + comma-separated tappable narrator names.
-            FlowLayout(spacing: 0) {
-                Text(String(localized: "book.detail_narrated_by_prefix"))
-                    .foregroundStyle(.secondary)
+            contributorChips(
+                prefix: String(localized: "book.detail_narrated_by_prefix"),
+                contributors: narrators
+            )
+            .font(.subheadline)
+        }
+    }
 
-                ForEach(Array(narrators.enumerated()), id: \.element.id) { index, narrator in
-                    HStack(spacing: 0) {
-                        if index > 0 {
-                            Text(", ").foregroundStyle(tint)
-                        }
-                        NavigationLink(value: ContributorDestination(id: narrator.id)) {
-                            Text(narrator.name).foregroundStyle(tint)
-                        }
-                        .buttonStyle(.plain)
+    /// A centered, wrapping run of tappable contributor names (each links to its detail),
+    /// optionally led by a secondary `prefix` (e.g. "Narrated by "). Centering comes from
+    /// `FlowLayout(alignment: .center)` — `.multilineTextAlignment` does not affect a custom layout.
+    @ViewBuilder
+    private func contributorChips(prefix: String?, contributors: [BookContributor]) -> some View {
+        FlowLayout(spacing: 0, alignment: .center) {
+            if let prefix {
+                Text(prefix).foregroundStyle(.secondary)
+            }
+            ForEach(Array(contributors.enumerated()), id: \.element.id) { index, contributor in
+                HStack(spacing: 0) {
+                    if index > 0 {
+                        Text(", ").foregroundStyle(tint)
                     }
+                    NavigationLink(value: ContributorDestination(id: contributor.id)) {
+                        Text(contributor.name).foregroundStyle(tint)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .font(.subheadline)
-            .multilineTextAlignment(.center)
         }
     }
 
@@ -170,6 +194,7 @@ struct BookDetailHero: View {
                 book: nil,
                 title: "A Game of Thrones",
                 series: "A Song of Ice and Fire · Book 1",
+                authors: [],
                 author: "George R.R. Martin",
                 narrators: [],
                 narratorsText: "Roy Dotrice",
@@ -183,6 +208,7 @@ struct BookDetailHero: View {
                 book: nil,
                 title: "The Way of Kings",
                 series: nil,
+                authors: [],
                 author: "Brandon Sanderson",
                 narrators: [],
                 narratorsText: "Kate Reading, Michael Kramer",
