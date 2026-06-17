@@ -509,12 +509,6 @@ private fun Application.installAppRoutes(homeDir: Path) {
  * empty list when the config key is unset or blank — the server still starts in that
  * case, just without any seeded folders.
  */
-private fun Application.resolveHttpPort(): Int =
-    environment.config
-        .propertyOrNull("ktor.deployment.port")
-        ?.getString()
-        ?.toIntOrNull() ?: 8080
-
 private fun Application.resolveLibraryPaths(): List<Path> {
     val raw =
         environment.config
@@ -536,6 +530,13 @@ private fun Application.resolveLibraryPaths(): List<Path> {
             }
         }
 }
+
+/** Reads `ktor.deployment.port` from configuration, defaulting to 8080. */
+private fun Application.resolveHttpPort(): Int =
+    environment.config
+        .propertyOrNull("ktor.deployment.port")
+        ?.getString()
+        ?.toIntOrNull() ?: 8080
 
 /**
  * Resolves the always-available ListenUp home directory that holds app-managed

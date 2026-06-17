@@ -11,16 +11,12 @@ dependencies {
 
     // Ktor server surface used by the embedded web routes (mounted by :server).
     implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.resources)
 
     // Loopback REST client (used in Phase 1B; declared now so the module is self-contained).
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
-
-    // Logging
-    implementation(libs.kotlin.logging)
 
     // Test
     testImplementation(libs.kotest.runner.junit5)
