@@ -665,6 +665,17 @@ private fun NarrowColorHero(
                         textAlign = TextAlign.Center,
                     )
                 }
+                // Website — the narrow hero previously omitted it, so a contributor's website never
+                // showed on phones even when set (#616). `ink` keeps it readable on the colour block.
+                state.contributor.website?.takeIf { it.isNotBlank() }?.let { url ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = url,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ink,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }

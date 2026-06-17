@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
@@ -513,7 +514,14 @@ private fun LinksCardContent(
         onValueChange = { onEvent(ContributorEditUiEvent.WebsiteChanged(it)) },
         label = "Website",
         placeholder = "https://...",
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        // A URL keyboard alone still autocorrects words and injects spaces (#617); disable text
+        // assistance so URLs are typed verbatim.
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Uri,
+                autoCorrectEnabled = false,
+                capitalization = KeyboardCapitalization.None,
+            ),
     )
 }
 
