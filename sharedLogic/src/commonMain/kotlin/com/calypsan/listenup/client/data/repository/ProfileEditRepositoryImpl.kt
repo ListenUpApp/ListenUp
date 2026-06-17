@@ -34,7 +34,7 @@ private val logger = KotlinLogging.logger {}
  * Extracted as an interface so [ProfileEditRepositoryImpl] can be constructed in tests
  * without requiring a live [ApiClientFactory] (which is a final class).
  */
-fun interface AvatarUploader {
+internal fun interface AvatarUploader {
     /** POST [imageData] to the avatar endpoint; return success or a transport failure. */
     suspend fun upload(
         imageData: ByteArray,
@@ -45,7 +45,7 @@ fun interface AvatarUploader {
 /**
  * Production [AvatarUploader] backed by [ApiClientFactory].
  */
-fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
+internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
     AvatarUploader { imageData, contentType ->
         try {
             val client = clientFactory.getClient()
@@ -80,7 +80,7 @@ fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
  * Avatar upload delegates to [AvatarUploader] (a REST multipart POST) and flips the local
  * [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` on success.
  */
-class ProfileEditRepositoryImpl(
+internal class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
     private val profileRpcFactory: ProfileRpcFactory,
     private val avatarUploader: AvatarUploader,

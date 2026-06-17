@@ -14,6 +14,6 @@ import io.ktor.client.HttpClientConfig
  *
  * (Finding 01 D6 / rubric rule "Ktor clients must enable `expectSuccess = true`.")
  */
-fun HttpClientConfig<*>.installListenUpErrorHandling() {
+internal fun HttpClientConfig<*>.installListenUpErrorHandling() {
     expectSuccess = true
 }

@@ -63,7 +63,7 @@ private val logger = KotlinLogging.logger {}
  * @property seriesSyncHandler Owns the atomic aggregate write-through used to
  *   cache an on-demand-fetched series into Room.
  */
-class SeriesRepositoryImpl(
+internal class SeriesRepositoryImpl(
     private val seriesDao: SeriesDao,
     private val bookDao: BookDao,
     private val searchDao: SearchDao,

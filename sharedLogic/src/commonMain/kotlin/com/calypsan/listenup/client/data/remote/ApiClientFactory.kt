@@ -94,7 +94,7 @@ internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder):
  * The client is lazy-initialized and cached for the lifetime of the factory.
  * Call [close] to release resources when no longer needed.
  */
-class ApiClientFactory(
+class ApiClientFactory internal constructor(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,

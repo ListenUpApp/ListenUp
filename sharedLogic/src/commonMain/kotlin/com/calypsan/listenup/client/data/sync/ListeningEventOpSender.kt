@@ -18,7 +18,7 @@ import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
  * The sender decodes it at dispatch time (not enqueue time) so the queue row is the
  * single durable representation of the pending write.
  */
-class ListeningEventOpSender(
+internal class ListeningEventOpSender(
     private val rpcFactory: PlaybackRpcFactory,
 ) : PendingOperationSender {
     override suspend fun send(op: PendingOperation): AppResult<Unit> {

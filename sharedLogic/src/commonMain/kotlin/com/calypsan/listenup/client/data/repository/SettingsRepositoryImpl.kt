@@ -38,7 +38,7 @@ private val logger = KotlinLogging.logger {}
  *
  * All sensitive values are stored via `SecureStorage` (encrypted at rest).
  */
-class SettingsRepositoryImpl(
+internal class SettingsRepositoryImpl(
     private val secureStorage: SecureStorage,
     authSession: Lazy<AuthSession>,
 ) : com.calypsan.listenup.client.domain.repository.ServerConfig,

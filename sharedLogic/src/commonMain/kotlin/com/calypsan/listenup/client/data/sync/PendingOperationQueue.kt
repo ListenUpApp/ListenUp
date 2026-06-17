@@ -59,7 +59,7 @@ data class DrainOutcome(
  * via [DrainOutcome].
  */
 @OptIn(ExperimentalUuidApi::class)
-class PendingOperationQueue(
+class PendingOperationQueue internal constructor(
     private val dao: PendingOperationV2Dao,
     private val sender: PendingOperationSender,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
