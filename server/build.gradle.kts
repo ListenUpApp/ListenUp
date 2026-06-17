@@ -213,6 +213,17 @@ val checkMigrationIndex =
 
 tasks.named("check") { dependsOn(checkMigrationIndex) }
 
+// JVM kotlinx.rpc smoke client for hitting the *running* native server's RPC surface (#647).
+// Usage: ./gradlew :server:rpcSmoke -PrpcUrl=ws://localhost:8107/api/rpc/public
+tasks.register<JavaExec>("rpcSmoke") {
+    group = "native"
+    description = "Runs a kotlinx.rpc client against a running server: ping/instance + setupRoot/login/authed."
+    mainClass.set("com.calypsan.listenup.server.NativeRpcSmokeClientKt")
+    classpath = sourceSets["test"].runtimeClasspath
+    // Base ws URL; the client appends /api/rpc/public and /api/rpc/authed.
+    args((project.findProperty("rpcUrl") as String?) ?: "ws://localhost:8107")
+}
+
 val seedLibraryDir = layout.buildDirectory.dir("seed-library")
 
 tasks.register<JavaExec>("generateSeedLibrary") {
