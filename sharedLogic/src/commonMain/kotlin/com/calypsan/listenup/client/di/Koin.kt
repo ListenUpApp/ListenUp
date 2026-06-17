@@ -703,6 +703,17 @@ val syncModule =
             )
         }
 
+        // AudioFileDownloader — domain seam that owns the HTTP transport for offline downloads
+        // inside :sharedLogic, so the Android worker never holds a raw HttpClient.
+        single<com.calypsan.listenup.client.download.AudioFileDownloader> {
+            com.calypsan.listenup.client.download.AudioFileDownloaderImpl(
+                apiClientFactory = get(),
+                repository = get(),
+                fileManager = get(),
+                playbackRpcFactory = get(),
+            )
+        }
+
         // EventStreamRepository for real-time events (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.EventStreamRepository> {
             EventStreamRepositoryImpl()

@@ -364,8 +364,7 @@ class ListenUp :
             ListenUpWorkerFactory(
                 downloadRepository = lazy { get() },
                 fileManager = lazy { get() },
-                apiClientFactory = lazy { get() },
-                playbackRpcFactory = lazy { get() },
+                audioFileDownloader = lazy { get() },
                 backupApi = lazy { get() },
                 absImportApi = lazy { get() },
                 errorBus = lazy { get() },
@@ -408,7 +407,7 @@ class ListenUp :
         get<CoroutineScope>().launch {
             val authSession = get<com.calypsan.listenup.client.domain.repository.AuthSession>()
             authSession.authState.first { it is AuthState.Authenticated }
-            get<com.calypsan.listenup.client.data.remote.ApiClientFactory>().getClient()
+            get<com.calypsan.listenup.client.data.remote.ApiClientFactory>().warmUp()
             get<BackgroundSyncScheduler>().schedule()
         }
     }

@@ -53,15 +53,10 @@ import org.robolectric.annotation.Config
  * on the classpath keeps these discoverable alongside Kotest specs.
  *
  * Coverage gap — [DownloadWorker] branch:
- * `createWorker` for DownloadWorker calls `runBlocking { apiClientFactory.value.getClient() }`,
- * which invokes [com.calypsan.listenup.client.data.remote.ApiClientFactory.createClient].
- * [ApiClientFactory] is a concrete class (not an interface) in `:shared`, so it cannot
- * be subclassed here. Instantiating it requires faking
- * [com.calypsan.listenup.client.domain.repository.AuthSession] and
- * [com.calypsan.listenup.client.domain.repository.ServerConfig] — both large interfaces — plus
- * an OkHttp engine on the classpath. Rather than importing `ktor-client-mock` (not currently
- * in androidHostTest) or adding another wide fake, this branch is left for a follow-up that
- * adds `ktor-client-mock` to androidHostTest.
+ * `createWorker` for DownloadWorker resolves the [AudioFileDownloader] seam and passes it to
+ * the worker. Exercising it end-to-end would require a fake [AudioFileDownloader] plus the
+ * standard WorkManager (context, params) plumbing; this routing test focuses on the dispatch
+ * `when`, so the DownloadWorker branch is left for a follow-up.
  *
  * WorkerParameters extraction:
  * [WorkerParameters] is a framework-internal type with no public constructor. To obtain a valid
@@ -118,8 +113,7 @@ class ListenUpWorkerFactoryRoutingTest {
         ListenUpWorkerFactory(
             downloadRepository = lazy { error("downloadRepository should not be accessed") },
             fileManager = lazy { error("fileManager should not be accessed") },
-            apiClientFactory = lazy { error("apiClientFactory should not be accessed") },
-            playbackRpcFactory = lazy { error("playbackRpcFactory should not be accessed") },
+            audioFileDownloader = lazy { error("audioFileDownloader should not be accessed") },
             backupApi = lazy { error("backupApi should not be accessed") },
             absImportApi = lazy { error("absImportApi should not be accessed") },
             errorBus = lazy { error("errorBus should not be accessed") },

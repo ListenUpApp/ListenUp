@@ -7,13 +7,10 @@ import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.diagnostics.JobReasonLogger
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.data.remote.BackupApiContract
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.upload.ABSUploadWorker
-import kotlinx.coroutines.runBlocking
 
 /**
  * WorkerFactory for injecting dependencies into all ListenUp workers.
@@ -29,10 +26,9 @@ import kotlinx.coroutines.runBlocking
 class ListenUpWorkerFactory(
     private val downloadRepository: Lazy<DownloadRepository>,
     private val fileManager: Lazy<DownloadFileManager>,
-    // Deferred to worker-creation time so getClient() is never called before onboarding
-    // completes (i.e. before serverConfig.getActiveUrl() returns non-null).
-    private val apiClientFactory: Lazy<ApiClientFactory>,
-    private val playbackRpcFactory: Lazy<PlaybackRpcFactory>,
+    // Deferred to worker-creation time so the underlying getClient() is never called before
+    // onboarding completes (i.e. before serverConfig.getActiveUrl() returns non-null).
+    private val audioFileDownloader: Lazy<AudioFileDownloader>,
     private val backupApi: Lazy<BackupApiContract>,
     private val absImportApi: Lazy<ABSImportApiContract>,
     private val errorBus: Lazy<ErrorBus>,
@@ -51,18 +47,15 @@ class ListenUpWorkerFactory(
         }
         return when (workerClassName) {
             DownloadWorker::class.java.name -> {
-                // runBlocking hits the cache primed at auth completion
-                // (ListenUp.onCreate's apiClientFactory.value.getClient() call). The only
-                // blocking case is the cold-race window between auth completion and
-                // pre-warm completion.
-                val httpClient = runBlocking { apiClientFactory.value.getClient() }
+                // AudioFileDownloader owns the HTTP transport in :sharedLogic; it resolves the
+                // (cached) authenticated client lazily on first download, so no client construction
+                // happens here at worker-creation time.
                 DownloadWorker(
                     appContext,
                     workerParameters,
                     downloadRepository.value,
                     fileManager.value,
-                    httpClient,
-                    playbackRpcFactory.value,
+                    audioFileDownloader.value,
                     errorBus.value,
                 )
             }

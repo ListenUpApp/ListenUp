@@ -114,10 +114,21 @@ class ApiClientFactory internal constructor(
      *
      * @return Configured HttpClient with auth plugin and timeouts
      */
-    suspend fun getClient(): HttpClient =
+    internal suspend fun getClient(): HttpClient =
         mutex.withLock {
             cachedClient ?: createClient().also { cachedClient = it }
         }
+
+    /**
+     * Eagerly create and cache the authenticated client without exposing it.
+     *
+     * Lets startup code prime the lazy client (so the first real request doesn't pay the
+     * construction cost) without pulling the Ktor [HttpClient] type across a module boundary —
+     * the reason [getClient] is `internal`.
+     */
+    suspend fun warmUp() {
+        getClient()
+    }
 
     /**
      * Create a streaming HTTP client for long-lived connections (SSE, WebSocket).
@@ -134,7 +145,7 @@ class ApiClientFactory internal constructor(
      *
      * @return Configured HttpClient with auth but no timeouts
      */
-    suspend fun getStreamingClient(): HttpClient =
+    internal suspend fun getStreamingClient(): HttpClient =
         mutex.withLock {
             cachedStreamingClient ?: run {
                 val serverUrl =
@@ -152,7 +163,7 @@ class ApiClientFactory internal constructor(
      * Cached unauthenticated streaming HTTP client for SSE endpoints that don't require
      * authentication (e.g., the registration status stream for pending users).
      */
-    suspend fun getUnauthenticatedStreamingClient(): HttpClient =
+    internal suspend fun getUnauthenticatedStreamingClient(): HttpClient =
         mutex.withLock {
             cachedUnauthenticatedStreamingClient ?: run {
                 val serverUrl =

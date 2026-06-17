@@ -25,8 +25,7 @@ class ListenUpWorkerFactoryLazyTest :
                 ListenUpWorkerFactory(
                     downloadRepository = lazy { error("downloadRepository forced at construction") },
                     fileManager = lazy { error("fileManager forced at construction") },
-                    apiClientFactory = lazy { error("apiClientFactory forced at construction") },
-                    playbackRpcFactory = lazy { error("playbackRpcFactory forced at construction") },
+                    audioFileDownloader = lazy { error("audioFileDownloader forced at construction") },
                     backupApi = lazy { error("backupApi forced at construction") },
                     absImportApi = lazy { error("absImportApi forced at construction") },
                     errorBus = lazy { error("errorBus forced at construction") },
