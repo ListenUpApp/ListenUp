@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ShelfService
@@ -94,6 +95,11 @@ fun main(args: Array<String>) =
                 probe("regPolicy") { authed.withService<AdminUserService>().getRegistrationPolicy() }
                 probe("serverSettings") { authed.withService<AdminSettingsService>().getServerSettings() }
                 probe("currentlyListening") { authed.withService<SocialService>().currentlyListening() }
+                // Outbound HTTPS / TLS from native: triggers AudibleClient's HttpClient(CIO) GET to
+                // https://api.audible.* — proves the native image can do a TLS handshake (the classic
+                // native-image breaker). A geo-redirect / empty result still proves TLS works; an
+                // SSLException / "no trusted certificate" would be the failure to fix.
+                probe("audibleTLS") { authed.withService<MetadataLookupService>().searchContributorMetadata("Sanderson") }
             } finally {
                 authedHttp.close()
             }
