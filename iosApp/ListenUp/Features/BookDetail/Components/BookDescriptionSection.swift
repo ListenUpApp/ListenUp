@@ -28,16 +28,30 @@ struct BookDescriptionSection: View {
             )
 
             if !genres.isEmpty {
-                BookFacetChips(values: genres, kind: .genre, tint: tint)
+                facetGroup(label: String(localized: "book.detail_facet_categories"),
+                           values: genres, kind: .genre)
             }
             if !tags.isEmpty {
-                BookFacetChips(values: tags, kind: .tag, tint: tint)
+                facetGroup(label: String(localized: "book.detail_facet_tags"),
+                           values: tags, kind: .tag)
             }
             if !moods.isEmpty {
-                BookFacetChips(values: moods, kind: .mood, tint: tint)
+                facetGroup(label: String(localized: "book.detail_facet_moods"),
+                           values: moods, kind: .mood)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func facetGroup(label: String, values: [String], kind: BookFacetKind) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            BookFacetChips(values: values, kind: kind, tint: tint)
+        }
     }
 }
 
