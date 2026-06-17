@@ -276,6 +276,9 @@ graalvmNative {
         // 21.0.2 / 23.1-b30) crash analysing Kotlin suspend lambdas that rethrow CancellationException
         // ("Frame states being merged are incompatible: mismatch in rethrowException flag", #647).
         buildArgs.add("-H:+ReportExceptionStackTraces")
+        // Cap the image heap so RSS is bounded + predictable on RAM-constrained NAS/mini-PC
+        // targets (native-image otherwise sizes max heap to a big fraction of host RAM → ~292MB RSS).
+        buildArgs.add("-R:MaxHeapSize=128m")
         // Canonical Kotlin-on-native-image fix for the annotation/deprecation enums that get
         // initialized during image build.
         // Minimal build-time-init: only the specific Kotlin stdlib classes native-image flags
