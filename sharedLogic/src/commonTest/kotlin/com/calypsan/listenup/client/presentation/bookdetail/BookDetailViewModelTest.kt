@@ -203,7 +203,7 @@ class BookDetailViewModelTest :
                     // Then
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
                     ready.book shouldBe book
-                    ready.description shouldBe "A description"
+                    ready.descriptionText shouldBe "A description"
                     ready.chapters.size shouldBe 2
                     states.cancel()
                 }

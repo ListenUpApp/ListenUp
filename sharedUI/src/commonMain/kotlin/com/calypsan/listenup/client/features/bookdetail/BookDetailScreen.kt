@@ -554,7 +554,7 @@ private fun ImmersiveBookDetail(
             // About — description + Genres + Tags, frameless.
             item {
                 AboutSection(
-                    description = state.description,
+                    description = state.descriptionText,
                     genres = state.genresList,
                     tags = state.tags,
                     moods = state.moods,

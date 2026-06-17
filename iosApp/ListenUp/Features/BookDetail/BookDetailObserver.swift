@@ -206,7 +206,7 @@ final class BookDetailObserver {
             book = r.book
             subtitle = r.subtitle
             series = r.series
-            bookDescription = r.description
+            bookDescription = r.descriptionText
             narrators = r.narrators
             year = r.year?.intValue
             rating = r.rating?.doubleValue

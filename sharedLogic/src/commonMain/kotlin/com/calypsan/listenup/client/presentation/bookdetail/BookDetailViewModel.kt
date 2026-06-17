@@ -278,7 +278,7 @@ class BookDetailViewModel(
             startedAtMs = position?.startedAtMs,
             subtitle = displaySubtitle,
             series = detail.fullSeriesTitle,
-            description = detail.description ?: "",
+            descriptionText = detail.description ?: "",
             narrators = detail.narratorNames,
             year = detail.publishYear,
             rating = detail.rating,
@@ -557,7 +557,14 @@ sealed interface BookDetailUiState {
         // chips from book.series, but the iOS SwiftUI Book Detail (BookDetailObserver/BookDetailView)
         // still consumes this string — keep it so iOS compiles and reads series as before.
         val series: String? = null,
-        val description: String = "",
+        /**
+         * Book synopsis for the Description section. Named `descriptionText` (not `description`)
+         * deliberately: a Kotlin property called `description` is shadowed on the Swift/SKIE side by
+         * the universal `CustomStringConvertible.description`, so `ready.description` there returns
+         * the object's `toString()` instead of this field. The distinct name keeps the iOS accessor
+         * unambiguous.
+         */
+        val descriptionText: String = "",
         val narrators: String = "",
         val year: Int? = null,
         val rating: Double? = null,
