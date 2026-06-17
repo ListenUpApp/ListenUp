@@ -283,11 +283,7 @@ private fun Application.installDependencies(
         modules += syncModule()
         modules += publicProfileModule()
         modules += shelfModule()
-        val httpPort =
-            environment.config
-                .propertyOrNull("ktor.deployment.port")
-                ?.getString()
-                ?.toIntOrNull() ?: 8080
+        val httpPort = resolveHttpPort()
         modules += mdnsModule(applicationScope, httpPort)
         modules += profileModule(homeDir.resolve("avatars"))
         modules += userPreferencesModule()
@@ -353,11 +349,7 @@ fun Application.module() {
 
     installAppRoutes(homeDir)
 
-    val httpPort =
-        environment.config
-            .propertyOrNull("ktor.deployment.port")
-            ?.getString()
-            ?.toIntOrNull() ?: 8080
+    val httpPort = resolveHttpPort()
     installWebUi(WebUiConfig(loopbackBaseUrl = "http://127.0.0.1:$httpPort"))
 
     startBackgroundTasks(applicationScope, resolvedLibraryPaths)
@@ -517,6 +509,12 @@ private fun Application.installAppRoutes(homeDir: Path) {
  * empty list when the config key is unset or blank — the server still starts in that
  * case, just without any seeded folders.
  */
+private fun Application.resolveHttpPort(): Int =
+    environment.config
+        .propertyOrNull("ktor.deployment.port")
+        ?.getString()
+        ?.toIntOrNull() ?: 8080
+
 private fun Application.resolveLibraryPaths(): List<Path> {
     val raw =
         environment.config
