@@ -54,6 +54,13 @@ struct BookDetailView: View {
                 )
             }
         }
+        .sheet(isPresented: $showCast) {
+            if let observer, let book = observer.book {
+                CastCreditsSheet(book: book, tint: observer.tint) { showCast = false }
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
         .task(id: bookId) {
             guard observer == nil else { return }
             let vm = deps.createBookDetailViewModel()
@@ -99,7 +106,8 @@ struct BookDetailView: View {
                 chapterCount: observer.chapters.count,
                 duration: observer.duration,
                 year: observer.year,
-                tint: observer.tint
+                tint: observer.tint,
+                onOpenCast: { showCast = true }
             )
 
             VStack(spacing: 20) {
@@ -145,7 +153,8 @@ struct BookDetailView: View {
                     chapterCount: observer.chapters.count,
                     duration: observer.duration,
                     year: observer.year,
-                    tint: observer.tint
+                    tint: observer.tint,
+                    onOpenCast: { showCast = true }
                 )
 
                 resumeBar(observer)
@@ -209,7 +218,8 @@ struct BookDetailView: View {
             chapterCount: observer.chapters.count,
             publisher: observer.book?.publisher,
             released: observer.year.map(String.init),
-            language: observer.book?.language
+            language: observer.book?.language,
+            onOpenCast: { showCast = true }
         )
     }
 
@@ -277,6 +287,7 @@ struct BookDetailView: View {
     @State private var showDiscardConfirmation = false
     @State private var showEdit = false
     @State private var showMetadataMatch = false
+    @State private var showCast = false
 
     // MARK: - Shelf picker presentation
 

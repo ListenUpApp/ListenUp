@@ -31,7 +31,10 @@ struct BookDetailHero: View {
     let year: Int?
     /// Per-book accent, derived from cover art.
     let tint: Color
+    /// Opens the Cast & Credits sheet when a category collapses past the inline limit.
+    let onOpenCast: () -> Void
 
+    private let inlineContributorLimit = 2
     private let coverSize: CGFloat = 196
 
     var body: some View {
@@ -99,8 +102,11 @@ struct BookDetailHero: View {
 
     @ViewBuilder
     private var authorsLine: some View {
-        if !authors.isEmpty {
-            // Comma-separated tappable author names, centered under the title.
+        if authors.count > inlineContributorLimit,
+           let summary = collapsedContributorSummary(names: authors.map(\.name), limit: inlineContributorLimit) {
+            collapsedLine(prefix: nil, summary: summary)
+                .font(.callout)
+        } else if !authors.isEmpty {
             contributorChips(prefix: nil, contributors: authors)
                 .font(.callout)
         } else if !author.isEmpty {
@@ -114,21 +120,33 @@ struct BookDetailHero: View {
 
     @ViewBuilder
     private var narratorsLine: some View {
-        if narrators.isEmpty {
-            if !narratorsText.isEmpty {
-                Text(String(format: String(localized: "book.detail_narrated_by_value"), narratorsText))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        } else {
-            // "Narrated by " prefix + comma-separated tappable narrator names.
+        if narrators.count > inlineContributorLimit,
+           let summary = collapsedContributorSummary(names: narrators.map(\.name), limit: inlineContributorLimit) {
+            collapsedLine(prefix: String(localized: "book.detail_narrated_by_prefix"), summary: summary)
+                .font(.subheadline)
+        } else if !narrators.isEmpty {
             contributorChips(
                 prefix: String(localized: "book.detail_narrated_by_prefix"),
                 contributors: narrators
             )
             .font(.subheadline)
+        } else if !narratorsText.isEmpty {
+            Text(String(format: String(localized: "book.detail_narrated_by_value"), narratorsText))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
+    }
+
+    /// A centered, tappable "{prefix}{first} & N others" line that opens the Cast sheet
+    /// when a category has more contributors than the inline limit.
+    private func collapsedLine(prefix: String?, summary: String) -> some View {
+        Button(action: onOpenCast) {
+            (prefix.map { Text($0).foregroundStyle(.secondary) } ?? Text(""))
+                + Text(summary).foregroundStyle(tint)
+        }
+        .buttonStyle(.plain)
+        .multilineTextAlignment(.center)
     }
 
     /// A centered, wrapping run of tappable contributor names (each links to its detail),
@@ -201,7 +219,8 @@ struct BookDetailHero: View {
                 chapterCount: 23,
                 duration: "33h 50m",
                 year: 2003,
-                tint: .red
+                tint: .red,
+                onOpenCast: {}
             )
 
             BookDetailHero(
@@ -215,7 +234,8 @@ struct BookDetailHero: View {
                 chapterCount: 0,
                 duration: "45h 30m",
                 year: nil,
-                tint: .listenUpOrange
+                tint: .listenUpOrange,
+                onOpenCast: {}
             )
         }
         .padding()

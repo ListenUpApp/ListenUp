@@ -22,18 +22,31 @@ struct BookDetailsSection: View {
     /// Pre-formatted release label (e.g. a year or date); `nil` when unknown.
     let released: String?
     let language: String?
+    /// Opens the Cast & Credits sheet (from the "Credits" header link and the "Narrated by" row).
+    let onOpenCast: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(String(localized: "book.detail_details"))
-                .font(.headline)
-                .padding(.bottom, 8)
+            HStack(alignment: .firstTextBaseline) {
+                Text(String(localized: "book.detail_details"))
+                    .font(.headline)
+                Spacer()
+                Button(String(localized: "book.detail_credits"), action: onOpenCast)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.tint)
+            }
+            .padding(.bottom, 8)
 
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                if index > 0 {
-                    Divider()
+                if index > 0 { Divider() }
+                if row.isCast {
+                    Button(action: onOpenCast) {
+                        detailRow(key: row.key, value: row.value, isLink: true)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    detailRow(key: row.key, value: row.value, isLink: false)
                 }
-                detailRow(key: row.key, value: row.value)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -43,23 +56,22 @@ struct BookDetailsSection: View {
 
     /// The present rows, in display order. Absent data is dropped here so the
     /// body never has to reason about empty values.
-    private var rows: [(key: String, value: String)] {
-        var result: [(String, String)] = []
-
+    private var rows: [(key: String, value: String, isCast: Bool)] {
+        var result: [(String, String, Bool)] = []
         if !narrators.isEmpty {
-            result.append((String(localized: "book.detail_narrated_by"), narrators))
+            result.append((String(localized: "book.detail_narrated_by"), narrators, true))
         }
         if let length = lengthValue {
-            result.append((String(localized: "book.detail_length"), length))
+            result.append((String(localized: "book.detail_length"), length, false))
         }
         if let publisher, !publisher.isEmpty {
-            result.append((String(localized: "book.detail_publisher"), publisher))
+            result.append((String(localized: "book.detail_publisher"), publisher, false))
         }
         if let released, !released.isEmpty {
-            result.append((String(localized: "book.detail_released"), released))
+            result.append((String(localized: "book.detail_released"), released, false))
         }
         if let language, !language.isEmpty {
-            result.append((String(localized: "common.language"), language))
+            result.append((String(localized: "common.language"), language, false))
         }
         return result
     }
@@ -81,17 +93,22 @@ struct BookDetailsSection: View {
         }
     }
 
-    private func detailRow(key: String, value: String) -> some View {
+    private func detailRow(key: String, value: String, isLink: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(key)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-
             Spacer(minLength: 12)
-
             Text(value)
                 .font(.subheadline.weight(.medium))
+                .foregroundStyle(isLink ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                 .multilineTextAlignment(.trailing)
+            if isLink {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.vertical, 11)
         .accessibilityElement(children: .combine)
@@ -107,7 +124,8 @@ struct BookDetailsSection: View {
         chapterCount: 23,
         publisher: "Random House Audio",
         released: "2003",
-        language: "English"
+        language: "English",
+        onOpenCast: {}
     )
     .padding()
 }
@@ -119,7 +137,8 @@ struct BookDetailsSection: View {
         chapterCount: 0,
         publisher: nil,
         released: nil,
-        language: nil
+        language: nil,
+        onOpenCast: {}
     )
     .padding()
 }
