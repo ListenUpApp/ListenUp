@@ -36,7 +36,7 @@ struct CastCreditsSheet: View {
                     ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
                         Section {
                             ForEach(Array(group.members.enumerated()), id: \.element.id) { i, member in
-                                row(member, hueIndex: groupIndex * 7 + i,
+                                row(member, hueIndex: groupIndex * 7 + i, // offset hue per group so adjacent groups don't repeat colors
                                     isLead: group.kind == .narrators && i == 0)
                             }
                         } header: {
@@ -76,7 +76,10 @@ struct CastCreditsSheet: View {
                 ? String(localized: "book.detail_cast_authors")
                 : String(localized: "book.detail_cast_author")
         case .narrators:
-            return String(format: String(localized: "book.detail_cast_narrators"), group.members.count)
+            let key: String = group.members.count == 1
+                ? "book.detail_cast_narrator"
+                : "book.detail_cast_narrators"
+            return String(format: String(localized: String.LocalizationValue(key)), group.members.count)
         case .production:
             return String(localized: "book.detail_cast_production")
         }

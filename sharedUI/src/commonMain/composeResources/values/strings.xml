@@ -206,6 +206,7 @@ One beautiful library.</string>
     <string name="book_detail_cast_count_authors">%1$d authors</string>
     <string name="book_detail_cast_count_narrators">%1$d narrators</string>
     <string name="book_detail_cast_lead">lead</string>
+    <string name="book_detail_cast_narrator">%1$d Narrator</string>
     <string name="book_detail_cast_narrators">%1$d Narrators</string>
     <string name="book_detail_cast_production">Production</string>
     <string name="book_detail_chapter_count">%1$d chapters</string>
@@ -214,6 +215,7 @@ One beautiful library.</string>
     <string name="book_detail_chapters_chaptercount">Chapters (%1$s)</string>
     <string name="book_detail_contributors_overflow">%1$s &amp; %2$d others</string>
     <string name="book_detail_credits">Credits</string>
+    <string name="book_detail_credits_hint">Opens cast and credits</string>
     <string name="book_detail_credits_placeholder">Credits go here</string>
     <string name="book_detail_credits_subtitle">%1$d contributors · %2$s</string>
     <string name="book_detail_details">Details</string>

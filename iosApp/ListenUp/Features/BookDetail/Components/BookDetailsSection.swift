@@ -34,6 +34,7 @@ struct BookDetailsSection: View {
                 Button(String(localized: "book.detail_credits"), action: onOpenCast)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.tint)
+                    .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
             }
             .padding(.bottom, 8)
 
@@ -44,6 +45,7 @@ struct BookDetailsSection: View {
                         detailRow(key: row.key, value: row.value, isLink: true)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
                 } else {
                     detailRow(key: row.key, value: row.value, isLink: false)
                 }

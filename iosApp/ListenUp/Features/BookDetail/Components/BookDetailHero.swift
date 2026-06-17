@@ -147,6 +147,7 @@ struct BookDetailHero: View {
         }
         .buttonStyle(.plain)
         .multilineTextAlignment(.center)
+        .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
     }
 
     /// A centered, wrapping run of tappable contributor names (each links to its detail),

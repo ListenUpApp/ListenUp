@@ -2051,6 +2051,16 @@
         }
       }
     },
+    "book.detail_cast_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d Narrator"
+          }
+        }
+      }
+    },
     "book.detail_cast_narrators": {
       "localizations": {
         "en": {
@@ -2127,6 +2137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Credits"
+          }
+        }
+      }
+    },
+    "book.detail_credits_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens cast and credits"
           }
         }
       }
