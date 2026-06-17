@@ -10,14 +10,15 @@ import kotlin.reflect.full.memberProperties
  * over the SKIE bridge. The fix renamed the field to `descriptionText`. If anyone renames
  * it back to `description`, SKIE will shadow it again — so pin the names here.
  */
-class BookDetailDescriptionFieldTest : FunSpec({
-    val propertyNames = BookDetailUiState.Ready::class.memberProperties.map { it.name }.toSet()
+class BookDetailDescriptionFieldTest :
+    FunSpec({
+        val propertyNames = BookDetailUiState.Ready::class.memberProperties.map { it.name }.toSet()
 
-    test("Ready exposes descriptionText for the synopsis") {
-        propertyNames.contains("descriptionText") shouldBe true
-    }
+        test("Ready exposes descriptionText for the synopsis") {
+            propertyNames.contains("descriptionText") shouldBe true
+        }
 
-    test("Ready does NOT expose a property named description (SKIE shadow trap)") {
-        propertyNames.contains("description") shouldBe false
-    }
-})
+        test("Ready does NOT expose a property named description (SKIE shadow trap)") {
+            propertyNames.contains("description") shouldBe false
+        }
+    })
