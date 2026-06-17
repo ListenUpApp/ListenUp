@@ -1,12 +1,16 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
+    `maven-publish`
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlinxRpc)
 }
+
+group = "com.calypsan.listenup.spike"
+version = "0.0.1-se"
 
 kotlin {
     // JVM target — used by :server, and for the rpc-guard runtime + KSP-generated guards.
@@ -64,6 +68,20 @@ kotlin {
     macosArm64()
 
     applyDefaultHierarchyTemplate()
+
+    compilerOptions {
+        optIn.addAll(
+            "kotlin.ExperimentalStdlibApi",
+            "kotlin.time.ExperimentalTime",
+            "kotlinx.cinterop.BetaInteropApi",
+            "kotlinx.coroutines.InternalCoroutinesApi",
+            "io.ktor.util.InternalAPI",
+            "io.ktor.utils.io.InternalAPI",
+            "org.koin.core.annotation.KoinInternalApi",
+            "kotlinx.io.InternalIoApi",
+            "kotlinx.io.unsafe.UnsafeIoApi",
+        )
+    }
 
     sourceSets {
         commonMain.dependencies {

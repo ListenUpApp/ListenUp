@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.dto.import.ImportStatus
-import com.calypsan.listenup.api.dto.import.ImportSummary
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ImportError

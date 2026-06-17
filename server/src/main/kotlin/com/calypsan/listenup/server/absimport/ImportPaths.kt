@@ -9,7 +9,7 @@ import java.nio.file.Path
  * Import jobs are **filesystem-truth**: there is no database table. Each staged import lives in
  * its own directory `imports/<id>/`, and the presence of specific files inside it
  * ([analysisFor], [mappingFor], [appliedMarkerFor]) is what derives the job's
- * [com.calypsan.listenup.api.dto.import.ImportStatus]. The id is a server-minted directory name
+ * [com.calypsan.listenup.api.dto.imports.ImportStatus]. The id is a server-minted directory name
  * (never a client-supplied filename), so it is safe to use directly as a path segment.
  *
  * `homeDir` is the same data-home directory that holds the live SQLite database

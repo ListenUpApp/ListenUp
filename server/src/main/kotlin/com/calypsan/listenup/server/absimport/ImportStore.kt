@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.absimport
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.import.AbsUserMatch
-import com.calypsan.listenup.api.dto.import.ImportAnalysis
-import com.calypsan.listenup.api.dto.import.ImportStatus
-import com.calypsan.listenup.api.dto.import.ImportSummary
+import com.calypsan.listenup.api.dto.imports.AbsUserMatch
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
@@ -213,12 +213,12 @@ class ImportStore(
 }
 
 /** The book-match tiers that represent a confident single-book match (not ambiguous/unmatched). */
-private fun com.calypsan.listenup.api.dto.import.MatchTier.isDefinitiveBookTier(): Boolean =
+private fun com.calypsan.listenup.api.dto.imports.MatchTier.isDefinitiveBookTier(): Boolean =
     when (this) {
-        com.calypsan.listenup.api.dto.import.MatchTier.ASIN,
-        com.calypsan.listenup.api.dto.import.MatchTier.ISBN,
-        com.calypsan.listenup.api.dto.import.MatchTier.PATH,
-        com.calypsan.listenup.api.dto.import.MatchTier.TITLE_AUTHOR,
+        com.calypsan.listenup.api.dto.imports.MatchTier.ASIN,
+        com.calypsan.listenup.api.dto.imports.MatchTier.ISBN,
+        com.calypsan.listenup.api.dto.imports.MatchTier.PATH,
+        com.calypsan.listenup.api.dto.imports.MatchTier.TITLE_AUTHOR,
         -> true
 
         else -> false

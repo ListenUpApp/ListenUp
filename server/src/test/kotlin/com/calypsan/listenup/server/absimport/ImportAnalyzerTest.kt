@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.absimport
 
-import com.calypsan.listenup.api.dto.import.ImportEvent
-import com.calypsan.listenup.api.dto.import.MatchTier
+import com.calypsan.listenup.api.dto.imports.ImportEvent
+import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId

@@ -12,8 +12,8 @@ plugins {
     alias(libs.plugins.androidx.baselineprofile) apply false
 
     // Quality Tools
-    alias(libs.plugins.detekt)
-    alias(libs.plugins.spotless)
+    // alias(libs.plugins.detekt) // SPIKE: removed to test swiftExport classloader pollution
+    // alias(libs.plugins.spotless) // SPIKE
     // Note: Kover code coverage is temporarily disabled due to incompatibility
     // with the new androidKmpLibrary plugin. Can be re-enabled when Kover
     // supports the new KMP configuration.
@@ -37,34 +37,34 @@ allprojects {
 // =============================================================================
 // DETEKT - Static Analysis
 // =============================================================================
-detekt {
-    buildUponDefaultConfig = true
-    config.setFrom("$rootDir/config/detekt/detekt.yml")
-    baseline = file("$rootDir/detekt-baseline.xml")
-    parallel = true
-    source.setFrom(
-        "$rootDir/contract/src/commonMain/kotlin",
-        "$rootDir/contract/src/androidMain/kotlin",
-        "$rootDir/contract/src/iosMain/kotlin",
-        "$rootDir/contract/src/jvmMain/kotlin",
-        "$rootDir/sharedLogic/src/commonMain/kotlin",
-        "$rootDir/sharedLogic/src/androidMain/kotlin",
-        "$rootDir/sharedLogic/src/iosMain/kotlin",
-        "$rootDir/sharedLogic/src/jvmMain/kotlin",
-        "$rootDir/sharedLogic/src/jvmTest/kotlin",
-        "$rootDir/sharedUI/src/commonMain/kotlin",
-        "$rootDir/sharedUI/src/androidMain/kotlin",
-        "$rootDir/server/src/main/kotlin",
-        "$rootDir/server/src/test/kotlin",
-        "$rootDir/rpc-guard-ksp/src/main/kotlin",
-        "$rootDir/rpc-guard-ksp/src/test/kotlin",
-    )
-}
+// detekt {
+//     buildUponDefaultConfig = true
+//     config.setFrom("$rootDir/config/detekt/detekt.yml")
+//     baseline = file("$rootDir/detekt-baseline.xml")
+//     parallel = true
+//     source.setFrom(
+//         "$rootDir/contract/src/commonMain/kotlin",
+//         "$rootDir/contract/src/androidMain/kotlin",
+//         "$rootDir/contract/src/iosMain/kotlin",
+//         "$rootDir/contract/src/jvmMain/kotlin",
+//         "$rootDir/sharedLogic/src/commonMain/kotlin",
+//         "$rootDir/sharedLogic/src/androidMain/kotlin",
+//         "$rootDir/sharedLogic/src/iosMain/kotlin",
+//         "$rootDir/sharedLogic/src/jvmMain/kotlin",
+//         "$rootDir/sharedLogic/src/jvmTest/kotlin",
+//         "$rootDir/sharedUI/src/commonMain/kotlin",
+//         "$rootDir/sharedUI/src/androidMain/kotlin",
+//         "$rootDir/server/src/main/kotlin",
+//         "$rootDir/server/src/test/kotlin",
+//         "$rootDir/rpc-guard-ksp/src/main/kotlin",
+//         "$rootDir/rpc-guard-ksp/src/test/kotlin",
+//     )
+// }
 
-dependencies {
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:${libs.versions.detekt.get()}")
-    detektPlugins(project(":build-logic:detekt-rules"))
-}
+// dependencies {
+//     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:${libs.versions.detekt.get()}")
+//     detektPlugins(project(":build-logic:detekt-rules"))
+// }
 
 // Suppress SLF4J "no binding" warnings during SKIE processing (build-time only).
 // Version comes from the catalog so it can't drift from the runtime slf4j version.
@@ -77,20 +77,20 @@ buildscript {
 // =============================================================================
 // SPOTLESS - Code Formatting
 // =============================================================================
-spotless {
-    kotlin {
-        target("**/*.kt")
-        targetExclude("**/build/**")
-        ktlint(libs.versions.ktlint.get())
-        // Suppress max-line-length for API files with complex Ktor builders
-        suppressLintsFor {
-            step = "ktlint"
-            shortCode = "standard:max-line-length"
-        }
-    }
-    kotlinGradle {
-        target("**/*.gradle.kts")
-        targetExclude("**/build/**")
-        ktlint(libs.versions.ktlint.get())
-    }
-}
+// spotless {
+//     kotlin {
+//         target("**/*.kt")
+//         targetExclude("**/build/**")
+//         ktlint(libs.versions.ktlint.get())
+// Suppress max-line-length for API files with complex Ktor builders
+//         suppressLintsFor {
+//             step = "ktlint"
+//             shortCode = "standard:max-line-length"
+//         }
+//     }
+//     kotlinGradle {
+//         target("**/*.gradle.kts")
+//         targetExclude("**/build/**")
+//         ktlint(libs.versions.ktlint.get())
+//     }
+// }

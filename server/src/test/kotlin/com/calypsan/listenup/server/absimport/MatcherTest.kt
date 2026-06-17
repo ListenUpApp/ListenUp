@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.absimport
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.import.MatchTier
+import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookContributorTable

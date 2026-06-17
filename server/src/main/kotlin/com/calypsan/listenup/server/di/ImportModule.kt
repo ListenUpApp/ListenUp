@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ImportService
-import com.calypsan.listenup.api.dto.import.ImportEvent
+import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.server.absimport.AbsBackupReader
 import com.calypsan.listenup.server.absimport.BookMatcher
 import com.calypsan.listenup.server.absimport.ImportAnalyzer
@@ -27,7 +27,7 @@ import java.nio.file.Path
  *  - [AbsBackupReader] — read-only reads of a staged `absdatabase.sqlite`.
  *  - [BookMatcher] / [UserMatcher] — confidence-tiered matching against the live library.
  *  - [MappingValidator] — rejects an incoherent admin mapping before it is written.
- *  - [ImportAnalyzer] — read + match → [com.calypsan.listenup.api.dto.import.ImportAnalysis].
+ *  - [ImportAnalyzer] — read + match → [com.calypsan.listenup.api.dto.imports.ImportAnalysis].
  *  - [com.calypsan.listenup.server.absimport.SessionConverter] — ABS session → listening event.
  *  - [ImportApplier] — write listening progress + sessions, then backfill per-user stats.
  *  - [MutableSharedFlow]<[ImportEvent]> — process-wide progress event bus.

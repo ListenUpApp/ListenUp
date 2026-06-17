@@ -1,11 +1,11 @@
 package com.calypsan.listenup.server.absimport
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.import.AbsItemRef
-import com.calypsan.listenup.api.dto.import.AbsUserMatch
-import com.calypsan.listenup.api.dto.import.ImportAnalysis
-import com.calypsan.listenup.api.dto.import.ImportEvent
-import com.calypsan.listenup.api.dto.import.MatchTier
+import com.calypsan.listenup.api.dto.imports.AbsItemRef
+import com.calypsan.listenup.api.dto.imports.AbsUserMatch
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
+import com.calypsan.listenup.api.dto.imports.ImportEvent
+import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId

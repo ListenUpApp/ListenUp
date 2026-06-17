@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.dto.import.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult

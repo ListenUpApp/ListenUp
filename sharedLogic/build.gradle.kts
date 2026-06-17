@@ -1,16 +1,17 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-import co.touchlab.skie.configuration.SuppressSkieWarning
 
 plugins {
+    `maven-publish`
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
-    alias(libs.plugins.mokkery)
-    alias(libs.plugins.skie)
 }
+
+group = "com.calypsan.listenup.spike"
+version = "0.0.1-se"
 
 kotlin {
     // JVM target for desktop (Windows/Linux)
@@ -83,6 +84,26 @@ kotlin {
             export(libs.koin.core)
             export(projects.contract)
         }
+    }
+
+    @OptIn(org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl::class)
+    swiftExport {
+        moduleName = "Shared"
+        flattenPackage = "com.calypsan.listenup"
+    }
+
+    compilerOptions {
+        optIn.addAll(
+            "kotlin.ExperimentalStdlibApi",
+            "kotlin.time.ExperimentalTime",
+            "kotlinx.cinterop.BetaInteropApi",
+            "kotlinx.coroutines.InternalCoroutinesApi",
+            "io.ktor.util.InternalAPI",
+            "io.ktor.utils.io.InternalAPI",
+            "org.koin.core.annotation.KoinInternalApi",
+            "kotlinx.io.InternalIoApi",
+            "kotlinx.io.unsafe.UnsafeIoApi",
+        )
     }
 
     // macOS targets
@@ -230,27 +251,4 @@ dependencies {
 
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
-}
-
-// SKIE configuration for enhanced Swift interop
-skie {
-    isEnabled = true
-
-    // Enable Flow support - converts Kotlin Flow to Swift AsyncSequence
-    features {
-        // Enables StateFlow/SharedFlow → Swift async/await
-        group {
-            coroutinesInterop.set(true)
-        }
-        // Generates Swift-friendly sealed class handling
-        group {
-            enableSwiftUIObservingPreview.set(true)
-        }
-        // Suppress description property name collision warnings globally.
-        // Kotlin "description" properties collide with ObjC KotlinBase.description().
-        // SKIE renames them to description_ in Swift which is acceptable.
-        group {
-            SuppressSkieWarning.NameCollision(true)
-        }
-    }
 }

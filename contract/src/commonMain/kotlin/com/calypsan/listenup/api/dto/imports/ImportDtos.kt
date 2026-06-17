@@ -1,4 +1,4 @@
-package com.calypsan.listenup.api.dto.import
+package com.calypsan.listenup.api.dto.imports
 
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.AbsItemId
