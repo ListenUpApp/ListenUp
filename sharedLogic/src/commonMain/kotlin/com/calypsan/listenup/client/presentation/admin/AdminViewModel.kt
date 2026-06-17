@@ -20,12 +20,25 @@ import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Cadence for refreshing the pending-registrations list while the admin screen is open.
+ *
+ * The live admin-event firehose isn't wired yet ([com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl]
+ * stubs `adminEvents` to `emptyFlow()`), so without this a newly-registered pending user only
+ * appears after an app restart. This poll is the never-stranded refresh until that migration lands.
+ */
+private const val PENDING_POLL_INTERVAL_MS = 10_000L
 
 /**
  * ViewModel for the combined admin screen.
@@ -51,6 +64,34 @@ class AdminViewModel(
     init {
         loadData()
         observeSSEEvents()
+        pollPendingUsers()
+    }
+
+    /**
+     * Periodically re-fetch the pending-registrations list so a newly-registered applicant appears
+     * without an app restart. Updates only the `pendingUsers` of an existing [AdminUiState.Ready]
+     * (no-op while Loading/Error, and per-action overlays are preserved); a transient failure keeps
+     * the current list.
+     *
+     * Gated on [state] having subscribers, so it only runs while the admin screen is actually on
+     * screen — no wasted polling in the background. Stops automatically when the scope is cancelled.
+     */
+    private fun pollPendingUsers() {
+        viewModelScope.launch {
+            state.subscriptionCount
+                .map { it > 0 }
+                .distinctUntilChanged()
+                .collectLatest { isObserved ->
+                    if (!isObserved) return@collectLatest
+                    while (true) {
+                        delay(PENDING_POLL_INTERVAL_MS)
+                        when (val result = loadPendingUsersUseCase()) {
+                            is AppResult.Success -> updateReady { it.copy(pendingUsers = result.data) }
+                            is AppResult.Failure -> Unit
+                        }
+                    }
+                }
+        }
     }
 
     /**

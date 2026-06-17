@@ -23,12 +23,14 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -509,6 +511,50 @@ class AdminViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
                 ready.users.size shouldBe 1
                 ready.pendingInvites.size shouldBe 1
+            }
+        }
+
+        test("the pending list refreshes on a poll tick while the screen is observed") {
+            runTest {
+                // Server-side pending list, flipped mid-test to simulate a new registration arriving.
+                var pending: List<AdminUserInfo> = emptyList()
+                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
+                everySuspend { loadPendingUsersUseCase() } calls { AppResult.Success(pending) }
+                val loadUsersUseCase: LoadUsersUseCase = mock()
+                everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase =
+                            createMockGetRegistrationPolicyUseCase(RegistrationPolicy.APPROVAL_QUEUE),
+                        loadUsersUseCase = loadUsersUseCase,
+                        loadPendingUsersUseCase = loadPendingUsersUseCase,
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        eventStreamRepository = createMockEventStreamRepository(),
+                    )
+
+                // Observe state so the subscription-gated poll runs (auto-cancelled at test end).
+                backgroundScope.launch { viewModel.state.collect {} }
+                advanceTimeBy(200) // initial load settles → Ready, empty pending
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .pendingUsers
+                    .shouldBeEmpty()
+
+                pending = listOf(createUser(id = "p1"))
+                advanceTimeBy(11_000) // crosses the 10s poll cadence
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .pendingUsers
+                    .map { it.id } shouldBe listOf("p1")
             }
         }
     })
