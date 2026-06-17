@@ -222,6 +222,9 @@ graalvmNative {
     binaries.named("main") {
         imageName.set("listenup-server")
         mainClass.set("com.calypsan.listenup.server.LauncherKt")
+        // NOTE: requires GraalVM for JDK 21.0.11+ (substrate 23.1-b92+). Older builds (e.g. CE
+        // 21.0.2 / 23.1-b30) crash analysing Kotlin suspend lambdas that rethrow CancellationException
+        // ("Frame states being merged are incompatible: mismatch in rethrowException flag", #647).
         buildArgs.add("-H:+ReportExceptionStackTraces")
         // Canonical Kotlin-on-native-image fix for the annotation/deprecation enums that get
         // initialized during image build.
@@ -251,5 +254,8 @@ graalvmNative {
         // BuiltinClassLoader.moduleToReader ("Detected a ZipFile object in the image heap"). It is
         // too late to move ZoneRulesProvider to run-time init, so empty that cache at build time.
         buildArgs.add("--features=com.calypsan.listenup.server.nativeimage.ModuleReaderResetFeature")
+        // Flyway (and other startup code) resolves https/http URLs; native-image gates URL
+        // protocols off by default.
+        buildArgs.add("--enable-url-protocols=https,http")
     }
 }

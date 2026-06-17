@@ -59,26 +59,35 @@ class DatabaseHandle(
 
     /** Runs Flyway forward against the current (possibly just-swapped) db file. Returns the post-migration version. */
     fun migrate(): String? =
-        Flyway
-            .configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration")
+        flywayConfig()
             .load()
             .migrate()
             .let { currentSchemaVersion() }
 
     /** The applied Flyway version, or null on a fresh/empty db. */
     fun currentSchemaVersion(): String? =
-        Flyway
-            .configure()
-            .dataSource(
-                dataSource,
-            ).locations("classpath:db/migration")
+        flywayConfig()
             .load()
             .info()
             .current()
             ?.version
             ?.version
+
+    /**
+     * Flyway config shared by [migrate] and [currentSchemaVersion]. Under a GraalVM native image,
+     * Flyway's classpath scanner can't enumerate `db/migration` (no walkable classpath), so it
+     * finds zero migrations; swap in [BundledMigrationResourceProvider], which loads them by name
+     * from the committed index. JVM runs keep the default scanner. (#647)
+     */
+    private fun flywayConfig() =
+        Flyway
+            .configure()
+            .dataSource(dataSource)
+            .locations("classpath:db/migration")
+            // Load migrations by name from the committed index rather than scanning the classpath.
+            // Equivalent to scanning on the JVM, and the only thing that works under native-image
+            // (no walkable classpath). Single path keeps JVM and native behaviour identical. (#647)
+            .resourceProvider(BundledMigrationResourceProvider())
 
     /**
      * Terminal shutdown of the connection pool — releases every Hikari thread and SQLite

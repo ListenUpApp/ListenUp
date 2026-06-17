@@ -1,210 +1,323 @@
 {
-  "resources":{
-  "includes":[{
-    "pattern":"\\Q/psw4j.properties\\E"
-  }, {
-    "pattern":"\\QMETA-INF/maven/org.xerial/sqlite-jdbc/pom.properties\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/ch.qos.logback.classic.spi.Configurator\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/dev.whyoleg.cryptography.CryptographyProviderContainer\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/dev.whyoleg.cryptography.providers.jdk.DefaultJdkSecurityProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/io.ktor.client.HttpClientEngineContainer\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/io.ktor.serialization.kotlinx.KotlinxSerializationExtensionProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/java.lang.System$LoggerFinder\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/java.net.spi.InetAddressResolverProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/java.net.spi.URLStreamHandlerProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/java.nio.channels.spi.SelectorProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/java.sql.Driver\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/java.time.zone.ZoneRulesProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/javax.xml.parsers.DocumentBuilderFactory\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/javax.xml.parsers.SAXParserFactory\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/kotlin.reflect.jvm.internal.impl.km.internal.extensions.MetadataExtensions\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/kotlin.reflect.jvm.internal.impl.resolve.ExternalOverridabilityCondition\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/kotlin.reflect.jvm.internal.impl.util.ModuleVisibilityHelper\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/kotlinx.coroutines.CoroutineExceptionHandler\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/kotlinx.coroutines.internal.MainDispatcherFactory\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.flywaydb.core.extensibility.Plugin\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.jetbrains.exposed.v1.core.dao.id.EntityIDFactory\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.jetbrains.exposed.v1.core.statements.GlobalStatementInterceptor\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.jetbrains.exposed.v1.jdbc.DatabaseConnectionAutoRegistration\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.junit.platform.engine.TestEngine\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.junit.platform.launcher.LauncherDiscoveryListener\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.junit.platform.launcher.LauncherSessionListener\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.junit.platform.launcher.PostDiscoveryFilter\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.junit.platform.launcher.TestExecutionListener\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/org.slf4j.spi.SLF4JServiceProvider\\E"
-  }, {
-    "pattern":"\\QMETA-INF/services/tools.jackson.databind.JacksonModule\\E"
-  }, {
-    "pattern":"\\Qch/qos/logback/classic/logback-classic-version.properties\\E"
-  }, {
-    "pattern":"\\Qch/qos/logback/core/logback-core-version.properties\\E"
-  }, {
-    "pattern":"\\Qdb/callback\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V10__books_series_normalized_name.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V11__books_scan_warning.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V12__libraries_metadata_precedence.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V13__contributors_syncable.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V14__book_series_syncable.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V15__playback_positions.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V16__listening_events_and_user_stats.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V17__active_sessions.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V18__b2a_substrate.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V19__contributor_series_search.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V1__auth_baseline.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V20__library_substrate.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V21__tags_substrate.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V22__contributor_aliases.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V23__genres.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V24__collections_substrate.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V25__library_inbox_enabled.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V26__user_permissions_and_settings.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V27__invites.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V28__session_device_info.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V29__user_profile_fields.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V2__sync_foundation.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V30__shelves_substrate.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V31__public_profiles.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V32__public_profiles_tagline.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V33__activities.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V3__books_libraries_table.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V4__books_table.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V5__books_contributors.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V6__books_series.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V7__books_children.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V8__books_fts.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration/V9__books_search_map.sql\\E"
-  }, {
-    "pattern":"\\Qdb/migration\\E"
-  }, {
-    "pattern":"\\Qjunit-platform.properties\\E"
-  }, {
-    "pattern":"\\Qkotest.properties\\E"
-  }, {
-    "pattern":"\\Qkotlin/collections/collections.kotlin_builtins\\E"
-  }, {
-    "pattern":"\\Qkotlin/coroutines/coroutines.kotlin_builtins\\E"
-  }, {
-    "pattern":"\\Qkotlin/coroutines/jvm/internal/internal.kotlin_builtins\\E"
-  }, {
-    "pattern":"\\Qkotlin/jvm/internal/internal.kotlin_builtins\\E"
-  }, {
-    "pattern":"\\Qkotlin/kotlin.kotlin_builtins\\E"
-  }, {
-    "pattern":"\\Qkotlin/time/time.kotlin_builtins\\E"
-  }, {
-    "pattern":"\\Qlogback-json.xml\\E"
-  }, {
-    "pattern":"\\Qlogback-test.xml\\E"
-  }, {
-    "pattern":"\\Qlogback.xml\\E"
-  }, {
-    "pattern":"\\Qorg/flywaydb/core/internal/version.txt\\E"
-  }, {
-    "pattern":"\\Qorg/fusesource/jansi/internal/native/Mac/arm64/libjansi.jnilib\\E"
-  }, {
-    "pattern":"\\Qorg/fusesource/jansi/jansi.properties\\E"
-  }, {
-    "pattern":"\\Qorg/jetbrains/kotlin/cli/jvm/compiler/KotlinCoreEnvironment$Companion.class\\E"
-  }, {
-    "pattern":"\\Qorg/sqlite/native/Mac/aarch64/libsqlitejdbc.dylib\\E"
-  }, {
-    "pattern":"\\Qpsw4j.properties\\E"
-  }, {
-    "pattern":"\\Qsidecar/creator-roles.opf\\E"
-  }, {
-    "pattern":"\\Qsidecar/desc-multiline.txt\\E"
-  }, {
-    "pattern":"\\Qsidecar/desc.txt\\E"
-  }, {
-    "pattern":"\\Qsidecar/iso-timestamp.opf\\E"
-  }, {
-    "pattern":"\\Qsidecar/malformed.nfo\\E"
-  }, {
-    "pattern":"\\Qsidecar/malformed.opf\\E"
-  }, {
-    "pattern":"\\Qsidecar/minimal.nfo\\E"
-  }, {
-    "pattern":"\\Qsidecar/minimal.opf\\E"
-  }, {
-    "pattern":"\\Qsidecar/multiple-creators.opf\\E"
-  }, {
-    "pattern":"\\Qsidecar/reader-empty.txt\\E"
-  }, {
-    "pattern":"\\Qsidecar/reader.txt\\E"
-  }, {
-    "pattern":"\\Qsidecar/sample.nfo\\E"
-  }, {
-    "pattern":"\\Qsidecar/sample.opf\\E"
-  }, {
-    "pattern":"\\Qsqlite-jdbc.properties\\E"
-  }, {
-    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfc.nrm\\E"
-  }, {
-    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfkc.nrm\\E"
-  }]},
-  "bundles":[{
-    "name":"com.sun.org.apache.xerces.internal.impl.msg.XMLMessages",
-    "locales":["und"]
-  }]
+  "resources": {
+    "includes": [
+      {
+        "pattern": "\\Qdb/migration-index.txt\\E"
+      },
+      {
+        "pattern": "\\Qapplication.conf\\E"
+      },
+      {
+        "pattern": "\\Q/psw4j.properties\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/maven/org.xerial/sqlite-jdbc/pom.properties\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/ch.qos.logback.classic.spi.Configurator\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/dev.whyoleg.cryptography.CryptographyProviderContainer\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/dev.whyoleg.cryptography.providers.jdk.DefaultJdkSecurityProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/io.ktor.client.HttpClientEngineContainer\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/io.ktor.serialization.kotlinx.KotlinxSerializationExtensionProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/java.lang.System$LoggerFinder\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/java.net.spi.InetAddressResolverProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/java.net.spi.URLStreamHandlerProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/java.nio.channels.spi.SelectorProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/java.sql.Driver\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/java.time.zone.ZoneRulesProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/javax.xml.parsers.DocumentBuilderFactory\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/javax.xml.parsers.SAXParserFactory\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/kotlin.reflect.jvm.internal.impl.km.internal.extensions.MetadataExtensions\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/kotlin.reflect.jvm.internal.impl.resolve.ExternalOverridabilityCondition\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/kotlin.reflect.jvm.internal.impl.util.ModuleVisibilityHelper\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/kotlinx.coroutines.CoroutineExceptionHandler\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/kotlinx.coroutines.internal.MainDispatcherFactory\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.flywaydb.core.extensibility.Plugin\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.jetbrains.exposed.v1.core.dao.id.EntityIDFactory\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.jetbrains.exposed.v1.core.statements.GlobalStatementInterceptor\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.jetbrains.exposed.v1.jdbc.DatabaseConnectionAutoRegistration\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.junit.platform.engine.TestEngine\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.junit.platform.launcher.LauncherDiscoveryListener\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.junit.platform.launcher.LauncherSessionListener\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.junit.platform.launcher.PostDiscoveryFilter\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.junit.platform.launcher.TestExecutionListener\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/org.slf4j.spi.SLF4JServiceProvider\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF/services/tools.jackson.databind.JacksonModule\\E"
+      },
+      {
+        "pattern": "\\Qch/qos/logback/classic/logback-classic-version.properties\\E"
+      },
+      {
+        "pattern": "\\Qch/qos/logback/core/logback-core-version.properties\\E"
+      },
+      {
+        "pattern": "\\Qdb/callback\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V10__books_series_normalized_name.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V11__books_scan_warning.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V12__libraries_metadata_precedence.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V13__contributors_syncable.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V14__book_series_syncable.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V15__playback_positions.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V16__listening_events_and_user_stats.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V17__active_sessions.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V18__b2a_substrate.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V19__contributor_series_search.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V1__auth_baseline.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V20__library_substrate.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V21__tags_substrate.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V22__contributor_aliases.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V23__genres.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V24__collections_substrate.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V25__library_inbox_enabled.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V26__user_permissions_and_settings.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V27__invites.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V28__session_device_info.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V29__user_profile_fields.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V2__sync_foundation.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V30__shelves_substrate.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V31__public_profiles.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V32__public_profiles_tagline.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V33__activities.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V3__books_libraries_table.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V4__books_table.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V5__books_contributors.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V6__books_series.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V7__books_children.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V8__books_fts.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration/V9__books_search_map.sql\\E"
+      },
+      {
+        "pattern": "\\Qdb/migration\\E"
+      },
+      {
+        "pattern": "\\Qjunit-platform.properties\\E"
+      },
+      {
+        "pattern": "\\Qkotest.properties\\E"
+      },
+      {
+        "pattern": "\\Qkotlin/collections/collections.kotlin_builtins\\E"
+      },
+      {
+        "pattern": "\\Qkotlin/coroutines/coroutines.kotlin_builtins\\E"
+      },
+      {
+        "pattern": "\\Qkotlin/coroutines/jvm/internal/internal.kotlin_builtins\\E"
+      },
+      {
+        "pattern": "\\Qkotlin/jvm/internal/internal.kotlin_builtins\\E"
+      },
+      {
+        "pattern": "\\Qkotlin/kotlin.kotlin_builtins\\E"
+      },
+      {
+        "pattern": "\\Qkotlin/time/time.kotlin_builtins\\E"
+      },
+      {
+        "pattern": "\\Qlogback-json.xml\\E"
+      },
+      {
+        "pattern": "\\Qlogback-test.xml\\E"
+      },
+      {
+        "pattern": "\\Qlogback.xml\\E"
+      },
+      {
+        "pattern": "\\Qorg/flywaydb/core/internal/version.txt\\E"
+      },
+      {
+        "pattern": "\\Qorg/fusesource/jansi/internal/native/Mac/arm64/libjansi.jnilib\\E"
+      },
+      {
+        "pattern": "\\Qorg/fusesource/jansi/jansi.properties\\E"
+      },
+      {
+        "pattern": "\\Qorg/jetbrains/kotlin/cli/jvm/compiler/KotlinCoreEnvironment$Companion.class\\E"
+      },
+      {
+        "pattern": "\\Qorg/sqlite/native/Mac/aarch64/libsqlitejdbc.dylib\\E"
+      },
+      {
+        "pattern": "\\Qpsw4j.properties\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/creator-roles.opf\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/desc-multiline.txt\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/desc.txt\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/iso-timestamp.opf\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/malformed.nfo\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/malformed.opf\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/minimal.nfo\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/minimal.opf\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/multiple-creators.opf\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/reader-empty.txt\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/reader.txt\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/sample.nfo\\E"
+      },
+      {
+        "pattern": "\\Qsidecar/sample.opf\\E"
+      },
+      {
+        "pattern": "\\Qsqlite-jdbc.properties\\E"
+      },
+      {
+        "pattern": "java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfc.nrm\\E"
+      },
+      {
+        "pattern": "java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfkc.nrm\\E"
+      }
+    ]
+  },
+  "bundles": [
+    {
+      "name": "com.sun.org.apache.xerces.internal.impl.msg.XMLMessages",
+      "locales": [
+        "und"
+      ]
+    }
+  ]
 }

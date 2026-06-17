@@ -35,6 +35,10 @@ object DatabaseFactory {
             .configure()
             .dataSource(pool)
             .locations("classpath:db/migration")
+            // Load migrations by name from the committed index rather than scanning the classpath:
+            // the only thing that works under native-image (no walkable classpath), equivalent to
+            // scanning on the JVM. Single path keeps JVM and native behaviour identical. (#647)
+            .resourceProvider(BundledMigrationResourceProvider())
             .load()
             .migrate()
 
