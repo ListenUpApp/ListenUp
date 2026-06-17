@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.connection
 import com.calypsan.listenup.client.data.discovery.DiscoveredServer
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
+import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -250,6 +252,56 @@ class ConnectionCoordinatorTest :
             scope.testScheduler.advanceUntilIdle()
 
             verifySuspend { instance.findReachableUrl(any()) }
+        }
+
+        test("a firehose reconnect invalidates stale RPC proxy caches, but the initial connect does not") {
+            val scope = TestScope(StandardTestDispatcher())
+            val online = MutableStateFlow(true)
+            val invalidator = FakeInvalidator()
+            val engineState = SyncEngineState()
+            val serverConfig =
+                mock<ServerConfig> {
+                    // Host:port never changes — so the URL observer must not be what invalidates here.
+                    every { activeUrl } returns MutableStateFlow<ServerUrl?>(ServerUrl(local))
+                    everySuspend { getActiveUrl() } returns ServerUrl(local)
+                    everySuspend { getServerUrl() } returns ServerUrl(local)
+                    everySuspend { getRemoteUrl() } returns ServerUrl(remote)
+                    everySuspend { setActiveUrl(any()) } returns Unit
+                }
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { findReachableUrl(any()) } returns local
+                }
+            val networkMonitor =
+                mock<NetworkMonitor> {
+                    every { isOnlineFlow } returns online
+                    every { isOnline() } returns online.value
+                }
+            ConnectionCoordinator(
+                serverConfig,
+                instance,
+                idleDiscovery(),
+                networkMonitor,
+                invalidator,
+                scope,
+                engineState,
+            ).start()
+            scope.testScheduler.advanceUntilIdle()
+
+            // Initial connect: no stale proxies yet → no sweep.
+            engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+            scope.testScheduler.advanceUntilIdle()
+            invalidator.count shouldBe 0
+
+            // Drop, then reconnect to the same server: the cached proxies are now bound to a dead
+            // RpcClient and must be swept so the next RPC call rebinds.
+            engineState.setConnection(ConnectionState.Disconnected(reason = "network blip"))
+            scope.testScheduler.advanceUntilIdle()
+            invalidator.count shouldBe 0
+
+            engineState.setConnection(ConnectionState.Connected(lastEventId = 7L))
+            scope.testScheduler.advanceUntilIdle()
+            invalidator.count shouldBe 1
         }
 
         test("invalidates when the active URL host changes") {

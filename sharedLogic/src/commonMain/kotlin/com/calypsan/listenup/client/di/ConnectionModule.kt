@@ -78,6 +78,7 @@ val connectionModule: Module =
                             qualifier =
                                 named(APP_SCOPE),
                         ),
+                    engineState = get(),
                 )
             coordinator.start()
             coordinator
