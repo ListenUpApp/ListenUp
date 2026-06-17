@@ -216,3 +216,49 @@ jobs:
           bundle exec fastlane beta \
             version:${{ needs.set-version.outputs.version }} \
             build_number:${{ github.run_number }}
+
+  server:
+    name: Server → GHCR (non-blocking until #647)
+    runs-on: ubuntu-latest
+    needs: set-version
+    if: ${{ inputs.server }}
+    continue-on-error: true
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up GraalVM 21
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build native binary
+        run: ./gradlew :server:nativeCompile --no-configuration-cache --no-daemon
+
+      - name: Stage binary for Docker
+        run: cp server/build/native/nativeCompile/* server/server-binary
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          file: server/Dockerfile.native
+          push: true
+          tags: |
+            ghcr.io/listenupapp/listenup-server:${{ needs.set-version.outputs.version }}
+            ghcr.io/listenupapp/listenup-server:${{ github.sha }}
+            ghcr.io/listenupapp/listenup-server:latest

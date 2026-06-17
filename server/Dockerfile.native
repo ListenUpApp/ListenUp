@@ -1,0 +1,9 @@
+# Runtime image for the GraalVM native server binary.
+# The binary is built on the runner by :server:nativeCompile and copied in here.
+FROM debian:stable-slim
+RUN useradd -r -u 10001 listenup
+COPY server-binary /usr/local/bin/listenup-server
+RUN chmod +x /usr/local/bin/listenup-server
+USER 10001
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/listenup-server"]
