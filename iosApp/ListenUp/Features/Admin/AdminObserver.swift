@@ -2,7 +2,7 @@ import Foundation
 @preconcurrency import Shared
 
 /// Observes `AdminViewModel` — flattens the sealed `AdminUiState` into a SwiftUI-native
-/// `AdminPhase` (`loading` / `ready` / `error`) and surfaces the transient mutation error
+/// `AdminPhase` (`loading` / `ready`) and surfaces the transient mutation error
 /// and per-row in-flight ids as flat state the `AdminView` binds to.
 ///
 /// The VM subscribes to SSE for real-time pending-user updates; this observer simply renders
@@ -57,8 +57,6 @@ final class AdminObserver {
             phase = .loading
         case .ready(let ready):
             phase = .ready(AdminReadyModel(from: ready))
-        case .error(let error):
-            phase = .error(message: error.message)
         }
     }
 }
@@ -69,7 +67,6 @@ final class AdminObserver {
 enum AdminPhase {
     case loading
     case ready(AdminReadyModel)
-    case error(message: String)
 }
 
 // MARK: - Ready model

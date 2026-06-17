@@ -203,14 +203,6 @@ fun AdminScreen(
                 FullScreenLoadingIndicator()
             }
 
-            is AdminUiState.Error -> {
-                Text(
-                    text = current.message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(innerPadding).padding(16.dp),
-                )
-            }
-
             is AdminUiState.Ready -> {
                 AdminContent(
                     state = current,

@@ -81,14 +81,6 @@ struct AdminView: View {
         switch admin.phase {
         case .loading:
             LoadingStateView()
-        case .error(let message):
-            ContentUnavailableView {
-                Label(String(localized: "common.something_went_wrong"), systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(message)
-            } actions: {
-                Button(String(localized: "common.retry")) { admin.reload() }
-            }
         case .ready(let ready):
             readyBody(admin: admin, settings: settings, ready: ready)
         }
