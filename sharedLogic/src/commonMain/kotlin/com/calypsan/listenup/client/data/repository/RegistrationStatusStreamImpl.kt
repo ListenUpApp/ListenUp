@@ -7,9 +7,12 @@ import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.request.get
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.bodyAsText
 import io.ktor.utils.io.readLine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -69,6 +72,28 @@ class RegistrationStatusStreamImpl(
                     }
                 }
             }
+        }
+
+    override suspend fun fetchStatus(userId: String): StreamedRegistrationStatus =
+        try {
+            val serverUrl =
+                serverConfig.getServerUrl()
+                    ?: return StreamedRegistrationStatus.Pending
+            val url = "$serverUrl/api/v1/auth/registration-status/$userId"
+            logger.debug { "Polling registration status (one-shot): $url" }
+            val body = apiClientFactory.getUnauthenticatedStreamingClient().get(url).bodyAsText()
+            val event = json.decodeFromString<RegistrationStatusEvent>(body)
+            when (event.status) {
+                "approved" -> StreamedRegistrationStatus.Approved
+                "denied" -> StreamedRegistrationStatus.Denied(event.message)
+                else -> StreamedRegistrationStatus.Pending
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Never-stranded: a failed poll must not crash the waiting screen — stay pending.
+            logger.warn(e) { "registration-status one-shot fetch failed; treating as pending" }
+            StreamedRegistrationStatus.Pending
         }
 
     private fun parseSSEEvent(eventJson: String): StreamedRegistrationStatus? =

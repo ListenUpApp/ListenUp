@@ -39,4 +39,18 @@ interface RegistrationStatusStream {
      * @throws Exception if the connection fails
      */
     fun streamStatus(userId: String): Flow<StreamedRegistrationStatus>
+
+    /**
+     * One-shot pull of the registrant's current status via a plain request/response GET.
+     *
+     * The "never stranded" fallback for clients where the SSE [streamStatus] doesn't deliver
+     * (notably the iOS Darwin engine's handling of the hand-rolled stream): "Check Status", an
+     * on-screen poll, and the on-entry check all use this so an approved registrant always learns
+     * it. Never throws — any transport/parse failure resolves to [StreamedRegistrationStatus.Pending]
+     * so the screen safely stays in its waiting state.
+     *
+     * @param userId The user ID to check
+     * @return the current status; [StreamedRegistrationStatus.Pending] on any failure
+     */
+    suspend fun fetchStatus(userId: String): StreamedRegistrationStatus
 }
