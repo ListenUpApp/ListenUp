@@ -19,6 +19,10 @@ application {
 dependencies {
     implementation(projects.contract)
 
+    // GraalVM native-image Feature API — compile-only; provided by the native-image builder at
+    // build time (used by ModuleReaderResetFeature, #647).
+    compileOnly("org.graalvm.sdk:nativeimage:23.1.2")
+
     // Ktor server core + engine
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
@@ -242,5 +246,10 @@ graalvmNative {
         // NOTE: this bakes the logback config at build time, so the runtime LISTENUP_LOG_FORMAT
         // switching (#436 Launcher) needs a native-specific rethink later — tracked as follow-up.
         buildArgs.add("--initialize-at-build-time=org.slf4j,ch.qos.logback,net.logstash.logback")
+        // #647 fix: GraalVM force-initializes java.time.zone.ZoneRulesProvider at build time; its
+        // ServiceLoader scan opens JDK module jars whose handles get retained in the image heap via
+        // BuiltinClassLoader.moduleToReader ("Detected a ZipFile object in the image heap"). It is
+        // too late to move ZoneRulesProvider to run-time init, so empty that cache at build time.
+        buildArgs.add("--features=com.calypsan.listenup.server.nativeimage.ModuleReaderResetFeature")
     }
 }
