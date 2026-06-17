@@ -174,6 +174,45 @@ tasks.test {
     }
 }
 
+// ── Native-image migration-index drift gate (#647) ──────────────────────────────────────────────
+// Under native-image Flyway can't scan the classpath, so it loads migrations by name from the
+// committed `db/migration-index.txt` (see BundledMigrationResourceProvider). A migration added
+// without updating the index would silently be missing at native runtime → "no such table". These
+// tasks regenerate the index and fail the build (via `check`) if it drifts from the actual SQL files.
+val migrationDir = layout.projectDirectory.dir("src/main/resources/db/migration")
+val migrationIndexFile = layout.projectDirectory.file("src/main/resources/db/migration-index.txt")
+
+fun actualMigrationNames(): List<String> =
+    (migrationDir.asFile.listFiles { f -> f.isFile && f.name.endsWith(".sql") } ?: emptyArray())
+        .map { it.name }
+        .sorted()
+
+tasks.register("generateMigrationIndex") {
+    group = "native"
+    description = "Regenerates db/migration-index.txt from the actual migration SQL files."
+    doLast {
+        migrationIndexFile.asFile.writeText(actualMigrationNames().joinToString("\n", postfix = "\n"))
+        logger.lifecycle("Wrote ${actualMigrationNames().size} migration names to ${migrationIndexFile.asFile.name}")
+    }
+}
+
+val checkMigrationIndex =
+    tasks.register("checkMigrationIndex") {
+        group = "verification"
+        description = "Fails if db/migration-index.txt is out of sync with the migration SQL files."
+        doLast {
+            val committed = migrationIndexFile.asFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.toSortedSet()
+            val actual = actualMigrationNames().toSortedSet()
+            require(committed == actual) {
+                "db/migration-index.txt is out of sync with src/main/resources/db/migration — the native " +
+                    "server would be missing migrations. Run `./gradlew :server:generateMigrationIndex`.\n" +
+                    "  missing from index: ${actual - committed}\n  stale in index:    ${committed - actual}"
+            }
+        }
+    }
+
+tasks.named("check") { dependsOn(checkMigrationIndex) }
+
 val seedLibraryDir = layout.buildDirectory.dir("seed-library")
 
 tasks.register<JavaExec>("generateSeedLibrary") {
