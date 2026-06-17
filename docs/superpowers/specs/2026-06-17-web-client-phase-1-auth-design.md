@@ -71,7 +71,7 @@ Token types are value classes: `AccessToken`, `RefreshToken`, `SessionId`, `User
 - Konsist rule: no `com.calypsan.listenup.server.*` import in `:web`.
 
 ### 2.2 Catalog additions (`client/gradle/libs.versions.toml`)
-Add: `ktor-server-html-builder`, `kotlinx-html`, `ktor-htmx`, `ktor-htmx-html` (HTMX integration is experimental Ktor API). Already present and reused: `ktor-client-core`, `ktor-client-cio`, `ktor-server-resources`, `ktor-server-sse`, `ktor-server-openapi`, `ktor-server-swagger`. CSRF: either add `ktor-server-csrf` or implement a small filter (decided in the plan).
+Add: `ktor-server-html-builder`, `kotlinx-html`, `ktor-htmx`, `ktor-htmx-html` (HTMX integration is experimental Ktor API), and `ktor-server-csrf`. Already present and reused: `ktor-client-core`, `ktor-client-cio`, `ktor-server-resources`, `ktor-server-sse`, `ktor-server-openapi`, `ktor-server-swagger`. **OpenAPI generation:** add the code-first library chosen by the §5 spike (candidates: tegral-openapi, Papsign/ktor-openapi-tools, or a kotlinx-serialization JSON-Schema + custom DSL hybrid that needs no new dependency). **CSRF:** the `ktor-server-csrf` plugin (chosen over a hand-rolled filter — don't hand-roll security).
 
 ### 2.3 Loopback REST client
 - A typed client in `:web` over `ktor-client-cio`, base URL = `WebUiConfig.loopbackBaseUrl`.
@@ -101,7 +101,7 @@ Guards protected web routes:
 Public web routes (`/login`, `/setup`, `/register`, `/pending`) skip the interceptor.
 
 ### 3.3 CSRF
-`SameSite=Lax` + an **origin/referer check** + a **double-submit CSRF token** on every mutating web route. The token is issued on the form GET (so even login-CSRF is covered). Implemented via `ktor-server-csrf` or a small filter (plan decides).
+`SameSite=Lax` + an **origin/referer check** + a **double-submit CSRF token** on every mutating web route. The token is issued on the form GET (so even login-CSRF is covered). Implemented via the **`ktor-server-csrf` plugin**.
 
 ## 4. Screens & Flows
 
@@ -113,13 +113,15 @@ All pages rendered with `kotlinx.html` + Tailwind; form posts target web (BFF) r
 - **Register** `GET/POST /register` (hidden/disabled when policy `CLOSED`) → loopback `auth/register` → `RegisterResult.Authenticated` → home; `RegisterResult.PendingApproval` → `/pending?userId=…`.
 - **Pending approval** `/pending` → **first SSE consumer**: subscribe to `auth/registration-status/{userId}/stream` via the HTMX SSE extension, with a **poll fallback** (`hx-trigger="every Ns"` against the pull endpoint) per Never-Stranded. `approved` → redirect login; `denied` → show reason.
 - **Logout** `POST /logout` → loopback `auth/logout` (bearer) → clear store + expire cookie → `/login`.
-- **Active sessions (optional in Phase 1)** — list/revoke devices via `auth/sessions` + `DELETE auth/sessions/{id}`. Cheap; exercises those endpoints. Trimmable from Phase 1 if we want to keep it lean.
+- **Active sessions** — list devices via `auth/sessions` and revoke via `DELETE auth/sessions/{id}`. Included in Phase 1; exercises those endpoints for parity + docs.
 
-## 5. OpenAPI / Swagger (auth slice)
-- Install Swagger UI at `/api/docs` over `ktor-server-openapi` + `ktor-server-swagger`.
-- Hand-author the **auth slice** of the OpenAPI spec (paths in §1.1 + their DTO schemas).
-- **Accuracy test:** a Kotest test asserts every documented auth path exists and round-trips against the running app, so the doc cannot silently drift.
-- This establishes the pattern; the spec is extended each subsequent phase. (Generation-strategy decision flagged in the umbrella.)
+## 5. OpenAPI / Swagger — code-first generation (FIRST Phase 1 task)
+Documentation is **generated from the code**, not hand-written. This is the **first task in Phase 1**, done as a de-risking spike *before* the auth screens are built, because every later phase and the parity requirement depend on the pattern it establishes.
+
+- **Spike goal:** wire code-first OpenAPI generation to the **existing** auth endpoints (§1.1) and confirm accurate Swagger UI at `/api/docs` against Ktor 3.5 + `@Resource` + kotlinx.serialization, with request/response **schemas derived from the `@Serializable` DTOs**.
+- **Approach & fallback (Never Stranded):** evaluate a code-first library (candidates: tegral-openapi; Papsign/ktor-openapi-tools; others). **Decision gate:** if none is solid against Ktor 3.5, fall back to a **hybrid we own** — derive DTO JSON-Schemas from kotlinx.serialization and attach a minimal per-route operation description in the routing DSL. Either path yields code-derived docs that can't drift.
+- **The spike's outcome sets the per-route pattern** used for every REST endpoint from here on: each route ships with its operation metadata in code, so the spec grows automatically and parity work is self-documenting.
+- **Drift-guard test (kept regardless):** a Kotest test asserts every auth path in §1.1 appears in the generated spec and round-trips against the running app.
 
 ## 6. Testing (TDD — Kotest `FunSpec` + `testApplication`)
 Because `:web` and the REST routes run in one Ktor app, these are **true end-to-end** (web route → real auth REST → real in-memory SQLite):
@@ -130,11 +132,12 @@ Because `:web` and the REST routes run in one Ktor app, these are **true end-to-
 - CSRF: mutating request without a valid token is rejected.
 - Transparent refresh: expired access token triggers one loopback refresh; rotated token persisted; **single-flight under concurrent requests** (no family-revoke).
 - `requireWebSession` redirects to `/login` when session missing/unrecoverable.
-- OpenAPI accuracy test (§5).
+- Active sessions: the list reflects the current session; revoking a session removes it.
+- OpenAPI generation + drift-guard test (§5): every auth path appears in the generated spec and round-trips.
 - Contract round-trip for any DTO touched (most already covered).
 
 ## 7. Phase 1 Boundary
-- **In:** the `:web` module + plumbing, loopback client, browser session model, login/setup/register/pending/logout, CSRF, Tailwind, static assets, app-shell skeleton, Swagger UI + auth OpenAPI slice + accuracy test, full test suite above. Active-sessions screen optional.
+- **In:** the OpenAPI code-first generation spike (**first task**, §5); the `:web` module + plumbing; loopback client; browser session model; login / setup / register / pending / logout; **active-sessions screen** (list/revoke devices); CSRF (`ktor-server-csrf`); Tailwind; static assets; app-shell skeleton; Swagger UI + generated auth docs + drift-guard test; full test suite above.
 - **Deferred:** invite-code *claiming* (REST surface unconfirmed — revisit in Phase 6/admin or as a fast-follow), and all post-login content (home/library = Phase 2; Phase 1 lands on a placeholder).
 
 ## 8. Key File References
