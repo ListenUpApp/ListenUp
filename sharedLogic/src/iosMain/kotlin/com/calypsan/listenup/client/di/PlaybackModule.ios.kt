@@ -78,6 +78,7 @@ val iosPlaybackModule: Module =
                 serverConfig = get(),
                 tokenProvider = get(),
                 fileManager = get(),
+                playbackRpcFactory = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }

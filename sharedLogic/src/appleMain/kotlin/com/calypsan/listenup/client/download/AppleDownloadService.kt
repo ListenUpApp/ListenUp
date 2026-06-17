@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.AudioTokenProvider
@@ -90,6 +91,7 @@ class AppleDownloadService(
     private val serverConfig: ServerConfig,
     private val tokenProvider: AudioTokenProvider,
     private val fileManager: DownloadFileManager,
+    private val playbackRpcFactory: PlaybackRpcFactory,
     private val scope: CoroutineScope,
 ) : DownloadService {
     /**
@@ -229,8 +231,23 @@ class AppleDownloadService(
 
         downloadDao.updateState(audioFileId, DownloadState.DOWNLOADING, Clock.System.now().toEpochMilliseconds())
 
-        // Build URL — use Authorization header (in-process session supports headers)
-        val url = "$serverUrl/api/v1/books/$bookId/audio/$audioFileId"
+        // Resolve the signed download URL via PlaybackService.prepare — the same server contract the
+        // streaming path and Android use (GET /api/v1/audio/{bookId}/{fileId}?u=&exp=&sig=). The old
+        // hardcoded /api/v1/books/{bookId}/audio/{fileId} route no longer exists and 404s. The signed
+        // URL is RELATIVE, so prepend the server URL (NSURLSession has no base URL).
+        val signedRelativeUrl =
+            when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, playbackRpcFactory)) {
+                is AppResult.Success -> {
+                    resolved.data
+                }
+
+                is AppResult.Failure -> {
+                    logger.error { "Failed to resolve download URL for $filename: ${resolved.error.message}" }
+                    downloadDao.updateError(audioFileId, "Failed to resolve URL: ${resolved.error.message}")
+                    return@withContext
+                }
+            }
+        val url = serverUrl.trimEnd('/') + signedRelativeUrl
         val nsUrl =
             NSURL.URLWithString(url) ?: run {
                 downloadDao.updateError(audioFileId, "Invalid URL")

@@ -3,7 +3,6 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
@@ -177,13 +176,11 @@ internal suspend fun downloadAudioFile(
     }
 
 /**
- * Resolve the correct download URL via [PlaybackService.prepare].
+ * Resolve the correct download URL via [PlaybackService.prepare], wrapping the shared
+ * [resolveSignedDownloadUrl] in the [ResolveResult.Ready]/throw contract this download path expects.
  *
- * Calls [playbackRpcFactory] to obtain the [com.calypsan.listenup.api.PlaybackService] proxy,
- * invokes [prepare(bookId)][com.calypsan.listenup.api.PlaybackService.prepare], and finds the
- * matching [com.calypsan.listenup.api.dto.PreparedAudioFile] by [audioFileId]. The [url] on
- * that file is the signed RELATIVE path (the download HTTP client has a defaultRequest base —
- * do NOT prepend the server base URL here).
+ * The signed URL is the **relative** path (the download HTTP client has a defaultRequest base — do
+ * NOT prepend the server base URL here).
  *
  * Throws [IllegalStateException] on [AppResult.Failure] or when the fileId is absent from the
  * response; [suspendRunCatching] in [downloadAudioFile] catches it and routes to
@@ -193,20 +190,13 @@ private suspend fun resolveDownloadUrl(
     bookId: String,
     audioFileId: String,
     playbackRpcFactory: PlaybackRpcFactory,
-): ResolveResult.Ready {
-    val rpcResult = playbackRpcFactory.playbackService().prepare(BookId(bookId))
+): ResolveResult.Ready =
+    when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, playbackRpcFactory)) {
+        is AppResult.Success -> {
+            ResolveResult.Ready(resolved.data)
+        }
 
-    if (rpcResult !is AppResult.Success) {
-        val error = (rpcResult as AppResult.Failure).error
-        logger.warn { "prepare() failed for $audioFileId: ${error.message} (${error.debugInfo})" }
-        error("prepare() failed for book=$bookId audioFile=$audioFileId: ${error.message}")
+        is AppResult.Failure -> {
+            error("prepare() failed for book=$bookId audioFile=$audioFileId: ${resolved.error.message}")
+        }
     }
-
-    val preparedPlayback = rpcResult.data
-    val audioFile =
-        preparedPlayback.audioFiles.firstOrNull { it.fileId == audioFileId }
-            ?: error("prepare() response for book=$bookId does not contain audioFileId=$audioFileId")
-
-    logger.debug { "Using signed URL for $audioFileId: ${audioFile.url}" }
-    return ResolveResult.Ready(audioFile.url)
-}
