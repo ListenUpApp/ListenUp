@@ -80,7 +80,7 @@ struct RegisterView: View {
                          text: $firstName, icon: "person", isLast: false,
                          textContentType: .givenName, autocapitalization: .words)
             AppTextField(placeholder: String(localized: "auth.last_name"),
-                         text: $lastName, textContentType: .familyName,
+                         text: $lastName, icon: "person", textContentType: .familyName,
                          autocapitalization: .words)
         }
     }
