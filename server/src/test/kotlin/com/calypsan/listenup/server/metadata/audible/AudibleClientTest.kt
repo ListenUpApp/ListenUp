@@ -257,6 +257,29 @@ class AudibleClientTest :
             }
         }
 
+        test("getContributor extracts the photo from author-image-outline when there is no og:image (#615)") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = CONTRIBUTOR_PAGE_REAL_AUTHOR_IMAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                val result = client.getContributor(AudibleRegion.US, "B001IGFHW6")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val profile = (result as AppResult.Success<AudibleContributorProfile?>).data
+                profile.shouldNotBeNull()
+                profile.name shouldBe "Brandon Sanderson"
+                profile.imageUrl shouldBe
+                    "https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/" +
+                    "o1ehbft4gejvtoskr22jt89eit.__01_SX120_CR0,0,120,120__.jpg"
+            }
+        }
+
         test("getContributor returns null (Success) on 404 — Audible serves generic page for unknown ASINs") {
             runTest {
                 val engine =
@@ -513,6 +536,26 @@ private val CONTRIBUTOR_PAGE_WITH_OG_IMAGE =
 <body>
 <h1 class="bc-heading">Frank Herbert</h1>
 <div class="bc-expander-content">Author of Dune</div>
+</body>
+</html>
+    """.trimIndent()
+
+/**
+ * Author page HTML mirroring the REAL Audible structure (verified against a live author page,
+ * #615): there is **no** `og:image` meta tag — the photo lives only in the
+ * `author-image-outline` `<img>`, whose `src` carries Amazon size params (commas) and is followed
+ * by an `onerror` attribute. Guards that the `author-image-outline` fallback (not just the
+ * synthetic og:image fixture) extracts a real photo URL.
+ */
+private val CONTRIBUTOR_PAGE_REAL_AUTHOR_IMAGE =
+    """
+<!DOCTYPE html>
+<html>
+<head><title>Brandon Sanderson | Audible.ca</title></head>
+<body>
+<h1 class="bc-heading">Brandon Sanderson</h1>
+<div class="bc-expander-content">Author of The Stormlight Archive</div>
+<img alt="" class="image-mask app-image-position author-image-outline js-only-element" src="https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/o1ehbft4gejvtoskr22jt89eit.__01_SX120_CR0,0,120,120__.jpg" onerror="this.src='https://example.com/fallback.jpg'">
 </body>
 </html>
     """.trimIndent()
