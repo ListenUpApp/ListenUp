@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.openapi
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -34,7 +33,9 @@ class OpenApiDocumentTest :
         test("the sessions list endpoint documents an array response") {
             val doc = buildOpenApiDocument()
             val get = doc["paths"]!!.jsonObject["/api/v1/auth/sessions"]!!.jsonObject["get"]!!.jsonObject
-            val schema = get["responses"]!!.jsonObject["200"]!!.jsonObject["content"]!!.jsonObject["application/json"]!!.jsonObject["schema"]!!.jsonObject
+            val response200 = get["responses"]!!.jsonObject["200"]!!.jsonObject
+            val content = response200["content"]!!.jsonObject["application/json"]!!.jsonObject
+            val schema = content["schema"]!!.jsonObject
             schema["type"]!!.jsonPrimitive.content shouldBe "array"
         }
 

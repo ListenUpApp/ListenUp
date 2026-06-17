@@ -533,12 +533,14 @@ private fun Application.resolveLibraryPaths(): List<Path> {
         }
 }
 
+private const val DEFAULT_HTTP_PORT = 8080
+
 /** Reads `ktor.deployment.port` from configuration, defaulting to 8080. */
 private fun Application.resolveHttpPort(): Int =
     environment.config
         .propertyOrNull("ktor.deployment.port")
         ?.getString()
-        ?.toIntOrNull() ?: 8080
+        ?.toIntOrNull() ?: DEFAULT_HTTP_PORT
 
 /**
  * Resolves the always-available ListenUp home directory that holds app-managed

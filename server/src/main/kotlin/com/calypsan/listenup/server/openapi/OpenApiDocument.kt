@@ -68,6 +68,8 @@ val authOperations: List<ApiOperation> =
             null, descriptorOf<Unit>(), authenticated = true),
     )
 
+private const val JSON_TYPE_STRING = "string"
+
 /** Minimal JSON-Schema for a kotlinx.serialization descriptor (objects, lists, primitives). */
 @OptIn(ExperimentalSerializationApi::class)
 fun schemaFor(descriptor: SerialDescriptor): JsonObject =
@@ -91,14 +93,14 @@ fun schemaFor(descriptor: SerialDescriptor): JsonObject =
             }
         SerialKind.ENUM ->
             buildJsonObject {
-                put("type", "string")
+                put("type", JSON_TYPE_STRING)
                 put(
                     "enum",
                     buildJsonArray { for (i in 0 until descriptor.elementsCount) add(JsonPrimitive(descriptor.getElementName(i))) },
                 )
             }
         is PrimitiveKind -> buildJsonObject { put("type", primitiveType(kind)) }
-        else -> buildJsonObject { put("type", "string") }
+        else -> buildJsonObject { put("type", JSON_TYPE_STRING) }
     }
 
 private fun primitiveType(kind: PrimitiveKind): String =
@@ -106,7 +108,7 @@ private fun primitiveType(kind: PrimitiveKind): String =
         PrimitiveKind.BOOLEAN -> "boolean"
         PrimitiveKind.BYTE, PrimitiveKind.SHORT, PrimitiveKind.INT, PrimitiveKind.LONG -> "integer"
         PrimitiveKind.FLOAT, PrimitiveKind.DOUBLE -> "number"
-        PrimitiveKind.CHAR, PrimitiveKind.STRING -> "string"
+        PrimitiveKind.CHAR, PrimitiveKind.STRING -> JSON_TYPE_STRING
     }
 
 /** Assemble the full OpenAPI 3.0 document from [operations]. */
@@ -156,7 +158,7 @@ private fun buildPaths(operations: List<ApiOperation>): JsonObject =
 private fun buildOperation(op: ApiOperation): JsonObject =
     buildJsonObject {
         put("summary", op.summary)
-        val pathParams = Regex("\\{(\\w+)\\}").findAll(op.path).map { it.groupValues[1] }.toList()
+        val pathParams = Regex("""\{(\w+)\}""").findAll(op.path).map { it.groupValues[1] }.toList()
         if (pathParams.isNotEmpty()) {
             put(
                 "parameters",
@@ -167,7 +169,7 @@ private fun buildOperation(op: ApiOperation): JsonObject =
                                 put("name", name)
                                 put("in", "path")
                                 put("required", true)
-                                put("schema", buildJsonObject { put("type", "string") })
+                                put("schema", buildJsonObject { put("type", JSON_TYPE_STRING) })
                             },
                         )
                     }
