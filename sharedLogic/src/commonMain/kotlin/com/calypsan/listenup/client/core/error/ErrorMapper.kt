@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.core.error
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
@@ -8,6 +9,7 @@ import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
+import io.ktor.http.HttpStatusCode
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
 
@@ -31,10 +33,22 @@ object ErrorMapper {
 
             is ResponseException -> {
                 val status = exception.response.status.value
-                if (status in 500..599) {
-                    TransportError.Server5xx(statusCode = status, debugInfo = exception.message)
-                } else {
-                    TransportError.Server4xx(statusCode = status, debugInfo = exception.message)
+                when {
+                    // 401 means the session is stale/invalid — type it as an auth error at the
+                    // boundary so the global auth-failure observer drives the app back to login
+                    // instead of looping a generic "server error" snackbar (issue #640). 403
+                    // (authenticated-but-forbidden) stays a plain 4xx — it is not a session failure.
+                    status == HttpStatusCode.Unauthorized.value -> {
+                        AuthError.SessionExpired(debugInfo = exception.message)
+                    }
+
+                    status in 500..599 -> {
+                        TransportError.Server5xx(statusCode = status, debugInfo = exception.message)
+                    }
+
+                    else -> {
+                        TransportError.Server4xx(statusCode = status, debugInfo = exception.message)
+                    }
                 }
             }
 

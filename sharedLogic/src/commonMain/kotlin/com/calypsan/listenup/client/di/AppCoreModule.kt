@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.auth.AuthFailureObserver
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +44,17 @@ val appCoreModule: Module =
         ) {
             CoroutineScope(
                 SupervisorJob() + Dispatchers.Default,
+            )
+        }
+
+        // Global auth-failure watcher: a session-invalidating AuthError on the bus
+        // soft-logs-out → login (issue #640). createdAtStart so it subscribes before
+        // any auth error can be emitted.
+        single(createdAtStart = true) {
+            AuthFailureObserver(
+                errorBus = get(),
+                authSession = get(),
+                scope = get(qualifier = named(APP_SCOPE)),
             )
         }
     }

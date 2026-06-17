@@ -1,0 +1,100 @@
+package com.calypsan.listenup.client.data.auth
+
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.data.repository.AuthSessionStore
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+
+/**
+ * Tests for [AuthFailureObserver] — the single place that converts a
+ * session-invalidating [AuthError] surfaced on the [ErrorBus] into a soft logout,
+ * driving navigation back to the login screen (issue #640).
+ *
+ * The observer collects a hot [kotlinx.coroutines.flow.SharedFlow], so the collector
+ * is launched on an [UnconfinedTestDispatcher] — it subscribes eagerly, before the
+ * test emits, and processes each emission synchronously.
+ */
+class AuthFailureObserverTest :
+    FunSpec({
+        fun authenticatedStore(): AuthSessionStore {
+            val storage = mock<SecureStorage>()
+            everySuspend { storage.save(any(), any()) } returns Unit
+            everySuspend { storage.delete(any()) } returns Unit
+            // clearAuthTokens reads KEY_OPEN_REGISTRATION when routing to NeedsLogin.
+            everySuspend { storage.read(any()) } returns null
+            return AuthSessionStore(storage, mock<ServerConfig>(), mock<InstanceRepository>())
+        }
+
+        test("session-invalidating error while Authenticated drives state to NeedsLogin") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    val store = authenticatedStore()
+                    store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
+                    store.authState.value.shouldBeInstanceOf<AuthState.Authenticated>()
+
+                    AuthFailureObserver(errorBus, store, scope)
+                    errorBus.emit(AuthError.SessionExpired())
+
+                    store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("non-auth error while Authenticated does not log the user out") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    val store = authenticatedStore()
+                    store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
+
+                    AuthFailureObserver(errorBus, store, scope)
+                    errorBus.emit(TransportError.Server5xx(statusCode = 500))
+
+                    store.authState.value.shouldBeInstanceOf<AuthState.Authenticated>()
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("session-invalidating error while not Authenticated is ignored") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    val store = authenticatedStore()
+                    // Never authenticated — store stays in its initial state.
+                    val before = store.authState.value
+
+                    AuthFailureObserver(errorBus, store, scope)
+                    errorBus.emit(AuthError.SessionExpired())
+
+                    store.authState.value shouldBe before
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+    })
