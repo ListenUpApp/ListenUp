@@ -20,17 +20,18 @@ fun Route.openApiRoutes() {
     }
 }
 
+// TODO: vendor these assets locally so the UI works fully offline (tracked follow-up).
 private val SWAGGER_UI_HTML =
     """
     <!doctype html>
     <html>
       <head>
         <title>ListenUp API — Swagger UI</title>
-        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
+        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
       </head>
       <body>
         <div id="swagger"></div>
-        <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+        <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
         <script>
           window.ui = SwaggerUIBundle({ url: '/api/openapi.json', dom_id: '#swagger' });
         </script>

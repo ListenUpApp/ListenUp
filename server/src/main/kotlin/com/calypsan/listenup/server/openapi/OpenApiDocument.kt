@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.descriptors.StructureKind
@@ -56,21 +57,21 @@ val authOperations: List<ApiOperation> =
         ApiOperation("/api/v1/auth/refresh", "post", "Exchange a refresh token for a new session",
             descriptorOf<RefreshRequest>(), descriptorOf<AuthSession>(), authenticated = false),
         ApiOperation("/api/v1/auth/logout", "post", "Revoke the current session",
-            null, descriptorOf<User>(), authenticated = true),
+            null, descriptorOf<Unit>(), authenticated = true),
         ApiOperation("/api/v1/auth/logout/all", "post", "Revoke all of the user's sessions",
-            null, descriptorOf<User>(), authenticated = true),
+            null, descriptorOf<Unit>(), authenticated = true),
         ApiOperation("/api/v1/auth/current-user", "get", "Get the authenticated user",
             null, descriptorOf<User>(), authenticated = true),
         ApiOperation("/api/v1/auth/sessions", "get", "List the user's active sessions",
-            null, descriptorOf<SessionSummary>(), authenticated = true),
+            null, descriptorOf<List<SessionSummary>>(), authenticated = true),
         ApiOperation("/api/v1/auth/sessions/{id}", "delete", "Revoke a specific session",
-            null, descriptorOf<User>(), authenticated = true),
+            null, descriptorOf<Unit>(), authenticated = true),
     )
 
 /** Minimal JSON-Schema for a kotlinx.serialization descriptor (objects, lists, primitives). */
 @OptIn(ExperimentalSerializationApi::class)
 fun schemaFor(descriptor: SerialDescriptor): JsonObject =
-    when (descriptor.kind) {
+    when (val kind = descriptor.kind) {
         is StructureKind.LIST ->
             buildJsonObject {
                 put("type", "array")
@@ -96,16 +97,16 @@ fun schemaFor(descriptor: SerialDescriptor): JsonObject =
                     buildJsonArray { for (i in 0 until descriptor.elementsCount) add(JsonPrimitive(descriptor.getElementName(i))) },
                 )
             }
-        else -> buildJsonObject { put("type", primitiveType(descriptor)) }
+        is PrimitiveKind -> buildJsonObject { put("type", primitiveType(kind)) }
+        else -> buildJsonObject { put("type", "string") }
     }
 
-@OptIn(ExperimentalSerializationApi::class)
-private fun primitiveType(descriptor: SerialDescriptor): String =
-    when (descriptor.serialName.substringAfterLast('.')) {
-        "Int", "Long", "Short", "Byte" -> "integer"
-        "Float", "Double" -> "number"
-        "Boolean" -> "boolean"
-        else -> "string"
+private fun primitiveType(kind: PrimitiveKind): String =
+    when (kind) {
+        PrimitiveKind.BOOLEAN -> "boolean"
+        PrimitiveKind.BYTE, PrimitiveKind.SHORT, PrimitiveKind.INT, PrimitiveKind.LONG -> "integer"
+        PrimitiveKind.FLOAT, PrimitiveKind.DOUBLE -> "number"
+        PrimitiveKind.CHAR, PrimitiveKind.STRING -> "string"
     }
 
 /** Assemble the full OpenAPI 3.0 document from [operations]. */
@@ -120,6 +121,24 @@ fun buildOpenApiDocument(operations: List<ApiOperation> = authOperations): JsonO
             },
         )
         put("paths", buildPaths(operations))
+        put(
+            "components",
+            buildJsonObject {
+                put(
+                    "securitySchemes",
+                    buildJsonObject {
+                        put(
+                            "bearerAuth",
+                            buildJsonObject {
+                                put("type", "http")
+                                put("scheme", "bearer")
+                                put("bearerFormat", "JWT")
+                            },
+                        )
+                    },
+                )
+            },
+        )
     }
 
 private fun buildPaths(operations: List<ApiOperation>): JsonObject =
@@ -137,6 +156,24 @@ private fun buildPaths(operations: List<ApiOperation>): JsonObject =
 private fun buildOperation(op: ApiOperation): JsonObject =
     buildJsonObject {
         put("summary", op.summary)
+        val pathParams = Regex("\\{(\\w+)\\}").findAll(op.path).map { it.groupValues[1] }.toList()
+        if (pathParams.isNotEmpty()) {
+            put(
+                "parameters",
+                buildJsonArray {
+                    pathParams.forEach { name ->
+                        add(
+                            buildJsonObject {
+                                put("name", name)
+                                put("in", "path")
+                                put("required", true)
+                                put("schema", buildJsonObject { put("type", "string") })
+                            },
+                        )
+                    }
+                },
+            )
+        }
         if (op.requestType != null) {
             put("requestBody", jsonContent(schemaFor(op.requestType)))
         }
