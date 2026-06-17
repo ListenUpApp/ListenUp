@@ -103,6 +103,8 @@ import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.syncRoutes
+import com.calypsan.listenup.web.WebUiConfig
+import com.calypsan.listenup.web.installWebUi
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseHandle
@@ -350,6 +352,13 @@ fun Application.module() {
     installJwtAuth(jwt, sessions)
 
     installAppRoutes(homeDir)
+
+    val httpPort =
+        environment.config
+            .propertyOrNull("ktor.deployment.port")
+            ?.getString()
+            ?.toIntOrNull() ?: 8080
+    installWebUi(WebUiConfig(loopbackBaseUrl = "http://127.0.0.1:$httpPort"))
 
     startBackgroundTasks(applicationScope, resolvedLibraryPaths)
     installGracefulShutdown(applicationScope)

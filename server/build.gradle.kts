@@ -17,6 +17,7 @@ application {
 
 dependencies {
     implementation(projects.contract)
+    implementation(projects.web)
 
     // Ktor server core + engine
     implementation(libs.ktor.server.core)
