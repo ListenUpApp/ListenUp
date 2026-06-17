@@ -2001,6 +2001,26 @@
         }
       }
     },
+    "book.detail_cast_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author"
+          }
+        }
+      }
+    },
+    "book.detail_cast_authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authors"
+          }
+        }
+      }
+    },
     "book.detail_cast_count_authors": {
       "localizations": {
         "en": {
@@ -2017,6 +2037,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d narrators"
+          }
+        }
+      }
+    },
+    "book.detail_cast_lead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lead"
+          }
+        }
+      }
+    },
+    "book.detail_cast_narrators": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d Narrators"
+          }
+        }
+      }
+    },
+    "book.detail_cast_production": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Production"
           }
         }
       }
@@ -2061,6 +2111,16 @@
         }
       }
     },
+    "book.detail_contributors_overflow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ & %2$d others"
+          }
+        }
+      }
+    },
     "book.detail_credits": {
       "localizations": {
         "en": {
@@ -2077,6 +2137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Credits go here"
+          }
+        }
+      }
+    },
+    "book.detail_credits_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d contributors · %2$@"
           }
         }
       }
@@ -2167,6 +2237,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn’t load this book"
+          }
+        }
+      }
+    },
+    "book.detail_facet_categories": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Categories"
+          }
+        }
+      }
+    },
+    "book.detail_facet_moods": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moods"
+          }
+        }
+      }
+    },
+    "book.detail_facet_tags": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tags"
           }
         }
       }
