@@ -57,6 +57,7 @@ final class MetadataMatchObserver {
         viewModel.doInitForBook(bookId: bookId, title: title, author: author, asin: asin)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
+        print("🔎[639] MetadataMatchObserver.init: bound state+events for book=\(bookId)")
     }
 
     deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
@@ -70,7 +71,10 @@ final class MetadataMatchObserver {
         viewModel.updateQuery(query: text)
     }
 
-    func search() { viewModel.search() }
+    func search() {
+        print("🔎[639] observer.search() called — query=\"\(query)\" region=\(region)")
+        viewModel.search()
+    }
 
     func changeRegion(_ region: AudibleRegion) { viewModel.changeRegion(region: region) }
 
@@ -111,13 +115,16 @@ final class MetadataMatchObserver {
         region = state.region
         switch onEnum(of: state) {
         case .idle:
+            print("🔎[639] apply: state=Idle")
             phase = .idle
             rawResults = [:]
         case .search(let searchState):
+            print("🔎[639] apply: state=Search loadState=\(type(of: searchState.loadState)) rawResultCount=\(searchState.searchResultsForMapping.count)")
             query = searchState.query
             rawResults = Dictionary(searchState.searchResultsForMapping.map { ($0.asin, $0) }) { first, _ in first }
             phase = .search(MetadataMatchMapping.searchPhase(from: searchState))
         case .preview(let previewState):
+            print("🔎[639] apply: state=Preview loadState=\(type(of: previewState.loadState))")
             query = previewState.query
             rawResults = Dictionary(previewState.searchResults.map { ($0.asin, $0) }) { first, _ in first }
             phase = .preview(MetadataMatchMapping.previewPhase(from: previewState))

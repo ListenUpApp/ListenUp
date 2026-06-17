@@ -31,13 +31,17 @@ struct MetadataMatchView: View {
         }
         .task(id: bookId) {
             guard observer == nil else { return }
+            print("🔎[639] MetadataMatchView.task: creating MetadataViewModel for book=\(bookId)")
+            let vm = deps.createMetadataViewModel()
+            print("🔎[639] MetadataMatchView.task: VM created; constructing observer")
             observer = MetadataMatchObserver(
-                viewModel: deps.createMetadataViewModel(),
+                viewModel: vm,
                 bookId: bookId,
                 title: title,
                 author: author,
                 asin: asin
             )
+            print("🔎[639] MetadataMatchView.task: observer set (non-nil=\(observer != nil))")
         }
     }
 
