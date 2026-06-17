@@ -14,7 +14,10 @@ fun byteArrayFromNSData(data: NSData): ByteArray {
     if (length == 0) return ByteArray(0)
     val bytes = ByteArray(length)
     bytes.usePinned { pinned ->
+        // memcpy returns the destination pointer; we only need the copy side-effect, so the
+        // lambda returns Unit (explicit `return@usePinned`) and usePinned's result isn't discarded.
         memcpy(pinned.addressOf(0), data.bytes, data.length.convert())
+        return@usePinned
     }
     return bytes
 }

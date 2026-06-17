@@ -242,7 +242,7 @@ struct EditProfileView: View {
     /// A `Binding` that reads observer state and writes through a VM setter — the view
     /// owns no field state of its own.
     private func binding(_ value: String, _ set: @escaping (String) -> Void) -> Binding<String> {
-        Binding(get: { value }, set: set)
+        Binding(get: { value }, set: { set($0) })
     }
 }
 

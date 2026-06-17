@@ -71,7 +71,6 @@ struct SearchHitGroups: Equatable {
             case .contributor: groups.people.append(hit)
             case .series: groups.series.append(hit)
             case .tag: groups.tags.append(hit)
-            default: break
             }
         }
         return groups
