@@ -199,6 +199,10 @@ jobs:
           mkdir -p "$PROFILES_DIR"
           echo "$PROFILE" | base64 -d > "$PROFILES_DIR/listenup.mobileprovision"
 
+      - name: Install Fastlane (bundler)
+        working-directory: iosApp
+        run: bundle install
+
       - name: Upload to TestFlight
         working-directory: iosApp
         env:
