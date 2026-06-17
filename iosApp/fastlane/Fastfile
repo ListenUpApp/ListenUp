@@ -10,14 +10,19 @@ platform :ios do
       is_key_content_base64: false,
     )
 
-    # Set versions: marketing from VERSION input, build number from CI run number.
-    increment_version_number(version_number: options[:version]) if options[:version]
-    increment_build_number(build_number: options[:build_number]) if options[:build_number]
+    # Inject versions as build-setting overrides. The project sets literal
+    # MARKETING_VERSION / CURRENT_PROJECT_VERSION (Config.xcconfig + pbxproj) with no
+    # apple-generic versioning, so agvtool/increment_* would no-op. Command-line xcargs
+    # overrides win over both the xcconfig and the pbxproj at build time.
+    version_args = []
+    version_args << "MARKETING_VERSION=#{options[:version]}" if options[:version]
+    version_args << "CURRENT_PROJECT_VERSION=#{options[:build_number]}" if options[:build_number]
 
     build_app(
       scheme: "ListenUp",
       configuration: "Release",
       export_method: "app-store",
+      xcargs: version_args.join(" "),
     )
 
     upload_to_testflight(
