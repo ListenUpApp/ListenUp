@@ -405,23 +405,22 @@ private fun HeroClassification(
         stringResource(
             if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged,
         )
+    // The most-specific genre and the Abridged/Unabridged flag read as one understated label —
+    // plain uppercase text, not a filled pill — joined by a middot per the design
+    // ("Epic Fantasy · Unabridged"). Built as a single string so the separator is part of the
+    // text flow rather than a floating glyph.
+    val label =
+        if (genre.isNullOrBlank()) {
+            classification.uppercase()
+        } else {
+            "${genre.uppercase()} · ${classification.uppercase()}"
+        }
     Row(
         modifier = modifier,
-        horizontalArrangement =
-            Arrangement.spacedBy(8.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (centered) Arrangement.Center else Arrangement.Start,
     ) {
-        // The most-specific genre reads as the same understated flag as Abridged/Unabridged — a
-        // plain uppercase label, not a filled pill.
-        if (!genre.isNullOrBlank()) {
-            Text(
-                text = genre.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = classificationColor,
-            )
-        }
         Text(
-            text = classification.uppercase(),
+            text = label,
             style = MaterialTheme.typography.labelMedium,
             color = classificationColor,
         )
