@@ -40,7 +40,7 @@ private val logger = KotlinLogging.logger {}
  * The engine owns the frame collector so every connection has exactly one path
  * from [SseClient.frames] into [SyncEventDispatcher].
  */
-class SyncEngine(
+class SyncEngine internal constructor(
     private val registry: ClientSyncDomainRegistry,
     private val queue: PendingOperationQueue,
     private val state: SyncEngineState,

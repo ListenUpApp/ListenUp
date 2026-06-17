@@ -41,7 +41,7 @@ private const val SERVER_URL_NOT_CONFIGURED = "Server URL not configured"
  * base URL so production wiring (D1) passes method references and tests pass
  * any [HttpClient] + base URL — mirrors [SyncSseClient]'s shape.
  */
-class SyncCatchUpClient internal constructor(
+internal class SyncCatchUpClient(
     private val httpClientProvider: suspend () -> HttpClient,
     private val serverUrlProvider: suspend () -> String?,
     private val store: SyncCursorStore,

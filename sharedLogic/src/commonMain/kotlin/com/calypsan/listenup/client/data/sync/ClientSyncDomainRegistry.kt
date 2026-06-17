@@ -14,7 +14,7 @@ import kotlinx.atomicfu.locks.synchronized
  * Thread-safe: `register` is called from Koin singleton creation (potentially
  * concurrent), `lookup` is called from the dispatcher's coroutine.
  */
-class ClientSyncDomainRegistry : SynchronizedObject() {
+internal class ClientSyncDomainRegistry : SynchronizedObject() {
     private val handlers = mutableMapOf<String, SyncDomainHandler<*>>()
 
     /**

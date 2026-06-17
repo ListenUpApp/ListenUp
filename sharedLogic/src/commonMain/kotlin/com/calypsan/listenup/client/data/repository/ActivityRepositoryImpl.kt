@@ -37,7 +37,7 @@ private val logger = KotlinLogging.logger {}
  * @property activityRpc Supplies the [com.calypsan.listenup.api.ActivityService] RPC proxy.
  * @property bookDao Local book mirror, for enriching book-bearing events with their cover card.
  */
-class ActivityRepositoryImpl(
+internal class ActivityRepositoryImpl(
     private val dao: ActivityDao,
     private val activityRpc: ActivityRpcFactory,
     private val bookDao: BookDao,

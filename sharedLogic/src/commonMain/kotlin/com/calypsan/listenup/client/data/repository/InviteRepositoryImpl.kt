@@ -22,7 +22,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Per kotlinx.coroutines convention, `CancellationException` is re-thrown.
  */
-class InviteRepositoryImpl(
+internal class InviteRepositoryImpl(
     private val rpc: InviteRpcFactory,
     private val authSession: ClientAuthSession,
     private val deviceInfoProvider: DeviceInfoProvider,

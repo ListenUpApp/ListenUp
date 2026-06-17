@@ -33,7 +33,7 @@ private val logger = KotlinLogging.logger {}
  * plain [Flow]<[ImportEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
  */
-class ImportRepositoryImpl(
+internal class ImportRepositoryImpl(
     private val rpcFactory: ImportRpcFactory,
 ) : ImportRepository {
     override suspend fun analyze(importId: ImportId): AppResult<ImportAnalysis> =

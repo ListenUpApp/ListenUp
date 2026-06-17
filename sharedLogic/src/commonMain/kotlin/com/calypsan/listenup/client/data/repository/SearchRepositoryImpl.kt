@@ -44,7 +44,7 @@ private val logger = KotlinLogging.logger {}
  * @property searchDao Local FTS5 search DAO
  * @property imageStorage For resolving local cover paths
  */
-class SearchRepositoryImpl(
+internal class SearchRepositoryImpl(
     private val searchApi: SearchApiContract,
     private val searchDao: SearchDao,
     private val imageStorage: ImageStorage,

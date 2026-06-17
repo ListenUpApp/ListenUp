@@ -29,7 +29,7 @@ internal const val MAX_RETRYABLE_ATTEMPTS = 5
  * @property terminalFailures count of ops that failed non-retryably (flagged
  *   past [MAX_RETRYABLE_ATTEMPTS] and will not be retried)
  */
-data class DrainOutcome(
+internal data class DrainOutcome(
     val sent: Int,
     val retryableFailures: Int,
     val terminalFailures: Int,
@@ -139,7 +139,7 @@ class PendingOperationQueue internal constructor(
      * loop. Returns a [DrainOutcome] so the engine can decide whether a retry
      * backoff is warranted.
      */
-    suspend fun drain(): DrainOutcome {
+    internal suspend fun drain(): DrainOutcome {
         val ops = dao.nextDispatchable()
         var sent = 0
         var retryableFailures = 0

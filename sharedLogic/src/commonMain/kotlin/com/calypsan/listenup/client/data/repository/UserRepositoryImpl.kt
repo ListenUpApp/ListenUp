@@ -26,7 +26,7 @@ private val logger = KotlinLogging.logger {}
  * @property authRpcFactory Supplies the bearer-gated [AuthServiceAuthed] RPC proxy used to
  *   refresh the current user's profile from the server (RPC-first; no REST fallback).
  */
-class UserRepositoryImpl(
+internal class UserRepositoryImpl(
     private val userDao: UserDao,
     private val authRpcFactory: AuthRpcFactory,
 ) : UserRepository {

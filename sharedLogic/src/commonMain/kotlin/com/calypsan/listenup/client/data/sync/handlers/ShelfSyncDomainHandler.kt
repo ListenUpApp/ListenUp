@@ -32,7 +32,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
-class ShelfSyncDomainHandler(
+internal class ShelfSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,

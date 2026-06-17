@@ -4,7 +4,7 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 
 /** In-memory compatibility facade until legacy timestamp sync status is fully retired from the UI. */
-class SyncStatusRepositoryImpl : SyncStatusRepository {
+internal class SyncStatusRepositoryImpl : SyncStatusRepository {
     private var lastSyncTime: Timestamp? = null
 
     override suspend fun getLastSyncTime(): Timestamp? = lastSyncTime

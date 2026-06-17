@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.Flow
  * @param tz IANA timezone name injected from the DI graph (e.g. `"Europe/London"`).
  * @param deviceLabel Human-readable device label (null if unavailable).
  */
-class ListeningEventRepositoryImpl(
+internal class ListeningEventRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
     private val transactionRunner: TransactionRunner,
     private val userId: String,

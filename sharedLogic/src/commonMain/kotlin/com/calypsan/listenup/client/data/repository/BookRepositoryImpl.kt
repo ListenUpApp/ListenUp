@@ -75,7 +75,7 @@ import kotlinx.coroutines.flow.onEach
  * @property bookSyncDomainHandler Owns the atomic aggregate write-through used
  *   to cache an on-demand-fetched book into Room.
  */
-class BookRepositoryImpl(
+internal class BookRepositoryImpl(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val audioFileDao: AudioFileDao,

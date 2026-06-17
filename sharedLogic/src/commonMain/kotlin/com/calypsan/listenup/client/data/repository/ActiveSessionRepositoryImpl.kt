@@ -42,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  * @property imageStorage Resolves the local cover path when a cover is cached.
  * @property presence Pings whenever presence may have changed, driving a re-fetch.
  */
-class ActiveSessionRepositoryImpl(
+internal class ActiveSessionRepositoryImpl(
     private val socialRpc: SocialRpcFactory,
     private val bookDao: BookDao,
     private val imageStorage: ImageStorage,

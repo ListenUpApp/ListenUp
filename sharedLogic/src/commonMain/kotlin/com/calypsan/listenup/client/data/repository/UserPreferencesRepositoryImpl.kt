@@ -17,7 +17,7 @@ private val logger = KotlinLogging.logger {}
  *
  * @property userPreferencesApi Data layer API for user preferences operations
  */
-class UserPreferencesRepositoryImpl(
+internal class UserPreferencesRepositoryImpl(
     private val userPreferencesApi: UserPreferencesApiContract,
 ) : UserPreferencesRepository {
     override suspend fun getPreferences(): AppResult<UserPreferences> =

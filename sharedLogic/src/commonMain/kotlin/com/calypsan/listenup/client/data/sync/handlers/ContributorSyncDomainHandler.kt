@@ -42,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
-class ContributorSyncDomainHandler(
+internal class ContributorSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,

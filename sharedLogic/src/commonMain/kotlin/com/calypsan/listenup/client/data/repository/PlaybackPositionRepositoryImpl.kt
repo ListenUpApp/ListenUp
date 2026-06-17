@@ -46,7 +46,7 @@ private val logger = KotlinLogging.logger {}
  * @property pendingQueue Outbox queue for server-side position writes
  * @property authSession Source of the current user ID for queue ownership
  */
-class PlaybackPositionRepositoryImpl(
+internal class PlaybackPositionRepositoryImpl(
     private val dao: PlaybackPositionDao,
     private val transactionRunner: TransactionRunner,
     private val pendingQueue: PendingOperationQueue,

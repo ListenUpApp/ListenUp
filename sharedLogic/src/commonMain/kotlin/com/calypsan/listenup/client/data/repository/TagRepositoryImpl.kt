@@ -36,7 +36,7 @@ private val logger = KotlinLogging.logger {}
  * Wire [WireAppResult] values returned by the RPC service are converted to the client-layer
  * [AppResult] at this boundary, following the same pattern as [MetadataRepositoryImpl].
  */
-class TagRepositoryImpl(
+internal class TagRepositoryImpl(
     private val tagRpcFactory: TagRpcFactory,
     private val tagDao: TagDao,
     private val bookTagDao: BookTagDao,

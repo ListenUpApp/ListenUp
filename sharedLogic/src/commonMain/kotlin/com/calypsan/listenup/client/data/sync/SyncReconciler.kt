@@ -19,7 +19,7 @@ private val logger = KotlinLogging.logger {}
  * are reconciled in parallel. Per-domain failures are logged and skipped; reconciliation
  * never throws into the engine or blocks the live stream.
  */
-class SyncReconciler(
+internal class SyncReconciler(
     private val registry: ClientSyncDomainRegistry,
     private val store: SyncCursorStore,
     private val digestClient: DomainDigestClient,

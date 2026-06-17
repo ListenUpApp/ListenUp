@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.map
  * source of truth. Libraries and folders are applied by their respective sync
  * domain handlers and never fetched on demand here.
  */
-class LibraryRepositoryImpl(
+internal class LibraryRepositoryImpl(
     private val libraryDao: LibraryDao,
     private val libraryFolderDao: LibraryFolderDao,
 ) : LibraryRepository {

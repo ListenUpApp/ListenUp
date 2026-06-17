@@ -28,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  * plain [Flow]<[BackupEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
  */
-class BackupRepositoryImpl(
+internal class BackupRepositoryImpl(
     private val rpcFactory: BackupRpcFactory,
 ) : BackupRepository {
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> =

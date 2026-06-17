@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
 /** Empty compatibility facade after legacy pending operations are removed. */
-class PendingOperationRepositoryImpl : PendingOperationRepository {
+internal class PendingOperationRepositoryImpl : PendingOperationRepository {
     override fun observeVisibleOperations(): Flow<List<PendingOperation>> = flowOf(emptyList())
 
     override fun observeInProgressOperation(): Flow<PendingOperation?> = flowOf(null)

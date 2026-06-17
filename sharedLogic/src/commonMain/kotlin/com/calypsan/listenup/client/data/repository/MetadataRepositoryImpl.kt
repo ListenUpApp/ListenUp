@@ -30,7 +30,7 @@ import kotlinx.coroutines.CancellationException
  * @property rpcFactory Supplies the [com.calypsan.listenup.api.MetadataLookupService]
  *   proxy, cached on first use with Mutex correctness.
  */
-class MetadataRepositoryImpl(
+internal class MetadataRepositoryImpl(
     private val rpcFactory: MetadataLookupRpcFactory,
 ) : MetadataRepository {
     override suspend fun searchBooks(

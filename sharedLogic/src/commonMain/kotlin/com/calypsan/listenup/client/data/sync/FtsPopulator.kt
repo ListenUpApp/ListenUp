@@ -28,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  * @property seriesDao DAO for reading series
  * @property searchDao DAO for FTS operations
  */
-class FtsPopulator(
+internal class FtsPopulator(
     private val bookDao: BookDao,
     private val contributorDao: ContributorDao,
     private val seriesDao: SeriesDao,

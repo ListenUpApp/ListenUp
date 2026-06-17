@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.map
 /**
  * Implementation of UserProfileRepository backed by Room database.
  */
-class UserProfileRepositoryImpl(
+internal class UserProfileRepositoryImpl(
     private val userProfileDao: UserProfileDao,
 ) : UserProfileRepository {
     override suspend fun getById(userId: String): CachedUserProfile? = userProfileDao.getById(userId)?.toDomain()

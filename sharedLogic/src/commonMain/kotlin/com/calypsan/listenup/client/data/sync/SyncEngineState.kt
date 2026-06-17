@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /** Connection state for the SSE firehose. */
-sealed interface ConnectionState {
+internal sealed interface ConnectionState {
     /** Not connected. [reason] is null at engine start, populated on disconnect. */
     data class Disconnected(
         val reason: String?,
@@ -32,7 +32,7 @@ sealed interface ConnectionState {
  * silence is appropriate for normal recovery, signal is appropriate for sustained
  * failure. UI consumes this; below threshold UI shows nothing.
  */
-data class EngineSnapshot(
+internal data class EngineSnapshot(
     val connection: ConnectionState = ConnectionState.Disconnected(reason = null),
     val recentErrorCount: Int = 0,
     val lastSuccessAtMillis: Long? = null,
@@ -48,7 +48,7 @@ private const val SUCCESS_AGE_THRESHOLD_SECONDS = 60L
  * Mutable state holder for [EngineSnapshot]. Engine components mutate via the
  * `setX` / `recordX` methods; UI reads via [value] / [observe].
  */
-class SyncEngineState {
+internal class SyncEngineState {
     private val flow = MutableStateFlow(EngineSnapshot())
 
     /** Current snapshot. */

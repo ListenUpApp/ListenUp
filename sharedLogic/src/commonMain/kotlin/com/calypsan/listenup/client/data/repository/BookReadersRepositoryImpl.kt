@@ -44,7 +44,7 @@ private val logger = KotlinLogging.logger {}
  * @property playbackPositionRepository Source of the current user's local reading state per book.
  * @property userRepository Source of the current user's identity (id + display name).
  */
-class BookReadersRepositoryImpl(
+internal class BookReadersRepositoryImpl(
     private val socialRpc: SocialRpcFactory,
     private val presence: PresenceRefreshSignal,
     private val playbackPositionRepository: PlaybackPositionRepository,

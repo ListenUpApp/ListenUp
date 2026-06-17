@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 
 /** Utility contract for local image download/cache operations. */
-interface ImageDownloaderContract {
+internal interface ImageDownloaderContract {
     suspend fun deleteCover(bookId: BookId): AppResult<Unit>
 
     suspend fun downloadCover(bookId: BookId): AppResult<Boolean>
@@ -30,6 +30,6 @@ interface ImageDownloaderContract {
 }
 
 /** Utility contract for rebuilding local full-text-search tables. */
-interface FtsPopulatorContract {
+internal interface FtsPopulatorContract {
     suspend fun rebuildAll()
 }

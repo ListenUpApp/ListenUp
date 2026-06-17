@@ -15,7 +15,7 @@ private val logger = KotlinLogging.logger {}
  *  - control events (`CursorStale`, `StreamError`, `AccessChanged`) are recognised and acted on,
  *  - unknown domains are logged and dropped (graceful for forward-compat).
  */
-class SyncEventDispatcher(
+internal class SyncEventDispatcher(
     private val registry: ClientSyncDomainRegistry,
     private val queue: PendingOperationQueue,
     private val state: SyncEngineState,

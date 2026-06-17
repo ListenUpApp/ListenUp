@@ -100,7 +100,7 @@ internal fun parseSseStream(lines: Sequence<String>): List<ParsedSseFrame> {
  * tests (Tier 3 e2e) pass any [HttpClient] + base URL. Avoids dragging full
  * auth wiring into the test fixture.
  */
-class SyncSseClient internal constructor(
+internal class SyncSseClient(
     private val serverUrlProvider: suspend () -> String?,
     private val streamingClientProvider: suspend () -> HttpClient,
     private val state: SyncEngineState,

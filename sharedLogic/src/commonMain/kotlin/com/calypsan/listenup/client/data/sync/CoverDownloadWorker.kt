@@ -29,7 +29,7 @@ private const val COVER_DOWNLOAD_DELAY_MS = 500L
  *
  * Triggered by: initial sync, app resume, manual refresh, SSE cover change.
  */
-class CoverDownloadWorker(
+internal class CoverDownloadWorker(
     private val coverDownloadDao: CoverDownloadDao,
     private val imageDownloader: ImageDownloaderContract,
 ) {

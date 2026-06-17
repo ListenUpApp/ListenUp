@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.stateIn
  * backing the never-stranded manual retry on the offline banner.
  */
 @OptIn(FlowPreview::class)
-class SseServerReachability(
+internal class SseServerReachability(
     engineState: SyncEngineState,
     scope: CoroutineScope,
     private val reconnect: suspend () -> Unit,

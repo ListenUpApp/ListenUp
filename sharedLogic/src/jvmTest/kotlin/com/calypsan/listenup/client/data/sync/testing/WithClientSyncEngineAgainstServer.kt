@@ -186,7 +186,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * @property dispatcher the dispatcher routing SSE frames to handlers
  * @property queue the pending-operation queue for echo-match scenarios
  */
-data class ClientEngineScope(
+internal data class ClientEngineScope(
     val engine: SyncEngine,
     val recording: RecordingTagSyncDomainHandler,
     val tagRepo: TagRepository,
@@ -229,7 +229,7 @@ data class ClientEngineScope(
  *
  * Stops Koin in `finally` so subsequent tests start with a fresh container.
  */
-fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Unit) {
+internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Unit) {
     testApplication {
         // ---- Server side: in-memory SQLite + Tag and Book domains registered ----
         val tmp = Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }

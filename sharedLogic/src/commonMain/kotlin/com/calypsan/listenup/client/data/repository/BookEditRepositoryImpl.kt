@@ -28,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  * client-layer [AppResult] at this boundary, following the same pattern as
  * [TagRepositoryImpl].
  */
-class BookEditRepositoryImpl(
+internal class BookEditRepositoryImpl(
     private val bookRpcFactory: BookRpcFactory,
     private val collectionRpcFactory: CollectionRpcFactory,
 ) : BookEditRepository {
