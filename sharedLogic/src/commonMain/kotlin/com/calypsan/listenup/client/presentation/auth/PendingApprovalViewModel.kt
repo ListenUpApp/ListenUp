@@ -7,12 +7,16 @@ import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** Cadence for the automatic status re-check while awaiting approval. */
+private const val POLL_INTERVAL_MS = 5_000L
 
 /**
  * ViewModel for the pending-approval screen.
@@ -36,14 +40,43 @@ class PendingApprovalViewModel(
     val state: StateFlow<PendingApprovalUiState> = _state.asStateFlow()
 
     private var sseJob: Job? = null
+    private var pollJob: Job? = null
 
     init {
         connectToSSE()
+        startStatusPolling()
     }
 
     override fun onCleared() {
         super.onCleared()
         sseJob?.cancel()
+        pollJob?.cancel()
+    }
+
+    /**
+     * Automatic pull fallback: re-checks the persisted status on a fixed cadence while waiting, so
+     * an approved registrant advances even when the SSE stream never delivers (e.g. iOS Darwin).
+     * An immediate check on entry catches an already-decided registration; the loop then stops the
+     * moment a terminal decision lands. Mirrors the server-side never-stranded poll.
+     */
+    private fun startStatusPolling() {
+        pollJob?.cancel()
+        pollJob =
+            viewModelScope.launch {
+                checkOnce()
+                while (state.value is PendingApprovalUiState.Waiting) {
+                    delay(POLL_INTERVAL_MS)
+                    checkOnce()
+                }
+            }
+    }
+
+    /** One reliable pull of the persisted status; advances the screen on a terminal decision. */
+    private suspend fun checkOnce() {
+        val status = registrationStatusStream.fetchStatus(userId)
+        if (status !is StreamedRegistrationStatus.Pending) {
+            handleStatusUpdate(status)
+        }
     }
 
     private fun connectToSSE() {
@@ -94,12 +127,17 @@ class PendingApprovalViewModel(
     }
 
     /**
-     * Manually re-check approval status by re-opening the SSE stream — the server answers a fresh
-     * subscription with the current status. The "never stranded" manual fallback to the always-on
-     * stream; safe to tap repeatedly (each call cancels and replaces the previous subscription).
+     * Manually re-check approval status. Uses the reliable one-shot pull first (works where the SSE
+     * stream doesn't, e.g. iOS), then re-opens the stream for instant future pushes if still
+     * waiting. The "never stranded" manual fallback; safe to tap repeatedly.
      */
     fun checkStatus() {
-        connectToSSE()
+        viewModelScope.launch {
+            checkOnce()
+            if (state.value is PendingApprovalUiState.Waiting) {
+                connectToSSE()
+            }
+        }
     }
 
     /** Cancel the pending registration and return to login. */
