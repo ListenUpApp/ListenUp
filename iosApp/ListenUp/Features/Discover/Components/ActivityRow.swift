@@ -55,9 +55,9 @@ struct ActivityRow: View {
         let action = Text(" \(item.action) ").foregroundColor(.primary)
         if let book = item.book, !book.isEmpty {
             let title = Text(book).fontWeight(.semibold).foregroundColor(.luTint)
-            return who + action + title
+            return Text("\(who)\(action)\(title)")
         }
-        return who + action
+        return Text("\(who)\(action)")
     }
 
     private var accessibilityText: String {

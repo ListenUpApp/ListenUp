@@ -21,7 +21,6 @@ enum SetupValidation {
         case .email: return .email
         case .password: return .password
         case .passwordConfirm: return .passwordConfirm
-        default: return .email
         }
     }
 }

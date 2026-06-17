@@ -144,7 +144,6 @@ struct BookEditView: View {
 
     // MARK: - Relational sections
 
-    @ViewBuilder
     private func contributorSection(
         title: String,
         empty: String,

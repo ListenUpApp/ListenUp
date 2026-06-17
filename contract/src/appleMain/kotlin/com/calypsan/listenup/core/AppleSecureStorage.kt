@@ -189,7 +189,7 @@ class SecurityException(
     message: String,
 ) : Exception(message)
 
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 private fun ByteArray.toNSData(): NSData {
     if (isEmpty()) return NSData()
     return usePinned { pinned ->

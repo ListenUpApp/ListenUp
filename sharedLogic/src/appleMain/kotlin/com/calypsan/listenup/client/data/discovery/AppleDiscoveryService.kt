@@ -188,7 +188,7 @@ class AppleDiscoveryService : ServerDiscoveryService {
     private fun extractIPv4Address(service: NSNetService): String? {
         val addresses = service.addresses ?: return null
 
-        for (i in 0 until addresses.count().toInt()) {
+        for (i in 0 until addresses.count()) {
             val data = addresses[i] as? NSData ?: continue
 
             // sockaddr_in is 16 bytes: sa_len(1) + sa_family(1) + sin_port(2) + sin_addr(4) + sin_zero(8)

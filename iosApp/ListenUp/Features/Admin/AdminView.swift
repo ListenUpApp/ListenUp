@@ -508,7 +508,7 @@ private struct RegistrationPolicyCard: View {
                 Spacer()
                 if isBusy { ProgressView() }
             }
-            Picker("", selection: Binding(get: { policy }, set: onSelect)) {
+            Picker("", selection: Binding(get: { policy }, set: { onSelect($0) })) {
                 ForEach(Array(RegistrationPolicy.allCases), id: \.self) { option in
                     Text(Self.label(option)).tag(option)
                 }
@@ -524,7 +524,6 @@ private struct RegistrationPolicyCard: View {
         case .open: return String(localized: "admin.registration_policy_open")
         case .approvalQueue: return String(localized: "admin.registration_policy_approval")
         case .closed: return String(localized: "admin.registration_policy_closed")
-        default: return ""
         }
     }
 
@@ -533,7 +532,6 @@ private struct RegistrationPolicyCard: View {
         case .open: return String(localized: "admin.registration_open_desc")
         case .approvalQueue: return String(localized: "admin.registration_approval_desc")
         case .closed: return String(localized: "admin.registration_closed_desc")
-        default: return ""
         }
     }
 }
