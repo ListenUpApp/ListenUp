@@ -111,14 +111,8 @@ struct SettingsView: View {
             } label: {
                 SettingsLabel(title: String(localized: "settings.appearance"), systemImage: "moon.fill", tint: .indigo)
             }
-
-            Toggle(isOn: boolBinding(observer.dynamicColorsEnabled, observer.setDynamicColorsEnabled)) {
-                SettingsLabel(
-                    title: String(localized: "settings.dynamic_colors"),
-                    systemImage: "sparkles",
-                    tint: .pink
-                )
-            }
+            // No "Dynamic Colors" toggle on iOS — Material You dynamic color is Android-only and has
+            // no effect here. The shared preference stays for Android (see SettingsScreen.showDynamicColors).
         }
     }
 
