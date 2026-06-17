@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.appJson
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
@@ -106,7 +107,7 @@ class DownloadWorkerLogicTest :
         // Mirrors the production ApiClientFactory client: installs [installListenUpErrorHandling] so
         // non-2xx responses raise [io.ktor.client.plugins.ResponseException] (via
         // `expectSuccess = true`); the surrounding `apiCall { ... }` boundary catches it and routes
-        // through `ErrorMapper` to produce an `AppResult.Failure(TransportError.Server4xx(401))`
+        // through `ErrorMapper` to produce an `AppResult.Failure(AuthError.SessionExpired)`
         // after a failed refresh. Without this, the 401 leaks through the success-decoder path.
         fun authProductionLikeClient(
             engine: HttpClientEngine,
@@ -318,12 +319,12 @@ class DownloadWorkerLogicTest :
 
         // ---- Scenario 4 ----
 
-        // 401 persistent → refresh returns null → returns AppResult.Failure(TransportError.Server4xx(401)).
+        // 401 persistent → refresh returns null → returns AppResult.Failure(AuthError.SessionExpired).
         //
         // Production path: installListenUpErrorHandling raises ResponseException on the non-2xx
         // response; the surrounding apiCall boundary catches it and produces
-        // AppResult.Failure(TransportError.Server4xx(statusCode=401)). The worker inspects the
-        // AppResult and on a 401 calls markPaused. This test asserts the typed-failure contract —
+        // AppResult.Failure(AuthError.SessionExpired). The worker inspects the AppResult and on a
+        // session-invalid auth error calls markPaused. This test asserts the typed-failure contract —
         // catching a bug where the old dead-code ResponseException catch caused FAILED instead.
         test("401 persistent with null refresh — returns AppResult Failure and worker would markPaused") {
             runTest {
@@ -354,11 +355,9 @@ class DownloadWorkerLogicTest :
                         )
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    val server4xx = failure.error as? TransportError.Server4xx
-                    withClue("Expected TransportError.Server4xx but got ${failure.error::class.simpleName}") {
-                        failure.error.shouldBeInstanceOf<TransportError.Server4xx>()
+                    withClue("Expected AuthError.SessionExpired but got ${failure.error::class.simpleName}") {
+                        failure.error.shouldBeInstanceOf<AuthError.SessionExpired>()
                     }
-                    server4xx?.statusCode shouldBe HttpStatusCode.Unauthorized.value
                     // Replicate worker's auth-failure path: markPaused (not markFailed).
                     fakeRepo.markPaused("file-1")
 

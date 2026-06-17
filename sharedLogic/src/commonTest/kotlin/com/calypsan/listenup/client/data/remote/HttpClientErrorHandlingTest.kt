@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.test.http.testMockEngine
@@ -87,6 +88,23 @@ class HttpClientErrorHandlingTest :
                 val error = result.error
                 error.shouldBeInstanceOf<TransportError.Server5xx>()
                 error.statusCode shouldBe 500
+            }
+        }
+
+        test("apiCallCatchesUnauthorizedAndProducesTypedSessionExpiredFailure") {
+            runTest {
+                // 401 Unauthorized → ErrorMapper upgrades to AuthError.SessionExpired at the
+                // boundary (a stale/invalid session). This is the typed signal that the global
+                // auth-failure observer reacts to by driving the app back to the login screen.
+                val c = client { respondStatus("/secret", HttpStatusCode.Unauthorized) }
+
+                val result =
+                    apiCall<String>(errorMessage = "Failed to fetch") {
+                        c.get("http://unit.test/secret").body()
+                    }
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                result.error.shouldBeInstanceOf<AuthError.SessionExpired>()
             }
         }
 

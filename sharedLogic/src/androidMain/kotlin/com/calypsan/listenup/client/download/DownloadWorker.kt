@@ -5,7 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
@@ -45,7 +45,6 @@ class DownloadWorker(
         const val KEY_FILE_SIZE = "file_size"
 
         private const val MAX_RETRIES = 3
-        private const val HTTP_UNAUTHORIZED = 401
     }
 
     override suspend fun doWork(): Result {
@@ -83,9 +82,10 @@ class DownloadWorker(
     ): Result {
         // 401 → markPaused (don't burn the 3-attempt retry budget on unrecoverable auth).
         // installListenUpErrorHandling() routes Ktor ResponseException through ErrorMapper, which
-        // maps 401 → TransportError.Server4xx(statusCode=401). Auth-specific upgrade to AuthError
-        // happens at the repository layer; the worker only sees the boundary classification.
-        if (error is TransportError.Server4xx && error.statusCode == HTTP_UNAUTHORIZED) {
+        // types a 401 as AuthError.SessionExpired at the boundary. The global AuthFailureObserver
+        // reacts to that on the foreground error bus by driving the app to login; here in the
+        // background worker we simply pause so the download resumes after re-auth.
+        if (error is AuthError.SessionExpired) {
             logger.warn { "Download paused due to auth failure: $audioFileId" }
             downloadRepository.markPaused(audioFileId)
             return Result.failure()
