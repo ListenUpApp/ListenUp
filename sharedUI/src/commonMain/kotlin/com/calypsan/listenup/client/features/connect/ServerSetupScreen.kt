@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
@@ -80,6 +81,7 @@ fun ServerSetupScreen(
                 keyboardOptions =
                     KeyboardOptions(
                         autoCorrectEnabled = false,
+                        capitalization = KeyboardCapitalization.None,
                         keyboardType = KeyboardType.Uri,
                         imeAction = ImeAction.Done,
                     ),
