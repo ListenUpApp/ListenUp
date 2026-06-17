@@ -23,6 +23,7 @@ import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSData
 import platform.Foundation.NSString
 import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.NSUserDefaults
 import platform.Foundation.create
 import platform.posix.memcpy
 import platform.Foundation.create
@@ -53,9 +54,51 @@ import platform.Security.kSecValueData
  */
 private val logger = KotlinLogging.logger {}
 
+/**
+ * NSUserDefaults flag marking that the Keychain has been initialized for the current install.
+ * NSUserDefaults is wiped on app uninstall (the Keychain is not), so the flag's absence means
+ * "this is a fresh install" — see [AppleSecureStorage.clearKeychainOnFreshInstall].
+ */
+private const val KEYCHAIN_INSTALL_FLAG_KEY = "com.calypsan.listenup.keychain_initialized"
+
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class AppleSecureStorage : SecureStorage {
     private val serviceName = "com.calypsan.listenup"
+
+    init {
+        clearKeychainOnFreshInstall()
+    }
+
+    /**
+     * Make an app uninstall actually reset the app.
+     *
+     * iOS Keychain items survive an uninstall/reinstall by design — only a device wipe clears them.
+     * Without this, a reinstall would resurrect the previous install's session and pending-registration
+     * state (stranding the user on a stale Awaiting screen, etc.). NSUserDefaults, by contrast, IS
+     * cleared on uninstall — so the absence of [KEYCHAIN_INSTALL_FLAG_KEY] identifies a fresh install:
+     * wipe any leftover credentials for this service, then set the flag so subsequent launches no-op.
+     *
+     * Synchronous (init-time, before anything reads auth state) and best-effort — `errSecItemNotFound`
+     * on a genuine first launch is expected and fine.
+     */
+    private fun clearKeychainOnFreshInstall() {
+        val defaults = NSUserDefaults.standardUserDefaults
+        if (defaults.boolForKey(KEYCHAIN_INSTALL_FLAG_KEY)) return
+
+        val query =
+            CFDictionaryCreateMutable(
+                null,
+                2,
+                kCFTypeDictionaryKeyCallBacks.ptr,
+                kCFTypeDictionaryValueCallBacks.ptr,
+            )!!
+        CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
+        CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
+        SecItemDelete(query)
+
+        defaults.setBool(true, KEYCHAIN_INSTALL_FLAG_KEY)
+        logger.info { "Fresh install detected; cleared stale Keychain credentials so the uninstall resets the app" }
+    }
 
     override suspend fun save(
         key: String,
