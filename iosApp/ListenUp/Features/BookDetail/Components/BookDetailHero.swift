@@ -44,7 +44,7 @@ struct BookDetailHero: View {
             }
 
             Text(title)
-                .font(.title2.bold())
+                .font(.title.bold())
                 .multilineTextAlignment(.center)
                 .padding(.top, 12)
 

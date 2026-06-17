@@ -24,7 +24,8 @@ struct BookDescriptionSection: View {
             ExpandableText(
                 title: String(localized: "common.description"),
                 text: description,
-                lineLimit: 4
+                lineLimit: 4,
+                titleFont: .title3.bold()
             )
 
             if !genres.isEmpty {

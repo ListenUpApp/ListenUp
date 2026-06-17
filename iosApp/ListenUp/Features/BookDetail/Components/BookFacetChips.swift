@@ -27,7 +27,7 @@ enum BookFacetKind: CaseIterable, Hashable {
         switch self {
         case .genre: nil
         case .tag: "tag"
-        case .mood: "theatermasks"
+        case .mood: "sparkles"
         }
     }
 

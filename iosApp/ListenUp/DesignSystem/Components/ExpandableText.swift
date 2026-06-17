@@ -17,22 +17,32 @@ struct ExpandableText: View {
     let text: String
     var lineLimit: Int = 4
     var minimumLengthForToggle: Int = 150
+    /// Font for the optional title. Defaults to `.headline`; callers that match a larger
+    /// section-header scale (e.g. Book Detail) can pass `.title3.bold()`.
+    var titleFont: Font = .headline
 
     @State private var isExpanded = false
 
     /// Full initializer
-    init(title: String? = nil, text: String, lineLimit: Int = 4, minimumLengthForToggle: Int = 150) {
+    init(
+        title: String? = nil,
+        text: String,
+        lineLimit: Int = 4,
+        minimumLengthForToggle: Int = 150,
+        titleFont: Font = .headline
+    ) {
         self.title = title
         self.text = text
         self.lineLimit = lineLimit
         self.minimumLengthForToggle = minimumLengthForToggle
+        self.titleFont = titleFont
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let title {
                 Text(title)
-                    .font(.headline)
+                    .font(titleFont)
             }
 
             Text(text)

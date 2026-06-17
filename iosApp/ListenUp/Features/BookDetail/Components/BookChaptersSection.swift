@@ -45,7 +45,7 @@ struct BookChaptersSection: View {
     private var header: some View {
         HStack {
             Text(String(localized: "book.detail_chapters"))
-                .font(.headline)
+                .font(.title3.bold())
 
             Spacer()
 

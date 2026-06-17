@@ -26,7 +26,7 @@ struct BookDetailsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(localized: "book.detail_details"))
-                .font(.headline)
+                .font(.title3.bold())
                 .padding(.bottom, 8)
 
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
