@@ -83,6 +83,7 @@ ksp-symbol-processing-api = "2.3.9" # matches project ksp version — bump in lo
 kctfork = "0.13.0" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 cryptography-kotlin = "0.6.0"
 kotlincrypto-hash = "0.8.0"
+kotlinx-html = "0.11.0"
 
 [libraries]
 # Gradle plugin artifacts — used by build-logic/convention to apply KGP/AGP from precompiled script plugins.
@@ -149,6 +150,8 @@ ktor-server-partial-content = { module = "io.ktor:ktor-server-partial-content", 
 ktor-server-auto-head-response = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 # Ktor server (auth, rate limit, OpenAPI)
+ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
+kotlinx-html = { module = "org.jetbrains.kotlinx:kotlinx-html", version.ref = "kotlinx-html" }
 ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor" }
 ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor" }
 ktor-server-rate-limit = { module = "io.ktor:ktor-server-rate-limit", version.ref = "ktor" }

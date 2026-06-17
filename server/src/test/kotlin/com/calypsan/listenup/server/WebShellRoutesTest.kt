@@ -11,15 +11,27 @@ import io.ktor.server.testing.testApplication
 
 class WebShellRoutesTest :
     FunSpec({
-        test("GET / serves the web shell HTML") {
+        test("GET / serves the web shell HTML with asset links") {
             testApplication {
                 useIsolatedTestConfig()
                 application { module() }
 
                 val response = client.get("/")
-
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldContain "ListenUp"
+                val html = response.bodyAsText()
+                html shouldContain "<!DOCTYPE html>"
+                html shouldContain "ListenUp"
+                html shouldContain "/assets/htmx.min.js"
+                html shouldContain "/assets/app.css"
+            }
+        }
+
+        test("GET /assets/htmx.min.js serves the vendored htmx runtime") {
+            testApplication {
+                useIsolatedTestConfig()
+                application { module() }
+
+                client.get("/assets/htmx.min.js").status shouldBe HttpStatusCode.OK
             }
         }
     })

@@ -1,17 +1,21 @@
 package com.calypsan.listenup.web.routes
 
-import io.ktor.http.ContentType
+import com.calypsan.listenup.web.html.appShell
+import io.ktor.server.html.respondHtml
 import io.ktor.server.application.call
-import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import kotlinx.html.h1
+import kotlinx.html.p
 
-/** Placeholder landing route. Real app-shell HTML is added in Task 3. */
+/** Landing route — renders the app shell. Authenticated content arrives in Phase 1B/2. */
 fun Route.shellRoutes() {
     get("/") {
-        call.respondText(
-            "<!doctype html><title>ListenUp</title><h1>ListenUp</h1>",
-            ContentType.Text.Html,
-        )
+        call.respondHtml {
+            appShell(pageTitle = "ListenUp") {
+                h1 { +"ListenUp" }
+                p { +"Your library, in the browser." }
+            }
+        }
     }
 }
