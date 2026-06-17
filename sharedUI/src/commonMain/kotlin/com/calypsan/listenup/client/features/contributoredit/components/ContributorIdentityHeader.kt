@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
@@ -24,8 +23,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,11 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.components.ListenUpTextFieldVariant
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import org.jetbrains.compose.resources.stringResource
@@ -192,37 +190,13 @@ fun ContributorIdentityHeader(
                 }
             }
 
-            // Name field - Large editorial style
-            OutlinedTextField(
+            // Name field — large editorial hero variant of the canonical text field.
+            ListenUpTextField(
                 value = name,
                 onValueChange = onNameChange,
-                textStyle =
-                    TextStyle(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = MaterialTheme.typography.headlineSmall.fontSize,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                placeholder = {
-                    Text(
-                        stringResource(Res.string.common_name),
-                        style =
-                            MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = DisplayFontFamily,
-                                fontWeight = FontWeight.Bold,
-                            ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-                },
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        focusedContainerColor = surfaceColor.copy(alpha = 0.4f),
-                        unfocusedContainerColor = surfaceColor.copy(alpha = 0.2f),
-                    ),
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true,
+                placeholder = stringResource(Res.string.common_name),
+                variant = ListenUpTextFieldVariant.Hero,
+                heroContainerColor = surfaceColor,
                 modifier = Modifier.weight(1f),
             )
         }

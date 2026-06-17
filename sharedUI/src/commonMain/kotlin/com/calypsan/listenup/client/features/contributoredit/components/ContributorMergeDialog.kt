@@ -14,7 +14,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.core.ContributorId
 import listenup.composeapp.generated.resources.Res
@@ -77,15 +77,11 @@ fun ContributorMergeDialog(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
+                ListenUpTextField(
                     value = query,
                     onValueChange = onQueryChange,
-                    label = { Text(stringResource(Res.string.common_search)) },
-                    placeholder = {
-                        Text(stringResource(Res.string.contributor_merge_search_placeholder))
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    label = stringResource(Res.string.common_search),
+                    placeholder = stringResource(Res.string.contributor_merge_search_placeholder),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
