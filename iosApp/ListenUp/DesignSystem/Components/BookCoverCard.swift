@@ -1,12 +1,12 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
 /// Displays a book cover with title and author below.
 ///
 /// Features:
-/// - Local image loading from cached cover path
-/// - BlurHash placeholder while loading or on failure
+/// - Authenticated cover loading via `BookCoverImage` (local file → signed server URL →
+///   BlurHash placeholder), so covers appear on the library grid even before the book is
+///   downloaded — the local file is not yet present there.
 /// - Soft shadow on the cover image
 /// - Title and author (single line, truncated)
 /// - Optional progress bar at bottom of cover
@@ -14,19 +14,9 @@ struct BookCoverCard: View {
     let book: BookListItem
     let progress: Float?
 
-    /// Cached UIImage loaded from local file path.
-    private let cachedImage: UIImage?
-
     init(book: BookListItem, progress: Float? = nil) {
         self.book = book
         self.progress = progress
-
-        // Load image from local cache path
-        if let coverPath = book.coverPath {
-            self.cachedImage = UIImage(contentsOfFile: coverPath)
-        } else {
-            self.cachedImage = nil
-        }
     }
 
     var body: some View {
@@ -43,8 +33,9 @@ struct BookCoverCard: View {
 
     private var coverImage: some View {
         ZStack(alignment: .bottom) {
-            // Cover with BlurHash placeholder (square covers)
-            coverContent
+            // Square cover — local file, signed server URL, or BlurHash/gradient placeholder,
+            // all resolved by BookCoverImage.
+            BookCoverImage(book: book)
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
@@ -52,38 +43,6 @@ struct BookCoverCard: View {
             // Progress bar overlay
             if let progress, progress > 0 {
                 progressOverlay(progress: progress)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var coverContent: some View {
-        if let uiImage = cachedImage {
-            // Display locally cached cover image
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else {
-            // Show BlurHash placeholder if no cached image
-            blurHashPlaceholder
-        }
-    }
-
-    @ViewBuilder
-    private var blurHashPlaceholder: some View {
-        if book.coverBlurHash != nil {
-            BlurHashView(blurHash: book.coverBlurHash)
-        } else {
-            // Fallback: gradient with book icon
-            ZStack {
-                LinearGradient(
-                    colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.secondary)
             }
         }
     }
