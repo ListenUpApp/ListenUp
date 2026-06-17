@@ -328,6 +328,24 @@ class AdminUserServiceImplTest :
             }
         }
 
+        test("listUsers returns only ACTIVE members, excluding pending and denied registrations") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedTestUser("m1", UserRoleColumn.MEMBER)
+                seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
+                seedUserWithStatus("d1", userStatus = UserStatusColumn.DENIED)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    val ids = svc.listUsers().shouldSucceed().map { it.id.value }
+                    ids shouldContain "root1"
+                    ids shouldContain "m1"
+                    ids shouldNotContain "p1"
+                    ids shouldNotContain "d1"
+                }
+            }
+        }
+
         // ── listPendingUsers ──────────────────────────────────────────────────────
 
         test("listPendingUsers returns only PENDING_APPROVAL users") {
