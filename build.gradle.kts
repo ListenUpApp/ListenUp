@@ -43,6 +43,8 @@ detekt {
         "$rootDir/server/src/test/kotlin",
         "$rootDir/rpc-guard-ksp/src/main/kotlin",
         "$rootDir/rpc-guard-ksp/src/test/kotlin",
+        "$rootDir/web/src/main/kotlin",
+        "$rootDir/web/src/test/kotlin",
     )
 }
 

@@ -22,6 +22,7 @@ data class WebUiConfig(
  * server's REST API over [WebUiConfig.loopbackBaseUrl]. This is the single integration
  * point `:server` calls from its routing setup.
  */
+@Suppress("UnusedParameter") // config consumed in Phase 1B when the loopback client is wired in
 fun Application.installWebUi(config: WebUiConfig) {
     routing {
         staticResources("/assets", "web")
