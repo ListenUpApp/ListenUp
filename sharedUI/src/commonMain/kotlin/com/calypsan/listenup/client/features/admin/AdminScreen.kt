@@ -774,7 +774,6 @@ private fun PendingRegistrationsGroup(
             state.pendingUsers.forEachIndexed { index, user ->
                 PendingUserRow(
                     user = user,
-                    accent = accent,
                     isApproving = state.approvingUserId == user.id,
                     isDenying = state.denyingUserId == user.id,
                     showDivider = index > 0,
@@ -789,7 +788,6 @@ private fun PendingRegistrationsGroup(
 @Composable
 private fun PendingUserRow(
     user: AdminUserInfo,
-    accent: Color,
     isApproving: Boolean,
     isDenying: Boolean,
     showDivider: Boolean,
@@ -800,11 +798,12 @@ private fun PendingUserRow(
         user.displayName
             ?: "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifEmpty { user.email }
     SettingRow(
-        icon = Icons.Outlined.PersonAdd,
-        accent = accent,
         title = name,
         subtitle = user.email,
         showDivider = showDivider,
+        // A pending registrant has no server-side public profile yet, so drive initials from their
+        // name (#625) rather than the generic add-person glyph / an indefinite loading circle.
+        leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium, fallbackName = name) },
     ) {
         if (isApproving || isDenying) {
             ListenUpLoadingIndicatorSmall()

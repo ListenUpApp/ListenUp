@@ -83,6 +83,7 @@ fun UserAvatar(
     size: AvatarSize = AvatarSize.Medium,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    fallbackName: String? = null,
 ) {
     val baseModifier =
         modifier
@@ -90,7 +91,7 @@ fun UserAvatar(
             .clip(CircleShape)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }
 
-    when (val state = rememberUserAvatarState(userId)) {
+    when (val state = rememberUserAvatarState(userId, fallbackName)) {
         UserAvatarUiState.Loading -> {
             LoadingPlaceholder(modifier = baseModifier)
         }
@@ -116,17 +117,21 @@ fun UserAvatar(
 }
 
 @Composable
-internal fun rememberUserAvatarState(userId: String): UserAvatarUiState {
+internal fun rememberUserAvatarState(
+    userId: String,
+    fallbackName: String? = null,
+): UserAvatarUiState {
     val repo: UserProfileRepository = koinInject()
     val imageStorage: ImageStorage = koinInject()
     val profile by repo.observeProfile(userId).collectAsStateWithLifecycle(initialValue = null)
 
-    return remember(userId, profile) {
+    return remember(userId, profile, fallbackName) {
         userAvatarUiState(
             profile = profile,
             hasLocalAvatar = imageStorage.userAvatarExists(userId),
             localPath = imageStorage.getUserAvatarPath(userId),
             userId = userId,
+            fallbackName = fallbackName,
         )
     }
 }
@@ -274,14 +279,28 @@ internal fun avatarInitials(displayName: String): String =
         .joinToString("") { it.first().uppercase() }
         .ifBlank { "?" }
 
-/** Pure mapping from a profile + local-avatar presence to the render state. No Compose/IO. */
+/**
+ * Pure mapping from a profile + local-avatar presence to the render state. No Compose/IO.
+ *
+ * [fallbackName] lets a caller render initials for a user that has no cached public profile —
+ * a pending registrant never gets a server-side profile row, so without this the avatar would be
+ * stuck on the indefinite loading circle (#625). Active users (profile present) ignore it.
+ */
 internal fun userAvatarUiState(
     profile: CachedUserProfile?,
     hasLocalAvatar: Boolean,
     localPath: String,
     userId: String,
+    fallbackName: String? = null,
 ): UserAvatarUiState =
     when {
+        profile == null && !fallbackName.isNullOrBlank() -> {
+            UserAvatarUiState.Initials(
+                initials = avatarInitials(fallbackName),
+                color = stableColorForUserId(userId),
+            )
+        }
+
         profile == null -> {
             UserAvatarUiState.Loading
         }
