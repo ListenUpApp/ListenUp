@@ -1,18 +1,14 @@
-// Auto-version from git tags (e.g. v0.1.0 -> versionName "0.1.0", versionCode from commit count)
-fun gitVersionName(): String =
-    try {
-        providers
-            .exec {
-                commandLine("git", "describe", "--tags", "--abbrev=0")
-                isIgnoreExitValue = true
-            }.standardOutput.asText
-            .get()
-            .trim()
-            .removePrefix("v")
-            .ifEmpty { "0.0.1" }
-    } catch (_: Exception) {
-        "0.0.1"
-    }
+// Version is sourced from the VERSION file at the repo root (single source of truth for marketing version).
+fun versionName(): String =
+    rootProject.layout.projectDirectory
+        .file("VERSION")
+        .asFile
+        .takeIf { it.exists() }
+        ?.readText()
+        ?.trim()
+        ?.removePrefix("v")
+        ?.ifEmpty { "0.0.1" }
+        ?: "0.0.1"
 
 fun gitVersionCode(): Int =
     try {
@@ -52,7 +48,7 @@ android {
                 .get()
                 .toInt()
         versionCode = gitVersionCode()
-        versionName = gitVersionName()
+        versionName = versionName()
     }
 
     packaging {
