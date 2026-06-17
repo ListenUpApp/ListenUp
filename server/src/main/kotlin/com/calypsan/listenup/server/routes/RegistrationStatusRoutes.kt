@@ -9,8 +9,11 @@ import io.ktor.server.sse.ServerSSESession
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -18,22 +21,37 @@ import kotlinx.coroutines.launch
 // idle pre-approval connection alive across NATs/load balancers that drop silent streams.
 private const val HEARTBEAT_INTERVAL_MILLIS = 25_000L
 
+// Fallback re-check cadence for the persisted status. The live broadcast delivers a decision
+// instantly when the registrant is subscribed at that instant; this poll is the "never stranded"
+// safety net that advances the stream even if that live push was missed (replay=0 broadcaster).
+private const val STATUS_RECHECK_INTERVAL_MILLIS = 3_000L
+
+private const val STATUS_PENDING = "pending"
+
 /**
  * Mounts the unauthenticated registration-status SSE stream:
  *  - `GET /api/v1/auth/registration-status/{userId}/stream`
  *
  * A registrant awaiting approval has no JWT yet, so this route lives OUTSIDE the auth wall.
- * On connect it emits a `RegistrationStatusEvent(status = "pending")`, then suspends until the
- * admin's decision arrives via [broadcaster], emits the terminal `"approved"`/`"denied"` event,
- * and closes. A comment-line keepalive runs in the background to hold the idle connection open.
  *
- * The pending event is sent from inside [onSubscription], which fires only after this collector
- * is registered as a live subscriber but before any upstream decision is processed.
- * [RegistrationBroadcaster] is `replay = 0`, so any other ordering — subscribe, then send pending,
- * then start collecting — would drop a decision fired in that window. [onSubscription] closes the
- * window entirely; the client's reconnect/retry-login path is the fallback for a true disconnect.
+ * On connect it emits the registrant's **persisted** status via [currentStatus]: a registrant who
+ * connects (or reconnects, or taps "check status") *after* the admin's decision learns it
+ * immediately rather than waiting forever on `"pending"`. This is the fix for the iOS Awaiting
+ * screen never advancing — [RegistrationBroadcaster] is `replay = 0`, so a decision pushed while
+ * the registrant wasn't subscribed is otherwise lost.
+ *
+ * While still pending it awaits a terminal decision from **either** an instant live broadcast
+ * ([broadcaster]) **or** a periodic re-check of the persisted status — whichever fires first —
+ * then emits the terminal `"approved"`/`"denied"` event and closes. A comment-line keepalive
+ * holds the idle connection open across proxies.
+ *
+ * @param currentStatus reads the registrant's persisted status as a wire event; an unknown user
+ *   id maps to `"pending"` (the stream simply waits).
  */
-fun Route.registrationStatusRoutes(broadcaster: RegistrationBroadcaster) {
+fun Route.registrationStatusRoutes(
+    broadcaster: RegistrationBroadcaster,
+    currentStatus: suspend (userId: String) -> RegistrationStatusEvent,
+) {
     sse("/api/v1/auth/registration-status/{userId}/stream") {
         val userId = call.parameters["userId"] ?: return@sse
 
@@ -45,21 +63,38 @@ fun Route.registrationStatusRoutes(broadcaster: RegistrationBroadcaster) {
                 }
             }
         try {
-            // first() suspends until the first approve/deny decision; onSubscription emits the
-            // pending event the instant this collector is live, so no decision can slip the gap.
-            // When first() returns the block ends and the SSE session closes — matching the
-            // client, which closes on a terminal status.
-            val decision =
-                broadcaster
-                    .subscribe(userId)
-                    .onSubscription { sendStatus(RegistrationStatusEvent(status = "pending")) }
-                    .first()
-            sendStatus(decision.toEvent())
+            val initial = currentStatus(userId)
+            sendStatus(initial)
+            if (initial.status == STATUS_PENDING) {
+                // Still pending: resolve a terminal status from whichever source fires first.
+                val terminal =
+                    merge(
+                        broadcaster.subscribe(userId).map { it.toEvent() },
+                        pollUntilTerminal(userId, currentStatus),
+                    ).first()
+                sendStatus(terminal)
+            }
         } finally {
             heartbeat.cancel()
         }
     }
 }
+
+/** Re-reads the persisted status on a fixed cadence, emitting once it leaves `"pending"`. */
+private fun pollUntilTerminal(
+    userId: String,
+    currentStatus: suspend (userId: String) -> RegistrationStatusEvent,
+): Flow<RegistrationStatusEvent> =
+    flow {
+        while (true) {
+            delay(STATUS_RECHECK_INTERVAL_MILLIS)
+            val status = currentStatus(userId)
+            if (status.status != STATUS_PENDING) {
+                emit(status)
+                break
+            }
+        }
+    }
 
 /** Emits a [RegistrationStatusEvent] as a data-only SSE frame; the client decodes `data:` regardless of `event:`. */
 private suspend fun ServerSSESession.sendStatus(event: RegistrationStatusEvent) {

@@ -140,6 +140,9 @@ import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
+import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.UserStatusColumn
 import kotlinx.rpc.krpc.ktor.server.Krpc
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
@@ -433,7 +436,17 @@ private fun Application.installAppRoutes(homeDir: Path) {
         sseRoutes()
         authRoutes(authService)
         publicInviteRoutes(inviteService)
-        registrationStatusRoutes(registrationBroadcaster)
+        registrationStatusRoutes(registrationBroadcaster) { userId ->
+            // Persisted status is the source of truth: a registrant reconnecting after the
+            // admin's decision must learn it even though the live broadcast was a no-op drop.
+            suspendTransaction(db) {
+                when (UserEntity.findById(userId)?.status) {
+                    UserStatusColumn.ACTIVE -> RegistrationStatusEvent(status = "approved")
+                    UserStatusColumn.DENIED -> RegistrationStatusEvent(status = "denied")
+                    else -> RegistrationStatusEvent(status = "pending")
+                }
+            }
+        }
         rpcRoutes(
             authService,
             instanceService,
