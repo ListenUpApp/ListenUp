@@ -181,11 +181,10 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      - name: Import signing assets
+      - name: Import distribution certificate
         env:
           CERT_P12: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
-          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: |
           set -euo pipefail
           KEYCHAIN="$RUNNER_TEMP/build.keychain"
@@ -198,27 +197,45 @@ jobs:
           # shellcheck disable=SC2046
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN"
-          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "$PROFILES_DIR"
-          echo "$PROFILE" | base64 -d > "$PROFILES_DIR/listenup.mobileprovision"
 
-      - name: Install Fastlane (bundler)
-        working-directory: iosApp
-        run: bundle install
-
-      - name: Upload to TestFlight
+      # Apple-native build → upload. `xcodebuild -exportArchive` with destination=upload
+      # in ExportOptions.plist delivers the build to App Store Connect / TestFlight directly,
+      # authenticated by the ASC API key. `-allowProvisioningUpdates` lets xcodebuild manage
+      # signing via that key (no manual provisioning profile needed). No Ruby/Fastlane.
+      - name: Archive, export & upload to TestFlight
         working-directory: iosApp
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          MARKETING_VERSION: ${{ needs.set-version.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
-          ASC_KEY_P8="$(echo "$ASC_KEY_P8" | base64 -d)"
-          export ASC_KEY_P8
-          bundle exec fastlane beta \
-            version:${{ needs.set-version.outputs.version }} \
-            build_number:${{ github.run_number }}
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "$ASC_KEY_P8" | base64 -d > "$KEY_PATH"
+          ARCHIVE="$RUNNER_TEMP/ListenUp.xcarchive"
+
+          xcodebuild archive \
+            -scheme ListenUp \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$ARCHIVE" \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            -allowProvisioningUpdates \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            -allowProvisioningUpdates
 
   server:
     name: Server → GHCR (non-blocking until #647)

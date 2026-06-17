@@ -1,2 +1,0 @@
-app_identifier("com.calypsan.listenup.client.ios")
-# itc_team_id / team_id are supplied via the App Store Connect API key at runtime.
