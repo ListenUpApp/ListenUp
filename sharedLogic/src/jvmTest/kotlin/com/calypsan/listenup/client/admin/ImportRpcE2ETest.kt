@@ -4,9 +4,9 @@ import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
-import com.calypsan.listenup.api.dto.import.ImportAnalysis
-import com.calypsan.listenup.api.dto.import.ImportResult
-import com.calypsan.listenup.api.dto.import.ImportSummary
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
+import com.calypsan.listenup.api.dto.imports.ImportResult
+import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory

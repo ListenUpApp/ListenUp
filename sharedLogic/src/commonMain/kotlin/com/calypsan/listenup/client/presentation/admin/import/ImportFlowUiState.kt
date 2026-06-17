@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.admin.import
 
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.dto.import.ImportAnalysis
-import com.calypsan.listenup.api.dto.import.ImportResult
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
+import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId

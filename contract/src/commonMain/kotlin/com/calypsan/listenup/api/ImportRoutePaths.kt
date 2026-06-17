@@ -9,6 +9,6 @@ package com.calypsan.listenup.api
  * runtime 404. Everything else in the import surface is RPC ([ImportService]).
  */
 object ImportRoutePaths {
-    /** `POST` — streams a `.audiobookshelf` zip; responds an [com.calypsan.listenup.api.dto.import.ImportSummary]. */
+    /** `POST` — streams a `.audiobookshelf` zip; responds an [com.calypsan.listenup.api.dto.imports.ImportSummary]. */
     const val ABS_UPLOAD: String = "/api/v1/admin/imports/abs/upload"
 }

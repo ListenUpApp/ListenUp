@@ -4,8 +4,8 @@ import com.calypsan.listenup.api.ImportRoutePaths
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
-import com.calypsan.listenup.api.dto.import.ImportStatus
-import com.calypsan.listenup.api.dto.import.ImportSummary
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ImportError

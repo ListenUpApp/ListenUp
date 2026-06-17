@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.absimport
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.import.AbsUserMatch
-import com.calypsan.listenup.api.dto.import.MatchTier
+import com.calypsan.listenup.api.dto.imports.AbsUserMatch
+import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.core.AbsUserId
 
 /** A ListenUp user reduced to the fields the [UserMatcher] needs. */
