@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.admin.import
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.import.ImportEvent
+import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.SearchHitType

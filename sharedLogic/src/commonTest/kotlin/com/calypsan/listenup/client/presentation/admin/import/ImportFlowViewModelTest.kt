@@ -2,14 +2,14 @@ package com.calypsan.listenup.client.presentation.admin.import
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.import.AbsItemRef
-import com.calypsan.listenup.api.dto.import.AbsUserMatch
-import com.calypsan.listenup.api.dto.import.ImportAnalysis
-import com.calypsan.listenup.api.dto.import.ImportEvent
-import com.calypsan.listenup.api.dto.import.ImportResult
-import com.calypsan.listenup.api.dto.import.ImportStatus
-import com.calypsan.listenup.api.dto.import.ImportSummary
-import com.calypsan.listenup.api.dto.import.MatchTier
+import com.calypsan.listenup.api.dto.imports.AbsItemRef
+import com.calypsan.listenup.api.dto.imports.AbsUserMatch
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
+import com.calypsan.listenup.api.dto.imports.ImportEvent
+import com.calypsan.listenup.api.dto.imports.ImportResult
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
+import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult

@@ -226,11 +226,11 @@ class ImportApplierTest :
                     val applier = applierFor(staged)
                     confirmSimonMapping(staged.paths, staged.importId)
 
-                    val events = mutableListOf<com.calypsan.listenup.api.dto.import.ImportEvent>()
+                    val events = mutableListOf<com.calypsan.listenup.api.dto.imports.ImportEvent>()
                     applier.apply(staged.importId) { events += it }
 
                     val applyingEvents =
-                        events.filterIsInstance<com.calypsan.listenup.api.dto.import.ImportEvent.Applying>()
+                        events.filterIsInstance<com.calypsan.listenup.api.dto.imports.ImportEvent.Applying>()
                     // The fixture has 2 progress rows + 4 book sessions (podcast excluded) = 6 Applying events total.
                     applyingEvents.size shouldBe 6
 
