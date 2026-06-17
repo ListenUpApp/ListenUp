@@ -12,6 +12,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.respondRedirect
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -420,6 +421,31 @@ class AudibleClientTest :
                 client.getProductTags(AudibleRegion.UK, "B0CBP6NQVR")
 
                 sentCookie shouldBe "lc-acbuk=en_GB; i18n-prefs=GBP"
+            }
+        }
+
+        test("getProductTags surfaces ExternalUnavailable when Audible IP-redirects the storefront away") {
+            runTest {
+                // From an out-of-region IP, Audible redirects www.audible.ca off to the .com homepage
+                // (Adbl_ip_rdr_from_CA / ipRedirectFrom=CA) — the /pd page (and its topic tags) never
+                // loads. The scrape must surface this, not silently parse the wrong page and return empty.
+                val engine =
+                    MockEngine { request ->
+                        if (request.url.host == "www.audible.ca") {
+                            respondRedirect("https://www.audible.com/?ref=Adbl_ip_rdr_from_CA&ipRedirectFrom=CA")
+                        } else {
+                            respond(
+                                content = "<html><body>store homepage — no topic tags</body></html>",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf("Content-Type", "text/html"),
+                            )
+                        }
+                    }
+                val client = makeClient(engine)
+                val result = client.getProductTags(AudibleRegion.CA, "B08G9PRS1K")
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                (result as AppResult.Failure).error.shouldBeInstanceOf<MetadataError.ExternalUnavailable>()
             }
         }
     })
