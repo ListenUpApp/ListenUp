@@ -15,6 +15,52 @@ struct BookDetailObserverTests {
     }
 }
 
+@Suite("Cast helpers")
+struct CastHelpersTests {
+    private func member(_ name: String, _ roles: [String]) -> CastMember {
+        CastMember(id: name, name: name, roles: roles)
+    }
+
+    @Test func collapsedSummaryNilAtOrBelowLimit() {
+        #expect(collapsedContributorSummary(names: [], limit: 2) == nil)
+        #expect(collapsedContributorSummary(names: ["A"], limit: 2) == nil)
+        #expect(collapsedContributorSummary(names: ["A", "B"], limit: 2) == nil)
+    }
+
+    @Test func collapsedSummaryAboveLimit() {
+        #expect(collapsedContributorSummary(names: ["Roy", "B", "C"], limit: 2) == "Roy & 2 others")
+    }
+
+    @Test func castGroupsOmitsEmptyProduction() {
+        let groups = castGroups(
+            authors: [member("Author A", ["author"])],
+            narrators: [member("Narr A", ["narrator"]), member("Narr B", ["narrator"])],
+            all: [member("Author A", ["author"]), member("Narr A", ["narrator"]), member("Narr B", ["narrator"])]
+        )
+        #expect(groups.map(\.kind) == [.authors, .narrators])
+    }
+
+    @Test func castGroupsIncludesProductionWhenPresent() {
+        let groups = castGroups(
+            authors: [member("Author A", ["author"])],
+            narrators: [member("Narr A", ["narrator"])],
+            all: [member("Author A", ["author"]), member("Narr A", ["narrator"]), member("Editor E", ["editor"])]
+        )
+        #expect(groups.map(\.kind) == [.authors, .narrators, .production])
+        #expect(groups.last?.members.map(\.name) == ["Editor E"])
+    }
+
+    @Test func productionExcludesAuthorsAndNarratorsCaseInsensitive() {
+        let groups = castGroups(
+            authors: [member("A", ["author"])],
+            narrators: [member("N", ["narrator"])],
+            all: [member("A", ["Author"]), member("N", ["NARRATOR"]), member("P", ["producer"])]
+        )
+        #expect(groups.last?.kind == .production)
+        #expect(groups.last?.members.map(\.name) == ["P"])
+    }
+}
+
 /// Pure-seam coverage for the three-axis facet chips (genre / tag / mood).
 ///
 /// The observer's `genres`/`tags`/`moods` flatten reads live KMP `Ready` state
