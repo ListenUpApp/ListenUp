@@ -52,6 +52,9 @@ val tailwindResolveCli by tasks.registering(TailwindResolveCliTask::class) {
     description = "Ensure a Tailwind standalone CLI binary is available."
     outputBin.set(tailwindBinFile)
     version.set(tailwindVersion)
+    // Official SHA-256 of tailwindcss-linux-x64 v3.4.17, from the release's sha256sums.txt:
+    // https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/sha256sums.txt
+    expectedSha256.set("7d24f7fa191d2193b78cd5f5a42a6093e14409521908529f42d80b11fde1f1d4")
     tailwindCliEnv.set(providers.environmentVariable("TAILWIND_CLI"))
 }
 
@@ -59,8 +62,9 @@ val tailwindGenerate by tasks.registering(TailwindGenerateTask::class) {
     dependsOn(tailwindResolveCli)
     group = "web"
     description = "Generate the Tailwind stylesheet for the web UI."
-    configFilePath.set(layout.projectDirectory.file("tailwind.config.js").asFile.absolutePath)
-    inputCssPath.set(layout.projectDirectory.file("src/main/tailwind/input.css").asFile.absolutePath)
+    sourceDir.set(layout.projectDirectory.dir("src/main/kotlin"))
+    configFile.set(layout.projectDirectory.file("tailwind.config.js"))
+    inputCss.set(layout.projectDirectory.file("src/main/tailwind/input.css"))
     outputCss.set(tailwindGenRoot.map { it.file("web/app.css") })
     downloadedBin.set(tailwindBinFile)
     tailwindCliEnv.set(providers.environmentVariable("TAILWIND_CLI"))
