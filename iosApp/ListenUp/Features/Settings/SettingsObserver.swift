@@ -24,7 +24,6 @@ final class SettingsObserver {
     // MARK: - Flattened state (local — device storage)
 
     private(set) var themeMode: ThemeMode = .system
-    private(set) var dynamicColorsEnabled: Bool = true
     private(set) var autoRewindEnabled: Bool = true
     private(set) var wifiOnlyDownloads: Bool = true
     private(set) var autoRemoveFinished: Bool = false
@@ -61,7 +60,6 @@ final class SettingsObserver {
         defaultSleepTimerMin = state.defaultSleepTimerMin.map { Int(truncating: $0) }
         shakeToResetSleepTimer = state.shakeToResetSleepTimer
         themeMode = state.themeMode
-        dynamicColorsEnabled = state.dynamicColorsEnabled
         autoRewindEnabled = state.autoRewindEnabled
         wifiOnlyDownloads = state.wifiOnlyDownloads
         autoRemoveFinished = state.autoRemoveFinished
@@ -75,7 +73,6 @@ final class SettingsObserver {
     // MARK: - Actions (forward to the shared VM)
 
     func setThemeMode(_ mode: ThemeMode) { viewModel.setThemeMode(mode: mode) }
-    func setDynamicColorsEnabled(_ enabled: Bool) { viewModel.setDynamicColorsEnabled(enabled: enabled) }
     func setDefaultPlaybackSpeed(_ speed: Float) { viewModel.setDefaultPlaybackSpeed(speed: speed) }
     func setDefaultSkipForwardSec(_ seconds: Int) { viewModel.setDefaultSkipForwardSec(seconds: Int32(seconds)) }
     func setDefaultSkipBackwardSec(_ seconds: Int) { viewModel.setDefaultSkipBackwardSec(seconds: Int32(seconds)) }
