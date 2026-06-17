@@ -15,7 +15,7 @@ private val logger = KotlinLogging.logger {}
  * source of truth for a server-URL change, replacing the hand-maintained two-cache
  * list that silently missed every other authed proxy.
  */
-interface RpcCacheInvalidator {
+fun interface RpcCacheInvalidator {
     /** Invalidate every registered [RemoteCache]. */
     suspend fun invalidateAll()
 }

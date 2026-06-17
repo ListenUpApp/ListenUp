@@ -251,13 +251,14 @@ class AdminRepositoryImplUserTest :
             result shouldBe AppResult.Success(RegistrationPolicy.OPEN)
         }
 
-        test("a transport exception from the RPC factory becomes AppResult.Failure, not a throw") {
+        test("a transport exception becomes AppResult.Failure and invalidates the RPC caches (self-heal #619)") {
             val throwingFactory =
                 object : AdminUserRpcFactory {
                     override suspend fun get(): AdminUserService = throw IllegalStateException("simulated WS 401")
 
                     override suspend fun invalidate() = Unit
                 }
+            var invalidations = 0
             val repo =
                 AdminRepositoryImpl(
                     adminUserRpc = throwingFactory,
@@ -265,9 +266,12 @@ class AdminRepositoryImplUserTest :
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                     libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
+                    rpcCacheInvalidator = { invalidations++ },
                 )
 
             (repo.getUsers() is AppResult.Failure) shouldBe true
+            // The dead cached proxy is dropped so the next call rebinds to a live connection.
+            invalidations shouldBe 1
         }
 
         test("setRegistrationPolicy(OPEN) sets policy OPEN") {

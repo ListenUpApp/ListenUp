@@ -119,6 +119,7 @@ val adminModule: Module =
                 inviteRpc = get(),
                 libraryAdminRpc = get(),
                 serverConfig = get(),
+                rpcCacheInvalidator = get(),
             )
         }
 
