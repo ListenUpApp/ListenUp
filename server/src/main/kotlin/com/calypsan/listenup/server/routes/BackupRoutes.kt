@@ -70,7 +70,7 @@ fun Route.backupRoutes(
     paths: BackupPaths,
     archive: BackupArchive,
 ) {
-    get("/api/v1/admin/backups/{id}/download") {
+    get(BackupRoutePaths.DOWNLOAD_TEMPLATE) {
         val p = call.userPrincipalOrNull() ?: return@get call.respond(HttpStatusCode.Unauthorized)
         if (!p.role.isAdmin()) return@get call.respondBareAppError(AuthError.PermissionDenied())
 

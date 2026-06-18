@@ -11,4 +11,16 @@ package com.calypsan.listenup.api
 object BackupRoutePaths {
     /** `POST` — streams a `.listenup.zip` backup; responds a [com.calypsan.listenup.api.dto.backup.BackupSummary]. */
     const val UPLOAD: String = "/api/v1/admin/backups/upload"
+
+    /**
+     * `GET` route template (Ktor path with the `{id}` placeholder) — streams the `.listenup.zip`
+     * archive identified by `id` as a file attachment. Used to register the server route.
+     */
+    const val DOWNLOAD_TEMPLATE: String = "/api/v1/admin/backups/{id}/download"
+
+    /**
+     * Concrete `GET` download path for the backup identified by [id] — used by the client downloader.
+     * Server backup ids are filesystem-safe (`backup-<iso>`), so no URL-encoding is required.
+     */
+    fun downloadFor(id: String): String = "/api/v1/admin/backups/$id/download"
 }
