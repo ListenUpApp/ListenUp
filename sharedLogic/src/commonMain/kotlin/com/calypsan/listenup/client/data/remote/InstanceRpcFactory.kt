@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.contractJson
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.WebSockets
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -46,8 +47,18 @@ interface InstanceRpcFactory {
  *
  * Wire serialization is the contract-layer [contractJson] — one wire format,
  * the same the server registers with.
+ *
+ * [HttpTimeout] is **mandatory** here: this probe runs behind the server-picker
+ * spinner, and a discovered LAN address can be unroutable (a host advertising its
+ * docker-bridge / VPN address, or a server that moved IP). Without a connect bound
+ * the WebSocket upgrade hangs forever and the spinner never resolves. Timeouts are
+ * constructor-injectable so the hang is regression-tested against a black-hole socket.
  */
-class KtorInstanceRpcFactory : InstanceRpcFactory {
+class KtorInstanceRpcFactory(
+    private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
+    private val requestTimeoutMillis: Long = DEFAULT_REQUEST_TIMEOUT_MS,
+    private val socketTimeoutMillis: Long = DEFAULT_SOCKET_TIMEOUT_MS,
+) : InstanceRpcFactory {
     override suspend fun getServerInfo(
         wsBaseUrl: String,
     ): com.calypsan.listenup.api.result.AppResult<com.calypsan.listenup.api.dto.ServerInfo> {
@@ -55,6 +66,11 @@ class KtorInstanceRpcFactory : InstanceRpcFactory {
             HttpClient {
                 installKrpc()
                 install(WebSockets)
+                install(HttpTimeout) {
+                    connectTimeoutMillis = this@KtorInstanceRpcFactory.connectTimeoutMillis
+                    requestTimeoutMillis = this@KtorInstanceRpcFactory.requestTimeoutMillis
+                    socketTimeoutMillis = this@KtorInstanceRpcFactory.socketTimeoutMillis
+                }
             }
         return try {
             client
@@ -65,5 +81,11 @@ class KtorInstanceRpcFactory : InstanceRpcFactory {
         } finally {
             client.close()
         }
+    }
+
+    private companion object {
+        const val DEFAULT_CONNECT_TIMEOUT_MS = 5_000L
+        const val DEFAULT_REQUEST_TIMEOUT_MS = 12_000L
+        const val DEFAULT_SOCKET_TIMEOUT_MS = 12_000L
     }
 }
