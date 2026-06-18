@@ -13,9 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -46,7 +45,7 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.LicenseChip
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.MeterSegment
-import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.TonalIconTile
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.licenses_count_suffix
 import listenup.composeapp.generated.resources.licenses_families_subtitle
@@ -153,17 +152,18 @@ private fun LicensesPhoneLayout(
             )
         }
         item {
-            SectionGroup(
+            LibrariesSectionHeader(
                 label = sectionLabel,
-                icon = Icons.Outlined.Code,
-                accent = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+            )
+        }
+        itemsIndexed(filtered, key = { _, row -> row.uniqueId }) { index, row ->
+            LicenseLibraryRow(
+                row = row,
+                onClick = { onLicenseClick(row.uniqueId) },
+                showDivider = index < filtered.lastIndex,
                 modifier = Modifier.padding(horizontal = 16.dp),
-            ) {
-                filtered.forEachIndexed { index, row ->
-                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    LicenseLibraryRow(row = row, onClick = { onLicenseClick(row.uniqueId) })
-                }
-            }
+            )
         }
         item {
             LicensesFooter(modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp))
@@ -296,26 +296,29 @@ private fun LicensesWideLayout(
                     LicensesFooter(modifier = Modifier.padding(top = 16.dp))
                 }
             }
-            Column(
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
             ) {
-                ListenUpSearchField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    onSubmit = {},
-                    placeholder = searchPlaceholder,
-                    onClear = { onQueryChange("") },
-                )
-                SectionGroup(
-                    label = sectionLabel,
-                    icon = Icons.Outlined.Code,
-                    accent = MaterialTheme.colorScheme.primary,
-                ) {
-                    filtered.forEachIndexed { index, row ->
-                        if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                        LicenseLibraryRow(row = row, onClick = { onLicenseClick(row.uniqueId) })
-                    }
+                item {
+                    ListenUpSearchField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        onSubmit = {},
+                        placeholder = searchPlaceholder,
+                        onClear = { onQueryChange("") },
+                    )
+                }
+                item {
+                    LibrariesSectionHeader(label = sectionLabel, modifier = Modifier.padding(start = 4.dp))
+                }
+                itemsIndexed(filtered, key = { _, row -> row.uniqueId }) { index, row ->
+                    LicenseLibraryRow(
+                        row = row,
+                        onClick = { onLicenseClick(row.uniqueId) },
+                        showDivider = index < filtered.lastIndex,
+                    )
                 }
             }
         }
@@ -361,50 +364,85 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
     }
 }
 
+/**
+ * Accent-tinted section header that mirrors [SectionGroup]'s header row — an icon tile paired
+ * with an uppercased bold label — but emitted as a standalone composable so it can live as a
+ * lazy [item] rather than being constrained to a non-lazy [SectionGroup.content] slot.
+ */
+@Composable
+private fun LibrariesSectionHeader(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        TonalIconTile(
+            icon = Icons.Outlined.Code,
+            size = 30.dp,
+            accent = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
 @Composable
 private fun LicenseLibraryRow(
     row: LicenseRow,
     onClick: () -> Unit,
+    showDivider: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 15.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = row.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-            if (row.version.isNotEmpty()) {
+    Column(modifier = modifier) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(Res.string.licenses_version_prefix, row.version),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = row.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                if (row.version.isNotEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.licenses_version_prefix, row.version),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (row.spdxId.isNotEmpty()) {
+                LicenseChip(
+                    label = row.spdxId,
+                    color = licenseFamilyColor(row.spdxId),
                 )
             }
-        }
-        if (row.spdxId.isNotEmpty()) {
-            LicenseChip(
-                label = row.spdxId,
-                color = licenseFamilyColor(row.spdxId),
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp),
             )
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
-        )
+        if (showDivider) {
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+        }
     }
 }
 

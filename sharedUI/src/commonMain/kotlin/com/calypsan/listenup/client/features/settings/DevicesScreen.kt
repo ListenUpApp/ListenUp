@@ -497,8 +497,7 @@ private fun ThisDeviceCardContent(
             modifier =
                 Modifier
                     .size(56.dp)
-                    .background(tileBg, MaterialTheme.shapes.large)
-                    .let { it },
+                    .background(tileBg, MaterialTheme.shapes.large),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

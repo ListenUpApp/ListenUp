@@ -89,13 +89,14 @@ private fun LicenseDetailBody(
                     Text(
                         text = row.licenseText,
                         style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                     )
                 }
 
                 if (row.url != null) {
-                    if (!row.spdxId.isNullOrBlank() && row.licenseText.isNullOrBlank()) {
+                    if (row.spdxId.isNotBlank() && row.licenseText.isNullOrBlank()) {
                         // Only show the SPDX label when there is no inline text to identify it.
                         Text(
                             text = row.spdxId,

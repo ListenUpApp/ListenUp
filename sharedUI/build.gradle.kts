@@ -45,6 +45,9 @@ compose.resources {
 // explicitly invoked: ./gradlew :sharedUI:exportLibraryDefinitions
 // Because regeneration is always a deliberate manual step, offlineMode = false is safe
 // for CI: the export task simply never executes during a normal build.
+// The collect task that DOES run during normal builds fetches nothing because
+// fetchRemoteLicense = false and fetchRemoteFunding = false — so offlineMode = false has
+// two independent guards and must not be "fixed" back to true.
 aboutLibraries {
     offlineMode = false
 

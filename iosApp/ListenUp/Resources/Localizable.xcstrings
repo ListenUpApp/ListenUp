@@ -9071,6 +9071,106 @@
         }
       }
     },
+    "licenses.count_suffix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "libraries"
+          }
+        }
+      }
+    },
+    "licenses.families_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "across %1$d license families"
+          }
+        }
+      }
+    },
+    "licenses.footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp is built with open-source software. Thank you to everyone who contributed."
+          }
+        }
+      }
+    },
+    "licenses.overline_open_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Source"
+          }
+        }
+      }
+    },
+    "licenses.search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search libraries"
+          }
+        }
+      }
+    },
+    "licenses.section_libraries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libraries"
+          }
+        }
+      }
+    },
+    "licenses.subtitle_makes_possible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "that make ListenUp possible"
+          }
+        }
+      }
+    },
+    "licenses.text_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License text is not available for this library."
+          }
+        }
+      }
+    },
+    "licenses.version_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%1$@"
+          }
+        }
+      }
+    },
+    "licenses.view_license": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View license"
+          }
+        }
+      }
+    },
     "metadata.all_n_selected": {
       "localizations": {
         "en": {
