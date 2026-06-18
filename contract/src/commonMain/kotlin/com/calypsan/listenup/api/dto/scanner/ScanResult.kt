@@ -72,6 +72,13 @@ fun ScanResult.withoutArtwork(): ScanResult =
  * embedded in completion SSE events. The full books list is fetchable via
  * `lastScanResult()` when needed — keeping it out of progress events keeps
  * the wire small.
+ *
+ * [persisted] and [failed] are set by [com.calypsan.listenup.server.services.BookPersister]
+ * after each book is committed (or fails) — so `persisted + failed == totalBooks` when the
+ * scan completes normally, and `persisted + failed < totalBooks` only when an
+ * [OutOfMemoryError] forces an early stop. A clean run has `failed == 0`; any non-zero
+ * value signals a partial ingest so clients can prompt a re-scan rather than silently
+ * accepting an incomplete library.
  */
 @Serializable
 data class ScanResultSummary(
@@ -85,5 +92,9 @@ data class ScanResultSummary(
     val errors: Int,
     val durationMs: Long,
     val filesWalked: Int,
+    /** Books successfully committed to the database during this scan. */
+    val persisted: Int = 0,
+    /** Books that failed to persist (typed failure or escaped exception). */
+    val failed: Int = 0,
     val embedded: EmbeddedScanCounters = EmbeddedScanCounters(),
 )

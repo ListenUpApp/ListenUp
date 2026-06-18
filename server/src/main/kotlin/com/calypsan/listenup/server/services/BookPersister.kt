@@ -81,7 +81,6 @@ class BookPersister internal constructor(
     private val scanResultBus: SharedFlow<ScanResult>,
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val scope: CoroutineScope,
-    private val metrics: BookPersisterMetrics,
     private val coverImageStore: CoverImageStore? = null,
 ) {
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
@@ -104,29 +103,45 @@ class BookPersister internal constructor(
         // burst — an arbitrarily large library would otherwise overflow it and trip a client
         // CursorStale → catch-up spin. Revisions still bump, so the client does one clean REST
         // catch-up after the Completed below. Incremental scans ARE live deltas; they publish.
-        if (result.scope is ScanScope.Full) {
-            withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
-        } else {
-            persistAll(result, libraryId, folderId)
+        val counts: PersistCounts
+        try {
+            counts =
+                if (result.scope is ScanScope.Full) {
+                    withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
+                } else {
+                    persistAll(result, libraryId, folderId)
+                }
+        } catch (e: OutOfMemoryError) {
+            // OOM means the JVM heap is compromised. We still emit Completed with the partial
+            // counts gathered so far (stored in the thrown PersistAbortedByOom) so clients get
+            // honest numbers, then rethrow so the process can surface the failure.
+            val partial = (e as? PersistAbortedByOom)?.counts ?: PersistCounts(0, 0)
+            eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
+            throw e
         }
 
         // Completed is emitted HERE — after every book is committed and (for a full scan) the
         // tombstone sweep has run — not by the Scanner before this persist runs. `Completed` must
         // mean "the library is persisted and queryable", so the client reconciles a settled server
         // exactly once instead of racing a still-writing one (the premature-Completed bug).
-        eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary()))
+        eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(counts)))
     }
 
     /**
      * Persists every book in [result] and, for a [ScanScope.Full] result, runs the tombstone
      * sweep. The caller decides whether this runs under [FirehoseSuppressed]; this method is
      * suppression-agnostic.
+     *
+     * Returns [PersistCounts] summarising how many books landed vs failed. On [OutOfMemoryError]
+     * the loop is stopped immediately and a [PersistAbortedByOom] wraps both the partial counts
+     * and the original error so the caller can emit an honest [ScanEvent.Completed] before
+     * rethrowing — OOM signals a compromised heap and must never be swallowed per-book.
      */
     private suspend fun persistAll(
         result: ScanResult,
         libraryId: LibraryId,
         folderId: FolderId,
-    ) {
+    ): PersistCounts {
         val seenIds = mutableSetOf<BookId>()
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
@@ -135,13 +150,27 @@ class BookPersister internal constructor(
         // newly-inserted book quarantines into it atomically (see class KDoc). A
         // resolution failure must never fail the scan — fall back to null (uncollected).
         val inboxCollectionId = resolveInboxCollectionId(libraryId)
-        var anyFailed = false
+        var persisted = 0
+        var failed = 0
         for (analyzed in result.books) {
-            val bookId = persistOne(analyzed, libraryId, folderId, scanRoot, inboxCollectionId)
-            if (bookId != null) seenIds += bookId else anyFailed = true
+            val bookId: BookId?
+            try {
+                bookId = persistOne(analyzed, libraryId, folderId, scanRoot, inboxCollectionId)
+            } catch (e: OutOfMemoryError) {
+                // OOM means the heap is compromised — stop immediately. Wrap partial counts so
+                // the caller can still emit an honest Completed before rethrowing.
+                failed++
+                throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
+            }
+            if (bookId != null) {
+                seenIds += bookId
+                persisted++
+            } else {
+                failed++
+            }
         }
         if (result.scope is ScanScope.Full) {
-            if (anyFailed) {
+            if (failed > 0) {
                 // A book failed to persist, so `seenIds` is an incomplete view of the
                 // library. The tombstone sweep is authoritative only for a fully-applied
                 // Full scan — sweeping on a partial set would soft-delete a book that is
@@ -150,12 +179,13 @@ class BookPersister internal constructor(
                 // deferring a tombstone is not.
                 log.warn {
                     "Skipping tombstone sweep for library ${libraryId.value}: " +
-                        "${result.books.size} scanned, some failed to persist"
+                        "$persisted persisted, $failed failed out of ${result.books.size} scanned"
                 }
             } else {
                 ingest.softDeleteAbsent(libraryId, seenIds)
             }
         }
+        return PersistCounts(persisted, failed)
     }
 
     /**
@@ -219,15 +249,16 @@ class BookPersister internal constructor(
 
                 is AppResult.Failure -> {
                     log.warn { "Book persist failed: ${analyzed.candidate.rootRelPath} — ${r.error.code}; continuing" }
-                    metrics.bookPersistFailures.increment()
                     null
                 }
             }
         } catch (e: CancellationException) {
             throw e
+        } catch (e: OutOfMemoryError) {
+            // Propagate — heap is compromised; persistAll must stop the loop.
+            throw e
         } catch (e: Throwable) {
             log.warn(e) { "Book persist threw: ${analyzed.candidate.rootRelPath} — continuing" }
-            metrics.bookPersistFailures.increment()
             null
         }
 
@@ -294,3 +325,32 @@ class BookPersister internal constructor(
             FolderId("unknown")
         }
 }
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/** Counts of books successfully persisted vs failed during [BookPersister.persistAll]. */
+internal data class PersistCounts(
+    val persisted: Int,
+    val failed: Int,
+)
+
+/**
+ * Builds a [com.calypsan.listenup.api.dto.scanner.ScanResultSummary] from this result, stamping
+ * in the [PersistCounts] that [BookPersister.persistAll] gathered. This is the persister's own
+ * overload — [com.calypsan.listenup.server.scanner.toSummary] is used by the Scanner before
+ * persistence counts are known.
+ */
+internal fun ScanResult.toSummary(counts: PersistCounts): com.calypsan.listenup.api.dto.scanner.ScanResultSummary =
+    toSummary().copy(persisted = counts.persisted, failed = counts.failed)
+
+/**
+ * Thrown by [BookPersister.persistAll] when an [OutOfMemoryError] forces an early stop.
+ * Wraps the partial [counts] accumulated before the OOM so the caller can emit an honest
+ * [ScanEvent.Completed] before rethrowing the underlying [OutOfMemoryError].
+ */
+internal class PersistAbortedByOom(
+    val counts: PersistCounts,
+    cause: OutOfMemoryError,
+) : OutOfMemoryError(cause.message)
