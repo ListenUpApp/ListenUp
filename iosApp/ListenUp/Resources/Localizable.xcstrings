@@ -671,6 +671,16 @@
         }
       }
     },
+    "admin.inbox": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox"
+          }
+        }
+      }
+    },
     "admin.inbox_empty": {
       "localizations": {
         "en": {
@@ -697,6 +707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hold new books for review"
+          }
+        }
+      }
+    },
+    "admin.inbox_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review and release new books waiting for approval."
           }
         }
       }
