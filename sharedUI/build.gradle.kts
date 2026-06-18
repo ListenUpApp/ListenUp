@@ -101,6 +101,8 @@ kotlin {
             implementation(libs.androidx.window)
 
             // BlurHash for image placeholders
+
+            implementation(libs.kotlinx.io.core)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

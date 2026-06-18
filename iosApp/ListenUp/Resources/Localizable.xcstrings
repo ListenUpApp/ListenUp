@@ -141,6 +141,26 @@
         }
       }
     },
+    "admin.backup_download_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save the backup to your device."
+          }
+        }
+      }
+    },
+    "admin.backup_downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup saved to your device."
+          }
+        }
+      }
+    },
     "admin.backup_restore": {
       "localizations": {
         "en": {
@@ -507,6 +527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deny Registration"
+          }
+        }
+      }
+    },
+    "admin.download_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
           }
         }
       }
