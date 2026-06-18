@@ -8,6 +8,7 @@ import kotlinx.html.DIV
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.MAIN
+import kotlinx.html.a
 import kotlinx.html.button
 import kotlinx.html.div
 import kotlinx.html.form
@@ -42,6 +43,7 @@ private const val FIELD_NAME_PASSWORD = "password"
 private const val CSS_ERROR = "text-red-600"
 private const val HTMX_SWAP = "hx-swap"
 private const val LABEL_SIGN_IN = "Sign in"
+private const val ROUTE_LOGIN = "/login"
 
 // ---------------------------------------------------------------------------
 // Shared field-list-driven form builder
@@ -133,13 +135,13 @@ private fun loginFields(email: String): List<AuthField> =
 fun FlowContent.loginForm(
     email: String = "",
     error: String? = null,
-) = authFormDiv(LABEL_SIGN_IN, "/login", LABEL_SIGN_IN, error, loginFields(email))
+) = authFormDiv(LABEL_SIGN_IN, ROUTE_LOGIN, LABEL_SIGN_IN, error, loginFields(email))
 
 /** htmx fragment for the login form. See [authFormFragment]. */
 fun loginFormFragment(
     email: String,
     error: String?,
-): String = authFormFragment(LABEL_SIGN_IN, "/login", LABEL_SIGN_IN, error, loginFields(email))
+): String = authFormFragment(LABEL_SIGN_IN, ROUTE_LOGIN, LABEL_SIGN_IN, error, loginFields(email))
 
 // ---------------------------------------------------------------------------
 // Setup form (first-run owner account creation)
@@ -186,6 +188,17 @@ fun FlowContent.registerForm(error: String? = null) =
 /** htmx fragment for the register form. See [authFormFragment]. */
 fun registerFormFragment(error: String?): String =
     authFormFragment("Create your account", "/register", "Register", error, registerFields)
+
+/**
+ * Body shown at `/register` when self-registration policy is `CLOSED` — the form is not
+ * offered at all (spec §4: "hidden/disabled when policy CLOSED"). The POST is independently
+ * gated server-side, so this is the affordance, not the enforcement.
+ */
+fun FlowContent.registrationClosedBody() {
+    h1 { +"Registration closed" }
+    p { +"This server isn't accepting new registrations. Ask an administrator for access." }
+    a(href = ROUTE_LOGIN) { +"Back to sign in" }
+}
 
 // ---------------------------------------------------------------------------
 // Pending-approval waiting room

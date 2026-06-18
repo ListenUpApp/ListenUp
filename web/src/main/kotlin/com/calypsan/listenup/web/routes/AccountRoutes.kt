@@ -60,8 +60,10 @@ internal fun Route.accountRoutes(deps: WebDependencies) {
             when (val refreshed = deps.loopback.listSessions(ctx.accessToken)) {
                 is AppResult.Success ->
                     call.respondText(sessionsListFragment(refreshed.data), ContentType.Text.Html)
+                // Re-list failed after the revoke: surface an error rather than swapping in an
+                // empty body, which would blank the whole #sessions region (hx-swap=outerHTML).
                 is AppResult.Failure ->
-                    call.respondText("", ContentType.Text.Html)
+                    call.respondText(sessionsErrorFragment(refreshed.error.message), ContentType.Text.Html)
             }
         }
     }

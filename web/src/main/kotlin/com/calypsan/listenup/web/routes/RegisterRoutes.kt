@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.routes
 
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.web.WebDependencies
@@ -9,6 +10,7 @@ import com.calypsan.listenup.web.html.pendingDeniedFragment
 import com.calypsan.listenup.web.html.pendingWaitingFragment
 import com.calypsan.listenup.web.html.registerForm
 import com.calypsan.listenup.web.html.registerFormFragment
+import com.calypsan.listenup.web.html.registrationClosedBody
 import com.calypsan.listenup.web.html.respondPage
 import com.calypsan.listenup.web.security.newCsrfToken
 import com.calypsan.listenup.web.security.webCsrfConfig
@@ -35,6 +37,14 @@ internal fun Route.registerRoutes(deps: WebDependencies) {
     route("/register") {
         install(CSRF, webCsrfConfig)
         get {
+            // Offer the form only when registration isn't CLOSED (spec §4). If serverInfo is
+            // unreachable, fail open to the form — the POST is gated server-side regardless.
+            val info = deps.loopback.serverInfo()
+            val closed = info is AppResult.Success && info.data.registrationPolicy == RegistrationPolicy.CLOSED
+            if (closed) {
+                call.respondPage(title = "Registration closed", csrfToken = null) { registrationClosedBody() }
+                return@get
+            }
             val token = newCsrfToken()
             call.setCsrfCookie(token)
             call.respondPage(title = "Register", csrfToken = token) { registerForm() }

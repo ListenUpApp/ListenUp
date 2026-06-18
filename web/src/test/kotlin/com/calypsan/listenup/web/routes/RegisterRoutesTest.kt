@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.routes
 
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -11,6 +13,7 @@ import com.calypsan.listenup.web.testing.webClient
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -18,6 +21,12 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.parameters
 import io.ktor.server.testing.testApplication
+
+private fun serverInfo(policy: RegistrationPolicy) =
+    ServerInfo(
+        name = "ListenUp", version = "0.0.1", apiVersion = "v1",
+        setupRequired = false, registrationPolicy = policy, instanceId = "i1",
+    )
 
 class RegisterRoutesTest :
     FunSpec({
@@ -27,6 +36,18 @@ class RegisterRoutesTest :
                 val response = webClient().get("/register")
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsText() shouldContain "name=\"displayName\""
+            }
+        }
+
+        test("GET /register under CLOSED policy shows a closed notice, not the form") {
+            testApplication {
+                val ctx = installTestWebUi()
+                ctx.fake.serverInfoResult = AppResult.Success(serverInfo(RegistrationPolicy.CLOSED))
+                val response = webClient().get("/register")
+                response.status shouldBe HttpStatusCode.OK
+                val html = response.bodyAsText()
+                html shouldContain "Registration closed"
+                html shouldNotContain "name=\"displayName\""
             }
         }
 

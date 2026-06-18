@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.web.session.WebSession
 import com.calypsan.listenup.web.session.WebSessionStore
@@ -108,6 +109,25 @@ class AccountRoutesTest :
                         cookie("lu_csrf", "t1"); header("X-CSRF-Token", "t1")
                     }
                 response.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("DELETE /account/sessions/{id} surfaces an error rather than blanking the list when re-list fails") {
+            testApplication {
+                val store = WebSessionStore()
+                val ctx = installTestWebUi(store = store)
+                ctx.fake.revokeResult = AppResult.Success(Unit)
+                // Revoke succeeds but the follow-up re-list fails: the response must not be an
+                // empty body (which hx-swap=outerHTML would use to erase the whole #sessions list).
+                ctx.fake.listSessionsResult = AppResult.Failure(InternalError(debugInfo = "boom"))
+                val cookieId = seedSession(store)
+                val response =
+                    webClient().delete("/account/sessions/s1") {
+                        cookie("lu_session", cookieId)
+                        cookie("lu_csrf", "t1"); header("X-CSRF-Token", "t1")
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "Something went wrong on the server."
             }
         }
     })
