@@ -37,6 +37,7 @@ class RestoreFromFileViewModelTest :
             object : FileSource {
                 override val filename: String = name
                 override val size: Long? = null
+
                 override fun openChannel(): ByteReadChannel = ByteReadChannel.Empty
             }
 

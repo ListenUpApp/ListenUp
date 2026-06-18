@@ -40,6 +40,7 @@ class RestoreFromFileViewModel(
                 is AppResult.Success -> {
                     _navigation.trySend(result.data.id)
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     _state.value = RestoreFromFileUiState.Error(result.error)

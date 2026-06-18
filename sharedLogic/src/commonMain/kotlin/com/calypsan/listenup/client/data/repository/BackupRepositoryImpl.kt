@@ -76,6 +76,7 @@ class BackupRepositoryImpl(
                     }
                 }.body<BackupSummary>()
         }
+
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> =
         rpcCall { rpcFactory.get().createBackup(includeImages) }
 
