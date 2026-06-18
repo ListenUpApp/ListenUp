@@ -15,6 +15,12 @@ data class Server(
     val remoteUrl: String?,
     val isActive: Boolean,
     val lastSeenAt: Long,
+    /**
+     * All local-network candidate URLs for this server, best-first (a multi-homed server resolves to
+     * several). [localUrl] is the first of these; the connect path tries each so an unreachable
+     * primary falls back to a reachable LAN address. Empty when the server has no local URL.
+     */
+    val localUrls: List<String> = emptyList(),
 ) {
     /**
      * Get the best URL to use for connecting to this server.

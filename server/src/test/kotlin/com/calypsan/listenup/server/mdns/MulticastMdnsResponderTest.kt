@@ -119,6 +119,50 @@ class MulticastMdnsResponderTest :
             }
         }
 
+        test("isVirtualInterfaceName flags docker/VPN/VM NICs but keeps real LAN ifaces and bridges") {
+            // The user's failing host had docker0 (172.17.0.1) + tailscale0 (100.x) advertised
+            // alongside the real LAN — both unroutable from a LAN client. These must be excluded.
+            val virtual =
+                listOf(
+                    "docker0",
+                    "veth1a2b",
+                    "virbr0",
+                    "vboxnet0",
+                    "vmnet8",
+                    "tailscale0",
+                    "zt5u4i",
+                    "tun0",
+                    "tap0",
+                    "utun3",
+                    "wg0",
+                )
+            virtual.filterNot(::isVirtualInterfaceName) shouldBe emptyList()
+
+            // Real LAN interfaces — including a Linux host whose LAN is itself a bridge — stay in.
+            val real = listOf("eth0", "enp8s0", "wlan0", "en0", "br0", "br-lan", "bond0")
+            real.filter(::isVirtualInterfaceName) shouldBe emptyList()
+        }
+
+        test("start resolves the host label from hostLabelProvider so the A record dodges the OS hostname") {
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            val responder =
+                MulticastMdnsResponder(
+                    instanceName = "omarchy",
+                    port = 8080,
+                    txtProvider = { linkedMapOf("id" to "abc") },
+                    scope = scope,
+                    hostLabelProvider = { "listenup-abc" },
+                )
+            try {
+                responder.start()
+                responder.advertisedService().hostLabel shouldBe "listenup-abc"
+                responder.advertisedService().instanceName shouldBe "omarchy"
+            } finally {
+                responder.stop()
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            }
+        }
+
         test("refresh before start is a no-op — a never-started advertiser ignores rename nudges") {
             val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
             val responder =
@@ -137,8 +181,15 @@ class MulticastMdnsResponderTest :
         }
     })
 
+// Mirrors the responder's own "advertisable interface" predicate (up + multicast + IPv4, minus
+// loopback / point-to-point / virtual NICs) so the listener joins the group on an interface the
+// responder actually announces on — otherwise a host with docker0/tailscale0 first in enumeration
+// would have the test join a NIC the responder (correctly) skips, and receive nothing.
 private fun firstMulticastIpv4Interface(): NetworkInterface? =
     NetworkInterface.getNetworkInterfaces().toList().firstOrNull { nif ->
-        runCatching { nif.isUp && nif.supportsMulticast() }.getOrDefault(false) &&
+        runCatching {
+            nif.isUp && nif.supportsMulticast() && !nif.isLoopback && !nif.isPointToPoint &&
+                !isVirtualInterfaceName(nif.name)
+        }.getOrDefault(false) &&
             nif.inetAddresses.toList().any { it.address.size == 4 }
     }

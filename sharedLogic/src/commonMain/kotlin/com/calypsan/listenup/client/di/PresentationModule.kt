@@ -20,6 +20,9 @@ import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import org.koin.dsl.module
 
+/** Koin qualifier for the application-lifetime [kotlinx.coroutines.CoroutineScope] (`appCoreModule`). */
+private const val APP_SCOPE = "appScope"
+
 /**
  * Auth and connection ViewModels.
  */
@@ -31,9 +34,30 @@ val authPresentationModule =
                 serverConfig = get(),
                 instanceRepository = get(),
                 errorBus = get(),
+                // App-lifetime scope: selecting a server flips the global auth state, which tears this
+                // screen (and its viewModelScope) down mid-activation. The activation must outlive it.
+                appScope =
+                    get(
+                        qualifier =
+                            org.koin.core.qualifier
+                                .named(APP_SCOPE),
+                    ),
             )
         }
-        factory { ServerConnectViewModel(serverConfig = get(), instanceRepository = get()) }
+        factory {
+            ServerConnectViewModel(
+                serverConfig = get(),
+                instanceRepository = get(),
+                // App-lifetime scope: saving the verified URL flips the global auth state, tearing this
+                // screen (and its viewModelScope) down mid-activation — the work must outlive it.
+                appScope =
+                    get(
+                        qualifier =
+                            org.koin.core.qualifier
+                                .named(APP_SCOPE),
+                    ),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.auth.SetupViewModel(
                 setupUseCase = get(),
@@ -77,7 +101,7 @@ val authPresentationModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }

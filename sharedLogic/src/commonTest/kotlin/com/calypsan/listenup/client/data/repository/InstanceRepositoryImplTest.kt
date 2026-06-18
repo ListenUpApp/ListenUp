@@ -128,6 +128,31 @@ class InstanceRepositoryImplTest :
             persisted shouldBe null
         }
 
+        test("a rapid repeat probe of the same URL reuses the first result instead of reconnecting") {
+            // Picker-select fires two probes ~immediately: findReachableUrl, then checkServerStatus's
+            // getServerInfo. Opening that second kRPC WebSocket so soon hangs on a real server, so the
+            // second must reuse the first's result rather than reconnect.
+            var calls = 0
+            val countingFactory =
+                object : InstanceRpcFactory {
+                    override suspend fun getServerInfo(wsBaseUrl: String): RpcResult<ServerInfo> {
+                        calls++
+                        return RpcResult.Success(serverInfo)
+                    }
+                }
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { ServerUrl("http://192.168.86.37:8080") },
+                    instanceRpcFactory = countingFactory,
+                    persistRemoteUrl = { },
+                )
+
+            repository.findReachableUrl(listOf("http://192.168.86.37:8080")) shouldBe "http://192.168.86.37:8080"
+            repository.getServerInfo(forceRefresh = true).shouldBeInstanceOf<AppResult.Success<ServerInfo>>()
+
+            calls shouldBe 1
+        }
+
         test("getServerInfo bridges a contract Failure to core.Failure") {
             val factory = FakeInstanceRpcFactory(RpcResult.Failure(InternalError()))
             val repository =

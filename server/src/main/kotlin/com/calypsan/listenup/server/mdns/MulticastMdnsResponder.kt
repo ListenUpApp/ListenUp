@@ -38,6 +38,7 @@ class MulticastMdnsResponder(
     private val port: Int,
     private val txtProvider: suspend () -> Map<String, String>,
     private val scope: CoroutineScope,
+    private val hostLabelProvider: suspend () -> String = { instanceName },
 ) : MdnsAdvertiser {
     private val group: InetAddress = InetAddress.getByName(GROUP)
     private val sockets = mutableListOf<Bound>()
@@ -63,7 +64,7 @@ class MulticastMdnsResponder(
     )
 
     override suspend fun start() {
-        service = MdnsServiceInfo(instanceName, port, txtProvider())
+        service = MdnsServiceInfo(instanceName, port, txtProvider(), hostLabel = hostLabelProvider())
         started = true
         withContext(Dispatchers.IO) {
             runCatching {
@@ -185,12 +186,24 @@ class MulticastMdnsResponder(
         }
     }
 
+    /**
+     * The LAN interfaces we announce on. Beyond up + multicast-capable + non-loopback + has-IPv4,
+     * we exclude **virtual / non-LAN** interfaces — docker/VM bridges and VPN/tunnel links — for two
+     * reasons: a client on the real LAN can't route to a `172.17.x` docker-bridge or `100.x` CGNAT
+     * VPN address, and announcing one would put an unreachable A record into discovery (a client that
+     * resolves it hangs). Point-to-point links (VPN/tunnel) are dropped by flag; the rest by name
+     * ([isVirtualInterfaceName]). The name list is deliberately conservative so a host whose real LAN
+     * is itself a bridge (`br0`, `br-lan`) is still advertised.
+     */
     private fun multicastIpv4Interfaces(): List<NetworkInterface> =
         NetworkInterface
             .getNetworkInterfaces()
             .toList()
             .filter { nif ->
-                runCatching { nif.isUp && nif.supportsMulticast() && !nif.isLoopback }.getOrDefault(false) &&
+                runCatching {
+                    nif.isUp && nif.supportsMulticast() && !nif.isLoopback && !nif.isPointToPoint &&
+                        !isVirtualInterfaceName(nif.name)
+                }.getOrDefault(false) &&
                     nif.inetAddresses.toList().any { it is Inet4Address }
             }
 
@@ -203,3 +216,33 @@ class MulticastMdnsResponder(
         const val BUFFER_SIZE = 2048
     }
 }
+
+/**
+ * True for interface names that are unambiguously virtual / non-LAN (docker & VM bridges, VPN and
+ * tunnel devices) and must not be advertised over mDNS. Intentionally narrow: it never matches a
+ * bare `br*` so a Linux host bridging its real LAN (`br0`, `br-lan`) keeps advertising. VPNs are also
+ * caught by the point-to-point flag at the call site; this covers the bridge-style ones (docker0,
+ * tailscale0, zerotier) that aren't point-to-point.
+ */
+internal fun isVirtualInterfaceName(name: String): Boolean {
+    val n = name.lowercase()
+    return VIRTUAL_INTERFACE_PREFIXES.any { n.startsWith(it) }
+}
+
+private val VIRTUAL_INTERFACE_PREFIXES =
+    listOf(
+        "docker",
+        "veth",
+        "virbr",
+        "vmnet",
+        "vboxnet",
+        "tailscale",
+        "zt",
+        "tun",
+        "tap",
+        "utun",
+        "wg",
+        "ipsec",
+        "gif",
+        "stf",
+    )

@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -52,6 +53,7 @@ class ServerSelectViewModel(
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
+    private val appScope: CoroutineScope,
 ) : ViewModel() {
     // Starts true even though discovery hasn't begun yet. The permission dialog
     // is modal and covers this pre-discovery window; flipping to false here
@@ -176,7 +178,10 @@ class ServerSelectViewModel(
 
         val urlsToTry =
             buildList {
-                server.localUrl?.let { add(it) }
+                // Every resolved LAN address (best-first), so an unreachable primary — an
+                // advertised-but-unroutable address, or a server that has moved — falls back to a
+                // reachable one instead of stranding the user on the spinner.
+                addAll(server.localUrls.ifEmpty { listOfNotNull(server.localUrl) })
                 server.remoteUrl?.let { add(it) }
             }
         if (urlsToTry.isEmpty()) {
@@ -187,7 +192,11 @@ class ServerSelectViewModel(
 
         overlay.value = Overlay.Connecting(server.id)
 
-        viewModelScope.launch {
+        // Runs on [appScope], NOT viewModelScope: activating the server flips the global auth state
+        // (NeedsServerUrl → CheckingServer → NeedsLogin), and the CheckingServer swap tears this screen
+        // — and its viewModelScope — down mid-flight. On viewModelScope the activation would cancel
+        // itself before checkServerStatus finished, stranding the app on the "Checking server" spinner.
+        appScope.launch {
             try {
                 val reachableUrl = instanceRepository.findReachableUrl(urlsToTry)
 

@@ -22,11 +22,26 @@ data class DiscoveredServer(
     val apiVersion: String,
     val serverVersion: String,
     val remoteUrl: String? = null,
+    /**
+     * Other LAN addresses the same service resolved to, best-first (see [rankHostAddresses]). A
+     * multi-homed server answers with several addresses; [host] is the most-likely-reachable one,
+     * and these are the fallbacks the connect path tries when it isn't.
+     */
+    val additionalHosts: List<String> = emptyList(),
 ) {
     /**
-     * Local network URL for connecting to this server.
+     * Primary local network URL for connecting to this server.
      */
-    val localUrl: String get() = if (":" in host) "http://[$host]:$port" else "http://$host:$port"
+    val localUrl: String get() = toLocalUrl(host)
+
+    /**
+     * Every local-network candidate URL, primary first — what the connect path walks so an
+     * unreachable primary (e.g. an advertised-but-unroutable address) falls back to a reachable one.
+     */
+    val localUrls: List<String> get() = (listOf(host) + additionalHosts).map(::toLocalUrl)
+
+    private fun toLocalUrl(address: String): String =
+        if (":" in address) "http://[$address]:$port" else "http://$address:$port"
 }
 
 /**
