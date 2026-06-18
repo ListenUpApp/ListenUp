@@ -139,7 +139,6 @@ kotlin {
             implementation(libs.kotlin.logging)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.collections.immutable)
 
             // Coil for image loading (multiplatform)
             implementation(libs.coil.compose)
