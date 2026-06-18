@@ -5,14 +5,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.calypsan.listenup.client.di.platformModule
-import com.calypsan.listenup.client.di.playbackPresentationModule
-import com.calypsan.listenup.client.di.sharedModules
+import com.calypsan.listenup.client.di.jvmPlaybackPresentationModule
+import com.calypsan.listenup.client.di.startDesktopDependencyInjection
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.desktop.di.desktopAppModule
 import com.calypsan.listenup.desktop.media.GlobalMediaKeyManager
 import com.calypsan.listenup.desktop.window.ListenUpWindow
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.koin.core.context.startKoin
 import org.koin.java.KoinJavaComponent.getKoin
 
 private val logger = KotlinLogging.logger {}
@@ -21,14 +20,11 @@ fun main() {
     logger.info { "Starting ListenUp Desktop..." }
 
     // Initialize Koin DI
-    startKoin {
-        modules(
-            sharedModules + // From :shared module
-                platformModule + // From :composeApp desktopMain
-                playbackPresentationModule + // Shared playback VM bindings
-                desktopAppModule, // Desktop app specific
-        )
-    }
+    startDesktopDependencyInjection(
+        platformModule + // From :composeApp desktopMain
+            jvmPlaybackPresentationModule() + // Shared playback VM bindings
+            desktopAppModule, // Desktop app specific
+    )
 
     // Start global media key listener (non-critical, may fail on some systems)
     val mediaKeyManager =

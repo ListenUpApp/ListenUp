@@ -24,7 +24,7 @@ import org.koin.dsl.module
  * - Windows: %APPDATA%/ListenUp/data/listenup.db
  * - Linux: ~/.local/share/listenup/data/listenup.db
  */
-actual val platformDatabaseModule: Module =
+internal actual val platformDatabaseModule: Module =
     module {
         single {
             val storagePaths: JvmStoragePaths = get()

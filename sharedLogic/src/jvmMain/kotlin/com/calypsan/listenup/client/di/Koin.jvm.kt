@@ -27,11 +27,38 @@ import org.koin.dsl.module
  *
  * @param additionalModules Platform-specific modules to include (e.g., playback, navigation)
  */
-actual fun initializeKoin(additionalModules: List<Module>) {
+internal actual fun initializeKoin(additionalModules: List<Module>) {
     startKoin {
         modules(sharedModules + additionalModules)
     }
 }
+
+/**
+ * Public desktop entry point: starts Koin with all shared modules plus the desktop app's own.
+ *
+ * Lives in `jvmMain` (not `commonMain`) so the `List<Module>` signature never reaches the iOS
+ * Swift Export surface, where exposing Koin's `Module` type crashes the link. `:desktopApp`
+ * calls this instead of reaching for the now-internal [sharedModules].
+ */
+fun startDesktopDependencyInjection(additionalModules: List<Module>) = initializeKoin(additionalModules)
+
+/**
+ * Public JVM accessor for the auth Koin module, for the server's end-to-end test fixture.
+ *
+ * Lives in `jvmMain` (not `commonMain`) so the `Module` return type never reaches the iOS Swift
+ * Export surface. `:server`'s `AuthEndToEndFixture` wires this into its own `koinApplication { }`
+ * scope with test overrides; it needs the module itself, not a full `startKoin`.
+ */
+fun clientAuthModuleForTests(): Module = clientAuthModule
+
+/**
+ * Public desktop accessor for the shared playback presentation module.
+ *
+ * Lives in `jvmMain` (not `commonMain`) so the `Module` return type never reaches the iOS Swift
+ * Export surface, where exposing Koin's `Module` type crashes the link. `:desktopApp` appends this
+ * to its `startDesktopDependencyInjection(...)` module list.
+ */
+fun jvmPlaybackPresentationModule(): Module = playbackPresentationModule
 
 /**
  * JVM desktop has no default base URL.
@@ -46,7 +73,7 @@ actual fun getBaseUrl(): String = "http://localhost:8080"
  *
  * Uses JmDNS for mDNS/Zeroconf server discovery on the local network.
  */
-actual val platformDiscoveryModule: Module =
+internal actual val platformDiscoveryModule: Module =
     module {
         single { JmDnsDiscoveryService() } bind ServerDiscoveryService::class
     }
@@ -62,7 +89,7 @@ actual val platformDiscoveryModule: Module =
  * - CoverColorExtractor: AWT-based palette extraction
  * - DownloadFileManager: Audiobook file management
  */
-actual val platformStorageModule: Module =
+internal actual val platformStorageModule: Module =
     module {
         single<JvmStoragePaths> { JvmStoragePaths() }
 
@@ -102,7 +129,7 @@ actual val platformStorageModule: Module =
  * JVM/Desktop device detection module.
  * Always returns Desktop type.
  */
-actual val platformDeviceModule: Module =
+internal actual val platformDeviceModule: Module =
     module {
         single {
             com.calypsan.listenup.client.device

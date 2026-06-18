@@ -13,8 +13,14 @@ import org.koin.dsl.module
  * `viewModelOf` is not used because it ships in `koin-compose-viewmodel`, which is not on
  * the shared classpath. The `single` scope is the same precedent as `LibraryViewModel`
  * in `presentationModule` (a hoisted app-session VM).
+ *
+ * Internal because its value type is Koin's `Module` — exposing it on the iOS Swift Export
+ * surface drags the DI framework (and `ParametersHolder.initialize(MutableList<…>)`) into the
+ * bridge, which crashes the link. Non-iOS callers reach it through the public accessors in the
+ * platform source sets: [androidPlaybackPresentationModule] (androidMain) and
+ * [jvmPlaybackPresentationModule] (jvmMain), which iOS can't see.
  */
-val playbackPresentationModule =
+internal val playbackPresentationModule =
     module {
         single {
             NowPlayingViewModel(

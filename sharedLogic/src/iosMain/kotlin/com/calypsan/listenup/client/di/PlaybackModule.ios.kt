@@ -38,7 +38,7 @@ private const val PLAYBACK_SCOPE = "playbackScope"
  * - ProgressTracker — position persistence + server sync
  * - SleepTimerManager — sleep-timer state
  */
-val iosPlaybackModule: Module =
+internal val iosPlaybackModule: Module =
     module {
         // Platform capability flag: iOS supports download and playback.
         single(qualifier = named("playbackAvailable")) { true }

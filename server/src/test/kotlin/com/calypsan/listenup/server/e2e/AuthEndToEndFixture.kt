@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.e2e
 
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.di.clientAuthModule
+import com.calypsan.listenup.client.di.clientAuthModuleForTests
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -106,7 +106,7 @@ internal class AuthEndToEndFixture private constructor(
             val koin =
                 koinApplication {
                     modules(
-                        clientAuthModule,
+                        clientAuthModuleForTests(),
                         testInfraModule(baseUrl),
                     )
                 }

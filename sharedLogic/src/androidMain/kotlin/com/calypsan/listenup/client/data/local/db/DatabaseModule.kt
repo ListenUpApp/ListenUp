@@ -20,7 +20,7 @@ import org.koin.dsl.module
  * Android-specific database module.
  * Provides Room database configured for Android with proper file location.
  */
-actual val platformDatabaseModule: Module =
+internal actual val platformDatabaseModule: Module =
     module {
         single {
             val context: Context = get()

@@ -14,6 +14,12 @@ plugins {
 group = "com.calypsan.listenup.spike"
 version = "0.0.1-se"
 
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlinx:atomicfu:0.33.0")
+    }
+}
+
 kotlin {
     // JVM target for desktop (Windows/Linux)
     jvm()
@@ -81,8 +87,6 @@ kotlin {
             isStatic = true
             binaryOption("bundleId", "com.calypsan.listenup.shared")
 
-            // Export Koin so it's accessible from Swift
-            export(libs.koin.core)
             export(projects.contract)
         }
     }
@@ -138,11 +142,10 @@ kotlin {
             implementation(libs.kotlinx.rpc.krpc.serialization.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.collections.immutable)
             implementation(libs.kotlinx.io.core)
             implementation(libs.atomicfu)
 
-            api(libs.koin.core)
+            implementation(libs.koin.core)
             implementation(libs.kotlin.logging)
 
             implementation(libs.androidx.lifecycle.viewmodelCompose)
@@ -227,6 +230,17 @@ tasks.named<Test>("jvmTest") {
 // Define Room Schema location (optional but good practice)
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+// Exclude stately-concurrent-collections from every configuration.
+// stately-concurrent-collections:2.1.0 (pulled transitively by koin-core:4.2.1) ships
+// a ConcurrentMutableList that implements MutableList, causing Swift Export to crash with
+// "Global 'ktypew:kotlin.collections.MutableList' already exists" when two klibs each
+// register the MutableList type descriptor. Koin uses Stately only on older Kotlin/Native
+// targets; Kotlin 2.4.0's own atomics make it redundant, and the symbols are never needed
+// at runtime on this Kotlin version.
+configurations.all {
+    exclude(group = "co.touchlab", module = "stately-concurrent-collections")
 }
 
 // Wire KSP for Room - platform-specific targets only

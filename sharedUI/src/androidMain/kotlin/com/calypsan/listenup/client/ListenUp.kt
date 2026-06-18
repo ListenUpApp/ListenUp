@@ -20,8 +20,8 @@ import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.notifications.NotificationChannels
-import com.calypsan.listenup.client.di.playbackPresentationModule
-import com.calypsan.listenup.client.di.sharedModules
+import com.calypsan.listenup.client.di.androidSharedModules
+import com.calypsan.listenup.client.di.androidPlaybackPresentationModule
 import com.calypsan.listenup.client.download.AndroidDownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
@@ -353,7 +353,7 @@ class ListenUp :
             androidContext(this@ListenUp)
 
             // Load all shared and Android-specific modules
-            modules(sharedModules + androidModule + playbackModule + playbackPresentationModule + downloadModule)
+            modules(androidSharedModules() + androidModule + playbackModule + androidPlaybackPresentationModule() + downloadModule)
         }
 
         // Configure WorkManager with custom factory for dependency injection.

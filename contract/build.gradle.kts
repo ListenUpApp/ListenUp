@@ -12,6 +12,12 @@ plugins {
 group = "com.calypsan.listenup.spike"
 version = "0.0.1-se"
 
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlinx:atomicfu:0.33.0")
+    }
+}
+
 kotlin {
     // JVM target — used by :server, and for the rpc-guard runtime + KSP-generated guards.
     jvm()
@@ -90,7 +96,6 @@ kotlin {
             implementation(libs.ktor.resources)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.collections.immutable)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.io.bytestring)
             implementation(libs.kotlin.logging)

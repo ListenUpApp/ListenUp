@@ -178,19 +178,19 @@ import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
  * Platform-specific storage module.
  * Each platform provides SecureStorage implementation via this module.
  */
-expect val platformStorageModule: Module
+internal expect val platformStorageModule: Module
 
 /**
  * Platform-specific discovery module.
  * Each platform provides mDNS/Bonjour discovery implementation.
  */
-expect val platformDiscoveryModule: Module
+internal expect val platformDiscoveryModule: Module
 
 /**
  * Platform-specific device detection module.
  * Each platform provides DeviceContextProvider implementation.
  */
-expect val platformDeviceModule: Module
+internal expect val platformDeviceModule: Module
 
 /** Koin qualifier for the application-lifetime [kotlinx.coroutines.CoroutineScope]. */
 private const val APP_SCOPE = "appScope"
@@ -199,7 +199,7 @@ private const val APP_SCOPE = "appScope"
  * Data layer dependencies.
  * Provides repositories for settings and domain data.
  */
-val dataModule =
+internal val dataModule =
     module {
         // Error bus — single instance shared by every emitter (data layer, ViewModels)
         // and the single subscriber (GlobalErrorSnackbar in AppShell).
@@ -251,7 +251,7 @@ val dataModule =
  * When user configures a different server URL at runtime, API instances
  * should be recreated via factory pattern or manual invalidation.
  */
-val networkModule =
+internal val networkModule =
     module {
         // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
         //
@@ -301,7 +301,7 @@ expect fun getBaseUrl(): String
  * Repository layer dependencies.
  * Binds repository interfaces to their implementations.
  */
-val repositoryModule =
+internal val repositoryModule =
     module {
         // InstanceRepository reads server URL directly from SecureStorage to avoid circular
         // dependency (SettingsRepository -> InstanceRepository -> SettingsRepository).
@@ -367,7 +367,7 @@ val repositoryModule =
  * Use case layer dependencies.
  * Creates use case instances for business logic.
  */
-val useCaseModule =
+internal val useCaseModule =
     module {
         factoryOf(::GetInstanceUseCase)
 
@@ -531,7 +531,7 @@ val useCaseModule =
  *
  * Provides SyncManager, SyncApi, and related sync components.
  */
-val syncModule =
+internal val syncModule =
     module {
         // Application-scoped CoroutineScope for long-lived background operations.
         // Used by sync and playback tasks that span the app's lifetime.
@@ -1166,8 +1166,14 @@ val syncModule =
 
 /**
  * All shared modules that should be loaded in both Android and iOS.
+ *
+ * Internal because the list is `List<Module>` — exposing Koin's `Module` type on the public
+ * surface drags the DI framework (and `ParametersHolder.initialize(MutableList<…>)`) into the
+ * Swift Export bridge, which crashes the iOS link. JVM/Android entry points that need to
+ * append platform modules live in the platform source sets (`initializeKoin`,
+ * `startDesktopDependencyInjection`, `androidSharedModules`) where iOS can't see them.
  */
-val sharedModules =
+internal val sharedModules =
     listOf(
         platformStorageModule,
         platformDatabaseModule,
@@ -1187,6 +1193,19 @@ val sharedModules =
  * Platform-specific initialization function.
  * Each platform (Android/iOS) implements this to set up Koin appropriately.
  *
+ * Internal because its `List<Module>` signature exposes Koin's `Module` type. Keeping it
+ * off the public surface keeps the DI framework out of the Swift Export bridge (where any
+ * `MutableList` on the exported API double-emits a stdlib LLVM global and crashes the link).
+ * Swift callers use [startDependencyInjection], which exposes no DI-framework types.
+ *
  * @param additionalModules Platform-specific modules to include
  */
-expect fun initializeKoin(additionalModules: List<Module> = emptyList())
+internal expect fun initializeKoin(additionalModules: List<Module> = emptyList())
+
+/**
+ * Public iOS/app entry point: starts dependency injection.
+ *
+ * Exposes no DI-framework types, so it is safe on the Swift Export surface. Swift's
+ * `ListenUpApp` calls this in place of the now-internal [initializeKoin].
+ */
+fun startDependencyInjection() = initializeKoin()
