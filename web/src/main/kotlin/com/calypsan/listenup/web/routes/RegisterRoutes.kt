@@ -1,8 +1,12 @@
 package com.calypsan.listenup.web.routes
 
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.web.WebDependencies
+import com.calypsan.listenup.web.html.pendingBody
+import com.calypsan.listenup.web.html.pendingDeniedFragment
+import com.calypsan.listenup.web.html.pendingWaitingFragment
 import com.calypsan.listenup.web.html.registerForm
 import com.calypsan.listenup.web.html.registerFormFragment
 import com.calypsan.listenup.web.html.respondPage
@@ -20,6 +24,11 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+
+// Wire values of RegistrationStatusEvent.status (pinned by the contract). The server names the
+// pending one locally too; mirror that convention here rather than scattering bare literals.
+private const val STATUS_APPROVED = "approved"
+private const val STATUS_DENIED = "denied"
 
 internal fun Route.registerRoutes(deps: WebDependencies) {
     route("/register") {
@@ -51,6 +60,37 @@ internal fun Route.registerRoutes(deps: WebDependencies) {
                 is AppResult.Failure ->
                     call.respondText(registerFormFragment(result.error.message), ContentType.Text.Html)
             }
+        }
+    }
+    get("/pending") {
+        val userId = call.request.queryParameters["userId"].orEmpty()
+        call.respondPage(title = "Awaiting approval", csrfToken = null) { pendingBody(userId) }
+    }
+    get("/pending/status") {
+        val userId = call.request.queryParameters["userId"].orEmpty()
+        when (val status = deps.loopback.registrationStatus(UserId(userId))) {
+            is AppResult.Success ->
+                when (status.data.status) {
+                    STATUS_APPROVED -> {
+                        call.response.header("HX-Redirect", "/login")
+                        call.respondText("", ContentType.Text.Html)
+                    }
+                    // Terminal status. `hx-swap="innerHTML"` keeps the #pending-status div (and its
+                    // `every 5s` poll + SSE reconnect) alive, so a denied registrant keeps polling
+                    // until they navigate away. Benign but untidy — a future sse-close/trigger-stop
+                    // fix should land before this pattern is copied to another SSE screen.
+                    STATUS_DENIED ->
+                        call.respondText(
+                            pendingDeniedFragment(status.data.message ?: "Your registration was denied."),
+                            ContentType.Text.Html,
+                        )
+                    else ->
+                        call.respondText(pendingWaitingFragment(), ContentType.Text.Html)
+                }
+            // Never-Stranded: a transient loopback failure shows the waiting message (the next
+            // poll retries), not a dead-end error on a screen whose whole job is to wait.
+            is AppResult.Failure ->
+                call.respondText(pendingWaitingFragment(), ContentType.Text.Html)
         }
     }
 }

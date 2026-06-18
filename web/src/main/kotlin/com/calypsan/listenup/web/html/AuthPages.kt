@@ -103,12 +103,11 @@ private fun authFormFragment(
 // Login form
 // ---------------------------------------------------------------------------
 
-private val loginFields: (String) -> List<AuthField> = { email ->
+private fun loginFields(email: String): List<AuthField> =
     listOf(
         AuthField("Email", "email", InputType.email, "login-email", value = email),
         AuthField("Password", "password", InputType.password, "login-password"),
     )
-}
 
 /**
  * Render the login form **inside** the caller's [FlowContent] scope. Produces a
@@ -120,11 +119,7 @@ fun FlowContent.loginForm(
     error: String? = null,
 ) = authFormDiv("Sign in", "/login", "Sign in", error, loginFields(email))
 
-/**
- * Serialise the `div#auth-form` element to an HTML string suitable for returning as an
- * htmx fragment response. The root element is the `div#auth-form` itself — no outer
- * wrapper — so htmx's `hx-swap="outerHTML"` on `#auth-form` replaces it cleanly.
- */
+/** htmx fragment for the login form. See [authFormFragment]. */
 fun loginFormFragment(
     email: String,
     error: String?,
@@ -149,11 +144,7 @@ private val setupFields: List<AuthField> =
 fun FlowContent.setupForm(error: String? = null) =
     authFormDiv("Welcome — create the owner account", "/setup", "Create account", error, setupFields)
 
-/**
- * Serialise the `div#auth-form` element to an HTML string suitable for returning as an
- * htmx fragment response. The root element is the `div#auth-form` itself — no outer
- * wrapper — so htmx's `hx-swap="outerHTML"` on `#auth-form` replaces it cleanly.
- */
+/** htmx fragment for the setup form. See [authFormFragment]. */
 fun setupFormFragment(error: String?): String =
     authFormFragment("Welcome — create the owner account", "/setup", "Create account", error, setupFields)
 
@@ -176,10 +167,40 @@ private val registerFields: List<AuthField> =
 fun FlowContent.registerForm(error: String? = null) =
     authFormDiv("Create your account", "/register", "Register", error, registerFields)
 
-/**
- * Serialise the `div#auth-form` element to an HTML string suitable for returning as an
- * htmx fragment response. The root element is the `div#auth-form` itself — no outer
- * wrapper — so htmx's `hx-swap="outerHTML"` on `#auth-form` replaces it cleanly.
- */
+/** htmx fragment for the register form. See [authFormFragment]. */
 fun registerFormFragment(error: String?): String =
     authFormFragment("Create your account", "/register", "Register", error, registerFields)
+
+// ---------------------------------------------------------------------------
+// Pending-approval waiting room
+// ---------------------------------------------------------------------------
+
+/**
+ * The pending-approval waiting room. Real-time: the htmx SSE extension subscribes directly
+ * to the public, same-origin registration-status stream. Never-Stranded fallback: poll the
+ * BFF's own status endpoint. Both retarget `#pending-status`, which swaps in the
+ * pending/denied fragment (an `HX-Redirect` on approval navigates away).
+ */
+fun FlowContent.pendingBody(userId: String) {
+    div {
+        attributes["hx-ext"] = "sse"
+        attributes["sse-connect"] = "/api/v1/auth/registration-status/$userId/stream"
+        h1 { +"Almost there" }
+        div {
+            id = "pending-status"
+            attributes["hx-get"] = "/pending/status?userId=$userId"
+            attributes["hx-trigger"] = "sse:message, every 5s"
+            attributes["hx-swap"] = "innerHTML"
+            +PENDING_WAITING_MESSAGE
+        }
+    }
+}
+
+/** Fragment swapped into `#pending-status` while the account is still pending. */
+fun pendingWaitingFragment(): String = createHTML().p { +PENDING_WAITING_MESSAGE }
+
+/** Fragment swapped into `#pending-status` when the registration was denied. */
+fun pendingDeniedFragment(reason: String): String =
+    createHTML().p(classes = "text-red-600") { +reason }
+
+private const val PENDING_WAITING_MESSAGE = "Your account is awaiting administrator approval…"

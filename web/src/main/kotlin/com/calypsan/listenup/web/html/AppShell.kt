@@ -31,6 +31,7 @@ fun HTML.appShell(
         title { +pageTitle }
         link(rel = "stylesheet", href = "/assets/app.css")
         script(src = "/assets/htmx.min.js") {}
+        script(src = "/assets/htmx-ext-sse.js") {}
         if (csrfToken != null) {
             meta(name = "csrf-token", content = csrfToken)
             script { unsafe { +CSRF_HTMX_HOOK } }
