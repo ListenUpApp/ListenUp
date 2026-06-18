@@ -70,7 +70,7 @@ class AdminViewModel(
     /**
      * Periodically re-fetch the pending-registrations list so a newly-registered applicant appears
      * without an app restart. Updates only the `pendingUsers` of an existing [AdminUiState.Ready]
-     * (no-op while Loading/Error, and per-action overlays are preserved); a transient failure keeps
+     * (no-op while Loading, and per-action overlays are preserved); a transient failure keeps
      * the current list.
      *
      * Gated on [state] having subscribers, so it only runs while the admin screen is actually on
@@ -370,7 +370,7 @@ class AdminViewModel(
 
     /**
      * Apply [transform] to state only if it is currently [AdminUiState.Ready].
-     * No-ops when state is [AdminUiState.Loading] or [AdminUiState.Error].
+     * No-ops when state is [AdminUiState.Loading].
      */
     private fun updateReady(transform: (AdminUiState.Ready) -> AdminUiState.Ready) {
         state.update { current ->
@@ -388,10 +388,8 @@ class AdminViewModel(
  *   pendingUsers, pendingInvites, per-action overlays
  *   (`deletingUserId`, `revokingInviteId`, `approvingUserId`,
  *   `denyingUserId`, `isTogglingRegistrationPolicy`), and a transient
- *   `error` surfaced as a snackbar.
- * - [Error] terminal state when the initial users load (or a retry from
- *   [Error]) fails. Refresh failures after we've reached [Ready] surface
- *   via the transient `error` field on [Ready] instead.
+ *   `error` surfaced as a snackbar. Initial-load failures also surface
+ *   via the transient `error` field on [Ready].
  */
 sealed interface AdminUiState {
     data object Loading : AdminUiState
@@ -411,10 +409,5 @@ sealed interface AdminUiState {
         val denyingUserId: String? = null,
         val isTogglingRegistrationPolicy: Boolean = false,
         val error: String? = null,
-    ) : AdminUiState
-
-    /** Terminal state when the initial users load fails. */
-    data class Error(
-        val message: String,
     ) : AdminUiState
 }
