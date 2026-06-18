@@ -30,7 +30,11 @@
     <string name="admin_collection_count">%1$d collection</string>
     <string name="admin_collection_created">Collection created</string>
     <string name="admin_collection_details">Collection Details</string>
+    <string name="admin_collection_global_access">Everyone</string>
+    <string name="admin_collection_members_count">%1$d members</string>
     <string name="admin_collection_name">Collection Name</string>
+    <string name="admin_collection_new_collection">New collection</string>
+    <string name="admin_collection_shared_book_sets">Shared book sets for your server</string>
     <string name="admin_collection_updated">Collection updated</string>
     <string name="admin_collections_count">%1$d collections</string>
     <string name="admin_confirm_delete_backup">Are you sure you want to delete %1$s? This cannot be undone.</string>
