@@ -7,6 +7,8 @@ import com.calypsan.listenup.web.WebDependencies
 import com.calypsan.listenup.web.html.loginForm
 import com.calypsan.listenup.web.html.loginFormFragment
 import com.calypsan.listenup.web.html.respondPage
+import com.calypsan.listenup.web.html.setupForm
+import com.calypsan.listenup.web.html.setupFormFragment
 import com.calypsan.listenup.web.security.newCsrfToken
 import com.calypsan.listenup.web.security.webCsrfConfig
 import com.calypsan.listenup.web.session.setCsrfCookie
@@ -16,6 +18,7 @@ import io.ktor.server.application.install
 import io.ktor.server.plugins.csrf.CSRF
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.header
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -56,6 +59,39 @@ internal fun Route.loginRoutes(deps: WebDependencies) {
                         loginFormFragment(email = email, error = result.error.message),
                         ContentType.Text.Html,
                     )
+            }
+        }
+    }
+
+    route("/setup") {
+        install(CSRF, webCsrfConfig)
+        get {
+            when (val info = deps.loopback.serverInfo()) {
+                is AppResult.Success ->
+                    if (!info.data.setupRequired) {
+                        call.respondRedirect("/login")
+                    } else {
+                        val token = newCsrfToken()
+                        call.setCsrfCookie(token)
+                        call.respondPage(title = "Set up ListenUp", csrfToken = token) { setupForm() }
+                    }
+                is AppResult.Failure -> call.respondRedirect("/login")
+            }
+        }
+        post {
+            val request = parseRegisterRequest(call.receiveParameters())
+            if (request == null) {
+                call.respondText(setupFormFragment(INVALID_REGISTRATION_INPUT), ContentType.Text.Html)
+                return@post
+            }
+            when (val result = deps.loopback.setup(request)) {
+                is AppResult.Success -> {
+                    startWebSession(deps, call, result.data)
+                    call.response.header("HX-Redirect", "/")
+                    call.respondText("", ContentType.Text.Html)
+                }
+                is AppResult.Failure ->
+                    call.respondText(setupFormFragment(result.error.message), ContentType.Text.Html)
             }
         }
     }
