@@ -214,8 +214,8 @@ internal class ScanOrchestrator(
     fun lastResult(libraryId: LibraryId): ScanResult? =
         bundle?.takeIf { it.library.id == libraryId }?.scanner?.lastResult()
 
-    /** The single registered library id, as a 0-or-1 element list (kept list-shaped for the caller). */
-    fun registeredLibraryIds(): List<LibraryId> = bundle?.let { listOf(it.library.id) } ?: emptyList()
+    /** The registered library id, or null before the library is configured. */
+    fun registeredLibraryId(): LibraryId? = bundle?.library?.id
 
     private fun onFileChanged(
         libraryId: LibraryId,

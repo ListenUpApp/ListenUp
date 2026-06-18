@@ -38,8 +38,7 @@ sealed interface LibrarySetupNavAction {
  * - Selecting one or more folders to add to THE library
  * - Registering each folder via [addFolder] and kicking off the initial scan
  *
- * Replaces the legacy multi-library loop. There is one library; the wizard selects
- * how many folders it watches.
+ * There is one library; the wizard selects which folders it watches.
  */
 class LibrarySetupViewModel(
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,

@@ -144,9 +144,8 @@ fun scannerModule(
             }.asPort()
         }
 
-        // ScanOrchestrator — one Scanner + ScanCoordinator bundle per library.
-        // Currently the server runs with a single library (multi-library support
-        // lands in Task 18). The factory lambda is called once per onLibraryAdded().
+        // ScanOrchestrator — the Scanner + ScanCoordinator bundle for the library.
+        // The factory lambda is called once, when the library is registered (onLibraryAdded).
         single {
             val scope: CoroutineScope = get()
             val eventBus: MutableSharedFlow<ScanEvent> = get(EventBusQualifiers.ScanEvents)
