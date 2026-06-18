@@ -236,6 +236,35 @@ class ServerSelectViewModelTest :
             }
         }
 
+        test("ServerSelected tries every resolved local URL and activates the reachable fallback") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                val primary = "http://192.168.86.39:8080"
+                val fallback = "http://192.168.86.37:8080"
+                val server = createServer(localUrl = primary).copy(localUrls = listOf(primary, fallback))
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.startDiscovery() } returns Unit
+                everySuspend { instanceRepository.findReachableUrl(any()) } returns fallback
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { serverConfig.setConnectedServerId(any()) } returns Unit
+
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
+                keepStateHot(viewModel)
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+                advanceUntilIdle()
+
+                viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
+                advanceUntilIdle()
+
+                // The whole candidate list (best-first) reaches reachability, and the reachable
+                // fallback — not the unreachable primary — becomes the active URL.
+                verifySuspend { instanceRepository.findReachableUrl(listOf(primary, fallback)) }
+                verifySuspend { serverConfig.setServerUrl(ServerUrl(fallback)) }
+            }
+        }
+
         test("ServerSelected failure transitions to Error state") {
             runTest {
                 val serverRepository: ServerRepository = mock()

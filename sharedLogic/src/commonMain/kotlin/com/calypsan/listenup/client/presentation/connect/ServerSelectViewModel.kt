@@ -176,7 +176,10 @@ class ServerSelectViewModel(
 
         val urlsToTry =
             buildList {
-                server.localUrl?.let { add(it) }
+                // Every resolved LAN address (best-first), so an unreachable primary — an
+                // advertised-but-unroutable address, or a server that has moved — falls back to a
+                // reachable one instead of stranding the user on the spinner.
+                addAll(server.localUrls.ifEmpty { listOfNotNull(server.localUrl) })
                 server.remoteUrl?.let { add(it) }
             }
         if (urlsToTry.isEmpty()) {

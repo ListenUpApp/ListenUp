@@ -66,6 +66,25 @@ class ServerRepositoryTest :
             }
         }
 
+        test("observeServers carries every resolved address into the server's candidate URLs") {
+            runTest {
+                val discovery = mock<ServerDiscoveryService>()
+                every { discovery.discover() } returns
+                    flowOf(
+                        listOf(
+                            discovered(id = "srv-a", host = "192.168.86.39")
+                                .copy(additionalHosts = listOf("192.168.86.37")),
+                        ),
+                    )
+
+                val servers = ServerRepositoryImpl(discovery).observeServers().first()
+
+                servers.first().server.localUrl shouldBe "http://192.168.86.39:8080"
+                servers.first().server.localUrls shouldBe
+                    listOf("http://192.168.86.39:8080", "http://192.168.86.37:8080")
+            }
+        }
+
         // Bug 2: a multi-homed server advertises the same stable mDNS id on more than one
         // address (e.g. IPv4 + IPv6, or wifi + ethernet). Those must collapse to ONE entry.
         test("observeServers collapses duplicate ids with different addresses into one entry") {

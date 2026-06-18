@@ -125,8 +125,13 @@ class JmDnsDiscoveryService : ServerDiscoveryService {
     private fun parseDiscoveredServer(event: ServiceEvent): DiscoveredServer? {
         val info = event.info ?: return null
 
-        // Get host address
-        val host = info.hostAddresses?.firstOrNull() ?: info.inet4Addresses?.firstOrNull()?.hostAddress
+        // All resolved addresses, best-first — a multi-homed server resolves to several and the first
+        // can be unroutable (a docker-bridge / VPN address). Keep them all for fallback.
+        val rawHosts =
+            (info.hostAddresses?.toList() ?: emptyList())
+                .ifEmpty { info.inet4Addresses?.mapNotNull { it?.hostAddress } ?: emptyList() }
+        val hosts = rankHostAddresses(rawHosts)
+        val host = hosts.firstOrNull()
         if (host == null) {
             logger.warn { "No host address found for ${event.name}" }
             return null
@@ -154,6 +159,7 @@ class JmDnsDiscoveryService : ServerDiscoveryService {
             apiVersion = apiVersion,
             serverVersion = serverVersion,
             remoteUrl = remoteUrl,
+            additionalHosts = hosts.drop(1),
         )
     }
 }
