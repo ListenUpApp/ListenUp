@@ -383,6 +383,16 @@ data object Devices : Route
 data object Licenses : Route
 
 /**
+ * License detail screen - displays license text or link for a specific library.
+ *
+ * @property uniqueId The AboutLibraries unique ID of the library.
+ */
+@Serializable
+data class LicenseDetail(
+    val uniqueId: String,
+) : Route
+
+/**
  * Storage screen - manage downloaded audiobook files.
  */
 @Serializable

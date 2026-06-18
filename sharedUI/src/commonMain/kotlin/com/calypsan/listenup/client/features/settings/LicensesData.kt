@@ -16,6 +16,7 @@ data class LicenseRow(
     val version: String,
     val spdxId: String,
     val licenseText: String?,
+    val url: String? = null,
 )
 
 /**
@@ -73,6 +74,7 @@ fun rememberLicenseRows(): State<List<LicenseRow>> {
                         version = library.artifactVersion.orEmpty(),
                         spdxId = firstLicense?.spdxId ?: firstLicense?.name.orEmpty(),
                         licenseText = firstLicense?.licenseContent,
+                        url = firstLicense?.url,
                     )
                 }.sortedBy { it.name.lowercase() }
         }

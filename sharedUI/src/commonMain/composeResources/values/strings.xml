@@ -908,6 +908,16 @@ One beautiful library.</string>
     <string name="library_setup_start_scanning">Start Scanning</string>
     <string name="library_setup_up">Up</string>
     <string name="library_setup_up_hint">Goes to the parent folder</string>
+    <string name="licenses_count_suffix">libraries</string>
+    <string name="licenses_families_subtitle">across %1$d license families</string>
+    <string name="licenses_footer">ListenUp is built with open-source software. Thank you to everyone who contributed.</string>
+    <string name="licenses_overline_open_source">Open Source</string>
+    <string name="licenses_search_placeholder">Search libraries</string>
+    <string name="licenses_section_libraries">Libraries</string>
+    <string name="licenses_subtitle_makes_possible">that make ListenUp possible</string>
+    <string name="licenses_text_unavailable">License text is not available for this library.</string>
+    <string name="licenses_version_prefix">v%1$s</string>
+    <string name="licenses_view_license">View license</string>
     <string name="metadata_all_n_selected">All %1$d selected</string>
     <string name="metadata_apply_chapter_names">Apply chapter names</string>
     <string name="metadata_apply_metadata">Apply Metadata</string>
