@@ -17,6 +17,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import app.cash.turbine.test
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.io.Buffer
 
 /**
  * Tests for [AdminBackupViewModel] backed by the RPC [BackupRepository].
@@ -253,6 +255,43 @@ class AdminBackupViewModelTest :
                 (ready.backups[0].sizeFormatted.contains("GB")).shouldBe(true)
             }
         }
+
+        test("downloadBackup emits downloadSaved on success") {
+            runTest(testDispatcher) {
+                val repo =
+                    FakeBackupRepository(
+                        listResult = AppResult.Success(listOf(summary(id = "bk-1"))),
+                        downloadResult = AppResult.Success(Unit),
+                    )
+                val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                advanceUntilIdle()
+
+                viewModel.downloadSaved.test {
+                    viewModel.downloadBackup(BackupId("bk-1"), Buffer())
+                    advanceUntilIdle()
+                    awaitItem() shouldBe Unit
+                }
+            }
+        }
+
+        test("downloadBackup routes a failure to the error bus") {
+            runTest(testDispatcher) {
+                val errorBus = ErrorBus()
+                val repo =
+                    FakeBackupRepository(
+                        listResult = AppResult.Success(listOf(summary(id = "bk-1"))),
+                        downloadResult = AppResult.Failure(TransportError.NetworkUnavailable()),
+                    )
+                val viewModel = AdminBackupViewModel(repo, errorBus = errorBus)
+                advanceUntilIdle()
+
+                errorBus.errors.test {
+                    viewModel.downloadBackup(BackupId("bk-1"), Buffer())
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                }
+            }
+        }
     })
 
 /**
@@ -265,6 +304,7 @@ private class FakeBackupRepository(
     private val createResult: AppResult<BackupSummary> = AppResult.Failure(stubError),
     private val deleteResult: AppResult<Unit> = AppResult.Success(Unit),
     private val restoreResult: AppResult<RestoreResult> = AppResult.Failure(stubError),
+    private val downloadResult: AppResult<Unit> = AppResult.Success(Unit),
 ) : BackupRepository {
     private val listQueue = listResults.also { if (listResult != null) it.addFirst(listResult) }
 
@@ -275,7 +315,7 @@ private class FakeBackupRepository(
 
     override suspend fun uploadBackup(fileSource: com.calypsan.listenup.core.FileSource): AppResult<BackupSummary> = AppResult.Failure(stubError)
 
-    override suspend fun downloadBackup(id: BackupId, sink: RawSink): AppResult<Unit> = AppResult.Failure(stubError)
+    override suspend fun downloadBackup(id: BackupId, sink: RawSink): AppResult<Unit> = downloadResult
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> {
         createImagesArg = includeImages

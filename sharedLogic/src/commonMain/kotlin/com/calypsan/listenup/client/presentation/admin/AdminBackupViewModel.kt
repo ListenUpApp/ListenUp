@@ -10,10 +10,14 @@ import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.io.RawSink
 
 private val logger = KotlinLogging.logger {}
 
@@ -57,6 +61,11 @@ class AdminBackupViewModel(
 ) : ViewModel() {
     val state: StateFlow<AdminBackupUiState>
         field = MutableStateFlow<AdminBackupUiState>(AdminBackupUiState.Loading)
+
+    private val _downloadSaved = Channel<Unit>(Channel.BUFFERED)
+
+    /** One-shot signal that a backup finished streaming to the device — drives a "saved" confirmation. */
+    val downloadSaved: Flow<Unit> = _downloadSaved.receiveAsFlow()
 
     init {
         loadBackups()
@@ -119,6 +128,32 @@ class AdminBackupViewModel(
                             error = result.error,
                         )
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Stream the backup identified by [id] into [sink] (a user-chosen file on the device), then close
+     * [sink] so the underlying file flushes and finalizes — even if the write was cancelled. Emits
+     * [downloadSaved] on success; routes failures to the global snackbar.
+     */
+    fun downloadBackup(
+        id: BackupId,
+        sink: RawSink,
+    ) {
+        viewModelScope.launch {
+            val result =
+                try {
+                    backupRepository.downloadBackup(id, sink)
+                } finally {
+                    sink.close()
+                }
+            when (result) {
+                is AppResult.Success -> _downloadSaved.trySend(Unit)
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to download backup: ${result.error.message}" }
                 }
             }
         }
