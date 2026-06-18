@@ -83,6 +83,8 @@ import listenup.composeapp.generated.resources.admin_import_users_progress
 import listenup.composeapp.generated.resources.admin_migrate_listening_history
 import listenup.composeapp.generated.resources.admin_no_backups_yet
 import listenup.composeapp.generated.resources.admin_restore
+import listenup.composeapp.generated.resources.admin_restore_from_file
+import listenup.composeapp.generated.resources.admin_restore_from_file_description
 import listenup.composeapp.generated.resources.admin_upload_new_import
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_delete
@@ -512,8 +514,8 @@ private fun BackupCard(
 @Composable
 private fun RestoreFromFileCard(onClick: () -> Unit) {
     ActionTile(
-        title = "Restore from file",
-        subtitle = "Restore a ListenUp backup (.listenup.zip), even one from another server",
+        title = stringResource(Res.string.admin_restore_from_file),
+        subtitle = stringResource(Res.string.admin_restore_from_file_description),
         icon = Icons.Default.Restore,
         onClick = onClick,
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
