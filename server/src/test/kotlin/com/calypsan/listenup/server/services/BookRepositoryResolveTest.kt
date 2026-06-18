@@ -2,10 +2,6 @@
 
 package com.calypsan.listenup.server.services
 
-import ch.qos.logback.classic.Level
-import ch.qos.logback.classic.Logger
-import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.read.ListAppender
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
@@ -14,6 +10,7 @@ import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -24,7 +21,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 
 class BookRepositoryResolveTest :
     FunSpec({
@@ -113,7 +110,7 @@ class BookRepositoryResolveTest :
                 val (repo, registry) = repository(db)
                 runTest {
                     val libId = registry.currentLibrary()
-                    val appender = attachRootAppender()
+                    val capture = ListenUpLoggerFactory.installTestCapture()
                     try {
                         val original = analyzedFor(rootRelPath = "old/path", inode = 7777L)
                         repo.resolveOrInsert(libId, TEST_FOLDER_ID, original)
@@ -125,38 +122,18 @@ class BookRepositoryResolveTest :
                         repo.resolveOrInsert(libId, TEST_FOLDER_ID, moved)
 
                         val moveEvent =
-                            appender.list
-                                .firstOrNull { it.formattedMessage.startsWith("Book moved:") }
+                            capture.events
+                                .firstOrNull { it.message.startsWith("Book moved:") }
                                 .shouldNotBeNull()
                         moveEvent.level shouldBe Level.INFO
-                        moveEvent.formattedMessage shouldBe "Book moved: old/path → new/path"
+                        moveEvent.message shouldBe "Book moved: old/path → new/path"
                     } finally {
-                        detachRootAppender(appender)
+                        ListenUpLoggerFactory.removeTestCapture()
                     }
                 }
             }
         }
     })
-
-// --- Log capture ------------------------------------------------------------
-
-/**
- * Attaches a logback [ListAppender] to the root logger so the move-detection
- * INFO line can be asserted. Root-level so it is agnostic to kotlin-logging's
- * file-facade logger name.
- */
-private fun attachRootAppender(): ListAppender<ILoggingEvent> {
-    val root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as Logger
-    val appender = ListAppender<ILoggingEvent>().apply { start() }
-    root.addAppender(appender)
-    return appender
-}
-
-private fun detachRootAppender(appender: ListAppender<ILoggingEvent>) {
-    val root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as Logger
-    root.detachAppender(appender)
-    appender.stop()
-}
 
 // --- Constants --------------------------------------------------------------
 

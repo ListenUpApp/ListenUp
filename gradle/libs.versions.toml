@@ -54,7 +54,6 @@ skie = "0.10.12"
 
 # Desktop
 logback = "1.5.34"
-logstash-logback-encoder = "9.0"
 jmdns = "3.6.3"
 javacpp = "1.5.13"
 ffmpeg-javacpp = "8.0.1-1.5.13"
@@ -202,7 +201,6 @@ kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version.r
 slf4j-android = { group = "uk.uuid.slf4j", name = "slf4j-android", version.ref = "slf4j-android" }
 slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4j" }
 logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
-logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstash-logback-encoder" }
 jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
 jnativehook = { module = "com.github.kwhat:jnativehook", version.ref = "jnativehook" }
 # FFmpeg Audio (Desktop)
