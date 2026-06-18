@@ -9101,6 +9101,16 @@
         }
       }
     },
+    "licenses.not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library not found."
+          }
+        }
+      }
+    },
     "licenses.overline_open_source": {
       "localizations": {
         "en": {
@@ -9167,6 +9177,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View license"
+          }
+        }
+      }
+    },
+    "licenses.view_project": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View project"
           }
         }
       }
@@ -11617,6 +11637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lock Orientation"
+          }
+        }
+      }
+    },
+    "settings.manage_active_sessions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage active sessions"
           }
         }
       }

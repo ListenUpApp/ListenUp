@@ -911,6 +911,7 @@ One beautiful library.</string>
     <string name="licenses_count_suffix">libraries</string>
     <string name="licenses_families_subtitle">across %1$d license families</string>
     <string name="licenses_footer">ListenUp is built with open-source software. Thank you to everyone who contributed.</string>
+    <string name="licenses_not_found">Library not found.</string>
     <string name="licenses_overline_open_source">Open Source</string>
     <string name="licenses_search_placeholder">Search libraries</string>
     <string name="licenses_section_libraries">Libraries</string>
@@ -918,6 +919,7 @@ One beautiful library.</string>
     <string name="licenses_text_unavailable">License text is not available for this library.</string>
     <string name="licenses_version_prefix">v%1$s</string>
     <string name="licenses_view_license">View license</string>
+    <string name="licenses_view_project">View project</string>
     <string name="metadata_all_n_selected">All %1$d selected</string>
     <string name="metadata_apply_chapter_names">Apply chapter names</string>
     <string name="metadata_apply_metadata">Apply Metadata</string>
@@ -1163,6 +1165,7 @@ One beautiful library.</string>
     <string name="settings_licenses_by_author">by %1$s</string>
     <string name="settings_listenup_uses_the_following_open">ListenUp uses the following open source libraries:</string>
     <string name="settings_lock_orientation">Lock Orientation</string>
+    <string name="settings_manage_active_sessions">Manage active sessions</string>
     <string name="settings_manage_storage">Manage storage</string>
     <string name="settings_no_downloads">No Downloads</string>
     <string name="settings_open_source_licenses">Open Source Licenses</string>

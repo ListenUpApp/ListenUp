@@ -144,6 +144,15 @@ private extension View {
             .navigationDestination(for: ABSImportDestination.self) { _ in
                 ABSImportHubView()
             }
+            .navigationDestination(for: DevicesDestination.self) { _ in
+                DevicesView()
+            }
+            .navigationDestination(for: LicensesDestination.self) { _ in
+                LicensesView()
+            }
+            .navigationDestination(for: LicenseDetailDestination.self) { destination in
+                LicenseDetailView(packageName: destination.packageName)
+            }
     }
 }
 

@@ -767,6 +767,7 @@
     "licenses_by_author": "by %1$s",
     "listenup_uses_the_following_open": "ListenUp uses the following open source libraries:",
     "lock_orientation": "Lock Orientation",
+    "manage_active_sessions": "Manage active sessions",
     "manage_storage": "Manage storage",
     "no_downloads": "No Downloads",
     "open_source_licenses": "Open Source Licenses",
@@ -1286,6 +1287,8 @@
     "view_license": "View license",
     "text_unavailable": "License text is not available for this library.",
     "families_subtitle": "across %1$d license families",
-    "version_prefix": "v%1$s"
+    "version_prefix": "v%1$s",
+    "not_found": "Library not found.",
+    "view_project": "View project"
   }
 }
