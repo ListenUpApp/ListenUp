@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.db.MigrationRunner
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -47,9 +48,7 @@ class SyncableTableBackfillMigrationTest :
         fun migrateTo(
             dataSource: HikariDataSource,
             target: Int?,
-        ) = com.calypsan.listenup.server.db
-            .MigrationRunner(dataSource)
-            .migrate(upTo = target)
+        ) = MigrationRunner(dataSource).migrate(upTo = target)
 
         fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 

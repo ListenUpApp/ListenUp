@@ -45,4 +45,21 @@ class SqlStatementSplitterTest :
             val out = SqlStatementSplitter.split(v19)
             out shouldHaveSize 10
         }
+
+        test("a doubled single-quote is an escape, and a semicolon inside the literal is not a terminator") {
+            val out = SqlStatementSplitter.split("INSERT INTO t VALUES ('it''s; ok'); SELECT 1;")
+            out shouldHaveSize 2
+            out[0] shouldContain "'it''s; ok'"
+        }
+
+        test("a semicolon inside a block comment is not a terminator") {
+            val out = SqlStatementSplitter.split("/* drop; me */\nCREATE TABLE a (x INT);")
+            out shouldHaveSize 1
+            out[0] shouldContain "CREATE TABLE a (x INT)"
+        }
+
+        test("a final statement with no trailing semicolon is still emitted") {
+            val out = SqlStatementSplitter.split("CREATE TABLE z (w INT)")
+            out shouldBe listOf("CREATE TABLE z (w INT)")
+        }
     })
