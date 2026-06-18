@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.db
 
 import com.zaxxer.hikari.HikariDataSource
-import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.nio.file.Path
 
@@ -57,28 +56,11 @@ class DatabaseHandle(
      */
     fun reopenPool() = dataSource.install(poolFactory())
 
-    /** Runs Flyway forward against the current (possibly just-swapped) db file. Returns the post-migration version. */
-    fun migrate(): String? =
-        Flyway
-            .configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration")
-            .load()
-            .migrate()
-            .let { currentSchemaVersion() }
+    /** Runs migrations forward against the current (possibly just-swapped) db file. Returns the post-migration version. */
+    fun migrate(): String? = MigrationRunner(dataSource).migrate()
 
-    /** The applied Flyway version, or null on a fresh/empty db. */
-    fun currentSchemaVersion(): String? =
-        Flyway
-            .configure()
-            .dataSource(
-                dataSource,
-            ).locations("classpath:db/migration")
-            .load()
-            .info()
-            .current()
-            ?.version
-            ?.version
+    /** The applied schema version, or null on a fresh/empty db. */
+    fun currentSchemaVersion(): String? = MigrationRunner(dataSource).currentSchemaVersion()
 
     /**
      * Terminal shutdown of the connection pool — releases every Hikari thread and SQLite

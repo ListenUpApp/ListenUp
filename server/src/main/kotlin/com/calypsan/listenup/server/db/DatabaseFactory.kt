@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.db
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.nio.file.Path
 
@@ -22,21 +21,16 @@ data class DatabaseConfig(
 }
 
 /**
- * Initializes the Hikari pool, runs Flyway migrations, and returns a [DatabaseHandle] that
+ * Initializes the Hikari pool, runs schema migrations, and returns a [DatabaseHandle] that
  * exposes the connected Exposed `Database` alongside pool-control operations needed by the
- * restore orchestrator (close/reopen pool, vacuum). Idempotent for migrations — Flyway tracks
- * applied versions in its `flyway_schema_history` table.
+ * restore orchestrator (close/reopen pool, vacuum). Idempotent for migrations — the runner tracks
+ * applied versions in its `schema_migrations` table.
  */
 object DatabaseFactory {
     fun init(config: DatabaseConfig): DatabaseHandle {
         val pool = buildPool(config)
 
-        Flyway
-            .configure()
-            .dataSource(pool)
-            .locations("classpath:db/migration")
-            .load()
-            .migrate()
+        MigrationRunner(pool).migrate()
 
         val swappable = SwappableDataSource(pool)
         val dbFile = Path.of(config.jdbcUrl.removePrefix("jdbc:sqlite:"))
