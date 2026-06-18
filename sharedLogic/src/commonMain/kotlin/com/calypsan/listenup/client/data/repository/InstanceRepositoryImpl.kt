@@ -165,7 +165,9 @@ class InstanceRepositoryImpl(
             if (recent.wsBaseUrl == wsBaseUrl &&
                 currentEpochMilliseconds() - recent.atMillis < PROBE_COALESCE_WINDOW_MS
             ) {
-                logger.debug { "Reusing probe of $wsBaseUrl from ${currentEpochMilliseconds() - recent.atMillis}ms ago" }
+                logger.debug {
+                    "Reusing probe of $wsBaseUrl from ${currentEpochMilliseconds() - recent.atMillis}ms ago"
+                }
                 return AppResult.Success(recent.serverInfo)
             }
         }
