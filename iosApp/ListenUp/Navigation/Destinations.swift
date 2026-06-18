@@ -78,3 +78,11 @@ struct LicensesDestination: Hashable {}
 struct LicenseDetailDestination: Hashable {
     let packageName: String
 }
+
+/// The Admin Collections list (admin / root users only), reached from Administration › Management.
+struct AdminCollectionsDestination: Hashable {}
+
+/// A single Admin Collection detail, reached from the Admin Collections list.
+struct AdminCollectionDetailDestination: Hashable {
+    let collectionId: String
+}
