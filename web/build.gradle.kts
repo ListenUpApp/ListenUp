@@ -14,6 +14,7 @@ dependencies {
 
     // Ktor server surface used by the embedded web routes (mounted by :server).
     implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.csrf)
     implementation(libs.ktor.server.html.builder)
     implementation(libs.kotlinx.html)
 

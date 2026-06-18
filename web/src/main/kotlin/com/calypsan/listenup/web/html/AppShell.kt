@@ -10,14 +10,18 @@ import kotlinx.html.main
 import kotlinx.html.meta
 import kotlinx.html.script
 import kotlinx.html.title
+import kotlinx.html.unsafe
 
 /**
- * The base HTML document every web page is rendered into. Pages supply their body
- * content via [content]; the shell provides the head (Tailwind stylesheet, htmx runtime,
- * CSRF meta — CSRF wired in Phase 1B) and a consistent outer layout.
+ * The base HTML document every web page renders into. Pages supply body content via
+ * [content]; the shell provides the head (Tailwind stylesheet, htmx runtime) and, when a
+ * [csrfToken] is supplied, the CSRF `<meta>` plus an htmx `configRequest` hook that echoes
+ * the token back as the `X-CSRF-Token` header on every htmx request (the double-submit pair
+ * checked by [com.calypsan.listenup.web.security.webCsrfConfig]).
  */
 fun HTML.appShell(
     pageTitle: String = "ListenUp",
+    csrfToken: String? = null,
     content: MAIN.() -> Unit,
 ) {
     lang = "en"
@@ -27,6 +31,10 @@ fun HTML.appShell(
         title { +pageTitle }
         link(rel = "stylesheet", href = "/assets/app.css")
         script(src = "/assets/htmx.min.js") {}
+        if (csrfToken != null) {
+            meta(name = "csrf-token", content = csrfToken)
+            script { unsafe { +CSRF_HTMX_HOOK } }
+        }
     }
     body {
         main(classes = "mx-auto") {
@@ -34,3 +42,11 @@ fun HTML.appShell(
         }
     }
 }
+
+private const val CSRF_HTMX_HOOK =
+    """
+    document.body.addEventListener('htmx:configRequest', function (e) {
+      var meta = document.querySelector('meta[name=csrf-token]');
+      if (meta) { e.detail.headers['X-CSRF-Token'] = meta.content; }
+    });
+    """
