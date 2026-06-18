@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.html
 
+import com.calypsan.listenup.api.dto.auth.SessionSummary
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.html.respondHtml
 import kotlinx.html.ButtonType
@@ -14,8 +15,11 @@ import kotlinx.html.h1
 import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
+import kotlinx.html.li
 import kotlinx.html.p
+import kotlinx.html.span
 import kotlinx.html.stream.createHTML
+import kotlinx.html.ul
 
 /**
  * Render a full HTML page via [appShell], supplying body content through [block].
@@ -204,3 +208,61 @@ fun pendingDeniedFragment(reason: String): String =
     createHTML().p(classes = "text-red-600") { +reason }
 
 private const val PENDING_WAITING_MESSAGE = "Your account is awaiting administrator approval…"
+
+// ---------------------------------------------------------------------------
+// Active-sessions list
+// ---------------------------------------------------------------------------
+
+/**
+ * Emits the shared interior of `div#sessions`: heading and a list of session rows.
+ * Non-current rows include an `hx-delete` revoke button; the current session shows
+ * "(this device)" with no revoke affordance.
+ */
+private fun DIV.sessionsContent(sessions: List<SessionSummary>) {
+    h1 { +"Active sessions" }
+    ul {
+        sessions.forEach { summary ->
+            li {
+                span { +(summary.label ?: "Unknown device") }
+                if (summary.current) {
+                    span { +" (this device)" }
+                } else {
+                    button(type = ButtonType.button) {
+                        attributes["hx-delete"] = "/account/sessions/${summary.id.value}"
+                        attributes["hx-target"] = "#sessions"
+                        attributes["hx-swap"] = "outerHTML"
+                        +"Revoke"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Active-sessions list (id `sessions`). Each non-current row can revoke itself via `hx-delete`.
+ * Emits `div#sessions { … }` into any [FlowContent] scope.
+ */
+fun FlowContent.sessionsList(sessions: List<SessionSummary>) {
+    div {
+        id = "sessions"
+        sessionsContent(sessions)
+    }
+}
+
+/**
+ * Serialises the `div#sessions` element to an HTML string for an htmx fragment response.
+ * The root IS `div#sessions` — no outer wrapper — required for htmx `hx-swap="outerHTML"`
+ * on `#sessions`. Shares [sessionsContent] with [sessionsList] to guarantee identical markup.
+ */
+fun sessionsListFragment(sessions: List<SessionSummary>): String =
+    createHTML().div {
+        id = "sessions"
+        sessionsContent(sessions)
+    }
+
+/**
+ * Error fragment for the sessions screen. Routed through kotlinx.html (not a raw HTML string)
+ * so the message is HTML-escaped by construction — structural safety, not "trust the message".
+ */
+fun sessionsErrorFragment(message: String): String = createHTML().p(classes = "text-red-600") { +message }

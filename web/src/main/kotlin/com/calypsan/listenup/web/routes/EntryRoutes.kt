@@ -42,7 +42,3 @@ internal fun Route.entryRoutes(deps: WebDependencies) {
     }
 }
 
-/** Logout + active sessions. Filled in Task 7. */
-internal fun Route.accountRoutes(deps: WebDependencies) {
-    // Task 7
-}
