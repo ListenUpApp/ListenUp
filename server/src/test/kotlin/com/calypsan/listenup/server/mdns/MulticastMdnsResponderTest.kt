@@ -122,7 +122,20 @@ class MulticastMdnsResponderTest :
         test("isVirtualInterfaceName flags docker/VPN/VM NICs but keeps real LAN ifaces and bridges") {
             // The user's failing host had docker0 (172.17.0.1) + tailscale0 (100.x) advertised
             // alongside the real LAN — both unroutable from a LAN client. These must be excluded.
-            val virtual = listOf("docker0", "veth1a2b", "virbr0", "vboxnet0", "vmnet8", "tailscale0", "zt5u4i", "tun0", "tap0", "utun3", "wg0")
+            val virtual =
+                listOf(
+                    "docker0",
+                    "veth1a2b",
+                    "virbr0",
+                    "vboxnet0",
+                    "vmnet8",
+                    "tailscale0",
+                    "zt5u4i",
+                    "tun0",
+                    "tap0",
+                    "utun3",
+                    "wg0",
+                )
             virtual.filterNot(::isVirtualInterfaceName) shouldBe emptyList()
 
             // Real LAN interfaces — including a Linux host whose LAN is itself a bridge — stay in.
