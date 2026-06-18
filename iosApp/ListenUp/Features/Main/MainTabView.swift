@@ -132,6 +132,9 @@ private extension View {
             .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }
+            .navigationDestination(for: ShelfFormDestination.self) { destination in
+                CreateEditShelfView(shelfId: destination.shelfId)
+            }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }

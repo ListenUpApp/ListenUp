@@ -101,10 +101,20 @@ struct MyShelvesRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "home.my_shelves"))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 20)
+            HStack {
+                Text(String(localized: "home.my_shelves"))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                NavigationLink(value: ShelfFormDestination(shelfId: nil)) {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Color.luTint)
+                        .accessibilityLabel(String(localized: "shelf.create_shelf_title"))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {

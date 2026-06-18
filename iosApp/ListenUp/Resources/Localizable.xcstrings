@@ -11971,6 +11971,26 @@
         }
       }
     },
+    "shelf.about_shelves": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About shelves"
+          }
+        }
+      }
+    },
+    "shelf.about_shelves_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelves are your own collections — group books however you like. Make a shelf private to keep it just for you, or leave it public to share with everyone on the server."
+          }
+        }
+      }
+    },
     "shelf.add_books_from_the_library": {
       "localizations": {
         "en": {
@@ -12011,6 +12031,26 @@
         }
       }
     },
+    "shelf.breadcrumb_library_shelves": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library · Shelves"
+          }
+        }
+      }
+    },
+    "shelf.create_shelf_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Shelf"
+          }
+        }
+      }
+    },
     "shelf.delete_shelf": {
       "localizations": {
         "en": {
@@ -12041,6 +12081,26 @@
         }
       }
     },
+    "shelf.edit_shelf_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Shelf"
+          }
+        }
+      }
+    },
+    "shelf.form_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
     "shelf.no_books_description": {
       "localizations": {
         "en": {
@@ -12057,6 +12117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No books yet"
+          }
+        }
+      }
+    },
+    "shelf.preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
           }
         }
       }
@@ -12081,6 +12151,16 @@
         }
       }
     },
+    "shelf.shelf_details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelf details"
+          }
+        }
+      }
+    },
     "shelf.this_will_permanently_delete_this": {
       "localizations": {
         "en": {
@@ -12097,6 +12177,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shelf unavailable"
+          }
+        }
+      }
+    },
+    "shelf.visibility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibility"
+          }
+        }
+      }
+    },
+    "shelf.visible_to_anyone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visible to anyone on the server."
           }
         }
       }

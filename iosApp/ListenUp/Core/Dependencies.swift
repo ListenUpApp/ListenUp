@@ -96,6 +96,7 @@ final class Dependencies {
     func createUserProfileViewModel() -> UserProfileViewModel { KoinHelper.shared.getUserProfileViewModel() }
     func createEditProfileViewModel() -> EditProfileViewModel { KoinHelper.shared.getEditProfileViewModel() }
     func createShelfDetailViewModel() -> ShelfDetailViewModel { KoinHelper.shared.getShelfDetailViewModel() }
+    func createCreateEditShelfViewModel() -> CreateEditShelfViewModel { KoinHelper.shared.getCreateEditShelfViewModel() }
     func createSettingsViewModel() -> SettingsViewModel { KoinHelper.shared.getSettingsViewModel() }
     func createDevicesViewModel() -> DevicesViewModel { KoinHelper.shared.getDevicesViewModel() }
 

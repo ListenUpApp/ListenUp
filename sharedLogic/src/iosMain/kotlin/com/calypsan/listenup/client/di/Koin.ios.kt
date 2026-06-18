@@ -238,6 +238,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getCreateEditShelfViewModel(): com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel by inject()
+        return viewModel
+    }
+
     fun getSeriesEditViewModel(): com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel by inject()
         return viewModel
