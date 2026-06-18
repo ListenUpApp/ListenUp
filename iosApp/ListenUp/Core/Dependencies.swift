@@ -105,6 +105,10 @@ final class Dependencies {
     func createCreateInviteViewModel() -> CreateInviteViewModel { KoinHelper.shared.getCreateInviteViewModel() }
     func createABSImportHubViewModel() -> ABSImportHubViewModel { KoinHelper.shared.getABSImportHubViewModel() }
     func createImportFlowViewModel() -> ImportFlowViewModel { KoinHelper.shared.getImportFlowViewModel() }
+    func createAdminCollectionsViewModel() -> AdminCollectionsViewModel { KoinHelper.shared.getAdminCollectionsViewModel() }
+    func createAdminCollectionDetailViewModel(collectionId: String) -> AdminCollectionDetailViewModel {
+        KoinHelper.shared.getAdminCollectionDetailViewModel(collectionId: collectionId)
+    }
 }
 
 // MARK: - Locked cache

@@ -321,12 +321,52 @@
         }
       }
     },
+    "admin.collection_global_access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everyone"
+          }
+        }
+      }
+    },
+    "admin.collection_members_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d members"
+          }
+        }
+      }
+    },
     "admin.collection_name": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Collection Name"
+          }
+        }
+      }
+    },
+    "admin.collection_new_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New collection"
+          }
+        }
+      }
+    },
+    "admin.collection_shared_book_sets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared book sets for your server"
           }
         }
       }

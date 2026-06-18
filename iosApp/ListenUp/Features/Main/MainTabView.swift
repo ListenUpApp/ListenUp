@@ -156,6 +156,12 @@ private extension View {
             .navigationDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
             }
+            .navigationDestination(for: AdminCollectionsDestination.self) { _ in
+                AdminCollectionsView()
+            }
+            .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
+                AdminCollectionDetailView(collectionId: destination.collectionId)
+            }
     }
 }
 
