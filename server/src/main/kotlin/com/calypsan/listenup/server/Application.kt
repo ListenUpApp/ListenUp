@@ -683,7 +683,7 @@ private fun Application.startBackgroundTasks(
     RescanScheduler(
         scope = scope,
         interval = environment.config.periodicRescanInterval(),
-        libraryIds = { orchestrator.registeredLibraryIds() },
+        libraryId = { orchestrator.registeredLibraryId() },
         rescan = { orchestrator.scanLibraryAsync(it) },
     ).start()
 
