@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -76,39 +75,44 @@ private fun LicenseDetailBody(
             }
         }
 
-        !row.licenseText.isNullOrBlank() -> {
-            Text(
-                text = row.licenseText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier =
-                    modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-            )
-        }
-
-        row.url != null -> {
+        !row.licenseText.isNullOrBlank() || row.url != null -> {
+            // Show inline text (when available) and the canonical-source URL link below it.
+            // The URL is kept visible even when full text is present — it is the authoritative
+            // source and the user asked for it to remain as a supplement/fallback.
             Column(
                 modifier =
                     modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
             ) {
-                if (!row.spdxId.isNullOrBlank()) {
+                if (!row.licenseText.isNullOrBlank()) {
                     Text(
-                        text = row.spdxId,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = row.licenseText,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 12.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                     )
                 }
-                TextButton(onClick = { uriHandler.openUri(row.url) }) {
-                    Text(
-                        text = stringResource(Res.string.licenses_view_license),
-                        textDecoration = TextDecoration.Underline,
-                    )
+
+                if (row.url != null) {
+                    if (!row.spdxId.isNullOrBlank() && row.licenseText.isNullOrBlank()) {
+                        // Only show the SPDX label when there is no inline text to identify it.
+                        Text(
+                            text = row.spdxId,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                        )
+                    }
+                    TextButton(
+                        onClick = { uriHandler.openUri(row.url) },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.licenses_view_license),
+                            textDecoration = TextDecoration.Underline,
+                        )
+                    }
                 }
             }
         }

@@ -41,9 +41,20 @@ compose.resources {
     packageOfResClass = "listenup.composeapp.generated.resources"
 }
 
+// exportLibraryDefinitions is NOT in the assemble/compile task graph — it only runs when
+// explicitly invoked: ./gradlew :sharedUI:exportLibraryDefinitions
+// Because regeneration is always a deliberate manual step, offlineMode = false is safe
+// for CI: the export task simply never executes during a normal build.
 aboutLibraries {
-    // Disable network access — deterministic offline builds.
-    offlineMode = true
+    offlineMode = false
+
+    collect {
+        // Disable GitHub API calls — no token required, no rate-limit risk.
+        // Standard SPDX license texts are fetched from the SPDX data set without
+        // needing a GitHub token; only per-repo licence discovery needs the API.
+        fetchRemoteLicense = false
+        fetchRemoteFunding = false
+    }
 
     export {
         // Write the generated JSON directly into Compose resources so it is
