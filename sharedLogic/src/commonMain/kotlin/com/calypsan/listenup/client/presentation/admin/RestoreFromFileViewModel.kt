@@ -38,6 +38,8 @@ class RestoreFromFileViewModel(
         viewModelScope.launch {
             when (val result = backupRepository.uploadBackup(fileSource)) {
                 is AppResult.Success -> {
+                    // Reset before navigating so the spinner never lingers if navigation is delayed.
+                    _state.value = RestoreFromFileUiState.Idle
                     _navigation.trySend(result.data.id)
                 }
 
