@@ -20,6 +20,9 @@ import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import org.koin.dsl.module
 
+/** Koin qualifier for the application-lifetime [kotlinx.coroutines.CoroutineScope] (`appCoreModule`). */
+private const val APP_SCOPE = "appScope"
+
 /**
  * Auth and connection ViewModels.
  */
@@ -37,7 +40,7 @@ val authPresentationModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }
@@ -51,7 +54,7 @@ val authPresentationModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }
@@ -98,7 +101,7 @@ val authPresentationModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }
