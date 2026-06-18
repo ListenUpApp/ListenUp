@@ -74,8 +74,7 @@ fun rememberLicenseRows(): State<List<LicenseRow>> {
                         spdxId = firstLicense?.spdxId ?: firstLicense?.name.orEmpty(),
                         licenseText = firstLicense?.licenseContent,
                     )
-                }
-                .sortedBy { it.name.lowercase() }
+                }.sortedBy { it.name.lowercase() }
         }
     }
 }
