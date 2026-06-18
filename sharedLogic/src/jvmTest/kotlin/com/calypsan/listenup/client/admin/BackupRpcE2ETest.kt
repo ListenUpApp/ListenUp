@@ -9,6 +9,8 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.BackupRpcFactory
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
+import dev.mokkery.MockMode
+import dev.mokkery.mock
 import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.server.api.BackupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -146,7 +148,7 @@ class BackupRpcE2ETest :
                     }
 
                     val rpcClient = createClient { installKrpc() }
-                    val repository = BackupRepositoryImpl(TestBackupRpcFactory(rpcClient))
+                    val repository = BackupRepositoryImpl(TestBackupRpcFactory(rpcClient), clientFactory = mock(MockMode.autofill))
 
                     runTest {
                         // list on a fresh server → Success(emptyList), NOT a transport 404.
@@ -212,7 +214,7 @@ class BackupRpcE2ETest :
                     }
 
                     val rpcClient = createClient { installKrpc() }
-                    val repository = BackupRepositoryImpl(TestBackupRpcFactory(rpcClient))
+                    val repository = BackupRepositoryImpl(TestBackupRpcFactory(rpcClient), clientFactory = mock(MockMode.autofill))
 
                     runTest {
                         val created =

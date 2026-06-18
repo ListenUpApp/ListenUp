@@ -14,6 +14,8 @@
     <string name="admin_allow_sharing_collections_with_other">Allow sharing collections with other users</string>
     <string name="admin_backup">Backup</string>
     <string name="admin_backup_created_at">Created: %1$s at %2$s</string>
+    <string name="admin_backup_download_failed">Couldn\'t save the backup to your device.</string>
+    <string name="admin_backup_downloaded">Backup saved to your device.</string>
     <string name="admin_backup_restore">Backup &amp; Restore</string>
     <string name="admin_backup_size">Size: %1$s</string>
     <string name="admin_backups">Backups</string>
@@ -51,6 +53,7 @@
     <string name="admin_creating_backup">Creating Backup...</string>
     <string name="admin_delete_backup">Delete Backup</string>
     <string name="admin_deny_registration">Deny Registration</string>
+    <string name="admin_download_backup">Download</string>
     <string name="admin_email_already_in_use">A user with this email already exists.</string>
     <string name="admin_enter_a_name_for_the">Enter a name for the collection</string>
     <string name="admin_events_sessions_and_progress_data">Events, sessions, and progress data</string>
@@ -114,6 +117,12 @@
     <string name="admin_rescan_library">Rescan Library</string>
     <string name="admin_restore">Restore</string>
     <string name="admin_restore_backup">Restore Backup</string>
+    <string name="admin_restore_from_file">Restore from file</string>
+    <string name="admin_restore_from_file_choose">Choose backup file</string>
+    <string name="admin_restore_from_file_description">Upload a .listenup.zip backup file from your device.</string>
+    <string name="admin_restore_from_file_detail">You can restore a backup created on any ListenUp server, including one from a different machine. The file will be uploaded and staged, then you\'ll confirm the restore.</string>
+    <string name="admin_restore_from_file_upload_failed">Upload failed</string>
+    <string name="admin_restore_from_file_uploading">Uploading %1$s…</string>
     <string name="admin_restored_from">Restored from %1$s</string>
     <string name="admin_review_new_books_before_they">Review new books before they appear in library</string>
     <string name="admin_revoke_invite">Revoke Invite</string>

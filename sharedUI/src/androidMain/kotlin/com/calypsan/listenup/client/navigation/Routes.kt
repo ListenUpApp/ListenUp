@@ -347,6 +347,14 @@ data class ABSImportDetail(
 ) : Route
 
 /**
+ * Restore-from-file screen — pick a `.listenup.zip`, upload it, then continue into [RestoreBackup].
+ *
+ * The upload step lives here; the destructive restore-confirmation flow is handled by [RestoreBackup].
+ */
+@Serializable
+data object RestoreFromFile : Route
+
+/**
  * ABS import screen (legacy) - wizard-style import from Audiobookshelf backup.
  *
  * Multi-step flow for analyze, map users/books, and import.

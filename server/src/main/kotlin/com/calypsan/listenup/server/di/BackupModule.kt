@@ -42,7 +42,9 @@ fun backupModule(
     module {
         single { BackupPaths(homeDir) }
 
-        single<MutableSharedFlow<BackupEvent>> {
+        // Qualified by name because Koin keys on the erased KClass — an unqualified
+        // MutableSharedFlow<BackupEvent> would collide with the scan/import event buses.
+        single<MutableSharedFlow<BackupEvent>>(EventBusQualifiers.BackupEvents) {
             MutableSharedFlow(replay = 0, extraBufferCapacity = 64)
         }
 
@@ -87,7 +89,7 @@ fun backupModule(
                 archive = get(),
                 dbHandle = get(),
                 maintenance = get(),
-                eventBus = get(),
+                eventBus = get(EventBusQualifiers.BackupEvents),
             )
         }
 
@@ -96,7 +98,7 @@ fun backupModule(
                 paths = get(),
                 archive = get(),
                 restoreOrchestrator = get(),
-                eventBus = get(),
+                eventBus = get(EventBusQualifiers.BackupEvents),
                 principal = unscopedBackupPlaceholder("BackupService"),
             )
         }

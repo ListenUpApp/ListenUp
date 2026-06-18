@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.CloudUpload
@@ -57,6 +61,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.data.remote.ABSImportSummary
 import com.calypsan.listenup.client.design.components.ColorBlockHero
+import com.calypsan.listenup.core.BackupId
+import kotlinx.io.asSink
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.BackupInfo
@@ -71,18 +77,23 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_backup_created_at
+import listenup.composeapp.generated.resources.admin_backup_download_failed
+import listenup.composeapp.generated.resources.admin_backup_downloaded
 import listenup.composeapp.generated.resources.admin_backup_size
 import listenup.composeapp.generated.resources.admin_backups
 import listenup.composeapp.generated.resources.admin_confirm_delete_backup
 import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_create_backup_to_protect
 import listenup.composeapp.generated.resources.admin_delete_backup
+import listenup.composeapp.generated.resources.admin_download_backup
 import listenup.composeapp.generated.resources.admin_import_books_progress
 import listenup.composeapp.generated.resources.admin_import_sessions_progress
 import listenup.composeapp.generated.resources.admin_import_users_progress
 import listenup.composeapp.generated.resources.admin_migrate_listening_history
 import listenup.composeapp.generated.resources.admin_no_backups_yet
 import listenup.composeapp.generated.resources.admin_restore
+import listenup.composeapp.generated.resources.admin_restore_from_file
+import listenup.composeapp.generated.resources.admin_restore_from_file_description
 import listenup.composeapp.generated.resources.admin_upload_new_import
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_delete
@@ -104,12 +115,39 @@ fun AdminBackupScreen(
     onBackClick: () -> Unit,
     onCreateClick: () -> Unit,
     onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit = {},
     onABSImportHubClick: (String) -> Unit,
     onNewImportClick: () -> Unit = {},
 ) {
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val absImportListState by absImportViewModel.listState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val downloadSavedMessage = stringResource(Res.string.admin_backup_downloaded)
+    val downloadFailedMessage = stringResource(Res.string.admin_backup_download_failed)
+
+    // The backup chosen for download — set when the user taps Download, consumed when the
+    // Save-As picker returns a destination URI.
+    var pendingDownloadBackup by remember { mutableStateOf<BackupInfo?>(null) }
+
+    val saveBackupLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            val backup = pendingDownloadBackup
+            pendingDownloadBackup = null
+            if (uri == null || backup == null) return@rememberLauncherForActivityResult
+            val outputStream = context.contentResolver.openOutputStream(uri)
+            if (outputStream == null) {
+                Toast.makeText(context, downloadFailedMessage, Toast.LENGTH_SHORT).show()
+                return@rememberLauncherForActivityResult
+            }
+            backupViewModel.downloadBackup(BackupId(backup.id), outputStream.asSink())
+        }
+
+    // Confirm a completed download with a toast.
+    LaunchedEffect(Unit) {
+        backupViewModel.downloadSaved.collect {
+            Toast.makeText(context, downloadSavedMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Delete import confirmation state
     var deleteConfirmImport by remember { mutableStateOf<ABSImportSummary?>(null) }
@@ -174,7 +212,12 @@ fun AdminBackupScreen(
                 isLoadingImports = absImportListState is ABSImportListUiState.Loading,
                 modifier = Modifier.fillMaxSize(),
                 onRestoreClick = onRestoreClick,
+                onRestoreFromFileClick = onRestoreFromFileClick,
                 onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
+                onDownloadClick = { backup ->
+                    pendingDownloadBackup = backup
+                    saveBackupLauncher.launch("${backup.id}.listenup.zip")
+                },
                 onABSImportClick = onABSImportHubClick,
                 onDeleteImportClick = { deleteConfirmImport = it },
                 onUploadABSBackup = onNewImportClick,
@@ -276,7 +319,9 @@ private fun AdminBackupBody(
     isLoadingImports: Boolean,
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit,
     onDeleteClick: (BackupInfo) -> Unit,
+    onDownloadClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ABSImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
@@ -306,7 +351,9 @@ private fun AdminBackupBody(
                 isLoadingImports = isLoadingImports,
                 modifier = modifier,
                 onRestoreClick = onRestoreClick,
+                onRestoreFromFileClick = onRestoreFromFileClick,
                 onDeleteClick = onDeleteClick,
+                onDownloadClick = onDownloadClick,
                 onABSImportClick = onABSImportClick,
                 onDeleteImportClick = onDeleteImportClick,
                 onUploadABSBackup = onUploadABSBackup,
@@ -322,7 +369,9 @@ private fun AdminBackupReadyContent(
     isLoadingImports: Boolean,
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit,
     onDeleteClick: (BackupInfo) -> Unit,
+    onDownloadClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ABSImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
@@ -331,6 +380,7 @@ private fun AdminBackupReadyContent(
         EmptyBackupState(
             modifier = modifier,
             onUploadABSBackup = onUploadABSBackup,
+            onRestoreFromFileClick = onRestoreFromFileClick,
         )
         return
     }
@@ -341,14 +391,21 @@ private fun AdminBackupReadyContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Backups section
+        item(key = "backups_header") {
+            SectionHeader(title = stringResource(Res.string.admin_backups))
+        }
+
+        // Restore-from-file card — prominent entry point, always shown at the top of the section.
+        item(key = "restore_from_file") {
+            RestoreFromFileCard(onClick = onRestoreFromFileClick)
+        }
+
         if (state.backups.isNotEmpty()) {
-            item(key = "backups_header") {
-                SectionHeader(title = stringResource(Res.string.admin_backups))
-            }
             items(state.backups, key = { "backup_${it.id}" }) { backup ->
                 BackupCard(
                     backup = backup,
                     onRestoreClick = { onRestoreClick(backup.id) },
+                    onDownloadClick = { onDownloadClick(backup) },
                     onDeleteClick = { onDeleteClick(backup) },
                 )
             }
@@ -407,6 +464,7 @@ private fun SectionHeader(title: String) {
 private fun BackupCard(
     backup: BackupInfo,
     onRestoreClick: () -> Unit,
+    onDownloadClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -456,6 +514,14 @@ private fun BackupCard(
                             leadingIcon = { Icon(Icons.Default.Restore, contentDescription = null) },
                         )
                         DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.admin_download_backup)) },
+                            onClick = {
+                                showMenu = false
+                                onDownloadClick()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) },
+                        )
+                        DropdownMenuItem(
                             text = { Text(stringResource(Res.string.common_delete)) },
                             onClick = {
                                 showMenu = false
@@ -491,6 +557,23 @@ private fun BackupCard(
             )
         }
     }
+}
+
+/**
+ * Color-blocked navigation tile for restoring a ListenUp backup from a local file — peer to
+ * [UploadABSBackupCard] so this entry point is equally prominent in the Backups section.
+ */
+@Composable
+private fun RestoreFromFileCard(onClick: () -> Unit) {
+    ActionTile(
+        title = stringResource(Res.string.admin_restore_from_file),
+        subtitle = stringResource(Res.string.admin_restore_from_file_description),
+        icon = Icons.Default.Restore,
+        onClick = onClick,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        badgeColor = MaterialTheme.colorScheme.secondary,
+        badgeContentColor = MaterialTheme.colorScheme.onSecondary,
+    )
 }
 
 /**
@@ -692,6 +775,7 @@ private fun StatusBadge(status: String) {
 private fun EmptyBackupState(
     modifier: Modifier = Modifier,
     onUploadABSBackup: () -> Unit,
+    onRestoreFromFileClick: () -> Unit,
 ) {
     Column(
         modifier =
@@ -724,6 +808,8 @@ private fun EmptyBackupState(
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(32.dp))
+        RestoreFromFileCard(onClick = onRestoreFromFileClick)
+        Spacer(modifier = Modifier.height(12.dp))
         UploadABSBackupCard(onClick = onUploadABSBackup)
     }
 }

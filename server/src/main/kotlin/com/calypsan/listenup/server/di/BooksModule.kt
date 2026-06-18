@@ -55,7 +55,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import java.nio.file.Path
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.module.Module
-import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /**
@@ -308,8 +307,8 @@ private fun Module.coverAndPersisterBindings(
             libraryRepository = get(),
             collectionService = get<CollectionServiceImpl>(),
             db = get(),
-            scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
-            eventBus = get<MutableSharedFlow<ScanEvent>>(),
+            scanResultBus = get<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults),
+            eventBus = get<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents),
             scope = get(),
             metrics = get(),
             coverImageStore = get<CoverImageStore>(),

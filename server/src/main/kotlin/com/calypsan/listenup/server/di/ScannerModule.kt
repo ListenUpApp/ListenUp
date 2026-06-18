@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import org.koin.core.module.Module
-import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.nio.file.Path
 
@@ -76,17 +75,23 @@ fun scannerModule(
         // Event bus: one MutableSharedFlow as the writable side, exposed both
         // as MutableSharedFlow (for the Scanner to emit) and as SharedFlow
         // (for ScannerServiceImpl to expose to clients without leaking emit).
-        single<MutableSharedFlow<ScanEvent>> {
+        // Qualified by name because Koin keys on the erased KClass — an unqualified
+        // MutableSharedFlow<ScanEvent> would collide with the backup/import event buses.
+        single<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents) {
             MutableSharedFlow(replay = 0, extraBufferCapacity = 64)
         }
-        single<SharedFlow<ScanEvent>> { get<MutableSharedFlow<ScanEvent>>().asSharedFlow() }
+        single<SharedFlow<ScanEvent>> {
+            get<MutableSharedFlow<ScanEvent>>(
+                EventBusQualifiers.ScanEvents,
+            ).asSharedFlow()
+        }
 
         // Scan-result bus: the BookPersister consumes the most recent ScanResult.
         // replay = 1 lets a late subscriber pick up the last scan; DROP_OLDEST
         // keeps a fast scan stream from ever blocking the Scanner. Qualified by
         // name because Koin keys on the erased KClass — an unqualified
         // MutableSharedFlow<ScanResult> would collide with the ScanEvent bus.
-        single<MutableSharedFlow<ScanResult>>(named("scanResultBus")) {
+        single<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults) {
             MutableSharedFlow(replay = 1, extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
         }
 
@@ -144,8 +149,8 @@ fun scannerModule(
         // lands in Task 18). The factory lambda is called once per onLibraryAdded().
         single {
             val scope: CoroutineScope = get()
-            val eventBus: MutableSharedFlow<ScanEvent> = get()
-            val scanResultBus: MutableSharedFlow<ScanResult> = get(named("scanResultBus"))
+            val eventBus: MutableSharedFlow<ScanEvent> = get(EventBusQualifiers.ScanEvents)
+            val scanResultBus: MutableSharedFlow<ScanResult> = get(EventBusQualifiers.ScanResults)
             val metadataReader: AbsMetadataReader = get()
             val embeddedMetadataParser: com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser = get()
             ScanOrchestrator(
