@@ -793,12 +793,19 @@
     "you_can_redownload_books_anytime": "You can re-download books anytime."
   },
   "devices": {
+    "active": "Active",
+    "current_session": "Current session",
     "empty": "No other devices.",
     "last_active": "Last active %1$s",
     "manage_active_sessions": "Manage your active sessions",
+    "note_sign_out_effect": "Signing out a device ends its playback sessions and removes its downloads.",
+    "other_devices": "Other Devices",
     "sign_out": "Sign out",
+    "sign_out_all_others": "Sign out all other devices",
+    "sign_out_device": "Sign out device",
     "sign_out_everywhere": "Sign out everywhere",
     "sign_out_everywhere_confirm": "Sign out of all devices, including this one?",
+    "signed_in_count": "%1$d signed in",
     "this_device": "This device",
     "title": "Devices"
   },

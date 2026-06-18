@@ -5311,6 +5311,26 @@
         }
       }
     },
+    "devices.active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
+          }
+        }
+      }
+    },
+    "devices.current_session": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current session"
+          }
+        }
+      }
+    },
     "devices.empty": {
       "localizations": {
         "en": {
@@ -5341,12 +5361,52 @@
         }
       }
     },
+    "devices.note_sign_out_effect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing out a device ends its playback sessions and removes its downloads."
+          }
+        }
+      }
+    },
+    "devices.other_devices": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other Devices"
+          }
+        }
+      }
+    },
     "devices.sign_out": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sign out"
+          }
+        }
+      }
+    },
+    "devices.sign_out_all_others": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out all other devices"
+          }
+        }
+      }
+    },
+    "devices.sign_out_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out device"
           }
         }
       }
@@ -5367,6 +5427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign out of all devices, including this one?"
+          }
+        }
+      }
+    },
+    "devices.signed_in_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d signed in"
           }
         }
       }
