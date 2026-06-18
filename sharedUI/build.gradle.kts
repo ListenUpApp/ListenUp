@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.mokkery)
+    alias(libs.plugins.aboutlibraries)
 }
 
 // Mokkery is used in desktopTest only — see composeApp/src/desktopTest.
@@ -38,6 +39,18 @@ compose.resources {
     // directory name (the renamed :sharedUI module would otherwise shift it
     // to listenup.sharedui.generated.resources and break every import).
     packageOfResClass = "listenup.composeapp.generated.resources"
+}
+
+aboutLibraries {
+    // Disable network access — deterministic offline builds.
+    offlineMode = true
+
+    export {
+        // Write the generated JSON directly into Compose resources so it is
+        // bundled at compile time and accessible via Res.readBytes().
+        outputFile = file("src/commonMain/composeResources/files/aboutlibraries.json")
+        prettyPrint = true
+    }
 }
 
 kotlin {
@@ -146,6 +159,9 @@ kotlin {
 
             // KMPalette for cross-platform color extraction
             implementation(libs.kmpalette.core)
+
+            // AboutLibraries — open-source license loader (compose-m3 includes core + compose-core)
+            implementation(libs.aboutlibraries.compose.m3)
         }
         val desktopMain by getting {
             dependencies {
