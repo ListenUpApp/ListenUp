@@ -23,7 +23,10 @@ private val COLOR_UNKNOWN = Color(0xFF8A8A8E)
  * @param icon The outlined Material icon representing the device category.
  * @param tint The accent colour to apply to [icon].
  */
-data class DeviceVisual(val icon: ImageVector, val tint: Color)
+data class DeviceVisual(
+    val icon: ImageVector,
+    val tint: Color,
+)
 
 /**
  * Maps a raw session `deviceType` string to a [DeviceVisual] (icon + tint). Input is

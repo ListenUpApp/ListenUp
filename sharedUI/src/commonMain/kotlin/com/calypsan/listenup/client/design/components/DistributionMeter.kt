@@ -37,7 +37,11 @@ private const val MIN_WEIGHT = 0.001f
  *   to a small epsilon so zero-weight segments don't crash [Modifier.weight].
  * @param color Fill colour for both the bar segment and the legend swatch.
  */
-data class MeterSegment(val label: String, val weight: Float, val color: Color)
+data class MeterSegment(
+    val label: String,
+    val weight: Float,
+    val color: Color,
+)
 
 /**
  * A horizontal proportional bar made of colour-coded segments separated by 2.dp gaps, followed by
