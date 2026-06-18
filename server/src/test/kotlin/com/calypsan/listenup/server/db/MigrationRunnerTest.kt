@@ -38,15 +38,16 @@ private fun DataSource.tableExists(name: String): Boolean =
 internal fun dumpSchema(ds: DataSource): String =
     ds.connection.use { c ->
         c.createStatement().use { s ->
-            s.executeQuery(
-                "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL " +
-                    "AND name NOT LIKE 'flyway_%' AND name NOT LIKE 'sqlite_%' " +
-                    "AND name != 'schema_migrations' ORDER BY type, name",
-            ).use { rs ->
-                generateSequence { if (rs.next()) rs.getString(1) else null }
-                    .map(::normalizeSchemaStatement)
-                    .joinToString("\n")
-            }
+            s
+                .executeQuery(
+                    "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL " +
+                        "AND name NOT LIKE 'flyway_%' AND name NOT LIKE 'sqlite_%' " +
+                        "AND name != 'schema_migrations' ORDER BY type, name",
+                ).use { rs ->
+                    generateSequence { if (rs.next()) rs.getString(1) else null }
+                        .map(::normalizeSchemaStatement)
+                        .joinToString("\n")
+                }
         }
     }
 

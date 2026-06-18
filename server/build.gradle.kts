@@ -136,14 +136,25 @@ val generateMigrationCatalog by tasks.registering {
     outputs.dir(outDir).withPropertyName("generated")
     doLast {
         val files =
-            inDir.asFile.listFiles { f: java.io.File -> f.name.matches(Regex("""V\d+__.*\.sql""")) }
-                ?.sortedBy { f: java.io.File -> f.name.substringAfter('V').substringBefore("__").toInt() }
+            inDir.asFile
+                .listFiles { f: java.io.File -> f.name.matches(Regex("""V\d+__.*\.sql""")) }
+                ?.sortedBy { f: java.io.File ->
+                    f.name
+                        .substringAfter('V')
+                        .substringBefore("__")
+                        .toInt()
+                }
                 ?: emptyList()
         val md = MessageDigest.getInstance("SHA-256")
+
         fun ByteArray.toHex(): String = joinToString("") { b: Byte -> "%02x".format(b) }
         val entries =
             files.joinToString(",\n") { f: java.io.File ->
-                val version = f.name.substringAfter('V').substringBefore("__").toInt()
+                val version =
+                    f.name
+                        .substringAfter('V')
+                        .substringBefore("__")
+                        .toInt()
                 val name = f.name.substringAfter("__").removeSuffix(".sql")
                 val content = f.readText()
                 require(!content.contains("\"\"\"")) { "Migration ${f.name} contains a triple quote; cannot embed." }

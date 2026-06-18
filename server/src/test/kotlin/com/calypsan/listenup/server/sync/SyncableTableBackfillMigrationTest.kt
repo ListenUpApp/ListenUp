@@ -47,7 +47,9 @@ class SyncableTableBackfillMigrationTest :
         fun migrateTo(
             dataSource: HikariDataSource,
             target: Int?,
-        ) = com.calypsan.listenup.server.db.MigrationRunner(dataSource).migrate(upTo = target)
+        ) = com.calypsan.listenup.server.db
+            .MigrationRunner(dataSource)
+            .migrate(upTo = target)
 
         fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 

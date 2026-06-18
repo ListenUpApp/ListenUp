@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.db
 
 import java.sql.Connection
+import java.sql.ResultSet
 import java.time.Instant
 import javax.sql.DataSource
 
@@ -35,17 +36,21 @@ internal class MigrationRunner(
     fun currentSchemaVersion(): String? =
         dataSource.connection.use { conn ->
             ensureHistoryTable(conn)
-            conn.createStatement().use { stmt ->
-                stmt.executeQuery("SELECT MAX(version) FROM schema_migrations").use { rs ->
-                    if (rs.next()) {
-                        val v = rs.getInt(1)
-                        if (rs.wasNull()) null else v.toString()
-                    } else {
-                        null
-                    }
-                }
+            maxAppliedVersion(conn)
+        }
+
+    private fun maxAppliedVersion(conn: Connection): String? =
+        conn.createStatement().use { stmt ->
+            stmt.executeQuery("SELECT MAX(version) FROM schema_migrations").use { rs ->
+                readMaxVersion(rs)
             }
         }
+
+    private fun readMaxVersion(rs: ResultSet): String? {
+        if (!rs.next()) return null
+        val version = rs.getInt(1)
+        return if (rs.wasNull()) null else version.toString()
+    }
 
     private fun ensureHistoryTable(conn: Connection) {
         conn.createStatement().use {
@@ -83,15 +88,16 @@ internal class MigrationRunner(
             for (statement in SqlStatementSplitter.split(migration.sql)) {
                 conn.createStatement().use { it.execute(statement) }
             }
-            conn.prepareStatement(
-                "INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
-            ).use { ps ->
-                ps.setInt(1, migration.version)
-                ps.setString(2, migration.name)
-                ps.setString(3, migration.checksum)
-                ps.setString(4, Instant.now().toString())
-                ps.executeUpdate()
-            }
+            conn
+                .prepareStatement(
+                    "INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
+                ).use { ps ->
+                    ps.setInt(1, migration.version)
+                    ps.setString(2, migration.name)
+                    ps.setString(3, migration.checksum)
+                    ps.setString(4, Instant.now().toString())
+                    ps.executeUpdate()
+                }
             conn.commit()
         } catch (e: Exception) {
             conn.rollback()

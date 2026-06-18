@@ -9,66 +9,106 @@ package com.calypsan.listenup.server.db
  * are dropped; comments and internal semicolons are preserved verbatim.
  */
 internal object SqlStatementSplitter {
-    fun split(sql: String): List<String> {
-        val statements = mutableListOf<String>()
-        val current = StringBuilder()
-        var beginDepth = 0
-        var i = 0
-        val n = sql.length
-        while (i < n) {
+    fun split(sql: String): List<String> = Scan(sql).run()
+
+    /**
+     * Single-pass cursor over [sql]. Each lexical span (comment, quoted literal, word) is consumed
+     * by its own small method so no single function carries the whole scanner's complexity.
+     */
+    private class Scan(
+        private val sql: String,
+    ) {
+        private val statements = mutableListOf<String>()
+        private val current = StringBuilder()
+        private var i = 0
+        private var beginDepth = 0
+
+        fun run(): List<String> {
+            while (i < sql.length) step()
+            flush()
+            return statements
+        }
+
+        private fun step() {
             val c = sql[i]
             when {
-                c == '-' && i + 1 < n && sql[i + 1] == '-' -> {
-                    while (i < n && sql[i] != '\n') {
-                        current.append(sql[i]); i++
+                c == '-' && peek(1) == '-' -> consumeLineComment()
+                c == '/' && peek(1) == '*' -> consumeBlockComment()
+                c == '\'' || c == '"' -> consumeQuoted(c)
+                c.isLetter() -> consumeWord()
+                c == ';' && beginDepth == 0 -> terminate()
+                else -> appendCurrent()
+            }
+        }
+
+        private fun peek(offset: Int): Char? = sql.getOrNull(i + offset)
+
+        /** Appends the char at the cursor and advances past it. */
+        private fun appendCurrent() {
+            current.append(sql[i])
+            i++
+        }
+
+        private fun consumeLineComment() {
+            while (i < sql.length && sql[i] != '\n') appendCurrent()
+        }
+
+        private fun consumeBlockComment() {
+            current.append("/*")
+            i += 2
+            while (i < sql.length && !isBlockCommentEnd()) appendCurrent()
+            if (i < sql.length) {
+                current.append("*/")
+                i += 2
+            }
+        }
+
+        private fun isBlockCommentEnd(): Boolean = sql[i] == '*' && peek(1) == '/'
+
+        private fun consumeQuoted(quote: Char) {
+            appendCurrent() // opening quote
+            while (i < sql.length) {
+                val c = sql[i]
+                when {
+                    c == quote && peek(1) == quote -> {
+                        current.append(quote).append(quote) // doubled-quote escape
+                        i += 2
                     }
-                }
-                c == '/' && i + 1 < n && sql[i + 1] == '*' -> {
-                    current.append("/*"); i += 2
-                    while (i < n && !(sql[i] == '*' && i + 1 < n && sql[i + 1] == '/')) {
-                        current.append(sql[i]); i++
+
+                    c == quote -> {
+                        appendCurrent() // closing quote
+                        return
                     }
-                    if (i < n) {
-                        current.append("*/"); i += 2
+
+                    else -> {
+                        appendCurrent()
                     }
-                }
-                c == '\'' || c == '"' -> {
-                    val quote = c
-                    current.append(c); i++
-                    while (i < n) {
-                        current.append(sql[i])
-                        if (sql[i] == quote) {
-                            if (i + 1 < n && sql[i + 1] == quote) {
-                                current.append(sql[i + 1]); i += 2; continue
-                            }
-                            i++; break
-                        }
-                        i++
-                    }
-                }
-                c.isLetter() -> {
-                    val start = i
-                    while (i < n && (sql[i].isLetterOrDigit() || sql[i] == '_')) i++
-                    val word = sql.substring(start, i)
-                    current.append(word)
-                    when (word.uppercase()) {
-                        "BEGIN" -> beginDepth++
-                        "END" -> if (beginDepth > 0) beginDepth--
-                    }
-                }
-                c == ';' && beginDepth == 0 -> {
-                    val stmt = current.toString().trim()
-                    if (stmt.isNotEmpty()) statements.add(stmt)
-                    current.clear()
-                    i++
-                }
-                else -> {
-                    current.append(c); i++
                 }
             }
         }
-        val tail = current.toString().trim()
-        if (tail.isNotEmpty()) statements.add(tail)
-        return statements
+
+        private fun consumeWord() {
+            val start = i
+            while (i < sql.length && isWordChar(sql[i])) i++
+            val word = sql.substring(start, i)
+            current.append(word)
+            when (word.uppercase()) {
+                "BEGIN" -> beginDepth++
+                "END" -> if (beginDepth > 0) beginDepth--
+            }
+        }
+
+        private fun isWordChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_'
+
+        private fun terminate() {
+            flush()
+            i++
+        }
+
+        private fun flush() {
+            val stmt = current.toString().trim()
+            if (stmt.isNotEmpty()) statements.add(stmt)
+            current.clear()
+        }
     }
 }
