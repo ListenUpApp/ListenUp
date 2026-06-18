@@ -48,8 +48,9 @@ internal fun Route.accountRoutes(deps: WebDependencies) {
                     call.setCsrfCookie(token)
                     call.respondPage(title = "Sessions", csrfToken = token) { sessionsList(result.data) }
                 }
-                is AppResult.Failure ->
+                is AppResult.Failure -> {
                     call.respondText(sessionsErrorFragment(result.error.message), ContentType.Text.Html)
+                }
             }
         }
         delete("/{id}") {

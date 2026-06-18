@@ -12,7 +12,13 @@ import kotlinx.coroutines.sync.Mutex
  * refresh token and the cached access token in RAM only (never persisted). [refreshMutex]
  * single-flights token refresh so concurrent requests on the same browser session can't
  * present the same (rotating) refresh token twice and trip replay/family-revoke.
+ *
+ * Not a data class: reference equality is load-bearing — two concurrent requests must share
+ * the exact same in-memory instance for [refreshMutex] single-flight to work, so value-based
+ * `equals`/`hashCode` would be actively wrong. The mutable `@Volatile var` token state is the
+ * same design intent the `UseDataClass` rule steers away from.
  */
+@Suppress("UseDataClass")
 class WebSession(
     val sessionId: SessionId,
     val userId: UserId,

@@ -37,7 +37,9 @@ internal fun Route.entryRoutes(deps: WebDependencies) {
                     }
                 }
             }
-            is AppResult.Failure -> call.respondRedirect("/login")
+            is AppResult.Failure -> {
+                call.respondRedirect("/login")
+            }
         }
     }
 }

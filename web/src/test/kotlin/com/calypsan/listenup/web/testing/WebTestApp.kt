@@ -20,7 +20,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
  * client + a shared [store]. Tests get a cookie-aware, redirect-suppressing client so they
  * can assert on `Set-Cookie`, `Location`, and `HX-Redirect` directly.
  */
-internal class WebTestContext(
+internal data class WebTestContext(
     val fake: FakeLoopbackAuthClient,
     val store: WebSessionStore,
 )

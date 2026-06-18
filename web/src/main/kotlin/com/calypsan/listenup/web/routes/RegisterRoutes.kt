@@ -29,6 +29,7 @@ import io.ktor.server.routing.route
 // pending one locally too; mirror that convention here rather than scattering bare literals.
 private const val STATUS_APPROVED = "approved"
 private const val STATUS_DENIED = "denied"
+private const val HX_REDIRECT = "HX-Redirect"
 
 internal fun Route.registerRoutes(deps: WebDependencies) {
     route("/register") {
@@ -49,11 +50,11 @@ internal fun Route.registerRoutes(deps: WebDependencies) {
                     when (val outcome = result.data) {
                         is RegisterResult.Authenticated -> {
                             startWebSession(deps, call, outcome.session)
-                            call.response.header("HX-Redirect", "/")
+                            call.response.header(HX_REDIRECT, "/")
                             call.respondText("", ContentType.Text.Html)
                         }
                         is RegisterResult.PendingApproval -> {
-                            call.response.header("HX-Redirect", "/pending?userId=${outcome.userId.value}")
+                            call.response.header(HX_REDIRECT, "/pending?userId=${outcome.userId.value}")
                             call.respondText("", ContentType.Text.Html)
                         }
                     }
@@ -72,20 +73,22 @@ internal fun Route.registerRoutes(deps: WebDependencies) {
             is AppResult.Success ->
                 when (status.data.status) {
                     STATUS_APPROVED -> {
-                        call.response.header("HX-Redirect", "/login")
+                        call.response.header(HX_REDIRECT, "/login")
                         call.respondText("", ContentType.Text.Html)
                     }
                     // Terminal status. `hx-swap="innerHTML"` keeps the #pending-status div (and its
                     // `every 5s` poll + SSE reconnect) alive, so a denied registrant keeps polling
                     // until they navigate away. Benign but untidy — a future sse-close/trigger-stop
                     // fix should land before this pattern is copied to another SSE screen.
-                    STATUS_DENIED ->
+                    STATUS_DENIED -> {
                         call.respondText(
                             pendingDeniedFragment(status.data.message ?: "Your registration was denied."),
                             ContentType.Text.Html,
                         )
-                    else ->
+                    }
+                    else -> {
                         call.respondText(pendingWaitingFragment(), ContentType.Text.Html)
+                    }
                 }
             // Never-Stranded: a transient loopback failure shows the waiting message (the next
             // poll retries), not a dead-end error on a screen whose whole job is to wait.

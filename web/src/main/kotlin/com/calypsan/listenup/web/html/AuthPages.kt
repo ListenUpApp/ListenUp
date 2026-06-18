@@ -32,6 +32,18 @@ suspend fun ApplicationCall.respondPage(
 ) = respondHtml { appShell(title, csrfToken) { block() } }
 
 // ---------------------------------------------------------------------------
+// Shared string constants — extracted to satisfy detekt StringLiteralDuplication
+// ---------------------------------------------------------------------------
+
+private const val FIELD_LABEL_EMAIL = "Email"
+private const val FIELD_NAME_EMAIL = "email"
+private const val FIELD_LABEL_PASSWORD = "Password"
+private const val FIELD_NAME_PASSWORD = "password"
+private const val CSS_ERROR = "text-red-600"
+private const val HTMX_SWAP = "hx-swap"
+private const val LABEL_SIGN_IN = "Sign in"
+
+// ---------------------------------------------------------------------------
 // Shared field-list-driven form builder
 // ---------------------------------------------------------------------------
 
@@ -57,12 +69,12 @@ private fun DIV.authFormContent(
 ) {
     h1 { +heading }
     if (error != null) {
-        p(classes = "text-red-600") { +error }
+        p(classes = CSS_ERROR) { +error }
     }
     form {
         attributes["hx-post"] = action
         attributes["hx-target"] = "#auth-form"
-        attributes["hx-swap"] = "outerHTML"
+        attributes[HTMX_SWAP] = "outerHTML"
         fields.forEach { f ->
             label { attributes["for"] = f.id; +f.label }
             input(type = f.type, name = f.name) {
@@ -109,8 +121,8 @@ private fun authFormFragment(
 
 private fun loginFields(email: String): List<AuthField> =
     listOf(
-        AuthField("Email", "email", InputType.email, "login-email", value = email),
-        AuthField("Password", "password", InputType.password, "login-password"),
+        AuthField(FIELD_LABEL_EMAIL, FIELD_NAME_EMAIL, InputType.email, "login-email", value = email),
+        AuthField(FIELD_LABEL_PASSWORD, FIELD_NAME_PASSWORD, InputType.password, "login-password"),
     )
 
 /**
@@ -121,13 +133,13 @@ private fun loginFields(email: String): List<AuthField> =
 fun FlowContent.loginForm(
     email: String = "",
     error: String? = null,
-) = authFormDiv("Sign in", "/login", "Sign in", error, loginFields(email))
+) = authFormDiv(LABEL_SIGN_IN, "/login", LABEL_SIGN_IN, error, loginFields(email))
 
 /** htmx fragment for the login form. See [authFormFragment]. */
 fun loginFormFragment(
     email: String,
     error: String?,
-): String = authFormFragment("Sign in", "/login", "Sign in", error, loginFields(email))
+): String = authFormFragment(LABEL_SIGN_IN, "/login", LABEL_SIGN_IN, error, loginFields(email))
 
 // ---------------------------------------------------------------------------
 // Setup form (first-run owner account creation)
@@ -136,8 +148,8 @@ fun loginFormFragment(
 private val setupFields: List<AuthField> =
     listOf(
         AuthField("Display name", "displayName", InputType.text, "setup-display-name"),
-        AuthField("Email", "email", InputType.email, "setup-email"),
-        AuthField("Password", "password", InputType.password, "setup-password"),
+        AuthField(FIELD_LABEL_EMAIL, FIELD_NAME_EMAIL, InputType.email, "setup-email"),
+        AuthField(FIELD_LABEL_PASSWORD, FIELD_NAME_PASSWORD, InputType.password, "setup-password"),
     )
 
 /**
@@ -159,8 +171,8 @@ fun setupFormFragment(error: String?): String =
 private val registerFields: List<AuthField> =
     listOf(
         AuthField("Display name", "displayName", InputType.text, "register-display-name"),
-        AuthField("Email", "email", InputType.email, "register-email"),
-        AuthField("Password", "password", InputType.password, "register-password"),
+        AuthField(FIELD_LABEL_EMAIL, FIELD_NAME_EMAIL, InputType.email, "register-email"),
+        AuthField(FIELD_LABEL_PASSWORD, FIELD_NAME_PASSWORD, InputType.password, "register-password"),
     )
 
 /**
@@ -194,7 +206,7 @@ fun FlowContent.pendingBody(userId: String) {
             id = "pending-status"
             attributes["hx-get"] = "/pending/status?userId=$userId"
             attributes["hx-trigger"] = "sse:message, every 5s"
-            attributes["hx-swap"] = "innerHTML"
+            attributes[HTMX_SWAP] = "innerHTML"
             +PENDING_WAITING_MESSAGE
         }
     }
@@ -205,7 +217,7 @@ fun pendingWaitingFragment(): String = createHTML().p { +PENDING_WAITING_MESSAGE
 
 /** Fragment swapped into `#pending-status` when the registration was denied. */
 fun pendingDeniedFragment(reason: String): String =
-    createHTML().p(classes = "text-red-600") { +reason }
+    createHTML().p(classes = CSS_ERROR) { +reason }
 
 private const val PENDING_WAITING_MESSAGE = "Your account is awaiting administrator approval…"
 
@@ -230,7 +242,7 @@ private fun DIV.sessionsContent(sessions: List<SessionSummary>) {
                     button(type = ButtonType.button) {
                         attributes["hx-delete"] = "/account/sessions/${summary.id.value}"
                         attributes["hx-target"] = "#sessions"
-                        attributes["hx-swap"] = "outerHTML"
+                        attributes[HTMX_SWAP] = "outerHTML"
                         +"Revoke"
                     }
                 }
@@ -265,4 +277,4 @@ fun sessionsListFragment(sessions: List<SessionSummary>): String =
  * Error fragment for the sessions screen. Routed through kotlinx.html (not a raw HTML string)
  * so the message is HTML-escaped by construction — structural safety, not "trust the message".
  */
-fun sessionsErrorFragment(message: String): String = createHTML().p(classes = "text-red-600") { +message }
+fun sessionsErrorFragment(message: String): String = createHTML().p(classes = CSS_ERROR) { +message }

@@ -36,7 +36,9 @@ class WebSessionAuthenticator(
                         session.accessExpiresAt = rotated.accessTokenExpiresAt
                         rotated.accessToken
                     }
-                    is AppResult.Failure -> null
+                    is AppResult.Failure -> {
+                        null
+                    }
                 }
             }
         }

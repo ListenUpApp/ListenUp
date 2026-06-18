@@ -12,6 +12,8 @@ import io.ktor.util.date.GMTDate
 /** Opaque browser-session cookie (HttpOnly, SameSite=Lax). */
 const val SESSION_COOKIE: String = "lu_session"
 
+private const val LOGIN_PATH = "/login"
+
 /** What a protected handler gets after [requireWebSession] succeeds. */
 data class WebSessionContext(
     val session: WebSession,
@@ -75,20 +77,20 @@ suspend fun ApplicationCall.requireWebSession(
 ): WebSessionContext? {
     val cookieId = request.cookies[SESSION_COOKIE]
     if (cookieId == null) {
-        respondRedirect("/login")
+        respondRedirect(LOGIN_PATH)
         return null
     }
     val session = store.get(cookieId)
     if (session == null) {
         expireSessionCookie()
-        respondRedirect("/login")
+        respondRedirect(LOGIN_PATH)
         return null
     }
     val accessToken = authenticator.freshAccessToken(session)
     if (accessToken == null) {
         store.remove(cookieId)
         expireSessionCookie()
-        respondRedirect("/login")
+        respondRedirect(LOGIN_PATH)
         return null
     }
     return WebSessionContext(session, accessToken)

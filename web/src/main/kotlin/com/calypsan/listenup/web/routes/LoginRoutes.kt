@@ -25,8 +25,10 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 
+private const val LOGIN_PATH = "/login"
+
 internal fun Route.loginRoutes(deps: WebDependencies) {
-    route("/login") {
+    route(LOGIN_PATH) {
         install(CSRF, webCsrfConfig)
         get {
             val token = newCsrfToken()
@@ -54,11 +56,12 @@ internal fun Route.loginRoutes(deps: WebDependencies) {
                     call.response.header("HX-Redirect", "/")
                     call.respondText("", ContentType.Text.Html)
                 }
-                is AppResult.Failure ->
+                is AppResult.Failure -> {
                     call.respondText(
                         loginFormFragment(email = email, error = result.error.message),
                         ContentType.Text.Html,
                     )
+                }
             }
         }
     }
@@ -69,13 +72,13 @@ internal fun Route.loginRoutes(deps: WebDependencies) {
             when (val info = deps.loopback.serverInfo()) {
                 is AppResult.Success ->
                     if (!info.data.setupRequired) {
-                        call.respondRedirect("/login")
+                        call.respondRedirect(LOGIN_PATH)
                     } else {
                         val token = newCsrfToken()
                         call.setCsrfCookie(token)
                         call.respondPage(title = "Set up ListenUp", csrfToken = token) { setupForm() }
                     }
-                is AppResult.Failure -> call.respondRedirect("/login")
+                is AppResult.Failure -> call.respondRedirect(LOGIN_PATH)
             }
         }
         post {
@@ -90,8 +93,9 @@ internal fun Route.loginRoutes(deps: WebDependencies) {
                     call.response.header("HX-Redirect", "/")
                     call.respondText("", ContentType.Text.Html)
                 }
-                is AppResult.Failure ->
+                is AppResult.Failure -> {
                     call.respondText(setupFormFragment(result.error.message), ContentType.Text.Html)
+                }
             }
         }
     }
