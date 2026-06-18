@@ -46,6 +46,28 @@ data class ScanResult(
 )
 
 /**
+ * Returns a copy where every [AnalyzedBook] in both [ScanResult.books] and [ScanResult.changes]
+ * has artwork stripped via [AnalyzedBook.withoutArtwork].
+ *
+ * Used by [com.calypsan.listenup.server.scanner.Scanner] to build `lastResult`: the bus delivers
+ * the artwork-bearing result to `BookPersister` so covers are written to disk; `lastResult` stores
+ * the stripped copy so artwork bytes do not accumulate in heap across scans.
+ */
+fun ScanResult.withoutArtwork(): ScanResult =
+    copy(
+        books = books.map { it.withoutArtwork() },
+        changes =
+            changes.map { change ->
+                when (change) {
+                    is ChangeEventDto.Added -> change.copy(book = change.book.withoutArtwork())
+                    is ChangeEventDto.Modified -> change.copy(book = change.book.withoutArtwork())
+                    is ChangeEventDto.Moved -> change.copy(book = change.book.withoutArtwork())
+                    is ChangeEventDto.Removed -> change
+                }
+            },
+    )
+
+/**
  * Lightweight version of [ScanResult] returned by `scanFull()` over RPC and
  * embedded in completion SSE events. The full books list is fetchable via
  * `lastScanResult()` when needed — keeping it out of progress events keeps

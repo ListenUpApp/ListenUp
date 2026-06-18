@@ -81,13 +81,15 @@ fun scannerModule(
         }
         single<SharedFlow<ScanEvent>> { get<MutableSharedFlow<ScanEvent>>().asSharedFlow() }
 
-        // Scan-result bus: the BookPersister consumes the most recent ScanResult.
-        // replay = 1 lets a late subscriber pick up the last scan; DROP_OLDEST
-        // keeps a fast scan stream from ever blocking the Scanner. Qualified by
-        // name because Koin keys on the erased KClass — an unqualified
+        // Scan-result bus: the BookPersister consumes each ScanResult as it arrives.
+        // replay = 0: BookPersister subscribes before any scan starts, so no replay
+        // is needed — and replaying the last artwork-bearing result would re-pin
+        // ~230MB of embedded cover bytes in the SharedFlow's internal buffer between
+        // scans. DROP_OLDEST keeps a fast scan stream from ever blocking the Scanner.
+        // Qualified by name because Koin keys on the erased KClass — an unqualified
         // MutableSharedFlow<ScanResult> would collide with the ScanEvent bus.
         single<MutableSharedFlow<ScanResult>>(named("scanResultBus")) {
-            MutableSharedFlow(replay = 1, extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+            MutableSharedFlow(replay = 0, extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
         }
 
         single { AbsMetadataReader(contractJson) }

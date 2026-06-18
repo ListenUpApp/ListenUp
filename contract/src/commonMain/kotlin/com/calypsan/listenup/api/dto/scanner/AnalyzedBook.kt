@@ -62,3 +62,17 @@ data class AnalyzedBook(
      */
     val hasScanWarning: Boolean = false,
 )
+
+/**
+ * Returns a copy of this book with all embedded artwork bytes removed:
+ * - [AnalyzedBook.cover] that is [CoverSource.Embedded] → null (bytes freed; filesystem covers kept)
+ * - [AnalyzedBook.embedded].artwork → null (bytes freed; other embedded fields kept)
+ *
+ * Used by [com.calypsan.listenup.server.scanner.Scanner] to build the `lastResult` snapshot
+ * held between scans so artwork bytes are not retained indefinitely in heap after a scan completes.
+ */
+fun AnalyzedBook.withoutArtwork(): AnalyzedBook =
+    copy(
+        cover = if (cover is CoverSource.Embedded) null else cover,
+        embedded = embedded?.copy(artwork = null),
+    )
