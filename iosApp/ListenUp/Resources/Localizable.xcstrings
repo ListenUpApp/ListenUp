@@ -1141,6 +1141,66 @@
         }
       }
     },
+    "admin.restore_from_file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore from file"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_choose": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose backup file"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload a .listenup.zip backup file from your device."
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can restore a backup created on any ListenUp server, including one from a different machine. The file will be uploaded and staged, then you'll confirm the restore."
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_upload_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload failed"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_uploading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading %1$@…"
+          }
+        }
+      }
+    },
     "admin.restored_from": {
       "localizations": {
         "en": {

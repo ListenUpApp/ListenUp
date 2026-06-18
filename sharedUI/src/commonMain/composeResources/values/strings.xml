@@ -114,6 +114,12 @@
     <string name="admin_rescan_library">Rescan Library</string>
     <string name="admin_restore">Restore</string>
     <string name="admin_restore_backup">Restore Backup</string>
+    <string name="admin_restore_from_file">Restore from file</string>
+    <string name="admin_restore_from_file_choose">Choose backup file</string>
+    <string name="admin_restore_from_file_description">Upload a .listenup.zip backup file from your device.</string>
+    <string name="admin_restore_from_file_detail">You can restore a backup created on any ListenUp server, including one from a different machine. The file will be uploaded and staged, then you\'ll confirm the restore.</string>
+    <string name="admin_restore_from_file_upload_failed">Upload failed</string>
+    <string name="admin_restore_from_file_uploading">Uploading %1$s…</string>
     <string name="admin_restored_from">Restored from %1$s</string>
     <string name="admin_review_new_books_before_they">Review new books before they appear in library</string>
     <string name="admin_revoke_invite">Revoke Invite</string>

@@ -104,6 +104,7 @@ fun AdminBackupScreen(
     onBackClick: () -> Unit,
     onCreateClick: () -> Unit,
     onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit = {},
     onABSImportHubClick: (String) -> Unit,
     onNewImportClick: () -> Unit = {},
 ) {
@@ -174,6 +175,7 @@ fun AdminBackupScreen(
                 isLoadingImports = absImportListState is ABSImportListUiState.Loading,
                 modifier = Modifier.fillMaxSize(),
                 onRestoreClick = onRestoreClick,
+                onRestoreFromFileClick = onRestoreFromFileClick,
                 onDeleteClick = { backupViewModel.showDeleteConfirmation(it) },
                 onABSImportClick = onABSImportHubClick,
                 onDeleteImportClick = { deleteConfirmImport = it },
@@ -276,6 +278,7 @@ private fun AdminBackupBody(
     isLoadingImports: Boolean,
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit,
     onDeleteClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ABSImportSummary) -> Unit,
@@ -306,6 +309,7 @@ private fun AdminBackupBody(
                 isLoadingImports = isLoadingImports,
                 modifier = modifier,
                 onRestoreClick = onRestoreClick,
+                onRestoreFromFileClick = onRestoreFromFileClick,
                 onDeleteClick = onDeleteClick,
                 onABSImportClick = onABSImportClick,
                 onDeleteImportClick = onDeleteImportClick,
@@ -322,6 +326,7 @@ private fun AdminBackupReadyContent(
     isLoadingImports: Boolean,
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
+    onRestoreFromFileClick: () -> Unit,
     onDeleteClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ABSImportSummary) -> Unit,
@@ -331,6 +336,7 @@ private fun AdminBackupReadyContent(
         EmptyBackupState(
             modifier = modifier,
             onUploadABSBackup = onUploadABSBackup,
+            onRestoreFromFileClick = onRestoreFromFileClick,
         )
         return
     }
@@ -341,10 +347,16 @@ private fun AdminBackupReadyContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Backups section
+        item(key = "backups_header") {
+            SectionHeader(title = stringResource(Res.string.admin_backups))
+        }
+
+        // Restore-from-file card — prominent entry point, always shown at the top of the section.
+        item(key = "restore_from_file") {
+            RestoreFromFileCard(onClick = onRestoreFromFileClick)
+        }
+
         if (state.backups.isNotEmpty()) {
-            item(key = "backups_header") {
-                SectionHeader(title = stringResource(Res.string.admin_backups))
-            }
             items(state.backups, key = { "backup_${it.id}" }) { backup ->
                 BackupCard(
                     backup = backup,
@@ -491,6 +503,23 @@ private fun BackupCard(
             )
         }
     }
+}
+
+/**
+ * Color-blocked navigation tile for restoring a ListenUp backup from a local file — peer to
+ * [UploadABSBackupCard] so this entry point is equally prominent in the Backups section.
+ */
+@Composable
+private fun RestoreFromFileCard(onClick: () -> Unit) {
+    ActionTile(
+        title = "Restore from file",
+        subtitle = "Restore a ListenUp backup (.listenup.zip), even one from another server",
+        icon = Icons.Default.Restore,
+        onClick = onClick,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        badgeColor = MaterialTheme.colorScheme.secondary,
+        badgeContentColor = MaterialTheme.colorScheme.onSecondary,
+    )
 }
 
 /**
@@ -692,6 +721,7 @@ private fun StatusBadge(status: String) {
 private fun EmptyBackupState(
     modifier: Modifier = Modifier,
     onUploadABSBackup: () -> Unit,
+    onRestoreFromFileClick: () -> Unit,
 ) {
     Column(
         modifier =
@@ -724,6 +754,8 @@ private fun EmptyBackupState(
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(32.dp))
+        RestoreFromFileCard(onClick = onRestoreFromFileClick)
+        Spacer(modifier = Modifier.height(12.dp))
         UploadABSBackupCard(onClick = onUploadABSBackup)
     }
 }
