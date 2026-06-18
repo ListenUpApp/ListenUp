@@ -4,14 +4,13 @@ import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.web.testing.csrfToken
 import com.calypsan.listenup.web.testing.installTestWebUi
 import com.calypsan.listenup.web.testing.sampleAuthSession
 import com.calypsan.listenup.web.testing.webClient
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -25,9 +24,6 @@ private fun info(setupRequired: Boolean) =
         name = "ListenUp", version = "0.0.1", apiVersion = "v1",
         setupRequired = setupRequired, registrationPolicy = RegistrationPolicy.OPEN, instanceId = "i1",
     )
-
-private suspend fun HttpClient.csrfToken(): String =
-    cookies("http://localhost/").first { it.name == "lu_csrf" }.value
 
 class SetupRoutesTest :
     FunSpec({

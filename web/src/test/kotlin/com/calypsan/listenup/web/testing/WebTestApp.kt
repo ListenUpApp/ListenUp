@@ -9,6 +9,7 @@ import com.calypsan.listenup.web.session.WebSessionStore
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.cookies.HttpCookies
+import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
@@ -51,3 +52,7 @@ internal fun ApplicationTestBuilder.webClient(): HttpClient =
 internal fun HttpRequestBuilder.csrf(token: String) {
     header(CSRF_HEADER, token)
 }
+
+/** Read the current `lu_csrf` value from the cookie-aware client's jar (set on the form GET). */
+internal suspend fun HttpClient.csrfToken(): String =
+    cookies("http://localhost/").first { it.name == "lu_csrf" }.value

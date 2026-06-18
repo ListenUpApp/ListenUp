@@ -2,14 +2,13 @@ package com.calypsan.listenup.web.routes
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.web.testing.csrfToken
 import com.calypsan.listenup.web.testing.installTestWebUi
 import com.calypsan.listenup.web.testing.sampleAuthSession
 import com.calypsan.listenup.web.testing.webClient
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -18,9 +17,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.parameters
 import io.ktor.server.testing.testApplication
-
-private suspend fun HttpClient.csrfToken(): String =
-    cookies("http://localhost/").first { it.name == "lu_csrf" }.value
 
 class LoginRoutesTest :
     FunSpec({

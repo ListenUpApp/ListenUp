@@ -42,11 +42,6 @@ internal fun Route.entryRoutes(deps: WebDependencies) {
     }
 }
 
-/** Register + pending. Filled in Task 6. */
-internal fun Route.registerRoutes(deps: WebDependencies) {
-    // Task 6
-}
-
 /** Logout + active sessions. Filled in Task 7. */
 internal fun Route.accountRoutes(deps: WebDependencies) {
     // Task 7

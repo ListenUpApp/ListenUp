@@ -3,7 +3,11 @@ package com.calypsan.listenup.web.routes
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import io.ktor.http.Parameters
 
-/** User-facing message when the email/displayName/password fail [RegisterRequest]'s validation. */
+/**
+ * User-facing message when the email/displayName/password fail [RegisterRequest]'s validation.
+ * Intentionally collapses three distinct failures (too-short password, too-long password, blank
+ * display name) into one message — acceptable for the self-host first-run/register screens.
+ */
 internal const val INVALID_REGISTRATION_INPUT: String =
     "Enter a valid email, a display name, and a password of at least 8 characters."
 
