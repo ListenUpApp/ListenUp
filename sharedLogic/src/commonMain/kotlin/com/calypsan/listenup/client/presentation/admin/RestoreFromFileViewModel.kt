@@ -10,9 +10,10 @@ import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -24,7 +25,8 @@ class RestoreFromFileViewModel(
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<RestoreFromFileUiState>(RestoreFromFileUiState.Idle)
-    val state: StateFlow<RestoreFromFileUiState> = _state.asStateFlow()
+    val state: StateFlow<RestoreFromFileUiState> =
+        _state.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RestoreFromFileUiState.Idle)
 
     private val _navigation = Channel<BackupId>(Channel.BUFFERED)
 

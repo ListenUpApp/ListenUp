@@ -18,6 +18,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -70,6 +71,8 @@ class RestoreFromFileViewModelTest :
                 everySuspend { repo.uploadBackup(any()) } returns AppResult.Failure(TransportError.Timeout())
                 val errorBus = ErrorBus()
                 val vm = RestoreFromFileViewModel(repo, errorBus)
+                // Keep the WhileSubscribed `state` hot so its value reflects the VM's updates.
+                backgroundScope.launch { vm.state.collect { } }
                 errorBus.errors.test {
                     vm.onFilePicked(fakeFileSource("x.listenup.zip"))
                     advanceUntilIdle()
