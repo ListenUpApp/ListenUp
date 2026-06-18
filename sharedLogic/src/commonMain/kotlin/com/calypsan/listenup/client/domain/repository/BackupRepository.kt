@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.core.FileSource
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -20,6 +21,13 @@ import kotlinx.coroutines.flow.Flow
  * RPC proxy via [com.calypsan.listenup.client.data.remote.BackupRpcFactory].
  */
 interface BackupRepository {
+    /**
+     * Upload a ListenUp `.listenup.zip` backup file (streaming) to be staged on the server.
+     * Returns the staged [BackupSummary] whose id feeds [restoreBackup]. The one REST op here —
+     * binary multipart cannot ride RPC.
+     */
+    suspend fun uploadBackup(fileSource: FileSource): AppResult<BackupSummary>
+
     /**
      * Initiates backup creation on the server and waits for the resulting
      * [BackupSummary]. Pass [includeImages] to include the covers/avatars
