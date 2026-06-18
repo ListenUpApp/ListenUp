@@ -107,9 +107,8 @@ kotlin {
 
             // RPC guard runtime helpers — used by rpc-guard-ksp generated code.
             // These live in jvmMain so KSP-generated *Guarded classes (also jvmMain)
-            // can compile against them. The desktop client carries them on its classpath
-            // but never calls them; the server provides Micrometer at runtime.
-            implementation(libs.micrometer.core)
+            // can compile against them. The desktop client carries them on its
+            // classpath but never calls them.
             implementation(libs.kotlinx.coroutines.slf4j)
         }
 
@@ -178,7 +177,7 @@ room {
 // rpc-guard-ksp runs on kspJvm only: it discovers @Rpc interfaces in commonMain
 // and emits *Guarded decorator classes + RpcGuardDispatcher into the JVM source
 // set. These generated classes compile against the rpcguard runtime helpers in
-// jvmMain (RpcGuardMetrics, withMdc, currentCorrelationId) and are consumed by
+// jvmMain (withMdc, currentCorrelationId) and are consumed by
 // :server transitively via the shared JVM artifact.
 dependencies {
     // Android target

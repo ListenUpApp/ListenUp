@@ -24,7 +24,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 
@@ -74,8 +73,6 @@ class AuthServicePublicGuardedBehaviorTest :
         }
 
         test("escaped RuntimeException becomes AppResult.Failure(InternalError) with cause set") {
-            val registry = SimpleMeterRegistry()
-            RpcGuardMetrics.installGlobal(registry)
             val delegate = mock<AuthServicePublic>()
             everySuspend { delegate.login(sampleLogin) } throws RuntimeException("boom")
             val guard = AuthServicePublicGuarded(delegate)
@@ -90,17 +87,6 @@ class AuthServicePublicGuardedBehaviorTest :
                 err.correlationId!!.length shouldBe 36
                 err.debugInfo!! shouldContain "boom"
             }
-
-            registry
-                .counter(
-                    "rpc_uncaught_exceptions_total",
-                    "service",
-                    "AuthServicePublic",
-                    "method",
-                    "login",
-                    "cause",
-                    "RuntimeException",
-                ).count() shouldBe 1.0
         }
 
         test("CancellationException propagates without conversion") {
