@@ -67,6 +67,9 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onBackupClick = {
                 backStack.add(AdminBackups)
             },
+            onInboxClick = {
+                backStack.add(AdminInbox)
+            },
             onUserClick = { userId ->
                 backStack.add(AdminUserDetail(userId))
             },

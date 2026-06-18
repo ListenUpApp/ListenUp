@@ -67,9 +67,11 @@
     <string name="admin_import_sessions_progress">Sessions: %1$d/%2$d</string>
     <string name="admin_import_users_progress">Users: %1$d/%2$d</string>
     <string name="admin_in_this_collection">in this collection</string>
+    <string name="admin_inbox">Inbox</string>
     <string name="admin_inbox_empty">Inbox Empty</string>
     <string name="admin_inbox_setting_subtitle">New books wait in the inbox until an admin releases them.</string>
     <string name="admin_inbox_setting_title">Hold new books for review</string>
+    <string name="admin_inbox_subtitle">Review and release new books waiting for approval.</string>
     <string name="admin_inbox_workflow">Inbox Workflow</string>
     <string name="admin_info_emoji">ℹ️</string>
     <string name="admin_invite_created">Invite Created!</string>

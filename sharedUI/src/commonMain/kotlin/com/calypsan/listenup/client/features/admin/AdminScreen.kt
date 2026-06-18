@@ -82,6 +82,8 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_inbox
+import listenup.composeapp.generated.resources.admin_inbox_subtitle
 import listenup.composeapp.generated.resources.admin_inbox_setting_subtitle
 import listenup.composeapp.generated.resources.admin_inbox_setting_title
 import listenup.composeapp.generated.resources.admin_backup_restore
@@ -139,6 +141,7 @@ fun AdminScreen(
     onCollectionsClick: () -> Unit = {},
     onCategoriesClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
+    onInboxClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
     serverName: String = "",
     onServerNameChange: (String) -> Unit = {},
@@ -222,6 +225,7 @@ fun AdminScreen(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
+                    onInboxClick = onInboxClick,
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
@@ -320,6 +324,7 @@ private fun AdminContent(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
+    onInboxClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
@@ -347,6 +352,7 @@ private fun AdminContent(
             onCollectionsClick = onCollectionsClick,
             onCategoriesClick = onCategoriesClick,
             onBackupClick = onBackupClick,
+            onInboxClick = onInboxClick,
             serverName = serverName,
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
@@ -394,6 +400,8 @@ private fun AdminContent(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
+                    onInboxClick = onInboxClick,
+                    inboxEnabled = inboxEnabled,
                 )
             }
         }
@@ -416,6 +424,7 @@ private fun AdminTwoPaneContent(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
+    onInboxClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
@@ -469,6 +478,8 @@ private fun AdminTwoPaneContent(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
+                    onInboxClick = onInboxClick,
+                    inboxEnabled = inboxEnabled,
                 )
             }
         }
@@ -902,6 +913,8 @@ private fun ManagementSection(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
+    onInboxClick: () -> Unit,
+    inboxEnabled: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -912,6 +925,17 @@ private fun ManagementSection(
             color = colors.onSurface,
             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
         )
+        if (inboxEnabled) {
+            ActionTile(
+                title = stringResource(Res.string.admin_inbox),
+                subtitle = stringResource(Res.string.admin_inbox_subtitle),
+                icon = Icons.Outlined.Inbox,
+                onClick = onInboxClick,
+                containerColor = colors.tertiaryContainer,
+                badgeColor = colors.tertiary,
+                badgeContentColor = colors.onTertiary,
+            )
+        }
         ActionTile(
             title = stringResource(Res.string.admin_invite_someone),
             subtitle = stringResource(Res.string.admin_share_your_audiobook_library_with),

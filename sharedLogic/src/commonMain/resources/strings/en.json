@@ -974,6 +974,8 @@
     "view_the_genre_hierarchy_tree": "View the genre hierarchy tree",
     "what_to_include": "What to include",
     "whos_joining": "Who's joining",
+    "inbox": "Inbox",
+    "inbox_subtitle": "Review and release new books waiting for approval.",
     "inbox_setting_title": "Hold new books for review",
     "inbox_setting_subtitle": "New books wait in the inbox until an admin releases them."
   },
