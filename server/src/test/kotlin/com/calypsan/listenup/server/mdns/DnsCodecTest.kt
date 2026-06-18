@@ -56,6 +56,25 @@ class DnsCodecTest :
             String(packet, Charsets.US_ASCII) shouldContain "name=ListenUp"
         }
 
+        test("encodeResponse owns the host (SRV target + A) under hostLabel, not the instance name") {
+            // The host record must resolve to OUR unique label so it can't be answered by the host's
+            // avahi for the OS hostname (which would inject every interface address, docker/VPN incl.).
+            val service =
+                MdnsServiceInfo(
+                    instanceName = "omarchy",
+                    port = 8080,
+                    txt = linkedMapOf("id" to "abc"),
+                    hostLabel = "listenup-abc",
+                )
+            val packet = DnsCodec.encodeResponse(service, ipv4 = byteArrayOf(192.toByte(), 168.toByte(), 86, 39), ttlSeconds = 120)
+            val wire = String(packet, Charsets.US_ASCII)
+
+            // The service instance still browses under the instance label…
+            wire shouldContain "omarchy"
+            // …but the SRV target / A owner is the unique host label.
+            wire shouldContain "listenup-abc"
+        }
+
         test("encodeResponse emits a remote= TXT pair when present") {
             val service =
                 MdnsServiceInfo(

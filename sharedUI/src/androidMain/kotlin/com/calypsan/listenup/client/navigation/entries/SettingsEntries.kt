@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.navigation.Devices
+import com.calypsan.listenup.client.navigation.LicenseDetail
 import com.calypsan.listenup.client.navigation.Licenses
 import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Storage
@@ -33,9 +34,14 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
     }
     entry<Licenses> {
         com.calypsan.listenup.client.features.settings.LicensesScreen(
-            onNavigateBack = {
-                backStack.removeAt(backStack.lastIndex)
-            },
+            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+            onLicenseClick = { backStack.add(LicenseDetail(it)) },
+        )
+    }
+    entry<LicenseDetail> { args ->
+        com.calypsan.listenup.client.features.settings.LicenseDetailScreen(
+            uniqueId = args.uniqueId,
+            onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
         )
     }
     entry<Storage> {

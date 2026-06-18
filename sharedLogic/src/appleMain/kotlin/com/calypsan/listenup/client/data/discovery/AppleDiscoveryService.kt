@@ -111,25 +111,27 @@ class AppleDiscoveryService : ServerDiscoveryService {
         val port = service.port.toInt()
         val serviceName = service.name
 
-        // Extract IPv4 address directly from resolved addresses.
+        // Extract IPv4 addresses directly from resolved addresses, best-first.
         // Using the IP avoids slow mDNS hostname resolution on every HTTP request.
-        // NSNetService.addresses contains sockaddr structs with actual IPs.
-        val ipAddress = extractIPv4Address(service)
+        // NSNetService.addresses contains sockaddr structs with actual IPs; a multi-homed server
+        // resolves to several, and the first can be unroutable — keep them all for fallback.
+        val ipAddresses = extractIPv4Addresses(service)
         val rawHostName = service.hostName
 
-        val hostName =
-            if (ipAddress != null) {
-                logger.debug { "Resolved $serviceName to IP: $ipAddress (hostname: $rawHostName)" }
-                ipAddress
+        val rankedHosts =
+            if (ipAddresses.isNotEmpty()) {
+                logger.debug { "Resolved $serviceName to IPs: $ipAddresses (hostname: $rawHostName)" }
+                rankHostAddresses(ipAddresses)
             } else if (rawHostName != null) {
                 // Fallback to hostname if IP extraction fails
                 val normalized = normalizeHostname(rawHostName)
                 logger.warn { "Could not extract IP for $serviceName, falling back to hostname: $normalized" }
-                normalized
+                listOf(normalized)
             } else {
                 logger.warn { "Resolved service has no host or addresses: $serviceName" }
                 return
             }
+        val hostName = rankedHosts.first()
 
         val txtData = service.TXTRecordData()
         val txtRecords = parseTxtRecords(txtData)
@@ -149,6 +151,7 @@ class AppleDiscoveryService : ServerDiscoveryService {
                 apiVersion = txtRecords["api"] ?: "v1",
                 serverVersion = txtRecords["version"] ?: "unknown",
                 remoteUrl = txtRecords["remote"],
+                additionalHosts = rankedHosts.drop(1),
             )
 
         pendingServices.remove(serviceName)
@@ -177,16 +180,18 @@ class AppleDiscoveryService : ServerDiscoveryService {
     }
 
     /**
-     * Extract the first IPv4 address from NSNetService resolved addresses.
+     * Extract every IPv4 address from NSNetService resolved addresses, in announced order.
      *
      * NSNetService.addresses contains NSData objects wrapping sockaddr structs.
-     * We parse these to find the first AF_INET (IPv4) address and format it
-     * as a dotted-quad string. This avoids mDNS resolution on every HTTP
-     * request, which can add 5-25 seconds of latency on iOS.
+     * We parse these to find each AF_INET (IPv4) address and format it as a dotted-quad
+     * string. Using the IPs avoids mDNS resolution on every HTTP request, which can add
+     * 5-25 seconds of latency on iOS; collecting all of them lets the connect path fall
+     * back when the first is unroutable.
      */
     @Suppress("MagicNumber")
-    private fun extractIPv4Address(service: NSNetService): String? {
-        val addresses = service.addresses ?: return null
+    private fun extractIPv4Addresses(service: NSNetService): List<String> {
+        val addresses = service.addresses ?: return emptyList()
+        val result = mutableListOf<String>()
 
         for (i in 0 until addresses.count()) {
             val data = addresses[i] as? NSData ?: continue
@@ -208,10 +213,10 @@ class AppleDiscoveryService : ServerDiscoveryService {
             val b = bytes[5].toInt() and 0xFF
             val c = bytes[6].toInt() and 0xFF
             val d = bytes[7].toInt() and 0xFF
-            return "$a.$b.$c.$d"
+            result += "$a.$b.$c.$d"
         }
 
-        return null
+        return result
     }
 
     /**

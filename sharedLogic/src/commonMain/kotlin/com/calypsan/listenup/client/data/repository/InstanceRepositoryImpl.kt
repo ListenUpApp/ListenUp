@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.appJson
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
@@ -33,6 +34,13 @@ private const val REQUEST_TIMEOUT_MS = 30_000L
 private const val CONNECT_TIMEOUT_MS = 10_000L
 private const val SOCKET_TIMEOUT_MS = 30_000L
 
+// Window within which a repeat probe of the SAME ws URL reuses the prior success instead of opening a
+// fresh kRPC WebSocket. Picker-select fires two probes ~100ms apart — findReachableUrl, then
+// checkServerStatus — and opening that second socket so soon after the first hangs (the server accepts
+// the upgrade but never answers the call). Kept well under the reconnection-probe cadence (5s) so
+// periodic liveness checks still hit the network.
+private const val PROBE_COALESCE_WINDOW_MS = 2_000L
+
 /**
  * [InstanceRepository] split across two transports:
  *  - **Verification + the screen-one [getServerInfo] probe** go over the
@@ -53,6 +61,15 @@ class InstanceRepositoryImpl(
     private val persistRemoteUrl: suspend (String?) -> Unit,
 ) : InstanceRepository {
     private var cachedServerInfo: ServerInfo? = null
+
+    /** The most recent successful probe, used to coalesce rapid duplicate probes (see [callServerInfo]). */
+    private var lastProbe: ProbeResult? = null
+
+    private data class ProbeResult(
+        val wsBaseUrl: String,
+        val serverInfo: ServerInfo,
+        val atMillis: Long,
+    )
 
     override suspend fun getServerInfo(forceRefresh: Boolean): AppResult<ServerInfo> {
         if (!forceRefresh) {
@@ -143,17 +160,35 @@ class InstanceRepositoryImpl(
      * transport exception is mapped by [Failure]. `CancellationException` is
      * re-raised per coroutines convention.
      */
-    private suspend fun callServerInfo(wsBaseUrl: String): AppResult<ServerInfo> =
-        try {
-            when (val result = instanceRpcFactory.getServerInfo(wsBaseUrl)) {
-                is RpcResult.Success -> AppResult.Success(result.data)
-                is RpcResult.Failure -> AppResult.Failure(result.error)
+    private suspend fun callServerInfo(wsBaseUrl: String): AppResult<ServerInfo> {
+        lastProbe?.let { recent ->
+            if (recent.wsBaseUrl == wsBaseUrl &&
+                currentEpochMilliseconds() - recent.atMillis < PROBE_COALESCE_WINDOW_MS
+            ) {
+                logger.debug {
+                    "Reusing probe of $wsBaseUrl from ${currentEpochMilliseconds() - recent.atMillis}ms ago"
+                }
+                return AppResult.Success(recent.serverInfo)
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Failure(e)
         }
+
+        val result =
+            try {
+                when (val rpcResult = instanceRpcFactory.getServerInfo(wsBaseUrl)) {
+                    is RpcResult.Success -> AppResult.Success(rpcResult.data)
+                    is RpcResult.Failure -> AppResult.Failure(rpcResult.error)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Failure(e)
+            }
+
+        if (result is AppResult.Success) {
+            lastProbe = ProbeResult(wsBaseUrl, result.data, currentEpochMilliseconds())
+        }
+        return result
+    }
 
     /**
      * Normalize URL by adding protocol if missing.

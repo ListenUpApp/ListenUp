@@ -5321,6 +5321,16 @@
         }
       }
     },
+    "devices.current_session": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current session"
+          }
+        }
+      }
+    },
     "devices.empty": {
       "localizations": {
         "en": {
@@ -5356,7 +5366,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Swipe a device left to sign it out. This ends its session and removes its downloads."
+            "value": "Signing out a device ends its playback sessions and removes its downloads."
           }
         }
       }
@@ -5386,7 +5396,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign Out All Other Devices"
+            "value": "Sign out all other devices"
+          }
+        }
+      }
+    },
+    "devices.sign_out_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out device"
           }
         }
       }
@@ -5407,6 +5427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign out of all devices, including this one?"
+          }
+        }
+      }
+    },
+    "devices.signed_in_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d signed in"
           }
         }
       }
@@ -9046,7 +9076,17 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "open-source libraries"
+            "value": "libraries"
+          }
+        }
+      }
+    },
+    "licenses.families_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "across %1$d license families"
           }
         }
       }
@@ -9056,7 +9096,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ListenUp is built with open-source software. Tap a library to read its full license."
+            "value": "ListenUp is built with open-source software. Thank you to everyone who contributed."
           }
         }
       }
@@ -9067,6 +9107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Library not found."
+          }
+        }
+      }
+    },
+    "licenses.overline_open_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Source"
           }
         }
       }
@@ -9087,6 +9137,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Libraries"
+          }
+        }
+      }
+    },
+    "licenses.subtitle_makes_possible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "that make ListenUp possible"
+          }
+        }
+      }
+    },
+    "licenses.text_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License text is not available for this library."
+          }
+        }
+      }
+    },
+    "licenses.version_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%1$@"
+          }
+        }
+      }
+    },
+    "licenses.view_license": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View license"
           }
         }
       }

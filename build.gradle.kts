@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.kotlinJvm) apply false
     alias(libs.plugins.androidx.baselineprofile) apply false
+    alias(libs.plugins.aboutlibraries) apply false
 
     // Quality Tools
     alias(libs.plugins.detekt)

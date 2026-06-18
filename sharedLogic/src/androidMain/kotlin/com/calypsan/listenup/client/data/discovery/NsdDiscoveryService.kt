@@ -210,7 +210,10 @@ class NsdDiscoveryService(
     }
 
     private fun parseDiscoveredServer(serviceInfo: NsdServiceInfo): DiscoveredServer? {
-        val host = getHostAddress(serviceInfo) ?: return null
+        // All resolved addresses, best-first: a multi-homed server resolves to several, and the first
+        // NsdManager returns can be unroutable (a docker-bridge / VPN address). Keep them all.
+        val hosts = getHostAddresses(serviceInfo)
+        val host = hosts.firstOrNull() ?: return null
         val port = serviceInfo.port
 
         // Parse TXT records (available on Android 7.0+)
@@ -230,16 +233,19 @@ class NsdDiscoveryService(
             apiVersion = apiVersion,
             serverVersion = serverVersion,
             remoteUrl = remoteUrl,
+            additionalHosts = hosts.drop(1),
         )
     }
 
     @Suppress("DEPRECATION")
-    private fun getHostAddress(serviceInfo: NsdServiceInfo): String? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            serviceInfo.hostAddresses.firstOrNull()?.hostAddress
-        } else {
-            serviceInfo.host?.hostAddress
-        }
+    private fun getHostAddresses(serviceInfo: NsdServiceInfo): List<String> =
+        rankHostAddresses(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                serviceInfo.hostAddresses.mapNotNull { it.hostAddress }
+            } else {
+                listOfNotNull(serviceInfo.host?.hostAddress)
+            },
+        )
 
     private fun parseTxtRecords(serviceInfo: NsdServiceInfo): Map<String, String> {
         val result = mutableMapOf<String, String>()

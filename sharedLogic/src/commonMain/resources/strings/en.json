@@ -795,25 +795,20 @@
   },
   "devices": {
     "active": "Active",
+    "current_session": "Current session",
     "empty": "No other devices.",
     "last_active": "Last active %1$s",
     "manage_active_sessions": "Manage your active sessions",
-    "note_sign_out_effect": "Swipe a device left to sign it out. This ends its session and removes its downloads.",
+    "note_sign_out_effect": "Signing out a device ends its playback sessions and removes its downloads.",
     "other_devices": "Other Devices",
     "sign_out": "Sign out",
-    "sign_out_all_others": "Sign Out All Other Devices",
+    "sign_out_all_others": "Sign out all other devices",
+    "sign_out_device": "Sign out device",
     "sign_out_everywhere": "Sign out everywhere",
     "sign_out_everywhere_confirm": "Sign out of all devices, including this one?",
+    "signed_in_count": "%1$d signed in",
     "this_device": "This device",
     "title": "Devices"
-  },
-  "licenses": {
-    "count_suffix": "open-source libraries",
-    "footer": "ListenUp is built with open-source software. Tap a library to read its full license.",
-    "not_found": "Library not found.",
-    "search_placeholder": "Search libraries",
-    "section_libraries": "Libraries",
-    "view_project": "View project"
   },
   "admin": {
     "1_day": "1 day",
@@ -1136,13 +1131,11 @@
     "flow_step_apply": "Apply",
     "flow_step_done": "Done",
     "flow_eyebrow": "ABS Import",
-    "data_stays_on_server": "Your data stays on your server",
     "keep_app_open": "Keep the app open until this finishes",
     "writing_history_title": "Writing history",
     "writing_history_subtitle": "Merging sessions into the database",
     "items_written_label": "items written",
     "currently_writing_label": "Currently writing",
-    "users_in_backup": "Users in backup",
     "to_review_count": "%1$s to review",
     "stat_sessions_written": "Sessions written",
     "stat_users_merged": "Users merged",
@@ -1283,5 +1276,19 @@
     "error_invalid": "This invite isn't valid.",
     "have_invite_prompt": "Have an invite code?",
     "enter_code": "Enter code"
+  },
+  "licenses": {
+    "overline_open_source": "Open Source",
+    "count_suffix": "libraries",
+    "subtitle_makes_possible": "that make ListenUp possible",
+    "section_libraries": "Libraries",
+    "search_placeholder": "Search libraries",
+    "footer": "ListenUp is built with open-source software. Thank you to everyone who contributed.",
+    "view_license": "View license",
+    "text_unavailable": "License text is not available for this library.",
+    "families_subtitle": "across %1$d license families",
+    "version_prefix": "v%1$s",
+    "not_found": "Library not found.",
+    "view_project": "View project"
   }
 }
