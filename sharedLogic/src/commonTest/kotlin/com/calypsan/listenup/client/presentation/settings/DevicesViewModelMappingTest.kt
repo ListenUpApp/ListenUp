@@ -36,8 +36,7 @@ class DevicesViewModelMappingTest :
                     )
                 val repo =
                     object : MappingFakeAuthRepository() {
-                        override suspend fun listSessions(): AppResult<List<SessionSummary>> =
-                            AppResult.Success(listOf(summary))
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(listOf(summary))
                     }
                 val vm = DevicesViewModel(repo)
                 vm.uiState.test {

@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 class RelativeLastActiveTest :
     FunSpec({
         val now = 1_700_000_000_000L
+
         fun ago(ms: Long) = now - ms
         val minute = 60_000L
         val hour = 60 * minute

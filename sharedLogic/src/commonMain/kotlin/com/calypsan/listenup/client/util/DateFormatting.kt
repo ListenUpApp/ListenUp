@@ -85,16 +85,34 @@ fun relativeLastActive(
     val hours = deltaMs / MILLIS_PER_HOUR
     val days = (deltaMs / MILLIS_PER_DAY).toInt()
     return when {
-        minutes < 1 -> "Just now"
-        minutes < MINUTES_PER_HOUR -> if (minutes == 1L) "1 minute ago" else "$minutes minutes ago"
-        hours < HOURS_PER_DAY -> if (hours == 1L) "1 hour ago" else "$hours hours ago"
-        days < 2 -> "Yesterday"
-        days < DAYS_PER_WEEK -> "$days days ago"
+        minutes < 1 -> {
+            "Just now"
+        }
+
+        minutes < MINUTES_PER_HOUR -> {
+            if (minutes == 1L) "1 minute ago" else "$minutes minutes ago"
+        }
+
+        hours < HOURS_PER_DAY -> {
+            if (hours == 1L) "1 hour ago" else "$hours hours ago"
+        }
+
+        days < 2 -> {
+            "Yesterday"
+        }
+
+        days < DAYS_PER_WEEK -> {
+            "$days days ago"
+        }
+
         days < MONTH_YEAR_THRESHOLD_DAYS -> {
             val weeks = days / DAYS_PER_WEEK
             if (weeks == 1) "1 week ago" else "$weeks weeks ago"
         }
-        else -> formatDate(lastUsedAtMs, "MMMM yyyy")
+
+        else -> {
+            formatDate(lastUsedAtMs, "MMMM yyyy")
+        }
     }
 }
 
