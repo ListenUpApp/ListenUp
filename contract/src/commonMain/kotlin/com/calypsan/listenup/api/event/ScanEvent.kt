@@ -11,9 +11,8 @@ import kotlinx.serialization.Serializable
  * Server-to-client streaming events emitted during and after a scan. Every
  * event carries `correlationId` so a client can disambiguate concurrent
  * server-side scans (a watcher-driven incremental can run after a manual
- * full scan ends — the IDs differentiate the streams), and `libraryId` so a
- * multi-library client can route events to the correct library's view without
- * parsing the correlationId.
+ * full scan ends — the IDs differentiate the streams), and `libraryId` so the
+ * client can route events to the library's view without parsing the correlationId.
  *
  * Throughput: `Progress` is throttled at the scanner to at most one emit
  * per ~200ms; `Change` and `Started`/`Completed` are emitted at their
