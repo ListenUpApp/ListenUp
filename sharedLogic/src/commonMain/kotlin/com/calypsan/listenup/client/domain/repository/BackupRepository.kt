@@ -35,7 +35,10 @@ interface BackupRepository {
      * backups stay memory-safe. This method writes and flushes [sink] but does **not** close it —
      * the caller owns the sink's lifecycle. The one REST download op; file transfer cannot ride RPC.
      */
-    suspend fun downloadBackup(id: BackupId, sink: RawSink): AppResult<Unit>
+    suspend fun downloadBackup(
+        id: BackupId,
+        sink: RawSink,
+    ): AppResult<Unit>
 
     /**
      * Initiates backup creation on the server and waits for the resulting

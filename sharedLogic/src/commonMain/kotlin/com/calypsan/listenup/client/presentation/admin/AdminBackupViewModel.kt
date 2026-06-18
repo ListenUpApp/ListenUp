@@ -150,7 +150,10 @@ class AdminBackupViewModel(
                     sink.close()
                 }
             when (result) {
-                is AppResult.Success -> _downloadSaved.trySend(Unit)
+                is AppResult.Success -> {
+                    _downloadSaved.trySend(Unit)
+                }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to download backup: ${result.error.message}" }

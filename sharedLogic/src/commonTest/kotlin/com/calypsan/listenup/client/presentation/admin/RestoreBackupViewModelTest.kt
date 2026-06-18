@@ -215,7 +215,10 @@ private class FakeRestoreBackupRepository(
 
     override suspend fun uploadBackup(fileSource: com.calypsan.listenup.core.FileSource): AppResult<BackupSummary> = AppResult.Failure(stubError)
 
-    override suspend fun downloadBackup(id: BackupId, sink: RawSink): AppResult<Unit> = AppResult.Failure(stubError)
+    override suspend fun downloadBackup(
+        id: BackupId,
+        sink: RawSink,
+    ): AppResult<Unit> = AppResult.Failure(stubError)
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> = AppResult.Failure(stubError)
 
