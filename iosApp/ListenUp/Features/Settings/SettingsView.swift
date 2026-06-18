@@ -10,9 +10,10 @@ import SwiftUI
 /// destructive action behind a confirmation.
 ///
 /// Only settings the VM actually exposes are shown. The mockup's storage meter,
-/// Devices, Open Source Licenses, and Now Playing wallpaper rows are intentionally
-/// omitted — they have no `SettingsViewModel` backing yet. The Administration row is
-/// shown only to admin / root users (`User_.isAdmin`) and pushes `AdminView`.
+/// Open Source Licenses, and Now Playing wallpaper rows are intentionally omitted —
+/// they have no `SettingsViewModel` backing yet. The Administration row is shown only
+/// to admin / root users (`User_.isAdmin`) and pushes `AdminView`. The Devices row
+/// is now present and pushes `DevicesView`.
 struct SettingsView: View {
     @Environment(\.dependencies) private var deps
     @Environment(CurrentUserObserver.self) private var currentUser
@@ -250,6 +251,15 @@ struct SettingsView: View {
     @ViewBuilder
     private func accountInfoSection(_ observer: SettingsObserver) -> some View {
         Section(String(localized: "common.account")) {
+            NavigationLink(value: DevicesDestination()) {
+                SettingsLabel(
+                    title: String(localized: "settings.devices"),
+                    subtitle: String(localized: "settings.manage_active_sessions"),
+                    systemImage: "iphone.gen3",
+                    tint: .blue
+                )
+            }
+
             LabeledContent {
                 Text(observer.serverUrl ?? "—")
                     .font(.callout.monospaced())

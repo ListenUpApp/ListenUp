@@ -5311,6 +5311,16 @@
         }
       }
     },
+    "devices.active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
+          }
+        }
+      }
+    },
     "devices.empty": {
       "localizations": {
         "en": {
@@ -5341,12 +5351,42 @@
         }
       }
     },
+    "devices.note_sign_out_effect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe a device left to sign it out. This ends its session and removes its downloads."
+          }
+        }
+      }
+    },
+    "devices.other_devices": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other Devices"
+          }
+        }
+      }
+    },
     "devices.sign_out": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sign out"
+          }
+        }
+      }
+    },
+    "devices.sign_out_all_others": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign Out All Other Devices"
           }
         }
       }
@@ -11447,6 +11487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lock Orientation"
+          }
+        }
+      }
+    },
+    "settings.manage_active_sessions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage active sessions"
           }
         }
       }

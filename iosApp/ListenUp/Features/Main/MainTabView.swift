@@ -144,6 +144,9 @@ private extension View {
             .navigationDestination(for: ABSImportDestination.self) { _ in
                 ABSImportHubView()
             }
+            .navigationDestination(for: DevicesDestination.self) { _ in
+                DevicesView()
+            }
     }
 }
 

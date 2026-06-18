@@ -67,3 +67,6 @@ struct AdminDestination: Hashable {}
 /// The Audiobookshelf import hub (admin / root users only), reached from Administration ›
 /// Management. Lists staged imports and launches the import wizard.
 struct ABSImportDestination: Hashable {}
+
+/// The Devices screen — lists the user's active sessions and lets them revoke devices.
+struct DevicesDestination: Hashable {}

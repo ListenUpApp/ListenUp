@@ -183,6 +183,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getDevicesViewModel(): com.calypsan.listenup.client.presentation.settings.DevicesViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.settings.DevicesViewModel by inject()
+        return viewModel
+    }
+
     fun getAdminViewModel(): com.calypsan.listenup.client.presentation.admin.AdminViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.admin.AdminViewModel by inject()
         return viewModel

@@ -532,10 +532,14 @@ One beautiful library.</string>
     <string name="contributor_unmerge_body">This will split "%1$s" back into its own contributor. Any books credited as "%1$s" will be re-linked to the new contributor.</string>
     <string name="contributor_unmerge_confirm">Unmerge</string>
     <string name="contributor_view_details_hint">Double tap to view details</string>
+    <string name="devices_active">Active</string>
     <string name="devices_empty">No other devices.</string>
     <string name="devices_last_active">Last active %1$s</string>
     <string name="devices_manage_active_sessions">Manage your active sessions</string>
+    <string name="devices_note_sign_out_effect">Swipe a device left to sign it out. This ends its session and removes its downloads.</string>
+    <string name="devices_other_devices">Other Devices</string>
     <string name="devices_sign_out">Sign out</string>
+    <string name="devices_sign_out_all_others">Sign Out All Other Devices</string>
     <string name="devices_sign_out_everywhere">Sign out everywhere</string>
     <string name="devices_sign_out_everywhere_confirm">Sign out of all devices, including this one?</string>
     <string name="devices_this_device">This device</string>
@@ -1146,6 +1150,7 @@ One beautiful library.</string>
     <string name="settings_licenses_by_author">by %1$s</string>
     <string name="settings_listenup_uses_the_following_open">ListenUp uses the following open source libraries:</string>
     <string name="settings_lock_orientation">Lock Orientation</string>
+    <string name="settings_manage_active_sessions">Manage active sessions</string>
     <string name="settings_manage_storage">Manage storage</string>
     <string name="settings_no_downloads">No Downloads</string>
     <string name="settings_open_source_licenses">Open Source Licenses</string>

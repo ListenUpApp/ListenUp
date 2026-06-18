@@ -767,6 +767,7 @@
     "licenses_by_author": "by %1$s",
     "listenup_uses_the_following_open": "ListenUp uses the following open source libraries:",
     "lock_orientation": "Lock Orientation",
+    "manage_active_sessions": "Manage active sessions",
     "manage_storage": "Manage storage",
     "no_downloads": "No Downloads",
     "open_source_licenses": "Open Source Licenses",
@@ -793,10 +794,14 @@
     "you_can_redownload_books_anytime": "You can re-download books anytime."
   },
   "devices": {
+    "active": "Active",
     "empty": "No other devices.",
     "last_active": "Last active %1$s",
     "manage_active_sessions": "Manage your active sessions",
+    "note_sign_out_effect": "Swipe a device left to sign it out. This ends its session and removes its downloads.",
+    "other_devices": "Other Devices",
     "sign_out": "Sign out",
+    "sign_out_all_others": "Sign Out All Other Devices",
     "sign_out_everywhere": "Sign out everywhere",
     "sign_out_everywhere_confirm": "Sign out of all devices, including this one?",
     "this_device": "This device",
