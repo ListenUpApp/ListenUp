@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.FileSource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.io.RawSink
 
 /**
  * Repository contract for the admin backup/restore domain.
@@ -27,6 +28,14 @@ interface BackupRepository {
      * binary multipart cannot ride RPC.
      */
     suspend fun uploadBackup(fileSource: FileSource): AppResult<BackupSummary>
+
+    /**
+     * Stream the `.listenup.zip` archive identified by [id] into [sink] — e.g. a user-chosen file
+     * on the device. The body is written in chunks, never buffered whole, so large image-bearing
+     * backups stay memory-safe. This method writes and flushes [sink] but does **not** close it —
+     * the caller owns the sink's lifecycle. The one REST download op; file transfer cannot ride RPC.
+     */
+    suspend fun downloadBackup(id: BackupId, sink: RawSink): AppResult<Unit>
 
     /**
      * Initiates backup creation on the server and waits for the resulting

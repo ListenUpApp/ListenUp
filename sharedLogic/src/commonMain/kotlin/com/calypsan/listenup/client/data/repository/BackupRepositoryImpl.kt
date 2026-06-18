@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
@@ -20,13 +21,22 @@ import io.ktor.client.plugins.timeout
 import io.ktor.client.request.forms.ChannelProvider
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
+import kotlinx.io.RawSink
+import kotlinx.io.buffered
 
 private val logger = KotlinLogging.logger {}
+
+private const val DOWNLOAD_BUFFER_SIZE = 64 * 1024
+private const val DOWNLOAD_TIMEOUT_MS = 10L * 60 * 1_000 // large image-bearing backups can take minutes
 
 /**
  * Production implementation of [BackupRepository].
@@ -75,6 +85,35 @@ class BackupRepositoryImpl(
                         socketTimeoutMillis = 10 * 60 * 1_000
                     }
                 }.body<BackupSummary>()
+        }
+
+    override suspend fun downloadBackup(
+        id: BackupId,
+        sink: RawSink,
+    ): AppResult<Unit> =
+        suspendRunCatching {
+            withContext(IODispatcher) {
+                val buffered = sink.buffered()
+                clientFactory
+                    .getClient()
+                    .prepareGet(BackupRoutePaths.downloadFor(id.value)) {
+                        timeout {
+                            requestTimeoutMillis = DOWNLOAD_TIMEOUT_MS
+                            socketTimeoutMillis = DOWNLOAD_TIMEOUT_MS
+                        }
+                    }.execute { response ->
+                        // ApiClientFactory installs HttpResponseValidator (expectSuccess); a non-2xx
+                        // raises a typed exception that suspendRunCatching routes to AppResult.Failure.
+                        val channel = response.bodyAsChannel()
+                        val buffer = ByteArray(DOWNLOAD_BUFFER_SIZE)
+                        while (!channel.isClosedForRead) {
+                            val read = channel.readAvailable(buffer, 0, buffer.size)
+                            if (read <= 0) continue
+                            buffered.write(buffer, 0, read)
+                        }
+                        buffered.flush()
+                    }
+            }
         }
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> =

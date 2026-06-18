@@ -28,12 +28,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -107,6 +110,29 @@ class BackupRepositoryImplTest :
             override suspend fun invalidate() = Unit
         }
 
+        /**
+         * Variant of [FakeApiClientFactory] that installs [HttpTimeout] so the download
+         * path's `timeout { }` block resolves without throwing [IllegalStateException].
+         * Kept separate from [FakeApiClientFactory] to avoid breaking the upload tests,
+         * which use [io.ktor.client.request.forms.ChannelProvider] in a way that makes
+         * [HttpTimeout] race against the [MockEngine] response time.
+         */
+        class FakeApiClientFactoryWithTimeout(
+            private val engine: MockEngine,
+        ) : ApiClientFactory {
+            override suspend fun getClient(): HttpClient =
+                HttpClient(engine) {
+                    install(ContentNegotiation) { json(contractJson) }
+                    install(HttpTimeout)
+                }
+
+            override suspend fun getStreamingClient(): HttpClient = error("not used in download test")
+
+            override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in download test")
+
+            override suspend fun invalidate() = Unit
+        }
+
         fun buildRepo(service: BackupService): BackupRepositoryImpl =
             BackupRepositoryImpl(
                 rpcFactory = FakeBackupRpcFactory(service),
@@ -120,6 +146,15 @@ class BackupRepositoryImplTest :
             BackupRepositoryImpl(
                 rpcFactory = FakeBackupRpcFactory(service),
                 clientFactory = FakeApiClientFactory(engine),
+            )
+
+        fun buildRepoWithTimeoutEngine(
+            service: BackupService,
+            engine: MockEngine,
+        ): BackupRepositoryImpl =
+            BackupRepositoryImpl(
+                rpcFactory = FakeBackupRpcFactory(service),
+                clientFactory = FakeApiClientFactoryWithTimeout(engine),
             )
 
         /** Minimal in-memory [FileSource] with known bytes — never hits the filesystem. */
@@ -184,6 +219,40 @@ class BackupRepositoryImplTest :
 
                 // Ktor's submitFormWithBinaryData always sends multipart/form-data.
                 capturedContentType shouldContain "multipart/form-data"
+            }
+        }
+
+        // ── downloadBackup ────────────────────────────────────────────────────
+
+        test("downloadBackup GETs BackupRoutePaths.downloadFor(id) and streams the body into the sink") {
+            runTest {
+                val payload = ByteArray(4096) { (it % 256).toByte() }
+                var capturedPath: String? = null
+                var capturedMethod: HttpMethod? = null
+
+                val engine =
+                    MockEngine { request ->
+                        capturedPath = request.url.encodedPath
+                        capturedMethod = request.method
+                        respond(
+                            content = payload,
+                            status = HttpStatusCode.OK,
+                            headers =
+                                headersOf(
+                                    HttpHeaders.ContentType,
+                                    ContentType.Application.OctetStream.toString(),
+                                ),
+                        )
+                    }
+
+                val svc = mock<BackupService>()
+                val sink = Buffer()
+                val result = buildRepoWithTimeoutEngine(svc, engine).downloadBackup(BackupId("bk-7"), sink)
+
+                capturedMethod shouldBe HttpMethod.Get
+                capturedPath shouldBe BackupRoutePaths.downloadFor("bk-7")
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                sink.readByteArray() shouldBe payload
             }
         }
 

@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.BackupId
+import kotlinx.io.RawSink
 import com.calypsan.listenup.core.error.ErrorBus
 import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
@@ -213,6 +214,8 @@ private class FakeRestoreBackupRepository(
         private set
 
     override suspend fun uploadBackup(fileSource: com.calypsan.listenup.core.FileSource): AppResult<BackupSummary> = AppResult.Failure(stubError)
+
+    override suspend fun downloadBackup(id: BackupId, sink: RawSink): AppResult<Unit> = AppResult.Failure(stubError)
 
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> = AppResult.Failure(stubError)
 
