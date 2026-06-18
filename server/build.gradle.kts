@@ -48,7 +48,6 @@ dependencies {
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.kotlin.datetime)
     implementation(libs.sqlite.jdbc)
-    implementation(libs.flyway.core)
     implementation(libs.hikari)
 
     // Password hashing
@@ -207,6 +206,16 @@ tasks.test {
         testTmpDir.deleteRecursively()
         testTmpDir.mkdirs()
     }
+}
+
+// Regenerate the committed golden schema snapshot from the runner (the SSOT after Flyway's
+// removal). Run after adding a migration: ./gradlew :server:generateSchemaSnapshot
+tasks.register<JavaExec>("generateSchemaSnapshot") {
+    group = "build"
+    description = "Writes server/src/test/resources/golden/schema-current.txt from the current migrations."
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("com.calypsan.listenup.server.db.SchemaSnapshotMainKt")
+    workingDir = rootProject.projectDir // so File("server/src/...") resolves from the repo root
 }
 
 val seedLibraryDir = layout.buildDirectory.dir("seed-library")
