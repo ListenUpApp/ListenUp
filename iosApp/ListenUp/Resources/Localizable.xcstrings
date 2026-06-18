@@ -9041,6 +9041,66 @@
         }
       }
     },
+    "licenses.count_suffix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open-source libraries"
+          }
+        }
+      }
+    },
+    "licenses.footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp is built with open-source software. Tap a library to read its full license."
+          }
+        }
+      }
+    },
+    "licenses.not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library not found."
+          }
+        }
+      }
+    },
+    "licenses.search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search libraries"
+          }
+        }
+      }
+    },
+    "licenses.section_libraries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libraries"
+          }
+        }
+      }
+    },
+    "licenses.view_project": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View project"
+          }
+        }
+      }
+    },
     "metadata.all_n_selected": {
       "localizations": {
         "en": {

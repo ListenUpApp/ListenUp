@@ -289,6 +289,14 @@ struct SettingsView: View {
             } label: {
                 SettingsLabel(title: String(localized: "common.version"), systemImage: "star.fill", tint: .gray)
             }
+
+            NavigationLink(value: LicensesDestination()) {
+                SettingsLabel(
+                    title: String(localized: "settings.open_source_licenses"),
+                    systemImage: "doc.text",
+                    tint: .green
+                )
+            }
         }
     }
 

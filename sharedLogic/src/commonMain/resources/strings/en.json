@@ -807,6 +807,14 @@
     "this_device": "This device",
     "title": "Devices"
   },
+  "licenses": {
+    "count_suffix": "open-source libraries",
+    "footer": "ListenUp is built with open-source software. Tap a library to read its full license.",
+    "not_found": "Library not found.",
+    "search_placeholder": "Search libraries",
+    "section_libraries": "Libraries",
+    "view_project": "View project"
+  },
   "admin": {
     "1_day": "1 day",
     "add_folder": "Add Folder",

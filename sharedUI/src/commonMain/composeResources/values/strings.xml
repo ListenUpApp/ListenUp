@@ -905,6 +905,12 @@ One beautiful library.</string>
     <string name="library_setup_start_scanning">Start Scanning</string>
     <string name="library_setup_up">Up</string>
     <string name="library_setup_up_hint">Goes to the parent folder</string>
+    <string name="licenses_count_suffix">open-source libraries</string>
+    <string name="licenses_footer">ListenUp is built with open-source software. Tap a library to read its full license.</string>
+    <string name="licenses_not_found">Library not found.</string>
+    <string name="licenses_search_placeholder">Search libraries</string>
+    <string name="licenses_section_libraries">Libraries</string>
+    <string name="licenses_view_project">View project</string>
     <string name="metadata_all_n_selected">All %1$d selected</string>
     <string name="metadata_apply_chapter_names">Apply chapter names</string>
     <string name="metadata_apply_metadata">Apply Metadata</string>
