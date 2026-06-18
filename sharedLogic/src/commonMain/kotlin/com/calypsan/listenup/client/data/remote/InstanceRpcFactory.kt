@@ -3,9 +3,11 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.TransportError
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.WebSockets
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -48,11 +50,16 @@ interface InstanceRpcFactory {
  * Wire serialization is the contract-layer [contractJson] — one wire format,
  * the same the server registers with.
  *
- * [HttpTimeout] is **mandatory** here: this probe runs behind the server-picker
- * spinner, and a discovered LAN address can be unroutable (a host advertising its
- * docker-bridge / VPN address, or a server that moved IP). Without a connect bound
- * the WebSocket upgrade hangs forever and the spinner never resolves. Timeouts are
- * constructor-injectable so the hang is regression-tested against a black-hole socket.
+ * Bounding the probe is **mandatory** here: it runs behind the server-picker spinner,
+ * so it can never hang. Two layers cover the two failure shapes:
+ *  - [HttpTimeout] bounds the **connect/upgrade** (an unroutable LAN address — a host
+ *    advertising its docker-bridge/VPN address, or a server that moved IP).
+ *  - [withTimeoutOrNull] bounds the **whole operation**, including a kRPC call that
+ *    stalls *after* a successful WebSocket upgrade (`101`) — which `HttpTimeout` does
+ *    not catch, and which otherwise hangs the spinner indefinitely.
+ *
+ * Timeouts are constructor-injectable so the hang is regression-tested against a
+ * black-hole socket.
  */
 class KtorInstanceRpcFactory(
     private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
@@ -73,11 +80,17 @@ class KtorInstanceRpcFactory(
                 }
             }
         return try {
-            client
-                .rpc("${wsBaseUrl.trimEnd('/')}/api/rpc/public") {
-                    rpcConfig { serialization { json(contractJson) } }
-                }.withService<InstanceService>()
-                .getServerInfo()
+            withTimeoutOrNull(requestTimeoutMillis) {
+                client
+                    .rpc("${wsBaseUrl.trimEnd('/')}/api/rpc/public") {
+                        rpcConfig { serialization { json(contractJson) } }
+                    }.withService<InstanceService>()
+                    .getServerInfo()
+            } ?: AppResult.Failure(
+                TransportError.Timeout(
+                    debugInfo = "getServerInfo exceeded ${requestTimeoutMillis}ms (connect or post-upgrade RPC stall)",
+                ),
+            )
         } finally {
             client.close()
         }
