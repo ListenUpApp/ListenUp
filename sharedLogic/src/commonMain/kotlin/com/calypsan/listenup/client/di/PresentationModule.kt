@@ -31,9 +31,30 @@ val authPresentationModule =
                 serverConfig = get(),
                 instanceRepository = get(),
                 errorBus = get(),
+                // App-lifetime scope: selecting a server flips the global auth state, which tears this
+                // screen (and its viewModelScope) down mid-activation. The activation must outlive it.
+                appScope =
+                    get(
+                        qualifier =
+                            org.koin.core.qualifier
+                                .named("appScope"),
+                    ),
             )
         }
-        factory { ServerConnectViewModel(serverConfig = get(), instanceRepository = get()) }
+        factory {
+            ServerConnectViewModel(
+                serverConfig = get(),
+                instanceRepository = get(),
+                // App-lifetime scope: saving the verified URL flips the global auth state, tearing this
+                // screen (and its viewModelScope) down mid-activation — the work must outlive it.
+                appScope =
+                    get(
+                        qualifier =
+                            org.koin.core.qualifier
+                                .named("appScope"),
+                    ),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.auth.SetupViewModel(
                 setupUseCase = get(),

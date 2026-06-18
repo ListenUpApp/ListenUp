@@ -13,6 +13,7 @@ import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -38,10 +39,11 @@ class ServerConnectViewModelTest :
             val serverConfig: ServerConfig = mock()
             val instanceRepository: InstanceRepository = mock()
 
-            fun build(): ServerConnectViewModel =
+            fun build(appScope: CoroutineScope): ServerConnectViewModel =
                 ServerConnectViewModel(
                     serverConfig = serverConfig,
                     instanceRepository = instanceRepository,
+                    appScope = appScope,
                 )
         }
 
@@ -59,7 +61,7 @@ class ServerConnectViewModelTest :
 
         test("initial state is Idle") {
             runTest {
-                val viewModel = createFixture().build()
+                val viewModel = createFixture().build(CoroutineScope(testDispatcher))
 
                 viewModel.state.value shouldBe ServerConnectUiState.Idle
             }
@@ -69,7 +71,7 @@ class ServerConnectViewModelTest :
 
         test("submitUrl with blank URL produces InvalidUrl blank error") {
             runTest {
-                val viewModel = createFixture().build()
+                val viewModel = createFixture().build(CoroutineScope(testDispatcher))
 
                 viewModel.submitUrl("")
                 advanceUntilIdle()
@@ -83,7 +85,7 @@ class ServerConnectViewModelTest :
 
         test("submitUrl with whitespace-only URL produces InvalidUrl blank error") {
             runTest {
-                val viewModel = createFixture().build()
+                val viewModel = createFixture().build(CoroutineScope(testDispatcher))
 
                 viewModel.submitUrl("   ")
                 advanceUntilIdle()
@@ -102,7 +104,7 @@ class ServerConnectViewModelTest :
 
         test("clearError from Error returns to Idle") {
             runTest {
-                val viewModel = createFixture().build()
+                val viewModel = createFixture().build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("")
                 advanceUntilIdle()
                 checkIs<ServerConnectUiState.Error>(viewModel.state.value)
@@ -115,7 +117,7 @@ class ServerConnectViewModelTest :
 
         test("clearError from Idle is a no-op") {
             runTest {
-                val viewModel = createFixture().build()
+                val viewModel = createFixture().build(CoroutineScope(testDispatcher))
                 viewModel.state.value shouldBe ServerConnectUiState.Idle
 
                 viewModel.clearError()
@@ -138,7 +140,7 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "connection refused"))
 
-                val viewModel = fixture.build()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("https://example.com")
                 advanceUntilIdle()
 
@@ -153,7 +155,7 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
 
-                val viewModel = fixture.build()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("https://example.com")
                 advanceUntilIdle()
 
@@ -168,7 +170,7 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Failure(TransportError.DataMalformed(detail = "Unexpected token", debugInfo = "Unexpected token"))
 
-                val viewModel = fixture.build()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("https://example.com")
                 advanceUntilIdle()
 
@@ -183,7 +185,7 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Failure(TransportError.Server4xx(statusCode = 404, debugInfo = "Not Found"))
 
-                val viewModel = fixture.build()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("https://example.com")
                 advanceUntilIdle()
 
@@ -198,7 +200,7 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Failure(TransportError.Server4xx(statusCode = 401, debugInfo = "Unauthorized"))
 
-                val viewModel = fixture.build()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("https://example.com")
                 advanceUntilIdle()
 
@@ -213,7 +215,7 @@ class ServerConnectViewModelTest :
                 everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
                     AppResult.Failure(InternalError(debugInfo = "unexpected internal error"))
 
-                val viewModel = fixture.build()
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
                 viewModel.submitUrl("https://example.com")
                 advanceUntilIdle()
 
