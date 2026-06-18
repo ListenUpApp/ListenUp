@@ -89,4 +89,7 @@ class DatabaseHandle(
 
     /** True once the live pool is closed. Test-observability for graceful shutdown. */
     fun isPoolClosed(): Boolean = dataSource.current().isClosed
+
+    /** Test-only: the live DataSource, for schema-dump assertions. */
+    internal fun dataSourceForTest(): javax.sql.DataSource = dataSource
 }

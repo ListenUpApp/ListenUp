@@ -28,6 +28,35 @@ private fun DataSource.tableExists(name: String): Boolean =
         }
     }
 
+/**
+ * The DB's schema as a normalized, comment-free, whitespace-collapsed list of CREATE statements
+ * (history tables excluded). Normalization makes the Flyway-vs-runner comparison schema-semantic —
+ * it catches column/type/constraint/trigger/FTS differences but ignores how each tool chunked the
+ * submitted SQL (leading comments, indentation), which SQLite stores verbatim and which differ
+ * cosmetically between submitters.
+ */
+internal fun dumpSchema(ds: DataSource): String =
+    ds.connection.use { c ->
+        c.createStatement().use { s ->
+            s.executeQuery(
+                "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL " +
+                    "AND name NOT LIKE 'flyway_%' AND name NOT LIKE 'sqlite_%' " +
+                    "AND name != 'schema_migrations' ORDER BY type, name",
+            ).use { rs ->
+                generateSequence { if (rs.next()) rs.getString(1) else null }
+                    .map(::normalizeSchemaStatement)
+                    .joinToString("\n")
+            }
+        }
+    }
+
+private fun normalizeSchemaStatement(sql: String): String =
+    sql
+        .replace(Regex("--[^\\n]*"), " ")
+        .replace(Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
 class MigrationRunnerTest :
     FunSpec({
 
@@ -68,5 +97,13 @@ class MigrationRunnerTest :
         test("currentSchemaVersion is null on an unmigrated database") {
             val ds = freshDataSource()
             MigrationRunner(ds, emptyList()).currentSchemaVersion() shouldBe null
+        }
+
+        test("the runner reproduces the Flyway golden schema exactly (all migrations)") {
+            val ds = freshDataSource()
+            MigrationRunner(ds).migrate() shouldBe MigrationCatalog.all.maxOf { it.version }.toString()
+            val golden =
+                checkNotNull(this::class.java.getResource("/golden/schema-current.txt")).readText().trim()
+            dumpSchema(ds).trim() shouldBe golden
         }
     })
