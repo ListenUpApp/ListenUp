@@ -20,7 +20,7 @@ private val logger = KotlinLogging.logger {}
 
 /**
  * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → close pool
- * → swap db file in place → reopen pool → Flyway migrate → done. On any failure in the swap/migrate
+ * → swap db file in place → reopen pool → migrate → done. On any failure in the swap/migrate
  * window, rolls back to the safety copy and reopens the pool on the original db.
  *
  * The [maintenance] gate is single-flight: only one restore can run at a time.
@@ -97,7 +97,7 @@ class RestoreOrchestrator(
                         }
                         dbHandle.reopenPool()
 
-                        // 6. Flyway migrate
+                        // 6. migrate the swapped-in db forward to the current schema
                         eventBus.tryEmit(BackupEvent.Migrating)
                         val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
 
