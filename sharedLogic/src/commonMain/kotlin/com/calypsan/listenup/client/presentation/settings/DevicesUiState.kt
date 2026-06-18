@@ -13,6 +13,7 @@ data class DeviceRow(
     val secondary: String, // "iOS 17.2 · ListenUp 1.0.0" — may be blank
     val lastUsedAt: Long,
     val isCurrent: Boolean,
+    val deviceType: String? = null,
 )
 
 /**
