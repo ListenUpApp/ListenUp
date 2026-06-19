@@ -94,7 +94,7 @@ jobs:
       # (all-targets-intersection) stdlib, so JVM-only stdlib in shared code (e.g. toSortedSet(),
       # java.*) fails here on Linux instead of late on the macOS iOS lane.
       - name: Run JVM tests
-        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :server:test :sharedUI:testAndroidHostTest --no-daemon
+        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :server:jvmTest :sharedUI:testAndroidHostTest --no-daemon
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

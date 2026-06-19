@@ -65,7 +65,7 @@ typed errors:
 
 ```
 export LISTENUP_EMBEDDEDMETA_LIVE_DIR=/path/to/your/corpus
-./gradlew :server:test --tests "com.calypsan.listenup.server.embeddedmeta.live.LiveCorpusValidationTest"
+./gradlew :server:jvmTest --tests "com.calypsan.listenup.server.embeddedmeta.live.LiveCorpusValidationTest"
 ```
 
 The test is skipped when the env var isn't set, so it never runs in CI.
