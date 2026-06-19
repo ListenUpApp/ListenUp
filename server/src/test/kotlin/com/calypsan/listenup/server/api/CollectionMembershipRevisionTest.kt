@@ -10,6 +10,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -146,6 +147,32 @@ class CollectionMembershipRevisionTest :
                     touch.touched.clear()
 
                     admin.setBookCollections(BookId("b1"), listOf(b.data.id)).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    touch.touched shouldContainExactly listOf("b1")
+                }
+            }
+        }
+
+        test("releaseBooks touches each released book's revision") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1", userRole = UserRoleColumn.ADMIN)
+                seedTestBook(bookId = "b1")
+                runTest(UnconfinedTestDispatcher()) {
+                    val touch = FakeBookRevisionTouch()
+                    val service = makeCollectionService(db, bookRevisionTouch = touch)
+                    val admin = service.actAs("u1", UserRole.ADMIN)
+                    val inbox = admin.getOrCreateInbox("test-library")
+                    require(inbox is AppResult.Success)
+                    admin.addBookToCollection(inbox.data.id, BookId("b1")).let {
+                        require(it is AppResult.Success)
+                    }
+                    touch.touched.clear()
+
+                    admin.releaseBooks("test-library", mapOf("b1" to emptyList<String>())).let {
                         require(it is AppResult.Success)
                     }
 

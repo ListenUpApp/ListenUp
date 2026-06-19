@@ -528,6 +528,11 @@ internal class CollectionServiceImpl(
         // Every user who can see a target collection just gained access to the released books —
         // nudge each once to re-derive.
         notifyAccessChanged(distinctTargetIds)
+        // Bump each released book's revision so members' incremental `revision > cursor` pull
+        // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
+        for (bookId in assignments.keys) {
+            bookRevisionTouch.touchRevision(BookId(bookId))
+        }
         return AppResult.Success(Unit)
     }
 
