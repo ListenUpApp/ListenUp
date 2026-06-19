@@ -601,12 +601,72 @@
         }
       }
     },
+    "admin.inbox_deselect_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deselect all"
+          }
+        }
+      }
+    },
     "admin.inbox_empty": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Inbox Empty"
+          }
+        }
+      }
+    },
+    "admin.inbox_release_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release %1$d"
+          }
+        }
+      }
+    },
+    "admin.inbox_released_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released %1$d book"
+          }
+        }
+      }
+    },
+    "admin.inbox_released_count_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released %1$d books"
+          }
+        }
+      }
+    },
+    "admin.inbox_review_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review & edit"
+          }
+        }
+      }
+    },
+    "admin.inbox_select_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all"
           }
         }
       }
