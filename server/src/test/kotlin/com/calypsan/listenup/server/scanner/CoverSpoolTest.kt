@@ -106,7 +106,7 @@ class CoverSpoolTest :
             spool.read(cover) shouldBe COVER_BYTES
         }
 
-        test("spoolCover — embedded-cover book WITH embedded metadata: artwork bytes emptied, marker kept, mime preserved, spool holds original bytes") {
+        test("spoolCover: embedded-metadata book — artwork emptied, marker + mime kept, originals spooled") {
             val root = Files.createTempDirectory("spool-test")
             val spool = CoverSpool(root)
             val book =
@@ -126,7 +126,11 @@ class CoverSpoolTest :
             out.embedded?.artwork shouldNotBe null
 
             // bytes are emptied (defect 1 fix: redundant bytes freed)
-            out.embedded!!.artwork!!.bytes.isEmpty().shouldBeTrue()
+            out.embedded!!
+                .artwork!!
+                .bytes
+                .isEmpty()
+                .shouldBeTrue()
 
             // mime is preserved on the lightened marker
             out.embedded!!.artwork!!.mime shouldBe ARTWORK_MIME
@@ -153,7 +157,11 @@ class CoverSpoolTest :
 
             // Defect 1 fix: artwork bytes freed even though this book used a filesystem cover
             out.embedded?.artwork shouldNotBe null
-            out.embedded!!.artwork!!.bytes.isEmpty().shouldBeTrue()
+            out.embedded!!
+                .artwork!!
+                .bytes
+                .isEmpty()
+                .shouldBeTrue()
             out.embedded!!.artwork!!.mime shouldBe ARTWORK_MIME
         }
 
@@ -225,7 +233,11 @@ class CoverSpoolTest :
 
             // Embedded artwork bytes ARE still emptied (heap savings preserved even on failure)
             out.embedded?.artwork shouldNotBe null
-            out.embedded!!.artwork!!.bytes.isEmpty().shouldBeTrue()
+            out.embedded!!
+                .artwork!!
+                .bytes
+                .isEmpty()
+                .shouldBeTrue()
         }
 
         test("a write failure on a book without embedded metadata returns cover unchanged") {
