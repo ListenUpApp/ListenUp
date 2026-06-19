@@ -307,7 +307,7 @@ internal class Scanner(
         analyzer.analyze(candidates.asFlow()).collect { result ->
             result
                 .onSuccess { book ->
-                    books += (coverSpool?.spoolCover(correlationId, book) ?: book)
+                    books += coverSpool?.spoolCover(correlationId, book) ?: book
                     book.authors.forEach { authorsSeen += it }
                     durationMsSum += book.embedded?.durationMs ?: 0L
                     currentFile = book.candidate.rootRelPath

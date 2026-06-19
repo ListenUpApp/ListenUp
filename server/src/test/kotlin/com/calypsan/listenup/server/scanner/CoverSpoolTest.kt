@@ -10,12 +10,14 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import kotlin.io.path.exists
 
-private fun bookWithEmbeddedCover(rootRelPath: String, bytes: ByteArray) =
-    AnalyzedBook(
-        candidate = CandidateBook(rootRelPath = rootRelPath, isFile = false, files = emptyList()),
-        title = rootRelPath,
-        cover = CoverSource.Embedded(EmbeddedArtwork(mime = "image/jpeg", bytes = bytes)),
-    )
+private fun bookWithEmbeddedCover(
+    rootRelPath: String,
+    bytes: ByteArray,
+) = AnalyzedBook(
+    candidate = CandidateBook(rootRelPath = rootRelPath, isFile = false, files = emptyList()),
+    title = rootRelPath,
+    cover = CoverSource.Embedded(EmbeddedArtwork(mime = "image/jpeg", bytes = bytes)),
+)
 
 class CoverSpoolTest :
     FunSpec({
