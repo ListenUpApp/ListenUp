@@ -41,10 +41,15 @@ interface BookIngestPort {
         inboxCollectionId: String? = null,
     ): AppResult<IngestOutcome>
 
-    /** Soft-delete library books absent from [seenIds]; see [BookRepository.softDeleteAbsent]. */
-    suspend fun softDeleteAbsent(
+    /**
+     * Soft-delete library books absent from [seenPaths]; see [BookRepository.softDeleteAbsentByPaths].
+     *
+     * Accepts the set of `rootRelPath` strings seen on disk during a full scan — no BookId
+     * resolution required for books that did not change.
+     */
+    suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
-        seenIds: Set<BookId>,
+        seenPaths: Set<String>,
     )
 }
 

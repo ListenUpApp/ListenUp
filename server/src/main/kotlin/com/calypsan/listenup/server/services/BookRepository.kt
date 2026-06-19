@@ -448,7 +448,7 @@ class BookRepository(
      * then opens its own transaction. `softDelete` is not wrapped in an outer
      * transaction here — doing so would nest transactions needlessly.
      */
-    override suspend fun softDeleteAbsent(
+    suspend fun softDeleteAbsent(
         libraryId: LibraryId,
         seenIds: Set<BookId>,
     ) {
@@ -461,6 +461,36 @@ class BookRepository(
                         (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull()
                     }.map { it[BookTable.id] }
                     .filterNot { it in seenSet }
+            }
+        for (id in toDelete) {
+            softDelete(BookId(id), clientOpId = null)
+        }
+    }
+
+    /**
+     * Tombstones every non-deleted book in [libraryId] whose `rootRelPath` is not
+     * in [seenPaths] — the path-keyed counterpart to [softDeleteAbsent].
+     *
+     * **Full-scan only.** Same authoritativity contract as [softDeleteAbsent]:
+     * call this only after a complete library walk; incremental scans must not call it.
+     *
+     * Using `rootRelPath` avoids the need to resolve a [BookId] for every
+     * unchanged book during a re-scan — the path-set is built cheaply from the
+     * scan result without any DB round-trips.
+     */
+    override suspend fun softDeleteAbsentByPaths(
+        libraryId: LibraryId,
+        seenPaths: Set<String>,
+    ) {
+        val toDelete =
+            suspendTransaction(db) {
+                BookTable
+                    .selectAll()
+                    .where {
+                        (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull()
+                    }.map { it[BookTable.id] to it[BookTable.rootRelPath] }
+                    .filterNot { (_, path) -> path in seenPaths }
+                    .map { (id, _) -> id }
             }
         for (id in toDelete) {
             softDelete(BookId(id), clientOpId = null)

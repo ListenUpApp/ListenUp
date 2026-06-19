@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
@@ -118,16 +119,34 @@ class BookPersister internal constructor(
     }
 
     /**
-     * Persists every book in [result] and, for a [ScanScope.Full] result, runs the tombstone
-     * sweep. The caller decides whether this runs under [FirehoseSuppressed]; this method is
-     * suppression-agnostic.
+     * Persists only the **changed** books from [result] and, for a [ScanScope.Full] result,
+     * runs the tombstone sweep. The caller decides whether this runs under [FirehoseSuppressed];
+     * this method is suppression-agnostic.
+     *
+     * Unchanged books (present in [ScanResult.books] but absent from [ScanResult.changes]) incur
+     * ZERO per-book work: no cover read, no DB lookup, no contributor/series resolution. The Differ
+     * already computed the delta; this method drives persistence from that delta.
+     *
+     * Each [ChangeEventDto] variant carries its [AnalyzedBook] directly (Added/Modified/Moved),
+     * so no secondary lookup against [ScanResult.books] is needed for those cases. Removed books
+     * are already absent from [ScanResult.books], so they never appear in the seen-paths set and
+     * will be tombstoned by the Full-scan sweep.
+     *
+     * Tombstone sweep safety: [ScanResult.books] represents every book present on disk at scan
+     * time, including books that changed but failed to persist. A failed book is still on disk,
+     * so its `rootRelPath` IS in [seenPaths] — the sweep will not tombstone it. This means the
+     * path-based sweep is safe regardless of persist failures, and the former skip-on-any-failure
+     * guard is no longer needed.
      */
     private suspend fun persistAll(
         result: ScanResult,
         libraryId: LibraryId,
         folderId: FolderId,
     ) {
-        val seenIds = mutableSetOf<BookId>()
+        // Build the seen-paths set cheaply from the scan result — no DB, no per-book work.
+        // This represents every rootRelPath present on disk at scan time.
+        val seenPaths = result.books.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
+
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
         val scanRoot = JPath.of(result.rootPath)
@@ -135,26 +154,35 @@ class BookPersister internal constructor(
         // newly-inserted book quarantines into it atomically (see class KDoc). A
         // resolution failure must never fail the scan — fall back to null (uncollected).
         val inboxCollectionId = resolveInboxCollectionId(libraryId)
-        var anyFailed = false
-        for (analyzed in result.books) {
-            val bookId = persistOne(analyzed, libraryId, folderId, scanRoot, inboxCollectionId)
-            if (bookId != null) seenIds += bookId else anyFailed = true
-        }
-        if (result.scope is ScanScope.Full) {
-            if (anyFailed) {
-                // A book failed to persist, so `seenIds` is an incomplete view of the
-                // library. The tombstone sweep is authoritative only for a fully-applied
-                // Full scan — sweeping on a partial set would soft-delete a book that is
-                // present on disk but transiently failed. Skip it; the next clean Full
-                // scan reconciles genuine removals. Losing a present book is unacceptable;
-                // deferring a tombstone is not.
-                log.warn {
-                    "Skipping tombstone sweep for library ${libraryId.value}: " +
-                        "${result.books.size} scanned, some failed to persist"
+
+        // Persist only the books that actually changed. Added/Modified/Moved each carry
+        // the AnalyzedBook directly in the ChangeEventDto — no join against result.books needed.
+        for (change in result.changes) {
+            when (change) {
+                is ChangeEventDto.Added -> {
+                    persistOne(change.book, libraryId, folderId, scanRoot, inboxCollectionId)
                 }
-            } else {
-                ingest.softDeleteAbsent(libraryId, seenIds)
+
+                is ChangeEventDto.Modified -> {
+                    persistOne(change.book, libraryId, folderId, scanRoot, inboxCollectionId)
+                }
+
+                is ChangeEventDto.Moved -> {
+                    persistOne(change.book, libraryId, folderId, scanRoot, inboxCollectionId)
+                }
+
+                is ChangeEventDto.Removed -> {
+                    // Removed books are absent from seenPaths and will be tombstoned by the
+                    // Full-scan sweep below. For Subtree scans, removal handling is not
+                    // authoritative (only one subtree was walked), so no explicit action here.
+                }
             }
+        }
+
+        if (result.scope is ScanScope.Full) {
+            // Path-based sweep is safe: every book present on disk (including any that failed
+            // to persist) is in seenPaths, so the sweep never tombstones a present book.
+            ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
         }
     }
 

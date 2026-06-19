@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.ScanResult
@@ -40,16 +41,51 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class BookPersisterTest :
     FunSpec({
 
-        test("persists every AnalyzedBook in ScanResult") {
+        test("persists changed books from ScanResult.changes") {
             withInMemoryDatabase {
                 val db = this
                 runTest {
                     val fake = FakeBookIngest()
                     val persister = persister(db, fake, scope = this)
 
-                    persister.persist(scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full))
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
 
                     fake.resolved shouldContainExactly listOf("a", "b")
+                }
+            }
+        }
+
+        test("unchanged books in ScanResult.books but absent from changes are not persisted") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this)
+
+                    // "a" is unchanged (in books but not in changes); "b" is new (Added).
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes = listOf(ChangeEventDto.Added(analyzedBook("b"))),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    // Only "b" went through resolveOrInsert — "a" was skipped entirely.
+                    fake.resolved shouldContainExactly listOf("b")
+                    // The full-scan sweep still runs with both paths so "a" is not tombstoned.
+                    fake.softDeleteAbsentByPathsCalls shouldHaveSize 1
+                    fake.softDeleteAbsentByPathsCalls.single() shouldBe setOf("a", "b")
                 }
             }
         }
@@ -64,8 +100,14 @@ class BookPersisterTest :
 
                     persister.persist(
                         scanResult(
-                            listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
-                            ScanScope.Full,
+                            books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                    ChangeEventDto.Added(analyzedBook("c")),
+                                ),
+                            scope = ScanScope.Full,
                         ),
                     )
 
@@ -75,22 +117,33 @@ class BookPersisterTest :
             }
         }
 
-        test("full scan sweeps absent books") {
+        test("full scan sweeps absent books via seen paths") {
             withInMemoryDatabase {
                 val db = this
                 runTest {
                     val fake = FakeBookIngest()
                     val persister = persister(db, fake, scope = this)
 
-                    persister.persist(scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full))
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
 
-                    fake.softDeleteAbsentCalls shouldHaveSize 1
-                    fake.softDeleteAbsentCalls.single() shouldBe setOf(BookId("id-a"), BookId("id-b"))
+                    // The sweep uses seenPaths (rootRelPaths from result.books), not BookIds.
+                    fake.softDeleteAbsentByPathsCalls shouldHaveSize 1
+                    fake.softDeleteAbsentByPathsCalls.single() shouldBe setOf("a", "b")
                 }
             }
         }
 
-        test("emits ScanEvent.Completed only after every book is persisted") {
+        test("emits ScanEvent.Completed only after every changed book is persisted") {
             withInMemoryDatabase {
                 val db = this
                 runTest {
@@ -98,10 +151,20 @@ class BookPersisterTest :
                     val fake = FakeBookIngest()
                     val persister = persister(db, fake, scope = this, eventBus = eventBus)
 
-                    persister.persist(scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full))
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
 
                     // Completed is emitted by the persister — proving it fires AFTER persistence, not
-                    // before it (the premature-Completed race). Its summary reflects the committed books.
+                    // before it (the premature-Completed race). Its summary reflects the total books.
                     val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
                     completed.result.totalBooks shouldBe 2
                     fake.resolved shouldContainExactly listOf("a", "b")
@@ -116,12 +179,22 @@ class BookPersisterTest :
                     val fake = FakeBookIngest()
                     val persister = persister(db, fake, scope = this)
 
-                    persister.persist(scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full))
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
 
                     // Every book is persisted with FirehoseSuppressed active, so the bulk burst
                     // never hits the lossy live tail; the sweep runs suppressed too.
                     fake.suppressionObserved shouldContainExactly listOf(true, true)
-                    fake.softDeleteAbsentSuppressed shouldContainExactly listOf(true)
+                    fake.softDeleteAbsentByPathsSuppressed shouldContainExactly listOf(true)
                 }
             }
         }
@@ -133,7 +206,13 @@ class BookPersisterTest :
                     val fake = FakeBookIngest()
                     val persister = persister(db, fake, scope = this)
 
-                    persister.persist(scanResult(listOf(analyzedBook("a")), ScanScope.Subtree("some/path")))
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes = listOf(ChangeEventDto.Modified(analyzedBook("a"), previousRootRelPath = "a")),
+                            scope = ScanScope.Subtree("some/path"),
+                        ),
+                    )
 
                     // Incremental scans ARE live deltas — they publish normally.
                     fake.suppressionObserved shouldContainExactly listOf(false)
@@ -149,11 +228,15 @@ class BookPersisterTest :
                     val persister = persister(db, fake, scope = this)
 
                     persister.persist(
-                        scanResult(listOf(analyzedBook("a")), ScanScope.Subtree("some/path")),
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes = listOf(ChangeEventDto.Modified(analyzedBook("a"), previousRootRelPath = "a")),
+                            scope = ScanScope.Subtree("some/path"),
+                        ),
                     )
 
                     fake.resolved shouldContainExactly listOf("a")
-                    fake.softDeleteAbsentCalls.shouldBeEmpty()
+                    fake.softDeleteAbsentByPathsCalls.shouldBeEmpty()
                 }
             }
         }
@@ -168,8 +251,14 @@ class BookPersisterTest :
 
                     persister.persist(
                         scanResult(
-                            listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
-                            ScanScope.Full,
+                            books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                    ChangeEventDto.Added(analyzedBook("c")),
+                                ),
+                            scope = ScanScope.Full,
                         ),
                     )
 
@@ -179,7 +268,7 @@ class BookPersisterTest :
             }
         }
 
-        test("full scan with a failed book skips the tombstone sweep so a present book is never deleted") {
+        test("full scan with a failed book still sweeps using seenPaths so the present-but-failed book is protected") {
             withInMemoryDatabase {
                 val db = this
                 runTest {
@@ -187,13 +276,22 @@ class BookPersisterTest :
                     val persister = persister(db, fake, scope = this)
 
                     persister.persist(
-                        scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full),
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
                     )
 
-                    // "b" failed to persist, so the seenIds set is an incomplete view of the
-                    // library. Sweeping on it would tombstone "b" even though it is present on
-                    // disk — so the sweep must be skipped until a clean Full scan.
-                    fake.softDeleteAbsentCalls.shouldBeEmpty()
+                    // With the path-based sweep, "b" is still in seenPaths (it is on disk even
+                    // though its persist call failed), so the sweep runs safely and will NOT
+                    // tombstone "b". The guard is seenPaths, not seenIds — no skip needed.
+                    fake.softDeleteAbsentByPathsCalls shouldHaveSize 1
+                    fake.softDeleteAbsentByPathsCalls.single() shouldBe setOf("a", "b")
                 }
             }
         }
@@ -216,14 +314,14 @@ private class FakeBookIngest(
     /** rootRelPaths successfully resolved, in call order. */
     val resolved = mutableListOf<String>()
 
-    /** seenIds sets passed to each [softDeleteAbsent] call. */
-    val softDeleteAbsentCalls = mutableListOf<Set<BookId>>()
+    /** seenPaths sets passed to each [softDeleteAbsentByPaths] call. */
+    val softDeleteAbsentByPathsCalls = mutableListOf<Set<String>>()
 
     /** Whether [FirehoseSuppressed] was in the coroutine context for each [resolveOrInsert], in call order. */
     val suppressionObserved = mutableListOf<Boolean>()
 
-    /** Whether [FirehoseSuppressed] was in the coroutine context for each [softDeleteAbsent], in call order. */
-    val softDeleteAbsentSuppressed = mutableListOf<Boolean>()
+    /** Whether [FirehoseSuppressed] was in the coroutine context for each [softDeleteAbsentByPaths], in call order. */
+    val softDeleteAbsentByPathsSuppressed = mutableListOf<Boolean>()
 
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
@@ -244,12 +342,12 @@ private class FakeBookIngest(
         return AppResult.Success(IngestOutcome(BookId("id-$path"), wasNew = true))
     }
 
-    override suspend fun softDeleteAbsent(
+    override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
-        seenIds: Set<BookId>,
+        seenPaths: Set<String>,
     ) {
-        softDeleteAbsentSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
-        softDeleteAbsentCalls += seenIds
+        softDeleteAbsentByPathsSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        softDeleteAbsentByPathsCalls += seenPaths
     }
 }
 
@@ -297,13 +395,14 @@ private fun inertCollectionService(db: Database): CollectionServiceImpl {
 
 private fun scanResult(
     books: List<AnalyzedBook>,
+    changes: List<ChangeEventDto>,
     scope: ScanScope,
 ): ScanResult =
     ScanResult(
         correlationId = "c",
         rootPath = "/lib",
         books = books,
-        changes = emptyList(),
+        changes = changes,
         errors = emptyList(),
         durationMs = 0L,
         filesWalked = 0,
