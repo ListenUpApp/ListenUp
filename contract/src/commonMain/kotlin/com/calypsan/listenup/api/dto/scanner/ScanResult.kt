@@ -46,10 +46,39 @@ data class ScanResult(
 )
 
 /**
+ * Returns a copy where every [AnalyzedBook] in both [ScanResult.books] and [ScanResult.changes]
+ * has artwork stripped via [AnalyzedBook.withoutArtwork].
+ *
+ * Used by [com.calypsan.listenup.server.scanner.Scanner] to build `lastResult`: the bus delivers
+ * the artwork-bearing result to `BookPersister` so covers are written to disk; `lastResult` stores
+ * the stripped copy so artwork bytes do not accumulate in heap across scans.
+ */
+fun ScanResult.withoutArtwork(): ScanResult =
+    copy(
+        books = books.map { it.withoutArtwork() },
+        changes =
+            changes.map { change ->
+                when (change) {
+                    is ChangeEventDto.Added -> change.copy(book = change.book.withoutArtwork())
+                    is ChangeEventDto.Modified -> change.copy(book = change.book.withoutArtwork())
+                    is ChangeEventDto.Moved -> change.copy(book = change.book.withoutArtwork())
+                    is ChangeEventDto.Removed -> change
+                }
+            },
+    )
+
+/**
  * Lightweight version of [ScanResult] returned by `scanFull()` over RPC and
  * embedded in completion SSE events. The full books list is fetchable via
  * `lastScanResult()` when needed — keeping it out of progress events keeps
  * the wire small.
+ *
+ * [persisted] and [failed] are set by [com.calypsan.listenup.server.services.BookPersister]
+ * after each book is committed (or fails) — so `persisted + failed == totalBooks` when the
+ * scan completes normally, and `persisted + failed < totalBooks` only when an
+ * [OutOfMemoryError] forces an early stop. A clean run has `failed == 0`; any non-zero
+ * value signals a partial ingest so clients can prompt a re-scan rather than silently
+ * accepting an incomplete library.
  */
 @Serializable
 data class ScanResultSummary(
@@ -63,5 +92,9 @@ data class ScanResultSummary(
     val errors: Int,
     val durationMs: Long,
     val filesWalked: Int,
+    /** Books successfully committed to the database during this scan. */
+    val persisted: Int = 0,
+    /** Books that failed to persist (typed failure or escaped exception). */
+    val failed: Int = 0,
     val embedded: EmbeddedScanCounters = EmbeddedScanCounters(),
 )

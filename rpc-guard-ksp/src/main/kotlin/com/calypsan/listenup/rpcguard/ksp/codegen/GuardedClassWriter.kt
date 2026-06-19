@@ -38,7 +38,6 @@ internal object GuardedClassWriter {
             appendLine("import com.calypsan.listenup.api.result.AppResult")
             appendLine("import com.calypsan.listenup.api.error.InternalError")
             appendLine("import com.calypsan.listenup.api.streaming.RpcEvent")
-            appendLine("import com.calypsan.listenup.server.rpcguard.RpcGuardMetrics")
             appendLine("import com.calypsan.listenup.server.rpcguard.currentCorrelationId")
             appendLine("import com.calypsan.listenup.server.rpcguard.newCorrelationId")
             appendLine("import com.calypsan.listenup.server.rpcguard.withMdc")
@@ -46,7 +45,6 @@ internal object GuardedClassWriter {
             appendLine("class ${model.simpleName}Guarded(")
             appendLine("    private val delegate: ${model.packageName}.${model.simpleName},")
             appendLine("    private val log: Logger = LoggerFactory.getLogger(\"rpc.${model.simpleName}\"),")
-            appendLine("    private val metrics: RpcGuardMetrics = RpcGuardMetrics.global,")
             appendLine(") : ${model.packageName}.${model.simpleName} {")
             for (method in model.methods) {
                 appendLine()
@@ -97,9 +95,6 @@ internal object GuardedClassWriter {
         appendLine(
             "            log.error(\"Uncaught exception in ${service.simpleName}.${method.name} [cid=\$cid]\", e)",
         )
-        appendLine(
-            """            metrics.recordEscape("${service.simpleName}", "${method.name}", e::class.simpleName ?: "Unknown")""",
-        )
         appendLine("            AppResult.Failure(")
         appendLine("            com.calypsan.listenup.api.error.InternalError(")
         appendLine("                correlationId = cid,")
@@ -128,9 +123,6 @@ internal object GuardedClassWriter {
         appendLine("            val cid = currentCorrelationId() ?: newCorrelationId()")
         appendLine(
             "            log.error(\"Uncaught flow exception in ${service.simpleName}.${method.name} [cid=\$cid]\", e)",
-        )
-        appendLine(
-            """            metrics.recordEscape("${service.simpleName}", "${method.name}", e::class.simpleName ?: "Unknown")""",
         )
         appendLine("            emit(")
         appendLine("            com.calypsan.listenup.api.streaming.RpcEvent.Error(")

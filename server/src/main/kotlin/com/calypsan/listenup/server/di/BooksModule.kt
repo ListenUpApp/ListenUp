@@ -41,7 +41,6 @@ import com.calypsan.listenup.server.services.BookGenreWriter
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookPersister
-import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreAutoCreator
@@ -50,8 +49,6 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PendingGenrePromotion
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
-import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import java.nio.file.Path
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.module.Module
@@ -60,10 +57,6 @@ import org.koin.dsl.module
 /**
  * Koin module for the books slice. Wires:
  *
- *  - [MeterRegistry] — a [SimpleMeterRegistry] backing [BookPersisterMetrics].
- *    There's no Prometheus scrape today; the counter is a countable diagnostic
- *    signal in logs, not a metrics pipeline (project "no premature
- *    observability" stance). [BookPersisterMetrics] is its only consumer.
  *  - [LibraryRegistry] — single-library id resolver (the real bootstrap is
  *    `Application.bootstrapLibraries`).
  *  - [ContributorRepository] / [SeriesRepository] — the contributors and series
@@ -110,9 +103,6 @@ fun booksModule(
     homeDir: Path,
 ): Module =
     module {
-        single<MeterRegistry> { SimpleMeterRegistry() }
-        single { BookPersisterMetrics(get()) }
-
         single {
             LibraryRegistry(
                 db = get(),
@@ -291,6 +281,10 @@ private fun Module.coverAndPersisterBindings(
     homeDir: Path,
 ) {
     single { CoverImageStore(ImageStore(homeDir.resolve("covers"), COVER_MAX_BYTES)) }
+    single {
+        com.calypsan.listenup.server.scanner
+            .CoverSpool(homeDir.resolve("scan-spool"))
+    }
     single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
     single {
         CoverResponder(
@@ -310,8 +304,8 @@ private fun Module.coverAndPersisterBindings(
             scanResultBus = get<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults),
             eventBus = get<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents),
             scope = get(),
-            metrics = get(),
             coverImageStore = get<CoverImageStore>(),
+            coverSpool = get(),
         )
     }
 }

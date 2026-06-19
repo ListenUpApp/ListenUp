@@ -7,6 +7,7 @@ import com.tschuchort.compiletesting.SourceFile
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 class FlowCodegenTest :
     FunSpec({
@@ -39,5 +40,6 @@ class FlowCodegenTest :
             generated.shouldContain(
                 "emit(\n            com.calypsan.listenup.api.streaming.RpcEvent.Error(",
             )
+            generated.shouldNotContain("recordEscape")
         }
     })

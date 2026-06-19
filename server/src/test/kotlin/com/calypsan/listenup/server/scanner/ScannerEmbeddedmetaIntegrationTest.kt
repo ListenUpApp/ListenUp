@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
@@ -158,6 +159,73 @@ class ScannerEmbeddedmetaIntegrationTest :
                             .last { it.booksAnalyzed > 0 }
                     last.booksTotal shouldBe 3
                     last.booksTotal shouldBe last.booksAnalyzed
+                }
+            }
+        }
+
+        test("lastResult retains no artwork bytes after a full scan") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    seedThreeBookLibrary(fixture)
+                    val (scanner, _) = newScanner(fixture)
+
+                    scanner.runFullScan()
+
+                    val last = scanner.lastResult()
+                    last.shouldNotBeNull()
+
+                    // No CoverSource.Embedded in lastResult.books — embedded artwork must be stripped.
+                    val embeddedCovers = last.books.filter { it.cover is CoverSource.Embedded }
+                    embeddedCovers shouldBe emptyList()
+
+                    // No artwork bytes in the embedded field of any book.
+                    val booksWithArtwork = last.books.filter { it.embedded?.artwork != null }
+                    booksWithArtwork shouldBe emptyList()
+
+                    // Also check changes — Added/Modified/Moved must have no artwork bytes.
+                    val changesWithEmbeddedCover =
+                        last.changes.filter { change ->
+                            val book =
+                                when (change) {
+                                    is ChangeEventDto.Added -> change.book
+                                    is ChangeEventDto.Modified -> change.book
+                                    is ChangeEventDto.Moved -> change.book
+                                    is ChangeEventDto.Removed -> null
+                                }
+                            book?.cover is CoverSource.Embedded
+                        }
+                    changesWithEmbeddedCover shouldBe emptyList()
+
+                    val changesWithArtwork =
+                        last.changes.filter { change ->
+                            val book =
+                                when (change) {
+                                    is ChangeEventDto.Added -> change.book
+                                    is ChangeEventDto.Modified -> change.book
+                                    is ChangeEventDto.Moved -> change.book
+                                    is ChangeEventDto.Removed -> null
+                                }
+                            book?.embedded?.artwork != null
+                        }
+                    changesWithArtwork shouldBe emptyList()
+                }
+            }
+        }
+
+        test("second full scan over unchanged artwork-bearing library emits no Modified changes") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    seedThreeBookLibrary(fixture)
+                    val (scanner, _) = newScanner(fixture)
+
+                    scanner.runFullScan() // first scan: builds lastResult (stripped)
+                    val second = scanner.runFullScan() // second scan: diffs against stripped lastResult
+
+                    // No Modified events — stripping both diff sides consistently means
+                    // artwork-bearing books that have not changed are still structurally equal.
+                    val modified = second.changes.filterIsInstance<ChangeEventDto.Modified>()
+                    modified shouldBe emptyList()
+                    second.changes shouldBe emptyList()
                 }
             }
         }

@@ -653,6 +653,10 @@ private fun Application.startBackgroundTasks(
     val libraryAdminService by inject<LibraryAdminService>()
     val libraryRegistry by inject<LibraryRegistry>()
 
+    // Sweep any spool dirs left by a crashed scan before the persister starts — the
+    // spool is only read during persist, so clearing orphans here is always safe.
+    koinGet<com.calypsan.listenup.server.scanner.CoverSpool>().sweepOrphans()
+
     // BookPersister must be subscribed to the scan-result bus before any scan can run
     // — a scan can now be triggered at runtime via the wizard on a library-less boot.
     bookPersister.start()

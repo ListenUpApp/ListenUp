@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.UnsupportedFormatCount
+import com.calypsan.listenup.api.dto.scanner.withoutArtwork
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
@@ -75,6 +76,7 @@ internal class Scanner(
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
+    private val coverSpool: CoverSpool? = null,
 ) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
@@ -150,26 +152,31 @@ internal class Scanner(
             currentFile = pass.currentFile,
             recentBooks = pass.recentBooks,
         )
-        val previous = lastResult?.books.orEmpty()
-        val changes = Differ().diff(books.asFlow(), previous).toList()
+        // Strip artwork from both diff sides so unchanged books don't falsely show as Modified.
+        // lastResult is already artwork-free (stripped at the end of the previous scan); strip
+        // the new books for the diff so both sides are comparable without artwork bytes.
+        val previousStripped = lastResult?.books.orEmpty() // already stripped from previous scan
+        val booksStripped = books.map { it.withoutArtwork() }
+        val changes = Differ().diff(booksStripped.asFlow(), previousStripped).toList()
         changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
         val result =
             ScanResult(
                 correlationId = correlationId,
                 rootPath = primaryRootPath,
-                books = books,
-                changes = changes,
+                books = books, // artwork-bearing: BookPersister needs these to write covers to disk
+                changes = changes, // artwork-free: Differ used stripped books
                 errors = errors,
                 durationMs = clock() - started,
                 filesWalked = allFiles.size,
                 filesSkipped = 0,
                 scope = ScanScope.Full,
             )
-        lastResult = result
-        // Hand the result to BookPersister; it emits ScanEvent.Completed once the books are
-        // persisted (see BookPersister.persist). The Scanner must NOT emit Completed here — that
-        // would signal "done" before any book is queryable.
+        // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
+        lastResult = result.withoutArtwork()
+        // Hand the artwork-bearing result to BookPersister; it emits ScanEvent.Completed once the
+        // books are persisted (see BookPersister.persist). The Scanner must NOT emit Completed here
+        // — that would signal "done" before any book is queryable.
         scanResultBus.emit(result)
         logger.info { "scan walk complete [library=${library.id.value}]: ${formatScanCompleteLog(result.toSummary())}" }
         return result
@@ -234,19 +241,24 @@ internal class Scanner(
             partitionBooksUnder(
                 bookRoot,
                 folderRoot,
-                lastResult?.books.orEmpty(),
+                lastResult?.books.orEmpty(), // already stripped from previous scan
             )
-        val changes = Differ().diff(books.asFlow(), previousAffected).toList()
+        // Strip artwork from the new books before diffing so both sides are comparable without
+        // artwork bytes (previousAffected is already stripped; strip books to match).
+        val booksStripped = books.map { it.withoutArtwork() }
+        val changes = Differ().diff(booksStripped.asFlow(), previousAffected).toList()
         changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
-        val patched = previousUntouched + books
+        val patchedStripped = previousUntouched + booksStripped
         val durationMs = clock() - started
         val rootRelPath = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
         val subtreeScope = ScanScope.Subtree(rootRelPath)
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
-        lastResult =
+
+        // Build the artwork-bearing result for BookPersister (so covers get written to disk).
+        val incrementalResult =
             lastResult?.copy(
-                books = patched,
+                books = books, // artwork-bearing for persist
                 changes = changes,
                 errors = errors,
                 durationMs = durationMs,
@@ -255,7 +267,7 @@ internal class Scanner(
             ) ?: ScanResult(
                 correlationId = correlationId,
                 rootPath = primaryRootPath,
-                books = patched,
+                books = books, // artwork-bearing for persist
                 changes = changes,
                 errors = errors,
                 durationMs = durationMs,
@@ -263,8 +275,10 @@ internal class Scanner(
                 filesSkipped = 0,
                 scope = subtreeScope,
             )
+        // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
+        lastResult = incrementalResult.copy(books = patchedStripped)
         // BookPersister emits ScanEvent.Completed after persisting this incremental result.
-        scanResultBus.emit(lastResult!!)
+        scanResultBus.emit(incrementalResult)
     }
 
     /**
@@ -293,7 +307,7 @@ internal class Scanner(
         analyzer.analyze(candidates.asFlow()).collect { result ->
             result
                 .onSuccess { book ->
-                    books += book
+                    books += coverSpool?.spoolCover(correlationId, book) ?: book
                     book.authors.forEach { authorsSeen += it }
                     durationMsSum += book.embedded?.durationMs ?: 0L
                     currentFile = book.candidate.rootRelPath

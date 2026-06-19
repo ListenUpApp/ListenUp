@@ -76,7 +76,6 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.logstash.logback.encoder)
     implementation(libs.kotlinx.coroutines.slf4j)
-    implementation(libs.micrometer.core)
 
     // Ktor HTTP client — used by AudibleClient to call the Audible catalog API.
     implementation(libs.ktor.client.core)
