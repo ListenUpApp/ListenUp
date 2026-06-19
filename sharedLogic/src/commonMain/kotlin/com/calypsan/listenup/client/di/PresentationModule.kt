@@ -197,6 +197,13 @@ val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        // RestoreFromFileViewModel - pick + upload a .listenup.zip, then hand off to restore
+        factory {
+            com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel(
+                backupRepository = get(),
+                errorBus = get(),
+            )
+        }
         // RestoreBackupViewModel - takes backupId as parameter
         factory { params ->
             com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel(

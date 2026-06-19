@@ -132,6 +132,9 @@ private extension View {
             .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }
+            .navigationDestination(for: ShelfFormDestination.self) { destination in
+                CreateEditShelfView(shelfId: destination.shelfId)
+            }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }
@@ -155,6 +158,12 @@ private extension View {
             }
             .navigationDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
+            }
+            .navigationDestination(for: AdminCollectionsDestination.self) { _ in
+                AdminCollectionsView()
+            }
+            .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
+                AdminCollectionDetailView(collectionId: destination.collectionId)
             }
     }
 }

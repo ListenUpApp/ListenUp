@@ -13,6 +13,7 @@ struct ShelfDetailView: View {
 
     @Environment(\.dependencies) private var deps
     @State private var observer: ShelfDetailObserver?
+    @State private var showEdit: Bool = false
 
     var body: some View {
         Group {
@@ -25,6 +26,14 @@ struct ShelfDetailView: View {
         .background(Color.luSurface)
         .navigationTitle(observer?.shelfName ?? "")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(String(localized: "common.edit")) { showEdit = true }
+            }
+        }
+        .sheet(isPresented: $showEdit) {
+            CreateEditShelfView(shelfId: shelfId)
+        }
         .task(id: shelfId) {
             let obs = ShelfDetailObserver(viewModel: deps.createShelfDetailViewModel())
             observer = obs

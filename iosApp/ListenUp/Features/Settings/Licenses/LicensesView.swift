@@ -4,10 +4,16 @@ import SwiftUI
 ///
 /// Shows a summary card with a proportional distribution meter, a searchable list of
 /// every open-source library the app ships, and a footer. Tapping a row pushes
-/// `LicenseDetailView` for the full license text. Responsive: `readableWidth` keeps the
-/// layout comfortable on iPhone and centered on iPad (rule 12).
+/// `LicenseDetailView` for the full license text. Layout is width-responsive (iosApp rule 12):
+/// on compact (iPhone / narrow split view) the summary card stacks above the library list;
+/// on regular width (iPad) the overview/meter panel sits beside the library list in a two-pane
+/// HStack, per the `LicensesPad` mockup.
 struct LicensesView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     @State private var searchText = ""
+
+    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
     private var filteredLibraries: [IosLicense] {
         guard !searchText.isEmpty else { return LicenseData.all }
@@ -17,6 +23,57 @@ struct LicensesView: View {
     }
 
     var body: some View {
+        Group {
+            if isRegularWidth {
+                regularBody
+            } else {
+                compactBody
+            }
+        }
+        .background(Color.luSurface)
+        .navigationTitle(String(localized: "settings.open_source_licenses"))
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .automatic),
+            prompt: Text(String(localized: "licenses.search_placeholder"))
+        )
+    }
+
+    // MARK: - Regular layout (iPad / wide split view)
+
+    /// Two-pane: left = overview/meter panel, right = scrollable library list.
+    private var regularBody: some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Left pane — overview panel (sticky alongside the scrolling list)
+            overviewPanel
+                .frame(width: 280)
+                .padding(.leading, 32)
+                .padding(.trailing, 24)
+                .padding(.top, 16)
+
+            Divider()
+
+            // Right pane — library list
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    sectionHeader(String(localized: "licenses.section_libraries"))
+
+                    libraryList
+
+                    footerNote
+                        .padding(.top, 12)
+                        .padding(.bottom, 24)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    // MARK: - Compact layout (iPhone / narrow split view)
+
+    private var compactBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 summaryCard
@@ -34,17 +91,34 @@ struct LicensesView: View {
             .padding(.top, 8)
             .readableWidth(720)
         }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "settings.open_source_licenses"))
-        .navigationBarTitleDisplayMode(.large)
-        .searchable(
-            text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .automatic),
-            prompt: Text(String(localized: "licenses.search_placeholder"))
-        )
     }
 
-    // MARK: - Summary card
+    // MARK: - Overview panel (regular-width left pane)
+
+    /// The standalone overview panel used in the wide layout — count, meter, legend, and a
+    /// small contextual note. Kept non-scrolling so it stays anchored while the list scrolls.
+    private var overviewPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Count + label
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(LicenseData.all.count)")
+                    .font(.system(size: 38, weight: .bold, design: .default))
+                    .foregroundStyle(.primary)
+                Text(String(localized: "licenses.count_suffix"))
+                    .font(.headline)
+                    .foregroundStyle(Color.luLabel2)
+            }
+
+            DistributionMeter()
+
+            legendRow
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Summary card (compact layout)
 
     private var summaryCard: some View {
         FieldGroup([0], id: \.self) { _ in

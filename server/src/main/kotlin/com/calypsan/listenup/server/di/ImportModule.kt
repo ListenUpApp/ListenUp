@@ -73,7 +73,9 @@ fun importModule(homeDir: Path): Module =
             )
         }
 
-        single<MutableSharedFlow<ImportEvent>> {
+        // Qualified by name because Koin keys on the erased KClass — an unqualified
+        // MutableSharedFlow<ImportEvent> would collide with the scan/backup event buses.
+        single<MutableSharedFlow<ImportEvent>>(EventBusQualifiers.ImportEvents) {
             MutableSharedFlow(replay = 0, extraBufferCapacity = 64)
         }
 
@@ -83,7 +85,7 @@ fun importModule(homeDir: Path): Module =
                 analyzer = get(),
                 applier = get(),
                 validator = get(),
-                eventBus = get(),
+                eventBus = get(EventBusQualifiers.ImportEvents),
                 principal = unscopedImportPlaceholder("ImportService"),
             )
         }

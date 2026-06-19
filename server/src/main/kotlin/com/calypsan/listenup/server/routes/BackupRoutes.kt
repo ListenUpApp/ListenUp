@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.BackupRoutePaths
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.error.AppError
@@ -69,7 +70,7 @@ fun Route.backupRoutes(
     paths: BackupPaths,
     archive: BackupArchive,
 ) {
-    get("/api/v1/admin/backups/{id}/download") {
+    get(BackupRoutePaths.DOWNLOAD_TEMPLATE) {
         val p = call.userPrincipalOrNull() ?: return@get call.respond(HttpStatusCode.Unauthorized)
         if (!p.role.isAdmin()) return@get call.respondBareAppError(AuthError.PermissionDenied())
 
@@ -93,7 +94,7 @@ fun Route.backupRoutes(
         call.respondFile(archivePath.toFile())
     }
 
-    post("/api/v1/admin/backups/upload") {
+    post(BackupRoutePaths.UPLOAD) {
         val p = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         if (!p.role.isAdmin()) return@post call.respondBareAppError(AuthError.PermissionDenied())
         call.handleUpload(paths, archive)

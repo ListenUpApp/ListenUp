@@ -17,12 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
 private val logger = KotlinLogging.logger {}
 
 /**
- * Per-library single-flight coordinator for full scans and incremental re-analysis.
+ * Single-flight coordinator for the library's full scans and incremental re-analysis.
  *
- * Each [ScanCoordinator] instance owns exactly one library (identified by
- * [libraryId]). The [ScanOrchestrator] manages one coordinator per library,
- * allowing concurrent scans of different libraries while serialising concurrent
- * scans of the same library.
+ * The [ScanOrchestrator] owns one [ScanCoordinator], bound to the library
+ * (identified by [libraryId]), which serialises that library's scans.
  *
  * One [Mutex] serialises every scan operation — a full scan and an
  * incremental re-analysis cannot overlap, because both mutate the

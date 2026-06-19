@@ -218,6 +218,20 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getAdminCollectionsViewModel(): com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel by inject()
+        return viewModel
+    }
+
+    fun getAdminCollectionDetailViewModel(
+        collectionId: String,
+    ): com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel by inject(
+            parameters = { org.koin.core.parameter.parametersOf(collectionId) },
+        )
+        return viewModel
+    }
+
     fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
         return viewModel
@@ -240,6 +254,11 @@ object KoinHelper : KoinComponent {
 
     fun getShelfDetailViewModel(): com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel by inject()
+        return viewModel
+    }
+
+    fun getCreateEditShelfViewModel(): com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel by inject()
         return viewModel
     }
 

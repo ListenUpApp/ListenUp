@@ -119,7 +119,7 @@ class ScanOrchestratorTest :
                 orchestrator.onLibraryAdded(libraryA)
                 orchestrator.onLibraryAdded(libraryB)
 
-                orchestrator.registeredLibraryIds() shouldBe listOf(libraryB.id)
+                orchestrator.registeredLibraryId() shouldBe libraryB.id
                 (orchestrator.scanLibrary(libraryA.id) as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.NotFound>()
                 orchestrator.scanLibrary(libraryB.id).shouldBeInstanceOf<AppResult.Success<ScanResult>>()
             }

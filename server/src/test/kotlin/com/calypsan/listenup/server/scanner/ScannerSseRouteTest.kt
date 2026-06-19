@@ -108,7 +108,7 @@ class ScannerSseRouteTest :
  * Triggers a scan and waits for it to complete so the orchestrator is warm
  * and no scan is in progress. This replaces the old `waitForBootstrap` which
  * polled `GET /scan/last` waiting for an auto-scan that no longer happens
- * (Task 18: no auto-scan on boot).
+ * (no auto-scan on boot).
  *
  * On return: library is registered with the orchestrator, no scan in flight.
  */

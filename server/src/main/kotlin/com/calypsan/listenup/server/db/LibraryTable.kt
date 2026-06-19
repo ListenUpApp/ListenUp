@@ -13,7 +13,7 @@ import com.calypsan.listenup.server.sync.SyncableTable
  * and not enforced today.
  *
  * The old single-bootstrap-row shape with `root_path` was replaced in
- * Flyway V20 (Libraries phase). `LibraryRegistry` is the Books-A relic
+ * the V20 migration (Libraries phase). `LibraryRegistry` is the Books-A relic
  * that resolved the single path; it is superseded by `LibraryRepository`
  * + `LibraryAdminServiceImpl`.
  */

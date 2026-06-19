@@ -30,6 +30,11 @@ struct ShelfDestination: Hashable {
     let id: String
 }
 
+/// Create or edit a shelf. `shelfId == nil` opens the form in create mode.
+struct ShelfFormDestination: Hashable {
+    let shelfId: String?
+}
+
 /// The full single-type "See all" search page, reached from a capped result group whose
 /// hit count exceeds its display cap. Carries the settled query and the one type to expand.
 struct SearchSeeAllDestination: Hashable {
@@ -81,4 +86,12 @@ struct LicensesDestination: Hashable {}
 /// The full license text for a single open-source library.
 struct LicenseDetailDestination: Hashable {
     let packageName: String
+}
+
+/// The Admin Collections list (admin / root users only), reached from Administration › Management.
+struct AdminCollectionsDestination: Hashable {}
+
+/// A single Admin Collection detail, reached from the Admin Collections list.
+struct AdminCollectionDetailDestination: Hashable {
+    let collectionId: String
 }
