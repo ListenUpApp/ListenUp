@@ -282,6 +282,7 @@ private fun Module.coverAndPersisterBindings(
     homeDir: Path,
 ) {
     single { CoverImageStore(ImageStore(homeDir.resolve("covers"), COVER_MAX_BYTES)) }
+    single { com.calypsan.listenup.server.scanner.CoverSpool(homeDir.resolve("scan-spool")) }
     single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
     single {
         CoverResponder(
@@ -302,6 +303,7 @@ private fun Module.coverAndPersisterBindings(
             eventBus = get<MutableSharedFlow<ScanEvent>>(),
             scope = get(),
             coverImageStore = get<CoverImageStore>(),
+            coverSpool = get(),
         )
     }
 }

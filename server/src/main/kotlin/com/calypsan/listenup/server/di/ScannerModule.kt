@@ -165,6 +165,7 @@ fun scannerModule(
                                     library.metadataPrecedence,
                                     metadataPrecedence,
                                 ),
+                            coverSpool = get(),
                         )
                     val coordinator =
                         ScanCoordinator(
