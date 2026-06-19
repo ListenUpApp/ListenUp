@@ -35,8 +35,12 @@ actual class DriverFactory {
                     foreignKeyConstraints = true,
                     busyTimeout = 5_000,
                 ),
-                create = { /* MigrationRunner owns schema creation */ },
-                upgrade = { _, _, _ -> /* MigrationRunner owns migrations */ },
+                create = {
+                    // MigrationRunner owns schema creation
+                },
+                upgrade = { _, _, _ ->
+                    // MigrationRunner owns migrations
+                },
             ),
             maxReaderConnections = 1,
         )
