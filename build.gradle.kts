@@ -40,8 +40,8 @@ detekt {
         "$rootDir/sharedLogic/src/jvmTest/kotlin",
         "$rootDir/sharedUI/src/commonMain/kotlin",
         "$rootDir/sharedUI/src/androidMain/kotlin",
-        "$rootDir/server/src/main/kotlin",
-        "$rootDir/server/src/test/kotlin",
+        "$rootDir/server/src/jvmMain/kotlin",
+        "$rootDir/server/src/jvmTest/kotlin",
         "$rootDir/rpc-guard-ksp/src/main/kotlin",
         "$rootDir/rpc-guard-ksp/src/test/kotlin",
     )

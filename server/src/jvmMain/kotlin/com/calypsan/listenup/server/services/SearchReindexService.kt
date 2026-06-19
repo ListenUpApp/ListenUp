@@ -49,7 +49,7 @@ class SearchReindexService(
         suspendTransaction(db) {
             val tx = TransactionManager.current()
             // contributor_search is contentless (V22): rebuild from source, mirroring the
-            // contributors_au trigger (server/src/main/resources/db/migration/V22__contributor_aliases.sql)
+            // contributors_au trigger (server/src/jvmMain/resources/db/migration/V22__contributor_aliases.sql)
             // so name/sort_name/description AND aliases are restored. If the trigger's
             // alias-sourcing changes in that migration, this rebuild SQL must change too.
             tx.exec("DELETE FROM contributor_search")

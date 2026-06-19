@@ -21,7 +21,7 @@ fun main() {
     MigrationRunner(ds).migrate()
     // dumpSchema is the normalized dump defined in MigrationRunnerTest.kt (same test source set
     // + package) — reuse it so the regenerated golden matches the equivalence test exactly.
-    File("server/src/test/resources/golden/schema-current.txt").apply {
+    File("server/src/jvmTest/resources/golden/schema-current.txt").apply {
         parentFile.mkdirs()
         writeText(dumpSchema(ds))
     }
