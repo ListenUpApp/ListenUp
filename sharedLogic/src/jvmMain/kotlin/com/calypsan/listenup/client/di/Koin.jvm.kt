@@ -6,8 +6,6 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.data.discovery.JmDnsDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.local.images.CommonImageStorage
-import com.calypsan.listenup.client.data.local.images.CoverColorExtractor
-import com.calypsan.listenup.client.data.local.images.JvmCoverColorExtractor
 import com.calypsan.listenup.client.data.local.images.JvmStoragePaths
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.repository.JvmNetworkMonitor
@@ -59,7 +57,6 @@ actual val platformDiscoveryModule: Module =
  * - StoragePaths: Platform-appropriate app data directories
  * - ImageStorage: Common image storage using JVM paths
  * - NetworkMonitor: Health-check based connectivity detection
- * - CoverColorExtractor: AWT-based palette extraction
  * - DownloadFileManager: Audiobook file management
  */
 actual val platformStorageModule: Module =
@@ -87,10 +84,6 @@ actual val platformStorageModule: Module =
                     }
                 },
             )
-        }
-
-        single<CoverColorExtractor> {
-            JvmCoverColorExtractor()
         }
 
         single {
