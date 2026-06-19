@@ -23,6 +23,8 @@ import org.jetbrains.exposed.v1.jdbc.update
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted collection by id
  *  - [findInboxForLibrary] — fetch the inbox collection for a library
+ *  - [findSystemCollection] — fetch a per-library system collection by server-only `type`
+ *  - [setType] — stamp the server-only `type` column (no revision bump / no publish)
  *  - [listOwnedBy] — fetch all non-deleted collections owned by a user
  *  - [listAll] — fetch all non-deleted collections
  */
@@ -154,6 +156,58 @@ class CollectionRepository(
                     )
                 }
         }
+
+    /**
+     * Returns the live system collection of [typeName] for [libraryId], or null when none exists.
+     *
+     * The `type` column is server-only (never on the wire) and identifies a per-library system
+     * collection — `"ALL_BOOKS"` or `"INBOX"`. At most one live row per `(libraryId, type)` is
+     * the find-or-create invariant; this query returns the first match.
+     */
+    suspend fun findSystemCollection(
+        libraryId: String,
+        typeName: String,
+    ): CollectionSyncPayload? =
+        suspendTransaction(db) {
+            CollectionsTable
+                .selectAll()
+                .where {
+                    (CollectionsTable.libraryId eq libraryId) and
+                        (CollectionsTable.type eq typeName) and
+                        CollectionsTable.deletedAt.isNull()
+                }.firstOrNull()
+                ?.let { row ->
+                    CollectionSyncPayload(
+                        id = row[CollectionsTable.id],
+                        libraryId = row[CollectionsTable.libraryId],
+                        ownerId = row[CollectionsTable.ownerId],
+                        name = row[CollectionsTable.name],
+                        isInbox = row[CollectionsTable.isInbox],
+                        isGlobalAccess = row[CollectionsTable.isGlobalAccess],
+                        revision = row[CollectionsTable.revision],
+                        updatedAt = row[CollectionsTable.updatedAt],
+                        deletedAt = row[CollectionsTable.deletedAt],
+                    )
+                }
+        }
+
+    /**
+     * Sets the server-only `type` column for [collectionId] to [typeName].
+     *
+     * The `type` column never crosses the wire, so this is a bare column write — no revision
+     * bump and no sync publish. Used by the find-or-create system-collection flow to stamp the
+     * type after the row is materialised through the normal [upsert] path.
+     */
+    suspend fun setType(
+        collectionId: String,
+        typeName: String,
+    ) {
+        suspendTransaction(db) {
+            CollectionsTable.update({ CollectionsTable.id eq collectionId }) { stmt ->
+                stmt[CollectionsTable.type] = typeName
+            }
+        }
+    }
 
     /**
      * Returns all non-deleted collections owned by [userId].

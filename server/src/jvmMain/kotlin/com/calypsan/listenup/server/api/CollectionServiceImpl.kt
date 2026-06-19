@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.CollectionService
@@ -28,7 +30,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -40,6 +42,19 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
+
+/**
+ * The per-library system collections the server materialises lazily on first need.
+ *
+ * Identified by the server-only `collections.type` column (never on the wire). Member-facing
+ * sync uses [CollectionSyncPayload.isInbox] / the access layer; `type` is a server-internal
+ * discriminator that distinguishes the always-everything [ALL_BOOKS] view from the quarantine
+ * [INBOX]. The enum name is the persisted column value.
+ */
+internal enum class SystemCollectionType {
+    ALL_BOOKS,
+    INBOX,
+}
 
 /**
  * [CollectionService] implementation.
@@ -133,7 +148,7 @@ internal class CollectionServiceImpl(
 
         val payload =
             CollectionSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 libraryId = libraryId,
                 ownerId = caller.userId,
                 name = trimmed,
@@ -211,6 +226,7 @@ internal class CollectionServiceImpl(
                 bookRevisionTouch.touchRevision(bookId)
                 AppResult.Success(Unit)
             }
+
             is AppResult.Failure -> {
                 AppResult.Failure(result.error)
             }
@@ -301,7 +317,8 @@ internal class CollectionServiceImpl(
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         // canShare is an ADDITIONAL gate beyond ownership: a member must hold canShare AND own
         // (or admin-bypass) the collection to share it. ROOT/ADMIN pass the flag implicitly.
-        permissionPolicy.requireCanShare(UserId(caller.userId), caller.role.toContract())
+        permissionPolicy
+            .requireCanShare(UserId(caller.userId), caller.role.toContract())
             ?.let { return AppResult.Failure(it) }
 
         if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
@@ -312,7 +329,7 @@ internal class CollectionServiceImpl(
 
         val payload =
             CollectionShareSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 collectionId = id.value,
                 sharedWithUserId = sharedWithUserId,
                 sharedByUserId = caller.userId,
@@ -327,6 +344,7 @@ internal class CollectionServiceImpl(
                 bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
                 AppResult.Success(result.data.toDto())
             }
+
             is AppResult.Failure -> {
                 AppResult.Failure(result.error)
             }
@@ -353,6 +371,7 @@ internal class CollectionServiceImpl(
                 bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
                 AppResult.Success(result.data.toDto())
             }
+
             is AppResult.Failure -> {
                 AppResult.Failure(result.error)
             }
@@ -392,44 +411,71 @@ internal class CollectionServiceImpl(
     // public methods so the admin REST routes (and, eventually, the scanner) can call them.
 
     /**
-     * Resolves the library's inbox, creating it on first use.
+     * Resolves the library's per-library system collection of [type], creating it on first use.
      *
-     * The inbox is a per-library SYSTEM collection (`isInbox = true`, never globally
-     * accessible, not deletable). It is created lazily: the first call materialises it,
-     * subsequent calls return the same row. Idempotency rests on
-     * [CollectionRepository.findInboxForLibrary] plus the `idx_collections_inbox` partial
-     * unique index that guarantees at most one live inbox per library.
+     * A system collection (`isGlobalAccess = false`, owned by an admin) is identified by the
+     * server-only `collections.type` column ([SystemCollectionType.name]) — never on the wire.
+     * It is created lazily: the first call materialises it, subsequent calls return the same row.
+     * Idempotency rests on [CollectionRepository.findSystemCollection], backstopped at the DB by a
+     * per-type partial unique index — `idx_collections_inbox` (one live INBOX per library) and
+     * `idx_collections_all_books` (one live ALL_BOOKS per library) — so a concurrent first-call
+     * cannot create a duplicate system collection.
      *
-     * **Owner resolution.** The inbox owner is the library's `createdByUserId` when set
-     * (forward-staged for the multi-user phase; null today), otherwise the first ROOT user,
-     * otherwise the first ADMIN user. If the server has no admin at all the inbox cannot be
-     * attributed and we fail with [CollectionError.InvalidInput] rather than orphan it.
+     * The row is materialised through the normal [CollectionRepository.upsert] path (which never
+     * sees `type` — it's not a payload field), then [CollectionRepository.setType] stamps the
+     * server-only column with no revision bump or publish.
+     *
+     * **Owner resolution.** The owner is the library's `createdByUserId` when set (forward-staged
+     * for the multi-user phase; null today), otherwise the first ROOT user, otherwise the first
+     * ADMIN user. If the server has no admin at all the collection cannot be attributed and we fail
+     * with [CollectionError.InvalidInput] rather than orphan it.
      *
      * This is a system operation: it does not require or consult a caller principal.
      */
-    suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> {
-        collectionRepo.findInboxForLibrary(libraryId)?.let { return summarizeSystem(it) }
+    suspend fun getOrCreateSystemCollection(
+        libraryId: String,
+        type: SystemCollectionType,
+    ): AppResult<CollectionSummary> {
+        collectionRepo.findSystemCollection(libraryId, type.name)?.let { return summarizeSystem(it) }
 
-        val ownerId = resolveInboxOwner(libraryId) ?: return AppResult.Failure(
-            CollectionError.InvalidInput(debugInfo = "No admin user available to own the inbox for library $libraryId"),
-        )
+        val ownerId =
+            resolveSystemOwner(libraryId) ?: return AppResult.Failure(
+                CollectionError.InvalidInput(
+                    debugInfo = "No admin user available to own the $type collection for library $libraryId",
+                ),
+            )
 
         val payload =
             CollectionSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 libraryId = libraryId,
                 ownerId = ownerId,
-                name = "Inbox",
-                isInbox = true,
+                name = if (type == SystemCollectionType.ALL_BOOKS) "All Books" else "Inbox",
+                isInbox = type == SystemCollectionType.INBOX,
                 isGlobalAccess = false,
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )
         return when (val result = collectionRepo.upsert(payload)) {
-            is AppResult.Success -> summarizeSystem(result.data)
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Success -> {
+                collectionRepo.setType(result.data.id, type.name)
+                summarizeSystem(result.data)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
         }
     }
+
+    /**
+     * Resolves the library's inbox, creating it on first use.
+     *
+     * Delegates to [getOrCreateSystemCollection] with [SystemCollectionType.INBOX] — the inbox is
+     * a per-library system collection (`isInbox = true`, never globally accessible, not deletable).
+     */
+    suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> =
+        getOrCreateSystemCollection(libraryId, SystemCollectionType.INBOX)
 
     /**
      * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
@@ -628,11 +674,11 @@ internal class CollectionServiceImpl(
         if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
 
     /**
-     * Resolves the user id that should own the library's inbox: the library's
+     * Resolves the user id that should own a library's system collection: the library's
      * `createdByUserId` if set, else the first ROOT user, else the first ADMIN user,
      * else null when the server has no admin at all.
      */
-    private suspend fun resolveInboxOwner(libraryId: String): String? =
+    private suspend fun resolveSystemOwner(libraryId: String): String? =
         suspendTransaction(db) {
             LibraryTable
                 .selectAll()
