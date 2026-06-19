@@ -24,7 +24,7 @@ private const val LIVE_TAIL_BUFFER = 256
  * `Book` payload.
  */
 data class BusEvent<T : Any>(
-    val repo: SyncableRepository<T, *>,
+    val repo: SyncableRepo<T>,
     val event: SyncEvent<T>,
     val userId: String? = null,
 )
@@ -86,10 +86,32 @@ class ChangeBus {
      * the repo's element type.
      */
     suspend fun <T : Any> publish(
-        repo: SyncableRepository<T, *>,
+        repo: SyncableRepo<T>,
         event: SyncEvent<T>,
         userId: String? = null,
     ) = emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
+
+    /**
+     * Emits [event] (paired with [repo]) onto the live tail **immediately**, with no
+     * commit deferral. Use this only from a caller that is already past its storage
+     * commit — specifically the SQLDelight base's `afterCommit { }` hook, which fires
+     * after the SQLDelight transaction's JDBC commit, in publish order.
+     *
+     * The Exposed base must keep using [publish]: it defers via the Exposed
+     * [TransactionManager]-keyed outbox so the firehose's delivery-time access checks
+     * never race an uncommitted write. SQLDelight has no Exposed transaction in scope,
+     * so the SQLDelight base does the deferral itself (registering this call as an
+     * `afterCommit` hook) and the bus must emit straight away when reached. `tryEmit`
+     * (not `emit`) matches [publish]: with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST`
+     * it always succeeds and never suspends the post-commit callback.
+     */
+    fun <T : Any> emit(
+        repo: SyncableRepo<T>,
+        event: SyncEvent<T>,
+        userId: String? = null,
+    ) {
+        flow.tryEmit(BusEvent(repo, event, userId))
+    }
 
     fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()
 

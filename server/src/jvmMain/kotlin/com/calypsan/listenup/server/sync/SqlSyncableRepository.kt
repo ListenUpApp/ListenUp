@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
+import app.cash.sqldelight.TransactionCallbacks
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import java.security.MessageDigest
@@ -37,18 +38,20 @@ import kotlinx.serialization.json.putJsonArray
  *  - [elementSerializer] — the concrete DTO serializer
  *  - the `T.id`, `T.revisionOf()`, and (for value-class ids) [idAsString] projections
  *
- * Self-registration with [SyncRegistry] and live-tail publishing to [ChangeBus]
- * are deferred until the registry/bus type bounds are widened to admit this base
- * — see the class header note in `SqlSyncableRepository.kt` and the deferral
- * documented on [register] / [publishCreatedOrUpdated] / [publishDeleted].
+ * Self-registers with [SyncRegistry] and publishes to [ChangeBus] through the
+ * shared [SyncableRepo] interface — the same plumbing the Exposed base uses.
+ * Live-tail emits are deferred to the SQLDelight transaction's
+ * [TransactionCallbacks.afterCommit] (see [deferEmit]) so they fire after commit,
+ * in publish order — the engine-native equivalent of the Exposed base's
+ * [CommitPublishingInterceptor].
  */
 abstract class SqlSyncableRepository<T : Any, ID : Any>(
     protected val db: ListenUpDatabase,
     protected val bus: ChangeBus,
     protected val registry: SyncRegistry,
-    val domainName: String,
+    override val domainName: String,
     protected val clock: Clock = Clock.System,
-) {
+) : SyncableRepo<T> {
     init {
         register()
     }
@@ -117,7 +120,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * concrete [elementSerializer]. Verbatim from [SyncableRepository] — pure
      * serialization, no DB access.
      */
-    fun encodePageAsJson(page: Page<T>): String {
+    override fun encodePageAsJson(page: Page<T>): String {
         val json: JsonObject =
             buildJsonObject {
                 putJsonArray("items") {
@@ -137,7 +140,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * no DB access.
      */
     @Suppress("UNCHECKED_CAST")
-    internal fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
+    override fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
         contractJson.encodeToString(SyncEvent.serializer(elementSerializer), event as SyncEvent<T>)
 
     protected abstract val T.id: ID
@@ -224,11 +227,45 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                     )
                 }
             if (!suppressed) {
-                publishCreatedOrUpdated(event, userId)
+                deferEmit(event, userId)
             }
 
             AppResult.Success(saved)
         }
+    }
+
+    /**
+     * Registers the live-tail emit for [event] to fire **after** this SQLDelight
+     * transaction commits, in publish order. Mirrors the Exposed base's behaviour:
+     * the Exposed base defers via the [TransactionManager]-keyed outbox flushed by
+     * [CommitPublishingInterceptor.afterCommit]; here we defer via SQLDelight's own
+     * [TransactionCallbacks.afterCommit], the engine-native equivalent.
+     *
+     * `afterCommit` semantics that make this exactly equivalent to the Exposed path:
+     *  - the hook runs only on the **commit** path (a rolled-back / failed
+     *    transaction runs `afterRollback` and discards the commit hooks — no phantom
+     *    emit), and only after SQLDelight has issued the JDBC `COMMIT`, so the
+     *    firehose's delivery-time `BookAccessPolicy.canAccess` read never races an
+     *    uncommitted row;
+     *  - hooks run in **insertion (FIFO) order**, which is publish order, which is
+     *    revision order — so multiple writes in one transaction emit in the same
+     *    order the Exposed outbox flushes them;
+     *  - in a **nested** transaction, SQLDelight transfers a child's commit hooks to
+     *    the enclosing transaction, so they flush once at the outermost commit, still
+     *    in insertion order — matching the Exposed interceptor's "one outbox per
+     *    outermost transaction" behaviour.
+     *
+     * The emit itself goes through [ChangeBus.emit] (immediate, no further deferral),
+     * because by the time the hook fires we are already past commit. The
+     * [FirehoseSuppressed] gate is applied by the caller (the `!suppressed` check in
+     * [upsert] / [softDelete]) before this is ever reached, so a suppressed write
+     * registers no hook and emits nothing.
+     */
+    private fun TransactionCallbacks.deferEmit(
+        event: SyncEvent<T>,
+        userId: String?,
+    ) {
+        afterCommit { bus.emit(repo = this@SqlSyncableRepository, event = event, userId = userId) }
     }
 
     /**
@@ -274,7 +311,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                 )
             } else {
                 if (!suppressed) {
-                    publishDeleted(
+                    deferEmit(
                         event =
                             SyncEvent.Deleted(
                                 id = idStr,
@@ -305,11 +342,11 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * note. It is accepted so route call sites stay source-compatible, but a
      * non-null fragment is not yet supported.
      */
-    open suspend fun pullSince(
+    override suspend fun pullSince(
         userId: String?,
         cursor: Long,
         limit: Int,
-        extraWhere: SqlFragment? = null,
+        extraWhere: SqlFragment?,
     ): Page<T> {
         require(extraWhere == null) {
             "access-filtered pullSince (extraWhere) not supported in SqlSyncableRepository base; " +
@@ -339,10 +376,10 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * [extraWhere] (the access-filtered path) is **deferred** — accepted for
      * source-compatibility, non-null not yet supported.
      */
-    suspend fun digest(
+    override suspend fun digest(
         userId: String?,
         cursor: Long,
-        extraWhere: SqlFragment? = null,
+        extraWhere: SqlFragment?,
     ): DomainDigest {
         require(extraWhere == null) {
             "access-filtered digest (extraWhere) not supported in SqlSyncableRepository base; " +
@@ -370,51 +407,16 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     }
 
     /**
-     * Self-register with [SyncRegistry].
+     * Self-register with [SyncRegistry], keyed by [domainName] — identical to the
+     * Exposed base's `init { registry.register(this) }`.
      *
-     * **Deferred.** [SyncRegistry.register] and [ChangeBus.publish] are statically
-     * bound to the Exposed [SyncableRepository] type, so this SQLDelight base cannot
-     * be registered or published through them without widening their type bounds —
-     * a cross-cutting infra change that ripples into the firehose / catch-up routes
-     * ([SyncRoutes]) and is explicitly out of scope for this additive scaffold.
-     *
-     * Wiring this base into the live registry/bus belongs with the first aggregate
-     * conversion (Tag), where the registry/bus/firehose are migrated to admit both
-     * bases together. Until then this is a no-op so the base compiles standalone;
-     * all the orchestration that *would* publish ([publishCreatedOrUpdated],
-     * [publishDeleted]) is in place and exercised, gated only on the bus binding.
+     * Both bases now implement [SyncableRepo], and [SyncRegistry.register] / [ChangeBus]
+     * are widened to that interface, so a SQLDelight repository registers and publishes
+     * through the same plumbing as an Exposed one. Called from the `init` block; the
+     * registry reads only [domainName] (a constructor val), so registration is safe
+     * before the subclass's properties are initialized.
      */
     private fun register() {
-        // Deferred — see KDoc. Intentionally a no-op until the registry/bus type
-        // bounds are widened to admit SqlSyncableRepository (Tag-conversion task).
-    }
-
-    /**
-     * Publish a [SyncEvent.Created]/[SyncEvent.Updated] live-tail event.
-     *
-     * **Deferred** for the same reason as [register]: [ChangeBus.publish] is bound to
-     * the Exposed base type. The call site in [upsert] is in place (under the
-     * `!suppressed` guard) so the publish wires up with a one-line change once the
-     * bus accepts this base.
-     */
-    @Suppress("UNUSED_PARAMETER")
-    private fun publishCreatedOrUpdated(
-        event: SyncEvent<T>,
-        userId: String?,
-    ) {
-        // Deferred — see KDoc.
-    }
-
-    /**
-     * Publish a [SyncEvent.Deleted] tombstone.
-     *
-     * **Deferred** for the same reason as [register] / [publishCreatedOrUpdated].
-     */
-    @Suppress("UNUSED_PARAMETER")
-    private fun publishDeleted(
-        event: SyncEvent.Deleted,
-        userId: String?,
-    ) {
-        // Deferred — see KDoc.
+        registry.register(this)
     }
 }

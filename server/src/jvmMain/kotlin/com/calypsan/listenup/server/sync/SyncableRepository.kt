@@ -57,9 +57,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     protected val table: SyncableTable,
     protected val bus: ChangeBus,
     registry: SyncRegistry,
-    val domainName: String,
+    override val domainName: String,
     protected val clock: Clock = Clock.System,
-) {
+) : SyncableRepo<T> {
     init {
         registry.register(this)
     }
@@ -132,7 +132,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * concrete [elementSerializer]. Called by the catch-up route to work around
      * the type-erasure of the registry (`SyncableRepository<Any, Any>` cast).
      */
-    fun encodePageAsJson(page: Page<T>): String {
+    override fun encodePageAsJson(page: Page<T>): String {
         val json: JsonObject =
             buildJsonObject {
                 putJsonArray("items") {
@@ -153,7 +153,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * type-erased registry (`SyncableRepository<Any, Any>` cast).
      */
     @Suppress("UNCHECKED_CAST")
-    internal fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
+    override fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
         contractJson.encodeToString(SyncEvent.serializer(elementSerializer), event as SyncEvent<T>)
 
     protected abstract val T.id: ID
@@ -360,11 +360,11 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * payload-read could theoretically null a row, and the queried revision is
      * the canonical cursor advance regardless.
      */
-    open suspend fun pullSince(
+    override suspend fun pullSince(
         userId: String?,
         cursor: Long,
         limit: Int,
-        extraWhere: SqlFragment? = null,
+        extraWhere: SqlFragment?,
     ): Page<T> =
         suspendTransaction(db) {
             val idsWithRev =
@@ -407,10 +407,10 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * Empty domain → `count = 0`, `hash = ""`. This is a permanent wire contract — clients
      * compute identically over their local rows.
      */
-    suspend fun digest(
+    override suspend fun digest(
         userId: String?,
         cursor: Long,
-        extraWhere: SqlFragment? = null,
+        extraWhere: SqlFragment?,
     ): DomainDigest =
         suspendTransaction(db) {
             val rows =

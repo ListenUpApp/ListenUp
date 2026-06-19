@@ -17,9 +17,9 @@ import java.util.concurrent.ConcurrentHashMap
  * and the domain-discovery endpoint.
  */
 class SyncRegistry {
-    private val byDomain = ConcurrentHashMap<String, SyncableRepository<*, *>>()
+    private val byDomain = ConcurrentHashMap<String, SyncableRepo<*>>()
 
-    fun register(repo: SyncableRepository<*, *>) {
+    fun register(repo: SyncableRepo<*>) {
         val existing = byDomain.putIfAbsent(repo.domainName, repo)
         if (existing != null) {
             error(
@@ -30,7 +30,7 @@ class SyncRegistry {
         }
     }
 
-    fun lookup(domainName: String): SyncableRepository<*, *>? = byDomain[domainName]
+    fun lookup(domainName: String): SyncableRepo<*>? = byDomain[domainName]
 
     fun knownDomains(): List<String> = byDomain.keys.sorted()
 }

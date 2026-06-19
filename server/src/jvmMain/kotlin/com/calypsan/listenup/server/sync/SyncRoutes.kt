@@ -127,7 +127,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
         val extraWhere = accessFilterFor(domainName, userId, principal.role) { bookAccessPolicy }
 
         @Suppress("UNCHECKED_CAST")
-        val typedRepo = repo as SyncableRepository<Any, Any>
+        val typedRepo = repo as SyncableRepo<Any>
         val page: Page<Any> = typedRepo.pullSince(userId, since, limit, extraWhere)
         // call.respond(page) would fail at runtime: kotlinx.serialization cannot
         // infer the concrete element serializer from the type-erased Page<Any>.
@@ -153,7 +153,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
         val extraWhere = accessFilterFor(domainName, userId, principal.role) { bookAccessPolicy }
 
         @Suppress("UNCHECKED_CAST")
-        val typedRepo = repo as SyncableRepository<Any, Any>
+        val typedRepo = repo as SyncableRepo<Any>
         val digest: DomainDigest = typedRepo.digest(userId, cursor, extraWhere)
         call.respond(digest)
     }
