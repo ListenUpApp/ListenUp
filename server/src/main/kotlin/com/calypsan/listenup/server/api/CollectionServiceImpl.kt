@@ -231,6 +231,9 @@ internal class CollectionServiceImpl(
         // Removing the book may have severed a visible user's only access path to it — nudge this
         // collection's visible users to re-derive (and prune if needed), matching setBookCollections.
         notifyAccessChanged(listOf(id.value))
+        // Bump the book's revision so each member's incremental `revision > cursor` pull re-evaluates
+        // its now-changed visibility and prunes it when no access path remains.
+        bookRevisionTouch.touchRevision(bookId)
         return AppResult.Success(Unit)
     }
 

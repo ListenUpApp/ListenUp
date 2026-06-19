@@ -99,4 +99,30 @@ class CollectionMembershipRevisionTest :
                 }
             }
         }
+
+        test("removeBookFromCollection touches the removed book's revision") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestBook(bookId = "b1")
+                runTest(UnconfinedTestDispatcher()) {
+                    val touch = FakeBookRevisionTouch()
+                    val service = makeCollectionService(db, bookRevisionTouch = touch)
+                    val owner = service.actAs("u1")
+                    val created = owner.createCollection("test-library", "Shelf")
+                    require(created is AppResult.Success)
+                    owner.addBookToCollection(created.data.id, BookId("b1")).let {
+                        require(it is AppResult.Success)
+                    }
+                    touch.touched.clear()
+
+                    owner.removeBookFromCollection(created.data.id, BookId("b1")).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    touch.touched shouldContainExactly listOf("b1")
+                }
+            }
+        }
     })
