@@ -140,7 +140,11 @@ internal class FolderWatcher(
                     // mid-wait), we still emit — the book root has changed.
                     debouncer.awaitStable(triggerPath)
                 }
-                emissions.tryEmit(bookRoot)
+                // Suspending emit (not tryEmit) so a burst that fills the SharedFlow buffer
+                // applies backpressure to this per-book-root coroutine rather than silently
+                // dropping the change — a dropped emission would strand the book until the
+                // next periodic rescan. We're already inside scope.launch, so suspending is fine.
+                emissions.emit(bookRoot)
                 pendingByBookRoot.remove(bookRoot)
             }
         }
