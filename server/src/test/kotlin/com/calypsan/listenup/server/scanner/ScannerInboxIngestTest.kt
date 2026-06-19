@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -184,6 +185,7 @@ private fun fixture(db: Database): InboxFixture {
             permissionPolicy = UserPermissionPolicy(db),
             bus = bus,
             db = db,
+            bookRevisionTouch = FakeBookRevisionTouch(),
             principal = PrincipalProvider { null },
         )
     return InboxFixture(bookRepo, collectionBookRepo, collections)

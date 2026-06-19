@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -82,6 +83,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     db = db,
                     clock = fixedClock,
                     permissionPolicy = UserPermissionPolicy(db),
+                    bookRevisionTouch = FakeBookRevisionTouch(),
                     principal = principalFor("u1"),
                 )
             return Harness(service, bus)

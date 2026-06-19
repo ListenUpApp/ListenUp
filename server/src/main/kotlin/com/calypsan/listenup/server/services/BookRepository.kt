@@ -109,7 +109,8 @@ class BookRepository(
         domainName = "books",
         clock = clock,
     ),
-    BookIngestPort {
+    BookIngestPort,
+    BookRevisionTouch {
     /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
     private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
 
@@ -772,6 +773,51 @@ class BookRepository(
                 val saved =
                     readPayload(idStr)
                         ?: error("readPayload returned null immediately after clearManagedCover for $idStr")
+                bus.publish(
+                    repo = this@BookRepository,
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                    userId = null,
+                )
+                AppResult.Success(Unit)
+            }
+        }
+    }
+
+    /**
+     * Bumps the row's revision (and `updatedAt`) without touching any content column, so a
+     * visibility-only change — collection membership add/remove — re-enters every member's
+     * incremental `revision > cursor AND <accessible>` pull and newly-visible books reach them.
+     *
+     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
+     * carries the full aggregate so clients refresh immediately. Mirrors
+     * [setManagedCover] minus the cover-column writes.
+     *
+     * @return [AppResult.Success] on success;
+     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     */
+    override suspend fun touchRevision(id: BookId): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            val rowsAffected =
+                BookTable.update({ BookTable.id eq idStr }) { stmt ->
+                    stmt[BookTable.revision] = rev
+                    stmt[BookTable.updatedAt] = now
+                }
+            if (rowsAffected == 0) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                val saved =
+                    readPayload(idStr)
+                        ?: error("readPayload returned null immediately after touchRevision for $idStr")
                 bus.publish(
                     repo = this@BookRepository,
                     event =

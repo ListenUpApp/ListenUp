@@ -209,6 +209,7 @@ fun booksModule(
                 bus = get(),
                 db = get(),
                 clock = get(),
+                bookRevisionTouch = get<BookRepository>(),
                 principal = unscopedPlaceholder("CollectionService"),
             )
         }
