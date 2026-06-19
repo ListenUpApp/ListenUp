@@ -20,8 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,18 +50,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.CoverColors
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
-import com.calypsan.listenup.client.design.components.rememberCoverColors
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
@@ -82,6 +80,7 @@ import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_keep_editing
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
+import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_enter_a_description_for_this
 import listenup.composeapp.generated.resources.series_merge_into
 import listenup.composeapp.generated.resources.series_no_cover
@@ -89,12 +88,11 @@ import listenup.composeapp.generated.resources.series_series_cover
 import listenup.composeapp.generated.resources.series_series_name
 
 /**
- * Series Edit Screen - simplified edit screen for series metadata and cover.
+ * Series Edit Screen — edit series metadata and cover.
  *
- * Design follows ContributorEditScreen pattern with:
- * - Dynamic gradient backdrop derived from cover
- * - Identity header with cover and name field
- * - Cards for description and metadata
+ * Layout:
+ * - Color-blocked [SeriesIdentityHeader] hero (primaryContainer): cover + editable name + overflow
+ * - Description card
  * - Extended FAB for save action
  */
 @Composable
@@ -126,16 +124,8 @@ fun SeriesEditScreen(
         showUnsavedChangesDialog = true
     }
 
-    // Generate color palette from cover
-    val colorScheme =
-        rememberCoverColors(
-            imagePath = state.displayCoverPath,
-            refreshKey = state.pendingCoverData,
-        )
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.surface,
         floatingActionButton = {
             if (!state.isLoading) {
                 SaveFab(
@@ -146,19 +136,7 @@ fun SeriesEditScreen(
             }
         },
     ) { paddingValues ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(surfaceColor),
-        ) {
-            // Immersive gradient backdrop
-            SeriesBackdrop(
-                colorScheme = colorScheme,
-                surfaceColor = surfaceColor,
-            )
-
-            // Content
+        Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoading -> {
                     ListenUpLoadingIndicator(
@@ -183,8 +161,8 @@ fun SeriesEditScreen(
                 else -> {
                     SeriesEditContent(
                         state = state,
-                        colorScheme = colorScheme,
                         onEvent = viewModel::onEvent,
+                        onMergeClick = { showMergeDialog = true },
                         onBackClick = {
                             if (state.hasChanges) {
                                 showUnsavedChangesDialog = true
@@ -193,17 +171,6 @@ fun SeriesEditScreen(
                             }
                         },
                         modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding()),
-                    )
-
-                    // Floating overflow menu (parallel to back button inside identity header)
-                    OverflowMenu(
-                        surfaceColor = surfaceColor,
-                        onMergeClick = { showMergeDialog = true },
-                        modifier =
-                            Modifier
-                                .align(Alignment.TopEnd)
-                                .windowInsetsPadding(WindowInsets.statusBars)
-                                .padding(16.dp),
                     )
                 }
             }
@@ -239,28 +206,17 @@ fun SeriesEditScreen(
 // =============================================================================
 
 @Composable
-private fun OverflowMenu(
-    surfaceColor: Color,
+private fun SeriesOverflowMenu(
     onMergeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        IconButton(
-            onClick = { expanded = true },
-            modifier =
-                Modifier
-                    .size(48.dp)
-                    .background(
-                        color = surfaceColor.copy(alpha = 0.5f),
-                        shape = CircleShape,
-                    ),
-        ) {
+        IconButton(onClick = { expanded = true }) {
             Icon(
                 imageVector = Icons.Default.MoreVert,
                 contentDescription = stringResource(Res.string.book_detail_more_options),
-                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
         DropdownMenu(
@@ -277,36 +233,6 @@ private fun OverflowMenu(
             )
         }
     }
-}
-
-// =============================================================================
-// BACKDROP
-// =============================================================================
-
-@Composable
-private fun SeriesBackdrop(
-    colorScheme: CoverColors,
-    surfaceColor: Color,
-) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(400.dp)
-                .background(
-                    brush =
-                        Brush.verticalGradient(
-                            colors =
-                                listOf(
-                                    colorScheme.vibrant.copy(alpha = 0.3f),
-                                    colorScheme.darkVibrant.copy(alpha = 0.2f),
-                                    surfaceColor.copy(alpha = 0.0f),
-                                ),
-                            startY = 0f,
-                            endY = 1200f,
-                        ),
-                ),
-    )
 }
 
 // =============================================================================
@@ -375,8 +301,8 @@ private fun ErrorContent(
 @Composable
 private fun SeriesEditContent(
     state: SeriesEditUiState,
-    colorScheme: CoverColors,
     onEvent: (SeriesEditUiEvent) -> Unit,
+    onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -404,10 +330,10 @@ private fun SeriesEditContent(
         SeriesIdentityHeader(
             coverPath = state.displayCoverPath,
             name = state.name,
-            colorScheme = colorScheme,
             isUploadingCover = state.isUploadingCover,
             onNameChange = { onEvent(SeriesEditUiEvent.NameChanged(it)) },
             onCoverClick = { imagePicker.launch() },
+            onMergeClick = onMergeClick,
             onBackClick = onBackClick,
         )
 
@@ -441,150 +367,163 @@ private fun SeriesEditContent(
 private fun SeriesIdentityHeader(
     coverPath: String?,
     name: String,
-    colorScheme: CoverColors,
     isUploadingCover: Boolean,
     onNameChange: (String) -> Unit,
     onCoverClick: () -> Unit,
+    onMergeClick: () -> Unit,
     onBackClick: () -> Unit,
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(16.dp),
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
     ) {
-        // Floating back button
-        IconButton(
-            onClick = onBackClick,
+        Column(
             modifier =
                 Modifier
-                    .size(48.dp)
-                    .background(
-                        color = surfaceColor.copy(alpha = 0.5f),
-                        shape = CircleShape,
-                    ),
+                    .fillMaxWidth()
+                    // The primaryContainer Surface bleeds edge-to-edge behind the status bar; inset
+                    // only the content so the back button clears the system clock and stays tappable.
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.common_back),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Cover + Name row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Large editable cover (120dp) - tappable for upload
-            ElevatedCard(
-                onClick = onCoverClick,
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
-                colors =
-                    CardDefaults.elevatedCardColors(
-                        containerColor = colorScheme.muted.copy(alpha = 0.3f),
-                    ),
-                modifier = Modifier.size(120.dp),
+            // Top row: back navigation + screen title + overflow
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (coverPath != null) {
-                        ListenUpAsyncImage(
-                            path = coverPath,
-                            contentDescription = stringResource(Res.string.series_series_cover),
-                            contentScale = ContentScale.Crop,
-                            refreshKey = isUploadingCover,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(16.dp)),
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(Res.string.series_no_cover),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(Res.string.common_back),
+                    )
+                }
+                Text(
+                    text = stringResource(Res.string.series_edit_series),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                SeriesOverflowMenu(onMergeClick = onMergeClick)
+            }
 
-                    // Loading overlay during upload
-                    if (isUploadingCover) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.5f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ListenUpLoadingIndicatorSmall(color = Color.White)
-                        }
-                    } else {
-                        // Edit indicator
-                        Box(
-                            modifier =
-                                Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(4.dp)
-                                    .size(32.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                                        shape = CircleShape,
-                                    ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CameraAlt,
-                                contentDescription = stringResource(Res.string.book_edit_change_cover),
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Cover + Name row
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Large editable cover (120dp) - tappable for upload
+                ElevatedCard(
+                    onClick = onCoverClick,
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
+                    colors =
+                        CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    modifier = Modifier.size(120.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (coverPath != null) {
+                            ListenUpAsyncImage(
+                                path = coverPath,
+                                contentDescription = stringResource(Res.string.series_series_cover),
+                                contentScale = ContentScale.Crop,
+                                refreshKey = isUploadingCover,
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(16.dp)),
                             )
+                        } else {
+                            Text(
+                                text = stringResource(Res.string.series_no_cover),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        // Loading overlay during upload
+                        if (isUploadingCover) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.5f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ListenUpLoadingIndicatorSmall(color = Color.White)
+                            }
+                        } else {
+                            // Edit indicator
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(4.dp)
+                                        .size(32.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = CircleShape,
+                                        ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = stringResource(Res.string.book_edit_change_cover),
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Name field - Large editorial style
-            OutlinedTextField(
-                value = name,
-                onValueChange = onNameChange,
-                textStyle =
-                    TextStyle(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = MaterialTheme.typography.headlineSmall.fontSize,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                placeholder = {
-                    Text(
-                        stringResource(Res.string.series_series_name),
-                        style =
-                            MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = DisplayFontFamily,
-                                fontWeight = FontWeight.Bold,
-                            ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-                },
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        focusedContainerColor = surfaceColor.copy(alpha = 0.4f),
-                        unfocusedContainerColor = surfaceColor.copy(alpha = 0.2f),
-                    ),
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
+                // Name field - Large editorial style
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    textStyle =
+                        TextStyle(
+                            fontFamily = DisplayFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = MaterialTheme.typography.headlineSmall.fontSize,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    placeholder = {
+                        Text(
+                            stringResource(Res.string.series_series_name),
+                            style =
+                                MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = DisplayFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                        )
+                    },
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                        ),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
