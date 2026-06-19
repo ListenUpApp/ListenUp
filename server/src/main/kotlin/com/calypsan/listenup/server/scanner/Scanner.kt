@@ -76,6 +76,7 @@ internal class Scanner(
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
+    private val coverSpool: CoverSpool? = null,
 ) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
@@ -306,7 +307,7 @@ internal class Scanner(
         analyzer.analyze(candidates.asFlow()).collect { result ->
             result
                 .onSuccess { book ->
-                    books += book
+                    books += (coverSpool?.spoolCover(correlationId, book) ?: book)
                     book.authors.forEach { authorsSeen += it }
                     durationMsSum += book.embedded?.durationMs ?: 0L
                     currentFile = book.candidate.rootRelPath
