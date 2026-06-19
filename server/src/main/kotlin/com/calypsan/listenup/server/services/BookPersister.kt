@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.scanner.CoverSpool
 import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -82,6 +83,7 @@ class BookPersister internal constructor(
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val scope: CoroutineScope,
     private val coverImageStore: CoverImageStore? = null,
+    private val coverSpool: CoverSpool? = null,
 ) {
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
     fun start() {
@@ -92,39 +94,43 @@ class BookPersister internal constructor(
 
     /** Visible for tests — drive one ScanResult through without the bus. */
     internal suspend fun persist(result: ScanResult) {
-        val libraryId = libraryRegistry.currentLibrary()
-        // Resolve the folder whose root_path matches the scan result's rootPath.
-        // Falls back to a sentinel folderId so a misconfigured folder doesn't
-        // block persistence; the TODO below tracks proper error surfacing.
-        val folderId = resolveFolderId(result.rootPath)
-
-        // A FULL scan is bulk population (onboarding, re-scan): suppress the per-book firehose
-        // PUBLISH so the lossy live tail (ChangeBus replay=256, DROP_OLDEST) never carries the
-        // burst — an arbitrarily large library would otherwise overflow it and trip a client
-        // CursorStale → catch-up spin. Revisions still bump, so the client does one clean REST
-        // catch-up after the Completed below. Incremental scans ARE live deltas; they publish.
-        val counts: PersistCounts
         try {
-            counts =
-                if (result.scope is ScanScope.Full) {
-                    withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
-                } else {
-                    persistAll(result, libraryId, folderId)
-                }
-        } catch (e: OutOfMemoryError) {
-            // OOM means the JVM heap is compromised. We still emit Completed with the partial
-            // counts gathered so far (stored in the thrown PersistAbortedByOom) so clients get
-            // honest numbers, then rethrow so the process can surface the failure.
-            val partial = (e as? PersistAbortedByOom)?.counts ?: PersistCounts(0, 0)
-            eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
-            throw e
-        }
+            val libraryId = libraryRegistry.currentLibrary()
+            // Resolve the folder whose root_path matches the scan result's rootPath.
+            // Falls back to a sentinel folderId so a misconfigured folder doesn't
+            // block persistence; the TODO below tracks proper error surfacing.
+            val folderId = resolveFolderId(result.rootPath)
 
-        // Completed is emitted HERE — after every book is committed and (for a full scan) the
-        // tombstone sweep has run — not by the Scanner before this persist runs. `Completed` must
-        // mean "the library is persisted and queryable", so the client reconciles a settled server
-        // exactly once instead of racing a still-writing one (the premature-Completed bug).
-        eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(counts)))
+            // A FULL scan is bulk population (onboarding, re-scan): suppress the per-book firehose
+            // PUBLISH so the lossy live tail (ChangeBus replay=256, DROP_OLDEST) never carries the
+            // burst — an arbitrarily large library would otherwise overflow it and trip a client
+            // CursorStale → catch-up spin. Revisions still bump, so the client does one clean REST
+            // catch-up after the Completed below. Incremental scans ARE live deltas; they publish.
+            val counts: PersistCounts
+            try {
+                counts =
+                    if (result.scope is ScanScope.Full) {
+                        withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
+                    } else {
+                        persistAll(result, libraryId, folderId)
+                    }
+            } catch (e: OutOfMemoryError) {
+                // OOM means the JVM heap is compromised. We still emit Completed with the partial
+                // counts gathered so far (stored in the thrown PersistAbortedByOom) so clients get
+                // honest numbers, then rethrow so the process can surface the failure.
+                val partial = (e as? PersistAbortedByOom)?.counts ?: PersistCounts(0, 0)
+                eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
+                throw e
+            }
+
+            // Completed is emitted HERE — after every book is committed and (for a full scan) the
+            // tombstone sweep has run — not by the Scanner before this persist runs. `Completed` must
+            // mean "the library is persisted and queryable", so the client reconciles a settled server
+            // exactly once instead of racing a still-writing one (the premature-Completed bug).
+            eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(counts)))
+        } finally {
+            coverSpool?.clearScan(result.correlationId)
+        }
     }
 
     /**
