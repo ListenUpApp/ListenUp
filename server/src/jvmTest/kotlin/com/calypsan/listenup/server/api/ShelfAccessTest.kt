@@ -17,7 +17,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -102,7 +102,7 @@ class ShelfAccessTest :
             return Fixtures(
                 collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
-                shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry),
+                grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry),
                 shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
                 policy = BookAccessPolicy(db),
             )
@@ -328,7 +328,7 @@ class ShelfAccessTest :
                 runTest {
                     val (shelfS, _) = db.seedBaseFixture(f)
                     // Grant B a read-share into priv's collection: B can now see priv.
-                    f.shareRepo.upsert(share("share-1", "priv-col", "b", SharePermission.Read))
+                    f.grantRepo.upsert(share("share-1", "priv-col", "b", SharePermission.Read))
                     service(db)
                         .actAs("b")
                         .getShelf(shelfS)
@@ -337,7 +337,7 @@ class ShelfAccessTest :
                         .map { it.bookId } shouldContainExactly listOf("pub", "priv", "glob")
 
                     // Revoke the share; the next read must drop priv.
-                    f.shareRepo.softDeleteShare("priv-col", "b")
+                    f.grantRepo.softDeleteGrant("priv-col", "b")
                     val after = service(db).actAs("b").getShelf(shelfS).value()
                     after.bookCount shouldBe 2
                     after.books.map { it.bookId } shouldContainExactly listOf("pub", "glob")
@@ -349,7 +349,7 @@ class ShelfAccessTest :
 private data class Fixtures(
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
-    val shareRepo: CollectionShareRepository,
+    val grantRepo: CollectionGrantRepository,
     val shelfBookRepo: ShelfBookRepository,
     val policy: BookAccessPolicy,
 )

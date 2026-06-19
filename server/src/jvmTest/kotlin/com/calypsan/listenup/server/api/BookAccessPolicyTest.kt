@@ -11,7 +11,7 @@ import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -44,7 +44,7 @@ class BookAccessPolicyTest :
             return Fixture(
                 collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
-                shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry),
+                grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry),
                 policy = BookAccessPolicy(this),
             )
         }
@@ -107,7 +107,7 @@ class BookAccessPolicyTest :
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "shared-book"))
-                    f.shareRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
+                    f.grantRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
 
                     f.policy.canAccess("recipient", UserRole.MEMBER, "shared-book") shouldBe true
                 }
@@ -123,7 +123,7 @@ class BookAccessPolicyTest :
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "shared-book"))
-                    f.shareRepo.upsert(share("s1", "col1", "recipient", SharePermission.Write))
+                    f.grantRepo.upsert(share("s1", "col1", "recipient", SharePermission.Write))
 
                     f.policy.canAccess("recipient", UserRole.MEMBER, "shared-book") shouldBe true
                 }
@@ -139,8 +139,8 @@ class BookAccessPolicyTest :
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "shared-book"))
-                    f.shareRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
-                    f.shareRepo.softDeleteShare("col1", "recipient")
+                    f.grantRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
+                    f.grantRepo.softDeleteGrant("col1", "recipient")
 
                     f.policy.canAccess("recipient", UserRole.MEMBER, "shared-book") shouldBe false
                 }
@@ -275,7 +275,7 @@ class BookAccessPolicyTest :
 
                     f.collectionRepo.upsert(collectionFixture("shared-col", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("shared-col", shared))
-                    f.shareRepo.upsert(share("s1", "shared-col", "u2", SharePermission.Read))
+                    f.grantRepo.upsert(share("s1", "shared-col", "u2", SharePermission.Read))
 
                     f.collectionRepo.upsert(collectionFixture("global-col", owner = "owner", isGlobalAccess = true))
                     f.collectionBookRepo.upsert(membership("global-col", global))
@@ -302,7 +302,7 @@ class BookAccessPolicyTest :
 private data class Fixture(
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
-    val shareRepo: CollectionShareRepository,
+    val grantRepo: CollectionGrantRepository,
     val policy: BookAccessPolicy,
 )
 

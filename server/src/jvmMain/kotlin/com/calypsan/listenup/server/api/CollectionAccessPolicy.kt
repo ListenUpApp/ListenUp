@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
 
 /**
  * Decides collection-level access for a `(user, role, collection)` triple.
@@ -20,7 +20,7 @@ import com.calypsan.listenup.server.sync.CollectionShareRepository
  */
 internal class CollectionAccessPolicy(
     private val collectionRepo: CollectionRepository,
-    private val shareRepo: CollectionShareRepository,
+    private val grantRepo: CollectionGrantRepository,
 ) {
     /**
      * The access verdict for a collection: whether the caller may touch it
@@ -50,10 +50,10 @@ internal class CollectionAccessPolicy(
         if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) {
             return Decision(true, SharePermission.Write, false)
         }
-        val share =
-            shareRepo.findActiveShare(collectionId, userId)
+        val grant =
+            grantRepo.findActiveGrant(collectionId, userId)
                 ?: return Decision(false, SharePermission.Read, false)
-        return Decision(true, share.permission, false)
+        return Decision(true, grant.permission, false)
     }
 
     /** True when [userId] may read [collectionId]. */

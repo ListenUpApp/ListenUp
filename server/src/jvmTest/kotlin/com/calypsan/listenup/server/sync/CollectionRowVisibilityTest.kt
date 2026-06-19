@@ -57,12 +57,12 @@ private const val PULL_LIMIT = 100
 class CollectionRowVisibilityTest :
     FunSpec({
 
-        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionShareRepository, CollectionBookRepository> {
+        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionGrantRepository, CollectionBookRepository> {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
                 CollectionRepository(db = db, bus = bus, registry = registry),
-                CollectionShareRepository(db = db, bus = bus, registry = registry),
+                CollectionGrantRepository(db = db, bus = bus, registry = registry),
                 CollectionBookRepository(db = db, bus = bus, registry = registry),
             )
         }
@@ -112,7 +112,7 @@ class CollectionRowVisibilityTest :
                     shares.upsert(shareFixture("s-irrelevant", "strangers", sharedWith = "other"))
 
                     val policy = BookAccessPolicy(db)
-                    val frag = policy.visibleCollectionShareIdsSql("member", UserRole.MEMBER)
+                    val frag = policy.visibleCollectionGrantIdsSql("member", UserRole.MEMBER)
 
                     val page = shares.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
 

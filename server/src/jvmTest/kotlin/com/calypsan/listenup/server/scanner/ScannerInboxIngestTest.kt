@@ -23,7 +23,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -175,13 +175,13 @@ private fun fixture(db: Database): InboxFixture {
             collectionBookRepository = collectionBookRepo,
         )
     val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)
-    val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = syncRegistry)
+    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = syncRegistry)
     val collections =
         CollectionServiceImpl(
             collectionRepo = collectionRepo,
             collectionBookRepo = collectionBookRepo,
-            shareRepo = shareRepo,
-            accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+            grantRepo = grantRepo,
+            accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
             permissionPolicy = UserPermissionPolicy(db),
             bus = bus,
             db = db,
