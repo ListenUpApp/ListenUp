@@ -107,7 +107,14 @@ internal class FolderWatcher(
 
     private suspend fun handle(event: DirectoryWatchEvent) {
         val fullPath = Path.of(event.targetDirectory).resolve(event.path)
-        if (skipRules(fullPath)) return
+        val isDelete = event.kind == DirectoryWatchEventKind.Delete
+        // Skip rules must NOT filter delete events: the deleted path no longer exists
+        // on disk, so filesystem probes inside skipRules (e.g. the `.ignore` sentinel
+        // check) would evaluate a path that is gone. More importantly, a book directory
+        // whose name happens to match a skip rule would silently drop the delete, so the
+        // tombstone never lands. Skip-filter only non-delete events, exactly as the
+        // Walker does when it descends a live tree.
+        if (!isDelete && skipRules(fullPath)) return
 
         // A newly-created directory needs to be added to the watch set so events on
         // its children surface. The recursive watcher already registers new subtrees
@@ -117,7 +124,7 @@ internal class FolderWatcher(
         }
 
         val bookRoot = computeBookRoot(fullPath)
-        scheduleEmission(bookRoot, fullPath, isDelete = event.kind == DirectoryWatchEventKind.Delete)
+        scheduleEmission(bookRoot, fullPath, isDelete = isDelete)
     }
 
     private fun scheduleEmission(

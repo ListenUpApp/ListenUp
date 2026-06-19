@@ -498,6 +498,35 @@ class BookRepository(
     }
 
     /**
+     * Soft-deletes the live book at [rootRelPath] inside [libraryId], if one exists.
+     *
+     * Idempotent: a no-op when no live (non-deleted) book exists at that path.
+     * When a book is found it is removed through [softDelete], which bumps the
+     * revision and emits [com.calypsan.listenup.api.sync.SyncEvent.Deleted] on the
+     * change bus — clients reflow exactly as they would for any other delete.
+     *
+     * Called by [BookPersister] on a [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed]
+     * event from an incremental scan, where the full-scan tombstone sweep does not run.
+     */
+    override suspend fun softDeleteByPath(
+        libraryId: LibraryId,
+        rootRelPath: String,
+    ) {
+        val id =
+            suspendTransaction(db) {
+                BookTable
+                    .selectAll()
+                    .where {
+                        (BookTable.libraryId eq libraryId.value) and
+                            (BookTable.rootRelPath eq rootRelPath) and
+                            BookTable.deletedAt.isNull()
+                    }.firstOrNull()
+                    ?.let { BookId(it[BookTable.id]) }
+            } ?: return // already gone — idempotent no-op
+        softDelete(id, clientOpId = null)
+    }
+
+    /**
      * Builds a [BookSyncPayload] from [analyzed] under the supplied [bookId] and
      * writes the full aggregate through the substrate's `upsert`.
      *

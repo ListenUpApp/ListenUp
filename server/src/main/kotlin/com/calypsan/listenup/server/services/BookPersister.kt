@@ -172,9 +172,19 @@ class BookPersister internal constructor(
                 }
 
                 is ChangeEventDto.Removed -> {
-                    // Removed books are absent from seenPaths and will be tombstoned by the
-                    // Full-scan sweep below. For Subtree scans, removal handling is not
-                    // authoritative (only one subtree was walked), so no explicit action here.
+                    // Explicitly tombstone the book at this path so incremental-scan deletions
+                    // reflow immediately without waiting for the next Full scan. The call is
+                    // idempotent: a no-op when the book is already deleted or never existed.
+                    // For Full scans the softDeleteAbsentByPaths sweep below would catch it
+                    // anyway, so the overlap is harmless (soft-deleting an already-deleted book
+                    // is a no-op there too).
+                    try {
+                        ingest.softDeleteByPath(libraryId, change.rootRelPath)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
+                    }
                 }
             }
         }

@@ -241,6 +241,60 @@ class BookPersisterTest :
             }
         }
 
+        test("incremental Removed change tombstones the book immediately (no full-scan sweep needed)") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this)
+
+                    // Incremental scan: bookRoot subtree had "deleted-book" previously,
+                    // now it is gone — the Differ emits Removed. The full-scan sweep does NOT run.
+                    persister.persist(
+                        scanResult(
+                            books = emptyList(), // nothing on disk under the subtree anymore
+                            changes = listOf(ChangeEventDto.Removed(rootRelPath = "deleted-book")),
+                            scope = ScanScope.Subtree("deleted-book"),
+                        ),
+                    )
+
+                    // softDeleteByPath must be called with the removed path.
+                    fake.softDeleteByPathCalls shouldContainExactly listOf("deleted-book")
+                    // No full-scan sweep runs for an incremental scan.
+                    fake.softDeleteAbsentByPathsCalls.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("full-scan Removed change also tombstones explicitly (harmless overlap with sweep)") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this)
+
+                    // Full scan where one book was removed: the Differ emits Removed and the sweep runs.
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Removed(rootRelPath = "gone-book"),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    // Explicit tombstone fires for the Removed change.
+                    fake.softDeleteByPathCalls shouldContainExactly listOf("gone-book")
+                    // Full-scan sweep also runs (with only the surviving paths).
+                    fake.softDeleteAbsentByPathsCalls shouldHaveSize 1
+                    fake.softDeleteAbsentByPathsCalls.single() shouldBe setOf("a")
+                }
+            }
+        }
+
         test("an escaped exception is contained; the rest still process") {
             withInMemoryDatabase {
                 val db = this
@@ -317,6 +371,9 @@ private class FakeBookIngest(
     /** seenPaths sets passed to each [softDeleteAbsentByPaths] call. */
     val softDeleteAbsentByPathsCalls = mutableListOf<Set<String>>()
 
+    /** rootRelPaths passed to each [softDeleteByPath] call, in call order. */
+    val softDeleteByPathCalls = mutableListOf<String>()
+
     /** Whether [FirehoseSuppressed] was in the coroutine context for each [resolveOrInsert], in call order. */
     val suppressionObserved = mutableListOf<Boolean>()
 
@@ -348,6 +405,13 @@ private class FakeBookIngest(
     ) {
         softDeleteAbsentByPathsSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         softDeleteAbsentByPathsCalls += seenPaths
+    }
+
+    override suspend fun softDeleteByPath(
+        libraryId: LibraryId,
+        rootRelPath: String,
+    ) {
+        softDeleteByPathCalls += rootRelPath
     }
 }
 

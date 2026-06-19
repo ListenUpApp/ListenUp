@@ -51,6 +51,23 @@ interface BookIngestPort {
         libraryId: LibraryId,
         seenPaths: Set<String>,
     )
+
+    /**
+     * Soft-delete the live book at [rootRelPath] inside [libraryId], if one exists.
+     *
+     * Idempotent: a no-op when no live (non-deleted) book exists at that path (already
+     * tombstoned or never ingested). Emits [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
+     * to the change bus so connected clients reflow immediately.
+     *
+     * Called from [com.calypsan.listenup.server.services.BookPersister] when a
+     * [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed] arrives on an
+     * incremental scan — the only path that explicitly notifies of a deletion without
+     * walking the entire library.
+     */
+    suspend fun softDeleteByPath(
+        libraryId: LibraryId,
+        rootRelPath: String,
+    )
 }
 
 /**
