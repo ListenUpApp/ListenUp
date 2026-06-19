@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.server.db.ContributorAliasTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -109,8 +111,8 @@ class BookSearchReindexerAliasTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // Pre-condition: triggers seeded aliases as '' on insert; alias rows
@@ -135,8 +137,8 @@ class BookSearchReindexerAliasTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // Should complete without error.
@@ -154,8 +156,8 @@ class BookSearchReindexerAliasTest :
                 runTest {
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // No contributor seeded — rowid lookup returns null and the reindex
@@ -174,8 +176,8 @@ class BookSearchReindexerAliasTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     reindexer.reindexContributorAliases("c-rotate")

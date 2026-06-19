@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.BookRepository
@@ -67,6 +68,8 @@ internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
     val db: Database,
+    /** SQLDelight view over the same file as [db] — the engine [tagRepo] and other converted repos run on. */
+    val sqlDb: ListenUpDatabase,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
     private val listeningEventRepoOrNull: ListeningEventRepository?,
@@ -151,7 +154,7 @@ internal fun withTestApplication(
             DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val registry = SyncRegistry()
-        val tagRepo = TagRepository(db, bus, registry)
+        val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
         val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(db, bus, registry) else null
         val playbackPositionRepo =
             if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
@@ -261,6 +264,7 @@ internal fun withTestApplication(
             client = jsonClient,
             tagRepo = tagRepo,
             db = db,
+            sqlDb = db.asSqlDatabase(),
             userScopedRepoOrNull = userScopedRepo,
             playbackPositionRepoOrNull = playbackPositionRepo,
             listeningEventRepoOrNull = listeningEventRepo,

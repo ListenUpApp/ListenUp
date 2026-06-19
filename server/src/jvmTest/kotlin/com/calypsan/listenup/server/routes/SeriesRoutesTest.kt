@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -76,8 +78,8 @@ class SeriesRoutesTest :
                         seriesRepository = seriesRepo,
                         genreRepository = GenreRepository(db = db, bus = bus, registry = registry),
                     )
-                val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
                 val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db)
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)

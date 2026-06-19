@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.result.AppResult
@@ -40,8 +42,8 @@ class SearchReindexServiceTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
 
                     SearchReindexService(db, reindexer).reindexAll()
@@ -67,8 +69,8 @@ class SearchReindexServiceTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
 
                     SearchReindexService(db, reindexer).reindexAll()

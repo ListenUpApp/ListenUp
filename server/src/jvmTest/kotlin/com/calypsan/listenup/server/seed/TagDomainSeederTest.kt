@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.seed
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -20,7 +22,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class TagDomainSeederTest :
     FunSpec({
 
-        fun makeTagRepo(db: Database): TagRepository = TagRepository(db, ChangeBus(), SyncRegistry())
+        fun makeTagRepo(db: Database): TagRepository = TagRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         test("isAlreadySeeded returns false when no tags exist") {
             withInMemoryDatabase {

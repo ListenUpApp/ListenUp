@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
@@ -54,8 +56,8 @@ class GenreServiceImplUnmappedTest :
             val genreRepo = GenreRepository(db, bus, registry, fixedClock)
             val contributorRepo = ContributorRepository(db, bus, registry)
             val seriesRepo = SeriesRepository(db, bus, registry)
-            val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-            val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+            val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
             val bookRepo =
                 BookRepository(

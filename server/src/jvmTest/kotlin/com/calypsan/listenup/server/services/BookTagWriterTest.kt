@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -27,8 +29,8 @@ class BookTagWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db, bus, registry)
-                val bookTagRepository = BookTagRepository(db, bus, registry)
+                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
+                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -51,8 +53,8 @@ class BookTagWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db, bus, registry)
-                val bookTagRepository = BookTagRepository(db, bus, registry)
+                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
+                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -73,8 +75,8 @@ class BookTagWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db, bus, registry)
-                val bookTagRepository = BookTagRepository(db, bus, registry)
+                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
+                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -94,8 +96,8 @@ class BookTagWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db, bus, registry)
-                val bookTagRepository = BookTagRepository(db, bus, registry)
+                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
+                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {

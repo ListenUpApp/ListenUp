@@ -42,8 +42,8 @@ internal fun testEnrichmentDeps(
         bookTagWriter =
             BookTagWriter(
                 clock = clock,
-                tagRepository = TagRepository(db, bus, registry),
-                bookTagRepository = BookTagRepository(db, bus, registry),
+                tagRepository = TagRepository(db.asSqlDatabase(), bus, registry),
+                bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry),
             ),
         productTagSource = productTagSource,
     )

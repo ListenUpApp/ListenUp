@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -108,8 +110,8 @@ private fun makeContributorPermService(db: Database): ContributorPermDeps {
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db, bus, registry),
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
     val service =
         ContributorServiceImpl(

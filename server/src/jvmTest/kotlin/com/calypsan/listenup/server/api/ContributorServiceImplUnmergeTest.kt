@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -303,8 +305,8 @@ private fun makeUnmergeServiceAndDeps(db: Database): UnmergeServiceDeps {
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(db, bus, syncRegistry),
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = syncRegistry)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
     val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
     val service =
         ContributorServiceImpl(

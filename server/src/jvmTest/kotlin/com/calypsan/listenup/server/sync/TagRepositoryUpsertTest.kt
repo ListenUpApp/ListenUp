@@ -5,7 +5,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -21,12 +21,12 @@ class TagRepositoryUpsertTest :
     FunSpec({
 
         test("upsert of a fresh row publishes Created with bumped revision") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val fixedTime = Instant.fromEpochMilliseconds(1_730_000_000_000L)
                 val repo =
                     TagRepository(
-                        db = this,
+                        db = sql,
                         bus = bus,
                         registry = SyncRegistry(),
                         clock =
@@ -62,9 +62,9 @@ class TagRepositoryUpsertTest :
         }
 
         test("upsert of an existing row publishes Updated") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val initial = Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0)
@@ -87,9 +87,9 @@ class TagRepositoryUpsertTest :
         }
 
         test("upsert with null clientOpId publishes event with null clientOpId") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val deferredBusEvent = async { bus.subscribe().first() }
@@ -104,9 +104,9 @@ class TagRepositoryUpsertTest :
         }
 
         test("revisions are strictly monotonic across writes") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val r1 = (repo.upsert(Tag("a", "n1", "n1", 0, 0)) as AppResult.Success).data.revision

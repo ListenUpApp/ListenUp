@@ -119,10 +119,10 @@ internal class TagServiceImpl(
             return AppResult.Failure(TagError.BookNotFound())
         }
         val junctions = bookTagRepository.findAllForBook(bookId.value)
-        val tags =
-            junctions.mapNotNull { junc ->
-                tagRepository.findById(junc.tagId)
-            }
+        // Batch the tag reads (one round-trip per 900-id chunk) instead of one findById
+        // per junction. findByIds preserves order and skips absent/tombstoned ids, so the
+        // result is identical to the prior per-row mapNotNull.
+        val tags = tagRepository.findByIds(junctions.map { it.tagId })
         return AppResult.Success(tags)
     }
 

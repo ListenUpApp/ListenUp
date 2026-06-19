@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -94,8 +96,8 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
     return GenreServiceImpl(
         genreRepository = genreRepo,

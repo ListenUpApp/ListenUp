@@ -2,60 +2,111 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.server.db.TagTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Tags
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable repository for tags.
+ * SQLDelight syncable repository for tags — the **template** every other aggregate
+ * copies during the Exposed → SQLDelight cutover.
  *
- * Handles the full tag aggregate: read/write of [Tag] via [TagTable], including
- * [Tag.slug] which is the canonical URL-safe identity for each tag. Slug is
- * written on insert and included in every payload read.
+ * Handles the full tag aggregate: read/write of [Tag] via the generated
+ * [ListenUpDatabase.tagsQueries], including [Tag.slug] which is the canonical
+ * URL-safe identity for each tag. Slug is written on insert and included in every
+ * payload read.
+ *
+ * The base [SqlSyncableRepository] owns the revision-bump / timestamp /
+ * created-vs-updated / emit-after-commit orchestration; this class supplies only the
+ * tag-shaped pieces:
+ *  - [substrate] — the [SyncableSubstrateQueries] adapter over `tagsQueries`
+ *  - [readPayload] / [readPayloads] — root-row reads by id
+ *  - [writePayload] — insert-or-update inside the open transaction
+ *  - [elementSerializer] / `Tag.id` / `Tag.revisionOf`
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted tag by id
+ *  - [findByIds] — batch fetch non-deleted tags by id (the N+1 fix for `listTagsForBook`)
  *  - [findBySlug] — fetch one non-deleted tag by slug (the stable URL identity)
  *  - [listAll] — fetch all non-deleted tags, ordered by name
  *  - [updateName] — rename a tag (updates [Tag.name] only; slug is preserved)
  */
 class TagRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<Tag, String>(db, TagTable, bus, registry, "tags", clock) {
+) : SqlSyncableRepository<Tag, String>(db, bus, registry, "tags", clock) {
     override val elementSerializer: KSerializer<Tag> = Tag.serializer()
 
     override val Tag.id: String get() = this.id
 
     override fun Tag.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): Tag? =
-        TagTable
-            .selectAll()
-            .where { TagTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                Tag(
-                    id = row[TagTable.id],
-                    name = row[TagTable.name],
-                    slug = row[TagTable.slug],
-                    revision = row[TagTable.revision],
-                    updatedAt = row[TagTable.updatedAt],
-                    deletedAt = row[TagTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.tagsQueries].
+     *
+     * This is the canonical adapter shape every aggregate copies: a thin object that
+     * forwards each substrate contract method to the matching generated query, mapping
+     * the generated revision-cursor rows into the engine-neutral [IdRev]. The generated
+     * `existsById` / `selectIdsAboveRevision` / `selectIdRevAtMost` return `Query<T>`, so
+     * each call ends in `.executeAsOne()` / `.executeAsList()`; `softDeleteById` returns
+     * the affected-row count via SQLDelight's `QueryResult<Long>.value`.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.tagsQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.tagsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.tagsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.tagsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): Tag? =
+        db.tagsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toTag()
+
+    override fun readPayloads(idStrs: List<String>): List<Tag> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.tagsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toTag() }
+    }
+
+    override fun writePayload(
         value: Tag,
         rev: Long,
         now: Long,
@@ -64,25 +115,26 @@ class TagRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            TagTable.update({ TagTable.id eq value.id }) { stmt ->
-                stmt[TagTable.name] = value.name
-                stmt[TagTable.slug] = value.slug
-                stmt[TagTable.revision] = rev
-                stmt[TagTable.updatedAt] = now
-                stmt[TagTable.deletedAt] = null
-                stmt[TagTable.clientOpId] = clientOpId
-            }
+            db.tagsQueries.update(
+                name = value.name,
+                slug = value.slug,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            TagTable.insert { stmt ->
-                stmt[TagTable.id] = value.id
-                stmt[TagTable.name] = value.name
-                stmt[TagTable.slug] = value.slug
-                stmt[TagTable.revision] = rev
-                stmt[TagTable.createdAt] = now
-                stmt[TagTable.updatedAt] = now
-                stmt[TagTable.deletedAt] = null
-                stmt[TagTable.clientOpId] = clientOpId
-            }
+            db.tagsQueries.insert(
+                id = value.id,
+                name = value.name,
+                slug = value.slug,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
@@ -91,21 +143,33 @@ class TagRepository(
      */
     suspend fun findById(id: String): Tag? =
         suspendTransaction(db) {
-            TagTable
-                .selectAll()
-                .where { (TagTable.id eq id) and TagTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.let { row ->
-                    Tag(
-                        id = row[TagTable.id],
-                        name = row[TagTable.name],
-                        slug = row[TagTable.slug],
-                        revision = row[TagTable.revision],
-                        updatedAt = row[TagTable.updatedAt],
-                        deletedAt = row[TagTable.deletedAt],
-                    )
-                }
+            db.tagsQueries
+                .selectById(id)
+                .executeAsOneOrNull()
+                ?.takeIf { it.deleted_at == null }
+                ?.toTag()
         }
+
+    /**
+     * Returns the non-deleted tags whose ids appear in [ids], in the same order as
+     * [ids] and skipping ids that are absent or tombstoned.
+     *
+     * This is the batched read that replaces the per-id `findById` loop in
+     * `TagServiceImpl.listTagsForBook` — one round-trip (per 900-id chunk) instead of
+     * one per junction row.
+     */
+    suspend fun findByIds(ids: List<String>): List<Tag> {
+        if (ids.isEmpty()) return emptyList()
+        return suspendTransaction(db) {
+            val byId =
+                ids
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMap { chunk -> db.tagsQueries.selectByIds(chunk).executeAsList() }
+                    .filter { it.deleted_at == null }
+                    .associateBy { it.id }
+            ids.mapNotNull { byId[it]?.toTag() }
+        }
+    }
 
     /**
      * Returns the non-deleted tag whose [Tag.slug] matches [slug], or null when
@@ -114,20 +178,10 @@ class TagRepository(
      */
     suspend fun findBySlug(slug: String): Tag? =
         suspendTransaction(db) {
-            TagTable
-                .selectAll()
-                .where { (TagTable.slug eq slug) and TagTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.let { row ->
-                    Tag(
-                        id = row[TagTable.id],
-                        name = row[TagTable.name],
-                        slug = row[TagTable.slug],
-                        revision = row[TagTable.revision],
-                        updatedAt = row[TagTable.updatedAt],
-                        deletedAt = row[TagTable.deletedAt],
-                    )
-                }
+            db.tagsQueries
+                .selectBySlug(slug)
+                .executeAsOneOrNull()
+                ?.toTag()
         }
 
     /**
@@ -135,20 +189,10 @@ class TagRepository(
      */
     suspend fun listAll(): List<Tag> =
         suspendTransaction(db) {
-            TagTable
-                .selectAll()
-                .where { TagTable.deletedAt.isNull() }
-                .orderBy(TagTable.name)
-                .map { row ->
-                    Tag(
-                        id = row[TagTable.id],
-                        name = row[TagTable.name],
-                        slug = row[TagTable.slug],
-                        revision = row[TagTable.revision],
-                        updatedAt = row[TagTable.updatedAt],
-                        deletedAt = row[TagTable.deletedAt],
-                    )
-                }
+            db.tagsQueries
+                .listAll()
+                .executeAsList()
+                .map { it.toTag() }
         }
 
     /**
@@ -167,8 +211,27 @@ class TagRepository(
         val current = findById(id) ?: return null
         val updated = current.copy(name = newName)
         return when (val result = upsert(updated)) {
-            is com.calypsan.listenup.api.result.AppResult.Success -> result.data
-            is com.calypsan.listenup.api.result.AppResult.Failure -> null
+            is AppResult.Success -> result.data
+            is AppResult.Failure -> null
         }
+    }
+
+    /** Maps a generated [Tags] row to the wire [Tag] DTO. */
+    private fun Tags.toTag(): Tag =
+        Tag(
+            id = id,
+            name = name,
+            slug = slug,
+            revision = revision,
+            updatedAt = updated_at,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
     }
 }

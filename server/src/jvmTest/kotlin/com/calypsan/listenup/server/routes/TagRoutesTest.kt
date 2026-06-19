@@ -25,7 +25,7 @@ import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -69,12 +69,15 @@ class TagRoutesTest :
          * making HTTP requests.
          */
         fun withTagTestApp(block: suspend TagTestScope.() -> Unit) {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
+                val db = exposed
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                // Tag + BookTag are on SQLDelight; the rest of the wiring (reindexer,
+                // collection repos, access policy, the service db, roleOf) still speaks
+                // Exposed during the cutover — both views share the one migrated file.
+                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
                 val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, principal = rootPrincipal())
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)

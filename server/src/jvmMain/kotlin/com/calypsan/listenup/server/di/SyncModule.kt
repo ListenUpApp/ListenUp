@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -40,8 +41,10 @@ fun syncModule(): Module =
         single { SyncRegistry() }
         single { BookAccessPolicy(get()) }
         single(createdAtStart = true) { ChangeBus() }
-        single(createdAtStart = true) { TagRepository(get(), get(), get()) }
-        single(createdAtStart = true) { BookTagRepository(get(), get(), get()) }
+        // Tag + BookTag are the first SQLDelight conversions (the cutover template):
+        // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
+        single(createdAtStart = true) { TagRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { BookTagRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { MoodRepository(get(), get(), get()) }
         single(createdAtStart = true) { BookMoodRepository(get(), get(), get()) }
         single(createdAtStart = true) { CollectionRepository(get(), get(), get()) }

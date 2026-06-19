@@ -24,6 +24,8 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveDatabaseUrl
 import com.calypsan.listenup.server.db.resolveListenupHome
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -55,6 +57,17 @@ fun authModule(config: ApplicationConfig): Module {
         }
 
         single<Database> { get<DatabaseHandle>().database }
+
+        // SQLDelight twin of the Exposed [Database], over the SAME migrated db file.
+        // Resolving [DatabaseHandle] first forces [DatabaseFactory.init] (and therefore
+        // [MigrationRunner.migrate]) to run before the SQLDelight driver opens the file,
+        // so the schema is already present — the driver never calls Schema.create. Both
+        // singles coexist during the Exposed → SQLDelight cutover; aggregates migrate one
+        // at a time, switching their constructor from [Database] to [ListenUpDatabase].
+        single<ListenUpDatabase> {
+            val dbPath = get<DatabaseHandle>().dbFilePath.toAbsolutePath().toString()
+            ListenUpDatabase(DriverFactory().createDriver(dbPath))
+        }
 
         single { PasswordHasher() }
         single { RefreshTokenGenerator() }

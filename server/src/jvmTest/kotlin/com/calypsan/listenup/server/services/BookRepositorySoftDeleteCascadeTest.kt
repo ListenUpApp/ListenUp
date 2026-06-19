@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
@@ -30,8 +32,8 @@ class BookRepositorySoftDeleteCascadeTest :
                 runTest {
                     val bus = ChangeBus()
                     val syncRegistry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = syncRegistry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = syncRegistry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
 
                     val bookRepo =
                         BookRepository(

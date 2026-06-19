@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
@@ -247,8 +249,8 @@ private fun enrichmentCtx(db: Database): EnrichmentCtx {
     val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
     val moodRepo = MoodRepository(db, bus, registry)
     val bookMoodRepo = BookMoodRepository(db, bus, registry)
-    val tagRepo = TagRepository(db, bus, registry)
-    val bookTagRepo = BookTagRepository(db, bus, registry)
+    val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
+    val bookTagRepo = BookTagRepository(db.asSqlDatabase(), bus, registry)
     val metadataService =
         MetadataService(
             audible = EnrichStubAudibleApi(enrichBook()),

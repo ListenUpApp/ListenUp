@@ -10,9 +10,10 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -35,23 +36,21 @@ class TagServiceImplTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L))
 
-        fun makeService(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
-        ): TagServiceImpl {
+        fun makeService(dbs: SqlTestDatabases): TagServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-            val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
-            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, fixedClock, principal = rootPrincipal())
+            val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
+            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.exposed)
+            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, dbs.exposed, fixedClock, principal = rootPrincipal())
         }
 
         // ── listTags ─────────────────────────────────────────────────────────
 
         test("listTags returns empty list when no tags exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.listTags()
                     result shouldBe AppResult.Success(emptyList())
                 }
@@ -59,11 +58,11 @@ class TagServiceImplTest :
         }
 
         test("listTags returns tags with correct bookCount") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
+                exposed.seedTestBook("book2")
                 runTest {
                     val service = makeService(db)
                     // Add tag to two books.
@@ -82,9 +81,9 @@ class TagServiceImplTest :
         // ── getTagBySlug ─────────────────────────────────────────────────────
 
         test("getTagBySlug returns null for nonexistent slug") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.getTagBySlug("nonexistent")
                     result shouldBe AppResult.Success(null)
                 }
@@ -92,10 +91,10 @@ class TagServiceImplTest :
         }
 
         test("getTagBySlug returns tag with bookCount when slug matches") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -112,10 +111,10 @@ class TagServiceImplTest :
         // ── addTagToBook ──────────────────────────────────────────────────────
 
         test("addTagToBook creates new tag and junction") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val result = service.addTagToBook(BookId("book1"), "Mystery")
@@ -128,9 +127,9 @@ class TagServiceImplTest :
         }
 
         test("addTagToBook rejects nonexistent book with BookNotFound") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.addTagToBook(BookId("no-such-book"), "Mystery")
 
                     require(result is AppResult.Failure)
@@ -140,10 +139,10 @@ class TagServiceImplTest :
         }
 
         test("addTagToBook rejects empty name with InvalidName") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val result = service.addTagToBook(BookId("book1"), "")
@@ -155,10 +154,10 @@ class TagServiceImplTest :
         }
 
         test("addTagToBook is idempotent — same name twice yields one junction") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -172,11 +171,11 @@ class TagServiceImplTest :
         }
 
         test("addTagToBook reuses existing tag by slug") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
+                exposed.seedTestBook("book2")
                 runTest {
                     val service = makeService(db)
                     val r1 = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -193,10 +192,10 @@ class TagServiceImplTest :
         // ── removeTagFromBook ─────────────────────────────────────────────────
 
         test("removeTagFromBook tombstones junction row") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val addResult = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -217,10 +216,10 @@ class TagServiceImplTest :
         // ── renameTag ─────────────────────────────────────────────────────────
 
         test("renameTag updates name but preserves slug") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val addResult = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -237,9 +236,9 @@ class TagServiceImplTest :
         }
 
         test("renameTag returns NotFound for missing tag") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.renameTag(TagId("no-such-tag"), "New Name")
 
                     require(result is AppResult.Failure)
@@ -249,10 +248,10 @@ class TagServiceImplTest :
         }
 
         test("renameTag rejects empty new name with InvalidName") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val addResult = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -268,11 +267,11 @@ class TagServiceImplTest :
         // ── deleteTag ─────────────────────────────────────────────────────────
 
         test("deleteTag tombstones tag and all junctions") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
+                exposed.seedTestBook("book2")
                 runTest {
                     val service = makeService(db)
                     service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -304,9 +303,9 @@ class TagServiceImplTest :
         }
 
         test("deleteTag returns NotFound for missing tag") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.deleteTag(TagId("no-such-tag"))
 
                     require(result is AppResult.Failure)
@@ -318,9 +317,9 @@ class TagServiceImplTest :
         // ── listTagsForBook ───────────────────────────────────────────────────
 
         test("listTagsForBook returns BookNotFound for missing book") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.listTagsForBook(BookId("no-such-book"))
 
                     require(result is AppResult.Failure)
@@ -330,10 +329,10 @@ class TagServiceImplTest :
         }
 
         test("listTagsForBook returns empty list when book has no tags") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val result = service.listTagsForBook(BookId("book1"))

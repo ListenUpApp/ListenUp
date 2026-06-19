@@ -17,6 +17,8 @@ import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserEntity
@@ -44,6 +46,75 @@ fun withInMemoryDatabase(block: Database.() -> Unit) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     val db = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
     db.block()
+}
+
+/**
+ * Both DB handles over one migrated SQLite file, passed to every SQLDelight-aggregate test.
+ *
+ * - [sql] is the [ListenUpDatabase] the converted repositories (TagRepository,
+ *   BookTagRepository, …) take in their constructor.
+ * - [exposed] is the Exposed [Database] over the **same file**, for the seed helpers
+ *   ([seedTestLibraryAndFolder] / [seedTestBook] / [seedTestUser]) and for any
+ *   not-yet-converted collaborator (e.g. `BookSearchReindexer`, the service-layer `db`)
+ *   that still speaks Exposed during the cutover.
+ *
+ * Both views read and write the one underlying file, so a row seeded through [exposed]
+ * is visible to [sql] and vice versa.
+ */
+data class SqlTestDatabases(
+    val sql: ListenUpDatabase,
+    val exposed: Database,
+)
+
+/**
+ * Runs [block] with a freshly-migrated SQLite database exposed as **both** a SQLDelight
+ * [ListenUpDatabase] and an Exposed [Database] over the same temp file — the reusable
+ * fixture every SQLDelight-aggregate test uses.
+ *
+ * Migrations run once via [DatabaseFactory.init] (the same path production uses), so the
+ * full schema is present before the SQLDelight driver opens the file; the driver never
+ * calls `Schema.create`. A temp-file database (not `:memory:`) is used so WAL mode and
+ * the schema-history table behave exactly as in production; the file is deleted on JVM exit.
+ *
+ * The SQLDelight driver is closed after [block] returns so the file handle is released
+ * deterministically.
+ */
+fun withSqlDatabase(block: SqlTestDatabases.() -> Unit) {
+    val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
+    val path = tmp.absolutePath
+    val exposed = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$path")).database
+    val driver = DriverFactory().createDriver(path)
+    try {
+        SqlTestDatabases(sql = ListenUpDatabase(driver), exposed = exposed).block()
+    } finally {
+        driver.close()
+    }
+}
+
+/**
+ * Cache of one [ListenUpDatabase] per Exposed [Database] file, so [asSqlDatabase] hands the
+ * same SQLDelight view back on repeated calls within a test instead of leaking a fresh JDBC
+ * file handle each time.
+ */
+private val sqlDatabasesByUrl = java.util.concurrent.ConcurrentHashMap<String, ListenUpDatabase>()
+
+/**
+ * Returns a SQLDelight [ListenUpDatabase] over the **same file** this Exposed [Database] is
+ * connected to — the bridge that lets existing `withInMemoryDatabase { … }` tests construct
+ * SQLDelight-backed repositories (TagRepository, BookTagRepository) without rewriting their
+ * whole fixture during the incremental cutover.
+ *
+ * The schema is already migrated (the Exposed [Database] was built by [DatabaseFactory.init],
+ * which runs [com.calypsan.listenup.server.db.MigrationRunner]), so the driver never calls
+ * `Schema.create`. Both views read/write the one file; in WAL mode the second connection is
+ * harmless. Cached per file URL so repeated calls in one test reuse a single driver.
+ *
+ * Prefer [withSqlDatabase] for new SQLDelight-aggregate tests; this exists only for the
+ * Exposed-fixture call sites that wire a converted repo as a collaborator.
+ */
+fun Database.asSqlDatabase(): ListenUpDatabase {
+    val path = url.removePrefix("jdbc:sqlite:")
+    return sqlDatabasesByUrl.getOrPut(path) { ListenUpDatabase(DriverFactory().createDriver(path)) }
 }
 
 /**

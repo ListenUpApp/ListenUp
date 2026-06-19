@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -142,8 +144,8 @@ class BookSearchReindexerContributorTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // Rename the contributor directly (bypassing the service layer).
@@ -172,8 +174,8 @@ class BookSearchReindexerContributorTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // No junction rows → should complete without error.
@@ -198,8 +200,8 @@ class BookSearchReindexerContributorTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     reindexer.reindexAllBooksForContributor("c1")

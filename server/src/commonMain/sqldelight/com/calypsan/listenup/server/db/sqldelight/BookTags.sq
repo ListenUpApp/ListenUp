@@ -38,6 +38,14 @@ SELECT id, revision FROM book_tags WHERE revision <= :cursor;
 
 -- Domain queries.
 
+-- Tombstone-inclusive read by synthetic id. Used by the base's pullSince/readPayloads,
+-- which must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM book_tags WHERE id = :id;
+
+selectByIds:
+SELECT * FROM book_tags WHERE id IN :ids;
+
 selectByBookId:
 SELECT * FROM book_tags WHERE book_id = :book_id AND deleted_at IS NULL;
 

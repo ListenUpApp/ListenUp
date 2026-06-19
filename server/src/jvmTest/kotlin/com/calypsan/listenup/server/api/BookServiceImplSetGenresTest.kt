@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -55,7 +57,7 @@ class BookServiceImplSetGenresTest :
             val contributorRepo = ContributorRepository(db, bus, registry)
             val seriesRepo = SeriesRepository(db, bus, registry)
             val genreRepo = GenreRepository(db, bus, registry, fixedClock)
-            val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(
                     db = db,

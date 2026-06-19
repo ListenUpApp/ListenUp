@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -20,10 +20,9 @@ class TagRepositorySoftDeleteTest :
     FunSpec({
 
         test("softDelete sets deletedAt, bumps revision, publishes Deleted") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db, bus, SyncRegistry())
+                val repo = TagRepository(sql, bus, SyncRegistry())
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", "sci-fi", 0, 0))
                     // With replay=256, the subscriber sees the cached Created event first.
@@ -46,9 +45,8 @@ class TagRepositorySoftDeleteTest :
         }
 
         test("softDelete of non-existent id returns SyncError.NotFound") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
+            withSqlDatabase {
+                val repo = TagRepository(sql, ChangeBus(), SyncRegistry())
                 runTest {
                     val result = repo.softDelete("does-not-exist")
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -61,10 +59,9 @@ class TagRepositorySoftDeleteTest :
         }
 
         test("upsert of a soft-deleted row clears deletedAt and emits Updated") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db, bus, SyncRegistry())
+                val repo = TagRepository(sql, bus, SyncRegistry())
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", "sci-fi", 0, 0))
                     repo.softDelete("t1")

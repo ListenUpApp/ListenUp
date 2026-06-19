@@ -12,28 +12,39 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 class FirehosePublishAfterCommitTest :
     FunSpec({
 
         test("a rolled-back write publishes no firehose event") {
             withTestApplication {
+                // Seed a tag holding the slug "dup-slug" (its name is asserted-against neither
+                // way). The seed's own Created event is harmless — only "ghost"/"real" matter.
+                tagRepo.upsert(Tag("seed", "seed-name", "dup-slug", 0, 0))
                 client.sse("/api/v1/sync/events") {
                     coroutineScope {
-                        val firstTagEvent = async { incoming.first { it.event == "tags" } }
-
-                        // A write that rolls back: its event must NEVER reach the firehose.
-                        runCatching {
-                            suspendTransaction(db) {
-                                tagRepo.upsert(Tag("rolled-back", "ghost", "ghost", 0, 0))
-                                error("boom")
+                        val firstGhostOrReal =
+                            async {
+                                incoming.first {
+                                    it.event == "tags" &&
+                                        (
+                                            it.data?.contains(""""name":"real"""") == true ||
+                                                it.data?.contains(""""name":"ghost"""") == true
+                                        )
+                                }
                             }
+
+                        // A write whose own SQLDelight transaction rolls back: the duplicate slug
+                        // violates the partial-unique index, the insert throws inside the repo's
+                        // transactionWithResult, SQLDelight rolls back, and the afterCommit emit
+                        // never fires — its event must NEVER reach the firehose.
+                        runCatching {
+                            tagRepo.upsert(Tag("rolled-back", "ghost", "dup-slug", 0, 0))
                         }
                         // A committed control the member WILL receive — proves the stream is live.
                         tagRepo.upsert(Tag("committed", "real", "real", 0, 0))
 
-                        val event = firstTagEvent.await()
+                        val event = firstGhostOrReal.await()
                         event.data!!.contains(""""name":"real"""") shouldBe true
                         event.data!!.contains(""""name":"ghost"""") shouldBe false
                     }

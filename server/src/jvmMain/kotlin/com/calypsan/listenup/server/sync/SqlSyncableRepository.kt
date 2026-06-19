@@ -269,6 +269,24 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     }
 
     /**
+     * Subclass-facing entry point to the after-commit emit, for bulk operations that
+     * write several rows in one [suspendTransaction] and must publish one event per row.
+     *
+     * Identical deferral semantics to [deferEmit] (the same `afterCommit` hook the base's
+     * own [upsert] / [softDelete] use): the event fires after this SQLDelight transaction
+     * commits, in publish order. Bulk soft-deletes (e.g.
+     * [BookTagRepository.softDeleteAllForTag]) call this once per tombstoned row from
+     * inside the open transaction so every per-row [SyncEvent.Deleted] lands on the live
+     * tail post-commit, matching the Exposed base's per-row outbox behaviour.
+     */
+    protected fun TransactionCallbacks.emitAfterCommit(
+        event: SyncEvent<T>,
+        userId: String? = null,
+    ) {
+        deferEmit(event, userId)
+    }
+
+    /**
      * Serializes a domain id to its raw string representation for substrate queries
      * and [SyncEvent] entity ids. Defaults to `id.toString()`, correct for `String`
      * ids (e.g., Tags). **MUST be overridden for `@JvmInline value class` ids** —
