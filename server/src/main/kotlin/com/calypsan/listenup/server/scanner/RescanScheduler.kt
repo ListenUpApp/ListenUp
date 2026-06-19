@@ -13,7 +13,7 @@ import kotlin.time.Duration
 private val logger = KotlinLogging.logger {}
 
 /**
- * Never-Stranded backstop: periodically full-rescans every registered library so
+ * Never-Stranded backstop: periodically full-rescans the registered library so
  * anything the live watcher missed (kernel OVERFLOW, a dropped mount, downtime)
  * is reconciled. Reuses the single-flight scan trigger, so a periodic pass that
  * collides with an in-flight scan is simply skipped.
@@ -23,7 +23,7 @@ private val logger = KotlinLogging.logger {}
 internal class RescanScheduler(
     private val scope: CoroutineScope,
     private val interval: Duration,
-    private val libraryIds: suspend () -> List<LibraryId>,
+    private val libraryId: suspend () -> LibraryId?,
     private val rescan: suspend (LibraryId) -> Unit,
 ) {
     fun start(): Job? {
@@ -35,14 +35,13 @@ internal class RescanScheduler(
         return scope.launch {
             while (isActive) {
                 delay(interval)
-                for (id in libraryIds()) {
-                    try {
-                        rescan(id)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        logger.warn(e) { "periodic rescan failed for library ${id.value} — continuing" }
-                    }
+                val id = libraryId() ?: continue
+                try {
+                    rescan(id)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    logger.warn(e) { "periodic rescan failed for library ${id.value} — continuing" }
                 }
             }
         }

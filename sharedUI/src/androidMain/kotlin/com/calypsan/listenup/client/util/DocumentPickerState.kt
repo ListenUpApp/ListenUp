@@ -216,3 +216,19 @@ fun rememberABSBackupPicker(onResult: (DocumentPickerResult) -> Unit): DocumentP
         onResult = onResult,
     )
 }
+
+/**
+ * Remember a document picker specifically for ListenUp backup files (`.listenup.zip`).
+ *
+ * `.listenup.zip` files may not have a registered MIME type on all devices, so we accept
+ * `application/zip` and `application/octet-stream` with a wildcard fallback.
+ *
+ * @param onResult Callback invoked with the pick result
+ * @return [DocumentPickerState] that can be used to launch the picker
+ */
+@Composable
+fun rememberListenUpBackupPicker(onResult: (DocumentPickerResult) -> Unit): DocumentPickerState =
+    rememberDocumentPicker(
+        mimeTypes = arrayOf("application/zip", "application/octet-stream", "*/*"),
+        onResult = onResult,
+    )

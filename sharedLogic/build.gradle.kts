@@ -77,7 +77,6 @@ kotlin {
             implementation(libs.kotlinx.rpc.krpc.serialization.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.collections.immutable)
             implementation(libs.kotlinx.io.core)
             implementation(libs.atomicfu)
 

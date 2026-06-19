@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.db.MigrationRunner
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -13,13 +14,12 @@ import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import java.sql.Connection
 import kotlinx.coroutines.test.runTest
-import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Exercises the V13/V14 backfill against **pre-existing rows** — the case no
  * other migration test covers, because [withInMemoryDatabase] always runs the
- * full Flyway chain on an empty database.
+ * full migration chain on an empty database.
  *
  * The setup partially migrates a fresh database to V12 (the schema state before
  * `contributors`/`book_series` became syncable domains), inserts rows at that
@@ -44,18 +44,11 @@ class SyncableTableBackfillMigrationTest :
             )
         }
 
-        // Builds a Flyway instance over [dataSource]. A non-null [target] caps the
-        // migration at that version (partial migration); null migrates to latest.
-        fun flywayAt(
+        // Migrates [dataSource] up to [target] (inclusive); null migrates to latest.
+        fun migrateTo(
             dataSource: HikariDataSource,
-            target: String?,
-        ): Flyway =
-            Flyway
-                .configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .apply { if (target != null) target(target) }
-                .load()
+            target: Int?,
+        ) = MigrationRunner(dataSource).migrate(upTo = target)
 
         fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 
@@ -78,7 +71,7 @@ class SyncableTableBackfillMigrationTest :
             val ds = freshDataSource()
 
             // 1. Partially migrate to V12 — the schema before B1's syncable promotion.
-            flywayAt(ds, target = "12").migrate()
+            migrateTo(ds, target = 12)
 
             // 2. Insert rows at the V12 schema: more contributors than series, and
             //    advance the global counter so it holds a realistic non-zero value
@@ -105,7 +98,7 @@ class SyncableTableBackfillMigrationTest :
             counterBeforeBackfill shouldBe 5L
 
             // 3. Run the remaining migrations — V13 then V14 apply the backfill.
-            flywayAt(ds, target = null).migrate()
+            migrateTo(ds, target = null)
 
             val contributorRevisions: List<Long>
             val seriesRevisions: List<Long>
@@ -137,7 +130,7 @@ class SyncableTableBackfillMigrationTest :
 
         test("the delivery invariant: a post-migration write lands above every backfilled revision") {
             val ds = freshDataSource()
-            flywayAt(ds, target = "12").migrate()
+            migrateTo(ds, target = 12)
 
             ds.connection.use { conn ->
                 conn.exec("UPDATE sync_meta SET value = 5 WHERE key = 'revision_counter'")
@@ -150,7 +143,7 @@ class SyncableTableBackfillMigrationTest :
                 conn.commit()
             }
 
-            flywayAt(ds, target = null).migrate()
+            migrateTo(ds, target = null)
 
             val maxBackfilledRevision: Long
             ds.connection.use { conn ->

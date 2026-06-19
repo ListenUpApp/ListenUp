@@ -162,7 +162,7 @@ private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
  * Pre-existing users (created before the V31 migration that added the table) have
  * no projection row until something refreshes them. This call populates them once,
  * guarded by an emptiness check so subsequent boots skip it instantly. Must run
- * after Flyway migrations (so `public_profiles` exists) and after Koin starts (so
+ * after schema migrations (so `public_profiles` exists) and after Koin starts (so
  * [PublicProfileMaintainer] is resolvable) — both are guaranteed by calling this
  * from [module] after [installDependencies].
  *
@@ -687,7 +687,7 @@ private fun Application.startBackgroundTasks(
     RescanScheduler(
         scope = scope,
         interval = environment.config.periodicRescanInterval(),
-        libraryIds = { orchestrator.registeredLibraryIds() },
+        libraryId = { orchestrator.registeredLibraryId() },
         rescan = { orchestrator.scanLibraryAsync(it) },
     ).start()
 

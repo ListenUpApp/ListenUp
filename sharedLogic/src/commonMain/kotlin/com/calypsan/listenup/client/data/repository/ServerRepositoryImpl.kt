@@ -54,4 +54,5 @@ private fun DiscoveredServer.toServer(): Server =
         remoteUrl = remoteUrl,
         isActive = false,
         lastSeenAt = currentEpochMilliseconds(),
+        localUrls = localUrls,
     )

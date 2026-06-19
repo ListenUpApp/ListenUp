@@ -132,6 +132,9 @@ private extension View {
             .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }
+            .navigationDestination(for: ShelfFormDestination.self) { destination in
+                CreateEditShelfView(shelfId: destination.shelfId)
+            }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }
@@ -141,8 +144,26 @@ private extension View {
             .navigationDestination(for: AdminDestination.self) { _ in
                 AdminView()
             }
+            .navigationDestination(for: AdminInboxDestination.self) { _ in
+                AdminInboxView()
+            }
             .navigationDestination(for: ABSImportDestination.self) { _ in
                 ABSImportHubView()
+            }
+            .navigationDestination(for: DevicesDestination.self) { _ in
+                DevicesView()
+            }
+            .navigationDestination(for: LicensesDestination.self) { _ in
+                LicensesView()
+            }
+            .navigationDestination(for: LicenseDetailDestination.self) { destination in
+                LicenseDetailView(packageName: destination.packageName)
+            }
+            .navigationDestination(for: AdminCollectionsDestination.self) { _ in
+                AdminCollectionsView()
+            }
+            .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
+                AdminCollectionDetailView(collectionId: destination.collectionId)
             }
     }
 }

@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.db
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import org.flywaydb.core.Flyway
+import org.jetbrains.exposed.v1.core.DatabaseConfig as ExposedDatabaseConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.nio.file.Path
 
@@ -22,26 +22,21 @@ data class DatabaseConfig(
 }
 
 /**
- * Initializes the Hikari pool, runs Flyway migrations, and returns a [DatabaseHandle] that
+ * Initializes the Hikari pool, runs schema migrations, and returns a [DatabaseHandle] that
  * exposes the connected Exposed `Database` alongside pool-control operations needed by the
- * restore orchestrator (close/reopen pool, vacuum). Idempotent for migrations — Flyway tracks
- * applied versions in its `flyway_schema_history` table.
+ * restore orchestrator (close/reopen pool, vacuum). Idempotent for migrations — the runner tracks
+ * applied versions in its `schema_migrations` table.
  */
 object DatabaseFactory {
     fun init(config: DatabaseConfig): DatabaseHandle {
         val pool = buildPool(config)
 
-        Flyway
-            .configure()
-            .dataSource(pool)
-            .locations("classpath:db/migration")
-            .load()
-            .migrate()
+        MigrationRunner(pool).migrate()
 
         val swappable = SwappableDataSource(pool)
         val dbFile = Path.of(config.jdbcUrl.removePrefix("jdbc:sqlite:"))
         return DatabaseHandle(
-            database = Database.connect(swappable),
+            database = Database.connect(swappable, databaseConfig = retryDatabaseConfig()),
             dataSource = swappable,
             poolFactory = { buildPool(config) },
             dbFilePath = dbFile,
@@ -61,6 +56,15 @@ object DatabaseFactory {
      * self-identifying log line the next time it happens.
      */
     private const val LEAK_DETECTION_MS = 20_000L
+
+    /**
+     * SQLite will wait up to this many milliseconds for a write-lock before returning
+     * SQLITE_BUSY. Cures ordinary write-lock contention (e.g. a long-running writer
+     * temporarily blocks a second writer). Does NOT cure SQLITE_BUSY_SNAPSHOT — that
+     * error is returned immediately regardless of busy_timeout because the snapshot is
+     * stale, not locked; only re-running the transaction fixes it (see [retryDatabaseConfig]).
+     */
+    private const val BUSY_TIMEOUT_MS = 5_000
 
     internal fun buildPool(config: DatabaseConfig): HikariDataSource =
         HikariDataSource(
@@ -86,7 +90,60 @@ object DatabaseFactory {
                 // testApplication instances in parallel. The pragma key is accepted by
                 // sqlite-jdbc's SQLiteConfig and applied at connection-open time.
                 addDataSourceProperty("journal_mode", "wal")
+                // Waits up to 5 s for a write-lock before surfacing SQLITE_BUSY to the
+                // caller. Covers the common case of a briefly-held writer; does not cover
+                // SQLITE_BUSY_SNAPSHOT (stale snapshot — needs transaction retry instead,
+                // configured in retryDatabaseConfig below).
+                addDataSourceProperty("busy_timeout", BUSY_TIMEOUT_MS.toString())
                 validate()
             },
         )
+
+    /**
+     * Maximum number of times Exposed will re-run a transaction that throws a
+     * [java.sql.SQLException] (including SQLITE_BUSY and SQLITE_BUSY_SNAPSHOT).
+     * Exposed's default is 3 with zero delay, which is insufficient under 8 concurrent
+     * writers. Ten attempts with jittered backoff reduces the failure probability to
+     * near zero while staying well within the 5 s busy_timeout ceiling.
+     */
+    private const val DEFAULT_MAX_TX_ATTEMPTS = 10
+
+    /**
+     * Minimum milliseconds between transaction retry attempts (jitter lower bound).
+     * Together with [DEFAULT_MAX_TX_RETRY_DELAY_MS] this produces a progressive jittered
+     * backoff: first retry ≈ 10–55 ms, later retries up to ~500 ms.
+     */
+    private const val DEFAULT_MIN_TX_RETRY_DELAY_MS = 10L
+
+    /**
+     * Maximum milliseconds between transaction retry attempts (jitter upper bound).
+     * Keeps the total wait time well within user-perceptible latency even in the worst case.
+     */
+    private const val DEFAULT_MAX_TX_RETRY_DELAY_MS = 500L
+
+    /**
+     * Exposed [ExposedDatabaseConfig] wired into every [Database.connect] call.
+     *
+     * Why retry at the Exposed layer, not the pool layer?
+     * SQLITE_BUSY_SNAPSHOT is distinct from SQLITE_BUSY: it fires when a deferred
+     * transaction's snapshot is already superseded by a committed write from another
+     * connection. SQLite rejects the stale snapshot immediately — no amount of
+     * busy_timeout waiting will resolve it. The only cure is to re-run the entire
+     * transaction against the current snapshot. Exposed's [org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction]
+     * already implements this: it catches any [java.sql.SQLException] and retries the
+     * whole transaction block up to [ExposedDatabaseConfig.defaultMaxAttempts] times with
+     * a jittered delay between attempts.
+     *
+     * Default vs override:
+     * Exposed defaults to `defaultMaxAttempts = 3`, `defaultMinRetryDelay = 0`,
+     * `defaultMaxRetryDelay = 0` — meaning three immediate back-to-back attempts with no
+     * pause. Under a pool of 8 concurrent writers that is not enough: the probability of
+     * all three retries also landing on a stale snapshot is non-trivial.
+     */
+    private fun retryDatabaseConfig(): ExposedDatabaseConfig =
+        ExposedDatabaseConfig {
+            defaultMaxAttempts = DEFAULT_MAX_TX_ATTEMPTS
+            defaultMinRetryDelay = DEFAULT_MIN_TX_RETRY_DELAY_MS
+            defaultMaxRetryDelay = DEFAULT_MAX_TX_RETRY_DELAY_MS
+        }
 }

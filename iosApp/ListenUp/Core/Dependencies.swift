@@ -96,13 +96,20 @@ final class Dependencies {
     func createUserProfileViewModel() -> UserProfileViewModel { KoinHelper.shared.getUserProfileViewModel() }
     func createEditProfileViewModel() -> EditProfileViewModel { KoinHelper.shared.getEditProfileViewModel() }
     func createShelfDetailViewModel() -> ShelfDetailViewModel { KoinHelper.shared.getShelfDetailViewModel() }
+    func createCreateEditShelfViewModel() -> CreateEditShelfViewModel { KoinHelper.shared.getCreateEditShelfViewModel() }
     func createSettingsViewModel() -> SettingsViewModel { KoinHelper.shared.getSettingsViewModel() }
+    func createDevicesViewModel() -> DevicesViewModel { KoinHelper.shared.getDevicesViewModel() }
 
     func createAdminViewModel() -> AdminViewModel { KoinHelper.shared.getAdminViewModel() }
+    func createAdminInboxViewModel() -> AdminInboxViewModel { KoinHelper.shared.getAdminInboxViewModel() }
     func createAdminSettingsViewModel() -> AdminSettingsViewModel { KoinHelper.shared.getAdminSettingsViewModel() }
     func createCreateInviteViewModel() -> CreateInviteViewModel { KoinHelper.shared.getCreateInviteViewModel() }
     func createABSImportHubViewModel() -> ABSImportHubViewModel { KoinHelper.shared.getABSImportHubViewModel() }
     func createImportFlowViewModel() -> ImportFlowViewModel { KoinHelper.shared.getImportFlowViewModel() }
+    func createAdminCollectionsViewModel() -> AdminCollectionsViewModel { KoinHelper.shared.getAdminCollectionsViewModel() }
+    func createAdminCollectionDetailViewModel(collectionId: String) -> AdminCollectionDetailViewModel {
+        KoinHelper.shared.getAdminCollectionDetailViewModel(collectionId: collectionId)
+    }
 }
 
 // MARK: - Locked cache

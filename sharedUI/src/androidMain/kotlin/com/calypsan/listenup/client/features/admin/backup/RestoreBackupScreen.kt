@@ -107,8 +107,9 @@ fun RestoreBackupScreen(
                     onDismissRequest = viewModel::cancelRestore,
                     title = "Restore Backup?",
                     text =
-                        "This will replace all current data on the server with the contents of " +
-                            "this backup. Existing data cannot be recovered afterwards.",
+                        "This replaces everything on this server, including all user accounts, with the " +
+                            "contents of this backup. You'll be signed out and must sign in again with an " +
+                            "account from this backup. This cannot be undone.",
                     confirmText = "Restore",
                     onConfirm = viewModel::confirmRestore,
                     icon = Icons.Default.Warning,

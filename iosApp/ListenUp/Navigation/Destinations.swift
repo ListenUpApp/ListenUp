@@ -30,6 +30,11 @@ struct ShelfDestination: Hashable {
     let id: String
 }
 
+/// Create or edit a shelf. `shelfId == nil` opens the form in create mode.
+struct ShelfFormDestination: Hashable {
+    let shelfId: String?
+}
+
 /// The full single-type "See all" search page, reached from a capped result group whose
 /// hit count exceeds its display cap. Carries the settled query and the one type to expand.
 struct SearchSeeAllDestination: Hashable {
@@ -64,6 +69,29 @@ struct SettingsDestination: Hashable {}
 /// Administration dashboard (admin / root users only).
 struct AdminDestination: Hashable {}
 
+/// The admin inbox (admin / root users only), reached from Administration › Management.
+/// Displays freshly-scanned books awaiting release into the library.
+struct AdminInboxDestination: Hashable {}
+
 /// The Audiobookshelf import hub (admin / root users only), reached from Administration ›
 /// Management. Lists staged imports and launches the import wizard.
 struct ABSImportDestination: Hashable {}
+
+/// The Devices screen — lists the user's active sessions and lets them revoke devices.
+struct DevicesDestination: Hashable {}
+
+/// The Open Source Licenses screen — curated list of all bundled open-source libraries.
+struct LicensesDestination: Hashable {}
+
+/// The full license text for a single open-source library.
+struct LicenseDetailDestination: Hashable {
+    let packageName: String
+}
+
+/// The Admin Collections list (admin / root users only), reached from Administration › Management.
+struct AdminCollectionsDestination: Hashable {}
+
+/// A single Admin Collection detail, reached from the Admin Collections list.
+struct AdminCollectionDetailDestination: Hashable {
+    let collectionId: String
+}

@@ -537,6 +537,7 @@ private fun DetailScreen(
                 onInviteClick = { navigateTo(DetailDestination.CreateInvite) },
                 onCollectionsClick = { navigateTo(DetailDestination.AdminCollections) },
                 onCategoriesClick = { navigateTo(DetailDestination.AdminCategories) },
+                onInboxClick = { navigateTo(DetailDestination.AdminInbox) },
                 onUserClick = { navigateTo(DetailDestination.UserDetail(it)) },
                 serverName = readySettings?.serverName ?: "",
                 onServerNameChange = { settingsViewModel.setServerName(it) },

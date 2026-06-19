@@ -143,21 +143,7 @@ class AdminSettingsViewModelTest :
             }
         }
 
-        test("toggling inbox marks the state dirty") {
-            runTest {
-                val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
-                val viewModel = fixture.build()
-                advanceUntilIdle()
-
-                viewModel.setInboxEnabled(true)
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
-                ready.inboxEnabled shouldBe true
-                ready.isDirty shouldBe true
-            }
-        }
-
-        test("saveAll sends the inbox patch when changed") {
+        test("setInboxEnabled persists immediately and does not mark dirty") {
             runTest {
                 val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
                 everySuspend { fixture.updateServerSettingsUseCase.updateInboxEnabled(true) } returns
@@ -166,16 +152,36 @@ class AdminSettingsViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.setInboxEnabled(true)
-                viewModel.saveAll()
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 ready.inboxEnabled shouldBe true
-                ready.isSaving shouldBe false
+                // A switch applies on tap — no Save needed, so it never enters the dirty/Save-FAB state.
                 ready.isDirty shouldBe false
                 verifySuspend(VerifyMode.atLeast(1)) {
                     fixture.updateServerSettingsUseCase.updateInboxEnabled(true)
                 }
+            }
+        }
+
+        test("setInboxEnabled failure reverts the toggle and surfaces the error") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(inboxEnabled = false))
+                everySuspend { fixture.updateServerSettingsUseCase.updateInboxEnabled(true) } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Forbidden"),
+                    )
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setInboxEnabled(true)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                // The optimistic flip reverts to the server-confirmed value on failure.
+                ready.inboxEnabled shouldBe false
+                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
             }
         }
 

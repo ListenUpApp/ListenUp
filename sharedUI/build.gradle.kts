@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.mokkery)
+    alias(libs.plugins.aboutlibraries)
 }
 
 // Mokkery is used in desktopTest only — see composeApp/src/desktopTest.
@@ -38,6 +39,32 @@ compose.resources {
     // directory name (the renamed :sharedUI module would otherwise shift it
     // to listenup.sharedui.generated.resources and break every import).
     packageOfResClass = "listenup.composeapp.generated.resources"
+}
+
+// exportLibraryDefinitions is NOT in the assemble/compile task graph — it only runs when
+// explicitly invoked: ./gradlew :sharedUI:exportLibraryDefinitions
+// Because regeneration is always a deliberate manual step, offlineMode = false is safe
+// for CI: the export task simply never executes during a normal build.
+// The collect task that DOES run during normal builds fetches nothing because
+// fetchRemoteLicense = false and fetchRemoteFunding = false — so offlineMode = false has
+// two independent guards and must not be "fixed" back to true.
+aboutLibraries {
+    offlineMode = false
+
+    collect {
+        // Disable GitHub API calls — no token required, no rate-limit risk.
+        // Standard SPDX license texts are fetched from the SPDX data set without
+        // needing a GitHub token; only per-repo licence discovery needs the API.
+        fetchRemoteLicense = false
+        fetchRemoteFunding = false
+    }
+
+    export {
+        // Write the generated JSON directly into Compose resources so it is
+        // bundled at compile time and accessible via Res.readBytes().
+        outputFile = file("src/commonMain/composeResources/files/aboutlibraries.json")
+        prettyPrint = true
+    }
 }
 
 kotlin {
@@ -101,6 +128,9 @@ kotlin {
             implementation(libs.androidx.window)
 
             // BlurHash for image placeholders
+
+            // kotlinx-io: wrap a SAF OutputStream as a RawSink to stream backup downloads to disk
+            implementation(libs.kotlinx.io.core)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -139,7 +169,6 @@ kotlin {
             implementation(libs.kotlin.logging)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.collections.immutable)
 
             // Coil for image loading (multiplatform)
             implementation(libs.coil.compose)
@@ -147,6 +176,9 @@ kotlin {
 
             // KMPalette for cross-platform color extraction
             implementation(libs.kmpalette.core)
+
+            // AboutLibraries — open-source license loader (compose-m3 includes core + compose-core)
+            implementation(libs.aboutlibraries.compose.m3)
         }
         val desktopMain by getting {
             dependencies {

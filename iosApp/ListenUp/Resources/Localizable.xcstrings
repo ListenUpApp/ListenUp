@@ -141,6 +141,26 @@
         }
       }
     },
+    "admin.backup_download_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save the backup to your device."
+          }
+        }
+      }
+    },
+    "admin.backup_downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup saved to your device."
+          }
+        }
+      }
+    },
     "admin.backup_restore": {
       "localizations": {
         "en": {
@@ -301,12 +321,52 @@
         }
       }
     },
+    "admin.collection_global_access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everyone"
+          }
+        }
+      }
+    },
+    "admin.collection_members_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d members"
+          }
+        }
+      }
+    },
     "admin.collection_name": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Collection Name"
+          }
+        }
+      }
+    },
+    "admin.collection_new_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New collection"
+          }
+        }
+      }
+    },
+    "admin.collection_shared_book_sets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared book sets for your server"
           }
         }
       }
@@ -511,6 +571,16 @@
         }
       }
     },
+    "admin.download_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
+          }
+        }
+      }
+    },
     "admin.email_already_in_use": {
       "localizations": {
         "en": {
@@ -601,12 +671,82 @@
         }
       }
     },
+    "admin.inbox": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox"
+          }
+        }
+      }
+    },
+    "admin.inbox_deselect_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deselect all"
+          }
+        }
+      }
+    },
     "admin.inbox_empty": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Inbox Empty"
+          }
+        }
+      }
+    },
+    "admin.inbox_release_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release %1$d"
+          }
+        }
+      }
+    },
+    "admin.inbox_released_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released %1$d book"
+          }
+        }
+      }
+    },
+    "admin.inbox_released_count_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Released %1$d books"
+          }
+        }
+      }
+    },
+    "admin.inbox_review_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review & edit"
+          }
+        }
+      }
+    },
+    "admin.inbox_select_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all"
           }
         }
       }
@@ -627,6 +767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hold new books for review"
+          }
+        }
+      }
+    },
+    "admin.inbox_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review and release new books waiting for approval."
           }
         }
       }
@@ -1137,6 +1287,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Restore Backup"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore from file"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_choose": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose backup file"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload a .listenup.zip backup file from your device."
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can restore a backup created on any ListenUp server, including one from a different machine. The file will be uploaded and staged, then you'll confirm the restore."
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_upload_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload failed"
+          }
+        }
+      }
+    },
+    "admin.restore_from_file_uploading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading %1$@…"
           }
         }
       }
@@ -5311,6 +5521,26 @@
         }
       }
     },
+    "devices.active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
+          }
+        }
+      }
+    },
+    "devices.current_session": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current session"
+          }
+        }
+      }
+    },
     "devices.empty": {
       "localizations": {
         "en": {
@@ -5341,12 +5571,52 @@
         }
       }
     },
+    "devices.note_sign_out_effect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing out a device ends its playback sessions and removes its downloads."
+          }
+        }
+      }
+    },
+    "devices.other_devices": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other Devices"
+          }
+        }
+      }
+    },
     "devices.sign_out": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sign out"
+          }
+        }
+      }
+    },
+    "devices.sign_out_all_others": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out all other devices"
+          }
+        }
+      }
+    },
+    "devices.sign_out_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out device"
           }
         }
       }
@@ -5367,6 +5637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign out of all devices, including this one?"
+          }
+        }
+      }
+    },
+    "devices.signed_in_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d signed in"
           }
         }
       }
@@ -9001,6 +9281,126 @@
         }
       }
     },
+    "licenses.count_suffix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "libraries"
+          }
+        }
+      }
+    },
+    "licenses.families_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "across %1$d license families"
+          }
+        }
+      }
+    },
+    "licenses.footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp is built with open-source software. Thank you to everyone who contributed."
+          }
+        }
+      }
+    },
+    "licenses.not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library not found."
+          }
+        }
+      }
+    },
+    "licenses.overline_open_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Source"
+          }
+        }
+      }
+    },
+    "licenses.search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search libraries"
+          }
+        }
+      }
+    },
+    "licenses.section_libraries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libraries"
+          }
+        }
+      }
+    },
+    "licenses.subtitle_makes_possible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "that make ListenUp possible"
+          }
+        }
+      }
+    },
+    "licenses.text_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License text is not available for this library."
+          }
+        }
+      }
+    },
+    "licenses.version_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "v%1$@"
+          }
+        }
+      }
+    },
+    "licenses.view_license": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View license"
+          }
+        }
+      }
+    },
+    "licenses.view_project": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View project"
+          }
+        }
+      }
+    },
     "metadata.all_n_selected": {
       "localizations": {
         "en": {
@@ -11451,6 +11851,16 @@
         }
       }
     },
+    "settings.manage_active_sessions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage active sessions"
+          }
+        }
+      }
+    },
     "settings.manage_storage": {
       "localizations": {
         "en": {
@@ -11771,6 +12181,26 @@
         }
       }
     },
+    "shelf.about_shelves": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About shelves"
+          }
+        }
+      }
+    },
+    "shelf.about_shelves_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelves are your own collections — group books however you like. Make a shelf private to keep it just for you, or leave it public to share with everyone on the server."
+          }
+        }
+      }
+    },
     "shelf.add_books_from_the_library": {
       "localizations": {
         "en": {
@@ -11811,6 +12241,26 @@
         }
       }
     },
+    "shelf.breadcrumb_library_shelves": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library · Shelves"
+          }
+        }
+      }
+    },
+    "shelf.create_shelf_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Shelf"
+          }
+        }
+      }
+    },
     "shelf.delete_shelf": {
       "localizations": {
         "en": {
@@ -11841,6 +12291,26 @@
         }
       }
     },
+    "shelf.edit_shelf_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Shelf"
+          }
+        }
+      }
+    },
+    "shelf.form_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
     "shelf.no_books_description": {
       "localizations": {
         "en": {
@@ -11857,6 +12327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No books yet"
+          }
+        }
+      }
+    },
+    "shelf.preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
           }
         }
       }
@@ -11881,6 +12361,16 @@
         }
       }
     },
+    "shelf.shelf_details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shelf details"
+          }
+        }
+      }
+    },
     "shelf.this_will_permanently_delete_this": {
       "localizations": {
         "en": {
@@ -11897,6 +12387,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shelf unavailable"
+          }
+        }
+      }
+    },
+    "shelf.visibility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibility"
+          }
+        }
+      }
+    },
+    "shelf.visible_to_anyone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visible to anyone on the server."
           }
         }
       }

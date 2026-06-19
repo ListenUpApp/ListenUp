@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -14,6 +15,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
@@ -24,6 +26,7 @@ import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 class AuthServiceDeviceTest :
     FunSpec({
@@ -90,6 +93,39 @@ class AuthServiceDeviceTest :
                 val login = svc.withUserAgent("ListenUp/9.9").login(LoginRequest(email = "u@x.co", password = "password1"))
                 val authed = svc.copyWith(callerOf(UserId(userId), (login as AppResult.Success).data.sessionId))
                 (authed.listSessions() as AppResult.Success).data.first { it.current }.userAgent shouldBe "ListenUp/9.9"
+            }
+        }
+
+        test("listSessions tolerates a legacy row whose device field exceeds the 128-char limit") {
+            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
+            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            val svc =
+                AuthServiceImpl(
+                    db = db,
+                    sessions = sessions,
+                    hasher = PasswordHasher(),
+                    jwt = jwt,
+                    sessionIssuer = SessionIssuer(sessions, jwt, clock),
+                    clock = clock,
+                    settings = settings,
+                )
+            runTest {
+                val userId = svc.seedUser()
+                val login = svc.login(LoginRequest(email = "u@x.co", password = "password1")).shouldSucceed()
+
+                // Simulate a legacy row written before DeviceInfo validation existed:
+                // poke an over-long value straight into the column, bypassing the inbound guard.
+                suspendTransaction(db) {
+                    SessionEntity[login.sessionId.value].deviceModel = "x".repeat(200)
+                }
+
+                val authed = svc.copyWith(callerOf(UserId(userId), login.sessionId))
+                val list = authed.listSessions().shouldSucceed()
+
+                list.first { it.current }.deviceInfo?.deviceModel shouldBe "x".repeat(DEVICE_FIELD_MAX)
             }
         }
 

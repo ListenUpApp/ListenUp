@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.features.admin.backup.ABSImportScreen
 import com.calypsan.listenup.client.features.admin.import.ImportFlowScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
+import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
 import com.calypsan.listenup.client.navigation.ABSImport
 import com.calypsan.listenup.client.navigation.ABSImportDetail
 import com.calypsan.listenup.client.navigation.ImportFlow
@@ -29,6 +30,7 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.CreateBackup
 import com.calypsan.listenup.client.navigation.CreateInvite
 import com.calypsan.listenup.client.navigation.RestoreBackup
+import com.calypsan.listenup.client.navigation.RestoreFromFile
 import com.calypsan.listenup.client.navigation.AdminInbox
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
@@ -64,6 +66,9 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
             onBackupClick = {
                 backStack.add(AdminBackups)
+            },
+            onInboxClick = {
+                backStack.add(AdminInbox)
             },
             onUserClick = { userId ->
                 backStack.add(AdminUserDetail(userId))
@@ -198,6 +203,9 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
             onRestoreClick = { backupId ->
                 backStack.add(RestoreBackup(backupId))
             },
+            onRestoreFromFileClick = {
+                backStack.add(RestoreFromFile)
+            },
             onABSImportHubClick = { importId ->
                 backStack.add(ABSImportDetail(importId))
             },
@@ -244,6 +252,16 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
     entry<ImportFlow> {
         ImportFlowScreen(
             onNavigateBack = { backStack.removeAt(backStack.lastIndex) },
+        )
+    }
+    entry<RestoreFromFile> {
+        RestoreFromFileScreen(
+            onBackClick = { backStack.removeAt(backStack.lastIndex) },
+            onUploaded = { backupId ->
+                // Drop the upload step, continue into the existing restore-confirmation flow.
+                backStack.removeAt(backStack.lastIndex)
+                backStack.add(RestoreBackup(backupId.value))
+            },
         )
     }
 }

@@ -13,12 +13,12 @@ android-targetSdk = "37"
 androidx-activity = "1.13.0"
 androidx-lifecycle = "2.10.0"
 androidx-window = "1.5.1"
-androidx-lifecycle-viewmodel-navigation3 = "2.10.0"
-androidx-navigation3 = "1.1.2"
+androidx-lifecycle-viewmodel-navigation3 = "2.11.0"
+androidx-navigation3 = "1.1.3"
 androidx-graphics-shapes = "1.1.0"
 androidx-palette = "1.0.0"
 androidx-material-icons = "1.7.8"
-androidx-compose-ui-test = "1.11.2"
+androidx-compose-ui-test = "1.11.3"
 androidx-core-splashscreen = "1.2.0"
 robolectric = "4.16.1"
 composeMultiplatform = "1.11.1"
@@ -28,14 +28,13 @@ ksp = "2.3.8"
 mokkery = "3.3.0"
 ktor = "3.5.0"
 kotlinx-rpc = "0.11.0-grpc-188"
-kotest = "6.1.11"
+kotest = "6.2.0"
 junit-vintage = "6.1.0" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.8.0"
-kotlinx-collections-immutable = "0.5.0"
 kotlinx-io = "0.9.0"
-koin = "4.2.1"
+koin = "4.2.2"
 turbine = "1.2.1"
 kotlin-logging = "8.0.4"
 slf4j-android = "2.0.17-0"
@@ -48,6 +47,7 @@ media3 = "1.10.1"
 concurrent-futures = "1.3.0"
 markdown-renderer = "0.41.0"
 kmpalette = "3.1.0"
+aboutlibraries = "14.2.1"
 
 # Swift Interop
 skie = "0.10.12"
@@ -66,7 +66,7 @@ material3-adaptive-multiplatform = "1.2.0"
 
 # Quality Tool
 detekt = "1.23.8"
-spotless = "8.6.0"
+spotless = "8.7.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.8"
 atomicfu = "0.33.0"
@@ -74,8 +74,7 @@ atomicfu = "0.33.0"
 # Server persistence + password hashing
 exposed = "1.3.0"
 sqlite-jdbc = "3.53.2.0"
-flyway = "12.8.1"
-hikari = "7.0.2"
+hikari = "7.1.0"
 password4j = "1.8.4"
 konsist = "0.17.3"
 ksp-symbol-processing-api = "2.3.9" # matches project ksp version — bump in lockstep with `ksp`
@@ -159,7 +158,6 @@ exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exp
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 exposed-kotlin-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
-flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 # Password hashing
 password4j = { module = "com.password4j:password4j", version.ref = "password4j" }
@@ -178,7 +176,6 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-slf4j = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
-kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-bytestring = { module = "org.jetbrains.kotlinx:kotlinx-io-bytestring", version.ref = "kotlinx-io" }
 # Koin
@@ -237,6 +234,8 @@ media3-datasource-okhttp = { module = "androidx.media3:media3-datasource-okhttp"
 concurrent-futures = { module = "androidx.concurrent:concurrent-futures-ktx", version.ref = "concurrent-futures" }
 # Markdown Rendering
 markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdown-renderer" }
+# AboutLibraries (open-source license display)
+aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
 # KMPalette (cross-platform color extraction from images)
 kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpalette" }
 # Konsist — architectural assertions
@@ -276,3 +275,5 @@ kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 # Server
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 kotlinxRpc = { id = "org.jetbrains.kotlinx.rpc.plugin", version.ref = "kotlinx-rpc" }
+# AboutLibraries
+aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }

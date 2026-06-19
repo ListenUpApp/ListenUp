@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.presentation.connect
 
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.PlatformUtils
 import com.calypsan.listenup.core.ServerUrl
@@ -13,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.URLParserException
 import io.ktor.http.Url
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +35,7 @@ private val logger = KotlinLogging.logger {}
 class ServerConnectViewModel(
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
+    private val appScope: CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow<ServerConnectUiState>(ServerConnectUiState.Idle)
     val state: StateFlow<ServerConnectUiState> = _state.asStateFlow()
@@ -55,7 +56,11 @@ class ServerConnectViewModel(
             return
         }
 
-        viewModelScope.launch {
+        // Runs on [appScope], NOT viewModelScope: a successful verify calls setServerUrl, which flips the
+        // global auth state (→ CheckingServer → NeedsLogin). That swap tears this screen — and its
+        // viewModelScope — down mid-flight, so on viewModelScope the activation would cancel itself
+        // before completing, stranding the app on the "Checking server" spinner.
+        appScope.launch {
             _state.value = ServerConnectUiState.Verifying
 
             _state.value =

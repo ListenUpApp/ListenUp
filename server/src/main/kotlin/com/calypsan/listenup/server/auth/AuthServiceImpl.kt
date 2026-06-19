@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
@@ -352,15 +353,20 @@ class AuthServiceImpl(
     }
 
     private fun deviceInfoOf(s: SessionEntity): DeviceInfo? {
+        // The read path must not assume stored rows honour the current DeviceInfo
+        // invariants: legacy sessions (old Go server / pre-validation) may hold blank
+        // or over-long fields. Sanitize before constructing so DeviceInfo.init's
+        // length `require` — the correct *inbound* guard — never throws on outbound data.
+        fun field(value: String?): String? = value?.takeIf { it.isNotBlank() }?.take(DEVICE_FIELD_MAX)
         val info =
             DeviceInfo(
-                deviceType = s.deviceType,
-                platform = s.platform,
-                platformVersion = s.platformVersion,
-                clientName = s.clientName,
-                clientVersion = s.clientVersion,
-                deviceName = s.deviceName,
-                deviceModel = s.deviceModel,
+                deviceType = field(s.deviceType),
+                platform = field(s.platform),
+                platformVersion = field(s.platformVersion),
+                clientName = field(s.clientName),
+                clientVersion = field(s.clientVersion),
+                deviceName = field(s.deviceName),
+                deviceModel = field(s.deviceModel),
             )
         return info.takeIf { it != DeviceInfo() }
     }

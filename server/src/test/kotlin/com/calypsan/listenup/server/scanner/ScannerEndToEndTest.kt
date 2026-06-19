@@ -28,7 +28,7 @@ import kotlinx.coroutines.delay
  *    folder fields are overridden, wire round-trips correctly)
  *  - POST /api/v1/scan returns Success after the library is registered
  *
- * No auto-scan on boot (Task 18): the server does NOT scan at startup. Tests
+ * No auto-scan on boot: the server does NOT scan at startup. Tests
  * trigger a scan explicitly via POST /api/v1/scan and then poll for the
  * result. This removes the race between the bootstrap scan and test assertions.
  *
@@ -112,7 +112,7 @@ class ScannerEndToEndTest :
  * registered with the orchestrator, then polls GET /api/v1/scan/last until
  * a result is available.
  *
- * No auto-scan on boot (Task 18): `bootstrapLibraries` registers the library
+ * No auto-scan on boot: `bootstrapLibraries` registers the library
  * with the orchestrator but does not scan. This helper bridges the gap for
  * tests that need a populated scan result.
  *
