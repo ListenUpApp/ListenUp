@@ -125,4 +125,32 @@ class CollectionMembershipRevisionTest :
                 }
             }
         }
+
+        test("setBookCollections touches the book once when membership changes") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestBook(bookId = "b1")
+                runTest(UnconfinedTestDispatcher()) {
+                    val touch = FakeBookRevisionTouch()
+                    val service = makeCollectionService(db, bookRevisionTouch = touch)
+                    val admin = service.actAs("u1", UserRole.ADMIN)
+                    val a = admin.createCollection("test-library", "A")
+                    require(a is AppResult.Success)
+                    val b = admin.createCollection("test-library", "B")
+                    require(b is AppResult.Success)
+                    admin.addBookToCollection(a.data.id, BookId("b1")).let {
+                        require(it is AppResult.Success)
+                    }
+                    touch.touched.clear()
+
+                    admin.setBookCollections(BookId("b1"), listOf(b.data.id)).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    touch.touched shouldContainExactly listOf("b1")
+                }
+            }
+        }
     })

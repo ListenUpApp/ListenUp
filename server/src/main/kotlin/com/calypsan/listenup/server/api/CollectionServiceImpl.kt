@@ -281,6 +281,11 @@ internal class CollectionServiceImpl(
         // is nudged once to re-derive. The non-enumerable public↔private "everyone" edge converges on
         // the next firehose catch-up — the documented 1b behavior.
         notifyAccessChanged(added + removed)
+        // Bump the subject book's revision once when its membership actually changed, so each member's
+        // incremental `revision > cursor` pull re-evaluates its visibility (delivering or pruning it).
+        if (added.isNotEmpty() || removed.isNotEmpty()) {
+            bookRevisionTouch.touchRevision(bookId)
+        }
         return AppResult.Success(Unit)
     }
 
