@@ -24,17 +24,41 @@ class CoverSpool(
     private val root: Path,
 ) {
     /**
-     * If [book] has a [CoverSource.Embedded] cover, writes its bytes to the spool and returns a
-     * copy carrying a [CoverSource.Spooled] reference (and nulls `embedded.artwork`) — both copies
-     * of the bytes leave the heap. Any other cover is returned unchanged. On write failure the book
-     * is returned UNCHANGED so a disk hiccup never drops a cover (that one book stays in memory).
+     * Frees embedded artwork bytes from every book (regardless of cover source), then spools the
+     * cover bytes to disk when the cover is [CoverSource.Embedded].
+     *
+     * **Why bytes-only, not null:** [embedded.artwork] is the scan-quality "w/artwork" marker read
+     * by [com.calypsan.listenup.server.scanner.Scanner.toEmbeddedScanCounters] — nulling it would
+     * corrupt the diagnostic counter. Replacing `.bytes` with an empty array keeps the marker intact
+     * while releasing the memory. The artwork bytes in `cover` (a distinct reference) are unaffected
+     * and are written to disk as normal.
+     *
+     * Books with a filesystem cover ([CoverSource.Filesystem]) or no cover at all previously
+     * leaked ~250 MB of embedded artwork bytes when a `cover.jpg` took precedence — this path
+     * now frees those bytes too.
+     *
+     * On write failure the cover is kept in memory (unchanged); only the redundant
+     * `embedded.artwork` bytes are still emptied so the peak-heap savings are never forfeited.
      */
     fun spoolCover(
         scanId: String,
         book: AnalyzedBook,
     ): AnalyzedBook {
+        // Free embedded artwork BYTES from every book — redundant once the cover is resolved (the
+        // persister reads `cover`, never `embedded.artwork`). Keep the EmbeddedArtwork marker with
+        // empty bytes so the scan-quality "w/artwork" diagnostic still counts the book.
+        val em = book.embedded
+        val artwork = em?.artwork
+        val lightenedEmbedded =
+            if (artwork != null && artwork.bytes.isNotEmpty()) {
+                em.copy(artwork = artwork.copy(bytes = ByteArray(0)))
+            } else {
+                em
+            }
         val cover = book.cover
-        if (cover !is CoverSource.Embedded) return book
+        if (cover !is CoverSource.Embedded) {
+            return book.copy(embedded = lightenedEmbedded)
+        }
         return try {
             val dir = root.resolve(scanId)
             Files.createDirectories(dir)
@@ -42,11 +66,11 @@ class CoverSpool(
             file.writeBytes(cover.artwork.bytes)
             book.copy(
                 cover = CoverSource.Spooled(path = file.toString(), mime = cover.artwork.mime),
-                embedded = book.embedded?.copy(artwork = null),
+                embedded = lightenedEmbedded,
             )
         } catch (e: Exception) {
             logger.warn(e) { "cover spool write failed for ${book.candidate.rootRelPath}; keeping it in memory" }
-            book
+            book.copy(embedded = lightenedEmbedded)
         }
     }
 
