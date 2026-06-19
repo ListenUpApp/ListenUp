@@ -16,11 +16,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 
-// Palette color ARGB constants reused across multiple test cases.
-private const val COLOR_DOMINANT = 0xFF2244CC.toInt()
-private const val COLOR_DARK_MUTED = 0xFF112233.toInt()
-private const val COLOR_VIBRANT = 0xFF3366FF.toInt()
-
 // Timestamp epoch-ms constants used by both the payload fixtures and assertions.
 private const val ENTITY_CREATED_AT_MS = 1_600_000_000_000L
 private const val ENTITY_UPDATED_AT_MS = 1_600_000_001_000L
@@ -38,9 +33,9 @@ private const val NON_DEFAULT_REVISION = 42L
  *
  * Verifies that:
  * - Wire fields from [BookSyncPayload] are carried through correctly.
- * - Client-computed fields (palette colors, blur hash) are preserved from an
- *   existing [BookEntity] row and never overwritten with null on sync.
- * - When [existing] is null (first-seen book), those fields default to null.
+ * - The client-computed blur hash is preserved from an existing [BookEntity] row and never
+ *   overwritten with null on sync.
+ * - When [existing] is null (first-seen book), the blur hash defaults to null.
  */
 class BookEntityMapperTest :
     FunSpec({
@@ -99,9 +94,6 @@ class BookEntityMapperTest :
 
         fun bookEntity(
             id: BookId = BookId("book-1"),
-            dominantColor: Int? = COLOR_DOMINANT,
-            darkMutedColor: Int? = COLOR_DARK_MUTED,
-            vibrantColor: Int? = COLOR_VIBRANT,
             coverBlurHash: String? = "L5H2EC=PM+yV",
         ): BookEntity =
             BookEntity(
@@ -110,9 +102,6 @@ class BookEntityMapperTest :
                 folderId = FolderId("test-folder"),
                 title = "Old Title",
                 totalDuration = 1_000L,
-                dominantColor = dominantColor,
-                darkMutedColor = darkMutedColor,
-                vibrantColor = vibrantColor,
                 coverBlurHash = coverBlurHash,
                 createdAt = Timestamp(ENTITY_CREATED_AT_MS),
                 updatedAt = Timestamp(ENTITY_UPDATED_AT_MS),
@@ -168,30 +157,18 @@ class BookEntityMapperTest :
             result.coverHash.shouldBeNull()
         }
 
-        test("toBookEntity with existing null sets all client-computed fields to null") {
+        test("toBookEntity with existing null sets coverBlurHash to null") {
             val payload = bookPayload()
             val result = mapper.toBookEntity(payload, existing = null)
 
-            result.dominantColor.shouldBeNull()
-            result.darkMutedColor.shouldBeNull()
-            result.vibrantColor.shouldBeNull()
             result.coverBlurHash.shouldBeNull()
         }
 
-        test("toBookEntity preserves all palette colors and coverBlurHash from existing row") {
-            val existing =
-                bookEntity(
-                    dominantColor = COLOR_DOMINANT,
-                    darkMutedColor = COLOR_DARK_MUTED,
-                    vibrantColor = COLOR_VIBRANT,
-                    coverBlurHash = "L5H2EC=PM+yV",
-                )
+        test("toBookEntity preserves coverBlurHash from existing row") {
+            val existing = bookEntity(coverBlurHash = "L5H2EC=PM+yV")
             val payload = bookPayload()
             val result = mapper.toBookEntity(payload, existing = existing)
 
-            result.dominantColor shouldBe COLOR_DOMINANT
-            result.darkMutedColor shouldBe COLOR_DARK_MUTED
-            result.vibrantColor shouldBe COLOR_VIBRANT
             result.coverBlurHash shouldBe "L5H2EC=PM+yV"
         }
 
