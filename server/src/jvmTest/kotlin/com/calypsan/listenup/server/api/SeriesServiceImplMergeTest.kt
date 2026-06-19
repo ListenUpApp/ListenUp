@@ -209,8 +209,8 @@ private data class MergeSeriesServiceDeps(
 private fun makeMergeSeriesServiceAndDeps(db: Database): MergeSeriesServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
     val bookRepo =
         BookRepository(
             db = db,

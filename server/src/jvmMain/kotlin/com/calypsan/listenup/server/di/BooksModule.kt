@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
@@ -110,8 +111,10 @@ fun booksModule(
             )
         }
 
-        single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
-        single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
+        // Contributor + Series are SQLDelight conversions (the cutover template):
+        // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
+        single(createdAtStart = true) { ContributorRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { SeriesRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { GenreRepository(get(), get(), get()) }
         single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {

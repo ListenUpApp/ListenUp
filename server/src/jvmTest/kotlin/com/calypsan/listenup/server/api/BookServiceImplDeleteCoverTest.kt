@@ -41,6 +41,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
 import kotlinx.coroutines.test.runTest
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class BookServiceImplDeleteCoverTest :
     FunSpec({
@@ -228,8 +229,8 @@ private fun newService(
 ): Pair<BookServiceImpl, BookRepository> {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-    val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
     val genreRepo = GenreRepository(db, bus, syncRegistry)
     val repo =
         BookRepository(

@@ -40,8 +40,8 @@ class BookRepositorySoftDeleteCascadeTest :
                             db = db,
                             bus = bus,
                             registry = syncRegistry,
-                            contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                            seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
                             genreRepository = GenreRepository(db, bus, syncRegistry),
                             bookTagRepository = bookTagRepo,
                         )
@@ -80,8 +80,8 @@ class BookRepositorySoftDeleteCascadeTest :
                             db = db,
                             bus = bus,
                             registry = syncRegistry,
-                            contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                            seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
                             genreRepository = GenreRepository(db, bus, syncRegistry),
                             // bookTagRepository = null (default) — cascade is a no-op
                         )

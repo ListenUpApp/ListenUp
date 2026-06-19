@@ -21,6 +21,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * End-to-end proof that a book tagged with multiple series survives the full
@@ -38,8 +39,8 @@ class SeriesParsingIngestE2ETest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
                         db = db,
@@ -83,8 +84,8 @@ class SeriesParsingIngestE2ETest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
                         db = db,

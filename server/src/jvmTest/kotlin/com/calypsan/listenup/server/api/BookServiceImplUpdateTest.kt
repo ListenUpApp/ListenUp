@@ -37,6 +37,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class BookServiceImplUpdateTest :
     FunSpec({
@@ -52,8 +53,8 @@ class BookServiceImplUpdateTest :
         ): Pair<BookServiceImpl, BookRepository> {
             val bus = ChangeBus()
             val syncRegistry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-            val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
             val genreRepo = GenreRepository(db, bus, syncRegistry)
             val repo =
                 BookRepository(
@@ -173,8 +174,8 @@ class BookServiceImplUpdateTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
@@ -220,8 +221,8 @@ class BookServiceImplUpdateTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
@@ -330,8 +331,8 @@ class BookServiceImplUpdateTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(

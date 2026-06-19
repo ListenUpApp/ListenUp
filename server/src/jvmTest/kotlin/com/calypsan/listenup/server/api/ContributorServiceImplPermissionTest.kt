@@ -99,8 +99,8 @@ private data class ContributorPermDeps(
 private fun makeContributorPermService(db: Database): ContributorPermDeps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = registry)
-    val seriesRepo = SeriesRepository(db = db, bus = bus, registry = registry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
             db = db,

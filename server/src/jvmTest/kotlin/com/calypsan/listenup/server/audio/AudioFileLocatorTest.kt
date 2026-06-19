@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class AudioFileLocatorTest :
     FunSpec({
@@ -60,8 +61,8 @@ class AudioFileLocatorTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(db, bus, registry),
-                        seriesRepository = SeriesRepository(db, bus, registry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
                         genreRepository = GenreRepository(db, bus, registry),
                     )
 

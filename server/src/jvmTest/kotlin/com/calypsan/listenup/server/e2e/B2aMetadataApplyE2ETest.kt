@@ -58,6 +58,7 @@ import java.nio.file.Files
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 private val TEST_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val TEST_ASIN = "B017V4IM1G"
@@ -116,8 +117,8 @@ class B2aMetadataApplyE2ETest :
                 val syncRegistry = SyncRegistry()
 
                 // ── Repositories ────────────────────────────────────────────────
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
@@ -204,8 +205,8 @@ class B2aMetadataApplyE2ETest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
@@ -266,8 +267,8 @@ class B2aMetadataApplyE2ETest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)

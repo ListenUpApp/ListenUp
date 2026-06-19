@@ -51,6 +51,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class PlaybackServiceImplTest :
     FunSpec({
@@ -74,8 +75,8 @@ class PlaybackServiceImplTest :
                     db = db,
                     bus = bus,
                     registry = registry,
-                    contributorRepository = ContributorRepository(db, bus, registry),
-                    seriesRepository = SeriesRepository(db, bus, registry),
+                    contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
+                    seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
                     genreRepository = GenreRepository(db, bus, registry),
                 )
             val positionRepo = PlaybackPositionRepository(db = db, bus = bus, registry = SyncRegistry())

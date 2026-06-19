@@ -37,6 +37,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Verifies the atomic inbox-membership seam in the book-insert transaction.
@@ -169,8 +170,8 @@ private fun fixture(db: Database): InboxFixture {
             db = db,
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db, bus, syncRegistry),
-            seriesRepository = SeriesRepository(db, bus, syncRegistry),
+            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
             genreRepository = GenreRepository(db, bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )

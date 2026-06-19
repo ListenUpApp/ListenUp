@@ -84,8 +84,8 @@ class GenreServiceImplPermissionTest :
 private fun makeGenrePermService(db: Database): GenreServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = registry)
-    val seriesRepo = SeriesRepository(db = db, bus = bus, registry = registry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val genreRepo = GenreRepository(db = db, bus = bus, registry = registry)
     val bookRepo =
         BookRepository(

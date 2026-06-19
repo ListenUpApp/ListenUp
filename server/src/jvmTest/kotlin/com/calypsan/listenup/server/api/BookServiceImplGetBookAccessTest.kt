@@ -31,6 +31,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Tests for the access gate on [BookServiceImpl.getBook] — proves a member cannot
@@ -48,8 +49,8 @@ class BookServiceImplGetBookAccessTest :
         fun Database.fixture(): GetBookFixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(this, bus, registry)
-            val seriesRepo = SeriesRepository(this, bus, registry)
+            val contributorRepo = ContributorRepository(this.asSqlDatabase(), bus, registry)
+            val seriesRepo = SeriesRepository(this.asSqlDatabase(), bus, registry)
             val genreRepo = GenreRepository(this, bus, registry)
             val bookRepo =
                 BookRepository(

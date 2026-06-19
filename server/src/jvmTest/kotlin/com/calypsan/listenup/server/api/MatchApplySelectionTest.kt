@@ -52,6 +52,7 @@ import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 
@@ -194,8 +195,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -228,8 +229,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -255,8 +256,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -281,8 +282,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -300,8 +301,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -327,8 +328,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -352,8 +353,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -379,8 +380,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {
@@ -419,8 +420,8 @@ class MatchApplySelectionTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
                 val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
                 runTest {

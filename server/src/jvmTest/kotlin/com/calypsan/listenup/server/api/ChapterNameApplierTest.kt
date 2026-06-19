@@ -36,6 +36,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 private val NOW = Instant.parse("2026-06-05T12:00:00Z")
 private const val ASIN = "B0CHAPTERS"
@@ -155,8 +156,8 @@ private fun deps(
 ): Deps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, registry)
-    val seriesRepo = SeriesRepository(db, bus, registry)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
     val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, GenreRepository(db, bus, registry))
     val metadataService =
         MetadataService(

@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -14,8 +14,8 @@ class ContributorRepositoryAliasReadWriteTest :
     FunSpec({
 
         test("should round-trip aliases through upsert and findById") {
-            withInMemoryDatabase {
-                val repo = ContributorRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(
                         contributorPayloadFixture(
@@ -34,8 +34,8 @@ class ContributorRepositoryAliasReadWriteTest :
         }
 
         test("should clear aliases when upserted with empty list") {
-            withInMemoryDatabase {
-                val repo = ContributorRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // Seed with aliases
                     repo.upsert(

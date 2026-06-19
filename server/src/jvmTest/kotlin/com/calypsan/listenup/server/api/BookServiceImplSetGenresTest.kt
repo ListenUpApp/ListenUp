@@ -54,8 +54,8 @@ class BookServiceImplSetGenresTest :
         fun makeService(db: Database): BookServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db, bus, registry)
-            val seriesRepo = SeriesRepository(db, bus, registry)
+            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
             val genreRepo = GenreRepository(db, bus, registry, fixedClock)
             val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val bookRepo =

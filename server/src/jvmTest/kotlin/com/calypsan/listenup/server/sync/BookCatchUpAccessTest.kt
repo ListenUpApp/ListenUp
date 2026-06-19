@@ -21,6 +21,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Tests the `accessFiltered` seam on [SyncableRepository.pullSince] / [digest]
@@ -39,8 +40,8 @@ class BookCatchUpAccessTest :
         fun Database.fixture(): Fixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db = this, bus = bus, registry = registry)
-            val seriesRepo = SeriesRepository(db = this, bus = bus, registry = registry)
+            val contributorRepo = ContributorRepository(db = this.asSqlDatabase(), bus = bus, registry = registry)
+            val seriesRepo = SeriesRepository(db = this.asSqlDatabase(), bus = bus, registry = registry)
             return Fixture(
                 bookRepo =
                     BookRepository(

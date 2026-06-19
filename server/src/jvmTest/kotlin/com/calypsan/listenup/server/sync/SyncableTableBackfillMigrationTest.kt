@@ -15,6 +15,7 @@ import java.nio.file.Files
 import java.sql.Connection
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Exercises the V13/V14 backfill against **pre-existing rows** — the case no
@@ -155,7 +156,7 @@ class SyncableTableBackfillMigrationTest :
             // `pullSince` delivers it. Before the fix, the post-migration write got
             // `counter+1` — below the backfilled rows — and was silently dropped.
             val db = Database.connect(ds)
-            val repo = ContributorRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+            val repo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
             runTest {
                 val newId = repo.resolveOrCreate("Post Migration Author", sortName = null)
                 val page = repo.pullSince(userId = null, cursor = maxBackfilledRevision, limit = 100)

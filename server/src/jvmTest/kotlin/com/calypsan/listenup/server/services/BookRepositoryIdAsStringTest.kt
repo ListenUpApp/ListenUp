@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class BookRepositoryIdAsStringTest :
     FunSpec({
@@ -20,8 +21,8 @@ class BookRepositoryIdAsStringTest :
                         db = this,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(this, bus, registry),
-                        seriesRepository = SeriesRepository(this, bus, registry),
+                        contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
+                        seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
                         genreRepository = GenreRepository(this, bus, registry),
                     )
                 repo.idAsStringForTest(BookId("abc-123")) shouldBe "abc-123"
@@ -37,8 +38,8 @@ class BookRepositoryIdAsStringTest :
                         db = this,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(this, bus, registry),
-                        seriesRepository = SeriesRepository(this, bus, registry),
+                        contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
+                        seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
                         genreRepository = GenreRepository(this, bus, registry),
                     )
                 repo.domainName shouldBe "books"

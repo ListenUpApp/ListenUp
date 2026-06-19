@@ -61,6 +61,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 private val NOW = Instant.parse("2026-05-24T12:00:00Z")
 
@@ -253,8 +254,8 @@ class MetadataLookupServiceImplTest :
 
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(
@@ -460,8 +461,8 @@ private fun makeService(
         )
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-    val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
     val genreRepo = GenreRepository(db, bus, syncRegistry)
     val bookRepository =
         BookRepository(

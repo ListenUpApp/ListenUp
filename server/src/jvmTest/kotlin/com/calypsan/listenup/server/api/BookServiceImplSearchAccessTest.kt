@@ -29,6 +29,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Access-gate tests for [BookServiceImpl.searchBooks] — the FTS5 id seam that feeds
@@ -43,8 +44,8 @@ class BookServiceImplSearchAccessTest :
         fun Database.fixture(): SearchAccessFixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(this, bus, registry)
-            val seriesRepo = SeriesRepository(this, bus, registry)
+            val contributorRepo = ContributorRepository(this.asSqlDatabase(), bus, registry)
+            val seriesRepo = SeriesRepository(this.asSqlDatabase(), bus, registry)
             val genreRepo = GenreRepository(this, bus, registry)
             val bookRepo =
                 BookRepository(

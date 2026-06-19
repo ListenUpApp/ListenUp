@@ -2,37 +2,38 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.server.db.BookSeriesTable
+import com.calypsan.listenup.server.db.sqldelight.Book_series
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable-domain repository for book series (Books-B1).
+ * SQLDelight syncable repository for book series (Books-B1, SQLDelight cutover).
  *
- * Single-table domain. `domainName` is `"series"` — distinct from the table
- * name `book_series`. `idAsString(SeriesId) = id.value` is load-bearing.
- * Series are created by the scanner through [resolveOrCreate]; there is no
- * series write API in B1.
+ * Single-table syncable domain. `domainName` is `"series"` — distinct from the
+ * table name `book_series`. The base [SqlSyncableRepository] owns revision bumping,
+ * timestamping, created-vs-updated discrimination, and change-bus publication; this
+ * class supplies the series-shaped pieces (substrate adapter, read/write, serializer,
+ * id/revision projections).
+ *
+ * `idAsString(SeriesId) = id.value` is load-bearing — the base's default `toString()`
+ * on a value class would corrupt every column the id is written to. Series are created
+ * by the scanner through [resolveOrCreate]; there is no series write API in B1.
  */
 class SeriesRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<SeriesSyncPayload, SeriesId>(
+) : SqlSyncableRepository<SeriesSyncPayload, SeriesId>(
         db = db,
-        table = BookSeriesTable,
         bus = bus,
         registry = registry,
         domainName = "series",
@@ -47,28 +48,63 @@ class SeriesRepository(
 
     override fun SeriesSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): SeriesSyncPayload? =
-        BookSeriesTable
-            .selectAll()
-            .where { BookSeriesTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                SeriesSyncPayload(
-                    id = row[BookSeriesTable.id],
-                    name = row[BookSeriesTable.name],
-                    sortName = row[BookSeriesTable.sortName],
-                    revision = row[BookSeriesTable.revision],
-                    updatedAt = row[BookSeriesTable.updatedAt],
-                    createdAt = row[BookSeriesTable.createdAt],
-                    deletedAt = row[BookSeriesTable.deletedAt],
-                    asin = row[BookSeriesTable.asin],
-                    description = row[BookSeriesTable.description],
-                    coverPath = row[BookSeriesTable.coverPath],
-                    coverBlurHash = row[BookSeriesTable.coverBlurHash],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.seriesQueries].
+     * Mirrors the canonical [com.calypsan.listenup.server.sync.TagRepository] shape.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.seriesQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.seriesQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.seriesQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.seriesQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): SeriesSyncPayload? =
+        db.seriesQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<SeriesSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.seriesQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toPayload() }
+    }
+
+    override fun writePayload(
         value: SeriesSyncPayload,
         rev: Long,
         now: Long,
@@ -78,41 +114,42 @@ class SeriesRepository(
     ) {
         val normalized = normalizeForDedup(value.name)
         if (existed) {
-            BookSeriesTable.update({ BookSeriesTable.id eq value.id }) { stmt ->
-                stmt[BookSeriesTable.normalizedName] = normalized
-                stmt[BookSeriesTable.name] = value.name
-                stmt[BookSeriesTable.sortName] = value.sortName
-                stmt[BookSeriesTable.asin] = value.asin
-                stmt[BookSeriesTable.description] = value.description
-                stmt[BookSeriesTable.coverPath] = value.coverPath
-                stmt[BookSeriesTable.coverBlurHash] = value.coverBlurHash
-                stmt[BookSeriesTable.revision] = rev
-                stmt[BookSeriesTable.updatedAt] = now
-                stmt[BookSeriesTable.deletedAt] = null
-                stmt[BookSeriesTable.clientOpId] = clientOpId
-            }
+            db.seriesQueries.update(
+                normalized_name = normalized,
+                name = value.name,
+                sort_name = value.sortName,
+                asin = value.asin,
+                description = value.description,
+                cover_path = value.coverPath,
+                cover_blur_hash = value.coverBlurHash,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            BookSeriesTable.insert { stmt ->
-                stmt[BookSeriesTable.id] = value.id
-                stmt[BookSeriesTable.normalizedName] = normalized
-                stmt[BookSeriesTable.name] = value.name
-                stmt[BookSeriesTable.sortName] = value.sortName
-                stmt[BookSeriesTable.asin] = value.asin
-                stmt[BookSeriesTable.description] = value.description
-                stmt[BookSeriesTable.coverPath] = value.coverPath
-                stmt[BookSeriesTable.coverBlurHash] = value.coverBlurHash
-                stmt[BookSeriesTable.revision] = rev
-                stmt[BookSeriesTable.createdAt] = now
-                stmt[BookSeriesTable.updatedAt] = now
-                stmt[BookSeriesTable.deletedAt] = null
-                stmt[BookSeriesTable.clientOpId] = clientOpId
-            }
+            db.seriesQueries.insert(
+                id = value.id,
+                normalized_name = normalized,
+                name = value.name,
+                sort_name = value.sortName,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                asin = value.asin,
+                description = value.description,
+                cover_path = value.coverPath,
+                cover_blur_hash = value.coverBlurHash,
+            )
         }
     }
 
     /**
      * Finds the series whose name shares [name]'s normalized form, or creates
-     * one through the substrate's `upsert` (bumping the domain revision and
+     * one through the base's `upsert` (bumping the domain revision and
      * publishing `SyncEvent.Created`). Idempotent on the normalized name; the
      * display name preserves the first writer's casing.
      *
@@ -123,11 +160,10 @@ class SeriesRepository(
         val normalized = normalizeForDedup(name)
         val existing =
             suspendTransaction(db) {
-                BookSeriesTable
-                    .selectAll()
-                    .where { BookSeriesTable.normalizedName eq normalized }
-                    .firstOrNull()
-                    ?.get(BookSeriesTable.id)
+                db.seriesQueries
+                    .selectByNormalizedName(normalized)
+                    .executeAsOneOrNull()
+                    ?.id
             }
         if (existing != null) return SeriesId(existing)
 
@@ -160,10 +196,7 @@ class SeriesRepository(
      */
     suspend fun listLiveIds(): Set<String> =
         suspendTransaction(db) {
-            BookSeriesTable
-                .selectAll()
-                .where { BookSeriesTable.deletedAt.isNull() }
-                .mapTo(HashSet()) { it[BookSeriesTable.id] }
+            db.seriesQueries.selectLiveIds().executeAsList().toHashSet()
         }
 
     /** Test-only accessor for the protected [idAsString]. */
@@ -181,6 +214,30 @@ class SeriesRepository(
      */
     suspend fun allIdRevisionsForTest(): List<Pair<String, Long>> =
         suspendTransaction(db) {
-            BookSeriesTable.selectAll().map { it[BookSeriesTable.id] to it[BookSeriesTable.revision] }
+            db.seriesQueries.selectAllIdRevisions().executeAsList().map { it.id to it.revision }
         }
+
+    /** Maps a generated [Book_series] row to the wire [SeriesSyncPayload] DTO. */
+    private fun Book_series.toPayload(): SeriesSyncPayload =
+        SeriesSyncPayload(
+            id = id,
+            name = name,
+            sortName = sort_name,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
+            asin = asin,
+            description = description,
+            coverPath = cover_path,
+            coverBlurHash = cover_blur_hash,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }

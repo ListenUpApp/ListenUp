@@ -325,8 +325,8 @@ private data class ServiceDeps(
 private fun makeServiceAndDeps(db: Database): ServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
     val bookRepo =
         BookRepository(
             db = db,

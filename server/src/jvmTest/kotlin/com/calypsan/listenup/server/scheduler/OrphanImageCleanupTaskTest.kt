@@ -11,6 +11,7 @@ import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Unit tests for [OrphanImageCleanupTask].
@@ -23,11 +24,11 @@ class OrphanImageCleanupTaskTest :
 
         fun makeContributorRepo(
             db: org.jetbrains.exposed.v1.jdbc.Database,
-        ): ContributorRepository = ContributorRepository(db, ChangeBus(), SyncRegistry())
+        ): ContributorRepository = ContributorRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         fun makeSeriesRepo(
             db: org.jetbrains.exposed.v1.jdbc.Database,
-        ): SeriesRepository = SeriesRepository(db, ChangeBus(), SyncRegistry())
+        ): SeriesRepository = SeriesRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         /** Creates a tiny empty file at [path] (no bytes needed — just existence). */
         fun touch(path: Path) {

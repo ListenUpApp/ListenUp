@@ -31,6 +31,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class BookRepositoryScannerGenreIngestTest :
     FunSpec({
@@ -313,8 +314,8 @@ private fun newRepo(
         db = db,
         bus = bus,
         registry = syncRegistry,
-        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
         genreRepository = GenreRepository(db, bus, syncRegistry),
     )
 

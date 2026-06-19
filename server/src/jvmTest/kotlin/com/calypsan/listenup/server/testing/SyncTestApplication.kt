@@ -195,8 +195,8 @@ internal fun withTestApplication(
                     db = db,
                     bus = bus,
                     registry = sharedRegistry,
-                    contributorRepository = ContributorRepository(db, bus, sharedRegistry),
-                    seriesRepository = SeriesRepository(db, bus, sharedRegistry),
+                    contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),
+                    seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, sharedRegistry),
                     genreRepository = GenreRepository(db, bus, sharedRegistry),
                 )
             bookRepoForScope = bookRepo

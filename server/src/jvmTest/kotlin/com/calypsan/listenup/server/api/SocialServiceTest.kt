@@ -42,6 +42,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Contract and ACL tests for [SocialServiceImpl] — the crown-jewel ACL surface.
@@ -82,8 +83,8 @@ class SocialServiceTest :
                     db = db,
                     bus = bus,
                     registry = bookRegistry,
-                    contributorRepository = ContributorRepository(db = db, bus = bus, registry = bookRegistry),
-                    seriesRepository = SeriesRepository(db = db, bus = bus, registry = bookRegistry),
+                    contributorRepository = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
+                    seriesRepository = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
                     genreRepository = GenreRepository(db = db, bus = bus, registry = bookRegistry),
                 )
             return SocialServiceImpl(

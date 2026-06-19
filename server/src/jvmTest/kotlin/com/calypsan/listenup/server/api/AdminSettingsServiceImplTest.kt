@@ -41,6 +41,7 @@ import java.nio.file.Path
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Integration tests for [AdminSettingsServiceImpl].
@@ -262,8 +263,8 @@ private suspend fun seedLibrary(
     val bus = ChangeBus()
     val libraryRepo = LibraryRepository(db = db, bus = bus, registry = SyncRegistry())
     val folderRepo = LibraryFolderRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-    val contributorRepo = ContributorRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-    val seriesRepo = SeriesRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
     val bookRepo =
         BookRepository(
             db = db,

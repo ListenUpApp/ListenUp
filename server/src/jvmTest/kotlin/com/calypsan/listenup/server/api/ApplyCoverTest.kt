@@ -56,6 +56,7 @@ import io.ktor.http.headersOf
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 // Minimal valid 1×1 PNG (passes ImageStore's magic-number sniff).
 private val ONE_PX_PNG: ByteArray =
@@ -117,8 +118,8 @@ private fun withCoverFixture(
 
         val bus = ChangeBus()
         val registry = SyncRegistry()
-        val contributorRepo = ContributorRepository(db, bus, registry)
-        val seriesRepo = SeriesRepository(db, bus, registry)
+        val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+        val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
         val genreRepo = GenreRepository(db, bus, registry)
         val books = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
 
