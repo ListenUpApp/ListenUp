@@ -121,9 +121,6 @@ kotlin {
             // Async/Future support for Media3 callbacks
             implementation(libs.concurrent.futures)
 
-            // Palette for dynamic color extraction from cover art
-            implementation(libs.androidx.palette.ktx)
-
             // Window (foldable posture awareness)
             implementation(libs.androidx.window)
 
@@ -173,9 +170,6 @@ kotlin {
             // Coil for image loading (multiplatform)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
-
-            // KMPalette for cross-platform color extraction
-            implementation(libs.kmpalette.core)
 
             // AboutLibraries — open-source license loader (compose-m3 includes core + compose-core)
             implementation(libs.aboutlibraries.compose.m3)

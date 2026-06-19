@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit
 
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,19 +28,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.components.CoverColors
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
-import com.calypsan.listenup.client.design.components.rememberCoverColors
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.bookedit.components.ClassificationSection
 import com.calypsan.listenup.client.features.bookedit.components.IdentifiersSection
 import com.calypsan.listenup.client.features.bookedit.components.IdentityHeader
-import com.calypsan.listenup.client.features.bookedit.components.ImmersiveBackdrop
 import com.calypsan.listenup.client.features.bookedit.components.LibrarySection
 import com.calypsan.listenup.client.features.bookedit.components.PublishingSection
 import com.calypsan.listenup.client.features.bookedit.components.SeriesSection
@@ -70,15 +65,11 @@ import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
 
 /**
- * Creative Studio book editing screen following Material 3 Expressive Design.
- *
- * Design Philosophy: Transform data entry into creative expression with immersive
- * visuals that tie the editing experience to the book's identity.
+ * Book editing screen following Material 3 Expressive Design.
  *
  * Layout:
- * - Immersive backdrop with blurred cover art
- * - Identity Header: Cover + Title/Subtitle side by side
- * - Floating cards for each editing section
+ * - Color-blocked [IdentityHeader] hero (primaryContainer): cover + editable title/subtitle
+ * - Sectioned cards for each editing group (responsive single/two-column)
  * - Extended FAB for Save action
  */
 @Suppress("UnusedParameter", "LongMethod", "CognitiveComplexMethod")
@@ -110,17 +101,8 @@ fun BookEditScreen(
         showUnsavedChangesDialog = true
     }
 
-    // Extract colors from cover for immersive backdrop (use displayCoverPath to show staging)
-    // Note: Edit screens use staging covers, so we don't have cached colors - use runtime extraction
-    val coverColors =
-        rememberCoverColors(
-            imagePath = state.displayCoverPath,
-            refreshKey = state.pendingCoverData,
-        )
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.surface,
         floatingActionButton = {
             if (!state.isLoading) {
                 ListenUpExtendedFab(
@@ -134,21 +116,8 @@ fun BookEditScreen(
         },
     ) { paddingValues ->
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(surfaceColor),
+            modifier = Modifier.fillMaxSize(),
         ) {
-            // Immersive blurred backdrop
-            ImmersiveBackdrop(
-                coverPath = state.displayCoverPath,
-                refreshKey = state.pendingCoverData,
-                coverColors = coverColors,
-                surfaceColor = surfaceColor,
-                bookId = bookId,
-                coverHash = state.coverHash,
-            )
-
             // Content
             when {
                 state.isLoading -> {
@@ -184,7 +153,6 @@ fun BookEditScreen(
                     BookEditContent(
                         bookId = bookId,
                         state = state,
-                        coverColors = coverColors,
                         onEvent = viewModel::onEvent,
                         onBackClick = {
                             if (state.hasChanges) {
@@ -217,7 +185,7 @@ fun BookEditScreen(
 }
 
 // =============================================================================
-// CREATIVE STUDIO LAYOUT
+// CONTENT LAYOUT
 // =============================================================================
 
 @Suppress("UnusedParameter")
@@ -225,7 +193,6 @@ fun BookEditScreen(
 private fun BookEditContent(
     bookId: String,
     state: BookEditUiState,
-    coverColors: CoverColors,
     onEvent: (BookEditUiEvent) -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,

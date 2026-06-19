@@ -23,13 +23,14 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +51,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_edit_book
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.book_edit_add_subtitle
 import listenup.composeapp.generated.resources.book_edit_book_cover
@@ -58,8 +60,10 @@ import listenup.composeapp.generated.resources.book_edit_subtitle
 import listenup.composeapp.generated.resources.common_title
 
 /**
- * Identity header showing cover image with edit capability and title/subtitle fields.
- * The visual anchor for the book edit screen.
+ * Color-blocked identity header for the book edit screen: a [MaterialTheme.colorScheme.primaryContainer]
+ * [Surface] with large rounded bottom corners holding the back button, an "Edit Book" title, the
+ * tappable cover (with a camera badge), and editable title/subtitle fields. Mirrors the canonical
+ * [com.calypsan.listenup.client.design.components.ColorBlockHero] recipe.
  */
 @Suppress("LongMethod")
 @Composable
@@ -76,185 +80,199 @@ fun IdentityHeader(
     bookId: String? = null,
     coverHash: String? = null,
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(16.dp),
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
     ) {
-        // Navigation
-        IconButton(
-            onClick = onBackClick,
+        Column(
             modifier =
                 Modifier
-                    .size(48.dp)
-                    .background(
-                        color = surfaceColor.copy(alpha = 0.6f),
-                        shape = CircleShape,
-                    ),
+                    .fillMaxWidth()
+                    // The primaryContainer Surface bleeds edge-to-edge behind the status bar; inset
+                    // only the content so the back button clears the system clock and stays tappable.
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.common_back),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Cover + Title/Subtitle row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Cover art (120dp) - tappable for upload
-            ElevatedCoverCard(
-                path = coverPath,
-                bookId = bookId,
-                coverHash = coverHash,
-                contentDescription = stringResource(Res.string.book_edit_book_cover),
-                modifier =
-                    Modifier
-                        .width(120.dp)
-                        .aspectRatio(1f),
-                cornerRadius = 12.dp,
-                elevation = 12.dp,
-                refreshKey = refreshKey,
-                onClick = onCoverClick,
+            // Top row: back navigation + screen title
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                // Loading overlay during upload
-                if (isUploadingCover) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicatorSmall()
-                    }
-                } else {
-                    // Edit indicator
-                    Box(
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(6.dp)
-                                .size(28.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                                    shape = CircleShape,
-                                ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = stringResource(Res.string.book_edit_change_cover),
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(Res.string.common_back),
+                    )
                 }
+                Text(
+                    text = stringResource(Res.string.book_detail_edit_book),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
             }
 
-            // Title and Subtitle fields
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Cover + Title/Subtitle row
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                // Title - Large editorial style
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = onTitleChange,
-                    textStyle =
-                        TextStyle(
-                            fontFamily = DisplayFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = MaterialTheme.typography.headlineSmall.fontSize,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        ),
-                    placeholder = {
-                        Text(
-                            stringResource(Res.string.common_title),
-                            style =
-                                MaterialTheme.typography.headlineSmall.copy(
-                                    fontFamily = DisplayFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        )
-                    },
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            focusedContainerColor = surfaceColor.copy(alpha = 0.4f),
-                            unfocusedContainerColor = surfaceColor.copy(alpha = 0.2f),
-                        ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                // Subtitle - collapsed when empty, expandable via "Add subtitle" link
-                var subtitleExpanded by remember { mutableStateOf(subtitle.isNotBlank()) }
-                val subtitleFocusRequester = remember { FocusRequester() }
-
-                AnimatedVisibility(
-                    visible = subtitleExpanded,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
+                // Cover art (120dp) - tappable for upload
+                ElevatedCoverCard(
+                    path = coverPath,
+                    bookId = bookId,
+                    coverHash = coverHash,
+                    contentDescription = stringResource(Res.string.book_edit_book_cover),
+                    modifier =
+                        Modifier
+                            .width(120.dp)
+                            .aspectRatio(1f),
+                    cornerRadius = 12.dp,
+                    elevation = 12.dp,
+                    refreshKey = refreshKey,
+                    onClick = onCoverClick,
                 ) {
+                    // Loading overlay during upload
+                    if (isUploadingCover) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ListenUpLoadingIndicatorSmall()
+                        }
+                    } else {
+                        // Edit indicator
+                        Box(
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(6.dp)
+                                    .size(28.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = CircleShape,
+                                    ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = stringResource(Res.string.book_edit_change_cover),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                    }
+                }
+
+                // Title and Subtitle fields
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // Title - Large editorial style
                     OutlinedTextField(
-                        value = subtitle,
-                        onValueChange = onSubtitleChange,
+                        value = title,
+                        onValueChange = onTitleChange,
                         textStyle =
-                            MaterialTheme.typography.titleMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            TextStyle(
+                                fontFamily = DisplayFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = MaterialTheme.typography.headlineSmall.fontSize,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                         placeholder = {
                             Text(
-                                stringResource(Res.string.book_edit_subtitle),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                stringResource(Res.string.common_title),
+                                style =
+                                    MaterialTheme.typography.headlineSmall.copy(
+                                        fontFamily = DisplayFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                    ),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                             )
                         },
-                        colors =
-                            OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                focusedContainerColor = surfaceColor.copy(alpha = 0.4f),
-                                unfocusedContainerColor = surfaceColor.copy(alpha = 0.2f),
-                            ),
+                        colors = heroTextFieldColors(),
                         shape = RoundedCornerShape(12.dp),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .focusRequester(subtitleFocusRequester),
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                }
 
-                if (!subtitleExpanded) {
-                    Text(
-                        text = stringResource(Res.string.book_edit_add_subtitle),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier =
-                            Modifier
-                                .clickable { subtitleExpanded = true }
-                                .padding(vertical = 4.dp),
-                    )
-                }
+                    // Subtitle - collapsed when empty, expandable via "Add subtitle" link
+                    var subtitleExpanded by remember { mutableStateOf(subtitle.isNotBlank()) }
+                    val subtitleFocusRequester = remember { FocusRequester() }
 
-                // Auto-focus when subtitle field is revealed
-                LaunchedEffect(subtitleExpanded) {
-                    if (subtitleExpanded && subtitle.isBlank()) {
-                        subtitleFocusRequester.requestFocus()
+                    AnimatedVisibility(
+                        visible = subtitleExpanded,
+                        enter = expandVertically(),
+                        exit = shrinkVertically(),
+                    ) {
+                        OutlinedTextField(
+                            value = subtitle,
+                            onValueChange = onSubtitleChange,
+                            textStyle =
+                                MaterialTheme.typography.titleMedium.copy(
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            placeholder = {
+                                Text(
+                                    stringResource(Res.string.book_edit_subtitle),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                                )
+                            },
+                            colors = heroTextFieldColors(),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(subtitleFocusRequester),
+                        )
+                    }
+
+                    if (!subtitleExpanded) {
+                        Text(
+                            text = stringResource(Res.string.book_edit_add_subtitle),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier =
+                                Modifier
+                                    .clickable { subtitleExpanded = true }
+                                    .padding(vertical = 4.dp),
+                        )
+                    }
+
+                    // Auto-focus when subtitle field is revealed
+                    LaunchedEffect(subtitleExpanded) {
+                        if (subtitleExpanded && subtitle.isBlank()) {
+                            subtitleFocusRequester.requestFocus()
+                        }
                     }
                 }
             }
         }
     }
 }
+
+/**
+ * Outlined text-field colors tuned for the `onPrimaryContainer` content of the color-blocked hero:
+ * transparent containers (the field sits directly on the primaryContainer surface) with
+ * `onPrimaryContainer`-derived text, cursor, and borders.
+ */
+@Composable
+private fun heroTextFieldColors() =
+    OutlinedTextFieldDefaults.colors(
+        focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+        unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent,
+    )

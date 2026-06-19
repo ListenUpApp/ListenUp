@@ -16,7 +16,6 @@ androidx-window = "1.5.1"
 androidx-lifecycle-viewmodel-navigation3 = "2.11.0"
 androidx-navigation3 = "1.1.3"
 androidx-graphics-shapes = "1.1.0"
-androidx-palette = "1.0.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.11.3"
 androidx-core-splashscreen = "1.2.0"
@@ -46,7 +45,6 @@ coil = "3.5.0"
 media3 = "1.10.1"
 concurrent-futures = "1.3.0"
 markdown-renderer = "0.41.0"
-kmpalette = "3.1.0"
 aboutlibraries = "14.2.1"
 
 # Swift Interop
@@ -118,8 +116,6 @@ androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", versi
 material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3-adaptive-multiplatform" }
 material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "material3-adaptive-multiplatform" }
 material3-adaptive-navigation = { module = "org.jetbrains.compose.material3.adaptive:adaptive-navigation", version.ref = "material3-adaptive-multiplatform" }
-# Palette (dynamic color extraction from images)
-androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "androidx-palette" }
 # Window (foldable posture awareness via WindowInfoTracker)
 androidx-window = { module = "androidx.window:window", version.ref = "androidx-window" }
 # Ktor
@@ -234,8 +230,6 @@ concurrent-futures = { module = "androidx.concurrent:concurrent-futures-ktx", ve
 markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdown-renderer" }
 # AboutLibraries (open-source license display)
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
-# KMPalette (cross-platform color extraction from images)
-kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpalette" }
 # Konsist — architectural assertions
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp-symbol-processing-api" }
