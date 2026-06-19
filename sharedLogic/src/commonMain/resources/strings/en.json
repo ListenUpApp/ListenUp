@@ -977,7 +977,13 @@
     "inbox": "Inbox",
     "inbox_subtitle": "Review and release new books waiting for approval.",
     "inbox_setting_title": "Hold new books for review",
-    "inbox_setting_subtitle": "New books wait in the inbox until an admin releases them."
+    "inbox_setting_subtitle": "New books wait in the inbox until an admin releases them.",
+    "inbox_select_all": "Select all",
+    "inbox_deselect_all": "Deselect all",
+    "inbox_review_edit": "Review & edit",
+    "inbox_release_count": "Release %1$d",
+    "inbox_released_count": "Released %1$d book",
+    "inbox_released_count_plural": "Released %1$d books"
   },
   "import": {
     "title": "Import from Audiobookshelf",

@@ -69,6 +69,10 @@ struct SettingsDestination: Hashable {}
 /// Administration dashboard (admin / root users only).
 struct AdminDestination: Hashable {}
 
+/// The admin inbox (admin / root users only), reached from Administration › Management.
+/// Displays freshly-scanned books awaiting release into the library.
+struct AdminInboxDestination: Hashable {}
+
 /// The Audiobookshelf import hub (admin / root users only), reached from Administration ›
 /// Management. Lists staged imports and launches the import wizard.
 struct ABSImportDestination: Hashable {}
