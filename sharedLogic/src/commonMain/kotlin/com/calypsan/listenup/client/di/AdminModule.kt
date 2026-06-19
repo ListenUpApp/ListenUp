@@ -101,9 +101,9 @@ val adminModule: Module =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // BackupRepository — admin backup/restore via BackupService RPC proxy.
+        // BackupRepository — admin backup/restore via BackupService RPC proxy + REST upload.
         single<BackupRepository> {
-            BackupRepositoryImpl(rpcFactory = get())
+            BackupRepositoryImpl(rpcFactory = get(), clientFactory = get())
         }
 
         // ImportRepository — admin Audiobookshelf import via ImportService RPC proxy + REST upload.

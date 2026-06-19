@@ -59,3 +59,14 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
     // Screen — render at the UI edge
     is State.Error -> Text(state.error.localized())
     ```
+11. **Every screen is responsive (width-driven), not a phone layout stretched on a tablet.** This is the
+    Android counterpart to `iosApp/CLAUDE.md` rule 12 and is equally non-negotiable — Google Play's
+    large-screen requirements (and Apple's direction) mandate it. Layouts must flow with the *actual
+    available width*: gate mode forks on `currentWindowAdaptiveInfo().windowSizeClass`
+    (`isWidthAtLeastBreakpoint(...)`), and for card grids prefer **`GridCells.Adaptive(minSize = …dp)`**
+    (column count flows continuously with width) over `GridCells.Fixed(n)` (which jumps discretely). A
+    single phone↔two-pane breakpoint at `TwoPaneMinWidth` (960.dp, `design/Breakpoints.kt`) is the
+    *minimum* bar; prefer continuous reflow, verify the wide layout actually uses the width (multi-column
+    or two-pane), and keep the narrow/compact path a comfortable single column. Never ship a single-column
+    phone layout centered or stretched on a tablet/foldable. Compliance references: `DevicesScreen`,
+    `LicensesScreen`, `AdminInboxScreen`, `AdminCollectionDetailScreen`.

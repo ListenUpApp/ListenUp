@@ -12,20 +12,20 @@ import kotlin.time.Duration.Companion.minutes
 class RescanSchedulerTest :
     FunSpec({
 
-        test("rescans every registered library once per interval") {
+        test("rescans the registered library once per interval") {
             runTest {
                 val calls = AtomicInteger(0)
                 val scheduler =
                     RescanScheduler(
                         scope = backgroundScope,
                         interval = 1.hours,
-                        libraryIds = { listOf(LibraryId("lib-a"), LibraryId("lib-b")) },
+                        libraryId = { LibraryId("lib-a") },
                         rescan = { calls.incrementAndGet() },
                     )
                 val job = scheduler.start()
                 testScheduler.advanceTimeBy(1.hours + 1.minutes)
                 testScheduler.runCurrent()
-                calls.get() shouldBe 2 // two libraries, one interval elapsed
+                calls.get() shouldBe 1 // one library, one interval elapsed
                 job!!.cancelAndJoin()
             }
         }
@@ -37,7 +37,7 @@ class RescanSchedulerTest :
                     RescanScheduler(
                         scope = backgroundScope,
                         interval = 1.hours,
-                        libraryIds = { listOf(LibraryId("lib-a")) },
+                        libraryId = { LibraryId("lib-a") },
                         rescan = {
                             calls.incrementAndGet()
                             error("boom")
@@ -57,7 +57,7 @@ class RescanSchedulerTest :
                     RescanScheduler(
                         scope = backgroundScope,
                         interval = kotlin.time.Duration.ZERO,
-                        libraryIds = { listOf(LibraryId("lib-a")) },
+                        libraryId = { LibraryId("lib-a") },
                         rescan = { error("should never run") },
                     )
                 scheduler.start() shouldBe null

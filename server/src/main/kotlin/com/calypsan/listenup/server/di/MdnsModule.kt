@@ -35,6 +35,11 @@ fun mdnsModule(
                     buildMdnsTxt(identity.instanceId(), settings.serverName(), settings.remoteUrl())
                 },
                 scope = applicationScope,
+                // Host record owner = "listenup-<instanceId>.local", NOT the OS hostname. The host's
+                // avahi/mDNSResponder already publishes "<hostname>.local" → every interface address
+                // (docker/VPN included); resolving our own unique label keeps a client's view of our
+                // addresses limited to the LAN interfaces we actually announce.
+                hostLabelProvider = { "listenup-${identity.instanceId()}" },
             )
         }
     }

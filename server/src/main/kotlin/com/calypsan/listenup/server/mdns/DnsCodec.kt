@@ -81,7 +81,7 @@ object DnsCodec {
     ): ByteArray {
         require(ipv4.size == 4) { "ipv4 must be 4 bytes" }
         val instanceFqdn = "${service.instanceName}.${MdnsServiceInfo.SERVICE_TYPE}"
-        val hostFqdn = "${service.instanceName}.${MdnsServiceInfo.LOCAL}"
+        val hostFqdn = "${service.hostLabel}.${MdnsServiceInfo.LOCAL}"
 
         val records = ByteArrayOutputStream()
         record(records, MdnsServiceInfo.SERVICE_TYPE, TYPE_PTR, CLASS_IN, ttlSeconds, encodeName(instanceFqdn))

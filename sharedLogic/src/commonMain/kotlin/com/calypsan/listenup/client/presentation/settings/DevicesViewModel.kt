@@ -95,6 +95,7 @@ class DevicesViewModel(
             secondary = secondaryOf(deviceInfo),
             lastUsedAt = lastUsedAt,
             isCurrent = current,
+            deviceType = deviceInfo?.deviceType,
         )
 
     companion object {
