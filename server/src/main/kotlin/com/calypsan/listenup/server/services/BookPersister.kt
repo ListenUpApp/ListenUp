@@ -303,6 +303,16 @@ class BookPersister internal constructor(
                     source = SyncCoverSource.EMBEDDED,
                 )
             }
+
+            is CoverSource.Spooled -> {
+                runCatching { JPath.of(cover.path).readBytes() }
+                    .onFailure { e ->
+                        log.warn { "Could not read spooled cover for ${analyzed.candidate.rootRelPath}: $e" }
+                    }.getOrNull()
+                    ?.let { bytes ->
+                        PendingCover(bytes = bytes, mime = cover.mime, source = SyncCoverSource.EMBEDDED)
+                    }
+            }
         }
     }
 
