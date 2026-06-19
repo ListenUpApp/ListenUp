@@ -276,6 +276,16 @@ struct AdminView: View {
                     action: { showingInviteSheet = true }
                 )
                 rowSeparator
+                NavigationLink(value: AdminInboxDestination()) {
+                    NavigationActionRow(
+                        systemImage: "tray.full",
+                        tint: .luTint,
+                        title: String(localized: "common.inbox"),
+                        subtitle: String(localized: "admin.inbox_setting_subtitle")
+                    )
+                }
+                .buttonStyle(.plain)
+                rowSeparator
                 // Pushes the ABS import hub, which launches the import wizard. The mockup's
                 // Collections / Categories / Unmapped Genres rows are still omitted (no iOS screen yet).
                 NavigationLink(value: ABSImportDestination()) {

@@ -213,6 +213,11 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getAdminInboxViewModel(): com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel by inject()
+        return viewModel
+    }
+
     fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
         val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
         return viewModel

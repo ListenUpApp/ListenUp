@@ -100,6 +100,7 @@ final class Dependencies {
     func createDevicesViewModel() -> DevicesViewModel { KoinHelper.shared.getDevicesViewModel() }
 
     func createAdminViewModel() -> AdminViewModel { KoinHelper.shared.getAdminViewModel() }
+    func createAdminInboxViewModel() -> AdminInboxViewModel { KoinHelper.shared.getAdminInboxViewModel() }
     func createAdminSettingsViewModel() -> AdminSettingsViewModel { KoinHelper.shared.getAdminSettingsViewModel() }
     func createCreateInviteViewModel() -> CreateInviteViewModel { KoinHelper.shared.getCreateInviteViewModel() }
     func createABSImportHubViewModel() -> ABSImportHubViewModel { KoinHelper.shared.getABSImportHubViewModel() }
