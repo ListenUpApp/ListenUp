@@ -224,7 +224,9 @@ private suspend fun BookPersister.scanSubtree(
             correlationId = "scan-${book.candidate.rootRelPath}",
             rootPath = rootPath,
             books = listOf(book),
-            changes = emptyList<ChangeEventDto>(),
+            // Represent the book as Added so the persister processes it.
+            // A real Scanner would populate changes from the Differ; tests drive it directly.
+            changes = listOf(ChangeEventDto.Added(book)),
             errors = emptyList(),
             durationMs = 0L,
             filesWalked = 1,

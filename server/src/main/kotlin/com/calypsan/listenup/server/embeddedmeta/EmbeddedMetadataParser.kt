@@ -29,12 +29,12 @@ import kotlin.text.HexFormat
  * point's narrow surface and the typed [AudioMetadataError] subtypes give a
  * clean instrumentation point when that lands.
  */
-internal class EmbeddedMetadataParser(
+internal open class EmbeddedMetadataParser(
     private val detector: AudioFormatDetector,
     private val parsers: List<AudioFormatParser>,
     private val sourceFactory: (Path) -> SeekableAudioSource = ::defaultSeekableSource,
 ) {
-    suspend fun parse(path: Path): AppResult<EmbeddedAudioMetadata> =
+    open suspend fun parse(path: Path): AppResult<EmbeddedAudioMetadata> =
         withContext(Dispatchers.IO) {
             val source =
                 try {

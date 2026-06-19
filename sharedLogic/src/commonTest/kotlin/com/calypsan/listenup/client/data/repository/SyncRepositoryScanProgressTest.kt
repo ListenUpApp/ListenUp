@@ -422,4 +422,183 @@ class SyncRepositoryScanProgressTest :
                 scanningWrites shouldBe 0
             }
         }
+
+        // ── Idempotent-scan gate ──────────────────────────────────────────────────────────────────
+        //
+        // When a scan_completed reports zero row changes (added + modified + removed + moved all zero),
+        // the client must skip the expensive catch-up reconcile (19 HTTP round-trips + SSE teardown)
+        // and the FTS rebuild (~3.3 s on a 1 150-book library). The initial-population gate must still
+        // clear correctly so the shell isn't stranded.
+
+        test("Completed with no row changes skips reconcile for an incremental scan") {
+            runTest {
+                var reconciled = false
+
+                applyScanEvent(
+                    event =
+                        ScanEvent.Completed(
+                            correlationId = "incr",
+                            libraryId = LibraryId("lib-1"),
+                            result =
+                                ScanResultSummary(
+                                    correlationId = "incr",
+                                    totalBooks = 1150,
+                                    added = 0,
+                                    modified = 0,
+                                    removed = 0,
+                                    moved = 0,
+                                    errors = 0,
+                                    durationMs = 800,
+                                    filesWalked = 2300,
+                                ),
+                        ),
+                    isInitialScanComplete = { true }, // incremental — gate already latched
+                    setScanning = { },
+                    setProgress = { },
+                    markInitialScanComplete = { },
+                    reconcile = { reconciled = true },
+                )
+
+                reconciled shouldBe false // no row changes → no catch-up, no FTS rebuild
+            }
+        }
+
+        test("Completed with actual changes still reconciles for an incremental scan") {
+            runTest {
+                var reconciled = false
+
+                applyScanEvent(
+                    event =
+                        ScanEvent.Completed(
+                            correlationId = "incr",
+                            libraryId = LibraryId("lib-1"),
+                            result =
+                                ScanResultSummary(
+                                    correlationId = "incr",
+                                    totalBooks = 1151,
+                                    added = 1,
+                                    modified = 0,
+                                    removed = 0,
+                                    moved = 0,
+                                    errors = 0,
+                                    durationMs = 900,
+                                    filesWalked = 2302,
+                                ),
+                        ),
+                    isInitialScanComplete = { true }, // incremental
+                    setScanning = { },
+                    setProgress = { },
+                    markInitialScanComplete = { },
+                    reconcile = { reconciled = true },
+                )
+
+                reconciled shouldBe true // new book found → must catch-up and rebuild FTS
+            }
+        }
+
+        // Ensure the initial-population gate is still correctly cleared even when reconcile is
+        // skipped. A zero-change first scan (edge case: user triggers a manual scan immediately
+        // after onboarding with nothing new on disk) must not strand the shell.
+        test("Completed with no row changes on the initial scan clears the populating gate without reconciling") {
+            runTest {
+                var reconciled = false
+                var scanning = true
+                var initialComplete = false
+
+                applyScanEvent(
+                    event =
+                        ScanEvent.Completed(
+                            correlationId = "init",
+                            libraryId = LibraryId("lib-1"),
+                            result =
+                                ScanResultSummary(
+                                    correlationId = "init",
+                                    totalBooks = 0,
+                                    added = 0,
+                                    modified = 0,
+                                    removed = 0,
+                                    moved = 0,
+                                    errors = 0,
+                                    durationMs = 200,
+                                    filesWalked = 0,
+                                ),
+                        ),
+                    isInitialScanComplete = { initialComplete },
+                    setScanning = { scanning = it },
+                    setProgress = { },
+                    markInitialScanComplete = { initialComplete = true },
+                    reconcile = { reconciled = true },
+                )
+
+                reconciled shouldBe false // nothing changed — no expensive work
+                scanning shouldBe false // gate cleared so the shell renders
+                initialComplete shouldBe true // latched so no incremental can re-block
+            }
+        }
+
+        // Verify that each individual change-type (modified, removed, moved) independently
+        // triggers reconcile — it is not just `added` that counts.
+        test("scanResultHasChanges returns true when only modified rows are present") {
+            scanResultHasChanges(
+                ScanResultSummary(
+                    "x",
+                    totalBooks = 5,
+                    added = 0,
+                    modified = 2,
+                    removed = 0,
+                    moved = 0,
+                    errors = 0,
+                    durationMs = 10,
+                    filesWalked = 10,
+                ),
+            ) shouldBe true
+        }
+
+        test("scanResultHasChanges returns true when only removed rows are present") {
+            scanResultHasChanges(
+                ScanResultSummary(
+                    "x",
+                    totalBooks = 3,
+                    added = 0,
+                    modified = 0,
+                    removed = 1,
+                    moved = 0,
+                    errors = 0,
+                    durationMs = 10,
+                    filesWalked = 10,
+                ),
+            ) shouldBe true
+        }
+
+        test("scanResultHasChanges returns true when only moved rows are present") {
+            scanResultHasChanges(
+                ScanResultSummary(
+                    "x",
+                    totalBooks = 5,
+                    added = 0,
+                    modified = 0,
+                    removed = 0,
+                    moved = 3,
+                    errors = 0,
+                    durationMs = 10,
+                    filesWalked = 10,
+                ),
+            ) shouldBe true
+        }
+
+        test("scanResultHasChanges returns false when all counters are zero") {
+            scanResultHasChanges(
+                ScanResultSummary(
+                    "x",
+                    totalBooks = 1150,
+                    added = 0,
+                    modified = 0,
+                    removed = 0,
+                    moved = 0,
+                    errors = 0,
+                    durationMs = 800,
+                    filesWalked = 2300,
+                ),
+            ) shouldBe false
+        }
     })

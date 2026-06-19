@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
@@ -134,21 +135,36 @@ class BookPersister internal constructor(
     }
 
     /**
-     * Persists every book in [result] and, for a [ScanScope.Full] result, runs the tombstone
-     * sweep. The caller decides whether this runs under [FirehoseSuppressed]; this method is
-     * suppression-agnostic.
+     * Persists only the **changed** books from [result] and, for a [ScanScope.Full] result,
+     * runs the tombstone sweep. The caller decides whether this runs under [FirehoseSuppressed];
+     * this method is suppression-agnostic.
      *
-     * Returns [PersistCounts] summarising how many books landed vs failed. On [OutOfMemoryError]
-     * the loop is stopped immediately and a [PersistAbortedByOom] wraps both the partial counts
-     * and the original error so the caller can emit an honest [ScanEvent.Completed] before
-     * rethrowing — OOM signals a compromised heap and must never be swallowed per-book.
+     * Unchanged books (present in [ScanResult.books] but absent from [ScanResult.changes]) incur
+     * ZERO per-book work: no cover read, no DB lookup, no contributor/series resolution. The Differ
+     * already computed the delta; this method drives persistence from that delta. Added/Modified/Moved
+     * each carry their [AnalyzedBook] directly, so no secondary lookup against [ScanResult.books] is
+     * needed; Removed books are tombstoned immediately so incremental deletions reflow without waiting
+     * for a Full scan.
+     *
+     * Returns [PersistCounts] summarising how many changed books landed vs failed, so the caller can
+     * stamp honest numbers into [ScanEvent.Completed]. On [OutOfMemoryError] the loop is stopped
+     * immediately and a [PersistAbortedByOom] wraps both the partial counts and the original error —
+     * OOM signals a compromised heap and must never be swallowed per-book.
+     *
+     * Tombstone sweep safety: [ScanResult.books] represents every book present on disk at scan
+     * time, including books that changed but failed to persist. A failed book is still on disk,
+     * so its `rootRelPath` IS in [seenPaths] — the path-based sweep will not tombstone it. The
+     * sweep is therefore safe regardless of persist failures; no skip-on-failure guard is needed.
      */
     private suspend fun persistAll(
         result: ScanResult,
         libraryId: LibraryId,
         folderId: FolderId,
     ): PersistCounts {
-        val seenIds = mutableSetOf<BookId>()
+        // Build the seen-paths set cheaply from the scan result — no DB, no per-book work.
+        // This represents every rootRelPath present on disk at scan time.
+        val seenPaths = result.books.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
+
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
         val scanRoot = JPath.of(result.rootPath)
@@ -158,38 +174,59 @@ class BookPersister internal constructor(
         val inboxCollectionId = resolveInboxCollectionId(libraryId)
         var persisted = 0
         var failed = 0
-        for (analyzed in result.books) {
-            val bookId: BookId?
-            try {
-                bookId = persistOne(analyzed, libraryId, folderId, scanRoot, inboxCollectionId)
-            } catch (e: OutOfMemoryError) {
-                // OOM means the heap is compromised — stop immediately. Wrap partial counts so
-                // the caller can still emit an honest Completed before rethrowing.
-                failed++
-                throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
-            }
-            if (bookId != null) {
-                seenIds += bookId
-                persisted++
-            } else {
-                failed++
+
+        // Persist one changed book and count the outcome. An OutOfMemoryError aborts the whole
+        // scan: the heap is compromised, so we wrap the partial counts in PersistAbortedByOom and
+        // rethrow rather than swallowing it per-book.
+        suspend fun persistCounted(book: AnalyzedBook) {
+            val bookId =
+                try {
+                    persistOne(book, libraryId, folderId, scanRoot, inboxCollectionId)
+                } catch (e: OutOfMemoryError) {
+                    failed++
+                    throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
+                }
+            if (bookId != null) persisted++ else failed++
+        }
+
+        // Persist only the books that actually changed. Added/Modified/Moved each carry the
+        // AnalyzedBook directly in the ChangeEventDto — no join against result.books needed.
+        for (change in result.changes) {
+            when (change) {
+                is ChangeEventDto.Added -> {
+                    persistCounted(change.book)
+                }
+
+                is ChangeEventDto.Modified -> {
+                    persistCounted(change.book)
+                }
+
+                is ChangeEventDto.Moved -> {
+                    persistCounted(change.book)
+                }
+
+                is ChangeEventDto.Removed -> {
+                    // Explicitly tombstone the book at this path so incremental-scan deletions
+                    // reflow immediately without waiting for the next Full scan. The call is
+                    // idempotent: a no-op when the book is already deleted or never existed.
+                    // For Full scans the softDeleteAbsentByPaths sweep below would catch it
+                    // anyway, so the overlap is harmless (soft-deleting an already-deleted book
+                    // is a no-op there too).
+                    try {
+                        ingest.softDeleteByPath(libraryId, change.rootRelPath)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
+                    }
+                }
             }
         }
+
         if (result.scope is ScanScope.Full) {
-            if (failed > 0) {
-                // A book failed to persist, so `seenIds` is an incomplete view of the
-                // library. The tombstone sweep is authoritative only for a fully-applied
-                // Full scan — sweeping on a partial set would soft-delete a book that is
-                // present on disk but transiently failed. Skip it; the next clean Full
-                // scan reconciles genuine removals. Losing a present book is unacceptable;
-                // deferring a tombstone is not.
-                log.warn {
-                    "Skipping tombstone sweep for library ${libraryId.value}: " +
-                        "$persisted persisted, $failed failed out of ${result.books.size} scanned"
-                }
-            } else {
-                ingest.softDeleteAbsent(libraryId, seenIds)
-            }
+            // Path-based sweep is safe: every book present on disk (including any that failed
+            // to persist) is in seenPaths, so the sweep never tombstones a present book.
+            ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
         }
         return PersistCounts(persisted, failed)
     }

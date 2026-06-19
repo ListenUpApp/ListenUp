@@ -34,6 +34,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -187,6 +188,10 @@ class BookRepositoryImpl(
             // toListItem's per-book cover stat is blocking I/O — keep it off the collector
             // (Dispatchers.Main for the Library screen), or a large library freezes the UI thread.
             .flowOn(IODispatcher)
+            // Room invalidates the entire result set on any book write (even a single row update).
+            // distinctUntilChanged drops re-emissions where the mapped List<BookListItem> hasn't
+            // actually changed — BookListItem is a data class so structural equality is used.
+            .distinctUntilChanged()
 
     override suspend fun getBookListItem(id: String): BookListItem? =
         bookDao.getByIdWithContributors(BookId(id))?.toListItem(imageStorage)
