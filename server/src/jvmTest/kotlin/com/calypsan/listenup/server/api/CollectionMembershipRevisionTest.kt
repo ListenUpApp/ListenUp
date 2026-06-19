@@ -15,7 +15,7 @@ import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
@@ -59,12 +59,12 @@ class CollectionMembershipRevisionTest :
             val registry = SyncRegistry()
             val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
             val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
-            val accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
-                shareRepo = shareRepo,
+                grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db),
                 bus = bus,

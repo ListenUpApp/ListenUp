@@ -76,7 +76,7 @@ class SyncRegistryPerKoinTest :
                     // BookTagRepository "book_tags"), the mood domains (MoodRepository
                     // "moods", BookMoodRepository "book_moods"), and the collection domains
                     // (CollectionRepository "collections", CollectionBookRepository
-                    // "collection_books", CollectionShareRepository "collection_shares").
+                    // "collection_books", CollectionGrantRepository "collection_shares").
                     registry.knownDomains().toSet() shouldBe
                         setOf(
                             "tags",

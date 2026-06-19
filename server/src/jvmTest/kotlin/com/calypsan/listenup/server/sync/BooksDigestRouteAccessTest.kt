@@ -68,7 +68,7 @@ class BooksDigestRouteAccessTest :
                     val books by application.inject<BookRepository>()
                     val collections by application.inject<CollectionRepository>()
                     val memberships by application.inject<CollectionBookRepository>()
-                    val shares by application.inject<CollectionShareRepository>()
+                    val shares by application.inject<CollectionGrantRepository>()
 
                     // public-book is uncollected → visible to everyone by default.
                     // private-book lives only in a stranger-owned private collection → denied

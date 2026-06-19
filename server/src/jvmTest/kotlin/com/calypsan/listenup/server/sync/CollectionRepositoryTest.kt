@@ -27,13 +27,13 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * Tests for [CollectionRepository], [CollectionBookRepository], and [CollectionShareRepository].
+ * Tests for [CollectionRepository], [CollectionBookRepository], and [CollectionGrantRepository].
  *
  * All tests use a real in-memory database with fully-satisfied FK constraints:
  * library + folder rows are seeded via [seedTestLibraryAndFolder]; book rows via
  * [seedTestBook]. CollectionsTable.ownerId is a plain text column (no FK), so
- * no user seeding is required. CollectionSharesTable.sharedWithUserId and
- * sharedByUserId are also plain text columns, so share tests need no user rows.
+ * no user seeding is required. CollectionGrantsTable.principalId and
+ * grantedByUserId are also plain text columns, so grant tests need no user rows.
  */
 class CollectionRepositoryTest :
     FunSpec({
@@ -407,9 +407,9 @@ class CollectionRepositoryTest :
             }
         }
 
-        // ── CollectionShareRepository: upsert + findActiveShare ───────────────────
+        // ── CollectionGrantRepository: upsert + findActiveGrant ───────────────────
 
-        test("share upsert and findActiveShare returns the share") {
+        test("share upsert and findActiveGrant returns the share") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -417,7 +417,7 @@ class CollectionRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
 
                 runTest {
                     collectionRepo.upsert(
@@ -430,7 +430,7 @@ class CollectionRepositoryTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.upsert(
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = "col1",
@@ -442,7 +442,7 @@ class CollectionRepositoryTest :
                         ),
                     )
 
-                    val share = shareRepo.findActiveShare("col1", "user2")
+                    val share = grantRepo.findActiveGrant("col1", "user2")
                     share.shouldNotBeNull()
                     share.id shouldBe "share1"
                     share.collectionId shouldBe "col1"
@@ -451,7 +451,7 @@ class CollectionRepositoryTest :
             }
         }
 
-        test("softDeleteShare makes findActiveShare return null") {
+        test("softDeleteGrant makes findActiveGrant return null") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -459,7 +459,7 @@ class CollectionRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
 
                 runTest {
                     collectionRepo.upsert(
@@ -472,7 +472,7 @@ class CollectionRepositoryTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.upsert(
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = "col1",
@@ -484,10 +484,10 @@ class CollectionRepositoryTest :
                         ),
                     )
 
-                    val result = shareRepo.softDeleteShare("col1", "user2")
+                    val result = grantRepo.softDeleteGrant("col1", "user2")
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    shareRepo.findActiveShare("col1", "user2").shouldBeNull()
+                    grantRepo.findActiveGrant("col1", "user2").shouldBeNull()
                 }
             }
         }
@@ -500,7 +500,7 @@ class CollectionRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
 
                 runTest {
                     collectionRepo.upsert(
@@ -513,7 +513,7 @@ class CollectionRepositoryTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.upsert(
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = "col1",
@@ -525,24 +525,24 @@ class CollectionRepositoryTest :
                         ),
                     )
 
-                    val share = shareRepo.findActiveShare("col1", "user2")
+                    val share = grantRepo.findActiveGrant("col1", "user2")
                     share.shouldNotBeNull()
                     share.permission shouldBe SharePermission.Write
                 }
             }
         }
 
-        test("softDeleteShare returns Failure when no active share exists") {
+        test("softDeleteGrant returns Failure when no active share exists") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 CollectionRepository(db = db, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
 
                 runTest {
-                    val result = shareRepo.softDeleteShare("col-none", "user-none")
+                    val result = grantRepo.softDeleteGrant("col-none", "user-none")
                     result.shouldBeInstanceOf<AppResult.Failure>()
                 }
             }

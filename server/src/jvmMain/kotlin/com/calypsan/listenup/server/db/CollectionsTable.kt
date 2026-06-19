@@ -8,7 +8,7 @@ import org.jetbrains.exposed.v1.core.ReferenceOption
  *
  * [id] is the stable storage row identity (UUIDv7 string). Collections gate access to
  * their member books — uncollected books are public; collected books are gated behind
- * the collection's [isGlobalAccess] flag or an explicit share in [CollectionSharesTable].
+ * the collection's [isGlobalAccess] flag or an explicit grant in [CollectionGrantsTable].
  *
  * [isInbox] marks the system-managed inbox collection for a library — at most one live
  * inbox per library is enforced by a partial unique index on [libraryId] in the migration.

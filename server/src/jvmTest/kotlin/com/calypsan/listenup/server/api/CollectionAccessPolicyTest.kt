@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -33,8 +33,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     collectionRepo.upsert(
@@ -63,8 +63,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     collectionRepo.upsert(
@@ -94,8 +94,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     collectionRepo.upsert(
@@ -108,7 +108,7 @@ class CollectionAccessPolicyTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.upsert(
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = "col1",
@@ -136,8 +136,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     collectionRepo.upsert(
@@ -150,7 +150,7 @@ class CollectionAccessPolicyTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.upsert(
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = "col1",
@@ -178,8 +178,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     collectionRepo.upsert(
@@ -192,7 +192,7 @@ class CollectionAccessPolicyTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.upsert(
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = "col1",
@@ -203,7 +203,7 @@ class CollectionAccessPolicyTest :
                             updatedAt = 0L,
                         ),
                     )
-                    shareRepo.softDeleteShare("col1", "user2")
+                    grantRepo.softDeleteGrant("col1", "user2")
 
                     val decision = policy.decide("user2", UserRoleColumn.MEMBER, "col1")
 
@@ -220,8 +220,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     collectionRepo.upsert(
@@ -250,8 +250,8 @@ class CollectionAccessPolicyTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry)
-                val shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry)
-                val policy = CollectionAccessPolicy(collectionRepo, shareRepo)
+                val grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry)
+                val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
                     val decision = policy.decide("user1", UserRoleColumn.MEMBER, "nonexistent")

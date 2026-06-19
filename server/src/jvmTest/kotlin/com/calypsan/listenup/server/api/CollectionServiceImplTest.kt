@@ -20,7 +20,7 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
@@ -63,12 +63,12 @@ class CollectionServiceImplTest :
             val registry = SyncRegistry()
             val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
             val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
-            val accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
-                shareRepo = shareRepo,
+                grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db),
                 bus = bus,
@@ -152,8 +152,8 @@ class CollectionServiceImplTest :
                     ownerAdd shouldBe AppResult.Success(Unit)
 
                     // Read-share to u2.
-                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    shareRepo.upsert(
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = collectionId.value,
@@ -285,8 +285,8 @@ class CollectionServiceImplTest :
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
 
                     val collectionBookRepo = CollectionBookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    shareRepo.upsert(
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = collectionId.value,
@@ -300,7 +300,7 @@ class CollectionServiceImplTest :
 
                     // Preconditions: cascade targets exist and are live.
                     collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 1L
-                    require(shareRepo.findActiveShare(collectionId.value, "u2") != null)
+                    require(grantRepo.findActiveGrant(collectionId.value, "u2") != null)
 
                     service.deleteCollection(collectionId) shouldBe AppResult.Success(Unit)
 
@@ -309,8 +309,8 @@ class CollectionServiceImplTest :
                     collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 0L
 
                     // Cascade: active share soft-deleted.
-                    shareRepo.findActiveShare(collectionId.value, "u2") shouldBe null
-                    shareRepo.listActiveSharesForCollection(collectionId.value) shouldHaveSize 0
+                    grantRepo.findActiveGrant(collectionId.value, "u2") shouldBe null
+                    grantRepo.listActiveGrantsForCollection(collectionId.value) shouldHaveSize 0
                 }
             }
         }
@@ -339,8 +339,8 @@ class CollectionServiceImplTest :
                     require(colU2 is AppResult.Success)
 
                     // Share colSharedOut with u2 (read).
-                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    shareRepo.upsert(
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = colSharedOut.data.id.value,

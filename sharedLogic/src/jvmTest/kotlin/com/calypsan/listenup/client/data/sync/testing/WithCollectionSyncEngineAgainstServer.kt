@@ -42,7 +42,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
@@ -161,14 +161,14 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
         val bookRepo = BookRepository(serverDb, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
         val collectionRepo = CollectionRepository(serverDb, bus, syncRegistry)
         val collectionBookRepo = CollectionBookRepository(serverDb, bus, syncRegistry)
-        val shareRepo = CollectionShareRepository(serverDb, bus, syncRegistry)
+        val grantRepo = CollectionGrantRepository(serverDb, bus, syncRegistry)
         val bookAccessPolicy = BookAccessPolicy(serverDb)
 
         val collectionService =
             createCollectionService(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
-                shareRepo = shareRepo,
+                grantRepo = grantRepo,
                 bus = bus,
                 db = serverDb,
                 bookRevisionTouch = bookRepo,
@@ -200,7 +200,7 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
                         single(createdAtStart = true) { bookRepo }
                         single(createdAtStart = true) { collectionRepo }
                         single(createdAtStart = true) { collectionBookRepo }
-                        single(createdAtStart = true) { shareRepo }
+                        single(createdAtStart = true) { grantRepo }
                     },
                 )
             }

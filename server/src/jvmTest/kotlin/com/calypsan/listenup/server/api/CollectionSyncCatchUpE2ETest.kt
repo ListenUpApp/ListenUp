@@ -14,7 +14,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
@@ -70,12 +70,12 @@ class CollectionSyncCatchUpE2ETest :
             val registry = SyncRegistry()
             val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
             val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
-            val accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
-                shareRepo = shareRepo,
+                grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db),
                 bus = bus,
@@ -138,7 +138,7 @@ class CollectionSyncCatchUpE2ETest :
                     val registry = SyncRegistry()
                     val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
                     val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-                    val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+                    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
 
                     val collectionsPage = collectionRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)
                     collectionsPage.items.map { it.id } shouldContain collectionId.value
@@ -152,7 +152,7 @@ class CollectionSyncCatchUpE2ETest :
                         .filter { it.collectionId == collectionId.value && it.deletedAt == null }
                         .map { it.bookId } shouldContain "book1"
 
-                    val sharesPage = shareRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)
+                    val sharesPage = grantRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)
                     sharesPage.items
                         .first {
                             it.collectionId == collectionId.value && it.sharedWithUserId == "u2" && it.deletedAt == null

@@ -26,8 +26,8 @@ import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
 import java.util.UUID
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
@@ -70,7 +70,7 @@ private const val MAX_NAME_LENGTH = 200
 internal class CollectionServiceImpl(
     private val collectionRepo: CollectionRepository,
     private val collectionBookRepo: CollectionBookRepository,
-    private val shareRepo: CollectionShareRepository,
+    private val grantRepo: CollectionGrantRepository,
     private val accessPolicy: CollectionAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
     private val bus: ChangeBus,
@@ -89,7 +89,7 @@ internal class CollectionServiceImpl(
                 collectionRepo.listAll()
             } else {
                 val owned = collectionRepo.listOwnedBy(caller.userId)
-                val sharedIds = shareRepo.listActiveSharesForUser(caller.userId).map { it.collectionId }
+                val sharedIds = grantRepo.listActiveGrantsForUser(caller.userId).map { it.collectionId }
                 val shared = sharedIds.mapNotNull { collectionRepo.findById(it) }
                 (owned + shared).distinctBy { it.id }
             }
@@ -175,8 +175,8 @@ internal class CollectionServiceImpl(
 
         suspendTransaction(db) {
             collectionBookRepo.softDeleteAllForCollection(id.value)
-            for (share in shareRepo.listActiveSharesForCollection(id.value)) {
-                shareRepo.softDelete(share.id)
+            for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
+                grantRepo.softDelete(grant.id)
             }
             collectionRepo.softDelete(id.value)
         }
@@ -306,7 +306,7 @@ internal class CollectionServiceImpl(
 
         if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
         if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
-        if (shareRepo.findActiveShare(id.value, sharedWithUserId) != null) {
+        if (grantRepo.findActiveGrant(id.value, sharedWithUserId) != null) {
             return AppResult.Failure(CollectionError.AlreadyShared())
         }
 
@@ -321,7 +321,7 @@ internal class CollectionServiceImpl(
                 updatedAt = clock.now().toEpochMilliseconds(),
                 deletedAt = null,
             )
-        return when (val result = shareRepo.upsert(payload)) {
+        return when (val result = grantRepo.upsert(payload)) {
             is AppResult.Success -> {
                 // The newly-shared user's accessible set just grew — tell them to re-derive.
                 bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
@@ -343,11 +343,11 @@ internal class CollectionServiceImpl(
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
         val existing =
-            shareRepo.findActiveShare(id.value, sharedWithUserId)
+            grantRepo.findActiveGrant(id.value, sharedWithUserId)
                 ?: return AppResult.Failure(CollectionError.NotFound())
 
         val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
-        return when (val result = shareRepo.upsert(updated)) {
+        return when (val result = grantRepo.upsert(updated)) {
             is AppResult.Success -> {
                 // The share's permission changed — the recipient must re-derive what they can do.
                 bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
@@ -367,10 +367,10 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-        // softDeleteShare returns Failure(NotFound) when no live share exists; revoke is
+        // softDeleteGrant returns Failure(NotFound) when no live grant exists; revoke is
         // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
-        // when a live share was actually removed: a no-op revoke didn't change their access.
-        if (shareRepo.softDeleteShare(id.value, sharedWithUserId) is AppResult.Success) {
+        // when a live grant was actually removed: a no-op revoke didn't change their access.
+        if (grantRepo.softDeleteGrant(id.value, sharedWithUserId) is AppResult.Success) {
             bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
         }
         return AppResult.Success(Unit)
@@ -381,7 +381,7 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-        val shares = shareRepo.listActiveSharesForCollection(id.value).map { it.toDto() }
+        val shares = grantRepo.listActiveGrantsForCollection(id.value).map { it.toDto() }
         return AppResult.Success(shares)
     }
 
@@ -552,7 +552,7 @@ internal class CollectionServiceImpl(
             collectionIds
                 .flatMap { collectionId ->
                     val owner = collectionRepo.findById(collectionId)?.ownerId
-                    val shareUsers = shareRepo.listActiveSharesForCollection(collectionId).map { it.sharedWithUserId }
+                    val shareUsers = grantRepo.listActiveGrantsForCollection(collectionId).map { it.sharedWithUserId }
                     if (owner != null) shareUsers + owner else shareUsers
                 }.toSet()
         for (affectedUserId in affectedUserIds) {
@@ -582,7 +582,7 @@ internal class CollectionServiceImpl(
         CollectionServiceImpl(
             collectionRepo = collectionRepo,
             collectionBookRepo = collectionBookRepo,
-            shareRepo = shareRepo,
+            grantRepo = grantRepo,
             accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
             bus = bus,
@@ -725,7 +725,7 @@ internal class CollectionServiceImpl(
 
     private suspend fun CollectionRepository.softDelete(id: String): AppResult<Unit> = softDelete(id, clientOpId = null)
 
-    private suspend fun CollectionShareRepository.softDelete(id: String): AppResult<Unit> =
+    private suspend fun CollectionGrantRepository.softDelete(id: String): AppResult<Unit> =
         softDelete(id, clientOpId = null)
 }
 
@@ -742,7 +742,7 @@ internal class CollectionServiceImpl(
 fun createCollectionService(
     collectionRepo: CollectionRepository,
     collectionBookRepo: CollectionBookRepository,
-    shareRepo: CollectionShareRepository,
+    grantRepo: CollectionGrantRepository,
     bus: ChangeBus,
     db: Database,
     bookRevisionTouch: BookRevisionTouch,
@@ -751,8 +751,8 @@ fun createCollectionService(
     CollectionServiceImpl(
         collectionRepo = collectionRepo,
         collectionBookRepo = collectionBookRepo,
-        shareRepo = shareRepo,
-        accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+        grantRepo = grantRepo,
+        accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         permissionPolicy = UserPermissionPolicy(db),
         bus = bus,
         db = db,

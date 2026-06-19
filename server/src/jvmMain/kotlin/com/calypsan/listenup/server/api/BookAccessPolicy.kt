@@ -19,8 +19,8 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  *  - it is **uncollected** — in no live collection, so public by default; or
  *  - it is in **at least one** live collection the member can reach: one they own, one
  *    flagged [global-access][com.calypsan.listenup.server.db.CollectionsTable.isGlobalAccess]
- *    (visible to all authenticated members), or one shared with them via a live
- *    [share][com.calypsan.listenup.server.db.CollectionSharesTable].
+ *    (visible to all authenticated members), or one granted to them via a live
+ *    [grant][com.calypsan.listenup.server.db.CollectionGrantsTable].
  *
  * A book in a private collection with no reachable relationship is denied; a book in both
  * a private and a reachable collection is allowed (≥1 reachable wins). ROOT and ADMIN
@@ -30,8 +30,8 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * (a repository-backed [CollectionAccessPolicy.Decision] used to gate writes); this owns the
  * raw-SQL *visibility* definitions consumed by the sync seams. Both the book-visibility rule
  * ([accessibleBookIdsSql]) and its collection-id analogs ([accessibleCollectionIdsSql],
- * [visibleCollectionShareIdsSql], [accessibleCollectionBookIdsSql]) live here because they
- * share the identical `owner / global-access / active-share` predicate, the same [Database]
+ * [visibleCollectionGrantIdsSql], [accessibleCollectionBookIdsSql]) live here because they
+ * share the identical `owner / global-access / active-grant` predicate, the same [Database]
  * handle, and the same [SqlFragment] splicing contract — keeping them together means the
  * access boundary is one definition, spliced into every sync domain that scopes to a viewer.
  */
@@ -68,8 +68,9 @@ class BookAccessPolicy(
                   c.owner_id = ?
                   OR c.is_global_access = 1
                   OR EXISTS (
-                    SELECT 1 FROM collection_shares s
-                    WHERE s.collection_id = c.id AND s.shared_with_user_id = ? AND s.deleted_at IS NULL
+                    SELECT 1 FROM collection_grants g
+                    WHERE g.collection_id = c.id AND g.principal_type = 'USER'
+                      AND g.principal_id = ? AND g.deleted_at IS NULL
                   )
                 )
               )
@@ -163,26 +164,27 @@ class BookAccessPolicy(
     }
 
     /**
-     * The WHERE-ready subquery selecting the ids of every `collection_shares` row visible to
-     * `(userId, role)` — or `null` for ROOT/ADMIN, who see every share. A non-admin sees a
-     * share that names them (`shared_with_user_id = ?`) or one on a live collection they own.
+     * The WHERE-ready subquery selecting the ids of every `collection_grants` row visible to
+     * `(userId, role)` — or `null` for ROOT/ADMIN, who see every grant. A non-admin sees a
+     * USER grant that names them (`principal_id = ?`) or one on a live collection they own.
      *
-     * Distinct from [accessibleCollectionIdsSql]: a member sees the shares granting *them*
-     * access even when the collection itself reaches them only via that share, and sees every
-     * share on collections they own (so the owner's client can reconcile its share list).
+     * Distinct from [accessibleCollectionIdsSql]: a member sees the grants granting *them*
+     * access even when the collection itself reaches them only via that grant, and sees every
+     * grant on collections they own (so the owner's client can reconcile its grant list).
      *
-     * Spliced by the sync substrate as `collection_shares.id IN (<sql>)`.
+     * The wire domain is still `collection_shares` (a USER grant is a share on the wire), so the
+     * sync substrate splices this as `collection_shares.id IN (<sql>)` against the renamed table.
      */
-    fun visibleCollectionShareIdsSql(
+    fun visibleCollectionGrantIdsSql(
         userId: String,
         role: UserRole,
     ): SqlFragment? {
         if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
         val sql =
             """
-            SELECT s.id FROM collection_shares s
-            WHERE s.shared_with_user_id = ?
-              OR s.collection_id IN (
+            SELECT g.id FROM collection_grants g
+            WHERE (g.principal_type = 'USER' AND g.principal_id = ?)
+              OR g.collection_id IN (
                 SELECT c.id FROM collections c WHERE c.deleted_at IS NULL AND c.owner_id = ?
               )
             """.trimIndent()
@@ -234,8 +236,8 @@ class BookAccessPolicy(
 
     /**
      * True when [userId] owns the live collection [collectionId]. The owner-only branch behind
-     * the `collection_shares` firehose gate — a member sees share events on collections they own
-     * (matching [visibleCollectionShareIdsSql]), independent of global-access or share reach.
+     * the `collection_shares` firehose gate — a member sees grant events on collections they own
+     * (matching [visibleCollectionGrantIdsSql]), independent of global-access or grant reach.
      */
     suspend fun ownsCollection(
         userId: String,
@@ -261,8 +263,8 @@ class BookAccessPolicy(
     }
 
     /**
-     * The shared `(owner OR global-access OR active-share)` collection-id subquery, bound to two
-     * positional `?` placeholders (both the user id: owner check, then share check). Reused by
+     * The shared `(owner OR global-access OR active-grant)` collection-id subquery, bound to two
+     * positional `?` placeholders (both the user id: owner check, then grant check). Reused by
      * [accessibleCollectionIdsSql] and embedded in [accessibleCollectionBookIdsSql].
      */
     private val accessibleCollectionIdsSubquery: String =
@@ -272,8 +274,9 @@ class BookAccessPolicy(
           c.owner_id = ?
           OR c.is_global_access = 1
           OR EXISTS (
-            SELECT 1 FROM collection_shares s
-            WHERE s.collection_id = c.id AND s.shared_with_user_id = ? AND s.deleted_at IS NULL
+            SELECT 1 FROM collection_grants g
+            WHERE g.collection_id = c.id AND g.principal_type = 'USER'
+              AND g.principal_id = ? AND g.deleted_at IS NULL
           )
         )
         """.trimIndent()
