@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -372,6 +373,7 @@ private fun inertCollectionService(db: Database): CollectionServiceImpl {
         permissionPolicy = UserPermissionPolicy(db),
         bus = bus,
         db = db,
+        bookRevisionTouch = FakeBookRevisionTouch(),
         principal = PrincipalProvider { null },
     )
 }

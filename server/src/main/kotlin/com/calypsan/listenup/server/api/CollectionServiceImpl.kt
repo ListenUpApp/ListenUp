@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -75,6 +76,7 @@ internal class CollectionServiceImpl(
     private val bus: ChangeBus,
     private val db: Database,
     private val clock: Clock = Clock.System,
+    private val bookRevisionTouch: BookRevisionTouch,
     private val principal: PrincipalProvider,
 ) : CollectionService {
     // ── Observation ─────────────────────────────────────────────────────────
@@ -204,6 +206,9 @@ internal class CollectionServiceImpl(
                 // Adding the book to this collection grants its visible users (owner + active-share
                 // recipients) a new access path — nudge each to re-derive, matching setBookCollections.
                 notifyAccessChanged(listOf(id.value))
+                // Bump the book's revision so each member's incremental `revision > cursor` pull
+                // re-delivers the now-visible book — the access nudge alone never carries the row.
+                bookRevisionTouch.touchRevision(bookId)
                 AppResult.Success(Unit)
             }
             is AppResult.Failure -> {
@@ -570,6 +575,7 @@ internal class CollectionServiceImpl(
             bus = bus,
             db = db,
             clock = clock,
+            bookRevisionTouch = bookRevisionTouch,
             principal = principal,
         )
 
@@ -726,6 +732,7 @@ fun createCollectionService(
     shareRepo: CollectionShareRepository,
     bus: ChangeBus,
     db: Database,
+    bookRevisionTouch: BookRevisionTouch,
     clock: Clock = Clock.System,
 ): CollectionService =
     CollectionServiceImpl(
@@ -737,6 +744,7 @@ fun createCollectionService(
         bus = bus,
         db = db,
         clock = clock,
+        bookRevisionTouch = bookRevisionTouch,
         principal = PrincipalProvider { error("Unscoped CollectionService — call collectionServiceScopedTo") },
     )
 
