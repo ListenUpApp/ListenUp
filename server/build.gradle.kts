@@ -4,6 +4,15 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("ListenUpDatabase") {
+            packageName.set("com.calypsan.listenup.server.db.sqldelight")
+        }
+    }
 }
 
 group = "com.calypsan.listenup"
@@ -60,6 +69,21 @@ kotlin {
     }
 
     sourceSets {
+        val commonMain by getting {
+            dependencies {
+                // SQLDelight — shared runtime + coroutines extensions (both JVM + native)
+                implementation(libs.sqldelight.runtime)
+                implementation(libs.sqldelight.coroutines)
+            }
+        }
+
+        val linuxX64Main by getting {
+            dependencies {
+                // SQLDelight native SQLite driver (SQLiter — dynamically links system libsqlite3)
+                implementation(libs.sqldelight.driver.native)
+            }
+        }
+
         val jvmMain by getting {
             dependencies {
                 implementation(projects.contract)
@@ -93,6 +117,9 @@ kotlin {
                 implementation(libs.exposed.kotlin.datetime)
                 implementation(libs.sqlite.jdbc)
                 implementation(libs.hikari)
+
+                // SQLDelight JVM JDBC driver
+                implementation(libs.sqldelight.driver.jvm)
 
                 // Password hashing
                 implementation(libs.password4j)

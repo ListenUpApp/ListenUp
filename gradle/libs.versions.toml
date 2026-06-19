@@ -77,6 +77,7 @@ hikari = "7.1.0"
 password4j = "1.8.4"
 konsist = "0.17.3"
 ksp-symbol-processing-api = "2.3.9" # matches project ksp version — bump in lockstep with `ksp`
+sqldelight = "2.3.2"
 kctfork = "0.13.0" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 cryptography-kotlin = "0.6.0"
 kotlincrypto-hash = "0.8.0"
@@ -239,6 +240,11 @@ kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpal
 # Konsist — architectural assertions
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp-symbol-processing-api" }
+# SQLDelight — server-side SQL layer (cutover from Exposed)
+sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
+sqldelight-driver-jvm = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+sqldelight-driver-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
 kctfork-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kctfork" }
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography-kotlin" }
 cryptography-provider-jdk = { module = "dev.whyoleg.cryptography:cryptography-provider-jdk", version.ref = "cryptography-kotlin" }
@@ -272,5 +278,6 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 # Server
 kotlinxRpc = { id = "org.jetbrains.kotlinx.rpc.plugin", version.ref = "kotlinx-rpc" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 # AboutLibraries
 aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }
