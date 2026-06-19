@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.CollectionsTable
-import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
@@ -16,7 +15,6 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -33,6 +31,10 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * Drives the generalized find-or-create against a real in-memory Flyway-migrated SQLite
  * database + real repositories; no mocks. Asserts the server-only `collections.type`
  * column is set on creation, the name follows the system type, and the create is idempotent.
+ *
+ * System collections are owned by the `"system"` sentinel id — not by any real admin user.
+ * This means creation succeeds even when no admin user exists in the database (e.g. at
+ * library bootstrap, before any user has registered).
  */
 class SystemCollectionTest :
     FunSpec({
@@ -80,20 +82,36 @@ class SystemCollectionTest :
                     ?.get(CollectionsTable.isInbox)
             }
 
-        test("getOrCreateSystemCollection creates ALL_BOOKS with type column and name set") {
+        test("getOrCreateSystemCollection creates ALL_BOOKS with type column, name, and system owner") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val service = makeService(db)
 
                     val result = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(result is AppResult.Success)
                     result.data.name shouldBe "All Books"
-                    result.data.ownerId shouldBe UserId("admin")
+                    result.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
 
                     db.typeColumnOf(result.data.id.value) shouldBe "ALL_BOOKS"
+                }
+            }
+        }
+
+        test("getOrCreateSystemCollection succeeds with no admin user present") {
+            withInMemoryDatabase {
+                val db = this
+                // No seedTestUser call — the "system" sentinel must not require an admin.
+                seedTestLibraryAndFolder()
+                runTest {
+                    val service = makeService(db)
+
+                    val result = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(result is AppResult.Success) {
+                        "expected Success but got $result — system collection must not require an admin user"
+                    }
+                    result.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
                 }
             }
         }
@@ -102,7 +120,6 @@ class SystemCollectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val service = makeService(db)
 
@@ -120,7 +137,6 @@ class SystemCollectionTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val service = makeService(db)
 
@@ -131,6 +147,7 @@ class SystemCollectionTest :
                     require(inbox is AppResult.Success)
                     inbox.data.name shouldBe "Inbox"
                     inbox.data.isInbox shouldBe true
+                    inbox.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
 
                     (inbox.data.id == allBooks.data.id) shouldBe false
 

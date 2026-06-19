@@ -634,7 +634,7 @@ class CollectionServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+                // No admin required: inbox is owned by the "system" sentinel, not a real user.
                 runTest {
                     val service = makeService(db)
 
@@ -642,7 +642,7 @@ class CollectionServiceImplTest :
                     require(first is AppResult.Success)
                     first.data.isInbox shouldBe true
                     first.data.name shouldBe "Inbox"
-                    first.data.ownerId shouldBe UserId("admin")
+                    first.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
 
                     // Idempotent: a second call returns the same inbox, not a new one.
                     val second = service.getOrCreateInbox("test-library")

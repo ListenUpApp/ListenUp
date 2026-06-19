@@ -22,7 +22,6 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.services.BookRevisionTouch
@@ -44,6 +43,21 @@ private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
 
 /**
+ * Sentinel owner id for server-managed system collections (ALL_BOOKS, INBOX).
+ *
+ * System collections are created at library bootstrap — before any admin user exists — so their
+ * owner cannot be a real user id. This fixed string serves as the owner column value for all
+ * system collections. It is never inserted into `users.id`; the `owner_id` column in
+ * [com.calypsan.listenup.server.db.CollectionsTable] is a plain text column (not a foreign key)
+ * specifically to allow this sentinel.
+ *
+ * [com.calypsan.listenup.server.api.CollectionAccessPolicy] grants owner-write via
+ * `coll.ownerId == userId`; with this sentinel no real user matches, so the owner branch is
+ * correctly inert for system collections. Admins reach them via the god-view null-filter path.
+ */
+internal const val SYSTEM_OWNER_ID = "system"
+
+/**
  * The per-library system collections the server materialises lazily on first need.
  *
  * Identified by the server-only `collections.type` column (never on the wire). Member-facing
@@ -55,6 +69,24 @@ internal enum class SystemCollectionType {
     ALL_BOOKS,
     INBOX,
 }
+
+/**
+ * Persisted column value for the ALL_BOOKS system collection type.
+ *
+ * Equals [SystemCollectionType.ALL_BOOKS].name. Declared as a val so
+ * [LibraryRegistry] (which inserts the row inline at bootstrap) can reference the
+ * canonical string without duplicating the literal. A rename of the enum member
+ * must update this val too — the comment is the guardrail.
+ */
+internal val SYSTEM_TYPE_ALL_BOOKS: String = SystemCollectionType.ALL_BOOKS.name
+
+/**
+ * Persisted column value for the INBOX system collection type.
+ *
+ * Equals [SystemCollectionType.INBOX].name. Same single-source guarantee as
+ * [SYSTEM_TYPE_ALL_BOOKS].
+ */
+internal val SYSTEM_TYPE_INBOX: String = SystemCollectionType.INBOX.name
 
 /**
  * [CollectionService] implementation.
@@ -413,8 +445,8 @@ internal class CollectionServiceImpl(
     /**
      * Resolves the library's per-library system collection of [type], creating it on first use.
      *
-     * A system collection (`isGlobalAccess = false`, owned by an admin) is identified by the
-     * server-only `collections.type` column ([SystemCollectionType.name]) — never on the wire.
+     * A system collection (`isGlobalAccess = false`, owned by [SYSTEM_OWNER_ID]) is identified by
+     * the server-only `collections.type` column ([SystemCollectionType.name]) — never on the wire.
      * It is created lazily: the first call materialises it, subsequent calls return the same row.
      * Idempotency rests on [CollectionRepository.findSystemCollection], backstopped at the DB by a
      * per-type partial unique index — `idx_collections_inbox` (one live INBOX per library) and
@@ -425,10 +457,11 @@ internal class CollectionServiceImpl(
      * sees `type` — it's not a payload field), then [CollectionRepository.setType] stamps the
      * server-only column with no revision bump or publish.
      *
-     * **Owner resolution.** The owner is the library's `createdByUserId` when set (forward-staged
-     * for the multi-user phase; null today), otherwise the first ROOT user, otherwise the first
-     * ADMIN user. If the server has no admin at all the collection cannot be attributed and we fail
-     * with [CollectionError.InvalidInput] rather than orphan it.
+     * **Owner.** System collections are owned by the [SYSTEM_OWNER_ID] sentinel — a fixed string
+     * that is never inserted into `users.id`. This means creation succeeds before any admin user
+     * exists (e.g. at library bootstrap). [CollectionAccessPolicy] grants owner-write via
+     * `coll.ownerId == userId`; with the sentinel owner no real user matches that branch.
+     * Admins reach system collections through the god-view null-filter path.
      *
      * This is a system operation: it does not require or consult a caller principal.
      */
@@ -438,18 +471,11 @@ internal class CollectionServiceImpl(
     ): AppResult<CollectionSummary> {
         collectionRepo.findSystemCollection(libraryId, type.name)?.let { return summarizeSystem(it) }
 
-        val ownerId =
-            resolveSystemOwner(libraryId) ?: return AppResult.Failure(
-                CollectionError.InvalidInput(
-                    debugInfo = "No admin user available to own the $type collection for library $libraryId",
-                ),
-            )
-
         val payload =
             CollectionSyncPayload(
                 id = Uuid.random().toString(),
                 libraryId = libraryId,
-                ownerId = ownerId,
+                ownerId = SYSTEM_OWNER_ID,
                 name = if (type == SystemCollectionType.ALL_BOOKS) "All Books" else "Inbox",
                 isInbox = type == SystemCollectionType.INBOX,
                 isGlobalAccess = false,
@@ -672,31 +698,6 @@ internal class CollectionServiceImpl(
     /** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
     private fun adminGate(role: UserRoleColumn): CollectionError? =
         if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
-
-    /**
-     * Resolves the user id that should own a library's system collection: the library's
-     * `createdByUserId` if set, else the first ROOT user, else the first ADMIN user,
-     * else null when the server has no admin at all.
-     */
-    private suspend fun resolveSystemOwner(libraryId: String): String? =
-        suspendTransaction(db) {
-            LibraryTable
-                .selectAll()
-                .where { LibraryTable.id eq libraryId }
-                .firstOrNull()
-                ?.get(LibraryTable.createdByUserId)
-                ?: firstUserWithRole(UserRoleColumn.ROOT)
-                ?: firstUserWithRole(UserRoleColumn.ADMIN)
-        }
-
-    /** First user id whose role matches [role], or null. Must run inside a transaction. */
-    private fun firstUserWithRole(role: UserRoleColumn): String? =
-        UserTable
-            .selectAll()
-            .where { UserTable.role eq role }
-            .firstOrNull()
-            ?.get(UserTable.id)
-            ?.value
 
     /** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
     private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =

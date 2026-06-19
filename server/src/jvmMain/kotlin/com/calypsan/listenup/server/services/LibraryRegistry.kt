@@ -1,6 +1,10 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.SYSTEM_OWNER_ID
+import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
+import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
+import com.calypsan.listenup.server.db.CollectionsTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.sync.nextRevision
@@ -79,6 +83,38 @@ class LibraryRegistry(
             it[LibraryTable.revision] = rev
             it[LibraryTable.deletedAt] = null
         }
+
+        // Eagerly create the two per-library system collections in the same bootstrap transaction.
+        // Both are owned by the SYSTEM_OWNER_ID sentinel (not a real user) so that bootstrap can
+        // run before any admin has registered. Each collection gets its own revision bump so that
+        // both rows appear in pullSince(cursor = 0L).
+        CollectionsTable.insert {
+            it[CollectionsTable.id] = UUID.randomUUID().toString()
+            it[CollectionsTable.libraryId] = newId
+            it[CollectionsTable.ownerId] = SYSTEM_OWNER_ID
+            it[CollectionsTable.name] = "All Books"
+            it[CollectionsTable.type] = SYSTEM_TYPE_ALL_BOOKS
+            it[CollectionsTable.isInbox] = false
+            it[CollectionsTable.isGlobalAccess] = false
+            it[CollectionsTable.revision] = nextRevision()
+            it[CollectionsTable.createdAt] = now
+            it[CollectionsTable.updatedAt] = now
+            it[CollectionsTable.deletedAt] = null
+        }
+        CollectionsTable.insert {
+            it[CollectionsTable.id] = UUID.randomUUID().toString()
+            it[CollectionsTable.libraryId] = newId
+            it[CollectionsTable.ownerId] = SYSTEM_OWNER_ID
+            it[CollectionsTable.name] = "Inbox"
+            it[CollectionsTable.type] = SYSTEM_TYPE_INBOX
+            it[CollectionsTable.isInbox] = true
+            it[CollectionsTable.isGlobalAccess] = false
+            it[CollectionsTable.revision] = nextRevision()
+            it[CollectionsTable.createdAt] = now
+            it[CollectionsTable.updatedAt] = now
+            it[CollectionsTable.deletedAt] = null
+        }
+
         return newId
     }
 }

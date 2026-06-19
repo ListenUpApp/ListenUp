@@ -235,8 +235,8 @@ class BookPersister internal constructor(
      * Resolves the library's inbox collection id when [libraryId] is `inboxEnabled`,
      * or null when the gate is off or the inbox cannot be resolved.
      *
-     * A [CollectionServiceImpl.getOrCreateInbox] failure (e.g. no admin to own the
-     * inbox yet) must not fail the scan — it logs a warning and returns null, so the
+     * A [CollectionServiceImpl.getOrCreateInbox] failure (e.g. a transient DB fault)
+     * must not fail the scan — it logs a warning and returns null, so the
      * scanned books land uncollected rather than stranding a half-ingested library.
      */
     private suspend fun resolveInboxCollectionId(libraryId: LibraryId): String? {
