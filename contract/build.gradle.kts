@@ -39,10 +39,9 @@ kotlin {
             implementation(libs.kotlin.logging)
         }
 
-        // RPC-guard runtime helpers (RpcGuardMetrics, Mdc, CorrelationId) the
-        // KSP-generated *Guarded decorators compile against. JVM-only.
+        // RPC-guard runtime helpers (Mdc, CorrelationId) the KSP-generated
+        // *Guarded decorators compile against. JVM-only.
         jvmMain.dependencies {
-            implementation(libs.micrometer.core)
             implementation(libs.kotlinx.coroutines.slf4j)
         }
 

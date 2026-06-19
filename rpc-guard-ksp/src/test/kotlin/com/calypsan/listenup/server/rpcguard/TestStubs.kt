@@ -24,18 +24,3 @@ suspend fun <R> withMdc(
     vararg pairs: Pair<String, String>,
     block: suspend () -> R,
 ): R = block()
-
-class RpcGuardMetrics {
-    @Suppress("UnusedParameter")
-    fun recordEscape(
-        service: String,
-        method: String,
-        cause: String,
-    ) {
-        // no-op; production impl emits metrics
-    }
-
-    companion object {
-        val global: RpcGuardMetrics = RpcGuardMetrics()
-    }
-}

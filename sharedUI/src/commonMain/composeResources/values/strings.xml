@@ -68,7 +68,13 @@
     <string name="admin_import_users_progress">Users: %1$d/%2$d</string>
     <string name="admin_in_this_collection">in this collection</string>
     <string name="admin_inbox">Inbox</string>
+    <string name="admin_inbox_deselect_all">Deselect all</string>
     <string name="admin_inbox_empty">Inbox Empty</string>
+    <string name="admin_inbox_release_count">Release %1$d</string>
+    <string name="admin_inbox_released_count">Released %1$d book</string>
+    <string name="admin_inbox_released_count_plural">Released %1$d books</string>
+    <string name="admin_inbox_review_edit">Review &amp; edit</string>
+    <string name="admin_inbox_select_all">Select all</string>
     <string name="admin_inbox_setting_subtitle">New books wait in the inbox until an admin releases them.</string>
     <string name="admin_inbox_setting_title">Hold new books for review</string>
     <string name="admin_inbox_subtitle">Review and release new books waiting for approval.</string>

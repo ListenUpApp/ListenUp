@@ -17,6 +17,15 @@ application {
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
 }
 
+// ktor-server-openapi → swagger-codegen drags in logback-classic transitively, which would
+// put a second SLF4J provider on the classpath alongside our minimal ListenUpLogProvider
+// backend (non-deterministic provider selection). Excluding it at the configuration level
+// keeps our provider the only one and keeps the logback jars out of the production artifact —
+// the whole point of this backend.
+configurations.all {
+    exclude(group = "ch.qos.logback")
+}
+
 dependencies {
     implementation(projects.contract)
 
@@ -73,10 +82,7 @@ dependencies {
 
     // Logging + Metrics
     implementation(libs.kotlin.logging)
-    implementation(libs.logback.classic)
-    implementation(libs.logstash.logback.encoder)
     implementation(libs.kotlinx.coroutines.slf4j)
-    implementation(libs.micrometer.core)
 
     // Ktor HTTP client — used by AudibleClient to call the Audible catalog API.
     implementation(libs.ktor.client.core)

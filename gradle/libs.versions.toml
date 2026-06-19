@@ -54,7 +54,6 @@ skie = "0.10.12"
 
 # Desktop
 logback = "1.5.34"
-logstash-logback-encoder = "9.0"
 jmdns = "3.6.3"
 javacpp = "1.5.13"
 ffmpeg-javacpp = "8.0.1-1.5.13"
@@ -77,7 +76,6 @@ sqlite-jdbc = "3.53.2.0"
 hikari = "7.1.0"
 password4j = "1.8.4"
 konsist = "0.17.3"
-micrometer = "1.17.0"
 ksp-symbol-processing-api = "2.3.9" # matches project ksp version — bump in lockstep with `ksp`
 kctfork = "0.13.0" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 cryptography-kotlin = "0.6.0"
@@ -199,7 +197,6 @@ kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version.r
 slf4j-android = { group = "uk.uuid.slf4j", name = "slf4j-android", version.ref = "slf4j-android" }
 slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4j" }
 logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
-logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstash-logback-encoder" }
 jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
 jnativehook = { module = "com.github.kwhat:jnativehook", version.ref = "jnativehook" }
 # FFmpeg Audio (Desktop)
@@ -241,8 +238,6 @@ aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3",
 kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpalette" }
 # Konsist — architectural assertions
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
-# Micrometer — metrics for Prometheus
-micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
 ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp-symbol-processing-api" }
 kctfork-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kctfork" }
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography-kotlin" }

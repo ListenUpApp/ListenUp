@@ -276,6 +276,16 @@ struct AdminView: View {
                     action: { showingInviteSheet = true }
                 )
                 rowSeparator
+                NavigationLink(value: AdminInboxDestination()) {
+                    NavigationActionRow(
+                        systemImage: "tray.full",
+                        tint: .luTint,
+                        title: String(localized: "common.inbox"),
+                        subtitle: String(localized: "admin.inbox_setting_subtitle")
+                    )
+                }
+                .buttonStyle(.plain)
+                rowSeparator
                 NavigationLink(value: AdminCollectionsDestination()) {
                     NavigationActionRow(
                         systemImage: "folder.badge.person.crop",

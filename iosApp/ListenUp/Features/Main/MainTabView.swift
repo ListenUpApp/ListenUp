@@ -144,6 +144,9 @@ private extension View {
             .navigationDestination(for: AdminDestination.self) { _ in
                 AdminView()
             }
+            .navigationDestination(for: AdminInboxDestination.self) { _ in
+                AdminInboxView()
+            }
             .navigationDestination(for: ABSImportDestination.self) { _ in
                 ABSImportHubView()
             }

@@ -7,6 +7,7 @@ import com.tschuchort.compiletesting.SourceFile
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 class SuspendCodegenTest :
     FunSpec({
@@ -41,16 +42,15 @@ class SuspendCodegenTest :
             )
             generated.shouldContain("cause = e::class.simpleName")
             generated.shouldContain("private val log: Logger = LoggerFactory.getLogger(\"rpc.FakeService\")")
-            generated.shouldContain("private val metrics: RpcGuardMetrics = RpcGuardMetrics.global")
             generated.shouldContain("val cid = currentCorrelationId() ?: newCorrelationId()")
             generated.shouldContain(
                 """withMdc("service" to "FakeService", "method" to "foo", "correlationId" to cid)""",
             )
             generated.shouldContain("log.error(\"Uncaught exception in FakeService.foo [cid=\$cid]\", e)")
-            generated.shouldContain(
-                """metrics.recordEscape("FakeService", "foo", e::class.simpleName ?: "Unknown")""",
-            )
             generated.shouldContain("correlationId = cid")
+            // Micrometer fully removed: the guard logs escapes but records no metric.
+            generated.shouldNotContain("RpcGuardMetrics")
+            generated.shouldNotContain("recordEscape")
         }
 
         test("preserves nullable type argument in AppResult<T?> return type") {

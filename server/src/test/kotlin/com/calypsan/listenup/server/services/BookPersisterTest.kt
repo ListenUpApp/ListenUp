@@ -31,7 +31,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.kotest.matchers.types.instanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -90,13 +90,13 @@ class BookPersisterTest :
             }
         }
 
-        test("one failing book doesn't kill the rest; metrics counter increments") {
+        test("one failing book doesn't kill the rest") {
             withInMemoryDatabase {
                 val db = this
                 runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest(failForRootRelPath = setOf("b"))
-                    val metrics = BookPersisterMetrics(SimpleMeterRegistry())
-                    val persister = persister(db, fake, scope = this, metrics = metrics)
+                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -112,7 +112,8 @@ class BookPersisterTest :
                     )
 
                     fake.resolved shouldContainExactly listOf("a", "c")
-                    metrics.bookPersistFailures.count() shouldBe 1.0
+                    val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
+                    completed.result.failed shouldBe 1
                 }
             }
         }
@@ -168,6 +169,105 @@ class BookPersisterTest :
                     val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
                     completed.result.totalBooks shouldBe 2
                     fake.resolved shouldContainExactly listOf("a", "b")
+                }
+            }
+        }
+
+        test("Completed carries real persisted + failed counts when some books fail") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
+                    // "b" fails via typed AppResult.Failure; "c" fails via thrown exception
+                    val fake =
+                        FakeBookIngest(
+                            failForRootRelPath = setOf("b"),
+                            throwForRootRelPath = setOf("c"),
+                        )
+                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c"), analyzedBook("d")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                    ChangeEventDto.Added(analyzedBook("c")),
+                                    ChangeEventDto.Added(analyzedBook("d")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
+                    // "a" and "d" persisted; "b" typed-failure, "c" threw — both are failures
+                    completed.result.persisted shouldBe 2
+                    completed.result.failed shouldBe 2
+                }
+            }
+        }
+
+        test("Completed reports all persisted and zero failed when every book succeeds") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
+                    completed.result.persisted shouldBe 2
+                    completed.result.failed shouldBe 0
+                }
+            }
+        }
+
+        test("OutOfMemoryError stops the loop, emits Completed with partial counts, then rethrows") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
+                    val fake = FakeBookIngest(oomForRootRelPath = setOf("b"))
+                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+
+                    // OOM rethrows — expect it to propagate
+                    val thrown =
+                        runCatching {
+                            persister.persist(
+                                scanResult(
+                                    books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
+                                    changes =
+                                        listOf(
+                                            ChangeEventDto.Added(analyzedBook("a")),
+                                            ChangeEventDto.Added(analyzedBook("b")),
+                                            ChangeEventDto.Added(analyzedBook("c")),
+                                        ),
+                                    scope = ScanScope.Full,
+                                ),
+                            )
+                        }
+                    thrown.exceptionOrNull() shouldBe instanceOf(OutOfMemoryError::class)
+
+                    // A Completed event is still emitted before the rethrow so clients get honest counts
+                    val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
+                    completed.result.persisted shouldBe 1 // "a" succeeded
+                    completed.result.failed shouldBe 1 // "b" OOM'd — "c" never ran
+
+                    // "c" was never reached because the loop stopped on OOM
+                    fake.resolved shouldContainExactly listOf("a")
                 }
             }
         }
@@ -299,9 +399,9 @@ class BookPersisterTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest(throwForRootRelPath = setOf("b"))
-                    val metrics = BookPersisterMetrics(SimpleMeterRegistry())
-                    val persister = persister(db, fake, scope = this, metrics = metrics)
+                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -317,7 +417,8 @@ class BookPersisterTest :
                     )
 
                     fake.resolved shouldContainExactly listOf("a", "c")
-                    metrics.bookPersistFailures.count() shouldBe 1.0
+                    val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
+                    completed.result.failed shouldBe 1
                 }
             }
         }
@@ -359,11 +460,13 @@ class BookPersisterTest :
  *
  * A book whose `rootRelPath` is in [failForRootRelPath] returns a typed
  * [AppResult.Failure]; one in [throwForRootRelPath] throws — covering both
- * containment branches of `BookPersister.persist`.
+ * containment branches of `BookPersister.persist`. One in [oomForRootRelPath]
+ * throws [OutOfMemoryError] — covering the must-not-swallow OOM branch.
  */
 private class FakeBookIngest(
     private val failForRootRelPath: Set<String> = emptySet(),
     private val throwForRootRelPath: Set<String> = emptySet(),
+    private val oomForRootRelPath: Set<String> = emptySet(),
 ) : BookIngestPort {
     /** rootRelPaths successfully resolved, in call order. */
     val resolved = mutableListOf<String>()
@@ -389,6 +492,9 @@ private class FakeBookIngest(
     ): AppResult<IngestOutcome> {
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
+        if (path in oomForRootRelPath) {
+            throw OutOfMemoryError("simulated OOM for $path")
+        }
         if (path in throwForRootRelPath) {
             error("simulated escaped failure for $path")
         }
@@ -422,7 +528,6 @@ private fun persister(
     ingest: BookIngestPort,
     scope: CoroutineScope,
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
-    metrics: BookPersisterMetrics = BookPersisterMetrics(SimpleMeterRegistry()),
 ): BookPersister =
     BookPersister(
         ingest = ingest,
@@ -433,7 +538,6 @@ private fun persister(
         scanResultBus = MutableSharedFlow(),
         eventBus = eventBus,
         scope = scope,
-        metrics = metrics,
     )
 
 /**
