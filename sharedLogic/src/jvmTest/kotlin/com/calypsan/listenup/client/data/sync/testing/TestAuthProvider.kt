@@ -22,7 +22,7 @@ import io.ktor.server.auth.parseAuthorizationHeader
  * used verbatim as the user id — and falls back to [defaultUserId] otherwise.
  * Requests that carry no `Authorization` header authenticate as [defaultUserId].
  *
- * Duplicated from `:server`'s `server/src/test/.../testing/TestAuthProvider.kt`
+ * Duplicated from `:server`'s `server/src/jvmTest/.../testing/TestAuthProvider.kt`
  * so that `:sharedLogic:jvmTest` can wire auth without a test-fixtures
  * cross-module dependency. Keep both copies wire-compatible (same provider name
  * string via [JWT_PROVIDER]).

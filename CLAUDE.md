@@ -240,7 +240,7 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
 | `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint`); CI runs it via the pinned `ghcr.io/realm/swiftlint` container. †iOS |
-| `Test (JVM)` | Linux | `./gradlew :sharedLogic:jvmTest :server:test --no-daemon` |
+| `Test (JVM)` | Linux | `./gradlew :sharedLogic:jvmTest :server:jvmTest --no-daemon` |
 | `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
 | `Build (Android)` | Linux | `./gradlew :androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
 | `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `iosApp/`. †iOS |

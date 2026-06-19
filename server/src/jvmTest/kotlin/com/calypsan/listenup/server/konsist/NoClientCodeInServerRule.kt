@@ -21,7 +21,7 @@ class NoClientCodeInServerRule :
                 Konsist
                     .scopeFromProduction()
                     .files
-                    .filter { it.path.contains("/server/src/main/") }
+                    .filter { it.path.contains("/server/src/jvmMain/") }
                     .flatMap { file ->
                         file.imports
                             .filter { it.name.startsWith("com.calypsan.listenup.client.") }

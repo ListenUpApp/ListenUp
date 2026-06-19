@@ -45,7 +45,7 @@ To get the synthetic library in place first:
 ./gradlew :server:generateSeedLibrary
 LISTENUP_SEED_PROFILE=demo \
 LISTENUP_DB_URL=jdbc:sqlite:/path/to/demo.db \
-./gradlew :server:run
+./gradlew :server:runJvm
 ```
 
 Or point at your own library by setting `LISTENUP_LIBRARY_PATH` explicitly.
@@ -57,5 +57,5 @@ singleton library on first boot:
 LISTENUP_SEED_PROFILE=demo \
 LISTENUP_LIBRARY_PATH=/path/to/audiobooks:/path/to/more/audiobooks \
 LISTENUP_DB_URL=jdbc:sqlite:/path/to/demo.db \
-./gradlew :server:run
+./gradlew :server:runJvm
 ```

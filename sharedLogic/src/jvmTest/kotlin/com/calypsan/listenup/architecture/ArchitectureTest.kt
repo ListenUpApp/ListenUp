@@ -87,7 +87,7 @@ class ArchitectureTest :
         test("no :server symbols are imported outside the :server module") {
             projectScope
                 .files
-                .filter { "/server/src/main/" !in it.path && "/server/src/test/" !in it.path }
+                .filter { "/server/src/jvmMain/" !in it.path && "/server/src/jvmTest/" !in it.path }
                 // C3 e2e fixture intentionally drives the real `:server` testApplication
                 // in-process. Confined to `:sharedLogic:jvmTest` so production code is
                 // unaffected; the fixture is the documented seam.
@@ -132,7 +132,7 @@ class ArchitectureTest :
             // (Koin's ApplicationConfig binding) — both outside `scanner/`.
             projectScope
                 .files
-                .filter { "/server/src/main/" in it.path }
+                .filter { "/server/src/jvmMain/" in it.path }
                 .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.server.scanner") == true }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("io.ktor.") }
