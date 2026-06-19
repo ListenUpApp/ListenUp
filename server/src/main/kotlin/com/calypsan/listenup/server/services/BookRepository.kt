@@ -37,6 +37,7 @@ import com.calypsan.listenup.server.sync.SyncableRepository
 import com.calypsan.listenup.server.sync.nextRevision
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
+import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.coroutineContext
 import kotlin.time.Clock
@@ -522,26 +523,41 @@ class BookRepository(
                 resolvedContributors = resolvedContributors,
                 resolvedSeries = resolvedSeries,
             )
-        // Read the existing aggregate ONCE — derives the existing cover source (sticky-UPLOADED
-        // skip) and isNew (the only-on-create gate for atomic inbox quarantine).
+        // Read the existing aggregate ONCE — drives the idempotency check, the cover-source
+        // sticky-UPLOADED skip, and the only-on-create inbox quarantine gate.
         val existing = findById(bookId)
-        val existingCoverSource = existing?.cover?.source
         val isNew = existing == null
-        // File I/O must stay OUTSIDE the DB transaction — store the cover first, then upsert.
-        val storedCover =
-            if (existingCoverSource == CoverSource.UPLOADED) {
-                null // sticky: skip file write + preserve the uploaded cover in writePayload
+        // The cover must be treated as unchanged for the idempotency check when:
+        //  • the existing cover is UPLOADED (sticky — we never overwrite it on re-scan regardless), OR
+        //  • the SHA-256 of the incoming cover bytes matches the stored hash (byte-identical artwork).
+        // Any other case (new artwork, cover removed, cover added) means the write must land.
+        val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+        val coverUnchanged =
+            existing?.cover?.source == CoverSource.UPLOADED ||
+                pendingCoverHash == existing?.cover?.hash
+        val result: AppResult<BookSyncPayload> =
+            if (existing != null && coverUnchanged && payload.matchesStoredContent(existing)) {
+                // Idempotent re-scan: content is identical to what's stored, so skip the
+                // revision-bumping upsert AND the cover file-write. resolveOrInsert already
+                // returned this bookId, so the tombstone sweep still sees the book.
+                log.debug { "upsertFromAnalyzed: idempotent re-scan for ${bookId.value}, skipping revision bump" }
+                AppResult.Success(existing)
             } else {
-                managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
-            }
-        val result =
-            withContext(
-                BookWriteExtras(
-                    managedCover = storedCover,
-                    inboxCollectionId = if (isNew) inboxCollectionId else null,
-                ),
-            ) {
-                upsert(payload, clientOpId = null)
+                // File I/O must stay OUTSIDE the DB transaction — store the cover first, then upsert.
+                val storedCover =
+                    if (existing?.cover?.source == CoverSource.UPLOADED) {
+                        null // sticky: skip file write + preserve the uploaded cover in writePayload
+                    } else {
+                        managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
+                    }
+                withContext(
+                    BookWriteExtras(
+                        managedCover = storedCover,
+                        inboxCollectionId = if (isNew) inboxCollectionId else null,
+                    ),
+                ) {
+                    upsert(payload, clientOpId = null)
+                }
             }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
@@ -549,6 +565,51 @@ class BookRepository(
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
+    }
+
+    /**
+     * True when [this] freshly-scanned payload matches the [stored] aggregate in every content field.
+     *
+     * The scanned payload carries placeholder server-assigned fields (`revision`/`updatedAt`/`createdAt`
+     * = 0, `scannedAt` = now), a `null` cover (the cover is stored + written separately), and empty
+     * `genres` (genres are reconciled separately by [bookGenreWriter]). Those are normalized to the
+     * stored values before comparing, so the result reflects only real content changes. A match means
+     * the re-scan changed nothing — the revision must NOT bump (otherwise every scan makes the client
+     * re-pull every book).
+     *
+     * Audio-file and chapter rows carry server-generated UUIDs at rest but are produced with `id = ""`
+     * by the mapper (the server assigns IDs on first write). To make the comparison id-stable, both
+     * sides drop the `id` field from audio files and chapters before comparing — structural equality of
+     * every other field is sufficient to detect a real content change.
+     *
+     * Cover is NOT included in the fields compared here because the scanned payload always carries
+     * `cover = null`. The caller gates the shortcut separately via [sha256Hex] comparison of the
+     * pending cover bytes against the stored hash, so a cover-only change (new embedded artwork in
+     * otherwise unchanged audio metadata) is still detected.
+     *
+     * Genre-only changes are still written by [bookGenreWriter] on both branches (idempotent) but
+     * do NOT bump the book revision on their own — an acceptable trade-off versus the full-resync
+     * storm this check prevents.
+     */
+    private fun BookSyncPayload.matchesStoredContent(stored: BookSyncPayload): Boolean {
+        val normalized =
+            copy(
+                revision = stored.revision,
+                updatedAt = stored.updatedAt,
+                createdAt = stored.createdAt,
+                scannedAt = stored.scannedAt,
+                deletedAt = stored.deletedAt,
+                cover = stored.cover,
+                genres = stored.genres,
+                audioFiles = audioFiles.map { it.copy(id = "") },
+                chapters = chapters.map { it.copy(id = "") },
+            )
+        val storedNormalized =
+            stored.copy(
+                audioFiles = stored.audioFiles.map { it.copy(id = "") },
+                chapters = stored.chapters.map { it.copy(id = "") },
+            )
+        return normalized == storedNormalized
     }
 
     /**
@@ -819,4 +880,10 @@ private suspend fun insertInboxMembership(
             deletedAt = null,
         ),
     )
+}
+
+/** Returns the SHA-256 hex digest of [this] byte array — matches [ImageStore]'s hash algorithm. */
+private fun ByteArray.sha256Hex(): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(this)
+    return digest.joinToString("") { "%02x".format(it) }
 }
