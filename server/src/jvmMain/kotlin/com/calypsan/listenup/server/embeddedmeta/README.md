@@ -43,12 +43,12 @@ single-class drop-in** following the flow below.
    - Register the parser in
      [`EmbeddedmetaModule`](EmbeddedmetaModule.kt) by adding `singleOf(::<Format>Parser)`
      and including it in the `single<List<AudioFormatParser>>` list.
-   - Add a synthetic fixture builder under `server/src/test/.../fixtures/`
+   - Add a synthetic fixture builder under `server/src/jvmTest/.../fixtures/`
      (`build<Format>File { ... }` DSL) — see
      [`BuildMp3File.kt`](../../../../../test/kotlin/com/calypsan/listenup/server/embeddedmeta/fixtures/BuildMp3File.kt)
      and `BuildMp4File.kt` for the shape.
    - Add Kotest property tests asserting round-trip on randomised inputs
-     under `server/src/test/.../format/<name>/`.
+     under `server/src/jvmTest/.../format/<name>/`.
 
 The entry point ([`EmbeddedMetadataParser`](EmbeddedMetadataParser.kt))
 and the registry dispatcher do **not** change. The scan summary's

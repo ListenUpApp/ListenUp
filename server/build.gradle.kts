@@ -30,6 +30,10 @@ kotlin {
     // Mirror the `listenup.jvm` convention plugin: apply the project-wide compiler-args triple
     // to every compilation, set JVM_21 bytecode on the JVM target, and allow consuming the
     // pre-release-marked :contract classfiles (compiled against Kotlin 2.3.20).
+    // NOTE: the first three args below mirror LISTENUP_FREE_COMPILER_ARGS (build-logic/convention/src/main/kotlin/ListenUpCompilerArgs.kt).
+    // That constant isn't importable from a leaf module's build script, so they're inlined here —
+    // keep them in sync. Extract a `listenup.kmp.server` convention plugin if a second
+    // native-server module ever needs the same setup.
     compilerOptions {
         freeCompilerArgs.addAll(
             "-Xexpect-actual-classes",
