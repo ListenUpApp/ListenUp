@@ -4,14 +4,17 @@ import SwiftUI
 /// The Devices screen — lists the user's active sessions, lets them revoke individual
 /// devices (swipe-to-sign-out), and offers a single "Sign Out All Other Devices" action.
 ///
-/// Backed by the shared `DevicesViewModel` (via `DevicesObserver`). Responsive: a
-/// single `readableWidth` column that stays comfortable on iPhone and centers on iPad /
-/// wide split views (rule 12).
+/// Backed by the shared `DevicesViewModel` (via `DevicesObserver`). Layout is width-responsive
+/// (iosApp rule 12): a single readable column on compact; on regular width (iPad / wide split view)
+/// the "This Device" card sits beside the "Other Devices" list in a two-pane HStack.
 struct DevicesView: View {
     @Environment(\.dependencies) private var deps
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var observer: DevicesObserver?
     @State private var showSignOutAllConfirmation = false
+
+    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         Group {
@@ -73,32 +76,61 @@ struct DevicesView: View {
         let otherDevices = devices.filter { !$0.isCurrent }
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // This Device section
-                if let current = currentDevice {
-                    thisDeviceSection(current)
-                }
+            if isRegularWidth {
+                // iPad / wide split view: "This Device" card beside "Other Devices" list.
+                HStack(alignment: .top, spacing: 28) {
+                    // Left pane — current device + sign-out-all
+                    VStack(alignment: .leading, spacing: 24) {
+                        if let current = currentDevice {
+                            thisDeviceSection(current)
+                        }
+                        if !otherDevices.isEmpty {
+                            signOutAllSection(observer: observer)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
 
-                // Other Devices section
-                if !otherDevices.isEmpty {
-                    otherDevicesSection(
-                        observer: observer,
-                        devices: otherDevices,
-                        signingOut: signingOut
-                    )
-                } else if currentDevice != nil {
-                    // Show empty state only when we have the current device but no others
-                    emptyOtherDevices
+                    // Right pane — other devices list
+                    VStack(alignment: .leading, spacing: 24) {
+                        if !otherDevices.isEmpty {
+                            otherDevicesSection(
+                                observer: observer,
+                                devices: otherDevices,
+                                signingOut: signingOut
+                            )
+                        } else if currentDevice != nil {
+                            emptyOtherDevices
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
+                .padding(.horizontal, 32)
+                .padding(.vertical, 16)
+            } else {
+                // iPhone / compact split view: single scrolling column.
+                VStack(alignment: .leading, spacing: 24) {
+                    if let current = currentDevice {
+                        thisDeviceSection(current)
+                    }
 
-                // Sign Out All Other Devices
-                if !otherDevices.isEmpty {
-                    signOutAllSection(observer: observer)
+                    if !otherDevices.isEmpty {
+                        otherDevicesSection(
+                            observer: observer,
+                            devices: otherDevices,
+                            signingOut: signingOut
+                        )
+                    } else if currentDevice != nil {
+                        emptyOtherDevices
+                    }
+
+                    if !otherDevices.isEmpty {
+                        signOutAllSection(observer: observer)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .readableWidth(720)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .readableWidth(720)
         }
     }
 
