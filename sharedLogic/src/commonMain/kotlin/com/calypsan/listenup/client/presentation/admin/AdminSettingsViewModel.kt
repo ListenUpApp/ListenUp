@@ -19,8 +19,9 @@ private val logger = KotlinLogging.logger {}
  * ViewModel for admin server settings screen.
  *
  * Manages server-identity settings: display name and optional public remote URL.
- * All changes are local-only until the user taps the Save FAB, which persists
- * everything at once via [saveAll].
+ * The text fields are local-only until the user taps the Save FAB ([saveAll]);
+ * the inbox quarantine toggle, being a switch, persists immediately on tap
+ * ([setInboxEnabled]) and reverts if the server rejects it.
  */
 class AdminSettingsViewModel(
     private val loadServerSettingsUseCase: LoadServerSettingsUseCase,
@@ -93,10 +94,28 @@ class AdminSettingsViewModel(
     }
 
     /**
-     * Toggle the server-wide inbox quarantine gate (local only).
+     * Toggle the server-wide inbox quarantine gate. Unlike the batched text fields, a switch applies
+     * on tap: this optimistically reflects the flip, persists it immediately, and reverts to the last
+     * server-confirmed value if the save fails.
      */
     fun setInboxEnabled(enabled: Boolean) {
+        // Optimistically reflect the flip so the switch tracks the tap.
         updateReady { it.copy(inboxEnabled = enabled).withDirty() }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.updateInboxEnabled(enabled)) {
+                is AppResult.Success -> {
+                    savedInboxEnabled = enabled
+                    logger.info { "Inbox setting saved: $enabled" }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to save inbox setting: ${result.error}" }
+                    // Revert the optimistic flip to the last server-confirmed value.
+                    updateReady { it.copy(inboxEnabled = savedInboxEnabled, error = result.error).withDirty() }
+                }
+            }
+        }
     }
 
     /**
@@ -159,28 +178,7 @@ class AdminSettingsViewModel(
                 }
             }
 
-            // Save inbox enabled if changed
-            if (ready.inboxEnabled != savedInboxEnabled) {
-                when (val result = updateServerSettingsUseCase.updateInboxEnabled(ready.inboxEnabled)) {
-                    is AppResult.Success -> {
-                        savedInboxEnabled = ready.inboxEnabled
-                        logger.info { "Inbox setting saved: ${ready.inboxEnabled}" }
-                    }
-
-                    is AppResult.Failure -> {
-                        errorBus.emit(result.error)
-                        logger.error { "Failed to save inbox setting: ${result.error}" }
-                        updateReady {
-                            it
-                                .copy(
-                                    isSaving = false,
-                                    error = result.error,
-                                ).withDirty()
-                        }
-                        return@launch
-                    }
-                }
-            }
+            // Note: the inbox toggle is NOT saved here — [setInboxEnabled] persists it immediately on tap.
 
             updateReady { it.copy(isSaving = false).withDirty() }
         }
@@ -208,8 +206,7 @@ class AdminSettingsViewModel(
         copy(
             isDirty =
                 serverName != savedServerName ||
-                    remoteUrl != savedRemoteUrl ||
-                    inboxEnabled != savedInboxEnabled,
+                    remoteUrl != savedRemoteUrl,
         )
 }
 
