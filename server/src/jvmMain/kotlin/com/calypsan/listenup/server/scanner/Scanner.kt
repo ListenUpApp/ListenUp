@@ -135,7 +135,10 @@ internal class Scanner(
                 sidecarParsers,
                 metadataPrecedence,
             )
-        val pass = collectAnalyzed(analyzer, candidates, correlationId, allFiles.size, primaryRoot)
+        // Build a path-keyed cache from the previous scan so unchanged books can
+        // be reused without re-parsing their audio files.
+        val previousByPath = lastResult?.books.orEmpty().associateBy { it.candidate.rootRelPath }
+        val pass = collectAnalyzed(analyzer, candidates, correlationId, allFiles.size, primaryRoot, previousByPath)
         val books = pass.books
         val errors = pass.errors
 
@@ -233,7 +236,10 @@ internal class Scanner(
                 sidecarParsers,
                 metadataPrecedence,
             )
-        val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot)
+        // For incremental scans the dirty-check only covers the affected subtree;
+        // the untouched books are preserved via previousUntouched below.
+        val previousByPath = lastResult?.books.orEmpty().associateBy { it.candidate.rootRelPath }
+        val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot, previousByPath)
         val books = pass.books
         val errors = pass.errors
 
@@ -289,6 +295,21 @@ internal class Scanner(
      * tick so the last batch's stats land even when it falls inside the throttle
      * window. [errorRoot] is the folder root passed to [toScanError] for
      * resolving failing-book paths.
+     *
+     * Dirty-check: before sending a [CandidateBook] to the [Analyzer],
+     * compute its file fingerprint — the ordered list of `(inode, mtimeMs, size)`
+     * tuples over every file in the candidate. If [previousByPath] contains an
+     * entry at the same `rootRelPath` whose candidate fingerprint matches, the
+     * previous [AnalyzedBook] is reused directly — the audio files are not
+     * re-parsed. On a re-scan of an unchanged 1150-book library this reduces
+     * the embedded-metadata parse count from ~1150 to ~0.
+     *
+     * Fingerprint comparison is exact: any field change (mtime, size, or inode)
+     * triggers a full re-analysis for that book. Books at a new `rootRelPath`
+     * always re-analyze; books at an existing path whose fingerprint differs
+     * always re-analyze. The [Differ] downstream is unaffected — it still runs
+     * over the full (possibly-reused) [AnalyzedBook] list and produces correct
+     * change events.
      */
     private suspend fun collectAnalyzed(
         analyzer: Analyzer,
@@ -296,6 +317,7 @@ internal class Scanner(
         correlationId: String,
         fileCount: Int,
         errorRoot: Path,
+        previousByPath: Map<String, AnalyzedBook> = emptyMap(),
     ): AnalyzePass {
         val books = mutableListOf<AnalyzedBook>()
         val errors = mutableListOf<ScanError>()
@@ -304,7 +326,23 @@ internal class Scanner(
         val recent = ArrayDeque<ScanBookRef>()
         var currentFile: String? = null
         var lastEmit = clock()
-        analyzer.analyze(candidates.asFlow()).collect { result ->
+
+        // Partition candidates into cache hits (fingerprint unchanged) and misses (must re-analyze).
+        val (cacheHits, toAnalyze) =
+            candidates.partition { candidate ->
+                val previous = previousByPath[candidate.rootRelPath] ?: return@partition false
+                fingerprintMatches(candidate, previous.candidate)
+            }
+
+        // Accept all cache hits immediately — no parse, no IO.
+        for (cached in cacheHits) {
+            val book = previousByPath.getValue(cached.rootRelPath)
+            books += book
+            book.authors.forEach { authorsSeen += it }
+            durationMsSum += book.embedded?.durationMs ?: 0L
+        }
+
+        analyzer.analyze(toAnalyze.asFlow()).collect { result ->
             result
                 .onSuccess { book ->
                     books += coverSpool?.spoolCover(correlationId, book) ?: book
@@ -370,6 +408,33 @@ internal class Scanner(
         val currentFile: String?,
         val recentBooks: List<ScanBookRef>,
     )
+
+    /**
+     * Returns true when every file in [current] has the same
+     * `(inode, mtimeMs, size)` triple at the same `relPath` as the
+     * corresponding file in [previous], in the same order.
+     *
+     * A file with `inode = null` (Windows FAT / SMB mounts that don't
+     * expose stable inodes) is compared by `(relPath, mtimeMs, size)` only,
+     * matching the Differ's degraded-mode behaviour.
+     *
+     * When the file lists differ in length or in any of the fingerprint
+     * fields, the candidate is re-analyzed.
+     */
+    private fun fingerprintMatches(
+        current: CandidateBook,
+        previous: CandidateBook,
+    ): Boolean {
+        val currentFiles = current.files
+        val previousFiles = previous.files
+        if (currentFiles.size != previousFiles.size) return false
+        return currentFiles.zip(previousFiles).all { (c, p) ->
+            c.relPath == p.relPath &&
+                c.mtimeMs == p.mtimeMs &&
+                c.size == p.size &&
+                (c.inode == null || p.inode == null || c.inode == p.inode)
+        }
+    }
 
     private fun partitionBooksUnder(
         bookRoot: Path,

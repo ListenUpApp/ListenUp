@@ -100,6 +100,81 @@ class BookRepositorySoftDeleteAbsentTest :
                 }
             }
         }
+
+        test("softDeleteAbsentByPaths soft-deletes books not in seenPaths, leaves seen books alone") {
+            withInMemoryDatabase {
+                val db = this
+                val (repo, registry) = repository(db, ChangeBus())
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    val b = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
+                    val c = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("c", inode = 3L)).resolved()
+
+                    // Seen paths: "a" and "c" — "b" is absent from disk.
+                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a", "c"))
+
+                    repo.findById(a)?.deletedAt shouldBe null
+                    repo.findById(b)?.deletedAt shouldNotBe null
+                    repo.findById(c)?.deletedAt shouldBe null
+                }
+            }
+        }
+
+        test("softDeleteAbsentByPaths emits SyncEvent.Deleted on ChangeBus per swept book") {
+            withInMemoryDatabase {
+                val db = this
+                val bus = ChangeBus()
+                val (repo, registry) = repository(db, bus)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L))
+
+                    val received = mutableListOf<BusEvent<*>>()
+                    val collector = launch { bus.subscribe().collect { received += it } }
+                    advanceUntilIdle()
+                    received.clear()
+
+                    // Only "a" is seen; "b" should be swept.
+                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a"))
+                    advanceUntilIdle()
+                    collector.cancel()
+
+                    received.size shouldBe 1
+                    received.single().event.shouldBeInstanceOf<SyncEvent.Deleted>()
+                }
+            }
+        }
+
+        test("softDeleteAbsentByPaths does not re-sweep already-deleted books") {
+            withInMemoryDatabase {
+                val db = this
+                val bus = ChangeBus()
+                val (repo, registry) = repository(db, bus)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    val b = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
+
+                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a"))
+                    val firstRevision = repo.findById(b)?.revision
+
+                    val received = mutableListOf<BusEvent<*>>()
+                    val collector = launch { bus.subscribe().collect { received += it } }
+                    advanceUntilIdle()
+                    received.clear()
+
+                    // Second sweep: b is already tombstoned — must not be swept again.
+                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a"))
+                    advanceUntilIdle()
+                    collector.cancel()
+
+                    received.size shouldBe 0
+                    repo.findById(b)?.revision shouldBe firstRevision
+                }
+            }
+        }
     })
 
 // --- Constants --------------------------------------------------------------

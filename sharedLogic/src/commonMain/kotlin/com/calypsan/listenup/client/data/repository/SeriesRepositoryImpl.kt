@@ -27,6 +27,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -182,6 +183,10 @@ class SeriesRepositoryImpl(
                 )
             }
         }.flowOn(IODispatcher) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
+            // Room invalidates the entire series+books result on any book or series write.
+            // distinctUntilChanged drops re-emissions where the mapped List<SeriesWithBooks> is
+            // structurally equal to the last — SeriesWithBooks and BookListItem are both data classes.
+            .distinctUntilChanged()
 
     // ========== Series Detail Methods ==========
 

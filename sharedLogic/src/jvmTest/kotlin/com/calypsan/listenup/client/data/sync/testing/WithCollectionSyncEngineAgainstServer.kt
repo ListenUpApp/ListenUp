@@ -171,6 +171,7 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
                 shareRepo = shareRepo,
                 bus = bus,
                 db = serverDb,
+                bookRevisionTouch = bookRepo,
             )
         val adminCollections =
             collectionServiceScopedTo(

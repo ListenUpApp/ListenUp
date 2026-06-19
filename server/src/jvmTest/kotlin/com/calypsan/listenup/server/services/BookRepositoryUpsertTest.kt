@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -404,6 +405,98 @@ class BookRepositoryUpsertTest :
                     val reread = repo.findById(BookId("b1"))
                     reread shouldNotBe null
                     reread!!.audioFiles.map { it.id } shouldBe listOf("af1", "af2", "af3")
+                }
+            }
+        }
+
+        test("re-scanning an unchanged book does not bump its revision") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                    )
+                runTest {
+                    val analyzed = analyzedFixture(rootRelPath = "books/b-idempotent", hasScanWarning = false)
+
+                    val first =
+                        repo.upsertFromAnalyzed(
+                            BookId("b-idempotent"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzed,
+                        )
+                    first.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    val r1 = first.data.revision
+
+                    // Second call with identical analyzed output — must NOT bump.
+                    val second =
+                        repo.upsertFromAnalyzed(
+                            BookId("b-idempotent"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzed,
+                        )
+                    second.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    second.data.revision shouldBe r1
+
+                    // Cross-check via a fresh read — the stored revision must also be unchanged.
+                    val stored = repo.findById(BookId("b-idempotent"))
+                    stored shouldNotBe null
+                    stored!!.revision shouldBe r1
+                }
+            }
+        }
+
+        test("a changed book bumps its revision on re-scan") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                    )
+                runTest {
+                    val original = analyzedFixture(rootRelPath = "books/b-changed", hasScanWarning = false)
+
+                    val first =
+                        repo.upsertFromAnalyzed(
+                            BookId("b-changed"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            original,
+                        )
+                    first.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    val r1 = first.data.revision
+
+                    // Produce a changed analyzed by altering the title via a different rootRelPath
+                    // (the fixture's title is derived from the last segment of rootRelPath).
+                    val changed = original.copy(title = "A Different Title")
+
+                    val second =
+                        repo.upsertFromAnalyzed(
+                            BookId("b-changed"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            changed,
+                        )
+                    second.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    second.data.revision shouldBeGreaterThan r1
                 }
             }
         }

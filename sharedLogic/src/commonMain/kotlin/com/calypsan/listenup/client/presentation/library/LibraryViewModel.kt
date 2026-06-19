@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -76,6 +77,20 @@ private data class SyncSnapshot(
 private data class ProgressSnapshot(
     val progressMap: Map<BookId, Float>,
     val finishedMap: Map<BookId, Boolean>,
+)
+
+/**
+ * Precomputed sort keys for the three-level SERIES sort on [BookListItem].
+ *
+ * Extracted as a file-level private class (rather than a local data class inside a `when` branch)
+ * to avoid the duplicate JVM class-name error that arises when two `when` branches in the same
+ * function each declare a local `data class` with the same name.
+ */
+private data class BookSeriesSortKey(
+    val book: BookListItem,
+    val seriesName: String,
+    val sequence: Float,
+    val title: String,
 )
 
 /**
@@ -168,7 +183,9 @@ class LibraryViewModel(
             syncRepository.isServerScanning,
             syncRepository.scanProgress,
             ::SyncSnapshot,
-        )
+            // SyncSnapshot is a data class — structural equality prevents re-sorting the library
+            // on every SSE heartbeat or scan-progress tick when the values haven't actually changed.
+        ).distinctUntilChanged()
 
     val uiState: StateFlow<LibraryUiState> =
         combine(
@@ -182,6 +199,10 @@ class LibraryViewModel(
                 buildLoaded(intentValue, content, progress, sync, selection)
             loaded
         }
+            // Under sync churn (e.g. post-import flood) the five upstream flows can emit faster than
+            // a full sort+map can complete. Conflation drops intermediate states so we only pay the
+            // sort cost for the latest snapshot — the UI always converges to the correct final list.
+            .conflate()
             // Sorting/filtering ~1000 books runs in this transform; keep it off the main thread so a
             // burst of position updates (e.g. the post-import sync flood) can't stall input dispatch.
             .flowOn(backgroundDispatcher)
@@ -455,7 +476,7 @@ class LibraryViewModel(
     // SORTING HELPERS
     // ═══════════════════════════════════════════════════════════════════════
 
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod", "CognitiveComplexMethod")
     private fun sortBooks(
         books: List<BookListItem>,
         state: SortState,
@@ -463,73 +484,89 @@ class LibraryViewModel(
     ): List<BookListItem> {
         val isAsc = state.direction == SortDirection.ASCENDING
 
+        // Schwartzian transform: compute each sort key ONCE per element, then sort by the
+        // precomputed value. Without this, comparators like `.sortedBy { it.title.sortableTitle(...) }`
+        // invoke the key function O(n*log n) times per sort — with regex + toLowerCase that's
+        // significant allocation churn on a 1000+ book library every time the flow emits.
         return when (state.category) {
             SortCategory.TITLE -> {
-                if (isAsc) {
-                    books.sortedBy { it.title.sortableTitle(ignoreArticles) }
-                } else {
-                    books.sortedByDescending { it.title.sortableTitle(ignoreArticles) }
-                }
+                // Key: sortable title string (regex strip + lowercase) — computed once per element.
+                val keyed = books.map { it to it.title.sortableTitle(ignoreArticles) }
+                val sorted = if (isAsc) keyed.sortedBy { it.second } else keyed.sortedByDescending { it.second }
+                sorted.map { it.first }
             }
 
             SortCategory.AUTHOR -> {
-                if (isAsc) {
-                    books.sortedWith(
-                        compareBy<BookListItem> { it.authorNames.lowercase() }
-                            .thenBy { it.title.lowercase() },
-                    )
-                } else {
-                    books.sortedWith(
-                        compareByDescending<BookListItem> { it.authorNames.lowercase() }
-                            .thenBy { it.title.lowercase() },
-                    )
-                }
+                // Primary key: authorNames (joinToString + lowercase) — computed once per element.
+                // Secondary key: title lowercase (tie-breaker), also precomputed.
+                val keyed = books.map { Triple(it, it.authorNames.lowercase(), it.title.lowercase()) }
+                val sorted =
+                    if (isAsc) {
+                        keyed.sortedWith(compareBy({ it.second }, { it.third }))
+                    } else {
+                        keyed.sortedWith(
+                            compareByDescending<Triple<BookListItem, String, String>> { it.second }.thenBy { it.third },
+                        )
+                    }
+                sorted.map { it.first }
             }
 
             SortCategory.DURATION -> {
-                if (isAsc) {
-                    books.sortedBy { it.duration }
-                } else {
-                    books.sortedByDescending { it.duration }
-                }
+                if (isAsc) books.sortedBy { it.duration } else books.sortedByDescending { it.duration }
             }
 
             SortCategory.YEAR -> {
-                if (isAsc) {
-                    books.sortedWith(
-                        compareBy<BookListItem> { it.publishYear ?: Int.MAX_VALUE }
-                            .thenBy { it.title.lowercase() },
-                    )
-                } else {
-                    books.sortedWith(
-                        compareByDescending<BookListItem> { it.publishYear ?: 0 }
-                            .thenBy { it.title.lowercase() },
-                    )
-                }
+                // Primary key: publish year (null sentinel differs by direction) + secondary: title lowercase.
+                val nullYear = if (isAsc) Int.MAX_VALUE else 0
+                val keyed = books.map { Triple(it, it.publishYear ?: nullYear, it.title.lowercase()) }
+                val sorted =
+                    if (isAsc) {
+                        keyed.sortedWith(compareBy({ it.second }, { it.third }))
+                    } else {
+                        keyed.sortedWith(
+                            compareByDescending<Triple<BookListItem, Int, String>> { it.second }.thenBy { it.third },
+                        )
+                    }
+                sorted.map { it.first }
             }
 
             SortCategory.ADDED -> {
                 if (isAsc) {
-                    books.sortedBy { it.addedAt.epochMillis }
+                    books.sortedBy {
+                        it.addedAt.epochMillis
+                    }
                 } else {
                     books.sortedByDescending { it.addedAt.epochMillis }
                 }
             }
 
             SortCategory.SERIES -> {
-                if (isAsc) {
-                    books.sortedWith(
-                        compareBy<BookListItem> { it.seriesName?.lowercase() ?: "\uFFFF" }
-                            .thenBy { it.seriesSequence?.toFloatOrNull() ?: Float.MAX_VALUE }
-                            .thenBy { it.title.lowercase() },
-                    )
-                } else {
-                    books.sortedWith(
-                        compareByDescending<BookListItem> { it.seriesName?.lowercase() ?: "" }
-                            .thenByDescending { it.seriesSequence?.toFloatOrNull() ?: 0f }
-                            .thenBy { it.title.lowercase() },
-                    )
-                }
+                // Three-level key: series name (lowercase, null sentinel), sequence (Float), title.
+                // All three keys are precomputed once per element via BookSeriesSortKey (file-level
+                // private class — can't use a local data class here without a JVM name collision
+                // across the when-branches).
+                val nullSeriesName = if (isAsc) "￿" else ""
+                val nullSequence = if (isAsc) Float.MAX_VALUE else 0f
+                val keyed =
+                    books.map {
+                        BookSeriesSortKey(
+                            book = it,
+                            seriesName = it.seriesName?.lowercase() ?: nullSeriesName,
+                            sequence = it.seriesSequence?.toFloatOrNull() ?: nullSequence,
+                            title = it.title.lowercase(),
+                        )
+                    }
+                val sorted =
+                    if (isAsc) {
+                        keyed.sortedWith(compareBy({ it.seriesName }, { it.sequence }, { it.title }))
+                    } else {
+                        keyed.sortedWith(
+                            compareByDescending<BookSeriesSortKey> { it.seriesName }
+                                .thenByDescending { it.sequence }
+                                .thenBy { it.title },
+                        )
+                    }
+                sorted.map { it.book }
             }
 
             // Not applicable for books
@@ -547,19 +584,14 @@ class LibraryViewModel(
 
         return when (state.category) {
             SortCategory.NAME -> {
-                if (isAsc) {
-                    series.sortedBy { it.series.name.lowercase() }
-                } else {
-                    series.sortedByDescending { it.series.name.lowercase() }
-                }
+                // Key: name lowercase — computed once per element.
+                val keyed = series.map { it to it.series.name.lowercase() }
+                val sorted = if (isAsc) keyed.sortedBy { it.second } else keyed.sortedByDescending { it.second }
+                sorted.map { it.first }
             }
 
             SortCategory.BOOK_COUNT -> {
-                if (isAsc) {
-                    series.sortedBy { it.books.size }
-                } else {
-                    series.sortedByDescending { it.books.size }
-                }
+                if (isAsc) series.sortedBy { it.books.size } else series.sortedByDescending { it.books.size }
             }
 
             SortCategory.ADDED -> {
@@ -572,7 +604,8 @@ class LibraryViewModel(
 
             // Default to name sort for unsupported categories
             else -> {
-                series.sortedBy { it.series.name.lowercase() }
+                val keyed = series.map { it to it.series.name.lowercase() }
+                keyed.sortedBy { it.second }.map { it.first }
             }
         }
     }
@@ -585,24 +618,20 @@ class LibraryViewModel(
 
         return when (state.category) {
             SortCategory.NAME -> {
-                if (isAsc) {
-                    contributors.sortedBy { it.contributor.name.lowercase() }
-                } else {
-                    contributors.sortedByDescending { it.contributor.name.lowercase() }
-                }
+                // Key: name lowercase — computed once per element.
+                val keyed = contributors.map { it to it.contributor.name.lowercase() }
+                val sorted = if (isAsc) keyed.sortedBy { it.second } else keyed.sortedByDescending { it.second }
+                sorted.map { it.first }
             }
 
             SortCategory.BOOK_COUNT -> {
-                if (isAsc) {
-                    contributors.sortedBy { it.bookCount }
-                } else {
-                    contributors.sortedByDescending { it.bookCount }
-                }
+                if (isAsc) contributors.sortedBy { it.bookCount } else contributors.sortedByDescending { it.bookCount }
             }
 
             // Default to name sort for unsupported categories
             else -> {
-                contributors.sortedBy { it.contributor.name.lowercase() }
+                val keyed = contributors.map { it to it.contributor.name.lowercase() }
+                keyed.sortedBy { it.second }.map { it.first }
             }
         }
     }

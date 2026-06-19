@@ -41,10 +41,32 @@ interface BookIngestPort {
         inboxCollectionId: String? = null,
     ): AppResult<IngestOutcome>
 
-    /** Soft-delete library books absent from [seenIds]; see [BookRepository.softDeleteAbsent]. */
-    suspend fun softDeleteAbsent(
+    /**
+     * Soft-delete library books absent from [seenPaths]; see [BookRepository.softDeleteAbsentByPaths].
+     *
+     * Accepts the set of `rootRelPath` strings seen on disk during a full scan — no BookId
+     * resolution required for books that did not change.
+     */
+    suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
-        seenIds: Set<BookId>,
+        seenPaths: Set<String>,
+    )
+
+    /**
+     * Soft-delete the live book at [rootRelPath] inside [libraryId], if one exists.
+     *
+     * Idempotent: a no-op when no live (non-deleted) book exists at that path (already
+     * tombstoned or never ingested). Emits [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
+     * to the change bus so connected clients reflow immediately.
+     *
+     * Called from [com.calypsan.listenup.server.services.BookPersister] when a
+     * [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed] arrives on an
+     * incremental scan — the only path that explicitly notifies of a deletion without
+     * walking the entire library.
+     */
+    suspend fun softDeleteByPath(
+        libraryId: LibraryId,
+        rootRelPath: String,
     )
 }
 

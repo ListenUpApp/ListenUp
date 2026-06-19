@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
@@ -435,8 +436,17 @@ internal suspend fun applyScanEvent(
                 // populating screen shows its indeterminate "finishing up" state while we pull books.
                 setProgress(null)
             }
-            logger.info { "Scan completed — reconciling to pull scanned books" }
-            reconcile()
+            if (scanResultHasChanges(event.result)) {
+                logger.info {
+                    "Scan completed with changes (added=${event.result.added} modified=${event.result.modified} " +
+                        "removed=${event.result.removed} moved=${event.result.moved}) — reconciling"
+                }
+                reconcile()
+            } else {
+                logger.info {
+                    "Scan completed with no row changes — skipping catch-up and FTS rebuild"
+                }
+            }
             if (drivesGate) {
                 // Room now holds the library — clear the gate and latch so no later incremental can
                 // re-block the shell.
@@ -472,6 +482,19 @@ internal fun mergeRecentBooks(
     for (book in incoming) if (seen.add(book)) merged += book
     return merged
 }
+
+/**
+ * Returns `true` when a [ScanResultSummary] reports that at least one row was mutated — added,
+ * modified, removed, or moved. When all four counters are zero the scan was a no-op (the server
+ * walked the library and found nothing new), so the client can skip the expensive catch-up
+ * ([SyncEngine.handleCursorStale] → 19 HTTP pulls → SSE disconnect/reconnect) and the FTS
+ * rebuild ([FtsPopulatorContract.rebuildAll] → ~3.3 s on a 1 150-book library).
+ *
+ * `moved` is included because a move changes the file path stored in Room even though no book is
+ * added or deleted — it is a genuine row mutation that catch-up must pull.
+ */
+internal fun scanResultHasChanges(result: ScanResultSummary): Boolean =
+    result.added > 0 || result.modified > 0 || result.removed > 0 || result.moved > 0
 
 /**
  * Never-stranded recovery for the initial-population gate when the scan-progress stream terminates

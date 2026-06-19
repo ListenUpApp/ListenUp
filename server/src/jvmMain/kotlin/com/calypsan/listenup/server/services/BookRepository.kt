@@ -37,6 +37,7 @@ import com.calypsan.listenup.server.sync.SyncableRepository
 import com.calypsan.listenup.server.sync.nextRevision
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
+import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.coroutineContext
 import kotlin.time.Clock
@@ -108,7 +109,8 @@ class BookRepository(
         domainName = "books",
         clock = clock,
     ),
-    BookIngestPort {
+    BookIngestPort,
+    BookRevisionTouch {
     /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
     private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
 
@@ -447,7 +449,7 @@ class BookRepository(
      * then opens its own transaction. `softDelete` is not wrapped in an outer
      * transaction here — doing so would nest transactions needlessly.
      */
-    override suspend fun softDeleteAbsent(
+    suspend fun softDeleteAbsent(
         libraryId: LibraryId,
         seenIds: Set<BookId>,
     ) {
@@ -464,6 +466,65 @@ class BookRepository(
         for (id in toDelete) {
             softDelete(BookId(id), clientOpId = null)
         }
+    }
+
+    /**
+     * Tombstones every non-deleted book in [libraryId] whose `rootRelPath` is not
+     * in [seenPaths] — the path-keyed counterpart to [softDeleteAbsent].
+     *
+     * **Full-scan only.** Same authoritativity contract as [softDeleteAbsent]:
+     * call this only after a complete library walk; incremental scans must not call it.
+     *
+     * Using `rootRelPath` avoids the need to resolve a [BookId] for every
+     * unchanged book during a re-scan — the path-set is built cheaply from the
+     * scan result without any DB round-trips.
+     */
+    override suspend fun softDeleteAbsentByPaths(
+        libraryId: LibraryId,
+        seenPaths: Set<String>,
+    ) {
+        val toDelete =
+            suspendTransaction(db) {
+                BookTable
+                    .selectAll()
+                    .where {
+                        (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull()
+                    }.map { it[BookTable.id] to it[BookTable.rootRelPath] }
+                    .filterNot { (_, path) -> path in seenPaths }
+                    .map { (id, _) -> id }
+            }
+        for (id in toDelete) {
+            softDelete(BookId(id), clientOpId = null)
+        }
+    }
+
+    /**
+     * Soft-deletes the live book at [rootRelPath] inside [libraryId], if one exists.
+     *
+     * Idempotent: a no-op when no live (non-deleted) book exists at that path.
+     * When a book is found it is removed through [softDelete], which bumps the
+     * revision and emits [com.calypsan.listenup.api.sync.SyncEvent.Deleted] on the
+     * change bus — clients reflow exactly as they would for any other delete.
+     *
+     * Called by [BookPersister] on a [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed]
+     * event from an incremental scan, where the full-scan tombstone sweep does not run.
+     */
+    override suspend fun softDeleteByPath(
+        libraryId: LibraryId,
+        rootRelPath: String,
+    ) {
+        val id =
+            suspendTransaction(db) {
+                BookTable
+                    .selectAll()
+                    .where {
+                        (BookTable.libraryId eq libraryId.value) and
+                            (BookTable.rootRelPath eq rootRelPath) and
+                            BookTable.deletedAt.isNull()
+                    }.firstOrNull()
+                    ?.let { BookId(it[BookTable.id]) }
+            } ?: return // already gone — idempotent no-op
+        softDelete(id, clientOpId = null)
     }
 
     /**
@@ -522,26 +583,41 @@ class BookRepository(
                 resolvedContributors = resolvedContributors,
                 resolvedSeries = resolvedSeries,
             )
-        // Read the existing aggregate ONCE — derives the existing cover source (sticky-UPLOADED
-        // skip) and isNew (the only-on-create gate for atomic inbox quarantine).
+        // Read the existing aggregate ONCE — drives the idempotency check, the cover-source
+        // sticky-UPLOADED skip, and the only-on-create inbox quarantine gate.
         val existing = findById(bookId)
-        val existingCoverSource = existing?.cover?.source
         val isNew = existing == null
-        // File I/O must stay OUTSIDE the DB transaction — store the cover first, then upsert.
-        val storedCover =
-            if (existingCoverSource == CoverSource.UPLOADED) {
-                null // sticky: skip file write + preserve the uploaded cover in writePayload
+        // The cover must be treated as unchanged for the idempotency check when:
+        //  • the existing cover is UPLOADED (sticky — we never overwrite it on re-scan regardless), OR
+        //  • the SHA-256 of the incoming cover bytes matches the stored hash (byte-identical artwork).
+        // Any other case (new artwork, cover removed, cover added) means the write must land.
+        val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+        val coverUnchanged =
+            existing?.cover?.source == CoverSource.UPLOADED ||
+                pendingCoverHash == existing?.cover?.hash
+        val result: AppResult<BookSyncPayload> =
+            if (existing != null && coverUnchanged && payload.matchesStoredContent(existing)) {
+                // Idempotent re-scan: content is identical to what's stored, so skip the
+                // revision-bumping upsert AND the cover file-write. resolveOrInsert already
+                // returned this bookId, so the tombstone sweep still sees the book.
+                log.debug { "upsertFromAnalyzed: idempotent re-scan for ${bookId.value}, skipping revision bump" }
+                AppResult.Success(existing)
             } else {
-                managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
-            }
-        val result =
-            withContext(
-                BookWriteExtras(
-                    managedCover = storedCover,
-                    inboxCollectionId = if (isNew) inboxCollectionId else null,
-                ),
-            ) {
-                upsert(payload, clientOpId = null)
+                // File I/O must stay OUTSIDE the DB transaction — store the cover first, then upsert.
+                val storedCover =
+                    if (existing?.cover?.source == CoverSource.UPLOADED) {
+                        null // sticky: skip file write + preserve the uploaded cover in writePayload
+                    } else {
+                        managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
+                    }
+                withContext(
+                    BookWriteExtras(
+                        managedCover = storedCover,
+                        inboxCollectionId = if (isNew) inboxCollectionId else null,
+                    ),
+                ) {
+                    upsert(payload, clientOpId = null)
+                }
             }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
@@ -549,6 +625,51 @@ class BookRepository(
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
+    }
+
+    /**
+     * True when [this] freshly-scanned payload matches the [stored] aggregate in every content field.
+     *
+     * The scanned payload carries placeholder server-assigned fields (`revision`/`updatedAt`/`createdAt`
+     * = 0, `scannedAt` = now), a `null` cover (the cover is stored + written separately), and empty
+     * `genres` (genres are reconciled separately by [bookGenreWriter]). Those are normalized to the
+     * stored values before comparing, so the result reflects only real content changes. A match means
+     * the re-scan changed nothing — the revision must NOT bump (otherwise every scan makes the client
+     * re-pull every book).
+     *
+     * Audio-file and chapter rows carry server-generated UUIDs at rest but are produced with `id = ""`
+     * by the mapper (the server assigns IDs on first write). To make the comparison id-stable, both
+     * sides drop the `id` field from audio files and chapters before comparing — structural equality of
+     * every other field is sufficient to detect a real content change.
+     *
+     * Cover is NOT included in the fields compared here because the scanned payload always carries
+     * `cover = null`. The caller gates the shortcut separately via [sha256Hex] comparison of the
+     * pending cover bytes against the stored hash, so a cover-only change (new embedded artwork in
+     * otherwise unchanged audio metadata) is still detected.
+     *
+     * Genre-only changes are still written by [bookGenreWriter] on both branches (idempotent) but
+     * do NOT bump the book revision on their own — an acceptable trade-off versus the full-resync
+     * storm this check prevents.
+     */
+    private fun BookSyncPayload.matchesStoredContent(stored: BookSyncPayload): Boolean {
+        val normalized =
+            copy(
+                revision = stored.revision,
+                updatedAt = stored.updatedAt,
+                createdAt = stored.createdAt,
+                scannedAt = stored.scannedAt,
+                deletedAt = stored.deletedAt,
+                cover = stored.cover,
+                genres = stored.genres,
+                audioFiles = audioFiles.map { it.copy(id = "") },
+                chapters = chapters.map { it.copy(id = "") },
+            )
+        val storedNormalized =
+            stored.copy(
+                audioFiles = stored.audioFiles.map { it.copy(id = "") },
+                chapters = stored.chapters.map { it.copy(id = "") },
+            )
+        return normalized == storedNormalized
     }
 
     /**
@@ -652,6 +773,51 @@ class BookRepository(
                 val saved =
                     readPayload(idStr)
                         ?: error("readPayload returned null immediately after clearManagedCover for $idStr")
+                bus.publish(
+                    repo = this@BookRepository,
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                    userId = null,
+                )
+                AppResult.Success(Unit)
+            }
+        }
+    }
+
+    /**
+     * Bumps the row's revision (and `updatedAt`) without touching any content column, so a
+     * visibility-only change — collection membership add/remove — re-enters every member's
+     * incremental `revision > cursor AND <accessible>` pull and newly-visible books reach them.
+     *
+     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
+     * carries the full aggregate so clients refresh immediately. Mirrors
+     * [setManagedCover] minus the cover-column writes.
+     *
+     * @return [AppResult.Success] on success;
+     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     */
+    override suspend fun touchRevision(id: BookId): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            val rowsAffected =
+                BookTable.update({ BookTable.id eq idStr }) { stmt ->
+                    stmt[BookTable.revision] = rev
+                    stmt[BookTable.updatedAt] = now
+                }
+            if (rowsAffected == 0) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                val saved =
+                    readPayload(idStr)
+                        ?: error("readPayload returned null immediately after touchRevision for $idStr")
                 bus.publish(
                     repo = this@BookRepository,
                     event =
@@ -819,4 +985,10 @@ private suspend fun insertInboxMembership(
             deletedAt = null,
         ),
     )
+}
+
+/** Returns the SHA-256 hex digest of [this] byte array — matches [ImageStore]'s hash algorithm. */
+private fun ByteArray.sha256Hex(): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(this)
+    return digest.joinToString("") { "%02x".format(it) }
 }
