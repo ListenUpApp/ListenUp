@@ -16,7 +16,6 @@ import app.cash.sqldelight.ColumnAdapter
  * Add adapters here as aggregates are converted.
  */
 object Adapters {
-
     // Aggregate-specific adapters land here as each aggregate migrates, e.g.:
     //
     // val instantAsEpochMillis: ColumnAdapter<Instant, Long> =

@@ -7,7 +7,10 @@ package com.calypsan.listenup.server.sync
  * list of entity ids paired with their revision so they can page through changes
  * and compute SHA-256 digests without loading full aggregate payloads.
  */
-data class IdRev(val id: String, val revision: Long)
+data class IdRev(
+    val id: String,
+    val revision: Long,
+)
 
 /**
  * Substrate-level queries that every syncable SQLDelight aggregate must provide.
@@ -36,7 +39,10 @@ interface SyncableSubstrateQueries {
         clientOpId: String?,
     ): Long
 
-    fun selectIdsAboveRevision(cursor: Long, limit: Long): List<IdRev>
+    fun selectIdsAboveRevision(
+        cursor: Long,
+        limit: Long,
+    ): List<IdRev>
 
     fun selectIdRevAtMost(cursor: Long): List<IdRev>
 }
