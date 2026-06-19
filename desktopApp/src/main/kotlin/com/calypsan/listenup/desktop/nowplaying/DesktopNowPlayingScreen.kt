@@ -51,7 +51,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,18 +68,10 @@ import androidx.compose.ui.window.PopupProperties
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
 import com.calypsan.listenup.client.playback.NowPlayingState
-import androidx.compose.ui.graphics.toComposeImageBitmap
-import com.kmpalette.palette.graphics.Palette
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.jetbrains.skia.Image
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Full-screen now-playing view for desktop.
@@ -219,18 +210,8 @@ private fun ActiveScreen(
     onGoToSeries: ((String) -> Unit)?,
     onGoToContributor: ((String) -> Unit)?,
 ) {
-    // Dynamic color from cover art
-    var dominantColor by remember { mutableStateOf(Color.Transparent) }
-
-    LaunchedEffect(state.coverPath) {
-        val coverPath = state.coverPath
-        if (coverPath != null) {
-            val color = extractDominantColor(coverPath)
-            if (color != null) {
-                dominantColor = color
-            }
-        }
-    }
+    // Ambient glow uses the app's theme accent (no per-cover color extraction).
+    val dominantColor = MaterialTheme.colorScheme.primary
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWideLayout = maxWidth > maxHeight
@@ -320,38 +301,6 @@ private fun ActiveScreen(
         }
     }
 }
-
-// --- Color extraction via kmpalette ---
-
-/**
- * Extract the dominant color from a cover art image file using kmpalette.
- *
- * Loads the image via Skia (CMP's native image backend on desktop),
- * converts to Compose ImageBitmap, then feeds to kmpalette's Palette.Builder.
- * Uses the same swatch priority as Android: vibrant → muted → dominant.
- *
- * Runs on IO dispatcher to avoid blocking the main thread.
- */
-private suspend fun extractDominantColor(coverPath: String): Color? =
-    withContext(Dispatchers.IO) {
-        try {
-            val bytes = java.io.File(coverPath).readBytes()
-            val skiaImage = Image.makeFromEncoded(bytes)
-            val bitmap = skiaImage.toComposeImageBitmap()
-
-            val palette = Palette.from(bitmap).generate()
-
-            val swatch =
-                palette.vibrantSwatch
-                    ?: palette.mutedSwatch
-                    ?: palette.dominantSwatch
-
-            swatch?.rgb?.let { Color(it) }
-        } catch (e: Exception) {
-            logger.debug(e) { "Color extraction from cover art failed" }
-            null
-        }
-    }
 
 // --- Tall (portrait) layout ---
 
