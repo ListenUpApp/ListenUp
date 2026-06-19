@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import kotlin.time.Instant
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -151,6 +152,33 @@ class CollectionMembershipRevisionTest :
                     }
 
                     touch.touched shouldContainExactly listOf("b1")
+                }
+            }
+        }
+
+        test("setBookCollections does not touch when the membership is unchanged") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestBook(bookId = "b1")
+                runTest(UnconfinedTestDispatcher()) {
+                    val touch = FakeBookRevisionTouch()
+                    val service = makeCollectionService(db, bookRevisionTouch = touch)
+                    val admin = service.actAs("u1", UserRole.ADMIN)
+                    val a = admin.createCollection("test-library", "A")
+                    require(a is AppResult.Success)
+                    admin.addBookToCollection(a.data.id, BookId("b1")).let {
+                        require(it is AppResult.Success)
+                    }
+                    touch.touched.clear()
+
+                    // Set to the IDENTICAL current membership → added/removed both empty → guard skips the touch.
+                    admin.setBookCollections(BookId("b1"), listOf(a.data.id)).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    touch.touched.shouldBeEmpty()
                 }
             }
         }
