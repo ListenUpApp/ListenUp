@@ -25,24 +25,25 @@ import co.touchlab.sqliter.NO_VERSION_CHECK
  * we never want SQLDelight to call create/migrate on our behalf.
  */
 actual class DriverFactory {
-    actual fun createDriver(dbPath: String): SqlDriver {
-        return NativeSqliteDriver(
-            configuration = DatabaseConfiguration(
-                name = dbPath,
-                version = NO_VERSION_CHECK,
-                journalMode = JournalMode.WAL,
-                extendedConfig = DatabaseConfiguration.Extended(
-                    foreignKeyConstraints = true,
-                    busyTimeout = 5_000,
+    actual fun createDriver(dbPath: String): SqlDriver =
+        NativeSqliteDriver(
+            configuration =
+                DatabaseConfiguration(
+                    name = dbPath,
+                    version = NO_VERSION_CHECK,
+                    journalMode = JournalMode.WAL,
+                    extendedConfig =
+                        DatabaseConfiguration.Extended(
+                            foreignKeyConstraints = true,
+                            busyTimeout = 5_000,
+                        ),
+                    create = {
+                        // MigrationRunner owns schema creation
+                    },
+                    upgrade = { _, _, _ ->
+                        // MigrationRunner owns migrations
+                    },
                 ),
-                create = {
-                    // MigrationRunner owns schema creation
-                },
-                upgrade = { _, _, _ ->
-                    // MigrationRunner owns migrations
-                },
-            ),
             maxReaderConnections = 1,
         )
-    }
 }
