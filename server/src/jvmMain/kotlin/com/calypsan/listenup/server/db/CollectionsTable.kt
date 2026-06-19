@@ -20,6 +20,7 @@ internal object CollectionsTable : SyncableTable("collections") {
     val libraryId = reference("library_id", LibraryTable.id, onDelete = ReferenceOption.CASCADE)
     val ownerId = text("owner_id").index()
     val name = text("name")
+    val type = text("type").default("NORMAL")
     val isInbox = bool("is_inbox").default(false)
     val isGlobalAccess = bool("is_global_access").default(false)
     override val primaryKey = PrimaryKey(id)
