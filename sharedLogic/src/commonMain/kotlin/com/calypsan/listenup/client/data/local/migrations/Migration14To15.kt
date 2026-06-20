@@ -28,7 +28,7 @@ import androidx.sqlite.execSQL
  * carry across. The non-`syncState` index `index_chapters_bookId` is
  * recreated on the rebuilt `chapters` table.
  */
-val MIGRATION_14_15: Migration =
+internal val MIGRATION_14_15: Migration =
     object : Migration(14, 15) {
         override fun migrate(connection: SQLiteConnection) {
             connection.migrateBooks()

@@ -14,7 +14,7 @@ import androidx.sqlite.execSQL
  * satisfies that requirement, so a plain ALTER TABLE is correct here. There is no index on this
  * column, so no index cleanup is needed.
  */
-val MIGRATION_33_34: Migration =
+internal val MIGRATION_33_34: Migration =
     object : Migration(33, 34) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("ALTER TABLE `collections` DROP COLUMN `isGlobalAccess`")

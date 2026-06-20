@@ -28,7 +28,7 @@ import platform.Foundation.NSUserDomainMask
  *
  * Note: Uses Dispatchers.Default instead of Dispatchers.IO since IO is internal on Native platforms.
  */
-actual val platformDatabaseModule: Module =
+internal actual val platformDatabaseModule: Module =
     module {
         single {
             val urls =

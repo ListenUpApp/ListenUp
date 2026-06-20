@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 
-internal const val MAX_RETRYABLE_ATTEMPTS = 5
+const val MAX_RETRYABLE_ATTEMPTS = 5
 
 /**
  * What a single [PendingOperationQueue.drain] wave produced. The engine reads

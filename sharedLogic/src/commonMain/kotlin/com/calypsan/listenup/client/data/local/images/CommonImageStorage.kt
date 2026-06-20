@@ -27,7 +27,7 @@ import kotlinx.io.write
  * - {filesDir}/covers/series/{seriesId}_staging.jpg - Staging series covers
  * - {filesDir}/avatars/{userId}.jpg - User profile avatar images
  */
-class CommonImageStorage(
+internal class CommonImageStorage(
     storagePaths: StoragePaths,
 ) : ImageStorage {
     private val filesDir: Path = storagePaths.filesDir

@@ -26,7 +26,7 @@ private val logger = KotlinLogging.logger {}
  * - api: API version (required)
  * - remote: Remote URL (optional)
  */
-class NsdDiscoveryService(
+internal class NsdDiscoveryService(
     context: Context,
 ) : ServerDiscoveryService {
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager

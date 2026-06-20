@@ -28,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  * - api: API version (required)
  * - remote: Remote URL (optional)
  */
-class JmDnsDiscoveryService : ServerDiscoveryService {
+internal class JmDnsDiscoveryService : ServerDiscoveryService {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val serversState = MutableStateFlow<Map<String, DiscoveredServer>>(emptyMap())
 

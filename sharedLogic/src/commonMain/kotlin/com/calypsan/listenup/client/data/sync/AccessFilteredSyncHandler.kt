@@ -14,7 +14,7 @@ package com.calypsan.listenup.client.data.sync
  * domains). The engine discovers them via
  * [com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry.accessFilteredHandlers].
  */
-interface AccessFilteredSyncHandler {
+internal interface AccessFilteredSyncHandler {
     /**
      * The ids of every live (non-tombstoned) local row in this domain. For composite-key
      * domains (e.g. `collection_books`) the id is the synthetic `"$collectionId:$bookId"`

@@ -13,7 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
  * non-retryable [SyncError.SyncFailed] so the op leaps past [MAX_RETRYABLE_ATTEMPTS]
  * and stops blocking the queue rather than retrying indefinitely.
  */
-class DomainPendingOperationSender(
+internal class DomainPendingOperationSender(
     private val byDomain: Map<String, PendingOperationSender>,
 ) : PendingOperationSender {
     override suspend fun send(op: PendingOperation): AppResult<Unit> =

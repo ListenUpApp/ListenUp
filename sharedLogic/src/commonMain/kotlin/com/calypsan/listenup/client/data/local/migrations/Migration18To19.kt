@@ -22,7 +22,7 @@ import androidx.sqlite.execSQL
  * Both table rebuilds use DROP + CREATE rather than ALTER TABLE because the column sets
  * change incompatibly and the schema must match Room's v19 export exactly.
  */
-val MIGRATION_18_19: Migration =
+internal val MIGRATION_18_19: Migration =
     object : Migration(18, 19) {
         override fun migrate(connection: SQLiteConnection) {
             connection.rebuildListeningEvents()

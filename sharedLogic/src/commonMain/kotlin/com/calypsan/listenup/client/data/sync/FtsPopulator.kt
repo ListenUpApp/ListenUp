@@ -37,7 +37,7 @@ private const val FTS_INSERT_CHUNK_SIZE = 200
  * @property searchDao DAO for FTS operations
  * @property transactionRunner Wraps chunked FTS inserts in write transactions
  */
-class FtsPopulator(
+internal class FtsPopulator(
     private val bookDao: BookDao,
     private val contributorDao: ContributorDao,
     private val seriesDao: SeriesDao,

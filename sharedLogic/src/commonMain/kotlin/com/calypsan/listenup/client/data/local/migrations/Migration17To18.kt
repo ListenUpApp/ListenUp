@@ -18,7 +18,7 @@ import androidx.sqlite.execSQL
  * default to add in place, and the rebuilt schema must match Room's exported
  * v18 schema, which carries no column default.
  */
-val MIGRATION_17_18: Migration =
+internal val MIGRATION_17_18: Migration =
     object : Migration(17, 18) {
         override fun migrate(connection: SQLiteConnection) {
             connection.migratePlaybackPositions()

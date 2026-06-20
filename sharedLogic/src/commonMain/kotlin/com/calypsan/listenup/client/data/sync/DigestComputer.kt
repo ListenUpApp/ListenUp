@@ -9,7 +9,7 @@ import org.kotlincrypto.hash.sha2.SHA256
  * with `\n` separators plus a trailing `\n`, SHA-256, format `"sha256:"+lowercase-hex`.
  * Empty input → `count = 0, hash = ""`.
  */
-object DigestComputer {
+internal object DigestComputer {
     fun compute(
         cursor: Long,
         rows: List<Pair<String, Long>>,
