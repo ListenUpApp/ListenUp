@@ -235,7 +235,7 @@ private suspend fun stageService(
             paths = paths,
             bookMatcher = BookMatcher(db.asSqlDatabase()),
             userMatcher = UserMatcher(),
-            libraryRegistry = LibraryRegistry(db),
+            libraryRegistry = LibraryRegistry(db.asSqlDatabase()),
             sql = db.asSqlDatabase(),
         )
     val applier =
@@ -261,7 +261,7 @@ private suspend fun stageService(
 }
 
 private suspend fun seedLibraryUser(db: Database): LibraryId {
-    val libId = LibraryRegistry(db).currentLibrary()
+    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
     transaction(db) {
         UserEntity.new(LU_USER) {
             email = "simon@x.test"

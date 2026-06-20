@@ -211,7 +211,7 @@ private fun repository(
     db: Database,
     bus: ChangeBus,
 ): SoftDeleteRepoFixture {
-    val registry = LibraryRegistry(db)
+    val registry = LibraryRegistry(db.asSqlDatabase())
     val syncRegistry = SyncRegistry()
     val repo =
         BookRepository(

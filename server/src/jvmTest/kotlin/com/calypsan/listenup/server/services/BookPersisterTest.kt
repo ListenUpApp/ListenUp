@@ -534,7 +534,7 @@ private fun persister(
 ): BookPersister =
     BookPersister(
         ingest = ingest,
-        libraryRegistry = LibraryRegistry(db),
+        libraryRegistry = LibraryRegistry(db.asSqlDatabase()),
         libraryRepository = LibraryRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()),
         collectionService = inertCollectionService(db),
         db = db,

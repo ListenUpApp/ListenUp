@@ -44,7 +44,7 @@ class ApplicationBootstrapTest :
             withInMemoryDatabase {
                 val db = this
                 val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
-                val registry = LibraryRegistry(db = db)
+                val registry = LibraryRegistry(sql = db.asSqlDatabase())
                 runTest {
                     bootstrapLibraries(
                         libraryAdminService = service,
@@ -67,7 +67,7 @@ class ApplicationBootstrapTest :
                 val dir1 = Files.createTempDirectory("bootstrap-seed1-")
                 val dir2 = Files.createTempDirectory("bootstrap-seed2-")
                 val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
-                val registry = LibraryRegistry(db = db)
+                val registry = LibraryRegistry(sql = db.asSqlDatabase())
                 runTest {
                     bootstrapLibraries(
                         libraryAdminService = service,
@@ -92,7 +92,7 @@ class ApplicationBootstrapTest :
                 val realDir = Files.createTempDirectory("bootstrap-realdir-")
                 val nonDir = Files.createTempFile("bootstrap-notadir-", ".tmp")
                 val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
-                val registry = LibraryRegistry(db = db)
+                val registry = LibraryRegistry(sql = db.asSqlDatabase())
                 runTest {
                     // addFolder rejects non-directories via LibraryError.InvalidPath
                     bootstrapLibraries(
@@ -116,7 +116,7 @@ class ApplicationBootstrapTest :
             withInMemoryDatabase {
                 val db = this
                 val dir = Files.createTempDirectory("bootstrap-idempotent-")
-                val registry = LibraryRegistry(db = db)
+                val registry = LibraryRegistry(sql = db.asSqlDatabase())
                 val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
                 runTest {
                     // First boot: seeds the folder
@@ -129,7 +129,7 @@ class ApplicationBootstrapTest :
                     )
                     // Second boot with same path — DuplicateFolder is skipped, not crash
                     val (service2, orchestrator2, _) = makeServiceAndOrchestrator(db)
-                    val registry2 = LibraryRegistry(db = db)
+                    val registry2 = LibraryRegistry(sql = db.asSqlDatabase())
                     bootstrapLibraries(
                         libraryAdminService = service2,
                         scanOrchestrator = orchestrator2,
@@ -202,7 +202,7 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             scanOrchestrator = orchestrator,
             libraryRegistry =
                 com.calypsan.listenup.server.services
-                    .LibraryRegistry(db = db),
+                    .LibraryRegistry(sql = db.asSqlDatabase()),
         )
 
     return ServiceFixture(service, orchestrator, onLibraryAddedCalls, scanLibraryCalls)

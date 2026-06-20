@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -28,7 +29,7 @@ class LibraryRegistryTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
 
                     val id = registry.currentLibrary()
 
@@ -60,7 +61,7 @@ class LibraryRegistryTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
                     val id = registry.currentLibrary()
                     transaction(db) {
                         LibraryTable.selectAll().where { LibraryTable.id eq id.value }.count() shouldBe 1L
@@ -84,7 +85,7 @@ class LibraryRegistryTest :
                     }
                 }
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
                     registry.currentLibrary() shouldBe LibraryId("lib-existing")
                 }
             }
@@ -94,7 +95,7 @@ class LibraryRegistryTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
                     val first = registry.currentLibrary()
                     transaction(db) { LibraryTable.deleteAll() }
                     registry.currentLibrary() shouldBe first

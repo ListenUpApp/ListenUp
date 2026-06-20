@@ -462,7 +462,7 @@ private suspend fun stageAnalyzedImport(
             paths = paths,
             bookMatcher = BookMatcher(db.asSqlDatabase()),
             userMatcher = UserMatcher(),
-            libraryRegistry = LibraryRegistry(db),
+            libraryRegistry = LibraryRegistry(db.asSqlDatabase()),
             sql = db.asSqlDatabase(),
         )
     analyzer.analyze(importId) {}
@@ -507,7 +507,7 @@ private suspend fun confirmSimonMapping(
 
 /** Seeds the ListenUp library + the `simon` user, returning the resolved library id. */
 private suspend fun seedLibraryUser(db: Database): LibraryId {
-    val libId = LibraryRegistry(db).currentLibrary()
+    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
     transaction(db) {
         UserEntity.new(LU_USER) {
             email = "simon@x.test"

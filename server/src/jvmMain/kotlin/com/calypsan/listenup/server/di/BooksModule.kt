@@ -108,7 +108,7 @@ fun booksModule(
     module {
         single {
             LibraryRegistry(
-                db = get(),
+                sql = get(),
                 metadataPrecedence = metadataPrecedence,
             )
         }

@@ -47,7 +47,7 @@ class BookRepositoryReadPayloadsTest :
                 val db = this
                 val repo = newRepo(db)
                 runTest {
-                    val libId = LibraryRegistry(db).currentLibrary().value
+                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
                     transaction(db) {
                         listOf("b1", "b2").forEachIndexed { bi, bookId ->
                             BookTable.insert {
@@ -178,7 +178,7 @@ class BookRepositoryReadPayloadsTest :
                 val db = this
                 val repo = newRepo(db)
                 runTest {
-                    val libId = LibraryRegistry(db).currentLibrary().value
+                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
                     transaction(db) {
                         listOf("a", "b", "c").forEach { bookId ->
                             BookTable.insert {
@@ -207,7 +207,7 @@ class BookRepositoryReadPayloadsTest :
                 val db = this
                 val repo = newRepo(db)
                 runTest {
-                    val libId = LibraryRegistry(db).currentLibrary().value
+                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
                     transaction(db) {
                         listOf("x", "z").forEach { bookId ->
                             BookTable.insert {
@@ -248,7 +248,7 @@ class BookRepositoryReadPayloadsTest :
                 val db = this
                 val repo = newRepo(db)
                 runTest {
-                    val libId = LibraryRegistry(db).currentLibrary().value
+                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
                     val ids = (0 until 1000).map { "book-%04d".format(it) }
                     transaction(db) {
                         ids.forEach { bookId ->

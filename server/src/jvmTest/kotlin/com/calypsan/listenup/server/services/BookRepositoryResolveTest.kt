@@ -166,7 +166,7 @@ private data class ResolveRepoFixture(
 )
 
 private fun repository(db: Database): ResolveRepoFixture {
-    val registry = LibraryRegistry(db)
+    val registry = LibraryRegistry(db.asSqlDatabase())
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val repo =

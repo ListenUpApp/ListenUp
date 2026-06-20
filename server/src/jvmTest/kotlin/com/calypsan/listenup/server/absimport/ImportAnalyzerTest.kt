@@ -39,7 +39,7 @@ class ImportAnalyzerTest :
                 val analyzer = analyzerFor(db, paths)
 
                 runTest {
-                    val libId = LibraryRegistry(db).currentLibrary()
+                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
                     transaction(db) {
                         seedAnalyzerBooks(libId.value)
                         seedAnalyzerUser()
@@ -91,7 +91,7 @@ class ImportAnalyzerTest :
                 val analyzer = analyzerFor(db, paths)
 
                 runTest {
-                    val libId = LibraryRegistry(db).currentLibrary()
+                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
                     transaction(db) {
                         seedAnalyzerBooks(libId.value)
                         seedAnalyzerUser()
@@ -176,7 +176,7 @@ private fun analyzerFor(
         paths = paths,
         bookMatcher = BookMatcher(db.asSqlDatabase()),
         userMatcher = UserMatcher(),
-        libraryRegistry = LibraryRegistry(db),
+        libraryRegistry = LibraryRegistry(db.asSqlDatabase()),
         sql = db.asSqlDatabase(),
     )
 

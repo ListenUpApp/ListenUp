@@ -79,7 +79,7 @@ class DefaultGrantTest :
             val bus = ChangeBus()
             val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
             val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
-            val libraryRegistry = LibraryRegistry(db)
+            val libraryRegistry = LibraryRegistry(db.asSqlDatabase())
 
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)

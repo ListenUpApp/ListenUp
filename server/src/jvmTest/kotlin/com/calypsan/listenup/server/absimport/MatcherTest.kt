@@ -172,7 +172,7 @@ private fun withSeededLibrary(block: suspend (matcher: BookMatcher, libId: Libra
     withInMemoryDatabase {
         val db = this
         runTest {
-            val libId = LibraryRegistry(db).currentLibrary()
+            val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
             transaction(db) { seedBooks(libId.value) }
             block(BookMatcher(db.asSqlDatabase()), libId)
         }

@@ -453,7 +453,7 @@ private fun makeService(
                     registry = SyncRegistry(),
                 ),
         )
-    val libraryRegistry = LibraryRegistry(db = db, clock = clock)
+    val libraryRegistry = LibraryRegistry(sql = db.asSqlDatabase(), clock = clock)
     val service =
         LibraryAdminServiceImpl(
             libraryRepository = libraryRepo,

@@ -241,7 +241,7 @@ private fun makeAdminSettingsService(
     principal: PrincipalProvider,
 ): AdminSettingsFixture {
     val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
-    val libraryRegistry = LibraryRegistry(db = db)
+    val libraryRegistry = LibraryRegistry(sql = db.asSqlDatabase())
     val svc =
         AdminSettingsServiceImpl(
             settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN),
@@ -293,7 +293,7 @@ private suspend fun seedLibrary(
         libraryFolderRepository = folderRepo,
         bookRepository = bookRepo,
         scanOrchestrator = noOpOrchestrator(),
-        libraryRegistry = LibraryRegistry(db = db),
+        libraryRegistry = LibraryRegistry(sql = db.asSqlDatabase()),
     ).copyWith(principal)
         .addFolder(dir.absolutePath)
 }

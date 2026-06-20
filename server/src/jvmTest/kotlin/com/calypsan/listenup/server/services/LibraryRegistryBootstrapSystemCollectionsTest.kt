@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.api.SYSTEM_OWNER_ID
 import com.calypsan.listenup.server.db.CollectionsTable
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
@@ -26,7 +27,7 @@ class LibraryRegistryBootstrapSystemCollectionsTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
                     val libraryId = registry.currentLibrary()
 
                     val rows =
@@ -51,7 +52,7 @@ class LibraryRegistryBootstrapSystemCollectionsTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
                     val libraryId = registry.currentLibrary()
 
                     val rows =
@@ -76,7 +77,7 @@ class LibraryRegistryBootstrapSystemCollectionsTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val registry = LibraryRegistry(db)
+                    val registry = LibraryRegistry(db.asSqlDatabase())
                     registry.currentLibrary()
 
                     val (allBooksId, inboxId) =
