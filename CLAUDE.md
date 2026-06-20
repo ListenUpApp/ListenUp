@@ -207,6 +207,16 @@ Full philosophy in the parent `CLAUDE.md`. Day-to-day rules:
 - **Translate once at the boundary.** `ErrorMapper` runs at the Ktor edge; downstream consumers fold the typed value. Never substring-match on `error.message` — it's a constant, so the match is either redundant or wrong.
 - **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI. Adding a public commonMain type without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build.
 
+### Export Surface
+
+The shared modules (`:contract`, `:sharedLogic`) export their public API to every client platform — the iOS framework now, the planned Swift Export and JS bundles next; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
+
+1. **Relocate** a type to its real consumer (the REST `@Resource` surface lives in `:server`, not `:contract`) — gone from _every_ export path, no annotation. `NoResourcesInContractRule` pins the `@Resource` case.
+2. **`internal`** for single-module types — honored by ObjC, Swift Export, JS, and R8 alike (not available for genuinely cross-module types).
+3. **`@HiddenFromObjC`** (under `@OptIn(ExperimentalObjCRefinement::class)`) — last resort for cross-module-public types. It refines the **Objective-C framework ONLY — it does NOT govern the planned direct Swift Export**, and it must be applied per-declaration (sealed subtypes and `expect`/`actual` don't inherit it; a type named by an exported public signature ships regardless).
+
+JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (iOS)` job records an export-surface inventory of `Shared.framework` so regressions are visible.
+
 ### Code Style
 
 - Functions and variables: clear, descriptive, intention-revealing names
