@@ -14,7 +14,8 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.cover.CoverImageStore
-import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.CoverSpool
 import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
@@ -27,12 +28,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.file.Path as JPath
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -81,7 +76,7 @@ class BookPersister internal constructor(
     private val libraryRegistry: LibraryRegistry,
     private val libraryRepository: LibraryRepository,
     private val collectionService: CollectionServiceImpl,
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val scanResultBus: SharedFlow<ScanResult>,
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val scope: CoroutineScope,
@@ -383,12 +378,11 @@ class BookPersister internal constructor(
      * TODO: surface a typed error when the folder row is missing (LIB-D / ScanOrchestrator).
      */
     private suspend fun resolveFolderId(rootPath: String): FolderId =
-        suspendTransaction(db) {
-            LibraryFolderTable
-                .selectAll()
-                .where { LibraryFolderTable.rootPath eq rootPath and LibraryFolderTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.let { FolderId(it[LibraryFolderTable.id]) }
+        suspendTransaction(sql) {
+            sql.libraryFoldersQueries
+                .selectLiveByRootPath(root_path = rootPath)
+                .executeAsOneOrNull()
+                ?.let { FolderId(it.id) }
         } ?: run {
             log.warn { "No library_folder row found for rootPath='$rootPath' — book folderId will be unknown" }
             FolderId("unknown")

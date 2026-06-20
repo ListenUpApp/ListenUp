@@ -320,7 +320,7 @@ private fun Module.coverAndPersisterBindings(
             libraryRegistry = get(),
             libraryRepository = get(),
             collectionService = get<CollectionServiceImpl>(),
-            db = get(),
+            sql = get<ListenUpDatabase>(),
             scanResultBus = get<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults),
             eventBus = get<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents),
             scope = get(),

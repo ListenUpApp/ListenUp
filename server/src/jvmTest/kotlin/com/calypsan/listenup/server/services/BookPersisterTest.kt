@@ -537,7 +537,7 @@ private fun persister(
         libraryRegistry = LibraryRegistry(db.asSqlDatabase()),
         libraryRepository = LibraryRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()),
         collectionService = inertCollectionService(db),
-        db = db,
+        sql = db.asSqlDatabase(),
         scanResultBus = MutableSharedFlow(),
         eventBus = eventBus,
         scope = scope,
