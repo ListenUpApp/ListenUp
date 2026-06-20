@@ -1,0 +1,41 @@
+-- Genres table — DESCRIBE-ONLY in this .sq set.
+--
+-- The Genre aggregate is NOT converted to SQLDelight here: the Exposed
+-- `GenreTable` remains the source of truth for genre CRUD. This file exists
+-- solely so the book↔genre JOIN queries in BookGenres.sq can resolve the
+-- `genres` columns (name / slug / path / deleted_at) at codegen time —
+-- readBookPayloads, readPayload, and BookSearchReindexer all read genre display
+-- fields through that join.
+--
+-- Column set matches V23__genres.sql exactly.
+--
+-- `id` is declared NOT NULL here so the JOIN's `g.id` and `g.path` columns
+-- generate non-null types: every persisted genre row carries an id (the migration
+-- writes `id TEXT PRIMARY KEY`, and the substrate never inserts a null id). This
+-- mirrors the Exposed `GenreTable.id = varchar("id", 36)` non-nullable shape.
+--
+-- The parent_id self-FK is retained (it targets a table in THIS file, so
+-- SQLDelight resolves it), matching the migration. No queries are declared — this
+-- file is a schema describe only; the BookGenres.sq join references these columns.
+CREATE TABLE genres (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    name         TEXT    NOT NULL,
+    slug         TEXT    NOT NULL,
+    path         TEXT    NOT NULL,
+    parent_id    TEXT,
+    depth        INTEGER NOT NULL DEFAULT 0,
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    color        TEXT,
+    description  TEXT,
+    revision     INTEGER NOT NULL DEFAULT 0,
+    updated_at   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL DEFAULT 0,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    FOREIGN KEY (parent_id) REFERENCES genres(id) ON DELETE SET NULL
+);
+
+CREATE UNIQUE INDEX idx_genres_slug_live ON genres(slug) WHERE deleted_at IS NULL;
+CREATE INDEX idx_genres_path ON genres(path);
+CREATE INDEX idx_genres_parent ON genres(parent_id);
+CREATE INDEX idx_genres_revision ON genres(revision);

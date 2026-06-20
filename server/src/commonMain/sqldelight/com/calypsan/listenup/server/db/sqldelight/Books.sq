@@ -1,0 +1,196 @@
+-- Books table: the books domain's only syncable aggregate root.
+-- Effective schema is the union of:
+--   V4__books_table.sql          (base columns + SyncableTable substrate)
+--   V11__books_scan_warning.sql  (has_scan_warning)
+--   V20__library_substrate.sql   (folder_id)
+--
+-- revision / created_at / updated_at / scanned_at / total_duration are declared
+-- NOT NULL here so the generated column types are non-null `Long` — every row
+-- carries them (the substrate writes revision/created_at/updated_at on every
+-- upsert; the scanner writes scanned_at + total_duration on every ingest).
+--
+-- folder_id is declared NOT NULL even though V20's `ALTER TABLE books ADD COLUMN
+-- folder_id VARCHAR(36) DEFAULT 'PENDING-LIB-C'` makes it nullable at the DDL
+-- level: SQLite cannot add a NOT NULL column without a constant default in a
+-- single ALTER, so the migration uses a DEFAULT sentinel instead. Every live row
+-- carries a non-null folder_id (the insert path always sets it from the payload),
+-- so the generated type is the non-null `String` the reader/writer rely on —
+-- matching the Exposed `BookTable.folderId` which is also non-nullable.
+--
+-- has_scan_warning / abridged / explicit are INTEGER (0/1) in SQLite; the Exposed
+-- table maps them to `bool`. SQLDelight maps INTEGER → Long; the repo rewrite maps
+-- 0/1 ↔ Boolean at the boundary (the same place the Exposed bool adapter sat).
+--
+-- FK declarations (library_id → libraries, folder_id → library_folders) are
+-- omitted: SQLDelight cannot resolve cross-table references for tables not defined
+-- in this schema's .sq set. The constraints live in the migration DDL and are
+-- enforced (or deliberately app-enforced, per V20's note) at runtime.
+CREATE TABLE books (
+    id               TEXT    NOT NULL PRIMARY KEY,
+    library_id       TEXT    NOT NULL,
+    folder_id        TEXT    NOT NULL,
+    title            TEXT    NOT NULL,
+    sort_title       TEXT,
+    subtitle         TEXT,
+    description      TEXT,
+    publish_year     INTEGER,
+    publisher        TEXT,
+    language         TEXT,
+    isbn             TEXT,
+    asin             TEXT,
+    abridged         INTEGER NOT NULL DEFAULT 0,
+    explicit         INTEGER NOT NULL DEFAULT 0,
+    has_scan_warning INTEGER NOT NULL DEFAULT 0,
+    total_duration   INTEGER NOT NULL,
+    cover_source     TEXT,
+    cover_path       TEXT,
+    cover_hash       TEXT,
+    root_rel_path    TEXT    NOT NULL,
+    inode            INTEGER,
+    scanned_at       INTEGER NOT NULL,
+    revision         INTEGER NOT NULL,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL,
+    deleted_at       INTEGER,
+    client_op_id     TEXT
+);
+
+CREATE UNIQUE INDEX idx_book_natural_key ON books(library_id, root_rel_path);
+CREATE INDEX idx_book_inode ON books(library_id, inode);
+CREATE INDEX idx_book_sort_title ON books(library_id, sort_title);
+CREATE INDEX idx_book_revision ON books(revision);
+CREATE INDEX idx_book_updated_at ON books(updated_at);
+CREATE INDEX idx_books_library_id ON books(library_id);
+CREATE INDEX idx_books_folder_id ON books(folder_id);
+
+-- ── root-row reads ───────────────────────────────────────────────────────────
+
+-- Tombstone-inclusive read by id — readPayload hydrates soft-deleted rows so
+-- clients receive tombstones.
+selectById:
+SELECT * FROM books WHERE id = :id;
+
+-- Batched read for readBookPayloads' chunked IN-list hydration.
+selectByIds:
+SELECT * FROM books WHERE id IN :ids;
+
+-- Natural-key resolve (library_id + root_rel_path) → id. Drives findByPath and
+-- the scanner's three-key identity model (spec §5.1).
+selectIdByNaturalKey:
+SELECT id FROM books WHERE library_id = :library_id AND root_rel_path = :root_rel_path;
+
+-- Move-detection resolve (library_id + inode) → ids. findByInode picks the first
+-- match deterministically when hardlinks share an inode.
+selectIdsByInode:
+SELECT id FROM books WHERE library_id = :library_id AND inode = :inode;
+
+-- cover_source only — the sticky-UPLOADED check in writePayload reads just this
+-- column before deciding whether to preserve the cover columns on re-scan.
+selectCoverSourceById:
+SELECT cover_source FROM books WHERE id = :id;
+
+-- Live (non-tombstoned) (id, root_rel_path) for a library — feeds the full-scan
+-- tombstone sweep (softDeleteAbsent / softDeleteAbsentByPaths), which filters
+-- against the seen set in memory.
+selectLiveIdsAndPathsForLibrary:
+SELECT id, root_rel_path FROM books WHERE library_id = :library_id AND deleted_at IS NULL;
+
+-- Live book id at an exact (library_id, root_rel_path) — softDeleteByPath's
+-- idempotent single-row lookup for incremental-scan Removed events.
+selectLiveIdByPath:
+SELECT id FROM books
+WHERE library_id = :library_id AND root_rel_path = :root_rel_path AND deleted_at IS NULL;
+
+-- ── writes ───────────────────────────────────────────────────────────────────
+
+insert:
+INSERT INTO books (
+    id, library_id, folder_id, title, sort_title, subtitle, description,
+    publish_year, publisher, language, isbn, asin, abridged, explicit,
+    has_scan_warning, total_duration, cover_source, cover_path, cover_hash,
+    root_rel_path, inode, scanned_at, revision, created_at, updated_at,
+    deleted_at, client_op_id
+) VALUES (
+    :id, :library_id, :folder_id, :title, :sort_title, :subtitle, :description,
+    :publish_year, :publisher, :language, :isbn, :asin, :abridged, :explicit,
+    :has_scan_warning, :total_duration, :cover_source, :cover_path, :cover_hash,
+    :root_rel_path, :inode, :scanned_at, :revision, :created_at, :updated_at,
+    :deleted_at, :client_op_id
+);
+
+-- Full content update (the writePayload edit branch). Writes every scalar column
+-- EXCEPT library_id / folder_id (identity, set once at insert) and created_at
+-- (re-stamped only by the explicit-edit override via a separate statement).
+-- Cover columns are written here; the sticky-UPLOADED preserve case is handled by
+-- the caller choosing updateContentPreserveCover instead.
+updateContent:
+UPDATE books
+SET title = :title, sort_title = :sort_title, subtitle = :subtitle,
+    description = :description, publish_year = :publish_year, publisher = :publisher,
+    language = :language, isbn = :isbn, asin = :asin, abridged = :abridged,
+    explicit = :explicit, has_scan_warning = :has_scan_warning,
+    total_duration = :total_duration, cover_source = :cover_source,
+    cover_path = :cover_path, cover_hash = :cover_hash, root_rel_path = :root_rel_path,
+    inode = :inode, scanned_at = :scanned_at, revision = :revision,
+    updated_at = :updated_at, deleted_at = NULL, client_op_id = :client_op_id
+WHERE id = :id;
+
+-- Sticky-UPLOADED variant: identical to updateContent but skips the three cover
+-- columns so a re-scan never clobbers a user-uploaded cover.
+updateContentPreserveCover:
+UPDATE books
+SET title = :title, sort_title = :sort_title, subtitle = :subtitle,
+    description = :description, publish_year = :publish_year, publisher = :publisher,
+    language = :language, isbn = :isbn, asin = :asin, abridged = :abridged,
+    explicit = :explicit, has_scan_warning = :has_scan_warning,
+    total_duration = :total_duration, root_rel_path = :root_rel_path,
+    inode = :inode, scanned_at = :scanned_at, revision = :revision,
+    updated_at = :updated_at, deleted_at = NULL, client_op_id = :client_op_id
+WHERE id = :id;
+
+-- Edit-path created_at override — moves the added date only on an explicit
+-- metadata edit (applyBookFields never writes created_at on a rescan).
+updateCreatedAt:
+UPDATE books SET created_at = :created_at WHERE id = :id;
+
+-- Managed-cover write (setManagedCover): provenance + relative path + hash, plus
+-- revision/updated_at bump. Returns the affected-row count semantics via change().
+updateManagedCover:
+UPDATE books
+SET cover_source = :cover_source, cover_path = :cover_path, cover_hash = :cover_hash,
+    revision = :revision, updated_at = :updated_at
+WHERE id = :id;
+
+-- Clears the managed-cover columns (clearManagedCover) with a revision bump.
+clearManagedCover:
+UPDATE books
+SET cover_source = NULL, cover_path = NULL, cover_hash = NULL,
+    revision = :revision, updated_at = :updated_at
+WHERE id = :id;
+
+-- Content-free revision bump (touchRevision) — visibility-only changes
+-- (collection membership) re-enter every member's incremental pull.
+touchRevision:
+UPDATE books SET revision = :revision, updated_at = :updated_at WHERE id = :id;
+
+-- Rows affected by the most recent statement on this connection — lets the repo
+-- distinguish a 0-row update (NotFound) from a successful one.
+changes:
+SELECT changes();
+
+-- ── substrate queries ────────────────────────────────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM books WHERE id = :id);
+
+softDeleteById:
+UPDATE books
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM books WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM books WHERE revision <= :cursor;

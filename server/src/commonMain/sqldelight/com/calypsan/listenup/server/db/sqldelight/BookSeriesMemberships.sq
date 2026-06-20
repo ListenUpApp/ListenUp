@@ -1,0 +1,58 @@
+-- book_series_memberships junction: links a book to a series with an optional
+-- sequence label (e.g. "1", "1.5"). Column set matches V6__books_series.sql.
+-- Composite PK (book_id, series_id) — a book belongs to a given series at most
+-- once; `ordinal` preserves series-position order across upserts.
+--
+-- Not syncable — book updates carry their series set inline via
+-- BookSyncPayload.series. Replaced wholesale (delete-by-book then insert) on
+-- every aggregate upsert.
+--
+-- FK declarations (book_id → books, series_id → book_series) are omitted; both
+-- target tables live in other .sq files but SQLDelight resolves FK targets only
+-- within a single .sq file. Constraints live in the migration DDL.
+CREATE TABLE book_series_memberships (
+    book_id   TEXT    NOT NULL,
+    series_id TEXT    NOT NULL,
+    sequence  TEXT,
+    ordinal   INTEGER NOT NULL,
+    PRIMARY KEY (book_id, series_id)
+);
+
+CREATE INDEX idx_bsm_series ON book_series_memberships(series_id);
+
+-- ── reads ────────────────────────────────────────────────────────────────────
+
+-- Joined batched read for readBookPayloads: every membership row for the
+-- id-chunk, enriched with the series display name, ordered by ordinal.
+selectByBookIds:
+SELECT bsm.book_id, bsm.series_id, bsm.sequence, bsm.ordinal, bs.name
+FROM book_series_memberships bsm
+JOIN book_series bs ON bs.id = bsm.series_id
+WHERE bsm.book_id IN :ids
+ORDER BY bsm.ordinal;
+
+-- Distinct book ids linked to a series, in series-position order — drives the
+-- deleteSeries cascade and the updateSeries reindex flow.
+bookIdsForSeries:
+SELECT book_id FROM book_series_memberships
+WHERE series_id = :series_id ORDER BY ordinal;
+
+-- ── writes ───────────────────────────────────────────────────────────────────
+
+insert:
+INSERT INTO book_series_memberships (book_id, series_id, sequence, ordinal)
+VALUES (:book_id, :series_id, :sequence, :ordinal);
+
+-- Wholesale-replace step: clears a book's membership rows before re-inserting.
+deleteByBookId:
+DELETE FROM book_series_memberships WHERE book_id = :book_id;
+
+-- Hard-deletes every membership row referencing a series — deleteSeries cascade.
+deleteAllForSeries:
+DELETE FROM book_series_memberships WHERE series_id = :series_id;
+
+-- Re-links every membership row from :from_id to :to_id (mergeSeries). Unlike the
+-- contributor merge there is no credited_as equivalent — the canonical name change
+-- IS the intended semantic.
+relinkSeries:
+UPDATE book_series_memberships SET series_id = :to_id WHERE series_id = :from_id;

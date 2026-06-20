@@ -1,0 +1,124 @@
+-- book_search: contentless FTS5 index over the book aggregate, plus the
+-- book_search_map that bridges books.id (UUID string) ↔ the FTS5 INTEGER rowid.
+--
+-- The virtual table's effective shape is the union of V8 → V9 → V21 → V23, each
+-- of which DROP+CREATEs it to append a column. The final column list is:
+--   title, subtitle, description, contributor_names, series_names, tags, genres
+-- with content='' + contentless_delete=1 + the unicode61/remove_diacritics 2
+-- tokenizer. The application owns all population (no triggers on book_search);
+-- BookRepository.upsertFtsRow and BookSearchReindexer are the sole writers.
+--
+-- contentless_delete=1 (SQLite 3.43+) lets updates use a plain
+-- `DELETE FROM book_search WHERE rowid = ?` followed by a fresh INSERT, instead
+-- of the legacy contentless `INSERT INTO ft(ft,'delete',…)` idiom.
+CREATE VIRTUAL TABLE book_search USING fts5(
+    title,
+    subtitle,
+    description,
+    contributor_names,
+    series_names,
+    tags,
+    genres,
+    content='',
+    contentless_delete=1,
+    tokenize='unicode61 remove_diacritics 2'
+);
+
+-- book_search_map: server-internal books.id ↔ FTS5 rowid mapping. Matches
+-- V9__books_search_map.sql. Rowids are allocated on first FTS write
+-- (MAX(rowid)+1) and reused on subsequent updates.
+CREATE TABLE book_search_map (
+    book_id TEXT    NOT NULL PRIMARY KEY,
+    rowid   INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_book_search_map_rowid ON book_search_map(rowid);
+
+-- ── FTS5 search ──────────────────────────────────────────────────────────────
+
+-- Production book search: MATCH against the contentless index, bridged through
+-- book_search_map to the real books row, with author names assembled in one pass
+-- via a correlated GROUP_CONCAT sub-select (no N+1). Tombstoned books are
+-- excluded; results are relevance-ordered (FTS5 `rank`) and capped at :limit.
+--
+-- This is the static core of SearchServiceImpl.searchBooks. The production code
+-- additionally splices DYNAMIC fragments that cannot be static typed queries:
+--   • an access-control `AND b.id IN (<subquery>)` (null for ROOT/ADMIN),
+--   • optional genre/duration/year filters,
+--   • a sort override (Title / Recent / Duration replacing the rank ORDER BY).
+-- Those remain runtime-built string fragments with parameterised args; this
+-- typed query proves the MATCH+join+GROUP_CONCAT shape compiles and covers the
+-- default (relevance, unfiltered) path. See the U2 report for the rationale.
+searchBooks:
+SELECT b.id, b.title, b.cover_path, b.cover_hash,
+       (SELECT GROUP_CONCAT(c.name, ', ')
+          FROM book_contributors bc
+          JOIN contributors c ON c.id = bc.contributor_id
+         WHERE bc.book_id = b.id AND bc.role = 'author'
+         ORDER BY bc.ordinal) AS author_names
+FROM book_search s
+JOIN book_search_map m ON s.rowid = m.rowid
+JOIN books b ON b.id = m.book_id
+WHERE book_search MATCH :query AND b.deleted_at IS NULL
+ORDER BY rank
+LIMIT :limit;
+
+-- Rowid-only MATCH used by BookFinder.searchFts (returns just the book ids in
+-- rank order; the access filter, when present, is spliced at runtime as above).
+searchBookIds:
+SELECT m.book_id
+FROM book_search s
+JOIN book_search_map m ON s.rowid = m.rowid
+WHERE book_search MATCH :query
+ORDER BY rank
+LIMIT :limit;
+
+-- ── FTS5 row writes (contentless_delete=1 DELETE + INSERT pair) ───────────────
+
+deleteFtsRow:
+DELETE FROM book_search WHERE rowid = :rowid;
+
+-- Full-row insert covering every FTS column — BookSearchReindexer's canonical
+-- write. BookRepository.upsertFtsRow historically wrote only the first five
+-- columns; the rewrite folds onto this single full-column insert (tags/genres
+-- empty when not yet resolved).
+insertFtsRow:
+INSERT INTO book_search(
+    rowid, title, subtitle, description, contributor_names, series_names, tags, genres
+) VALUES (
+    :rowid, :title, :subtitle, :description, :contributor_names, :series_names, :tags, :genres
+);
+
+-- ── book_search_map (rowid allocation + lookup) ──────────────────────────────
+
+-- Existing rowid for a book, or absent → caller allocates a fresh one.
+selectRowidForBook:
+SELECT rowid FROM book_search_map WHERE book_id = :book_id;
+
+-- MAX(rowid) for the MAX+1 allocation in resolveOrAllocateFtsRowid. Returns NULL
+-- on an empty table; the caller coalesces to 0 then adds 1.
+selectMaxRowid:
+SELECT MAX(rowid) FROM book_search_map;
+
+insertMap:
+INSERT INTO book_search_map (book_id, rowid) VALUES (:book_id, :rowid);
+
+-- Reads the live FTS source columns straight from the content tables (books +
+-- junctions) — book_search is contentless, so the original text isn't stored
+-- there. BookSearchReindexer.readExistingFtsRow uses this to rebuild title /
+-- subtitle / description / contributor_names / series_names before re-inserting.
+selectFtsSourceByRowid:
+SELECT b.title,
+       COALESCE(b.subtitle, '') AS subtitle,
+       COALESCE(b.description, '') AS description,
+       COALESCE((SELECT GROUP_CONCAT(c.name, ', ')
+                   FROM book_contributors bc
+                   JOIN contributors c ON c.id = bc.contributor_id
+                  WHERE bc.book_id = b.id), '') AS contributor_names,
+       COALESCE((SELECT GROUP_CONCAT(bs.name, ', ')
+                   FROM book_series_memberships bsm
+                   JOIN book_series bs ON bs.id = bsm.series_id
+                  WHERE bsm.book_id = b.id), '') AS series_names
+FROM book_search_map m
+JOIN books b ON b.id = m.book_id
+WHERE m.rowid = :rowid;
