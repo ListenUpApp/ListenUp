@@ -1,4 +1,4 @@
-package com.calypsan.listenup.api.dto
+package com.calypsan.listenup.server.routes.resources
 
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId

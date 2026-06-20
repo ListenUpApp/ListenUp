@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.PlaybackProgressResources
+import com.calypsan.listenup.server.routes.resources.PlaybackProgressResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.BookAccessPolicy

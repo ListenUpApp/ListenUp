@@ -23,8 +23,8 @@ import kotlinx.rpc.annotations.Rpc
  * The `book_tags` junction is a global cross-user association (curator model).
  * Per-user ACL enforcement is deferred to the Multi-user phase.
  *
- * REST mirrors are defined in [com.calypsan.listenup.api.resources.TagResources]
- * and [com.calypsan.listenup.api.resources.BookTagsResources].
+ * REST mirrors are defined in `TagResources`
+ * and `BookTagsResources`.
  */
 @Rpc
 interface TagService {

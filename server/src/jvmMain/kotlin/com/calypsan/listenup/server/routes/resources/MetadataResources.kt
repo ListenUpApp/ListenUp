@@ -1,4 +1,4 @@
-package com.calypsan.listenup.api.resources
+package com.calypsan.listenup.server.routes.resources
 
 import io.ktor.resources.Resource
 

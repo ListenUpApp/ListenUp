@@ -14,7 +14,7 @@ import kotlinx.rpc.annotations.Rpc
  * books only (filters/sort are book concepts). An empty or blank query always returns
  * empty lists — it is never an error.
  *
- * REST mirror: [com.calypsan.listenup.api.resources.SearchResources].
+ * REST mirror: `SearchResources`.
  */
 @Rpc
 interface SearchService {

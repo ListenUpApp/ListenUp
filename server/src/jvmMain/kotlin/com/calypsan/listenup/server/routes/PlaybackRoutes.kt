@@ -4,10 +4,10 @@ import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.Events
-import com.calypsan.listenup.api.resources.Position
-import com.calypsan.listenup.api.resources.Prepare
-import com.calypsan.listenup.api.resources.Stats
+import com.calypsan.listenup.server.routes.resources.Events
+import com.calypsan.listenup.server.routes.resources.Position
+import com.calypsan.listenup.server.routes.resources.Prepare
+import com.calypsan.listenup.server.routes.resources.Stats
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider

@@ -6,8 +6,8 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.AdminUserResources
-import com.calypsan.listenup.api.resources.RegistrationPolicyResource
+import com.calypsan.listenup.server.routes.resources.AdminUserResources
+import com.calypsan.listenup.server.routes.resources.RegistrationPolicyResource
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider

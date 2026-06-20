@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.BookResources
+import com.calypsan.listenup.server.routes.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId

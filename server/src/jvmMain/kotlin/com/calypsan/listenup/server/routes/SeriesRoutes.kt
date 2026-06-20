@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.SeriesService
-import com.calypsan.listenup.api.dto.MergeSeriesBody
+import com.calypsan.listenup.server.routes.resources.MergeSeriesBody
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.SeriesResources
+import com.calypsan.listenup.server.routes.resources.SeriesResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload

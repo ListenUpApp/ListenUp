@@ -2,10 +2,10 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
-import com.calypsan.listenup.api.dto.MergeContributorsBody
-import com.calypsan.listenup.api.dto.UnmergeContributorBody
+import com.calypsan.listenup.server.routes.resources.MergeContributorsBody
+import com.calypsan.listenup.server.routes.resources.UnmergeContributorBody
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.ContributorResources
+import com.calypsan.listenup.server.routes.resources.ContributorResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload

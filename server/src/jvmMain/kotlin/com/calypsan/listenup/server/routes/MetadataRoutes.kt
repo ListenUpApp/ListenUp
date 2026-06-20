@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.AudibleRegion
-import com.calypsan.listenup.api.resources.MetadataResources
+import com.calypsan.listenup.server.routes.resources.MetadataResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId

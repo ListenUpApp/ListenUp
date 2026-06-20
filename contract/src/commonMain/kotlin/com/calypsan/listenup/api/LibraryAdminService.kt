@@ -24,7 +24,7 @@ import kotlinx.rpc.annotations.Rpc
  * members can browse content and the onboarding wizard can run before an admin exists.
  *
  * REST mirrors are defined in
- * [com.calypsan.listenup.api.resources.LibraryResources].
+ * `LibraryResources`.
  *
  * Two surface categories:
  * - **Observation + setup** — [getLibrary], [getSetupStatus], [browseFilesystem]

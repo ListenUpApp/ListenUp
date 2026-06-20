@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.dto.SearchFilters
 import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchSort
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.SearchResources
+import com.calypsan.listenup.server.routes.resources.SearchResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider

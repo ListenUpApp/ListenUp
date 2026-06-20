@@ -31,7 +31,7 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.rpc.core)
-            implementation(libs.ktor.resources)
+            implementation(libs.ktor.io) // io.ktor.utils.io.ByteReadChannel (FileSource)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.io.core)

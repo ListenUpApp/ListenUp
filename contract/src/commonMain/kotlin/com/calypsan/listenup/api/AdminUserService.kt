@@ -19,8 +19,8 @@ import kotlinx.rpc.annotations.Rpc
  * instance-wide [RegistrationPolicy] that governs how new accounts are admitted.
  *
  * REST mirrors are defined in
- * [com.calypsan.listenup.api.resources.AdminUserResources] and
- * [com.calypsan.listenup.api.resources.RegistrationPolicyResource].
+ * `AdminUserResources` and
+ * `RegistrationPolicyResource`.
  */
 @Rpc
 interface AdminUserService {
