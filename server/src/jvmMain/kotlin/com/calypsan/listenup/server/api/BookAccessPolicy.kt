@@ -26,6 +26,16 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * a private and a reachable collection is allowed (≥1 reachable wins). ROOT and ADMIN
  * bypass the filter entirely — every live book, including inbox and private ones.
  *
+ * **System collections and book-level visibility:** `ALL_BOOKS` and `INBOX` are
+ * server-managed substrate collections. They are excluded from the COLLECTION-domain sync
+ * fragments ([accessibleCollectionIdsSql], [accessibleCollectionBookIdsSql],
+ * [visibleCollectionGrantIdsSql]) via an explicit `type NOT IN ('ALL_BOOKS','INBOX')`
+ * clause, so members never receive these rows in their collection sync. Book-level
+ * visibility ([accessibleBookIdsSql]) is deliberately **unchanged**: a book stored in
+ * `ALL_BOOKS` remains visible to a member via the grant branch of that fragment — the
+ * system collection provides visibility at the book level even though the collection row
+ * itself never appears in a member's collection sync.
+ *
  * Sibling to [CollectionAccessPolicy], which owns the collection-level *mutation* decision
  * (a repository-backed [CollectionAccessPolicy.Decision] used to gate writes); this owns the
  * raw-SQL *visibility* definitions consumed by the sync seams. Both the book-visibility rule
@@ -138,12 +148,15 @@ class BookAccessPolicy(
     /**
      * The WHERE-ready subquery selecting the ids of every live collection visible to
      * `(userId, role)` — the collection-id analog of [accessibleBookIdsSql] — or `null` for
-     * ROOT/ADMIN, who see every collection (including inboxes and private ones).
+     * ROOT/ADMIN, who see every collection (including system ones and private ones).
      *
      * A non-admin member sees a live collection (`deleted_at IS NULL`) they own, one flagged
-     * `is_global_access`, or one shared with them via a live share. The inbox is admin-owned
-     * and never global-access or shared, so it falls out of this set naturally for a member —
-     * no special-case clause needed.
+     * `is_global_access`, or one shared with them via a live share, **excluding** system
+     * collections (`ALL_BOOKS`, `INBOX`) which are filtered by an explicit
+     * `type NOT IN ('ALL_BOOKS','INBOX')` clause. System collections are server-managed
+     * substrate and must never appear in a member's COLLECTION-domain sync — they are
+     * excluded here rather than relying on ownership or sharing: `ALL_BOOKS` in particular
+     * is reachable by every member via a default grant and would appear without this clause.
      *
      * The returned [SqlFragment.sql] is a complete `SELECT c.id FROM collections c …` subquery,
      * spliced by the sync substrate as `collections.id IN (<sql>)`.
@@ -166,7 +179,14 @@ class BookAccessPolicy(
     /**
      * The WHERE-ready subquery selecting the ids of every `collection_grants` row visible to
      * `(userId, role)` — or `null` for ROOT/ADMIN, who see every grant. A non-admin sees a
-     * USER grant that names them (`principal_id = ?`) or one on a live collection they own.
+     * USER grant that names them (`principal_id = ?`), **excluding grants on system collections**
+     * (`ALL_BOOKS`, `INBOX`), or a grant on a live collection they own.
+     *
+     * The system-collection exclusion on the `principal_id = ?` branch is required because every
+     * member holds a default `ALL_BOOKS` grant issued at registration. Without the exclusion that
+     * grant row would appear in the member's `collection_shares` sync, leaking a system-collection
+     * id to the client. Grants on collections the member *owns* are never system collections
+     * (members cannot own system collections), so the owner branch needs no exclusion.
      *
      * Distinct from [accessibleCollectionIdsSql]: a member sees the grants granting *them*
      * access even when the collection itself reaches them only via that grant, and sees every
@@ -183,7 +203,10 @@ class BookAccessPolicy(
         val sql =
             """
             SELECT g.id FROM collection_grants g
-            WHERE (g.principal_type = 'USER' AND g.principal_id = ?)
+            WHERE (
+                g.principal_type = 'USER' AND g.principal_id = ?
+                AND g.collection_id NOT IN (SELECT id FROM collections WHERE type IN ($systemTypeList) AND deleted_at IS NULL)
+              )
               OR g.collection_id IN (
                 SELECT c.id FROM collections c WHERE c.deleted_at IS NULL AND c.owner_id = ?
               )
@@ -262,15 +285,20 @@ class BookAccessPolicy(
         return exists
     }
 
+    // system-collection type discriminators, single-sourced from SystemCollectionType to avoid SQL/enum drift
+    private val systemTypeList = "'$SYSTEM_TYPE_ALL_BOOKS','$SYSTEM_TYPE_INBOX'"
+
     /**
-     * The shared `(owner OR global-access OR active-grant)` collection-id subquery, bound to two
-     * positional `?` placeholders (both the user id: owner check, then grant check). Reused by
-     * [accessibleCollectionIdsSql] and embedded in [accessibleCollectionBookIdsSql].
+     * The shared `(owner OR global-access OR active-grant)` collection-id subquery with an
+     * explicit `type NOT IN ('ALL_BOOKS','INBOX')` guard, bound to two positional `?` placeholders
+     * (both the user id: owner check, then grant check). Reused by [accessibleCollectionIdsSql]
+     * and embedded in [accessibleCollectionBookIdsSql] — both inherit the system-collection
+     * exclusion, as does [canAccessCollection] which probes this subquery directly.
      */
     private val accessibleCollectionIdsSubquery: String =
         """
         SELECT c.id FROM collections c
-        WHERE c.deleted_at IS NULL AND (
+        WHERE c.deleted_at IS NULL AND c.type NOT IN ($systemTypeList) AND (
           c.owner_id = ?
           OR c.is_global_access = 1
           OR EXISTS (
