@@ -113,6 +113,9 @@ fun booksModule(
 
         // Contributor + Series are SQLDelight conversions (the cutover template):
         // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
+        // Transitional: the merge/unmerge/delete service flows still wrap an Exposed
+        // suspendTransaction around these SQLDelight writes, so those flows can hit
+        // SQLITE_BUSY against these two domains until the merge-txn unit converts them.
         single(createdAtStart = true) { ContributorRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { GenreRepository(get(), get(), get()) }

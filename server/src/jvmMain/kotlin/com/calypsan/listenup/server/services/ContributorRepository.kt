@@ -253,7 +253,10 @@ class ContributorRepository(
      */
     suspend fun listLiveIds(): Set<String> =
         suspendTransaction(db) {
-            db.contributorsQueries.selectLiveIds().executeAsList().toHashSet()
+            db.contributorsQueries
+                .selectLiveIds()
+                .executeAsList()
+                .toHashSet()
         }
 
     /** Test-only accessor for the protected [idAsString]. */

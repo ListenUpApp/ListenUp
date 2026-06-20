@@ -196,7 +196,10 @@ class SeriesRepository(
      */
     suspend fun listLiveIds(): Set<String> =
         suspendTransaction(db) {
-            db.seriesQueries.selectLiveIds().executeAsList().toHashSet()
+            db.seriesQueries
+                .selectLiveIds()
+                .executeAsList()
+                .toHashSet()
         }
 
     /** Test-only accessor for the protected [idAsString]. */
@@ -214,7 +217,10 @@ class SeriesRepository(
      */
     suspend fun allIdRevisionsForTest(): List<Pair<String, Long>> =
         suspendTransaction(db) {
-            db.seriesQueries.selectAllIdRevisions().executeAsList().map { it.id to it.revision }
+            db.seriesQueries
+                .selectAllIdRevisions()
+                .executeAsList()
+                .map { it.id to it.revision }
         }
 
     /** Maps a generated [Book_series] row to the wire [SeriesSyncPayload] DTO. */
