@@ -169,7 +169,7 @@ class ProfileE2ETest :
             val serverSqlDb = serverDb.asServerSqlDatabase()
             val profileService =
                 createProfileService(
-                    db = serverDb,
+                    sql = serverSqlDb,
                     passwordHasher = hasher,
                     publicProfileMaintainer =
                         PublicProfileMaintainer(
