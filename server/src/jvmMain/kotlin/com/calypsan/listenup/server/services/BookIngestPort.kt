@@ -27,18 +27,23 @@ interface BookIngestPort {
      * Null means the scanned book has no cover to store (or cover storage is not
      * configured).
      *
-     * [inboxCollectionId], when non-null, is the library's inbox collection id resolved
-     * once per scan by the orchestrator. Only when this call genuinely INSERTS a new book
-     * is its book→inbox membership written inside the same transaction as the book row, so
-     * the firehose (which evaluates access at delivery) never exposes the book to members.
-     * Re-scans/updates of an existing book never add membership. Null disables quarantine.
+     * [systemCollectionId], when non-null, is the id of the system collection (ALL_BOOKS
+     * when the inbox gate is off, INBOX when on) resolved once per scan by the orchestrator.
+     * Only when this call genuinely INSERTS a new book is its book→collection membership
+     * written inside the same transaction as the book row, so the firehose (which evaluates
+     * access at delivery) never exposes a held book to members. Re-scans/updates of an
+     * existing book never add membership. Null leaves the new book uncollected.
+     *
+     * The two cases are mutually exclusive: a held book must NOT join ALL_BOOKS (doing so
+     * would expose it to every member via the ALL_BOOKS grant); a non-held book must NOT
+     * join INBOX (it would be quarantined unnecessarily).
      */
     suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
-        inboxCollectionId: String? = null,
+        systemCollectionId: String? = null,
     ): AppResult<IngestOutcome>
 
     /**
@@ -103,10 +108,8 @@ data class PendingCover(
  * existing book in place (a plain rescan or a move).
  *
  * [wasNew] reports a genuine fact about the operation that resolve-or-insert
- * knows for free. The scan-time inbox auto-populate that once consumed it was
- * reverted (TOCTOU firehose leak — see [BookPersister]); the flag is retained
- * for the future scan-auto-populate phase, which needs exactly this "only inbox
- * genuinely-new books" discrimination once it can land the membership atomically.
+ * knows for free. System-collection membership uses it as the isNew gate —
+ * only genuinely new books join the resolved collection; re-scans skip membership.
  */
 data class IngestOutcome(
     val bookId: BookId,

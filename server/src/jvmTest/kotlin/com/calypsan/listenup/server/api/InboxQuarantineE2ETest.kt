@@ -197,7 +197,7 @@ class InboxQuarantineE2ETest :
                     val persister by application.inject<BookPersister>()
                     persister.scanSubtree(libraryRoot.toString(), book("Open"))
 
-                    // Uncollected → public: the member sees it through getBook with no release step.
+                    // In ALL_BOOKS: the member sees it through getBook immediately, no release step needed.
                     val openId = client.findBookIdByTitle(admin.token, "Open")
                     client.getBook(m1.token, openId).status shouldBe HttpStatusCode.OK
                 }

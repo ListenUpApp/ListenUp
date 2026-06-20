@@ -7,6 +7,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
@@ -16,8 +17,8 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -30,109 +31,114 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
- * Covers the **inbox-gate-ON** branch of the mutually-exclusive system-collection
- * membership decision: when a library has `inboxEnabled = true`, a genuinely new
- * book joins INBOX (not ALL_BOOKS).
+ * Verifies that a scanned book joins exactly ONE system collection, determined by the
+ * library's inbox (hold) gate:
  *
- * [BookRepository.resolveOrInsert] threads the resolved system-collection id down so
- * that — only for a genuinely NEW book — the `collection_books` membership is written
- * inside the very same transaction as the book row. The firehose evaluates
- * [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery, so
- * committing atomically means a member never sees a held book before it is released.
+ *  - inbox gate OFF (not held) → new book joins ALL_BOOKS, NOT INBOX.
+ *  - inbox gate ON  (held)     → new book joins INBOX, NOT ALL_BOOKS.
+ *  - re-scan of an already-ingested book → no new membership added (isNew gate).
  *
- * Re-running `resolveOrInsert` for the SAME book is an UPDATE — it must NOT add a
- * second membership (only-on-create, idempotent re-scan).
+ * These cases are MUTUALLY EXCLUSIVE. A held book in ALL_BOOKS would be visible to
+ * every member (all hold an ALL_BOOKS grant), defeating the inbox quarantine.
  *
- * The gate-OFF branch (→ ALL_BOOKS, NOT INBOX) is covered by [ScanAllBooksMembershipTest].
- *
- * Drives a real [BookRepository] (the ingest port) and a real [CollectionServiceImpl]
- * (the inbox resolver) against a Flyway-migrated in-memory database — no mocks.
- * Membership is read back through [CollectionBookRepository.findBookIdsForCollection].
+ * Drives a real [BookRepository] and [CollectionServiceImpl] against a
+ * Flyway-migrated in-memory database — no mocks. Membership is verified through
+ * [CollectionRepository.findSystemCollection] + [CollectionBookRepository.findBookIdsForCollection].
  */
-class ScannerInboxIngestTest :
+class ScanAllBooksMembershipTest :
     FunSpec({
 
-        test("inbox_enabled + inbox id: a NEW book is committed into the inbox") {
+        test("inbox gate OFF: new book joins ALL_BOOKS and NOT INBOX") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                setInboxEnabled(db, "test-library", enabled = true)
+                setInboxEnabled(db, "test-library", enabled = false)
                 seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = fixture(db)
+                    val fx = allBooksFixture(db)
+                    val allBooksId = fx.resolveAllBooksId()
                     val inboxId = fx.resolveInboxId()
 
                     val outcome =
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
-                            analyzed = buildAnalyzedBook("Sanderson/Way of Kings", inode = 1L),
-                            systemCollectionId = inboxId,
+                            analyzed = buildAnalyzedBook("Brandon/Stormlight", inode = 10L),
+                            systemCollectionId = allBooksId,
                         )
                     require(outcome is AppResult.Success)
 
-                    fx.collectionBookRepo.findBookIdsForCollection(inboxId) shouldContainExactly
+                    // Must be in ALL_BOOKS
+                    fx.collectionBookRepo.findBookIdsForCollection(allBooksId) shouldContainExactly
                         listOf(outcome.data.bookId.value)
+                    // Must NOT be in INBOX
+                    fx.collectionBookRepo.findBookIdsForCollection(inboxId).shouldBeEmpty()
                 }
             }
         }
 
-        test("re-resolving the SAME book (update) does not add a second membership") {
+        test("inbox gate ON: new book joins INBOX and NOT ALL_BOOKS") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
                 setInboxEnabled(db, "test-library", enabled = true)
                 seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = fixture(db)
+                    val fx = allBooksFixture(db)
+                    val allBooksId = fx.resolveAllBooksId()
                     val inboxId = fx.resolveInboxId()
-                    val analyzed = buildAnalyzedBook("Sanderson/Way of Kings", inode = 1L)
+
+                    val outcome =
+                        fx.bookRepo.resolveOrInsert(
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            analyzed = buildAnalyzedBook("Brandon/Mistborn", inode = 11L),
+                            systemCollectionId = inboxId,
+                        )
+                    require(outcome is AppResult.Success)
+
+                    // Must be in INBOX
+                    fx.collectionBookRepo.findBookIdsForCollection(inboxId) shouldContainExactly
+                        listOf(outcome.data.bookId.value)
+                    // Must NOT be in ALL_BOOKS
+                    fx.collectionBookRepo.findBookIdsForCollection(allBooksId).shouldBeEmpty()
+                }
+            }
+        }
+
+        test("re-scan of an existing book does not add a new membership") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                setInboxEnabled(db, "test-library", enabled = false)
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                runTest {
+                    val fx = allBooksFixture(db)
+                    val allBooksId = fx.resolveAllBooksId()
+                    val analyzed = buildAnalyzedBook("Brandon/WayOfKings", inode = 12L)
 
                     val first =
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
                             analyzed = analyzed,
-                            systemCollectionId = inboxId,
+                            systemCollectionId = allBooksId,
                         )
                     require(first is AppResult.Success)
 
-                    // Same book, same path → resolve-or-insert takes the UPDATE branch.
+                    // Re-scan the same book — should take the UPDATE branch (isNew = false).
                     val second =
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
                             analyzed = analyzed,
-                            systemCollectionId = inboxId,
+                            systemCollectionId = allBooksId,
                         )
                     require(second is AppResult.Success)
 
-                    // Still exactly one membership — the update path must not re-add membership.
-                    fx.collectionBookRepo.findBookIdsForCollection(inboxId) shouldContainExactly
+                    // Still exactly one membership — the update path must not re-add.
+                    fx.collectionBookRepo.findBookIdsForCollection(allBooksId) shouldContainExactly
                         listOf(first.data.bookId.value)
-                }
-            }
-        }
-
-        test("no inbox id supplied: a NEW book is uncollected (public)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                runTest {
-                    val fx = fixture(db)
-                    val inboxId = fx.resolveInboxId()
-
-                    val outcome =
-                        fx.bookRepo.resolveOrInsert(
-                            libraryId = LibraryId("test-library"),
-                            folderId = FolderId("test-folder"),
-                            analyzed = buildAnalyzedBook("Sanderson/Mistborn", inode = 2L),
-                            systemCollectionId = null,
-                        )
-                    require(outcome is AppResult.Success)
-
-                    fx.collectionBookRepo.findBookIdsForCollection(inboxId).shouldBeEmpty()
                 }
             }
         }
@@ -140,12 +146,19 @@ class ScannerInboxIngestTest :
 
 // --- Fixtures ---------------------------------------------------------------
 
-private class InboxFixture(
+private class AllBooksFixture(
     val bookRepo: BookRepository,
     val collectionBookRepo: CollectionBookRepository,
     val collections: CollectionServiceImpl,
 ) {
-    /** Resolves (creating if needed) the library's inbox collection id, as the scan path will. */
+    /** Resolves (creating if needed) the library's ALL_BOOKS collection id. */
+    suspend fun resolveAllBooksId(): String {
+        val result = collections.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+        require(result is AppResult.Success)
+        return result.data.id.value
+    }
+
+    /** Resolves (creating if needed) the library's inbox collection id. */
     suspend fun resolveInboxId(): String {
         val inbox = collections.getOrCreateInbox("test-library")
         require(inbox is AppResult.Success)
@@ -153,7 +166,7 @@ private class InboxFixture(
     }
 }
 
-private fun fixture(db: Database): InboxFixture {
+private fun allBooksFixture(db: Database): AllBooksFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = syncRegistry)
@@ -181,5 +194,5 @@ private fun fixture(db: Database): InboxFixture {
             bookRevisionTouch = FakeBookRevisionTouch(),
             principal = PrincipalProvider { null },
         )
-    return InboxFixture(bookRepo, collectionBookRepo, collections)
+    return AllBooksFixture(bookRepo, collectionBookRepo, collections)
 }
