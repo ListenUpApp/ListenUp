@@ -25,6 +25,15 @@ class BookWriteExtras(
      * branch writes it through. The scanner never sets this.
      */
     val createdAtOverride: Long? = null,
+    /**
+     * The library's inbox collection id, set only when a genuinely-new book must be
+     * auto-quarantined into the admin-only inbox. Non-null → [BookRepository.writePayload]'s
+     * INSERT branch writes the `collection_books` membership row **inside the same SQLDelight
+     * transaction** as the book row, so the book is never momentarily public (the access filter
+     * already sees it collected before any `book.Created` is delivered). The scanner sets this
+     * via `resolveOrInsert(inboxCollectionId = …)`; every other write path leaves it null.
+     */
+    val inboxCollectionId: String? = null,
 ) : ThreadContextElement<BookWriteExtras?> {
     override val key: CoroutineContext.Key<*> get() = Key
 

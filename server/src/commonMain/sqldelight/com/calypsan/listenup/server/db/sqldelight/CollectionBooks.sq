@@ -1,0 +1,37 @@
+-- collection_books junction: syncable, soft-deletable, revision-tracked.
+-- Column set matches V24__collections_substrate.sql exactly.
+-- FK declarations (REFERENCES collections/books) are omitted here, mirroring BookTags.sq:
+-- SQLDelight cannot resolve cross-table references for tables not defined in this schema's
+-- .sq files. The constraints are present in the migration DDL and enforced by SQLite at runtime.
+--
+-- NOTE: this is a DESCRIBE-ONLY schema for the ONE atomic write path BookRepository owns —
+-- the inbox-quarantine membership write that lands inside the book-insert transaction. The
+-- Exposed CollectionBookRepository remains canonical for every other collection_books operation
+-- (release, cascade delete, reads); the two engines coexist on the same WAL file.
+CREATE TABLE collection_books (
+    id            TEXT    NOT NULL,
+    collection_id TEXT    NOT NULL,
+    book_id       TEXT    NOT NULL,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    revision      INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    client_op_id  TEXT,
+    PRIMARY KEY (collection_id, book_id)
+);
+
+CREATE UNIQUE INDEX idx_collection_books_id ON collection_books(id);
+CREATE INDEX idx_collection_books_book ON collection_books(book_id, collection_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_collection_books_revision ON collection_books(revision);
+
+-- Existence check keyed on the natural composite PK — idempotency guard for the inbox write
+-- so a rescan that re-enters the same (collection, book) pair never inserts a duplicate.
+existsByCollectionAndBook:
+SELECT EXISTS(SELECT 1 FROM collection_books WHERE collection_id = :collection_id AND book_id = :book_id);
+
+-- Inbox membership insert. The synthetic `id` is the canonical "$collectionId:$bookId" key the
+-- Exposed CollectionBookRepository writes (see CollectionBookId.asString); both engines agree on
+-- it so a row written here is read/updated identically by the Exposed path.
+insertMembership:
+INSERT INTO collection_books (id, collection_id, book_id, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :collection_id, :book_id, :created_at, :updated_at, :revision, NULL, :client_op_id);

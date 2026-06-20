@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
@@ -21,7 +22,6 @@ import com.calypsan.listenup.server.cover.StoredCoverInfo
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
-import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
@@ -65,9 +65,16 @@ private val log = KotlinLogging.logger {}
  *    splice. These are READS over the shared WAL file, so they coexist with the SQLDelight
  *    writer safely.
  *
- * Genre and inbox-membership writes run as **separate, sequential** transactions after the
- * book write commits (see [upsertFromAnalyzed]) — never nested inside the SQLDelight book
- * transaction — so a mixed-engine writer never contends for the single SQLite write lock.
+ * Genre writes run as a **separate, sequential** Exposed transaction after the book write commits
+ * (see [upsertFromAnalyzed]) — never nested inside the SQLDelight book transaction — so a
+ * mixed-engine writer never contends for the single SQLite write lock.
+ *
+ * The inbox-quarantine membership is the one exception: it is written ATOMICALLY inside the
+ * SQLDelight book transaction ([writeInboxMembership]), because a separate post-commit write left
+ * a narrow REST-catch-up window where a member could pull the briefly-uncollected (public) book.
+ * That write uses the same SQLDelight engine as the book row, so it never nests an Exposed write
+ * inside the SQLDelight transaction; the Exposed [CollectionBookRepository] stays canonical for
+ * every other `collection_books` operation.
  *
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
@@ -197,13 +204,16 @@ class BookRepository(
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
      *
      * **Atomicity is the contract.** The root row, the four child tables (contributors,
-     * series, chapters, audio files), and the FTS index (`book_search` + `book_search_map`)
-     * land together or not at all. The substrate has already opened the transaction and
-     * resolved [existed]; this method issues writes that bind to that transaction.
+     * series, chapters, audio files), the FTS index (`book_search` + `book_search_map`), and —
+     * for a genuinely-new book the scan path marked for quarantine — the book→inbox
+     * `collection_books` membership ([writeInboxMembership]) land together or not at all. The
+     * substrate has already opened the transaction and resolved [existed]; this method issues
+     * writes that bind to that transaction.
      *
-     * Genre and inbox-membership writes do NOT happen here — they run as separate,
-     * sequential transactions after this one commits (see [upsertFromAnalyzed]) so the
-     * not-yet-converted Exposed writers never nest inside the SQLDelight write lock.
+     * Genre writes do NOT happen here — they run as a separate, sequential Exposed transaction
+     * after this one commits (see [upsertFromAnalyzed]) so the not-yet-converted Exposed genre
+     * writer never nests inside the SQLDelight write lock. The inbox membership, by contrast, is
+     * a SQLDelight write on the same engine, so it joins this transaction safely and atomically.
      */
     override fun writePayload(
         value: BookSyncPayload,
@@ -317,6 +327,15 @@ class BookRepository(
                 deleted_at = null,
                 client_op_id = clientOpId,
             )
+            // Atomic inbox quarantine. When the scan path stashed an inbox id (genuinely-new book
+            // in an inbox-enabled library), write the book→inbox `collection_books` membership in
+            // THIS same SQLDelight transaction, so the book is collected the instant it exists.
+            // The firehose's delivery-time access filter therefore never sees a momentarily-public
+            // book, and no member can pull it as public in the REST catch-up window — the TOCTOU
+            // the post-commit (Exposed) membership write left open is closed by atomicity. The
+            // membership emits its own `collection_books` `SyncEvent.Created` so it propagates to
+            // every device exactly as the Exposed path's emit did.
+            extras?.inboxCollectionId?.let { inboxId -> writeInboxMembership(inboxId, value.id, now) }
         }
 
         bookAggregateWriter.replaceContributors(value.id, value.contributors)
@@ -496,9 +515,15 @@ class BookRepository(
      *
      * Genres and scan tags are reconciled in **separate, sequential** transactions after
      * the book write commits (genres via the Exposed [bookGenreWriter], tags via
-     * [bookTagWriter]). The book→inbox membership for a genuinely-new book is likewise
-     * landed sequentially after the book commits (the Exposed [collectionBookRepository]
-     * cannot share or nest inside the SQLDelight book transaction during the cutover).
+     * [bookTagWriter]).
+     *
+     * The book→inbox membership for a genuinely-new book, by contrast, is written **atomically**
+     * inside the book-insert transaction: when [inboxCollectionId] is non-null and this call
+     * INSERTs a new book, the id rides in via [BookWriteExtras] and `writePayload` lands the
+     * `collection_books` row in the same SQLDelight transaction (see [writeInboxMembership]). The
+     * inbox id is stashed only when `existing == null`, so the UPDATE path of a rescan can never
+     * re-inbox a released book. Atomicity closes the REST-catch-up window a post-commit membership
+     * write would otherwise open — the book is never momentarily public.
      */
     suspend fun upsertFromAnalyzed(
         bookId: BookId,
@@ -547,21 +572,18 @@ class BookRepository(
                     } else {
                         managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
                     }
-                // A genuinely-new book bound for the inbox must NOT emit a live `book.Created` to the
-                // firehose: it is going straight into the admin-only inbox, and the membership lands in
-                // a separate (Exposed) transaction after this one commits, so a live event would briefly
-                // expose the not-yet-quarantined book to members. Suppressing the live emit closes that
-                // window — the book is reconciled to every entitled client by the revision-driven REST
-                // catch-up (and to members specifically when an admin releases it, which bumps the
-                // revision). Full scans already run the whole batch under FirehoseSuppressed; this adds
-                // the same guard for the incremental-scan Added path.
-                val suppressInboxEmit = existing == null && inboxCollectionId != null
+                // A genuinely-new book bound for the inbox has its `collection_books` membership
+                // written ATOMICALLY inside writePayload's INSERT branch (see writeInboxMembership),
+                // so the book is collected the instant it exists. There is no momentarily-public
+                // window, so the `book.Created` emit fires normally — the firehose's delivery-time
+                // access filter correctly excludes the now-collected book from members. The inbox id
+                // rides in via BookWriteExtras; it is stashed only for a genuinely-new book (`isNew`),
+                // never on the UPDATE path, so a rescan can't re-inbox a released book.
                 withContext(
-                    if (suppressInboxEmit) {
-                        BookWriteExtras(managedCover = storedCover) + FirehoseSuppressed
-                    } else {
-                        BookWriteExtras(managedCover = storedCover)
-                    },
+                    BookWriteExtras(
+                        managedCover = storedCover,
+                        inboxCollectionId = if (isNew) inboxCollectionId else null,
+                    ),
                 ) {
                     upsert(payload, clientOpId = null)
                 }
@@ -571,22 +593,6 @@ class BookRepository(
             // Genres: a separate, sequential Exposed transaction (idempotent, no revision bump).
             exposedSuspendTransaction(exposedDb) { bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now) }
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
-            // Inbox quarantine: only when this call genuinely INSERTED a new book and an inbox is
-            // configured. Landed AFTER the book commits — the Exposed collection_books writer cannot
-            // nest inside the SQLDelight book transaction during the cutover. The book.Created live
-            // emit was suppressed above for exactly this case, so no member ever sees the book on the
-            // firehose before its membership lands; the membership commit serializes after the book
-            // commit (single SQLite writer), and entitled clients reconcile via the revision-driven
-            // REST catch-up.
-            if (isNew) {
-                inboxCollectionId?.let { inboxId ->
-                    val repo =
-                        requireNotNull(collectionBookRepository) {
-                            "inbox quarantine requested but CollectionBookRepository is not wired"
-                        }
-                    insertInboxMembership(repo, inboxId, bookId.value, now)
-                }
-            }
         }
         return result
     }
@@ -894,6 +900,80 @@ class BookRepository(
     }
 
     /**
+     * Writes the `(inboxCollectionId, bookId)` membership into `collection_books` inside the
+     * open SQLDelight book transaction, atomically with the book insert.
+     *
+     * Replicates the canonical syncable-write shape the Exposed [CollectionBookRepository] uses for
+     * a new junction row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via
+     * the shared counter ([nextRevision]), and a post-commit `collection_books`
+     * [SyncEvent.Created] emit so other devices learn of the membership exactly as before. The emit
+     * is routed through [collectionBookRepository] (the `collection_books` domain's
+     * [com.calypsan.listenup.server.sync.SyncableRepo]) — not this book repo — so the firehose
+     * encodes it with the collection-book serializer and delivers it under the right domain.
+     *
+     * Idempotent: a pre-existing live or tombstoned row for the pair is left untouched (the
+     * INSERT is skipped). For the genuinely-new-book INSERT path this guard is defensive — the
+     * composite PK includes `book_id`, which cannot already exist — but it keeps the write safe
+     * against any future caller that reaches this branch for a non-new book.
+     *
+     * **Must run inside the open SQLDelight transaction.** The emit is deferred to the
+     * transaction's `afterCommit` (via a nested no-op transaction whose hook transfers to the
+     * outermost commit), so it never races the firehose's delivery-time access read against an
+     * uncommitted row — exactly the deferral semantics the base's own emits use.
+     *
+     * @throws IllegalArgumentException when an inbox id was stashed but no
+     *   [CollectionBookRepository] is wired — a misconfiguration that would silently drop the
+     *   quarantine, so it fails loudly rather than leaking a public book.
+     */
+    private fun writeInboxMembership(
+        inboxCollectionId: String,
+        bookId: String,
+        now: Long,
+    ) {
+        val repo =
+            requireNotNull(collectionBookRepository) {
+                "inbox quarantine requested but CollectionBookRepository is not wired"
+            }
+        // Idempotency: never re-insert an existing pair (defensive on the new-book INSERT path).
+        if (db.collectionBooksQueries.existsByCollectionAndBook(inboxCollectionId, bookId).executeAsOne()) {
+            return
+        }
+        val syntheticId = "$inboxCollectionId:$bookId"
+        val membershipRev = nextRevision()
+        db.collectionBooksQueries.insertMembership(
+            id = syntheticId,
+            collection_id = inboxCollectionId,
+            book_id = bookId,
+            created_at = now,
+            updated_at = now,
+            revision = membershipRev,
+            client_op_id = null,
+        )
+        val event =
+            SyncEvent.Created(
+                id = syntheticId,
+                revision = membershipRev,
+                occurredAt = now,
+                clientOpId = null,
+                payload =
+                    CollectionBookSyncPayload(
+                        collectionId = inboxCollectionId,
+                        bookId = bookId,
+                        createdAt = now,
+                        revision = membershipRev,
+                        deletedAt = null,
+                    ),
+            )
+        // Defer the collection_books emit to the outermost transaction's after-commit, in publish
+        // order. A nested transaction transfers its afterCommit hooks to the enclosing one, so this
+        // fires once, after the book + membership rows are durably committed — the engine-native
+        // equivalent of the base's deferEmit, but routed through the collection_books repo.
+        db.transaction {
+            afterCommit { bus.emit(repo = repo, event = event, userId = null) }
+        }
+    }
+
+    /**
      * Reads the saved aggregate and registers a post-commit `SyncEvent.Updated` emit carrying it.
      * Shared by [setManagedCover] / [clearManagedCover] / [touchRevision]. Must run inside the
      * open SQLDelight transaction (the `afterCommit` hook fires when it commits).
@@ -933,31 +1013,6 @@ class BookRepository(
     /** Test-only accessor for the protected [readPayloads]. */
     internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> =
         suspendTransaction(db) { readPayloads(idStrs) }
-}
-
-/**
- * Commits the `(inboxCollectionId, bookId)` membership for a newly-inserted book.
- *
- * Called from [BookRepository.upsertFromAnalyzed] AFTER the SQLDelight book transaction has
- * committed — [CollectionBookRepository.upsert] is an Exposed write that opens its own
- * transaction, so it runs sequentially (never nested inside the book write), avoiding
- * mixed-engine write-lock contention.
- */
-private suspend fun insertInboxMembership(
-    collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository,
-    inboxCollectionId: String,
-    bookId: String,
-    now: Long,
-) {
-    collectionBookRepository.upsert(
-        com.calypsan.listenup.api.sync.CollectionBookSyncPayload(
-            collectionId = inboxCollectionId,
-            bookId = bookId,
-            createdAt = now,
-            revision = 0L,
-            deletedAt = null,
-        ),
-    )
 }
 
 /** Returns the SHA-256 hex digest of [this] byte array. */

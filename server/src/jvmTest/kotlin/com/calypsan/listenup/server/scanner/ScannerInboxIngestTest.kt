@@ -44,14 +44,18 @@ import com.calypsan.listenup.server.testing.asSqlDatabase
  *
  * When a library is inbox-enabled and the scan ingest resolves the inbox collection,
  * [BookRepository.resolveOrInsert] threads its id down so that — only for a genuinely
- * NEW book — the book→inbox `collection_books` membership is written inside the very
- * same transaction as the book row. The firehose evaluates [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess]
- * at delivery, so committing membership atomically with the insert means a member
- * never sees the book (it is already in the admin-only inbox before the `book.Created`
- * publish is visible). This closes the TOCTOU leak the old scan-hook revert guarded.
+ * NEW book — the book→inbox `collection_books` membership is written (via the SQLDelight
+ * `collectionBooksQueries`) inside the very same transaction as the book row. The firehose
+ * evaluates [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery, so
+ * committing membership atomically with the insert means a member never sees the book: it is
+ * already in the admin-only inbox before the `book.Created` publish is visible, AND no member's
+ * REST catch-up can pull the book as public, because it is never briefly uncollected. Atomicity
+ * — not firehose suppression — is what holds the quarantine invariant; the membership still emits
+ * its own `collection_books` `SyncEvent.Created`, so other devices learn of it.
  *
  * Re-running `resolveOrInsert` for the SAME book is an UPDATE — it must NOT add a
- * second membership (only-on-create, idempotent re-scan).
+ * second membership (only-on-create, idempotent re-scan): the inbox id is stashed only when the
+ * book did not already exist, so the UPDATE path never re-quarantines.
  *
  * Drives a real [BookRepository] (the ingest port) and a real [CollectionServiceImpl]
  * (the inbox resolver) against a Flyway-migrated in-memory database — no mocks.
