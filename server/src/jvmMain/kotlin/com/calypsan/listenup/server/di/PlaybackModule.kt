@@ -119,7 +119,7 @@ fun playbackModule(): Module =
             )
         }
         single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), userStatsRepo = get()) }
-        single { ActiveSessionCleanupTask(db = get(), bus = get()) }
+        single { ActiveSessionCleanupTask(sql = get(), bus = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(
                 bookRepository = get<BookRepository>(),

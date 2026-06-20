@@ -63,6 +63,11 @@ WHERE book_id = :book_id AND user_id != :exclude_user_id AND deleted_at IS NULL;
 deleteForUserBook:
 DELETE FROM active_sessions WHERE user_id = :user_id AND book_id = :book_id;
 
+-- Hard-delete stale-orphan rows whose updated_at predates :cutoff — the periodic sweep
+-- (ActiveSessionCleanupTask). Matches the Exposed deleteWhere { updatedAt less cutoff }.
+deleteStaleBefore:
+DELETE FROM active_sessions WHERE updated_at < :cutoff;
+
 -- Rows affected by the most recent statement — lets startOrRefresh / deleteForUserBook report
 -- whether they actually changed a row (drives the ActiveSessionsChanged broadcast).
 changes:

@@ -152,7 +152,7 @@ class PlaybackServiceImplTest :
         ): PlaybackServiceImpl =
             PlaybackServiceImpl(
                 bookRepository = bookRepo,
-                audioFileLocator = AudioFileLocator(db),
+                audioFileLocator = AudioFileLocator(db.asSqlDatabase()),
                 audioUrlSigner = signer,
                 playbackPositionRepository = positionRepo,
                 listeningEventRepository = eventRepo,

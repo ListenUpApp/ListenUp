@@ -46,7 +46,7 @@ class ActiveSessionCleanupTaskTest :
 
                     val task =
                         ActiveSessionCleanupTask(
-                            db = this@withInMemoryDatabase,
+                            sql = this@withInMemoryDatabase.asSqlDatabase(),
                             bus = ChangeBus(),
                             clock = FixedClock(nowInstant),
                             staleAfter = 30.minutes,
@@ -65,7 +65,13 @@ class ActiveSessionCleanupTaskTest :
         test("runOnce on an empty table returns 0 without throwing") {
             withInMemoryDatabase {
                 val clock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
-                val task = ActiveSessionCleanupTask(db = this, bus = ChangeBus(), clock = clock, staleAfter = 30.minutes)
+                val task =
+                    ActiveSessionCleanupTask(
+                        sql = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        clock = clock,
+                        staleAfter = 30.minutes,
+                    )
                 runTest {
                     task.runOnce() shouldBe 0
                 }
@@ -87,7 +93,7 @@ class ActiveSessionCleanupTaskTest :
 
                     val task =
                         ActiveSessionCleanupTask(
-                            db = this@withInMemoryDatabase,
+                            sql = this@withInMemoryDatabase.asSqlDatabase(),
                             bus = ChangeBus(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                             staleAfter = 30.minutes,

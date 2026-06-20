@@ -1,14 +1,8 @@
 package com.calypsan.listenup.server.audio
 
-import com.calypsan.listenup.server.db.BookAudioFileTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlinx.io.files.Path
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Where one audio file lives on disk, plus the metadata the audio route needs
@@ -31,7 +25,7 @@ data class AudioFileLocation(
  * join that `BookRepository.coverInfo` uses.
  */
 class AudioFileLocator(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
 ) {
     /**
      * Returns the [AudioFileLocation] for the given `(bookId, fileId)` pair,
@@ -43,41 +37,28 @@ class AudioFileLocator(
         bookId: String,
         fileId: String,
     ): AudioFileLocation? =
-        suspendTransaction(db) {
+        suspendTransaction(sql) {
             val fileRow =
-                BookAudioFileTable
-                    .selectAll()
-                    .where {
-                        (BookAudioFileTable.bookId eq bookId) and
-                            (BookAudioFileTable.id eq fileId)
-                    }.firstOrNull() ?: return@suspendTransaction null
-
-            val filename = fileRow[BookAudioFileTable.filename]
-            val format = fileRow[BookAudioFileTable.format]
-            val size = fileRow[BookAudioFileTable.size]
+                sql.bookAudioFilesQueries
+                    .selectFileForBook(book_id = bookId, id = fileId)
+                    .executeAsOneOrNull() ?: return@suspendTransaction null
 
             val bookRow =
-                BookTable
-                    .selectAll()
-                    .where { BookTable.id eq bookId }
-                    .firstOrNull() ?: return@suspendTransaction null
-
-            val rootRelPath = bookRow[BookTable.rootRelPath]
-            val folderId = bookRow[BookTable.folderId]
+                sql.booksQueries
+                    .selectById(bookId)
+                    .executeAsOneOrNull() ?: return@suspendTransaction null
 
             // Resolve the folder root path via the book's folder_id column.
             val folderRoot =
-                LibraryFolderTable
-                    .selectAll()
-                    .where { LibraryFolderTable.id eq folderId }
-                    .firstOrNull()
-                    ?.get(LibraryFolderTable.rootPath)
-                    ?: return@suspendTransaction null
+                sql.libraryFoldersQueries
+                    .selectById(bookRow.folder_id)
+                    .executeAsOneOrNull()
+                    ?.root_path ?: return@suspendTransaction null
 
             AudioFileLocation(
-                path = Path(folderRoot, rootRelPath, filename),
-                format = format,
-                sizeBytes = size,
+                path = Path(folderRoot, bookRow.root_rel_path, fileRow.filename),
+                format = fileRow.format,
+                sizeBytes = fileRow.size,
             )
         }
 }

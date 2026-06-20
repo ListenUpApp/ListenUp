@@ -1,7 +1,8 @@
 package com.calypsan.listenup.server.scheduler
 
 import com.calypsan.listenup.api.sync.SyncControl
-import com.calypsan.listenup.server.db.ActiveSessionTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -13,10 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -38,7 +35,7 @@ private val log = KotlinLogging.logger {}
  * a warning log so a transient DB hiccup does not stop the sweep permanently.
  */
 internal class ActiveSessionCleanupTask(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val interval: Duration = 5.minutes,
@@ -62,11 +59,13 @@ internal class ActiveSessionCleanupTask(
      */
     suspend fun runOnce(): Int {
         val removed =
-            suspendTransaction(db) {
+            suspendTransaction(sql) {
                 val cutoffMs = clock.now().toEpochMilliseconds() - staleAfter.inWholeMilliseconds
-                ActiveSessionTable.deleteWhere {
-                    ActiveSessionTable.updatedAt less cutoffMs
-                }
+                sql.activeSessionsQueries.deleteStaleBefore(cutoffMs)
+                sql.activeSessionsQueries
+                    .changes()
+                    .executeAsOne()
+                    .toInt()
             }
         if (removed > 0) {
             log.info { "ActiveSessionCleanupTask removed $removed stale active_sessions rows" }

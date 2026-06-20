@@ -81,7 +81,7 @@ class AudioFileLocatorTest :
                         ),
                     )
 
-                    val locator = AudioFileLocator(db)
+                    val locator = AudioFileLocator(db.asSqlDatabase())
                     val result = locator.locate("b1", "af1")
 
                     result.shouldNotBeNull()
@@ -96,7 +96,7 @@ class AudioFileLocatorTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val locator = AudioFileLocator(db)
+                    val locator = AudioFileLocator(db.asSqlDatabase())
                     val result = locator.locate("unknown", "anything")
                     result.shouldBeNull()
                 }

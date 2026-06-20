@@ -197,7 +197,7 @@ internal fun withTestApplication(
             playbackService =
                 PlaybackServiceImpl(
                     bookRepository = bookRepo,
-                    audioFileLocator = AudioFileLocator(db),
+                    audioFileLocator = AudioFileLocator(db.asSqlDatabase()),
                     audioUrlSigner = signer,
                     playbackPositionRepository = positionRepoForPlayback,
                     listeningEventRepository = eventRepo,
