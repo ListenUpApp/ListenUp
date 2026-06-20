@@ -2,60 +2,107 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
-import com.calypsan.listenup.server.db.MoodTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Moods
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable repository for moods.
+ * SQLDelight syncable repository for moods — the affective twin of [TagRepository].
  *
- * Handles the full mood aggregate: read/write of [Mood] via [MoodTable], including
- * [Mood.slug] which is the canonical URL-safe identity for each mood. Slug is
- * written on insert and included in every payload read.
+ * Handles the full mood aggregate: read/write of [Mood] via the generated
+ * [ListenUpDatabase.moodsQueries], including [Mood.slug] which is the canonical
+ * URL-safe identity for each mood. Slug is written on insert and included in every
+ * payload read.
+ *
+ * The base [SqlSyncableRepository] owns the revision-bump / timestamp /
+ * created-vs-updated / emit-after-commit orchestration; this class supplies only the
+ * mood-shaped pieces:
+ *  - [substrate] — the [SyncableSubstrateQueries] adapter over `moodsQueries`
+ *  - [readPayload] / [readPayloads] — root-row reads by id
+ *  - [writePayload] — insert-or-update inside the open transaction
+ *  - [elementSerializer] / `Mood.id` / `Mood.revisionOf`
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted mood by id
+ *  - [findByIds] — batch fetch non-deleted moods by id (the N+1 fix for `listMoodsForBook`)
  *  - [findBySlug] — fetch one non-deleted mood by slug (the stable URL identity)
  *  - [listAll] — fetch all non-deleted moods, ordered by name
  *  - [updateName] — rename a mood (updates [Mood.name] only; slug is preserved)
  */
 class MoodRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<Mood, String>(db, MoodTable, bus, registry, "moods", clock) {
+) : SqlSyncableRepository<Mood, String>(db, bus, registry, "moods", clock) {
     override val elementSerializer: KSerializer<Mood> = Mood.serializer()
 
     override val Mood.id: String get() = this.id
 
     override fun Mood.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): Mood? =
-        MoodTable
-            .selectAll()
-            .where { MoodTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                Mood(
-                    id = row[MoodTable.id],
-                    name = row[MoodTable.name],
-                    slug = row[MoodTable.slug],
-                    revision = row[MoodTable.revision],
-                    updatedAt = row[MoodTable.updatedAt],
-                    deletedAt = row[MoodTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.moodsQueries].
+     *
+     * Mirrors the [TagRepository] adapter shape exactly: a thin object that forwards each
+     * substrate contract method to the matching generated query, mapping the generated
+     * revision-cursor rows into the engine-neutral [IdRev].
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.moodsQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.moodsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.moodsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.moodsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): Mood? =
+        db.moodsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toMood()
+
+    override fun readPayloads(idStrs: List<String>): List<Mood> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.moodsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toMood() }
+    }
+
+    override fun writePayload(
         value: Mood,
         rev: Long,
         now: Long,
@@ -64,25 +111,26 @@ class MoodRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            MoodTable.update({ MoodTable.id eq value.id }) { stmt ->
-                stmt[MoodTable.name] = value.name
-                stmt[MoodTable.slug] = value.slug
-                stmt[MoodTable.revision] = rev
-                stmt[MoodTable.updatedAt] = now
-                stmt[MoodTable.deletedAt] = null
-                stmt[MoodTable.clientOpId] = clientOpId
-            }
+            db.moodsQueries.update(
+                name = value.name,
+                slug = value.slug,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            MoodTable.insert { stmt ->
-                stmt[MoodTable.id] = value.id
-                stmt[MoodTable.name] = value.name
-                stmt[MoodTable.slug] = value.slug
-                stmt[MoodTable.revision] = rev
-                stmt[MoodTable.createdAt] = now
-                stmt[MoodTable.updatedAt] = now
-                stmt[MoodTable.deletedAt] = null
-                stmt[MoodTable.clientOpId] = clientOpId
-            }
+            db.moodsQueries.insert(
+                id = value.id,
+                name = value.name,
+                slug = value.slug,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
@@ -91,21 +139,33 @@ class MoodRepository(
      */
     suspend fun findById(id: String): Mood? =
         suspendTransaction(db) {
-            MoodTable
-                .selectAll()
-                .where { (MoodTable.id eq id) and MoodTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.let { row ->
-                    Mood(
-                        id = row[MoodTable.id],
-                        name = row[MoodTable.name],
-                        slug = row[MoodTable.slug],
-                        revision = row[MoodTable.revision],
-                        updatedAt = row[MoodTable.updatedAt],
-                        deletedAt = row[MoodTable.deletedAt],
-                    )
-                }
+            db.moodsQueries
+                .selectById(id)
+                .executeAsOneOrNull()
+                ?.takeIf { it.deleted_at == null }
+                ?.toMood()
         }
+
+    /**
+     * Returns the non-deleted moods whose ids appear in [ids], in the same order as
+     * [ids] and skipping ids that are absent or tombstoned.
+     *
+     * This is the batched read that replaces the per-id `findById` loop in
+     * `MoodServiceImpl.listMoodsForBook` — one round-trip (per 900-id chunk) instead of
+     * one per junction row.
+     */
+    suspend fun findByIds(ids: List<String>): List<Mood> {
+        if (ids.isEmpty()) return emptyList()
+        return suspendTransaction(db) {
+            val byId =
+                ids
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMap { chunk -> db.moodsQueries.selectByIds(chunk).executeAsList() }
+                    .filter { it.deleted_at == null }
+                    .associateBy { it.id }
+            ids.mapNotNull { byId[it]?.toMood() }
+        }
+    }
 
     /**
      * Returns the non-deleted mood whose [Mood.slug] matches [slug], or null when
@@ -114,20 +174,10 @@ class MoodRepository(
      */
     suspend fun findBySlug(slug: String): Mood? =
         suspendTransaction(db) {
-            MoodTable
-                .selectAll()
-                .where { (MoodTable.slug eq slug) and MoodTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.let { row ->
-                    Mood(
-                        id = row[MoodTable.id],
-                        name = row[MoodTable.name],
-                        slug = row[MoodTable.slug],
-                        revision = row[MoodTable.revision],
-                        updatedAt = row[MoodTable.updatedAt],
-                        deletedAt = row[MoodTable.deletedAt],
-                    )
-                }
+            db.moodsQueries
+                .selectBySlug(slug)
+                .executeAsOneOrNull()
+                ?.toMood()
         }
 
     /**
@@ -135,20 +185,10 @@ class MoodRepository(
      */
     suspend fun listAll(): List<Mood> =
         suspendTransaction(db) {
-            MoodTable
-                .selectAll()
-                .where { MoodTable.deletedAt.isNull() }
-                .orderBy(MoodTable.name)
-                .map { row ->
-                    Mood(
-                        id = row[MoodTable.id],
-                        name = row[MoodTable.name],
-                        slug = row[MoodTable.slug],
-                        revision = row[MoodTable.revision],
-                        updatedAt = row[MoodTable.updatedAt],
-                        deletedAt = row[MoodTable.deletedAt],
-                    )
-                }
+            db.moodsQueries
+                .listAll()
+                .executeAsList()
+                .map { it.toMood() }
         }
 
     /**
@@ -170,5 +210,24 @@ class MoodRepository(
             is AppResult.Success -> result.data
             is AppResult.Failure -> null
         }
+    }
+
+    /** Maps a generated [Moods] row to the wire [Mood] DTO. */
+    private fun Moods.toMood(): Mood =
+        Mood(
+            id = id,
+            name = name,
+            slug = slug,
+            revision = revision,
+            updatedAt = updated_at,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
     }
 }

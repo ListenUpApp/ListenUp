@@ -117,10 +117,10 @@ internal class MoodServiceImpl(
             return AppResult.Failure(MoodError.BookNotFound())
         }
         val junctions = bookMoodRepository.findAllForBook(bookId.value)
-        val moods =
-            junctions.mapNotNull { junc ->
-                moodRepository.findById(junc.moodId)
-            }
+        // Batch the mood reads (one round-trip per 900-id chunk) instead of one findById
+        // per junction. findByIds preserves order and skips absent/tombstoned ids, so the
+        // result is identical to the prior per-row mapNotNull.
+        val moods = moodRepository.findByIds(junctions.map { it.moodId })
         return AppResult.Success(moods)
     }
 

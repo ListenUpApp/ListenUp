@@ -41,12 +41,12 @@ fun syncModule(): Module =
         single { SyncRegistry() }
         single { BookAccessPolicy(get()) }
         single(createdAtStart = true) { ChangeBus() }
-        // Tag + BookTag are the first SQLDelight conversions (the cutover template):
+        // Tag + BookTag + Mood + BookMood are SQLDelight conversions (the cutover template):
         // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
         single(createdAtStart = true) { TagRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { BookTagRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(createdAtStart = true) { MoodRepository(get(), get(), get()) }
-        single(createdAtStart = true) { BookMoodRepository(get(), get(), get()) }
+        single(createdAtStart = true) { MoodRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { BookMoodRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { CollectionRepository(get(), get(), get()) }
         single(createdAtStart = true) { CollectionBookRepository(get(), get(), get()) }
         single(createdAtStart = true) { CollectionShareRepository(get(), get(), get()) }

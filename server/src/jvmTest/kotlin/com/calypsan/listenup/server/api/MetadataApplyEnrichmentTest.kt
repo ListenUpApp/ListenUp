@@ -247,8 +247,8 @@ private fun enrichmentCtx(db: Database): EnrichmentCtx {
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
     val genreRepo = GenreRepository(db, bus, registry)
     val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db, contributorRepo, seriesRepo, genreRepo)
-    val moodRepo = MoodRepository(db, bus, registry)
-    val bookMoodRepo = BookMoodRepository(db, bus, registry)
+    val moodRepo = MoodRepository(db.asSqlDatabase(), bus, registry)
+    val bookMoodRepo = BookMoodRepository(db.asSqlDatabase(), bus, registry)
     val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
     val bookTagRepo = BookTagRepository(db.asSqlDatabase(), bus, registry)
     val metadataService =

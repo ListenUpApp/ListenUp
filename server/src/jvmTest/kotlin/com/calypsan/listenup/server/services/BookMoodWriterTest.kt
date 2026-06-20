@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -27,8 +29,8 @@ class BookMoodWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val moodRepository = MoodRepository(db, bus, registry)
-                val bookMoodRepository = BookMoodRepository(db, bus, registry)
+                val moodRepository = MoodRepository(db.asSqlDatabase(), bus, registry)
+                val bookMoodRepository = BookMoodRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
@@ -51,8 +53,8 @@ class BookMoodWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val moodRepository = MoodRepository(db, bus, registry)
-                val bookMoodRepository = BookMoodRepository(db, bus, registry)
+                val moodRepository = MoodRepository(db.asSqlDatabase(), bus, registry)
+                val bookMoodRepository = BookMoodRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
@@ -73,8 +75,8 @@ class BookMoodWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val moodRepository = MoodRepository(db, bus, registry)
-                val bookMoodRepository = BookMoodRepository(db, bus, registry)
+                val moodRepository = MoodRepository(db.asSqlDatabase(), bus, registry)
+                val bookMoodRepository = BookMoodRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
@@ -94,8 +96,8 @@ class BookMoodWriterTest :
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val moodRepository = MoodRepository(db, bus, registry)
-                val bookMoodRepository = BookMoodRepository(db, bus, registry)
+                val moodRepository = MoodRepository(db.asSqlDatabase(), bus, registry)
+                val bookMoodRepository = BookMoodRepository(db.asSqlDatabase(), bus, registry)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
