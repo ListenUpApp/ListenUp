@@ -108,7 +108,7 @@ private fun makeService(db: Database): PermServiceDeps {
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db, bus = bus, registry = registry),
+            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
         )
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)

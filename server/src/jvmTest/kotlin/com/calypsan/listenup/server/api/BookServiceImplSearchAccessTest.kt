@@ -46,7 +46,7 @@ class BookServiceImplSearchAccessTest :
             val registry = SyncRegistry()
             val contributorRepo = ContributorRepository(this.asSqlDatabase(), bus, registry)
             val seriesRepo = SeriesRepository(this.asSqlDatabase(), bus, registry)
-            val genreRepo = GenreRepository(this, bus, registry)
+            val genreRepo = GenreRepository(this.asSqlDatabase(), bus, registry)
             val bookRepo =
                 BookRepository(
                     db = this.asSqlDatabase(),

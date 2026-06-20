@@ -256,7 +256,7 @@ class MetadataLookupServiceImplTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
                     BookRepository(
                         db = db.asSqlDatabase(),
@@ -464,7 +464,7 @@ private fun makeService(
     val syncRegistry = SyncRegistry()
     val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-    val genreRepo = GenreRepository(db, bus, syncRegistry)
+    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
     val bookRepository =
         BookRepository(
             db = db.asSqlDatabase(),

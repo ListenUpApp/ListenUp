@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -26,8 +27,12 @@ class PendingGenrePromotionTest :
                 seedTestBook("book-1")
 
                 val writer =
-                    BookGenreWriter(db, Clock.System, GenreAutoCreator(GenreRepository(db, ChangeBus(), SyncRegistry())))
-                val promotion = PendingGenrePromotion(db, writer)
+                    BookGenreWriter(
+                        db.asSqlDatabase(),
+                        Clock.System,
+                        GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())),
+                    )
+                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
 
                 runTest {
                     suspendTransaction(db) { PendingBookGenreTable.addPending("book-1", "Cyberpunk", 0L) }
@@ -60,9 +65,9 @@ class PendingGenrePromotionTest :
                 seedTestLibraryAndFolder()
                 seedTestBook("book-1")
 
-                val autoCreator = GenreAutoCreator(GenreRepository(db, ChangeBus(), SyncRegistry()))
-                val writer = BookGenreWriter(db, Clock.System, autoCreator)
-                val promotion = PendingGenrePromotion(db, writer)
+                val autoCreator = GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()))
+                val writer = BookGenreWriter(db.asSqlDatabase(), Clock.System, autoCreator)
+                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
 
                 runTest {
                     val existingGenreId =
@@ -98,8 +103,12 @@ class PendingGenrePromotionTest :
                 seedTestBook("book-1")
 
                 val writer =
-                    BookGenreWriter(db, Clock.System, GenreAutoCreator(GenreRepository(db, ChangeBus(), SyncRegistry())))
-                val promotion = PendingGenrePromotion(db, writer)
+                    BookGenreWriter(
+                        db.asSqlDatabase(),
+                        Clock.System,
+                        GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())),
+                    )
+                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
 
                 runTest {
                     suspendTransaction(db) { PendingBookGenreTable.addPending("book-1", "Cyberpunk", 0L) }
@@ -122,8 +131,12 @@ class PendingGenrePromotionTest :
                 seedTestBook("book-1")
 
                 val writer =
-                    BookGenreWriter(db, Clock.System, GenreAutoCreator(GenreRepository(db, ChangeBus(), SyncRegistry())))
-                val promotion = PendingGenrePromotion(db, writer)
+                    BookGenreWriter(
+                        db.asSqlDatabase(),
+                        Clock.System,
+                        GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())),
+                    )
+                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
 
                 runTest {
                     promotion.run()

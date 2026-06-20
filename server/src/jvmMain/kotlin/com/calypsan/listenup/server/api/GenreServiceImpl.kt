@@ -14,11 +14,9 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.GenreAliasTable
-import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.PendingBookGenreTable
+import com.calypsan.listenup.server.db.sqldelight.Genres
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
@@ -26,15 +24,7 @@ import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.count
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -45,19 +35,25 @@ private const val MAX_BROWSE_LIMIT = 1000
  * [GenreService] implementation. Genres are a curator-controlled hierarchical
  * taxonomy with materialized-path storage; this class implements the read,
  * admin, and unmapped-curation surfaces against [GenreRepository] +
- * [BookRepository] + [BookSearchReindexer].
+ * [BookRepository] + [BookSearchReindexer], all over SQLDelight ([sqlDb]).
  *
- * Genre-only mutations ([createGenre], [updateGenre], [moveGenre]) run inside a single
- * Exposed transaction. The cross-aggregate flows ([deleteGenre], [mergeGenres],
- * [mapUnmappedToGenre]) span two engines during the SQLDelight cutover: the Exposed genre
- * writes (junction relink/delete, alias repoint, soft-delete) commit FIRST, then the affected
- * books are re-upserted through the SQLDelight [BookRepository] in a SEQUENTIAL second step.
- * Nesting the SQLDelight book write inside the held Exposed genre write transaction would
- * deadlock on the lone SQLite write lock (`SQLITE_BUSY`); the sequencing — modelled on
- * `BookServiceImpl.setBookGenres` — trades whole-flow atomicity (each individual write stays
- * atomic) for a contention-free cutover. Post-commit
- * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree`
- * keeps `book_search.genres` consistent with the live junction state.
+ * Genre reads + writes go through [genreRepository] (the SQLDelight syncable genre
+ * substrate) and the generated junction/alias/pending queries on [sqlDb]. The genre
+ * substrate is single-engine with [BookRepository] now, so the cross-aggregate flows
+ * ([deleteGenre], [mergeGenres], [mapUnmappedToGenre]) keep their **sequential** shape:
+ * the synchronous junction/alias writes commit first (inside a short
+ * [suspendTransaction]), the genre soft-delete runs through the substrate (its own
+ * transaction, bumping revision + publishing), and the affected books are re-upserted
+ * through [BookRepository] afterwards. Sequential SQLDelight writes never contend for
+ * the single SQLite write lock, so there is no `SQLITE_BUSY`; the structure is retained
+ * because the substrate `upsert` / `softDelete` are suspend functions that open their own
+ * transaction and so cannot nest inside the non-suspend SQLDelight transaction body.
+ *
+ * The materialized-path move/merge/subtree-delete orchestration is preserved exactly:
+ * descendant snapshot, bulk `rewritePathPrefix`, parent re-point, then a per-affected-row
+ * re-upsert so the substrate publishes one `genre.Updated` per row. Post-commit
+ * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree` keeps
+ * `book_search.genres` consistent with the live junction state.
  *
  * Genre reads ([listGenres], [getGenre], [getGenreChildren], [browseBooks],
  * [listUnmappedStrings]) are open to any authenticated user. Genre-taxonomy mutations
@@ -69,18 +65,18 @@ private const val MAX_BROWSE_LIMIT = 1000
  * that yields no principal, so an absent principal on a mutation is a wiring bug and is
  * denied.
  */
-@Suppress("UnusedPrivateProperty")
 internal class GenreServiceImpl(
     private val genreRepository: GenreRepository,
     private val bookRepository: BookRepository,
     private val reindexer: BookSearchReindexer,
+    private val sqlDb: ListenUpDatabase,
     private val db: Database,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : GenreService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
-        GenreServiceImpl(genreRepository, bookRepository, reindexer, db, permissionPolicy, principal)
+        GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, db, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -94,34 +90,26 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun listGenres(): AppResult<List<GenreSummary>> =
-        suspendTransaction(db) {
-            val rows =
-                GenreTable
-                    .selectAll()
-                    .where { GenreTable.deletedAt.isNull() }
-                    .orderBy(GenreTable.path)
-                    .toList()
+        suspendTransaction(sqlDb) {
+            val rows = sqlDb.genresQueries.listLiveOrderedByPath().executeAsList()
             // One grouped count over LIVE books (a soft-deleted book keeps its book_genres
-            // row — FK cascade is hard-delete only — so exclude tombstones here).
-            val bookCountExpr = BookGenreTable.genreId.count()
+            // row — FK cascade is hard-delete only — so the query excludes tombstones).
             val counts: Map<String, Long> =
-                (BookGenreTable innerJoin BookTable)
-                    .select(BookGenreTable.genreId, bookCountExpr)
-                    .where { BookTable.deletedAt.isNull() }
-                    .groupBy(BookGenreTable.genreId)
-                    .associate { it[BookGenreTable.genreId] to it[bookCountExpr] }
+                sqlDb.bookGenresQueries
+                    .bookCountsOverLiveBooks { genreId, bookCount -> genreId to bookCount }
+                    .executeAsList()
+                    .toMap()
             val summaries =
                 rows.map { row ->
-                    val genreIdStr = row[GenreTable.id]
                     GenreSummary(
-                        id = GenreId(genreIdStr),
-                        name = row[GenreTable.name],
-                        slug = row[GenreTable.slug],
-                        path = row[GenreTable.path],
-                        parentId = row[GenreTable.parentId]?.let(::GenreId),
-                        depth = row[GenreTable.depth],
-                        sortOrder = row[GenreTable.sortOrder],
-                        bookCount = (counts[genreIdStr] ?: 0L).toInt(),
+                        id = GenreId(row.id),
+                        name = row.name,
+                        slug = row.slug,
+                        path = row.path,
+                        parentId = row.parent_id?.let(::GenreId),
+                        depth = row.depth.toInt(),
+                        sortOrder = row.sort_order.toInt(),
+                        bookCount = (counts[row.id] ?: 0L).toInt(),
                     )
                 }
             AppResult.Success(summaries)
@@ -133,26 +121,19 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun getGenreChildren(parentId: GenreId): AppResult<List<GenreSyncPayload>> =
-        suspendTransaction(db) {
+        suspendTransaction(sqlDb) {
             // Parent existence + liveness check inside the same transaction as the children read.
-            val parentRow =
-                GenreTable
-                    .selectAll()
-                    .where { GenreTable.id eq parentId.value }
-                    .firstOrNull()
-            if (parentRow == null || parentRow[GenreTable.deletedAt] != null) {
+            val parentRow = sqlDb.genresQueries.selectById(parentId.value).executeAsOneOrNull()
+            if (parentRow == null || parentRow.deleted_at != null) {
                 return@suspendTransaction AppResult.Failure(
                     GenreError.NotFound(debugInfo = "parentId=${parentId.value}"),
                 )
             }
             val children =
-                GenreTable
-                    .selectAll()
-                    .where { (GenreTable.parentId eq parentId.value) and GenreTable.deletedAt.isNull() }
-                    .orderBy(GenreTable.sortOrder)
-                    .orderBy(GenreTable.path)
-                    .toList()
-            AppResult.Success(children.map { it.toGenrePayload() })
+                sqlDb.genresQueries
+                    .liveChildrenOrdered(parentId.value)
+                    .executeAsList()
+            AppResult.Success(children.map { it.toPayload() })
         }
 
     override suspend fun browseBooks(
@@ -161,20 +142,16 @@ internal class GenreServiceImpl(
         limit: Int,
     ): AppResult<List<BookId>> {
         val safeLimit = limit.coerceIn(MIN_BROWSE_LIMIT, MAX_BROWSE_LIMIT)
-        return suspendTransaction(db) {
-            val genreRow =
-                GenreTable
-                    .selectAll()
-                    .where { GenreTable.id eq genreId.value }
-                    .firstOrNull()
-            if (genreRow == null || genreRow[GenreTable.deletedAt] != null) {
+        return suspendTransaction(sqlDb) {
+            val genreRow = sqlDb.genresQueries.selectById(genreId.value).executeAsOneOrNull()
+            if (genreRow == null || genreRow.deleted_at != null) {
                 return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
             }
             val bookIdStrings =
                 if (includeDescendants) {
-                    BookGenreTable.booksForGenrePrefix(genreRow[GenreTable.path], safeLimit)
+                    sqlDb.bookGenresQueries.booksForGenrePrefix(genreRow.path, safeLimit.toLong()).executeAsList()
                 } else {
-                    BookGenreTable.booksForGenre(genreId.value, safeLimit)
+                    sqlDb.bookGenresQueries.booksForGenre(genreId.value, safeLimit.toLong()).executeAsList()
                 }
             AppResult.Success(bookIdStrings.map(::BookId))
         }
@@ -233,68 +210,51 @@ internal class GenreServiceImpl(
         patch: GenreUpdate,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val outcome: GenreUpdateOutcome =
-            suspendTransaction(db) {
-                val current = genreRepository.findById(id.value)
-                if (current == null || current.deletedAt != null) {
-                    return@suspendTransaction GenreUpdateOutcome(
-                        nameChanged = false,
-                        result = AppResult.Failure(genreNotFound(id)),
-                    )
-                }
-                val patched = current.applyPatch(patch)
-                val nameChanged = patched.name != current.name
-                when (val upsertResult = genreRepository.upsert(patched)) {
-                    is AppResult.Success -> GenreUpdateOutcome(nameChanged, AppResult.Success(Unit))
-                    is AppResult.Failure -> GenreUpdateOutcome(false, AppResult.Failure(upsertResult.error))
-                }
+        val current = genreRepository.findById(id.value)
+        if (current == null || current.deletedAt != null) {
+            return AppResult.Failure(genreNotFound(id))
+        }
+        val patched = current.applyPatch(patch)
+        val nameChanged = patched.name != current.name
+        val result =
+            when (val upsertResult = genreRepository.upsert(patched)) {
+                is AppResult.Success -> AppResult.Success(Unit)
+                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
             }
-        if (outcome.result is AppResult.Success && outcome.nameChanged) {
+        if (result is AppResult.Success && nameChanged) {
             runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
                 .onFailure { logger.warn(it) { "FTS reindex failed after rename of genre ${id.value}" } }
         }
-        return outcome.result
+        return result
     }
 
     override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        // The genre cascade (junction delete, alias removal, soft-delete) writes Exposed tables and
-        // takes the SQLite write lock; the affected-book re-upserts write the book rows via SQLDelight
-        // on a separate connection. During the cutover these two engines cannot share one transaction,
-        // so they run SEQUENTIALLY — the Exposed genre writes commit (releasing the write lock), THEN
-        // the SQLDelight book re-upserts run. Nesting the SQLDelight write inside the held Exposed write
-        // transaction deadlocks on the lone SQLite write lock (SQLITE_BUSY). This mirrors the established
-        // `BookServiceImpl.setBookGenres` shape; whole-flow atomicity across the two engines is not
-        // guaranteed, but each individual write is atomic and the book's `genres` re-derives from the
-        // live junction on the re-read regardless of the genre's `deleted_at`.
-        val plan =
-            suspendTransaction(db) {
-                val current = genreRepository.findById(id.value)
-                if (current == null || current.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(genreNotFound(id))
-                }
-                if (GenreTable.directChildren(id.value).isNotEmpty()) {
-                    return@suspendTransaction AppResult.Failure(
-                        GenreError.HasDescendants(debugInfo = id.value),
-                    )
-                }
+        // Sequential single-engine cutover: the synchronous junction-delete + alias-removal commit
+        // first, then the genre soft-delete runs through the substrate (its own transaction, bumping
+        // revision + publishing), then the affected books are re-upserted through BookRepository. All
+        // SQLDelight, run sequentially so the single SQLite write lock is never contended.
+        val current = genreRepository.findById(id.value)
+        if (current == null || current.deletedAt != null) {
+            return AppResult.Failure(genreNotFound(id))
+        }
+        if (genreRepository.directChildren(id.value).isNotEmpty()) {
+            return AppResult.Failure(GenreError.HasDescendants(debugInfo = id.value))
+        }
 
-                // Snapshot affected books BEFORE the cascade — afterwards the junction rows are gone.
-                val affectedBookIds = BookGenreTable.bookIdsForGenre(id.value)
-
-                BookGenreTable.deleteAllForGenre(id.value)
-                GenreAliasTable.removeAllForGenre(id.value)
-
-                when (val softDeleteResult = genreRepository.softDelete(id)) {
-                    is AppResult.Success -> AppResult.Success(affectedBookIds)
-                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
-                }
-            }
+        // Snapshot affected books BEFORE the cascade, then drop the junction + alias rows.
         val affectedBookIds =
-            when (plan) {
-                is AppResult.Success -> plan.data
-                is AppResult.Failure -> return AppResult.Failure(plan.error)
+            suspendTransaction(sqlDb) {
+                val ids = sqlDb.bookGenresQueries.bookIdsForGenre(id.value).executeAsList()
+                sqlDb.bookGenresQueries.deleteAllForGenre(id.value)
+                sqlDb.genreAliasesQueries.removeAllForGenre(id.value)
+                ids
             }
+
+        when (val softDeleteResult = genreRepository.softDelete(id)) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(softDeleteResult.error)
+        }
 
         // Re-upsert affected books — bumps revision, publishes book.Updated. The book's
         // BookSyncPayload.genres re-derives from the live junction (now missing this id).
@@ -313,30 +273,21 @@ internal class GenreServiceImpl(
         newParentId: GenreId?,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val outcome: MoveOutcome =
-            suspendTransaction(db) {
-                when (val plan = planMove(id, newParentId)) {
-                    is MovePlanResult.Reject -> {
-                        MoveOutcome(
-                            oldPathPrefix = null,
-                            result = AppResult.Failure(plan.error),
-                        )
-                    }
-
-                    is MovePlanResult.NoOp -> {
-                        MoveOutcome(oldPathPrefix = null, result = AppResult.Success(Unit))
-                    }
-
-                    is MovePlanResult.Proceed -> {
-                        executeMove(plan.plan)
-                    }
-                }
+        val plan =
+            when (val planResult = planMove(id, newParentId)) {
+                is MovePlanResult.Reject -> return AppResult.Failure(planResult.error)
+                is MovePlanResult.NoOp -> return AppResult.Success(Unit)
+                is MovePlanResult.Proceed -> planResult.plan
             }
-        if (outcome.result is AppResult.Success && outcome.oldPathPrefix != null) {
-            runCatchingCancellable { reindexer.reindexAllBooksForSubtree(outcome.oldPathPrefix) }
-                .onFailure { logger.warn(it) { "FTS reindex failed after moveGenre id=${id.value}" } }
+
+        when (val moveResult = executeMove(plan)) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(moveResult.error)
         }
-        return outcome.result
+
+        runCatchingCancellable { reindexer.reindexAllBooksForSubtree(plan.oldPathPrefix) }
+            .onFailure { logger.warn(it) { "FTS reindex failed after moveGenre id=${id.value}" } }
+        return AppResult.Success(Unit)
     }
 
     override suspend fun mergeGenres(
@@ -344,53 +295,28 @@ internal class GenreServiceImpl(
         target: GenreId,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        if (source.value == target.value) {
-            return AppResult.Failure(GenreError.MergeSelfTarget(debugInfo = source.value))
-        }
-        // The genre relink/alias-repoint/soft-delete writes Exposed tables (taking the SQLite write
-        // lock); the affected-book re-upserts write the book rows via SQLDelight on a separate
-        // connection. During the cutover the two engines cannot share one transaction, so they run
-        // SEQUENTIALLY — the Exposed genre writes commit (releasing the write lock), THEN the SQLDelight
-        // book re-upserts run. Nesting the SQLDelight write inside the held Exposed write transaction
-        // deadlocks on the lone SQLite write lock (SQLITE_BUSY). This mirrors the established
-        // `BookServiceImpl.setBookGenres` shape; whole-flow atomicity across the two engines is not
-        // guaranteed, but each individual write is atomic and the book's `genres` re-derives from the
-        // live junction on the re-read (now pointing at target).
-        val plan =
-            suspendTransaction(db) {
-                val sourcePayload = genreRepository.findById(source.value)
-                if (sourcePayload == null || sourcePayload.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(genreNotFound(source))
-                }
-                val targetPayload = genreRepository.findById(target.value)
-                if (targetPayload == null || targetPayload.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(genreNotFound(target))
-                }
-                if (GenreTable.directChildren(source.value).isNotEmpty()) {
-                    return@suspendTransaction AppResult.Failure(
-                        GenreError.HasDescendants(debugInfo = source.value),
-                    )
-                }
+        // Sequential single-engine cutover (see deleteGenre): synchronous relink + alias-repoint
+        // commit first, the source genre soft-delete runs through the substrate, then the affected
+        // books are re-upserted. All SQLDelight, run sequentially — no SQLITE_BUSY.
+        validateMerge(source, target)?.let { return AppResult.Failure(it) }
 
-                // Snapshot affected books BEFORE the relink — afterwards the source's junction rows are gone.
-                val affectedBookIds = BookGenreTable.bookIdsForGenre(source.value)
-
-                // INSERT-OR-IGNORE the (book, target) rows for every book linked to source,
-                // then drop the source rows. Books already linked to both sides end up with a single
-                // (book, target) row — no duplicates.
-                BookGenreTable.relinkGenre(fromId = source.value, toId = target.value)
-                GenreAliasTable.repointAliases(fromGenreId = source.value, toGenreId = target.value)
-
-                when (val softDeleteResult = genreRepository.softDelete(source)) {
-                    is AppResult.Success -> AppResult.Success(affectedBookIds)
-                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
-                }
-            }
+        // Snapshot affected books BEFORE the relink — afterwards the source's junction rows are gone.
+        // INSERT-OR-IGNORE the (book, target) rows for every book linked to source, then drop the
+        // source rows (books already linked to both sides end up with one (book, target) row — no
+        // duplicates), then re-point the aliases.
         val affectedBookIds =
-            when (plan) {
-                is AppResult.Success -> plan.data
-                is AppResult.Failure -> return AppResult.Failure(plan.error)
+            suspendTransaction(sqlDb) {
+                val ids = sqlDb.bookGenresQueries.bookIdsForGenre(source.value).executeAsList()
+                sqlDb.bookGenresQueries.relinkGenreCopy(to_id = target.value, from_id = source.value)
+                sqlDb.bookGenresQueries.deleteAllForGenre(source.value)
+                sqlDb.genreAliasesQueries.repointAliases(to_genre_id = target.value, from_genre_id = source.value)
+                ids
             }
+
+        when (val softDeleteResult = genreRepository.softDelete(source)) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(softDeleteResult.error)
+        }
 
         when (val reupsert = reupsertBooks(affectedBookIds)) {
             is AppResult.Success -> Unit
@@ -399,21 +325,19 @@ internal class GenreServiceImpl(
 
         runCatchingCancellable { reindexer.reindexAllBooksForGenre(target.value) }
             .onFailure {
-                logger.warn(
-                    it,
-                ) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
+                logger.warn(it) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
             }
         return AppResult.Success(Unit)
     }
 
     override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
-        suspendTransaction(db) {
+        suspendTransaction(sqlDb) {
             val summaries =
-                PendingBookGenreTable.aggregateByString().map { agg ->
+                sqlDb.pendingBookGenresQueries.aggregateByString().executeAsList().map { agg ->
                     UnmappedStringSummary(
-                        rawString = agg.rawString,
-                        bookCount = agg.bookCount,
-                        firstSeenAt = agg.firstSeenAt,
+                        rawString = agg.raw_string,
+                        bookCount = agg.book_count.toInt(),
+                        firstSeenAt = agg.first_seen ?: 0L,
                     )
                 }
             AppResult.Success(summaries)
@@ -425,49 +349,33 @@ internal class GenreServiceImpl(
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val trimmed = rawString.trim()
-        // The alias-add, pending→junction conversion, and pending-row delete write Exposed tables
-        // (taking the SQLite write lock); the affected-book re-upserts write the book rows via SQLDelight
-        // on a separate connection. During the cutover the two engines cannot share one transaction, so
-        // they run SEQUENTIALLY — the Exposed genre writes commit (releasing the write lock), THEN the
-        // SQLDelight book re-upserts run. Nesting the SQLDelight write inside the held Exposed write
-        // transaction deadlocks on the lone SQLite write lock (SQLITE_BUSY). This mirrors the established
-        // `BookServiceImpl.setBookGenres` shape; whole-flow atomicity across the two engines is not
-        // guaranteed, but each individual write is atomic and the book's `genres` re-derives from the
-        // live junction on the re-read (now including the mapped genre).
-        val plan =
-            suspendTransaction(db) {
-                val genre = genreRepository.findById(genreId.value)
-                if (genre == null || genre.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
-                }
+        // Sequential single-engine cutover (see deleteGenre): the alias-add, pending→junction
+        // conversion, and pending-row delete commit first; the affected books are re-upserted
+        // afterwards. All SQLDelight, run sequentially — no SQLITE_BUSY.
+        val genre = genreRepository.findById(genreId.value)
+        if (genre == null || genre.deletedAt != null) {
+            return AppResult.Failure(genreNotFound(genreId))
+        }
 
-                // Snapshot affected books BEFORE we delete pending rows.
-                val affectedBookIds = PendingBookGenreTable.bookIdsByRawString(trimmed)
-                if (affectedBookIds.isEmpty()) {
-                    return@suspendTransaction AppResult.Failure(
-                        GenreError.UnmappedStringNotFound(debugInfo = "rawString=$trimmed"),
-                    )
-                }
+        val affectedBookIds = sqlDb.pendingBookGenresQueries.bookIdsByRawString(trimmed).executeAsList()
+        if (affectedBookIds.isEmpty()) {
+            return AppResult.Failure(GenreError.UnmappedStringNotFound(debugInfo = "rawString=$trimmed"))
+        }
 
-                // 1. Persist the alias so future scans resolve the string automatically.
-                GenreAliasTable.addAlias(trimmed, genreId.value)
+        suspendTransaction(sqlDb) {
+            // 1. Persist the alias so future scans resolve the string automatically (delete-then-insert).
+            sqlDb.genreAliasesQueries.deleteByRawString(trimmed)
+            sqlDb.genreAliasesQueries.insert(raw_string = trimmed, genre_id = genreId.value)
 
-                // 2. Convert pending → real junction rows (insert-or-ignore — idempotent if a
-                //    book already has the target genre linked).
-                for (bookId in affectedBookIds) {
-                    BookGenreTable.insertIfAbsent(bookId, genreId.value)
-                }
-
-                // 3. Drop the pending rows now that the mapping is canonical.
-                PendingBookGenreTable.deleteAllForRawString(trimmed)
-
-                AppResult.Success(affectedBookIds)
+            // 2. Convert pending → real junction rows (insert-or-ignore — idempotent if a book
+            //    already has the target genre linked).
+            for (bookId in affectedBookIds) {
+                sqlDb.bookGenresQueries.insertIfAbsent(book_id = bookId, genre_id = genreId.value)
             }
-        val affectedBookIds =
-            when (plan) {
-                is AppResult.Success -> plan.data
-                is AppResult.Failure -> return AppResult.Failure(plan.error)
-            }
+
+            // 3. Drop the pending rows now that the mapping is canonical.
+            sqlDb.pendingBookGenresQueries.deleteAllForRawString(trimmed)
+        }
 
         // 4. Re-upsert each affected book — bumps revision, publishes `book.Updated`.
         when (val reupsert = reupsertBooks(affectedBookIds)) {
@@ -477,9 +385,7 @@ internal class GenreServiceImpl(
 
         runCatchingCancellable { reindexer.reindexAllBooksForGenre(genreId.value) }
             .onFailure {
-                logger.warn(
-                    it,
-                ) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
+                logger.warn(it) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
             }
         return AppResult.Success(Unit)
     }
@@ -487,18 +393,37 @@ internal class GenreServiceImpl(
     private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
 
     /**
+     * Validates a `mergeGenres(source, target)` request: rejects a self-merge, a missing/tombstoned
+     * source or target, and a source that still has direct children (merging a non-leaf would orphan
+     * its subtree). Returns the typed denial, or null when the merge may proceed.
+     */
+    private suspend fun validateMerge(
+        source: GenreId,
+        target: GenreId,
+    ): GenreError? {
+        if (source.value == target.value) {
+            return GenreError.MergeSelfTarget(debugInfo = source.value)
+        }
+        val sourcePayload = genreRepository.findById(source.value)
+        if (sourcePayload == null || sourcePayload.deletedAt != null) {
+            return genreNotFound(source)
+        }
+        val targetPayload = genreRepository.findById(target.value)
+        if (targetPayload == null || targetPayload.deletedAt != null) {
+            return genreNotFound(target)
+        }
+        if (genreRepository.directChildren(source.value).isNotEmpty()) {
+            return GenreError.HasDescendants(debugInfo = source.value)
+        }
+        return null
+    }
+
+    /**
      * Re-upserts every live book whose id appears in [bookIds]. Skips books that have
      * vanished between snapshot and re-read. Used by [deleteGenre], [mergeGenres], and
      * [mapUnmappedToGenre] to bump revisions on books whose `BookSyncPayload.genres` must
-     * reflect the junction cascade.
-     *
-     * Runs against SQLDelight ([BookRepository]) and MUST be called AFTER the caller's Exposed
-     * genre write transaction has committed — never nested inside it. The Exposed genre write
-     * holds the SQLite write lock; a nested SQLDelight book write on the separate SQLDelight
-     * connection would block on that lock and fail with `SQLITE_BUSY`. The committed Exposed
-     * junction state is visible to the SQLDelight read here, so the re-derived `genres` is correct.
-     *
-     * One batched [BookRepository.findAllByIds] read replaces the prior per-book `findById` N+1.
+     * reflect the junction cascade. One batched [BookRepository.findAllByIds] read replaces
+     * the prior per-book `findById` N+1.
      */
     private suspend fun reupsertBooks(bookIds: List<String>): AppResult<Unit> {
         for (payload in bookRepository.findAllByIds(bookIds)) {
@@ -525,10 +450,7 @@ internal class GenreServiceImpl(
 
     /**
      * Validates a `moveGenre` request and either rejects it, reports a no-op, or
-     * produces an executable [MovePlan]. Runs inside the caller's transaction.
-     *
-     * Splitting this out of [moveGenre] keeps the orchestration body straight-line
-     * and well under the cognitive-complexity threshold.
+     * produces an executable [MovePlan]. Reads through the SQLDelight genre substrate.
      */
     private suspend fun planMove(
         id: GenreId,
@@ -552,7 +474,7 @@ internal class GenreServiceImpl(
         val newPathPrefix = (newParent?.path ?: "") + "/" + genre.slug
         if (newPathPrefix == oldPathPrefix) return MovePlanResult.NoOp
 
-        if (GenreTable.findByPath(newPathPrefix) != null) {
+        if (genreRepository.findByPath(newPathPrefix) != null) {
             return MovePlanResult.Reject(GenreError.SlugConflict(debugInfo = "path=$newPathPrefix"))
         }
 
@@ -569,63 +491,54 @@ internal class GenreServiceImpl(
     }
 
     /**
-     * Executes a validated [MovePlan]: snapshots the subtree, rewrites paths +
-     * depths in bulk, re-points the moved root's parent, then re-upserts each
-     * touched genre so the substrate publishes one `genre.Updated` per row.
-     * Runs inside the caller's transaction.
+     * Executes a validated [MovePlan]: snapshots the subtree and rewrites paths + depths in bulk
+     * + re-points the moved root's parent (one synchronous SQLDelight transaction), then re-upserts
+     * each touched genre so the substrate publishes one `genre.Updated` per row. The re-upserts run
+     * sequentially after the path rewrite commits — each substrate `upsert` opens its own
+     * transaction, so they cannot nest inside the synchronous rewrite transaction.
      */
-    private suspend fun executeMove(plan: MovePlan): MoveOutcome {
-        val subtreeIds = GenreTable.descendantIds(plan.oldPathPrefix)
-        GenreTable.rewritePathPrefix(plan.oldPathPrefix, plan.newPathPrefix, plan.depthDelta)
-        GenreTable.updateParentId(plan.movedId.value, plan.newParentId?.value)
+    private suspend fun executeMove(plan: MovePlan): AppResult<Unit> {
+        val subtreeIds =
+            suspendTransaction(sqlDb) {
+                val ids = sqlDb.genresQueries.descendantIds(plan.oldPathPrefix).executeAsList()
+                sqlDb.genresQueries.rewritePathPrefix(
+                    new_prefix = plan.newPathPrefix,
+                    // substr_from = oldPrefix.length + 1; CAST to INTEGER at eval time (see Genres.sq).
+                    substr_from = (plan.oldPathPrefix.length + 1).toString(),
+                    depth_delta = plan.depthDelta.toLong(),
+                    old_prefix = plan.oldPathPrefix,
+                )
+                sqlDb.genresQueries.updateParentId(parent_id = plan.newParentId?.value, id = plan.movedId.value)
+                ids
+            }
         for (gid in subtreeIds) {
             val payload = genreRepository.findById(gid) ?: continue
             val upsertResult = genreRepository.upsert(payload)
             if (upsertResult is AppResult.Failure) {
-                return MoveOutcome(oldPathPrefix = null, result = AppResult.Failure(upsertResult.error))
+                return AppResult.Failure(upsertResult.error)
             }
         }
-        return MoveOutcome(oldPathPrefix = plan.oldPathPrefix, result = AppResult.Success(Unit))
+        return AppResult.Success(Unit)
     }
 
-    private fun ResultRow.toGenrePayload(): GenreSyncPayload =
+    /** Maps a generated [Genres] row to the [GenreSyncPayload] domain shape. */
+    private fun Genres.toPayload(): GenreSyncPayload =
         GenreSyncPayload(
-            id = this[GenreTable.id],
-            name = this[GenreTable.name],
-            slug = this[GenreTable.slug],
-            path = this[GenreTable.path],
-            parentId = this[GenreTable.parentId],
-            depth = this[GenreTable.depth],
-            sortOrder = this[GenreTable.sortOrder],
-            color = this[GenreTable.color],
-            description = this[GenreTable.description],
-            revision = this[GenreTable.revision],
-            updatedAt = this[GenreTable.updatedAt],
-            createdAt = this[GenreTable.createdAt],
-            deletedAt = this[GenreTable.deletedAt],
+            id = id,
+            name = name,
+            slug = slug,
+            path = path,
+            parentId = parent_id,
+            depth = depth.toInt(),
+            sortOrder = sort_order.toInt(),
+            color = color,
+            description = description,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
         )
 }
-
-/**
- * Carries the patched payload alongside whether the rename triggered a name change,
- * so the post-commit FTS reindex only fires when the genre's display name actually
- * changed (mirrors `ContributorServiceImpl.UpdateOutcome`).
- */
-private data class GenreUpdateOutcome(
-    val nameChanged: Boolean,
-    val result: AppResult<Unit>,
-)
-
-/**
- * Carries the outcome of a move + the old subtree's path prefix so the post-commit
- * `reindexAllBooksForSubtree` can fire against the books whose FTS rows need to
- * reflect the new genre paths. `oldPathPrefix` is null on failure or when the move
- * was a no-op.
- */
-private data class MoveOutcome(
-    val oldPathPrefix: String?,
-    val result: AppResult<Unit>,
-)
 
 /** Validated parameters needed to execute a `moveGenre` write. */
 private data class MovePlan(
@@ -663,8 +576,9 @@ fun createGenreService(
     genreRepository: GenreRepository,
     bookRepository: BookRepository,
     reindexer: BookSearchReindexer,
+    sqlDb: ListenUpDatabase,
     db: Database,
-): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, db)
+): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, db)
 
 /**
  * Scopes a [GenreService] built by [createGenreService] to [principal] for one request.

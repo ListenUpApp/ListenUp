@@ -78,7 +78,7 @@ class PlaybackServiceImplTest :
                     registry = registry,
                     contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
                     seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
-                    genreRepository = GenreRepository(db, bus, registry),
+                    genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                 )
             val positionRepo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))

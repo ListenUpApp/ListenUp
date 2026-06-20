@@ -185,7 +185,7 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db, bus = ChangeBus(), registry = SyncRegistry()),
+            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry()),
         )
     val service =
         LibraryAdminServiceImpl(

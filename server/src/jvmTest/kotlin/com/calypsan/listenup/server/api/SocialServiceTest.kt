@@ -86,7 +86,7 @@ class SocialServiceTest :
                     registry = bookRegistry,
                     contributorRepository = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
                     seriesRepository = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
-                    genreRepository = GenreRepository(db = db, bus = bus, registry = bookRegistry),
+                    genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
                 )
             return SocialServiceImpl(
                 activeSessions = ActiveSessionRepository(db = db, bus = bus),

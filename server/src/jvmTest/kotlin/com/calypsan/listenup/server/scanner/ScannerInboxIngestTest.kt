@@ -177,7 +177,7 @@ private fun fixture(db: Database): InboxFixture {
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
             seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
     val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)

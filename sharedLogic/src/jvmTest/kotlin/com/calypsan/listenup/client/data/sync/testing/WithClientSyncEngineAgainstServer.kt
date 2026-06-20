@@ -290,6 +290,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 genreRepository = serverRepos.genreRepo,
                 bookRepository = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
+                sqlDb = serverSqlDb,
                 db = serverDb,
             )
 
@@ -648,7 +649,7 @@ private fun buildServerRepositories(
     val libraryFolderRepo = LibraryFolderRepository(serverDb, bus, registry)
     val contributorRepo = ContributorRepository(serverSqlDb, bus, registry)
     val seriesRepo = SeriesRepository(serverSqlDb, bus, registry)
-    val genreRepo = ServerGenreRepository(serverDb, bus, registry)
+    val genreRepo = ServerGenreRepository(serverSqlDb, bus, registry)
     val bookRepo =
         BookRepository(
             db = serverSqlDb,

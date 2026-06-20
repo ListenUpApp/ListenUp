@@ -2,15 +2,10 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.GenreSyncPayload
-import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.services.GenreRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -227,7 +222,6 @@ private val DEFAULT_GENRES: List<GenreSeed> =
  * cross-reference both want a stable run sequence.
  */
 internal class GenreDomainSeeder(
-    private val db: Database,
     private val genreRepository: GenreRepository,
     private val clock: Clock = Clock.System,
 ) : DomainSeeder {
@@ -236,14 +230,7 @@ internal class GenreDomainSeeder(
     override val order: Int = 40
 
     /** Returns true when at least one non-deleted genre row already exists. */
-    override suspend fun isAlreadySeeded(): Boolean =
-        suspendTransaction(db) {
-            GenreTable
-                .selectAll()
-                .where { GenreTable.deletedAt.isNull() }
-                .limit(1)
-                .any()
-        }
+    override suspend fun isAlreadySeeded(): Boolean = genreRepository.count() > 0L
 
     override suspend fun seed() {
         val now = clock.now().toEpochMilliseconds()

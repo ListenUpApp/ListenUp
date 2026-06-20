@@ -43,7 +43,7 @@ class GenreServiceImplMoveTest :
         fun makeService(db: Database): GenreServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val genreRepo = GenreRepository(db, bus, registry, fixedClock)
+            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry, fixedClock)
             val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
             val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
             val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
@@ -61,7 +61,7 @@ class GenreServiceImplMoveTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db, principal = rootPrincipal())
+            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db, principal = rootPrincipal())
         }
 
         test("moveGenre returns NotFound when id is unknown") {

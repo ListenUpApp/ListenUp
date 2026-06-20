@@ -284,7 +284,7 @@ private fun buildPlaybackBookRepository(
         registry = sharedRegistry,
         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),
         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, sharedRegistry),
-        genreRepository = GenreRepository(db, bus, sharedRegistry),
+        genreRepository = GenreRepository(db.asSqlDatabase(), bus, sharedRegistry),
     )
 }
 

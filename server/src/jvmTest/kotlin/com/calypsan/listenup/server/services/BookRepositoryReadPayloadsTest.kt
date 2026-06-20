@@ -37,7 +37,7 @@ class BookRepositoryReadPayloadsTest :
                 registry = syncRegistry,
                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                genreRepository = GenreRepository(db, bus, syncRegistry),
+                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
             )
         }
 

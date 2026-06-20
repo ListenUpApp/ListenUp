@@ -335,7 +335,7 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
         )
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)

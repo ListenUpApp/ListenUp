@@ -79,10 +79,10 @@ class SqlDelightMigrationSchemaDriftTest :
     })
 
 /**
- * The 29 tables the SQLDelight `.sq` set declares — every Exposed→SQLDelight conversion plus the
- * describe-only `genres` schema and the `book_search` FTS5 cluster. Kept as an explicit literal so
- * adding a new `.sq` table is a deliberate edit here, and a table silently dropped from the `.sq`
- * set surfaces as a coverage gap rather than a vanished assertion.
+ * The tables the SQLDelight `.sq` set declares — every Exposed→SQLDelight conversion (including the
+ * genre catalog: `genres` + `genre_aliases` + `pending_book_genres`) plus the `book_search` FTS5
+ * cluster. Kept as an explicit literal so adding a new `.sq` table is a deliberate edit here, and a
+ * table silently dropped from the `.sq` set surfaces as a coverage gap rather than a vanished assertion.
  */
 private val SQ_TABLES =
     listOf(
@@ -108,6 +108,8 @@ private val SQ_TABLES =
         "metadata_cache",
         "collection_books",
         "genres",
+        "genre_aliases",
+        "pending_book_genres",
         "sync_meta",
         "user_stats",
         "listening_events",

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -13,7 +14,7 @@ class GenreHierarchyFromLadderTest :
 
         test("nests each rung under the previous one, leaf is most specific") {
             withInMemoryDatabase {
-                val repo = GenreRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val hierarchy = GenreHierarchyFromLadder(this, repo, GenreAutoCreator(repo))
                 runTest {
                     val ids = hierarchy.ensureLadder(listOf("Fiction", "Fantasy", "LitRPG"))
@@ -34,7 +35,7 @@ class GenreHierarchyFromLadderTest :
 
         test("does not move a genre the user already arranged under a parent") {
             withInMemoryDatabase {
-                val repo = GenreRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val autoCreator = GenreAutoCreator(repo)
                 val hierarchy = GenreHierarchyFromLadder(this, repo, autoCreator)
                 runTest {
@@ -70,7 +71,7 @@ class GenreHierarchyFromLadderTest :
 
         test("nests a pre-existing FLAT genre when a ladder arrives (scanner-flat becomes nested)") {
             withInMemoryDatabase {
-                val repo = GenreRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val autoCreator = GenreAutoCreator(repo)
                 val hierarchy = GenreHierarchyFromLadder(this, repo, autoCreator)
                 runTest {

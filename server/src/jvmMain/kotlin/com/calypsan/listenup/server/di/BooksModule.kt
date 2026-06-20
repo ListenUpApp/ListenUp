@@ -119,7 +119,7 @@ fun booksModule(
         // SQLITE_BUSY against these two domains until the merge-txn unit converts them.
         single(createdAtStart = true) { ContributorRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(createdAtStart = true) { GenreRepository(get(), get(), get()) }
+        single(createdAtStart = true) { GenreRepository(get<ListenUpDatabase>(), get(), get()) }
         single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {
             BookRepository(
@@ -203,6 +203,7 @@ fun booksModule(
                 genreRepository = get<GenreRepository>(),
                 bookRepository = get<BookRepository>(),
                 reindexer = get<BookSearchReindexer>(),
+                sqlDb = get<ListenUpDatabase>(),
                 db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("GenreService"),
@@ -272,11 +273,11 @@ private fun Module.moodBindings() {
  * under the length budget.
  */
 private fun Module.genreBootstrapBindings() {
-    single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
+    single { GenreDomainSeeder(genreRepository = get<GenreRepository>()) }
     single {
         PendingGenrePromotion(
-            db = get(),
-            bookGenreWriter = BookGenreWriter(get(), get(), GenreAutoCreator(get<GenreRepository>())),
+            db = get<ListenUpDatabase>(),
+            bookGenreWriter = BookGenreWriter(get<ListenUpDatabase>(), get(), GenreAutoCreator(get<GenreRepository>())),
         )
     }
 }

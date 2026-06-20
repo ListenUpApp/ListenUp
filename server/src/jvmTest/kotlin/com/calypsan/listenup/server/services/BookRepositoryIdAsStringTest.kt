@@ -24,7 +24,7 @@ class BookRepositoryIdAsStringTest :
                         registry = registry,
                         contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
                         seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
-                        genreRepository = GenreRepository(this, bus, registry),
+                        genreRepository = GenreRepository(this.asSqlDatabase(), bus, registry),
                     )
                 repo.idAsStringForTest(BookId("abc-123")) shouldBe "abc-123"
             }
@@ -42,7 +42,7 @@ class BookRepositoryIdAsStringTest :
                         registry = registry,
                         contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
                         seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
-                        genreRepository = GenreRepository(this, bus, registry),
+                        genreRepository = GenreRepository(this.asSqlDatabase(), bus, registry),
                     )
                 repo.domainName shouldBe "books"
             }

@@ -66,6 +66,17 @@ LIMIT :limit;
 bookIdsForGenre:
 SELECT DISTINCT book_id FROM book_genres WHERE genre_id = :genre_id;
 
+-- Per-genre count of LIVE books (a soft-deleted book keeps its book_genres row —
+-- FK cascade is hard-delete only — so the join filters `books.deleted_at IS NULL`).
+-- Drives the `bookCount` column on the listGenres summary. genre_id keys the map; the
+-- service defaults absent genres to 0.
+bookCountsOverLiveBooks:
+SELECT bg.genre_id, COUNT(*) AS book_count
+FROM book_genres bg
+JOIN books b ON b.id = bg.book_id
+WHERE b.deleted_at IS NULL
+GROUP BY bg.genre_id;
+
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 -- Add-if-absent insert (the junction's only insert path): silently no-ops on PK

@@ -197,7 +197,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -231,7 +231,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -258,7 +258,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -284,7 +284,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
@@ -303,7 +303,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -330,7 +330,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
@@ -355,7 +355,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
@@ -382,7 +382,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -422,7 +422,7 @@ class MatchApplySelectionTest :
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value

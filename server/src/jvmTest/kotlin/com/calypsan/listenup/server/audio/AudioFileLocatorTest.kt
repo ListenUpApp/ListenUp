@@ -64,7 +64,7 @@ class AudioFileLocatorTest :
                         registry = registry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
 
                 runTest {

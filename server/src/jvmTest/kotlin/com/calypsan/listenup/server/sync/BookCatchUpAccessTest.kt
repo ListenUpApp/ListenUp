@@ -51,7 +51,7 @@ class BookCatchUpAccessTest :
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
-                        genreRepository = GenreRepository(db = this, bus = bus, registry = registry),
+                        genreRepository = GenreRepository(db = this.asSqlDatabase(), bus = bus, registry = registry),
                     ),
                 collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),

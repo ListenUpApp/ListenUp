@@ -65,7 +65,7 @@ class GenreRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val genreRepo = GenreRepository(db, bus, registry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
@@ -81,7 +81,7 @@ class GenreRoutesTest :
                         seriesRepository = seriesRepo,
                         genreRepository = genreRepo,
                     )
-                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db)
+                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
                 val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
                 val accessPolicy = BookAccessPolicy(db)

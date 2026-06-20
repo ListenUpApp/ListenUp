@@ -86,7 +86,7 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val genreRepo = GenreRepository(db = db, bus = bus, registry = registry)
+    val genreRepo = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
@@ -104,6 +104,7 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
         genreRepository = genreRepo,
         bookRepository = bookRepo,
         reindexer = reindexer,
+        sqlDb = db.asSqlDatabase(),
         db = db,
         permissionPolicy = UserPermissionPolicy(db),
     )

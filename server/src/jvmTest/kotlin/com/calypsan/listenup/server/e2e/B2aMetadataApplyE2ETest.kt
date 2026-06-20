@@ -119,7 +119,7 @@ class B2aMetadataApplyE2ETest :
                 // ── Repositories ────────────────────────────────────────────────
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
                     BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
 
@@ -207,7 +207,7 @@ class B2aMetadataApplyE2ETest :
 
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
                     BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
 
@@ -269,7 +269,7 @@ class B2aMetadataApplyE2ETest :
 
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
                     BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
 

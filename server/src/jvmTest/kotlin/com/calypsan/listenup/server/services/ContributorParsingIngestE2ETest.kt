@@ -56,7 +56,7 @@ class ContributorParsingIngestE2ETest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     val analyzed = analyzedWith(authors = listOf("Stephen King; Joe Hill - Introduction"))
@@ -100,7 +100,7 @@ class ContributorParsingIngestE2ETest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     // Book A: display-order name, sortName derived as "Sanderson, Brandon".
@@ -156,7 +156,7 @@ class ContributorParsingIngestE2ETest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     // Two display names that both map to sortName "Sanderson, Brandon" via the
@@ -209,7 +209,7 @@ class ContributorParsingIngestE2ETest :
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     // Book A: canonical name, derives sortName "Sanderson, Brandon".

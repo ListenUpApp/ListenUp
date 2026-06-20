@@ -94,7 +94,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -217,7 +217,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -287,7 +287,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -349,7 +349,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -420,7 +420,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -510,7 +510,7 @@ class BookPersistCoverTest :
                                 registry = syncRegistry,
                                 contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )

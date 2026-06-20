@@ -163,7 +163,7 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
         // them up by domain name. BookRepository needs contributor + series repos as deps.
         val contributorRepo = ContributorRepository(serverSqlDb, bus, syncRegistry)
         val seriesRepo = SeriesRepository(serverSqlDb, bus, syncRegistry)
-        val genreRepo = GenreRepository(serverDb, bus, syncRegistry)
+        val genreRepo = GenreRepository(serverSqlDb, bus, syncRegistry)
         val bookRepo =
             BookRepository(
                 db = serverSqlDb,

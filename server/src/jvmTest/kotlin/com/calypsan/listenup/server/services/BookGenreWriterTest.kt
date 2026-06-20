@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -26,8 +27,8 @@ class BookGenreWriterTest :
                 seedTestLibraryAndFolder()
                 seedTestBook("book-1")
 
-                val genreRepository = GenreRepository(db, ChangeBus(), SyncRegistry())
-                val writer = BookGenreWriter(db, Clock.System, GenreAutoCreator(genreRepository))
+                val genreRepository = GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+                val writer = BookGenreWriter(db.asSqlDatabase(), Clock.System, GenreAutoCreator(genreRepository))
 
                 runTest {
                     suspendTransaction(db) {

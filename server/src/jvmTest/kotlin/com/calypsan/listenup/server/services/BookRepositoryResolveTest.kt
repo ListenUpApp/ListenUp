@@ -176,7 +176,7 @@ private fun repository(db: Database): ResolveRepoFixture {
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
             seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
         )
     return ResolveRepoFixture(repo, registry)
 }

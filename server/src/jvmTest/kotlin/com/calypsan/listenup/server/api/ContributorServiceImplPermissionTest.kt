@@ -109,7 +109,7 @@ private fun makeContributorPermService(db: Database): ContributorPermDeps {
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db, bus, registry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
         )
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)

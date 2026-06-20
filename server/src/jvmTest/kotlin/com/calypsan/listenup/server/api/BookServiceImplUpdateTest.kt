@@ -55,7 +55,7 @@ class BookServiceImplUpdateTest :
             val syncRegistry = SyncRegistry()
             val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
             val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-            val genreRepo = GenreRepository(db, bus, syncRegistry)
+            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
             val repo =
                 BookRepository(
                     db = db.asSqlDatabase(),
@@ -177,7 +177,7 @@ class BookServiceImplUpdateTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
@@ -225,7 +225,7 @@ class BookServiceImplUpdateTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
@@ -336,7 +336,7 @@ class BookServiceImplUpdateTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),

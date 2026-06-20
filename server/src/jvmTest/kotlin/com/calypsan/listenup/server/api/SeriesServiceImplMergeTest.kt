@@ -219,7 +219,7 @@ private fun makeMergeSeriesServiceAndDeps(db: Database): MergeSeriesServiceDeps 
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db, bus = bus, registry = syncRegistry),
+            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry),
         )
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)

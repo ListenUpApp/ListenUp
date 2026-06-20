@@ -40,7 +40,7 @@ class BookRepositoryReadTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     suspendTransaction(db = db) {
@@ -64,7 +64,7 @@ class BookRepositoryReadTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     // Resolve the library id first — this bootstraps the `libraries`
@@ -199,7 +199,7 @@ class BookRepositoryReadTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val libId = registry.currentLibrary().value

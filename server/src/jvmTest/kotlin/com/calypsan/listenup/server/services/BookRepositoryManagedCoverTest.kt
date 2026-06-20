@@ -38,7 +38,7 @@ class BookRepositoryManagedCoverTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     // Seed a book via upsert so the revision counter starts.
@@ -90,7 +90,7 @@ class BookRepositoryManagedCoverTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
@@ -141,7 +141,7 @@ class BookRepositoryManagedCoverTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val result =
@@ -170,7 +170,7 @@ class BookRepositoryManagedCoverTest :
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
                         seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val result = repo.clearManagedCover(BookId("missing"))

@@ -56,18 +56,18 @@ private val log = KotlinLogging.logger {}
  * corrupt every column the id is written to.
  *
  * **Two database handles during the cutover.** [db] (the SQLDelight [ListenUpDatabase])
- * backs every book read/write and the FTS index. [exposedDb] (the Exposed [Database] over
- * the same migrated file) backs three collaborators that are NOT yet converted:
+ * backs every book read/write, the genre junction writes, and the FTS index. [exposedDb]
+ * (the Exposed [Database] over the same migrated file) backs the collaborators that are NOT
+ * yet converted:
  *  - [ManagedCoverFiles] / [coverInfo] — read `library_folders` (out of this unit's `.sq` set),
- *  - [bookGenreWriter] — the Exposed `book_genres`/`genres` writer (genre CRUD stays Exposed),
  *  - the access-filtered [pullSince] / [digest] / [searchFts] id reads — runtime-built
  *    [SqlFragment] subqueries with Exposed-typed args, which no static SQLDelight query can
  *    splice. These are READS over the shared WAL file, so they coexist with the SQLDelight
  *    writer safely.
  *
- * Genre writes run as a **separate, sequential** Exposed transaction after the book write commits
- * (see [upsertFromAnalyzed]) — never nested inside the SQLDelight book transaction — so a
- * mixed-engine writer never contends for the single SQLite write lock.
+ * Genre writes ([bookGenreWriter]) now run over SQLDelight too, as a **separate, sequential**
+ * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
+ * SQLDelight book transaction — so a single writer never contends for the SQLite write lock.
  *
  * The inbox-quarantine membership is the one exception: it is written ATOMICALLY inside the
  * SQLDelight book transaction ([writeInboxMembership]), because a separate post-commit write left
@@ -125,8 +125,8 @@ class BookRepository(
     /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
     private val bookFinder = BookFinder(db, exposedDb)
 
-    /** Genre junction write helpers (Exposed) — `book_genres` and auto-create (no revision/bus). */
-    private val bookGenreWriter = BookGenreWriter(exposedDb, clock, GenreAutoCreator(genreRepository))
+    /** Genre junction write helpers (SQLDelight) — `book_genres` and auto-create (no revision/bus). */
+    private val bookGenreWriter = BookGenreWriter(db, clock, GenreAutoCreator(genreRepository))
 
     /**
      * Tag junction write helper — persists scanned ABS `tags[]` to `book_tags`,
@@ -594,8 +594,10 @@ class BookRepository(
             }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
-            // Genres: a separate, sequential Exposed transaction (idempotent, no revision bump).
-            exposedSuspendTransaction(exposedDb) { bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now) }
+            // Genres: a separate, sequential pass over SQLDelight (idempotent, no revision bump).
+            // The writer's synchronous junction queries auto-commit and the auto-create upsert runs
+            // its own transaction — sequential after the book write, so no SQLITE_BUSY contention.
+            bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result

@@ -275,7 +275,7 @@ private suspend fun seedLibrary(
             seriesRepository = seriesRepo,
             genreRepository =
                 com.calypsan.listenup.server.services.GenreRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = ChangeBus(),
                     registry = SyncRegistry(),
                 ),
