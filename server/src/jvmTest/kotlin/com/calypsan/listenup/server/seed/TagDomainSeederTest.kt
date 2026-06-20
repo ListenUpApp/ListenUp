@@ -27,7 +27,7 @@ class TagDomainSeederTest :
         test("isAlreadySeeded returns false when no tags exist") {
             withInMemoryDatabase {
                 val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+                val seeder = TagDomainSeeder(sql = this.asSqlDatabase(), tagRepository = repo)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -37,7 +37,7 @@ class TagDomainSeederTest :
         test("seedDefault() persists 4 tags and they are queryable via TagRepository") {
             withInMemoryDatabase {
                 val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+                val seeder = TagDomainSeeder(sql = this.asSqlDatabase(), tagRepository = repo)
                 runTest {
                     seeder.seed()
                     val tags = repo.listAll()
@@ -51,7 +51,7 @@ class TagDomainSeederTest :
         test("isAlreadySeeded returns true after seed()") {
             withInMemoryDatabase {
                 val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+                val seeder = TagDomainSeeder(sql = this.asSqlDatabase(), tagRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.isAlreadySeeded() shouldBe true
@@ -62,7 +62,7 @@ class TagDomainSeederTest :
         test("seed() is idempotent — calling twice does not throw") {
             withInMemoryDatabase {
                 val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+                val seeder = TagDomainSeeder(sql = this.asSqlDatabase(), tagRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.seed() // must not throw regardless of duplicate slug behaviour
@@ -73,7 +73,7 @@ class TagDomainSeederTest :
         test("domainName and order are correct") {
             withInMemoryDatabase {
                 val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+                val seeder = TagDomainSeeder(sql = this.asSqlDatabase(), tagRepository = repo)
                 seeder.domainName shouldBe "tags"
                 seeder.order shouldBe 30
             }
@@ -82,7 +82,7 @@ class TagDomainSeederTest :
         test("seeded tags have non-null slugs matching the expected canonical values") {
             withInMemoryDatabase {
                 val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+                val seeder = TagDomainSeeder(sql = this.asSqlDatabase(), tagRepository = repo)
                 runTest {
                     seeder.seed()
 

@@ -68,7 +68,7 @@ class PublicProfileDomainSeederTest :
         test("isAlreadySeeded returns false when no demo user exists yet") {
             withInMemoryDatabase {
                 val maintainer = makePublicProfileMaintainer(this)
-                val seeder = PublicProfileDomainSeeder(db = this, publicProfileMaintainer = maintainer)
+                val seeder = PublicProfileDomainSeeder(sql = this.asSqlDatabase(), publicProfileMaintainer = maintainer)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -80,8 +80,8 @@ class PublicProfileDomainSeederTest :
                 val db = this
                 val authService = newAuthService(db)
                 val maintainer = makePublicProfileMaintainer(db)
-                val userSeeder = UserDomainSeeder(db, authService)
-                val seeder = PublicProfileDomainSeeder(db = db, publicProfileMaintainer = maintainer)
+                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+                val seeder = PublicProfileDomainSeeder(sql = db.asSqlDatabase(), publicProfileMaintainer = maintainer)
 
                 runTest {
                     userSeeder.seed()
@@ -106,8 +106,8 @@ class PublicProfileDomainSeederTest :
                 val db = this
                 val authService = newAuthService(db)
                 val maintainer = makePublicProfileMaintainer(db)
-                val userSeeder = UserDomainSeeder(db, authService)
-                val seeder = PublicProfileDomainSeeder(db = db, publicProfileMaintainer = maintainer)
+                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+                val seeder = PublicProfileDomainSeeder(sql = db.asSqlDatabase(), publicProfileMaintainer = maintainer)
 
                 runTest {
                     userSeeder.seed()
@@ -122,8 +122,8 @@ class PublicProfileDomainSeederTest :
                 val db = this
                 val authService = newAuthService(db)
                 val maintainer = makePublicProfileMaintainer(db)
-                val userSeeder = UserDomainSeeder(db, authService)
-                val seeder = PublicProfileDomainSeeder(db = db, publicProfileMaintainer = maintainer)
+                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+                val seeder = PublicProfileDomainSeeder(sql = db.asSqlDatabase(), publicProfileMaintainer = maintainer)
 
                 runTest {
                     userSeeder.seed()
@@ -136,7 +136,7 @@ class PublicProfileDomainSeederTest :
         test("domainName is public_profiles and order is 33") {
             withInMemoryDatabase {
                 val maintainer = makePublicProfileMaintainer(this)
-                val seeder = PublicProfileDomainSeeder(db = this, publicProfileMaintainer = maintainer)
+                val seeder = PublicProfileDomainSeeder(sql = this.asSqlDatabase(), publicProfileMaintainer = maintainer)
                 seeder.domainName shouldBe "public_profiles"
                 seeder.order shouldBe 33
             }
@@ -145,7 +145,7 @@ class PublicProfileDomainSeederTest :
         test("order is greater than ShelfDomainSeeder order (33 > 32)") {
             withInMemoryDatabase {
                 val maintainer = makePublicProfileMaintainer(this)
-                val seeder = PublicProfileDomainSeeder(db = this, publicProfileMaintainer = maintainer)
+                val seeder = PublicProfileDomainSeeder(sql = this.asSqlDatabase(), publicProfileMaintainer = maintainer)
                 (seeder.order > 32) shouldBe true
             }
         }

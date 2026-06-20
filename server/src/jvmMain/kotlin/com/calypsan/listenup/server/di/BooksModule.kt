@@ -266,7 +266,7 @@ private fun Module.moodBindings() {
             principal = unscopedPlaceholder("MoodService"),
         )
     }
-    single { MoodDomainSeeder(db = get(), moodRepository = get<MoodRepository>()) }
+    single { MoodDomainSeeder(sql = get(), moodRepository = get<MoodRepository>()) }
 }
 
 /**

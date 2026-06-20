@@ -2,18 +2,12 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
-import com.calypsan.listenup.server.db.ShelvesTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -34,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  * the demo user existing (order 0), which is guaranteed to have run earlier.
  */
 internal class ShelfDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val shelfRepo: ShelfRepository,
     private val clock: Clock = Clock.System,
 ) : DomainSeeder {
@@ -45,11 +39,8 @@ internal class ShelfDomainSeeder(
     /** True when the demo user already owns at least one shelf. */
     override suspend fun isAlreadySeeded(): Boolean {
         val demoUserId = demoUserId() ?: return false
-        return suspendTransaction(db) {
-            ShelvesTable
-                .selectAll()
-                .where { (ShelvesTable.userId eq demoUserId) and ShelvesTable.deletedAt.isNull() }
-                .any()
+        return suspendTransaction(sql) {
+            sql.shelvesQueries.hasAnyLiveForUser(userId = demoUserId).executeAsOne()
         }
     }
 
@@ -106,13 +97,11 @@ internal class ShelfDomainSeeder(
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 
     companion object {

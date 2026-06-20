@@ -232,3 +232,8 @@ SELECT id, revision FROM books WHERE revision > :cursor ORDER BY revision ASC LI
 
 selectIdRevAtMost:
 SELECT id, revision FROM books WHERE revision <= :cursor;
+
+-- Live book ids ordered by sort_title, limited to :limit — used by demo seeders (playback
+-- positions, listening events, active sessions) to pick the first N demo books.
+selectLiveIdsBySortTitle:
+SELECT id FROM books WHERE deleted_at IS NULL ORDER BY sort_title LIMIT :limit;

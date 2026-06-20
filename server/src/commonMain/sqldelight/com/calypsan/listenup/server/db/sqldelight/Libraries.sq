@@ -80,3 +80,7 @@ UPDATE libraries
 SET inbox_enabled = :inbox_enabled, revision = :revision, updated_at = :updated_at,
     client_op_id = :client_op_id
 WHERE id = :id AND deleted_at IS NULL;
+
+-- The id of the first live (non-deleted) library — drives CollectionDomainSeeder's demo-library lookup.
+selectFirstLiveId:
+SELECT id FROM libraries WHERE deleted_at IS NULL LIMIT 1;

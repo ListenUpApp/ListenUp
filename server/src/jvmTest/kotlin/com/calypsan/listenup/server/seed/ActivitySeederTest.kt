@@ -23,7 +23,7 @@ class ActivitySeederTest :
             withInMemoryDatabase {
                 val db = this
                 seedDemoUser(db)
-                val seeder = ActivitySeeder(db, ActivityRepository(db = db.asSqlDatabase()))
+                val seeder = ActivitySeeder(db.asSqlDatabase(), ActivityRepository(db = db.asSqlDatabase()))
 
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
@@ -42,7 +42,7 @@ class ActivitySeederTest :
                 seedDemoUser(db)
                 seedTestLibraryAndFolder()
                 seedTestBook("book-1")
-                val seeder = ActivitySeeder(db, ActivityRepository(db = db.asSqlDatabase()))
+                val seeder = ActivitySeeder(db.asSqlDatabase(), ActivityRepository(db = db.asSqlDatabase()))
 
                 runTest {
                     seeder.seed()
@@ -58,7 +58,7 @@ class ActivitySeederTest :
             withInMemoryDatabase {
                 val db = this
                 seedDemoUser(db)
-                val seeder = ActivitySeeder(db, ActivityRepository(db = db.asSqlDatabase()))
+                val seeder = ActivitySeeder(db.asSqlDatabase(), ActivityRepository(db = db.asSqlDatabase()))
 
                 runTest {
                     // First run: no books yet — nothing seeded, still re-runnable.

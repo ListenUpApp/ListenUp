@@ -118,3 +118,8 @@ DELETE FROM contributor_aliases WHERE contributor_id = :contributor_id;
 
 insertAlias:
 INSERT INTO contributor_aliases (contributor_id, alias) VALUES (:contributor_id, :alias);
+
+-- True iff at least one contributor row has a non-null description — drives
+-- ContributorEnrichmentSeeder.isAlreadySeeded.
+hasAnyEnrichedContributor:
+SELECT EXISTS(SELECT 1 FROM contributors WHERE description IS NOT NULL);

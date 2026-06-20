@@ -72,3 +72,7 @@ DELETE FROM active_sessions WHERE updated_at < :cutoff;
 -- whether they actually changed a row (drives the ActiveSessionsChanged broadcast).
 changes:
 SELECT changes();
+
+-- True iff the user has at least one live (non-deleted) session — drives ActiveSessionSeeder.isAlreadySeeded.
+hasAnyLiveForUser:
+SELECT EXISTS(SELECT 1 FROM active_sessions WHERE user_id = :user_id AND deleted_at IS NULL);

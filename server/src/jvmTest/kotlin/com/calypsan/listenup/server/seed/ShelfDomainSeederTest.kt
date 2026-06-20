@@ -62,7 +62,7 @@ class ShelfDomainSeederTest :
         test("isAlreadySeeded returns false when no demo user exists yet") {
             withInMemoryDatabase {
                 val repo = makeShelfRepo(this)
-                val seeder = ShelfDomainSeeder(db = this, shelfRepo = repo)
+                val seeder = ShelfDomainSeeder(sql = this.asSqlDatabase(), shelfRepo = repo)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -74,8 +74,8 @@ class ShelfDomainSeederTest :
                 val db = this
                 val authService = newAuthService(db)
                 val repo = makeShelfRepo(db)
-                val userSeeder = UserDomainSeeder(db, authService)
-                val shelfSeeder = ShelfDomainSeeder(db = db, shelfRepo = repo)
+                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+                val shelfSeeder = ShelfDomainSeeder(sql = db.asSqlDatabase(), shelfRepo = repo)
 
                 runTest {
                     // Seed the demo user first so the demo email row exists.
@@ -104,8 +104,8 @@ class ShelfDomainSeederTest :
                 val db = this
                 val authService = newAuthService(db)
                 val repo = makeShelfRepo(db)
-                val userSeeder = UserDomainSeeder(db, authService)
-                val shelfSeeder = ShelfDomainSeeder(db = db, shelfRepo = repo)
+                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+                val shelfSeeder = ShelfDomainSeeder(sql = db.asSqlDatabase(), shelfRepo = repo)
 
                 runTest {
                     userSeeder.seed()
@@ -120,8 +120,8 @@ class ShelfDomainSeederTest :
                 val db = this
                 val authService = newAuthService(db)
                 val repo = makeShelfRepo(db)
-                val userSeeder = UserDomainSeeder(db, authService)
-                val shelfSeeder = ShelfDomainSeeder(db = db, shelfRepo = repo)
+                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+                val shelfSeeder = ShelfDomainSeeder(sql = db.asSqlDatabase(), shelfRepo = repo)
 
                 runTest {
                     userSeeder.seed()
@@ -136,7 +136,7 @@ class ShelfDomainSeederTest :
         test("domainName is shelves and order is 32") {
             withInMemoryDatabase {
                 val repo = makeShelfRepo(this)
-                val seeder = ShelfDomainSeeder(db = this, shelfRepo = repo)
+                val seeder = ShelfDomainSeeder(sql = this.asSqlDatabase(), shelfRepo = repo)
                 seeder.domainName shouldBe "shelves"
                 seeder.order shouldBe 32
             }
@@ -145,7 +145,7 @@ class ShelfDomainSeederTest :
         test("order is greater than CollectionDomainSeeder order (32 > 31)") {
             withInMemoryDatabase {
                 val repo = makeShelfRepo(this)
-                val seeder = ShelfDomainSeeder(db = this, shelfRepo = repo)
+                val seeder = ShelfDomainSeeder(sql = this.asSqlDatabase(), shelfRepo = repo)
                 (seeder.order > 31) shouldBe true
             }
         }

@@ -1,14 +1,9 @@
 package com.calypsan.listenup.server.seed
 
-import com.calypsan.listenup.server.db.PublicProfilesTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * domain rows exist before the projection is built.
  */
 internal class PublicProfileDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val publicProfileMaintainer: PublicProfileMaintainer,
 ) : DomainSeeder {
     override val domainName: String = "public_profiles"
@@ -35,21 +30,15 @@ internal class PublicProfileDomainSeeder(
 
     override suspend fun isAlreadySeeded(): Boolean {
         val demoUserId = demoUserId() ?: return false
-        return suspendTransaction(db) {
-            PublicProfilesTable
-                .selectAll()
-                .where { PublicProfilesTable.id eq demoUserId }
-                .any()
+        return suspendTransaction(sql) {
+            sql.publicProfilesQueries.existsById(id = demoUserId).executeAsOne()
         }
     }
 
     override suspend fun seed() {
         val userIds =
-            suspendTransaction(db) {
-                UserTable
-                    .selectAll()
-                    .where { UserTable.deletedAt.isNull() }
-                    .map { it[UserTable.id].value }
+            suspendTransaction(sql) {
+                sql.usersQueries.selectLiveUserIds().executeAsList()
             }
         userIds.forEach { publicProfileMaintainer.refresh(it) }
         logger.info { "seed [$domainName]: refreshed public_profiles for ${userIds.size} users" }
@@ -57,12 +46,10 @@ internal class PublicProfileDomainSeeder(
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 }

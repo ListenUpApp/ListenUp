@@ -1,15 +1,10 @@
 package com.calypsan.listenup.server.seed
 
-import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.contributorDedupKey
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.not
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -33,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  * pattern used by [PlaybackPositionDomainSeeder] and [ListeningEventDomainSeeder].
  */
 internal class ContributorEnrichmentSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val contributorRepository: ContributorRepository,
 ) : DomainSeeder {
     override val domainName: String = "contributor_enrichment"
@@ -46,14 +41,10 @@ internal class ContributorEnrichmentSeeder(
     override val order: Int = 30
 
     override suspend fun isAlreadySeeded(): Boolean =
-        suspendTransaction(db) {
+        suspendTransaction(sql) {
             // Already-seeded if ANY enriched contributor row exists — i.e. at
             // least one row whose description is non-null.
-            ContributorTable
-                .selectAll()
-                .where { not(ContributorTable.description.isNull()) }
-                .limit(1)
-                .any()
+            sql.contributorsQueries.hasAnyEnrichedContributor().executeAsOne()
         }
 
     override suspend fun seed() {
@@ -82,16 +73,15 @@ internal class ContributorEnrichmentSeeder(
     }
 
     private suspend fun findByName(displayName: String) =
-        suspendTransaction(db) {
-            // contributorDedupKey derives the sort form (e.g. "Wren Halloway" → "halloway, wren"),
-            // matching the key the scanner writes at INSERT time via resolveOrCreate.
+        // contributorDedupKey derives the sort form (e.g. "Wren Halloway" → "halloway, wren"),
+        // matching the key the scanner writes at INSERT time via resolveOrCreate.
+        suspendTransaction(sql) {
             val key = contributorDedupKey(displayName, null)
-            ContributorTable
-                .selectAll()
-                .where { ContributorTable.normalizedName eq key }
-                .firstOrNull()
-                ?.let { row -> contributorRepository.findById(row[ContributorTable.id]) }
-        }
+            sql.contributorsQueries
+                .selectByNormalizedName(normalized_name = key)
+                .executeAsOneOrNull()
+                ?.id
+        }?.let { id -> contributorRepository.findById(id) }
 
     private companion object {
         val ENRICHMENTS =

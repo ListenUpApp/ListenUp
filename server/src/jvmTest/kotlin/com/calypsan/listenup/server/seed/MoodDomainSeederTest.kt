@@ -29,7 +29,7 @@ class MoodDomainSeederTest :
         test("isAlreadySeeded returns false when no moods exist") {
             withInMemoryDatabase {
                 val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+                val seeder = MoodDomainSeeder(sql = this.asSqlDatabase(), moodRepository = repo)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -39,7 +39,7 @@ class MoodDomainSeederTest :
         test("seed() persists the full Audible mood vocabulary and they are queryable") {
             withInMemoryDatabase {
                 val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+                val seeder = MoodDomainSeeder(sql = this.asSqlDatabase(), moodRepository = repo)
                 runTest {
                     seeder.seed()
                     val moods = repo.listAll()
@@ -54,7 +54,7 @@ class MoodDomainSeederTest :
         test("isAlreadySeeded returns true after seed()") {
             withInMemoryDatabase {
                 val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+                val seeder = MoodDomainSeeder(sql = this.asSqlDatabase(), moodRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.isAlreadySeeded() shouldBe true
@@ -65,7 +65,7 @@ class MoodDomainSeederTest :
         test("seed() is idempotent — calling twice does not throw and does not duplicate") {
             withInMemoryDatabase {
                 val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+                val seeder = MoodDomainSeeder(sql = this.asSqlDatabase(), moodRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.seed()
@@ -77,7 +77,7 @@ class MoodDomainSeederTest :
         test("domainName and order are correct") {
             withInMemoryDatabase {
                 val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+                val seeder = MoodDomainSeeder(sql = this.asSqlDatabase(), moodRepository = repo)
                 seeder.domainName shouldBe "moods"
                 seeder.order shouldBe 50
             }

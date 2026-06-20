@@ -1,21 +1,14 @@
 package com.calypsan.listenup.server.seed
 
-import com.calypsan.listenup.server.db.ActiveSessionTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
 /** How many demo books to seed live presence sessions for (at most). */
-private const val DEMO_SESSION_COUNT = 2
+private const val DEMO_SESSION_COUNT = 2L
 
 /**
  * Seeds live `active_sessions` (presence) rows for the [UserDomainSeeder.DEMO_EMAIL]
@@ -35,7 +28,7 @@ private const val DEMO_SESSION_COUNT = 2
  * be complete and presence will be seeded then.
  */
 internal class ActiveSessionSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val activeSessionRepository: ActiveSessionRepository,
 ) : DomainSeeder {
     override val domainName: String = "active_sessions"
@@ -49,12 +42,8 @@ internal class ActiveSessionSeeder(
 
     override suspend fun isAlreadySeeded(): Boolean {
         val userId = demoUserId() ?: return false
-        return suspendTransaction(db) {
-            ActiveSessionTable
-                .selectAll()
-                .where { (ActiveSessionTable.userId eq userId) and ActiveSessionTable.deletedAt.isNull() }
-                .limit(1)
-                .any()
+        return suspendTransaction(sql) {
+            sql.activeSessionsQueries.hasAnyLiveForUser(user_id = userId).executeAsOne()
         }
     }
 
@@ -79,23 +68,16 @@ internal class ActiveSessionSeeder(
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 
     /** Returns the ids of up to [DEMO_SESSION_COUNT] non-deleted books, ordered by sort title. */
     private suspend fun availableBookIds(): List<String> =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where { BookTable.deletedAt.isNull() }
-                .orderBy(BookTable.sortTitle)
-                .limit(DEMO_SESSION_COUNT)
-                .map { it[BookTable.id] }
+        suspendTransaction(sql) {
+            sql.booksQueries.selectLiveIdsBySortTitle(limit = DEMO_SESSION_COUNT).executeAsList()
         }
 }

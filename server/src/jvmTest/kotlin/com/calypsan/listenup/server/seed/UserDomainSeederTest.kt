@@ -33,7 +33,7 @@ class UserDomainSeederTest :
             withInMemoryDatabase {
                 val db = this
                 val authService = newAuthService(db)
-                val seeder = UserDomainSeeder(db, authService)
+                val seeder = UserDomainSeeder(db.asSqlDatabase(), authService)
 
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
@@ -56,7 +56,7 @@ class UserDomainSeederTest :
             withInMemoryDatabase {
                 val db = this
                 val authService = newAuthService(db)
-                val seeder = UserDomainSeeder(db, authService)
+                val seeder = UserDomainSeeder(db.asSqlDatabase(), authService)
 
                 runTest {
                     seeder.seed()
@@ -87,7 +87,7 @@ class UserDomainSeederTest :
             withInMemoryDatabase {
                 val db = this
                 val authService = newAuthService(db)
-                val seeder = UserDomainSeeder(db, authService)
+                val seeder = UserDomainSeeder(db.asSqlDatabase(), authService)
                 runTest {
                     seeder.seed()
                     seeder.seed() // setupRoot returns a Failure on the second call; seed() must swallow it

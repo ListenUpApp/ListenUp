@@ -1,18 +1,11 @@
 package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.PlaybackPositionTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -20,7 +13,7 @@ private val logger = KotlinLogging.logger {}
 private const val ONE_HOUR_MS = 60 * 60 * 1000L
 
 /** How many demo books to seed positions for (at most). */
-private const val DEMO_BOOK_COUNT = 3
+private const val DEMO_BOOK_COUNT = 3L
 
 /**
  * Varied position offsets (ms) — each "Continue Listening" card shows distinct progress.
@@ -50,7 +43,7 @@ private val POSITION_OFFSETS_MS =
  * write-path — so seeded rows are indistinguishable from real ones.
  */
 internal class PlaybackPositionDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val clock: Clock = Clock.System,
 ) : DomainSeeder {
@@ -66,12 +59,8 @@ internal class PlaybackPositionDomainSeeder(
 
     override suspend fun isAlreadySeeded(): Boolean {
         val userId = demoUserId() ?: return false
-        return suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where { (PlaybackPositionTable.userId eq userId) and PlaybackPositionTable.deletedAt.isNull() }
-                .limit(1)
-                .any()
+        return suspendTransaction(sql) {
+            sql.playbackPositionsQueries.hasAnyLiveForUser(userId = userId).executeAsOne()
         }
     }
 
@@ -89,7 +78,7 @@ internal class PlaybackPositionDomainSeeder(
         }
 
         val now = clock.now().toEpochMilliseconds()
-        bookIds.take(DEMO_BOOK_COUNT).forEachIndexed { index, bookId ->
+        bookIds.take(DEMO_BOOK_COUNT.toInt()).forEachIndexed { index, bookId ->
             val positionMs = POSITION_OFFSETS_MS[index]
             when (
                 val result =
@@ -116,23 +105,16 @@ internal class PlaybackPositionDomainSeeder(
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 
     /** Returns the ids of up to [DEMO_BOOK_COUNT] non-deleted books, ordered by title. */
     private suspend fun availableBookIds(): List<String> =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where { BookTable.deletedAt.isNull() }
-                .orderBy(BookTable.sortTitle)
-                .limit(DEMO_BOOK_COUNT)
-                .map { it[BookTable.id] }
+        suspendTransaction(sql) {
+            sql.booksQueries.selectLiveIdsBySortTitle(limit = DEMO_BOOK_COUNT).executeAsList()
         }
 }

@@ -25,7 +25,7 @@ class ContributorEnrichmentSeederTest :
                     repo.resolveOrCreate("Wren Halloway", sortName = null)
                     repo.resolveOrCreate("Marlowe Finch", sortName = null)
 
-                    val seeder = ContributorEnrichmentSeeder(db, repo)
+                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
                     seeder.isAlreadySeeded() shouldBe false
                     seeder.seed()
 
@@ -53,7 +53,7 @@ class ContributorEnrichmentSeederTest :
                     val existing = repo.findById(id.value)!!
                     repo.upsert(existing.copy(description = "Pre-existing bio."), clientOpId = null)
 
-                    val seeder = ContributorEnrichmentSeeder(db, repo)
+                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
                     // isAlreadySeeded should return true because at least one row has a description
                     seeder.isAlreadySeeded() shouldBe true
 
@@ -72,7 +72,7 @@ class ContributorEnrichmentSeederTest :
                 val repo = makeRepo(db)
                 runTest {
                     // No contributors at all — all ENRICHMENTS will be deferred
-                    val seeder = ContributorEnrichmentSeeder(db, repo)
+                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
                     seeder.isAlreadySeeded() shouldBe false
                     // Must not throw
                     seeder.seed()
@@ -88,7 +88,7 @@ class ContributorEnrichmentSeederTest :
                 runTest {
                     repo.resolveOrCreate("Unknown Author", sortName = null)
                     // description is null by default from resolveOrCreate
-                    val seeder = ContributorEnrichmentSeeder(db, repo)
+                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
                     seeder.isAlreadySeeded() shouldBe false
                 }
             }

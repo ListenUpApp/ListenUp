@@ -75,34 +75,34 @@ fun seedModule(
     hasShelvesModule: Boolean = false,
 ): Module =
     module {
-        single { UserDomainSeeder(db = get(), authService = get()) }
+        single { UserDomainSeeder(sql = get(), authService = get()) }
         single { InviteDomainSeeder(db = get<ListenUpDatabase>(), inviteService = get<InviteServiceImpl>()) }
         if (hasPlaybackModule) {
-            single { PlaybackPositionDomainSeeder(db = get(), playbackPositionRepository = get()) }
-            single { ListeningEventDomainSeeder(db = get(), listeningEventRepository = get()) }
-            single { ActiveSessionSeeder(db = get(), activeSessionRepository = get()) }
-            single { ActivitySeeder(db = get(), activityRepository = get()) }
+            single { PlaybackPositionDomainSeeder(sql = get(), playbackPositionRepository = get()) }
+            single { ListeningEventDomainSeeder(sql = get(), listeningEventRepository = get()) }
+            single { ActiveSessionSeeder(sql = get(), activeSessionRepository = get()) }
+            single { ActivitySeeder(sql = get(), activityRepository = get()) }
         }
         if (hasBooksModule) {
-            single { ContributorEnrichmentSeeder(db = get(), contributorRepository = get()) }
+            single { ContributorEnrichmentSeeder(sql = get(), contributorRepository = get()) }
         }
         if (hasTagsModule) {
-            single { TagDomainSeeder(db = get(), tagRepository = get()) }
+            single { TagDomainSeeder(sql = get(), tagRepository = get()) }
         }
         if (hasCollectionsModule) {
             single {
                 CollectionDomainSeeder(
-                    db = get(),
+                    sql = get(),
                     collectionRepo = get(),
                     collectionService = get<CollectionService>() as CollectionServiceImpl,
                 )
             }
         }
         if (hasShelvesModule) {
-            single { ShelfDomainSeeder(db = get(), shelfRepo = get()) }
+            single { ShelfDomainSeeder(sql = get(), shelfRepo = get()) }
         }
         // publicProfileModule() is always active, so PublicProfileMaintainer is always bound.
-        single { PublicProfileDomainSeeder(db = get(), publicProfileMaintainer = get()) }
+        single { PublicProfileDomainSeeder(sql = get(), publicProfileMaintainer = get()) }
         // GenreDomainSeeder is bound in booksModule (it runs on every install, not just demo),
         // so we don't bind it here — but the runner still includes it for demo.
         single {

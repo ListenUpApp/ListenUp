@@ -180,3 +180,8 @@ updateRegistrationDecision:
 UPDATE users
 SET status = :status, updated_at = :updated_at, approved_by = :approved_by, approved_at = :approved_at
 WHERE id = :id;
+
+-- Minimal permission revocation: flips only can_edit and can_share without touching other fields.
+-- Used by UserDomainSeeder to establish the restricted-member demo account.
+updatePermissions:
+UPDATE users SET can_edit = :can_edit, can_share = :can_share WHERE id = :id;

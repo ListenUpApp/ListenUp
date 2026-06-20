@@ -101,3 +101,8 @@ sumWallSecondsSince:
 SELECT COALESCE(SUM((ended_at - started_at) / 1000), 0)
 FROM listening_events
 WHERE user_id = :userId AND ended_at >= :cutoffMs;
+
+-- True iff the user has at least one live (non-deleted) listening event — drives
+-- ListeningEventDomainSeeder.isAlreadySeeded.
+hasAnyLiveForUser:
+SELECT EXISTS(SELECT 1 FROM listening_events WHERE user_id = :userId AND deleted_at IS NULL);
