@@ -2,8 +2,10 @@
 
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.services.BookRepository
@@ -12,6 +14,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -53,6 +56,7 @@ class BookCatchUpAccessTest :
                     ),
                 collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
+                grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry),
                 policy = BookAccessPolicy(this),
             )
         }
@@ -60,10 +64,14 @@ class BookCatchUpAccessTest :
         test("books pullSince excludes a private book for a member") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
+                seedTestUser("member")
                 seedTestBook("public-book")
                 seedTestBook("private-book")
                 val f = fixture()
                 runTest {
+                    // public-book is visible the pure-union way: it lives in ALL_BOOKS and the
+                    // member holds a live grant on that system collection.
+                    f.makePublic("public-book", memberId = "member")
                     // private-book lives in a private collection owned by a stranger.
                     f.collectionRepo.upsert(collection("private-col", owner = "stranger"))
                     f.collectionBookRepo.upsert(membership("private-col", "private-book"))
@@ -80,13 +88,16 @@ class BookCatchUpAccessTest :
             }
         }
 
-        test("books pullSince includes uncollected + accessible books") {
+        test("books pullSince includes public + accessible books") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                seedTestBook("uncollected-book")
+                seedTestUser("member")
+                seedTestBook("public-book")
                 seedTestBook("owned-book")
                 val f = fixture()
                 runTest {
+                    // public-book is visible the pure-union way: ALL_BOOKS membership + member grant.
+                    f.makePublic("public-book", memberId = "member")
                     // owned-book lives in a collection the member owns.
                     f.collectionRepo.upsert(collection("owned-col", owner = "member"))
                     f.collectionBookRepo.upsert(membership("owned-col", "owned-book"))
@@ -95,7 +106,7 @@ class BookCatchUpAccessTest :
                     val page = f.bookRepo.pullSince("member", cursor = 0L, limit = 100, extraWhere = extra)
                     val ids = page.items.map { it.id }
 
-                    ids shouldContainExactlyInAnyOrder listOf("uncollected-book", "owned-book")
+                    ids shouldContainExactlyInAnyOrder listOf("public-book", "owned-book")
                 }
             }
         }
@@ -103,10 +114,13 @@ class BookCatchUpAccessTest :
         test("books digest is access-scoped per user (member vs admin differ)") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
+                seedTestUser("member")
                 seedTestBook("public-book")
                 seedTestBook("private-book")
                 val f = fixture()
                 runTest {
+                    // public-book is visible to the member the pure-union way: ALL_BOOKS + grant.
+                    f.makePublic("public-book", memberId = "member")
                     f.collectionRepo.upsert(collection("private-col", owner = "stranger"))
                     f.collectionBookRepo.upsert(membership("private-col", "private-book"))
 
@@ -132,6 +146,7 @@ private data class Fixture(
     val bookRepo: BookRepository,
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
+    val grantRepo: CollectionGrantRepository,
     val policy: BookAccessPolicy,
 )
 
@@ -158,3 +173,33 @@ private fun membership(
         createdAt = 0L,
         revision = 0L,
     )
+
+/** A live USER read-grant: the member's key into a collection (e.g. the public `ALL_BOOKS`). */
+private fun grant(
+    id: String,
+    collectionId: String,
+    memberId: String,
+): CollectionShareSyncPayload =
+    CollectionShareSyncPayload(
+        id = id,
+        collectionId = collectionId,
+        sharedWithUserId = memberId,
+        sharedByUserId = "system",
+        permission = SharePermission.Read,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+/**
+ * Makes [bookId] publicly visible the pure-union way: drop it into the per-library `ALL_BOOKS`
+ * system collection and hand [memberId] a live USER grant on that collection. Mirrors the
+ * production substrate where every member holds a default `ALL_BOOKS` grant at registration.
+ */
+private suspend fun Fixture.makePublic(
+    bookId: String,
+    memberId: String,
+) {
+    collectionRepo.upsert(collection("all-books", owner = "system"))
+    collectionBookRepo.upsert(membership("all-books", bookId))
+    grantRepo.upsert(grant("grant-$bookId-$memberId", "all-books", memberId))
+}

@@ -114,7 +114,7 @@ class ScannerInboxIngestTest :
             }
         }
 
-        test("no inbox id supplied: a NEW book is uncollected (public)") {
+        test("no system collection id supplied: a NEW book joins no system collection (not the inbox)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -123,6 +123,11 @@ class ScannerInboxIngestTest :
                     val fx = fixture(db)
                     val inboxId = fx.resolveInboxId()
 
+                    // A null systemCollectionId is the "no membership at all" branch: resolveOrInsert
+                    // writes the book row but no system-collection junction. (The non-held → ALL_BOOKS
+                    // path the scanner actually drives passes the ALL_BOOKS id as systemCollectionId;
+                    // that branch is covered by ScanAllBooksMembershipTest.) This test pins the inbox
+                    // gate's null contract: with no id supplied, nothing lands in the inbox.
                     val outcome =
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),

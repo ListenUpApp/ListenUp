@@ -548,9 +548,12 @@ internal class CollectionServiceImpl(
      *
      * [assignments] maps `bookId → target collectionIds`. For each book the inbox junction
      * is soft-deleted, then a junction is added for every target collection. A book with an
-     * empty target list is simply removed from the inbox and becomes uncollected. The whole
-     * release runs in a single transaction so a partial failure does not strand books
-     * half-released.
+     * **empty** target list is released to `ALL_BOOKS` — the library's public substrate
+     * collection — so it stays visible to every member under the pure-union visibility rule.
+     * (Under that rule "uncollected" means *invisible*, so approving a held book into no
+     * collection would silently hide it; releasing into `ALL_BOOKS` is how a book becomes
+     * public.) The whole release runs in a single transaction so a partial failure does not
+     * strand books half-released.
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
@@ -564,12 +567,25 @@ internal class CollectionServiceImpl(
         val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
         val inboxId = inbox.id.value
 
+        // Books released with no explicit target join ALL_BOOKS (the public substrate). Resolve
+        // (or create) it once, up front, only when at least one book needs it — keeping the
+        // common "release into explicit collections" path free of system-collection lookups.
+        val needsAllBooks = assignments.values.any { it.isEmpty() }
+        val allBooksId =
+            if (needsAllBooks) {
+                getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
+                    .getOrElse { return AppResult.Failure(it) }
+                    .id.value
+            } else {
+                null
+            }
+
         // Validate every distinct target collection up front — exists, live, same library —
         // before mutating anything: a bad id otherwise surfaces as an opaque FK violation, and
         // a tombstoned target would be silently resurrected by upsert. Validating before the
         // transaction keeps the whole release atomic and the error typed.
-        val distinctTargetIds = assignments.values.flatten().toSet()
-        for (targetId in distinctTargetIds) {
+        val explicitTargetIds = assignments.values.flatten().toSet()
+        for (targetId in explicitTargetIds) {
             val target =
                 collectionRepo.findById(targetId)
                     ?: return AppResult.Failure(CollectionError.NotFound())
@@ -583,7 +599,9 @@ internal class CollectionServiceImpl(
         suspendTransaction(db) {
             for ((bookId, targetCollectionIds) in assignments) {
                 collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
-                for (targetId in targetCollectionIds) {
+                // Empty target → release to ALL_BOOKS so the book stays publicly visible.
+                val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
+                for (targetId in resolvedTargets) {
                     collectionBookRepo.upsert(
                         CollectionBookSyncPayload(
                             collectionId = targetId,
@@ -598,8 +616,8 @@ internal class CollectionServiceImpl(
         }
 
         // Every user who can see a target collection just gained access to the released books —
-        // nudge each once to re-derive.
-        notifyAccessChanged(distinctTargetIds)
+        // nudge each once to re-derive. ALL_BOOKS is included so its grant recipients re-derive.
+        notifyAccessChanged(explicitTargetIds + listOfNotNull(allBooksId))
         // Bump each released book's revision so members' incremental `revision > cursor` pull
         // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
         for (bookId in assignments.keys) {

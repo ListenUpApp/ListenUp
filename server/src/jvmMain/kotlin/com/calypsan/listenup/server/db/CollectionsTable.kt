@@ -7,8 +7,13 @@ import org.jetbrains.exposed.v1.core.ReferenceOption
  * Syncable table for user-owned collections.
  *
  * [id] is the stable storage row identity (UUIDv7 string). Collections gate access to
- * their member books — uncollected books are public; collected books are gated behind
- * the collection's [isGlobalAccess] flag or an explicit grant in [CollectionGrantsTable].
+ * their member books under a **pure-union** rule: a member sees a book iff it is in at
+ * least one live collection they own or hold a live grant on
+ * ([CollectionGrantsTable]) — there is no "uncollected is public" fallback. Public books
+ * live in the per-library `ALL_BOOKS` system collection that every member is granted.
+ *
+ * [isGlobalAccess] is **vestigial** — the visibility rule no longer reads it; the column
+ * persists only until the next slice removes it.
  *
  * [isInbox] marks the system-managed inbox collection for a library — at most one live
  * inbox per library is enforced by a partial unique index on [libraryId] in the migration.

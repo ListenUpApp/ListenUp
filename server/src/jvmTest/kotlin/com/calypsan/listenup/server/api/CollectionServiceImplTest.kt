@@ -693,7 +693,7 @@ class CollectionServiceImplTest :
             }
         }
 
-        test("releaseBooks moves books out of inbox into staged collections (or none → uncollected)") {
+        test("releaseBooks moves books out of inbox into staged collections (or none → ALL_BOOKS)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -712,7 +712,7 @@ class CollectionServiceImplTest :
                     val collA = admin.createCollection("test-library", "Collection A")
                     require(collA is AppResult.Success)
 
-                    // Release: book1 → [collA], book2 → [] (becomes uncollected).
+                    // Release: book1 → [collA], book2 → [] (empty target → ALL_BOOKS, stays public).
                     val released =
                         admin.releaseBooks(
                             "test-library",
@@ -732,6 +732,13 @@ class CollectionServiceImplTest :
                     val collABooks = admin.listCollectionBooks(collA.data.id)
                     require(collABooks is AppResult.Success)
                     collABooks.data shouldBe listOf(BookId("book1"))
+
+                    // book2 (empty target) landed in ALL_BOOKS — the public substrate.
+                    val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksMembers = admin.listCollectionBooks(allBooks.data.id)
+                    require(allBooksMembers is AppResult.Success)
+                    allBooksMembers.data shouldBe listOf(BookId("book2"))
                 }
             }
         }

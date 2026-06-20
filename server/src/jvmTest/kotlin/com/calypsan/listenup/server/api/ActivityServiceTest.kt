@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -9,6 +10,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -16,6 +18,7 @@ import com.calypsan.listenup.server.db.PublicProfilesTable
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -137,6 +140,60 @@ class ActivityServiceTest :
             )
         }
 
+        /**
+         * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
+         * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
+         * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
+         * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
+         * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
+         */
+        suspend fun makeBookAccessible(
+            db: Database,
+            bookId: String,
+            viewer: String,
+            // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
+            // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
+            grantId: String = "grant-$viewer",
+            allBooksId: String = "all-books",
+        ) {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            collectionRepo.upsert(
+                CollectionSyncPayload(
+                    id = allBooksId,
+                    libraryId = "test-library",
+                    ownerId = "system",
+                    name = "All Books",
+                    isInbox = false,
+                    isGlobalAccess = false,
+                    revision = 0L,
+                    updatedAt = 0L,
+                ),
+            )
+            collectionBookRepo.upsert(
+                CollectionBookSyncPayload(
+                    collectionId = allBooksId,
+                    bookId = bookId,
+                    createdAt = 0L,
+                    revision = 0L,
+                ),
+            )
+            grantRepo.upsert(
+                CollectionShareSyncPayload(
+                    id = grantId,
+                    collectionId = allBooksId,
+                    sharedWithUserId = viewer,
+                    sharedByUserId = "system",
+                    permission = SharePermission.Read,
+                    revision = 0L,
+                    updatedAt = 0L,
+                ),
+            )
+        }
+
         // ── 1: feed returns most-recent-first, identity from public_profiles ──────────
 
         test("feed returns activities most-recent-first with identity from public_profiles") {
@@ -148,6 +205,10 @@ class ActivityServiceTest :
                 seedTestBook("book-b")
                 seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
                 runTest {
+                    // Both books reachable to alice the pure-union way (ALL_BOOKS membership + alice's grant).
+                    makeBookAccessible(db, bookId = "book-a", viewer = "alice")
+                    makeBookAccessible(db, bookId = "book-b", viewer = "alice")
+
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
                     val activities = ActivityRepository(db = db, clock = clock)
                     activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a")
@@ -186,6 +247,8 @@ class ActivityServiceTest :
                 runTest {
                     // "private-book" is gated into alice's private collection; viewer can't see it.
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    // "public-book" is reachable to viewer the pure-union way (ALL_BOOKS membership + viewer's grant).
+                    makeBookAccessible(db, bookId = "public-book", viewer = "viewer")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
                     val activities = ActivityRepository(db = db, clock = clock)
@@ -257,6 +320,9 @@ class ActivityServiceTest :
                 seedTestBook("book-a")
                 seedPublicProfile("alice", displayName = "Alice")
                 runTest {
+                    // "book-a" reachable to alice the pure-union way (ALL_BOOKS membership + alice's grant).
+                    makeBookAccessible(db, bookId = "book-a", viewer = "alice")
+
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
                     val activities = ActivityRepository(db = db, clock = clock)
                     activities.record(userId = "alice", type = ActivityType.USER_JOINED) // 1_000

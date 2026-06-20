@@ -16,7 +16,6 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
@@ -30,8 +29,8 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -121,6 +120,9 @@ class SeamLeakE2ETest :
                     val collections = collectionServiceAs(admin.userId, UserRole.ADMIN)
                     collections.createPrivateCollection("Private", "B")
                     collections.addToInbox("B_inbox", "test-library").requireSuccess()
+                    // The public control P is public the pure-union way: in ALL_BOOKS, which m1
+                    // reaches through their default ALL_BOOKS grant.
+                    makeBookPublic("P")
 
                     // ─────────────────────────── SEAM 1: getBook ───────────────────────────
                     // Control: m1 fetches P (public) → 200. B / B_inbox → NotFound (indistinguishable
@@ -327,8 +329,8 @@ class SeamLeakE2ETest :
             }
         }
 
-        test("global-access collection's books are visible to all members through the seams") {
-            val libraryRoot = Files.createTempDirectory("listenup-seamleak-global-")
+        test("a book in ALL_BOOKS is visible to a granted member through the seams") {
+            val libraryRoot = Files.createTempDirectory("listenup-seamleak-allbooks-")
             try {
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
@@ -343,36 +345,12 @@ class SeamLeakE2ETest :
                     val books by application.inject<BookRepository>()
                     books.upsert(bookFixture("G", "Dragon Global"))
 
-                    // G lives in a global-access collection owned by a stranger — m1 is neither
-                    // owner nor share recipient, so reachability comes purely from is_global_access.
-                    // No service write sets that flag in 1b, so seed the row via the repos (the
-                    // access policy reads the flag, not how it was set).
-                    val collectionRepo by application.inject<CollectionRepository>()
-                    val collectionBookRepo by application.inject<CollectionBookRepository>()
-                    collectionRepo
-                        .upsert(
-                            CollectionSyncPayload(
-                                id = "global-col",
-                                libraryId = "test-library",
-                                ownerId = "stranger",
-                                name = "Everyone",
-                                isInbox = false,
-                                isGlobalAccess = true,
-                                revision = 0L,
-                                updatedAt = 0L,
-                            ),
-                        ).requireSuccess()
-                    collectionBookRepo
-                        .upsert(
-                            CollectionBookSyncPayload(
-                                collectionId = "global-col",
-                                bookId = "G",
-                                createdAt = 0L,
-                                revision = 0L,
-                            ),
-                        ).requireSuccess()
+                    // G lives in ALL_BOOKS — the public substrate — which m1 reaches through their
+                    // default ALL_BOOKS grant, so under pure union it is visible even though m1
+                    // neither owns nor was directly shared the book.
+                    makeBookPublic("G")
 
-                    // getBook + catch-up: m1 (no relationship) sees the global book.
+                    // getBook + catch-up + search: m1 (granted via ALL_BOOKS) sees the book.
                     client.getBook(m1.token, "G").status shouldBe HttpStatusCode.OK
                     client.catchUp(m1.token).items.map { it.id } shouldContain "G"
                     client.search(m1.token, "Dragon").books.map { it.id.value } shouldContain "G"
@@ -470,6 +448,28 @@ private fun io.ktor.server.testing.ApplicationTestBuilder.collectionServiceAs(
             UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
         },
     )
+}
+
+/**
+ * Makes [bookId] publicly visible the pure-union way: drops it into the bootstrap library's
+ * `ALL_BOOKS` substrate. The book then reaches every member through their default `ALL_BOOKS`
+ * grant (issued at registration) — exactly how a scanned book becomes public under pure union.
+ * No explicit grant is issued: members registered via the real auth flow already hold one, and a
+ * second live grant for the same `(collection, principal)` would violate the active-grant index.
+ */
+private suspend fun io.ktor.server.testing.ApplicationTestBuilder.makeBookPublic(bookId: String) {
+    val collectionService by application.inject<CollectionServiceImpl>()
+    val registry by application.inject<LibraryRegistry>()
+    val collectionBookRepo by application.inject<CollectionBookRepository>()
+    val libraryId = registry.currentLibrary().value
+    val allBooks =
+        (
+            collectionService.getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
+                as AppResult.Success
+        ).data
+    collectionBookRepo
+        .upsert(CollectionBookSyncPayload(collectionId = allBooks.id.value, bookId = bookId, createdAt = 0L, revision = 0L))
+        .requireSuccess()
 }
 
 /** Creates a private collection owned by the *acting* caller and adds [bookId]; returns its id. */

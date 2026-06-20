@@ -15,6 +15,8 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -69,8 +71,12 @@ class BooksDigestRouteAccessTest :
                     val collections by application.inject<CollectionRepository>()
                     val memberships by application.inject<CollectionBookRepository>()
                     val shares by application.inject<CollectionGrantRepository>()
+                    val collectionService by application.inject<CollectionServiceImpl>()
 
-                    // public-book is uncollected → visible to everyone by default.
+                    // public-book is visible the pure-union way: it joins the per-library ALL_BOOKS
+                    // system collection and the member holds a live USER grant on it. (The member
+                    // registered before the library existed, so the registration-time default grant
+                    // was skipped — mirror production by granting it explicitly here.)
                     // private-book lives only in a stranger-owned private collection → denied
                     // to the member, visible to the admin. Seed the parent row first to satisfy
                     // the collection_books FK before the membership upsert.
@@ -79,6 +85,12 @@ class BooksDigestRouteAccessTest :
                     books.upsert(bookSyncFixture(id = "private-book", title = "Secret"))
                     collections.upsert(collectionFixture("private-col", owner = "stranger"))
                     memberships.upsert(membership("private-col", "private-book"))
+
+                    val allBooks = collectionService.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksId = allBooks.data.id.value
+                    memberships.upsert(membership(allBooksId, "public-book"))
+                    shares.upsert(allBooksGrant(allBooksId, member.userId))
 
                     // A cursor past every revision so the digest folds the whole domain.
                     val cursor = 1_000_000L
@@ -188,6 +200,24 @@ private fun shareFixture(
         collectionId = collectionId,
         sharedWithUserId = sharedWithUserId,
         sharedByUserId = "stranger",
+        permission = SharePermission.Read,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+/**
+ * The member's default read-grant on the per-library `ALL_BOOKS` system collection — the public
+ * substrate every member holds at registration in production. Issued by the system owner.
+ */
+private fun allBooksGrant(
+    allBooksId: String,
+    memberId: String,
+): CollectionShareSyncPayload =
+    CollectionShareSyncPayload(
+        id = "all-books-grant-$memberId",
+        collectionId = allBooksId,
+        sharedWithUserId = memberId,
+        sharedByUserId = "system",
         permission = SharePermission.Read,
         revision = 0L,
         updatedAt = 0L,
