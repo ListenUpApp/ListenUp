@@ -22,7 +22,7 @@ import kotlinx.rpc.withService
  * registers `BookService` on its bearer-gated `/api/rpc/authed` surface
  * (landed in T28.5), so the client proxy connects and calls succeed.
  */
-interface BookRpcFactory {
+internal interface BookRpcFactory {
     /** Returns the cached [BookService] proxy, connecting on first use. */
     suspend fun bookService(): BookService
 
@@ -43,7 +43,7 @@ interface BookRpcFactory {
  * Wire serialization is the contract-layer [contractJson] — one wire format,
  * two transports.
  */
-class KtorBookRpcFactory(
+internal class KtorBookRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : BookRpcFactory,

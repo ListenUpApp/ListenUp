@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  * [KtorImportRpcFactory] is the production implementation over WebSocket RPC.
  * Mirrors [BackupRpcFactory] — the established admin RPC factory precedent.
  */
-interface ImportRpcFactory {
+internal interface ImportRpcFactory {
     /** Returns the cached [ImportService] proxy, connecting on first use. */
     suspend fun get(): ImportService
 
@@ -39,7 +39,7 @@ interface ImportRpcFactory {
  * Wire serialization uses the contract-layer [contractJson] — one wire format, two transports.
  * Token rotation is a known phase-1-auth deferral — shared across every RPC factory.
  */
-open class KtorImportRpcFactory(
+internal open class KtorImportRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : ImportRpcFactory,

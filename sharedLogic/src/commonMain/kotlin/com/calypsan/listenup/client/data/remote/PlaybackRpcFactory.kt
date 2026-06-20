@@ -42,7 +42,7 @@ interface PlaybackRpcFactory {
  *
  * Wire serialization is the contract-layer [contractJson] — one wire format, two transports.
  */
-class KtorPlaybackRpcFactory(
+internal class KtorPlaybackRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : PlaybackRpcFactory,

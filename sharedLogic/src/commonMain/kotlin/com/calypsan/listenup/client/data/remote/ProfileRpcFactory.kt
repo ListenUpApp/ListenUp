@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  * [KtorProfileRpcFactory] is the production implementation over WebSocket RPC.
  * Mirrors [CollectionRpcFactory] — the established authed-RPC factory precedent.
  */
-interface ProfileRpcFactory {
+internal interface ProfileRpcFactory {
     /** Returns the cached [ProfileService] proxy, connecting on first use. */
     suspend fun get(): ProfileService
 
@@ -41,7 +41,7 @@ interface ProfileRpcFactory {
  * two transports. Token rotation is a known phase-1-auth deferral, shared across
  * every RPC factory.
  */
-open class KtorProfileRpcFactory(
+internal open class KtorProfileRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : ProfileRpcFactory,

@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  * in tests — [KtorCollectionRpcFactory] is the production implementation over
  * WebSocket RPC. Mirrors [TagRpcFactory] — the established RPC factory precedent.
  */
-interface CollectionRpcFactory {
+internal interface CollectionRpcFactory {
     /** Returns the cached [CollectionService] proxy, connecting on first use. */
     suspend fun get(): CollectionService
 
@@ -41,7 +41,7 @@ interface CollectionRpcFactory {
  * two transports. Token rotation is a known phase-1-auth deferral, shared across
  * every RPC factory.
  */
-open class KtorCollectionRpcFactory(
+internal open class KtorCollectionRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : CollectionRpcFactory,

@@ -23,7 +23,7 @@ import io.ktor.client.request.setBody
  * `ApiResponse` envelope, so the methods use [suspendRunCatching] directly rather than
  * the envelope-shaped [apiCall] helpers. The server enforces the ROOT/ADMIN gate.
  */
-interface CollectionInboxApiContract {
+internal interface CollectionInboxApiContract {
     /** Returns the live (unreleased) book ids in the inbox for [libraryId]. */
     suspend fun listInbox(libraryId: String): AppResult<List<String>>
 
@@ -39,7 +39,7 @@ interface CollectionInboxApiContract {
 }
 
 /** Ktor implementation of [CollectionInboxApiContract] over the 1b admin REST routes. */
-class CollectionInboxApi(
+internal class CollectionInboxApi(
     private val clientFactory: ApiClientFactory,
 ) : CollectionInboxApiContract {
     override suspend fun listInbox(libraryId: String): AppResult<List<String>> =

@@ -52,7 +52,7 @@ private fun seriesCoverPath(seriesId: String) = "/api/v1/series/$seriesId/cover"
  * @property clientFactory Factory for creating authenticated HttpClient
  * @property settingsRepository For constructing full image URLs
  */
-class ImageApi(
+internal class ImageApi(
     private val clientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : ImageApiContract {

@@ -22,7 +22,7 @@ import kotlinx.rpc.withService
  * `ContributorService` on its bearer-gated `/api/rpc/authed` surface (landed in
  * Books-B2), so the client proxy connects and calls succeed.
  */
-interface ContributorRpcFactory {
+internal interface ContributorRpcFactory {
     /** Returns the cached [ContributorService] proxy, connecting on first use. */
     suspend fun contributorService(): ContributorService
 
@@ -43,7 +43,7 @@ interface ContributorRpcFactory {
  * Wire serialization is the contract-layer [contractJson] — one wire format, two
  * transports.
  */
-class KtorContributorRpcFactory(
+internal class KtorContributorRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : ContributorRpcFactory,

@@ -48,7 +48,7 @@ private const val PARAM_UPDATED_AFTER = "updated_after"
  *
  * @property clientFactory Factory for creating authenticated HttpClient
  */
-class SyncApi(
+internal class SyncApi(
     private val clientFactory: ApiClientFactory,
 ) : SyncApiContract {
     /**
@@ -474,7 +474,7 @@ class SyncApi(
  * Request body for ending a playback session.
  */
 @Serializable
-data class EndPlaybackSessionRequest(
+internal data class EndPlaybackSessionRequest(
     @SerialName("book_id") val bookId: String,
     @SerialName("duration_ms") val durationMs: Long,
 )
@@ -483,7 +483,7 @@ data class EndPlaybackSessionRequest(
  * Request body for marking a book complete.
  */
 @Serializable
-data class MarkCompleteRequest(
+internal data class MarkCompleteRequest(
     @SerialName("started_at") val startedAt: String? = null,
     @SerialName("finished_at") val finishedAt: String? = null,
 )
@@ -492,7 +492,7 @@ data class MarkCompleteRequest(
  * Request body for submitting listening events.
  */
 @Serializable
-data class ListeningEventsRequest(
+internal data class ListeningEventsRequest(
     @SerialName("events")
     val events: List<ListeningEventRequest>,
 )

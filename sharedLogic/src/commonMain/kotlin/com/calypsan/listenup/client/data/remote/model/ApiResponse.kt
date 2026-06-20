@@ -92,7 +92,7 @@ data class ApiResponse<T>(
  * It means the response JSON parsed successfully but doesn't match the
  * expected envelope structure (e.g., missing version field).
  */
-class EnvelopeMismatchException(
+internal class EnvelopeMismatchException(
     message: String,
 ) : Exception(message)
 
@@ -105,7 +105,7 @@ class EnvelopeMismatchException(
  * @param code Optional error code for programmatic handling (e.g., "conflict", "validation_error")
  * @param message Human-readable error message
  */
-class ApiException(
+internal class ApiException(
     val code: String? = null,
     message: String,
 ) : Exception(message)

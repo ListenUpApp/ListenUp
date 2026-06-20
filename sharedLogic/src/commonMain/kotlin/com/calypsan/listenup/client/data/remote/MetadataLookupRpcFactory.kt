@@ -21,7 +21,7 @@ import kotlinx.rpc.withService
  *
  * Mirrors [ContributorRpcFactory] and [SeriesRpcFactory] from B2a-C.
  */
-interface MetadataLookupRpcFactory {
+internal interface MetadataLookupRpcFactory {
     /** Returns the cached [MetadataLookupService] proxy, connecting on first use. */
     suspend fun metadataLookupService(): MetadataLookupService
 
@@ -45,7 +45,7 @@ interface MetadataLookupRpcFactory {
  * Token rotation is a known phase-1-auth deferral — same across every RPC factory
  * in the codebase. Not solved here.
  */
-open class KtorMetadataLookupRpcFactory(
+internal open class KtorMetadataLookupRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : MetadataLookupRpcFactory,

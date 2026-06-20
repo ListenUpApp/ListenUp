@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  * in tests — [KtorActivityRpcFactory] is the production implementation over
  * WebSocket RPC. Mirrors [ShelfRpcFactory] — the established RPC factory precedent.
  */
-interface ActivityRpcFactory {
+internal interface ActivityRpcFactory {
     /** Returns the cached [ActivityService] proxy, connecting on first use. */
     suspend fun get(): ActivityService
 
@@ -39,7 +39,7 @@ interface ActivityRpcFactory {
  * Wire serialization uses the contract-layer [contractJson] — one wire format, two
  * transports. Token rotation is a known phase-1-auth deferral, shared across every RPC factory.
  */
-open class KtorActivityRpcFactory(
+internal open class KtorActivityRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : ActivityRpcFactory,

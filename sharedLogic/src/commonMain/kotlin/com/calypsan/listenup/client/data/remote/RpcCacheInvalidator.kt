@@ -26,7 +26,7 @@ fun interface RpcCacheInvalidator {
  * joins the sweep automatically. A new authed RPC factory joins the sweep the moment
  * its Koin binding declares `binds arrayOf(RemoteCache::class)`; there is no list to maintain.
  */
-class DefaultRpcCacheInvalidator(
+internal class DefaultRpcCacheInvalidator(
     internal val caches: List<RemoteCache>,
 ) : RpcCacheInvalidator {
     override suspend fun invalidateAll() {

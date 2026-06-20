@@ -309,7 +309,7 @@ data class ContributorResponse(
  * User data embedded in realtime user event payloads.
  */
 @Serializable
-data class SSEUserData(
+internal data class SSEUserData(
     @SerialName("id")
     val id: String,
     @SerialName("email")
@@ -341,7 +341,7 @@ data class SSEUserData(
  * Used for initial sync of listening events from other devices.
  */
 @Serializable
-data class SyncListeningEventsResponse(
+internal data class SyncListeningEventsResponse(
     @SerialName("events")
     val events: List<SyncListeningEventItem>,
 )
@@ -350,7 +350,7 @@ data class SyncListeningEventsResponse(
  * A single listening event from the sync endpoint.
  */
 @Serializable
-data class SyncListeningEventItem(
+internal data class SyncListeningEventItem(
     @SerialName("id")
     val id: String,
     @SerialName("book_id")
@@ -380,7 +380,7 @@ data class SyncListeningEventItem(
  * particularly for audio files (uses 'path' instead of 'filename').
  */
 @Serializable
-data class SingleBookResponse(
+internal data class SingleBookResponse(
     @SerialName("id")
     val id: String,
     @SerialName("title")
@@ -451,7 +451,7 @@ data class SingleBookResponse(
  * Contributor in single book response.
  */
 @Serializable
-data class SingleBookContributorResponse(
+internal data class SingleBookContributorResponse(
     @SerialName("contributor_id")
     val contributorId: String,
     @SerialName("name")
@@ -472,7 +472,7 @@ data class SingleBookContributorResponse(
  * Series in single book response.
  */
 @Serializable
-data class SingleBookSeriesResponse(
+internal data class SingleBookSeriesResponse(
     @SerialName("series_id")
     val seriesId: String,
     @SerialName("name")
@@ -494,7 +494,7 @@ data class SingleBookSeriesResponse(
  * Uses 'path' field instead of 'filename' like the sync endpoint.
  */
 @Serializable
-data class SingleBookAudioFileResponse(
+internal data class SingleBookAudioFileResponse(
     @SerialName("id")
     val id: String,
     @SerialName("path")
@@ -535,7 +535,7 @@ data class SingleBookAudioFileResponse(
  * Returns all book reader summaries for offline-first Readers section.
  */
 @Serializable
-data class ApiReadingSessions(
+internal data class ApiReadingSessions(
     @SerialName("readers")
     val readers: List<ApiReadingSessionReaderResponse>,
 )
@@ -545,7 +545,7 @@ data class ApiReadingSessions(
  * Includes denormalized user profile data for offline display.
  */
 @Serializable
-data class ApiReadingSessionReaderResponse(
+internal data class ApiReadingSessionReaderResponse(
     @SerialName("book_id")
     val bookId: String,
     @SerialName("user_id")
@@ -581,7 +581,7 @@ data class ApiReadingSessionReaderResponse(
  * Returns all currently active reading sessions for initial discovery page sync.
  */
 @Serializable
-data class ApiActiveSessions(
+internal data class ApiActiveSessions(
     @SerialName("sessions")
     val sessions: List<ApiActiveSessionResponse>,
 )
@@ -591,7 +591,7 @@ data class ApiActiveSessions(
  * Includes user profile data for offline-first display.
  */
 @Serializable
-data class ApiActiveSessionResponse(
+internal data class ApiActiveSessionResponse(
     @SerialName("session_id")
     val sessionId: String,
     @SerialName("user_id")

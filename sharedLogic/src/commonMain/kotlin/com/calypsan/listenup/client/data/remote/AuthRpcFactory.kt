@@ -24,7 +24,7 @@ import kotlinx.rpc.withService
  * [KtorAuthRpcFactory] is the production implementation over WebSocket RPC.
  * Mirrors [InviteRpcFactory] — the established RPC-factory-seam precedent.
  */
-interface AuthRpcFactory {
+internal interface AuthRpcFactory {
     /** Returns the cached [AuthServicePublic] proxy, connecting on first use. */
     suspend fun publicService(): AuthServicePublic
 
@@ -50,7 +50,7 @@ interface AuthRpcFactory {
  * the REST surface and contract round-trip tests use. One wire format,
  * two transports.
  */
-class KtorAuthRpcFactory(
+internal class KtorAuthRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : AuthRpcFactory,

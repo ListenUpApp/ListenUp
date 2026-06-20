@@ -433,7 +433,7 @@ private data class UserSearchResponse(
 /**
  * Implementation of persistent ABS import API.
  */
-class ABSImportApi(
+internal class ABSImportApi(
     private val clientFactory: ApiClientFactory,
     private val errorBus: ErrorBus,
 ) : ABSImportApiContract {

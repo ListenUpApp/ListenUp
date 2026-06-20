@@ -392,7 +392,7 @@ data class ImageUploadResponse(
  *
  * Handles server instance information.
  */
-interface InstanceApiContract {
+internal interface InstanceApiContract {
     /**
      * Fetch the server instance information.
      *
@@ -408,7 +408,7 @@ interface InstanceApiContract {
  *
  * Handles book metadata updates and relationship management.
  */
-interface BookApiContract {
+internal interface BookApiContract {
     /**
      * Update book metadata (PATCH semantics).
      *
@@ -467,7 +467,7 @@ interface BookApiContract {
  *
  * Handles contributor search, updates, and merge/unmerge operations.
  */
-interface ContributorApiContract {
+internal interface ContributorApiContract {
     /**
      * Search contributors for autocomplete during book editing.
      *
@@ -520,7 +520,7 @@ interface ContributorApiContract {
  *
  * Handles series search and updates.
  */
-interface SeriesApiContract {
+internal interface SeriesApiContract {
     /**
      * Search series for autocomplete during book editing.
      *
@@ -561,7 +561,7 @@ interface SeriesApiContract {
  * Lightweight representation returned by contributor search endpoint.
  * Used when editing book contributors to find existing contributors to link.
  */
-data class ContributorSearchResult(
+internal data class ContributorSearchResult(
     val id: String,
     val name: String,
     val bookCount: Int,
@@ -573,7 +573,7 @@ data class ContributorSearchResult(
  * Lightweight representation returned by series search endpoint.
  * Used when editing book series to find existing series to link.
  */
-data class SeriesSearchResult(
+internal data class SeriesSearchResult(
     val id: String,
     val name: String,
     val bookCount: Int,
@@ -587,7 +587,7 @@ data class SeriesSearchResult(
  * - empty string = clear this field
  */
 @Serializable
-data class BookUpdateRequest(
+internal data class BookUpdateRequest(
     val title: String? = null,
     val subtitle: String? = null,
     val description: String? = null,
@@ -608,7 +608,7 @@ data class BookUpdateRequest(
 /**
  * Contributor with roles for setting book contributors.
  */
-data class ContributorInput(
+internal data class ContributorInput(
     val name: String,
     val roles: List<String>,
 )
@@ -616,7 +616,7 @@ data class ContributorInput(
 /**
  * Series with sequence for setting book series.
  */
-data class SeriesInput(
+internal data class SeriesInput(
     val name: String,
     val sequence: String?,
 )
@@ -627,7 +627,7 @@ data class SeriesInput(
  * Contains fields needed after editing. Separate from SyncModels.BookResponse
  * which has additional sync-specific fields (chapters, audio files, etc.).
  */
-data class BookEditResponse(
+internal data class BookEditResponse(
     val id: String,
     val title: String,
     val subtitle: String?,
@@ -647,7 +647,7 @@ data class BookEditResponse(
 /**
  * Request to update a contributor's metadata.
  */
-data class UpdateContributorRequest(
+internal data class UpdateContributorRequest(
     val name: String,
     val biography: String?,
     val website: String?,
@@ -659,7 +659,7 @@ data class UpdateContributorRequest(
 /**
  * Response from updating a contributor.
  */
-data class UpdateContributorResponse(
+internal data class UpdateContributorResponse(
     val id: String,
     val name: String,
     val biography: String?,
@@ -674,7 +674,7 @@ data class UpdateContributorResponse(
 /**
  * Request to update a series' metadata (PATCH semantics).
  */
-data class SeriesUpdateRequest(
+internal data class SeriesUpdateRequest(
     val name: String? = null,
     val description: String? = null,
 )
@@ -682,7 +682,7 @@ data class SeriesUpdateRequest(
 /**
  * Response from series edit operations.
  */
-data class SeriesEditResponse(
+internal data class SeriesEditResponse(
     val id: String,
     val name: String,
     val description: String? = null,
@@ -697,7 +697,7 @@ data class SeriesEditResponse(
  * now sources its data from the [com.calypsan.listenup.api.SocialService] RPC
  * (ACL-filtered server-side, refreshed on presence pings), with no REST fallback.
  */
-interface SessionApiContract {
+internal interface SessionApiContract {
     /**
      * Get the current authenticated user's profile.
      *
@@ -715,7 +715,7 @@ interface SessionApiContract {
 /**
  * Response from GET /api/v1/users/me endpoint.
  */
-data class CurrentUserResponse(
+internal data class CurrentUserResponse(
     val id: String,
     val email: String,
     val displayName: String,

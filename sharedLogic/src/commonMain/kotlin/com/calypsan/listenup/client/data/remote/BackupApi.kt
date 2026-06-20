@@ -25,7 +25,7 @@ import io.ktor.http.contentType
 /**
  * Implementation of the Audiobookshelf-import and filesystem-browse API using Ktor.
  */
-class BackupApi(
+internal class BackupApi(
     private val clientFactory: ApiClientFactory,
 ) : BackupApiContract {
     // === Filesystem Browsing ===

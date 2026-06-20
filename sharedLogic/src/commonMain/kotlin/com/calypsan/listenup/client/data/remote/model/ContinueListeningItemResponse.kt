@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  * Wrapper response for GET /api/v1/listening/continue endpoint.
  */
 @Serializable
-data class ContinueListeningResponse(
+internal data class ContinueListeningResponse(
     @SerialName("items")
     val items: List<ContinueListeningItemResponse>,
 )

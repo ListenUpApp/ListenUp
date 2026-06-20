@@ -21,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  *
  * @property clientFactory Factory for creating authenticated HttpClient
  */
-class SearchApi(
+internal class SearchApi(
     private val clientFactory: ApiClientFactory,
 ) : SearchApiContract {
     /**
@@ -142,6 +142,6 @@ data class FacetCountResponse(
 /**
  * Exception thrown when search fails.
  */
-class SearchException(
+internal class SearchException(
     message: String,
 ) : Exception(message)
