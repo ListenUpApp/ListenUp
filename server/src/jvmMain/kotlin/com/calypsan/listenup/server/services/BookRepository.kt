@@ -323,15 +323,16 @@ class BookRepository(
                 stmt[BookTable.deletedAt] = null
                 stmt[BookTable.clientOpId] = clientOpId
             }
-            // Atomic inbox quarantine: insertInboxMembership's upsert joins THIS transaction.
-            // A stashed inbox id without a wired repo is a misconfiguration — fail loudly rather
-            // than silently drop the quarantine (which would re-open the firehose leak).
-            extras?.inboxCollectionId?.let { inboxId ->
+            // Atomic system-collection membership: insertSystemMembership's upsert joins THIS transaction.
+            // A stashed system collection id without a wired repo is a misconfiguration — fail loudly
+            // rather than silently drop the membership (which would re-open the firehose leak for
+            // held books, or leave non-held books uncollected and invisible to members).
+            extras?.systemCollectionId?.let { sysId ->
                 val repo =
                     requireNotNull(collectionBookRepository) {
-                        "inbox quarantine requested but CollectionBookRepository is not wired"
+                        "system-collection membership requested but CollectionBookRepository is not wired"
                     }
-                insertInboxMembership(repo, inboxId, value.id, now)
+                insertSystemMembership(repo, sysId, value.id, now)
             }
         }
 
@@ -369,7 +370,7 @@ class BookRepository(
      *
      * @return [AppResult.Success] carrying an [IngestOutcome] — the stable
      *   [BookId] (newly minted or pre-existing) plus a `wasNew` flag the scan
-     *   coordinator uses to gate inbox auto-add — only when the aggregate write
+     *   coordinator uses to gate system-collection membership — only when the aggregate write
      *   landed. An [AppResult.Failure] means [upsertFromAnalyzed] did not persist
      *   the book; callers must not treat the failure as a persisted aggregate,
      *   and for a new book the minted UUID points at nothing.
@@ -379,12 +380,12 @@ class BookRepository(
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
-        inboxCollectionId: String?,
+        systemCollectionId: String?,
     ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         bookFinder.findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
                 .map { IngestOutcome(existing, wasNew = false) }
         }
 
@@ -395,13 +396,13 @@ class BookRepository(
                 bookFinder.findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
                         .map { IngestOutcome(existing, wasNew = false) }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
             .map { IngestOutcome(newId, wasNew = true) }
     }
 
@@ -564,7 +565,7 @@ class BookRepository(
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
-        inboxCollectionId: String? = null,
+        systemCollectionId: String? = null,
     ): AppResult<BookSyncPayload> {
         val resolvedContributors =
             analyzedBookMapper.buildContributors(analyzed).map { c ->
@@ -584,7 +585,7 @@ class BookRepository(
                 resolvedSeries = resolvedSeries,
             )
         // Read the existing aggregate ONCE — drives the idempotency check, the cover-source
-        // sticky-UPLOADED skip, and the only-on-create inbox quarantine gate.
+        // sticky-UPLOADED skip, and the only-on-create system-collection membership gate.
         val existing = findById(bookId)
         val isNew = existing == null
         // The cover must be treated as unchanged for the idempotency check when:
@@ -613,7 +614,7 @@ class BookRepository(
                 withContext(
                     BookWriteExtras(
                         managedCover = storedCover,
-                        inboxCollectionId = if (isNew) inboxCollectionId else null,
+                        systemCollectionId = if (isNew) systemCollectionId else null,
                     ),
                 ) {
                     upsert(payload, clientOpId = null)
@@ -963,22 +964,27 @@ private fun resolveOrAllocateFtsRowid(bookId: String): Int {
 }
 
 /**
- * Commits the `(inboxCollectionId, bookId)` membership for a newly-inserted book.
+ * Commits the `(systemCollectionId, bookId)` membership for a newly-inserted book.
  *
  * Called from inside [BookRepository.writePayload]'s INSERT branch — already within the
  * book-insert transaction. [CollectionBookRepository.upsert] opens a `suspendTransaction`
  * that JOINS that transaction (Exposed coroutine txn reuse), so the membership lands
  * atomically with the book row; it is never a separate transaction.
+ *
+ * [systemCollectionId] is either the library's ALL_BOOKS collection id (inbox gate off)
+ * or its INBOX collection id (inbox gate on). The two cases are mutually exclusive and
+ * are resolved by [com.calypsan.listenup.server.services.BookPersister.resolveSystemCollectionId]
+ * before this is called.
  */
-private suspend fun insertInboxMembership(
+private suspend fun insertSystemMembership(
     collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository,
-    inboxCollectionId: String,
+    systemCollectionId: String,
     bookId: String,
     now: Long,
 ) {
     collectionBookRepository.upsert(
         com.calypsan.listenup.api.sync.CollectionBookSyncPayload(
-            collectionId = inboxCollectionId,
+            collectionId = systemCollectionId,
             bookId = bookId,
             createdAt = now,
             revision = 0L,

@@ -5,6 +5,8 @@ import com.calypsan.listenup.server.db.SwappableDataSource
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.FunSpec
 import io.ktor.server.config.MapApplicationConfig
@@ -55,6 +57,10 @@ class AuthModuleVerifyTest :
                         Database::class,
                         LibraryRegistry::class,
                         LibraryRepository::class,
+                        // DefaultAllBooksGrantIssuer deps resolved from syncModule/booksModule
+                        // (both loaded at application startup but absent here):
+                        CollectionGrantRepository::class,
+                        CollectionRepository::class,
                     ),
             )
         }

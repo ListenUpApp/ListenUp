@@ -101,7 +101,6 @@ class CollectionSyncDomainHandler(
                 ownerId = payload.ownerId,
                 name = payload.name,
                 isInbox = payload.isInbox,
-                isGlobalAccess = payload.isGlobalAccess,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 updatedAt = payload.updatedAt,

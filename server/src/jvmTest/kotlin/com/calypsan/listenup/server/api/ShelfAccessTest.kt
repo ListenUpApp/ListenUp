@@ -49,10 +49,10 @@ import org.jetbrains.exposed.v1.jdbc.Database
  *
  * Fixture, shared across the suite:
  * - **A** (`a`) — MEMBER, the shelf owner.
- * - **B** (`b`) — MEMBER, an unrelated viewer.
- * - **pub** — uncollected → public, visible to everyone.
- * - **priv** — in a private collection owned by a third party; B has no share → invisible to B.
- * - **glob** — in a global-access collection → visible to everyone.
+ * - **B** (`b`) — MEMBER, an unrelated viewer holding a default ALL_BOOKS grant.
+ * - **pub** — in ALL_BOOKS (the public substrate) → visible to every granted member, incl. B.
+ * - **priv** — in a private collection owned by a third party; B has no grant → invisible to B.
+ * - **glob** — also in ALL_BOOKS → visible to B (name kept for historical continuity).
  * - **S** — A's PUBLIC shelf, books `[pub, priv, glob]`.
  * - **P** — A's PRIVATE shelf, books `[pub]`.
  */
@@ -133,8 +133,11 @@ class ShelfAccessTest :
         suspend fun Database.seedBaseFixture(f: Fixtures): Pair<ShelfId, ShelfId> {
             f.collectionRepo.upsert(collectionFixture("priv-col", owner = "stranger"))
             f.collectionBookRepo.upsert(membership("priv-col", "priv"))
-            f.collectionRepo.upsert(collectionFixture("glob-col", owner = "stranger", isGlobalAccess = true))
-            f.collectionBookRepo.upsert(membership("glob-col", "glob"))
+            // pub + glob are public the new way: members of ALL_BOOKS with B granted on it.
+            f.collectionRepo.upsert(collectionFixture("all-books", owner = "system"))
+            f.collectionBookRepo.upsert(membership("all-books", "pub"))
+            f.collectionBookRepo.upsert(membership("all-books", "glob"))
+            f.grantRepo.upsert(share("all-books-grant-b", "all-books", "b", SharePermission.Read))
 
             val shelfS = seedShelf(f, "a", name = "Shared Picks", isPrivate = false, bookIds = listOf("pub", "priv", "glob"))
             val shelfP = seedShelf(f, "a", name = "Secret", isPrivate = true, bookIds = listOf("pub"))
@@ -357,7 +360,6 @@ private data class Fixtures(
 private fun collectionFixture(
     id: String,
     owner: String,
-    isGlobalAccess: Boolean = false,
 ): CollectionSyncPayload =
     CollectionSyncPayload(
         id = id,
@@ -365,7 +367,6 @@ private fun collectionFixture(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = isGlobalAccess,
         revision = 0L,
         updatedAt = 0L,
     )

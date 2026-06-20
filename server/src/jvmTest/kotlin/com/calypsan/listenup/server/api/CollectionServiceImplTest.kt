@@ -248,6 +248,7 @@ class CollectionServiceImplTest :
                     }
 
                     // Seed an inbox collection directly; deleting it is rejected.
+                    // type='INBOX' must be stamped explicitly — is_inbox column is gone.
                     val collectionRepo = CollectionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
                     collectionRepo.upsert(
                         CollectionSyncPayload(
@@ -255,11 +256,11 @@ class CollectionServiceImplTest :
                             libraryId = "test-library",
                             ownerId = "u1",
                             name = "Inbox",
-                            isInbox = true,
                             revision = 0L,
                             updatedAt = 0L,
                         ),
                     )
+                    collectionRepo.setType("inbox1", "INBOX")
                     val inboxDelete = service.deleteCollection(CollectionId("inbox1"))
                     require(inboxDelete is AppResult.Failure)
                     inboxDelete.error.shouldBeInstanceOf<CollectionError.InboxNotDeletable>()
@@ -634,7 +635,7 @@ class CollectionServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+                // No admin required: inbox is owned by the "system" sentinel, not a real user.
                 runTest {
                     val service = makeService(db)
 
@@ -642,7 +643,7 @@ class CollectionServiceImplTest :
                     require(first is AppResult.Success)
                     first.data.isInbox shouldBe true
                     first.data.name shouldBe "Inbox"
-                    first.data.ownerId shouldBe UserId("admin")
+                    first.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
 
                     // Idempotent: a second call returns the same inbox, not a new one.
                     val second = service.getOrCreateInbox("test-library")
@@ -693,7 +694,7 @@ class CollectionServiceImplTest :
             }
         }
 
-        test("releaseBooks moves books out of inbox into staged collections (or none → uncollected)") {
+        test("releaseBooks moves books out of inbox into staged collections (or none → ALL_BOOKS)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -712,7 +713,7 @@ class CollectionServiceImplTest :
                     val collA = admin.createCollection("test-library", "Collection A")
                     require(collA is AppResult.Success)
 
-                    // Release: book1 → [collA], book2 → [] (becomes uncollected).
+                    // Release: book1 → [collA], book2 → [] (empty target → ALL_BOOKS, stays public).
                     val released =
                         admin.releaseBooks(
                             "test-library",
@@ -732,6 +733,13 @@ class CollectionServiceImplTest :
                     val collABooks = admin.listCollectionBooks(collA.data.id)
                     require(collABooks is AppResult.Success)
                     collABooks.data shouldBe listOf(BookId("book1"))
+
+                    // book2 (empty target) landed in ALL_BOOKS — the public substrate.
+                    val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksMembers = admin.listCollectionBooks(allBooks.data.id)
+                    require(allBooksMembers is AppResult.Success)
+                    allBooksMembers.data shouldBe listOf(BookId("book2"))
                 }
             }
         }

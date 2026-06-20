@@ -22,6 +22,7 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -132,6 +133,14 @@ class InboxQuarantineE2ETest :
                         // leaking. The FIRST `books` event the member sees must be `Public`, never
                         // `Quarantined` — if membership were committed in a separate transaction, the
                         // quarantined book's momentarily-public event would arrive first and fail this.
+                        // Resolve ALL_BOOKS up front: the visible control `Public` joins it so the
+                        // member (who holds a default ALL_BOOKS grant) can see it under pure union.
+                        val allBooksId =
+                            (
+                                collections.getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
+                                    as AppResult.Success
+                            ).data.id
+
                         client.sse(
                             urlString = "/api/v1/sync/events",
                             request = { bearerAuth(m1.token) },
@@ -141,11 +150,14 @@ class InboxQuarantineE2ETest :
 
                                 // Scan the quarantined book — its content event must be dropped for m1.
                                 persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
-                                // The visible public control — m1 must receive this one. Firehose
-                                // events publish after the write commits, so the member's delivery-time
-                                // canAccess sees the committed public row and delivers it. The FIRST
+                                // The visible public control — m1 must receive this one. We upsert the
+                                // book then add it to ALL_BOOKS (both awaited, so the membership commits
+                                // before the member's delivery-time canAccess probe pulls the event):
+                                // under pure union a book is visible to a granted member only via a
+                                // reachable collection, and ALL_BOOKS is the public substrate. The FIRST
                                 // `books` event m1 sees is always `Public`, never `Quarantined`.
                                 books.upsert(publicBook("Public", libraryId)).requireSuccess()
+                                collections.addBookToCollection(allBooksId, BookId("public-Public")).requireSuccess()
 
                                 val event = firstBooksEvent.await()
                                 // Assert on the title (a stable known value) since book ids are minted UUIDs.
@@ -163,7 +175,8 @@ class InboxQuarantineE2ETest :
                         val inboxIds = (collections.listInbox(libraryId) as AppResult.Success).data.map { it.value }
                         inboxIds shouldContain quarantinedId
 
-                        // ── Release the quarantined book to uncollected (public). The member now sees it.
+                        // ── Release the quarantined book with no explicit target → it joins ALL_BOOKS
+                        // (the public substrate). The member (default ALL_BOOKS grant) now sees it.
                         collections
                             .releaseBooks(libraryId, mapOf(quarantinedId to emptyList()))
                             .requireSuccess()
@@ -197,7 +210,7 @@ class InboxQuarantineE2ETest :
                     val persister by application.inject<BookPersister>()
                     persister.scanSubtree(libraryRoot.toString(), book("Open"))
 
-                    // Uncollected → public: the member sees it through getBook with no release step.
+                    // In ALL_BOOKS: the member sees it through getBook immediately, no release step needed.
                     val openId = client.findBookIdByTitle(admin.token, "Open")
                     client.getBook(m1.token, openId).status shouldBe HttpStatusCode.OK
                 }
@@ -256,9 +269,9 @@ private fun book(title: String): AnalyzedBook {
 }
 
 /**
- * A minimal public [BookSyncPayload] (in no collection → public) used as the live
- * firehose control: a member must receive its content event, proving the stream is
- * alive while the quarantined book is filtered.
+ * A minimal [BookSyncPayload] used as the live firehose control: a member must receive its
+ * content event, proving the stream is alive while the quarantined book is filtered. The
+ * caller adds it to ALL_BOOKS so a granted member can see it under the pure-union rule.
  */
 private fun publicBook(
     title: String,

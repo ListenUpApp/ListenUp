@@ -67,6 +67,12 @@ class AdminUserServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val publicProfileMaintainer: PublicProfileMaintainer? = null,
     private val activityRecorder: ActivityRecorder? = null,
+    /**
+     * Nullable so the auth module assembles independently of the collections module
+     * (test environments, phased startup). A null value means approved MEMBER users do
+     * not receive a default ALL_BOOKS grant — approval still succeeds.
+     */
+    private val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
@@ -80,6 +86,7 @@ class AdminUserServiceImpl(
             provider,
             publicProfileMaintainer,
             activityRecorder,
+            defaultGrantIssuer,
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
@@ -203,6 +210,9 @@ class AdminUserServiceImpl(
         // Don't leak existence-or-state of the target — admin actions only succeed
         // against a genuinely pending row; everything else is PermissionDenied.
         val now = clock.now().toEpochMilliseconds()
+        // Capture the approved user's role so the best-effort grant can run after the
+        // transaction commits — mirrors InviteServiceImpl.claimInvite's pattern.
+        var approvedUserRole: UserRoleColumn? = null
         val outcome: AppResult<PendingRegistrationOutcome> =
             suspendTransaction(db) {
                 val target =
@@ -216,6 +226,8 @@ class AdminUserServiceImpl(
                 target.updatedAt = now
                 target.approvedBy = caller.userId.value
                 target.approvedAt = now
+
+                if (request.approved) approvedUserRole = target.role
 
                 AppResult.Success(
                     if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied,
@@ -232,6 +244,8 @@ class AdminUserServiceImpl(
             // Refresh the public-profile projection only on approval; denied users are never
             // active and should not appear in the public roster.
             if (request.approved) {
+                val role = approvedUserRole
+                if (role != null) defaultGrantIssuer?.grantDefaultAllBooks(request.userId.value, role)
                 publicProfileMaintainer?.refreshBestEffort(request.userId.value)
                 activityRecorder?.record(request.userId.value, ActivityType.USER_JOINED)
             }

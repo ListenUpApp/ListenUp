@@ -8,14 +8,18 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -111,18 +115,21 @@ class LibraryFolderSyncAccessTest :
                 val folders by application.inject<LibraryFolderRepository>()
                 val books by application.inject<BookRepository>()
 
+                // Pre-stage the control book PUBLIC before subscribing (pure-union: an uncollected book
+                // is invisible, so the sentinel must live in the bootstrap library's ALL_BOOKS, which the
+                // member reaches through their registration-time grant). Mirrors SeamLeakE2ETest SEAM-6.
+                books.upsert(publicBookFixture("sentinel-book"))
+                makeBookPublic("sentinel-book")
+
                 client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(member) }) {
                     // Canonical firehose pattern (see SeamLeakE2ETest SEAM-6, the exact analogue): the
-                    // member's first folder-or-book frame must be the public sentinel book — the hidden
-                    // folder event is withheld for members and never reaches the stream. Collect in an
-                    // `async` joined by `coroutineScope`; publish OUTSIDE the collector so the teardown
-                    // tail stays minimal (a side-effecting predicate caused a CI-only
-                    // UncompletedCoroutinesError; ChangeBus replay=256 covers a slightly-late subscriber,
-                    // so no readiness handshake is needed).
+                    // member's first folder-or-book frame must be the (now-public) sentinel book — the
+                    // hidden folder event is withheld for members and never reaches the stream. A
+                    // content-changed re-upsert fires a live `books` event the member can now access.
                     coroutineScope {
                         val deferred = async { incoming.first { it.event == "library_folders" || it.event == "books" } }
                         folders.upsert(folderFixture("hidden-folder"))
-                        books.upsert(publicBookFixture("sentinel-book"))
+                        books.upsert(publicBookFixture("sentinel-book", title = "Sentinel Updated"))
                         deferred.await().event shouldBe "books"
                     }
                 }
@@ -175,6 +182,26 @@ private suspend fun HttpClient.registerMember(): String =
         .let { it as RegisterResult.Authenticated }
         .session.accessToken.value
 
+/**
+ * Makes [bookId] visible to every registered member the pure-union way: drops it into the bootstrap
+ * library's `ALL_BOOKS` substrate, which every member reaches through the default `ALL_BOOKS` grant
+ * issued at registration. No explicit grant is issued (members already hold one; a duplicate would
+ * violate the active-grant unique index). Mirrors `SeamLeakE2ETest.makeBookPublic`.
+ */
+private suspend fun ApplicationTestBuilder.makeBookPublic(bookId: String) {
+    val collectionService by application.inject<CollectionServiceImpl>()
+    val registry by application.inject<LibraryRegistry>()
+    val collectionBookRepo by application.inject<CollectionBookRepository>()
+    val libraryId = registry.currentLibrary().value
+    val allBooks =
+        collectionService.getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS) as AppResult.Success
+    require(
+        collectionBookRepo.upsert(
+            CollectionBookSyncPayload(collectionId = allBooks.data.id.value, bookId = bookId, createdAt = 0L, revision = 0L),
+        ) is AppResult.Success,
+    ) { "failed to add $bookId to ALL_BOOKS" }
+}
+
 private fun folderFixture(id: String): LibraryFolderSyncPayload =
     LibraryFolderSyncPayload(
         id = id,
@@ -186,13 +213,16 @@ private fun folderFixture(id: String): LibraryFolderSyncPayload =
         deletedAt = null,
     )
 
-private fun publicBookFixture(id: String): BookSyncPayload =
+private fun publicBookFixture(
+    id: String,
+    title: String = id,
+): BookSyncPayload =
     BookSyncPayload(
         id = id,
         libraryId = LibraryId("test-library"),
         folderId = FolderId("test-folder"),
-        title = id,
-        sortTitle = id,
+        title = title,
+        sortTitle = title,
         subtitle = null,
         description = null,
         publishYear = null,

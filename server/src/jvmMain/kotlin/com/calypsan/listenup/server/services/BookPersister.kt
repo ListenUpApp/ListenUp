@@ -12,6 +12,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.scanner.CoverSpool
@@ -50,19 +51,20 @@ private val log = KotlinLogging.logger {}
  * result only re-walked one book-root — absence there is not authoritative, so
  * no sweep runs.
  *
- * Inbox auto-quarantine: when the current library is `inboxEnabled`, the persister
- * resolves the library's inbox collection ONCE per scan (via
- * [com.calypsan.listenup.server.api.CollectionServiceImpl.getOrCreateInbox]) and
- * threads its id into every per-book ingest. [BookIngestPort.resolveOrInsert]
- * commits the book→inbox membership inside the very same transaction as a genuinely
- * NEW book row, so the firehose — which evaluates
+ * System-collection auto-membership: the persister resolves the library's target system
+ * collection ONCE per scan (via [com.calypsan.listenup.server.api.CollectionServiceImpl.getOrCreateSystemCollection])
+ * and threads its id into every per-book ingest. The choice is binary and mutually exclusive:
+ *   - inbox gate OFF → ALL_BOOKS id — new book is visible to all members immediately.
+ *   - inbox gate ON  → INBOX id — new book is quarantined (admin must approve to move it).
+ * [BookIngestPort.resolveOrInsert] commits the book→collection membership inside the very
+ * same transaction as a genuinely NEW book row, so the firehose — which evaluates
  * [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery — never
- * exposes the book to members (it is already in the admin-only inbox before the
+ * exposes a held book to members (it is already in the admin-only inbox before the
  * `book.Created` publish is observable). This closes the TOCTOU leak that the old
  * separate-transaction `addToInbox` hook carried. Re-scans/updates of an existing
- * book never re-inbox it. Resolving the inbox must never fail the scan: a
- * [getOrCreateInbox] failure logs a warning and falls back to null, leaving the
- * scanned books uncollected (offline-safe ingest).
+ * book never re-add membership. Resolution failure logs a warning and falls back to
+ * null, leaving the scanned books uncollected — invisible to members under the pure-union
+ * rule until an admin collects them (a rare ingest fallback that never fails the scan).
  *
  * [coverImageStore] is optional: when non-null, the persister extracts cover
  * bytes from each [AnalyzedBook] (filesystem or embedded) and passes a
@@ -71,8 +73,8 @@ private val log = KotlinLogging.logger {}
  * pure orchestration tests), cover extraction is skipped.
  *
  * [libraryRepository] reads the per-library `inboxEnabled` gate; [collectionService]
- * resolves (or creates) the library's inbox collection when that gate is on. Both
- * back the inbox auto-quarantine described above.
+ * resolves (or creates) the appropriate system collection (ALL_BOOKS or INBOX) each scan.
+ * Both back the system-collection auto-membership described above.
  */
 class BookPersister internal constructor(
     private val ingest: BookIngestPort,
@@ -168,10 +170,12 @@ class BookPersister internal constructor(
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
         val scanRoot = JPath.of(result.rootPath)
-        // Resolve the library's inbox ONCE per scan when the gate is on, so every
-        // newly-inserted book quarantines into it atomically (see class KDoc). A
-        // resolution failure must never fail the scan — fall back to null (uncollected).
-        val inboxCollectionId = resolveInboxCollectionId(libraryId)
+        // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
+        // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —
+        // a held book must never join ALL_BOOKS or it becomes visible to all members. A resolution
+        // failure must never fail the scan — fall back to null (book lands uncollected →
+        // invisible to members under pure-union until an admin collects it).
+        val systemCollectionId = resolveSystemCollectionId(libraryId)
         var persisted = 0
         var failed = 0
 
@@ -181,7 +185,7 @@ class BookPersister internal constructor(
         suspend fun persistCounted(book: AnalyzedBook) {
             val bookId =
                 try {
-                    persistOne(book, libraryId, folderId, scanRoot, inboxCollectionId)
+                    persistOne(book, libraryId, folderId, scanRoot, systemCollectionId)
                 } catch (e: OutOfMemoryError) {
                     failed++
                     throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
@@ -232,38 +236,50 @@ class BookPersister internal constructor(
     }
 
     /**
-     * Resolves the library's inbox collection id when [libraryId] is `inboxEnabled`,
-     * or null when the gate is off or the inbox cannot be resolved.
+     * Resolves the library's system collection id for a scan pass:
      *
-     * A [CollectionServiceImpl.getOrCreateInbox] failure (e.g. no admin to own the
-     * inbox yet) must not fail the scan — it logs a warning and returns null, so the
-     * scanned books land uncollected rather than stranding a half-ingested library.
+     *  - inbox gate OFF (not held) → ALL_BOOKS collection id — new books are immediately
+     *    visible to members (every member holds an ALL_BOOKS grant).
+     *  - inbox gate ON  (held)     → INBOX collection id — new books are quarantined and
+     *    hidden from members until an admin approves them (moves INBOX → ALL_BOOKS).
+     *
+     * The two outcomes are **mutually exclusive**: a held book must NOT join ALL_BOOKS (it
+     * would be visible to all members, defeating the inbox quarantine); a non-held book
+     * must NOT join INBOX (it would be quarantined unnecessarily).
+     *
+     * Resolution failure (typed [AppResult.Failure] or escaped DB fault) must not fail the
+     * scan — it logs a warning and returns null, leaving the new book uncollected. Under the
+     * pure-union rule an uncollected book is invisible to members until an admin adds it to a
+     * collection (it is never silently public). [CancellationException] is always re-raised.
      */
-    private suspend fun resolveInboxCollectionId(libraryId: LibraryId): String? {
-        // Resolving the inbox must never fail the scan: a typed Failure OR an escaped DB/connection
-        // fault degrades to "no quarantine" (books stay uncollected) rather than killing the scan
-        // consumer coroutine. CancellationException is always re-raised.
-        return try {
-            if (!libraryRepository.readInboxEnabled(libraryId)) {
-                return null
-            }
-            when (val result = collectionService.getOrCreateInbox(libraryId.value)) {
+    private suspend fun resolveSystemCollectionId(libraryId: LibraryId): String? =
+        try {
+            val type =
+                if (libraryRepository.readInboxEnabled(libraryId)) {
+                    SystemCollectionType.INBOX
+                } else {
+                    SystemCollectionType.ALL_BOOKS
+                }
+            when (val result = collectionService.getOrCreateSystemCollection(libraryId.value, type)) {
                 is AppResult.Success -> {
                     result.data.id.value
                 }
 
                 is AppResult.Failure -> {
-                    log.warn { "Inbox quarantine skipped for library ${libraryId.value}: ${result.error.code}" }
+                    log.warn {
+                        "System collection (${type.name}) resolution skipped for library ${libraryId.value}: ${result.error.code}"
+                    }
                     null
                 }
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Inbox resolution failed for library ${libraryId.value}; scanning without quarantine" }
+            log.warn(e) {
+                "System collection resolution failed for library ${libraryId.value}; scanning without collection membership"
+            }
             null
         }
-    }
 
     /**
      * Persists one scanned book, contained against its own failure: a typed
@@ -281,11 +297,11 @@ class BookPersister internal constructor(
         libraryId: LibraryId,
         folderId: FolderId,
         scanRoot: JPath,
-        inboxCollectionId: String?,
+        systemCollectionId: String?,
     ): BookId? =
         try {
             val pending = extractPendingCover(analyzed, scanRoot)
-            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed, pending, inboxCollectionId)) {
+            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed, pending, systemCollectionId)) {
                 is AppResult.Success -> {
                     r.data.bookId
                 }

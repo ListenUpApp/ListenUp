@@ -2,12 +2,14 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -25,6 +27,7 @@ import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -194,7 +197,6 @@ class SocialServiceTest :
                     ownerId = collectionOwner,
                     name = collectionId,
                     isInbox = false,
-                    isGlobalAccess = false,
                     revision = 0L,
                     updatedAt = 0L,
                 ),
@@ -205,6 +207,59 @@ class SocialServiceTest :
                     bookId = bookId,
                     createdAt = 0L,
                     revision = 0L,
+                ),
+            )
+        }
+
+        /**
+         * Makes [bookId] visible to [viewer] the pure-union way: adds it to the per-library
+         * ALL_BOOKS system collection (owned by "system") and grants [viewer] a live Read share
+         * on that collection. [viewer] MUST already be seeded via [seedTestUser] — the grant's
+         * `principal_id` is a FK into `users(id)`. The ALL_BOOKS collection is created once and
+         * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
+         */
+        suspend fun makeBookAccessible(
+            db: Database,
+            bookId: String,
+            viewer: String,
+            // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
+            // grant is unique, so repeated calls for the same viewer must reuse this row (upsert).
+            grantId: String = "grant-$viewer",
+            allBooksId: String = "all-books",
+        ) {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            collectionRepo.upsert(
+                CollectionSyncPayload(
+                    id = allBooksId,
+                    libraryId = "test-library",
+                    ownerId = "system",
+                    name = "All Books",
+                    isInbox = false,
+                    revision = 0L,
+                    updatedAt = 0L,
+                ),
+            )
+            collectionBookRepo.upsert(
+                CollectionBookSyncPayload(
+                    collectionId = allBooksId,
+                    bookId = bookId,
+                    createdAt = 0L,
+                    revision = 0L,
+                ),
+            )
+            grantRepo.upsert(
+                CollectionShareSyncPayload(
+                    id = grantId,
+                    collectionId = allBooksId,
+                    sharedWithUserId = viewer,
+                    sharedByUserId = "system",
+                    permission = SharePermission.Read,
+                    revision = 0L,
+                    updatedAt = 0L,
                 ),
             )
         }
@@ -221,6 +276,9 @@ class SocialServiceTest :
                 seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
                 seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
+                    // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
+                    makeBookAccessible(db, bookId = "book-a", viewer = "viewer")
+
                     val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "book-a")
                     sessions.startOrRefresh(userId = "viewer", bookId = "book-a")
@@ -253,6 +311,8 @@ class SocialServiceTest :
                 runTest {
                     // "private-book" is gated into alice's private collection; viewer can't see it.
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    // "public-book" is reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
+                    makeBookAccessible(db, bookId = "public-book", viewer = "viewer")
 
                     val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "public-book")
@@ -283,6 +343,9 @@ class SocialServiceTest :
                 seedPublicProfile("alice", displayName = "Alice")
                 seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
+                    // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
+                    makeBookAccessible(db, bookId = "book-a", viewer = "viewer")
+
                     db.setBookDuration("book-a", totalDuration = 10_000L)
                     db.seedFinish("alice-1", userId = "alice", bookId = "book-a", finishedAt = 500L)
                     db.seedInProgressPosition(userId = "viewer", bookId = "book-a", positionMs = 2_000L)
@@ -333,6 +396,9 @@ class SocialServiceTest :
                 seedPublicProfile("u1", displayName = "User One")
                 seedPublicProfile("u2", displayName = "User Two")
                 runTest {
+                    // "b1" reachable to the caller (u1) the pure-union way (ALL_BOOKS membership + u1's grant).
+                    makeBookAccessible(db, bookId = "b1", viewer = "u1")
+
                     db.setBookDuration("b1", totalDuration = 10_000L)
                     // Caller u1 finished b1 twice (100L, 300L); u2 is in progress at 4_300/10_000.
                     db.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 100L)

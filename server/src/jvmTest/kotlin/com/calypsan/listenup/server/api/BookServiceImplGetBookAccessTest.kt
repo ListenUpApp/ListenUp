@@ -5,10 +5,12 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -21,10 +23,12 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -77,6 +81,7 @@ class BookServiceImplGetBookAccessTest :
                 bookRepo = bookRepo,
                 collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
+                grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry),
             )
         }
 
@@ -98,18 +103,24 @@ class BookServiceImplGetBookAccessTest :
             }
         }
 
-        test("getBook returns the book when uncollected (public)") {
+        test("getBook returns the book to a member granted via ALL_BOOKS (the public substrate)") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
+                seedTestUser("member")
                 val f = fixture()
                 runTest {
-                    f.bookRepo.upsert(bookPayloadFixture(id = "loose-book", title = "Loose"))
+                    f.bookRepo.upsert(bookPayloadFixture(id = "public-book", title = "Public"))
+                    // ALL_BOOKS is the public substrate: a system collection every member holds a
+                    // grant on. Membership in it + the member's grant = visibility under pure union.
+                    f.collectionRepo.upsert(collectionGetBookFixture("all-books", owner = "system"))
+                    f.collectionBookRepo.upsert(getBookMembership("all-books", "public-book"))
+                    f.grantRepo.upsert(getBookShare("g1", "all-books", "member"))
 
-                    val scoped = f.service.copyWith(principalFor("anyone", UserRole.MEMBER))
-                    val result = scoped.getBook(BookId("loose-book"))
+                    val scoped = f.service.copyWith(principalFor("member", UserRole.MEMBER))
+                    val result = scoped.getBook(BookId("public-book"))
 
                     val success = result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    success.data.id shouldBe "loose-book"
+                    success.data.id shouldBe "public-book"
                 }
             }
         }
@@ -156,6 +167,7 @@ private data class GetBookFixture(
     val bookRepo: BookRepository,
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
+    val grantRepo: CollectionGrantRepository,
 )
 
 private fun principalFor(
@@ -181,7 +193,6 @@ private fun collectionGetBookFixture(
         ownerId = owner,
         name = id,
         isInbox = isInbox,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )
@@ -195,4 +206,20 @@ private fun getBookMembership(
         bookId = bookId,
         createdAt = 0L,
         revision = 0L,
+    )
+
+private fun getBookShare(
+    id: String,
+    collectionId: String,
+    userId: String,
+): CollectionShareSyncPayload =
+    CollectionShareSyncPayload(
+        id = id,
+        collectionId = collectionId,
+        sharedWithUserId = userId,
+        sharedByUserId = "system",
+        permission = SharePermission.Read,
+        revision = 0L,
+        updatedAt = 0L,
+        deletedAt = null,
     )

@@ -3,18 +3,24 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -77,9 +83,21 @@ class AudioRoutesTest :
                     val repo by application.inject<BookRepository>()
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
-                    // b1 is uncollected (public), so any seeded member can reach it.
+                    // b1 lives in ALL_BOOKS — the public substrate. The seeded member holds a grant
+                    // on it, so under pure union it is reachable. (A directly-seeded user does not
+                    // go through the auth flow, so we issue the ALL_BOOKS grant explicitly.)
                     val db by application.inject<Database>()
                     db.seedTestUser("user1")
+                    val collectionService by application.inject<CollectionServiceImpl>()
+                    val allBooks =
+                        (
+                            collectionService.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                                as AppResult.Success
+                        ).data
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionBookRepo.upsert(membership(allBooks.id.value, "b1"))
+                    val collectionGrantRepo by application.inject<CollectionGrantRepository>()
+                    collectionGrantRepo.upsert(share("g1", allBooks.id.value, "user1"))
 
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
@@ -113,8 +131,14 @@ class AudioRoutesTest :
                     val repo by application.inject<BookRepository>()
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
+                    // b1 is reachable the simplest pure-union way: a collection user1 owns
+                    // (the owner branch needs no ALL_BOOKS grant).
                     val db by application.inject<Database>()
                     db.seedTestUser("user1")
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("owned-col", owner = "user1"))
+                    collectionBookRepo.upsert(membership("owned-col", "b1"))
 
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
@@ -335,8 +359,13 @@ class AudioRoutesTest :
                     val repo by application.inject<BookRepository>()
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
+                    // b1 is reachable via a collection user1 owns (owner branch, no grant).
                     val db by application.inject<Database>()
                     db.seedTestUser("user1")
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("owned-col", owner = "user1"))
+                    collectionBookRepo.upsert(membership("owned-col", "b1"))
 
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
@@ -364,7 +393,6 @@ private fun privateCollection(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )
@@ -378,6 +406,22 @@ private fun membership(
         bookId = bookId,
         createdAt = 0L,
         revision = 0L,
+    )
+
+private fun share(
+    id: String,
+    collectionId: String,
+    userId: String,
+): CollectionShareSyncPayload =
+    CollectionShareSyncPayload(
+        id = id,
+        collectionId = collectionId,
+        sharedWithUserId = userId,
+        sharedByUserId = "system",
+        permission = SharePermission.Read,
+        revision = 0L,
+        updatedAt = 0L,
+        deletedAt = null,
     )
 
 private fun audioFixture(

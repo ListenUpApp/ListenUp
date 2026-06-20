@@ -2,17 +2,20 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -108,7 +111,6 @@ class ShelfServiceUserShelvesTest :
                         ownerId = collectionOwner,
                         name = collectionId,
                         isInbox = false,
-                        isGlobalAccess = false,
                         revision = 0L,
                         updatedAt = 0L,
                     ),
@@ -119,6 +121,61 @@ class ShelfServiceUserShelvesTest :
                         bookId = bookId,
                         createdAt = 0L,
                         revision = 0L,
+                    ),
+                )
+            }
+        }
+
+        /**
+         * Makes [bookId] visible to [viewerId] the pure-union way: places it in the per-library
+         * ALL_BOOKS system collection and grants [viewerId] a read share on it. [viewerId] MUST
+         * already be FK-seeded via [seedTestUser] — `collection_grants.principal_id` references
+         * `users(id)`.
+         */
+        fun makeBookAccessible(
+            db: Database,
+            bookId: String,
+            viewerId: String,
+            collectionId: String = "all-books",
+        ) {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            kotlinx.coroutines.runBlocking {
+                collectionRepo.upsert(
+                    CollectionSyncPayload(
+                        id = collectionId,
+                        libraryId = "test-library",
+                        ownerId = "system",
+                        name = "All Books",
+                        isInbox = false,
+                        revision = 0L,
+                        updatedAt = 0L,
+                    ),
+                )
+                collectionBookRepo.upsert(
+                    CollectionBookSyncPayload(
+                        collectionId = collectionId,
+                        bookId = bookId,
+                        createdAt = 0L,
+                        revision = 0L,
+                    ),
+                )
+                // Grant id is keyed on (collection, viewer) — NOT the book — so adding a second
+                // book to the same ALL_BOOKS collection re-upserts the SAME grant (idempotent)
+                // instead of inserting a duplicate that would violate the unique active-grant
+                // index on (collection_id, principal_type, principal_id).
+                grantRepo.upsert(
+                    CollectionShareSyncPayload(
+                        id = "$collectionId-grant-$viewerId",
+                        collectionId = collectionId,
+                        sharedWithUserId = viewerId,
+                        sharedByUserId = "system",
+                        permission = SharePermission.Read,
+                        revision = 0L,
+                        updatedAt = 0L,
                     ),
                 )
             }
@@ -135,6 +192,8 @@ class ShelfServiceUserShelvesTest :
                 seedTestBook("accessible")
                 seedTestBook("hidden")
                 makeBookInaccessible(db, bookId = "hidden", collectionId = "priv-col")
+                // "accessible" is reachable to the viewer the pure-union way: ALL_BOOKS + grant.
+                makeBookAccessible(db, bookId = "accessible", viewerId = "viewer")
                 runTest {
                     val ownerService = makeService(db, callerId = "owner").actAs("owner")
                     val shelf = ownerService.createShelf(name = "My Picks", isPrivate = false).value()
@@ -167,6 +226,8 @@ class ShelfServiceUserShelvesTest :
                 seedTestUser("owner")
                 seedTestUser("viewer")
                 seedTestBook("b1")
+                // "b1" must be visible to the viewer so the public shelf survives access filtering.
+                makeBookAccessible(db, bookId = "b1", viewerId = "viewer")
                 runTest {
                     val ownerService = makeService(db, callerId = "owner").actAs("owner")
                     val publicShelf = ownerService.createShelf(name = "Public", isPrivate = false).value()
@@ -229,6 +290,8 @@ class ShelfServiceUserShelvesTest :
                 seedTestBook("visible")
                 seedTestBook("hidden")
                 makeBookInaccessible(db, bookId = "hidden", collectionId = "priv-col")
+                // Only "visible" is reachable to the viewer; "hidden" stays gated → count stays 1.
+                makeBookAccessible(db, bookId = "visible", viewerId = "viewer")
                 runTest {
                     val ownerService = makeService(db, callerId = "owner").actAs("owner")
                     val shelf = ownerService.createShelf(name = "Mixed", isPrivate = false).value()
@@ -260,6 +323,9 @@ class ShelfServiceUserShelvesTest :
                 seedTestUser("viewer")
                 seedTestBook("b1")
                 seedTestBook("b2")
+                // Both books reachable to the viewer the pure-union way: ALL_BOOKS + grant.
+                makeBookAccessible(db, bookId = "b1", viewerId = "viewer")
+                makeBookAccessible(db, bookId = "b2", viewerId = "viewer")
                 runTest {
                     val ownerService = makeService(db, callerId = "owner").actAs("owner")
                     val shelf1 = ownerService.createShelf(name = "Shelf One", isPrivate = false).value()

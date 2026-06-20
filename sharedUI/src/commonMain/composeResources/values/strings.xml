@@ -32,7 +32,6 @@
     <string name="admin_collection_count">%1$d collection</string>
     <string name="admin_collection_created">Collection created</string>
     <string name="admin_collection_details">Collection Details</string>
-    <string name="admin_collection_global_access">Everyone</string>
     <string name="admin_collection_members_count">%1$d members</string>
     <string name="admin_collection_name">Collection Name</string>
     <string name="admin_collection_new_collection">New collection</string>

@@ -86,6 +86,10 @@ class BookServiceImplSearchAccessTest :
                     )
                     f.collectionRepo.upsert(searchCollectionFixture("private-col", owner = "stranger"))
                     f.collectionBookRepo.upsert(searchMembership("private-col", "hidden"))
+                    // "public" is reachable the simplest pure-union way: a member-owned collection
+                    // (owner branch — no grant, no system user needed).
+                    f.collectionRepo.upsert(searchCollectionFixture("owned-col", owner = "member"))
+                    f.collectionBookRepo.upsert(searchMembership("owned-col", "public"))
 
                     val scoped = f.service.copyWith(searchPrincipalFor("member", UserRole.MEMBER))
                     val result = scoped.searchBooks("Dragon", limit = 50)
@@ -147,7 +151,6 @@ private fun searchCollectionFixture(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )

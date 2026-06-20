@@ -489,7 +489,7 @@ private class FakeBookIngest(
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
-        inboxCollectionId: String?,
+        systemCollectionId: String?,
     ): AppResult<IngestOutcome> {
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath

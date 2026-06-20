@@ -84,7 +84,6 @@ internal class CollectionDomainSeeder(
                 ownerId = ownerId,
                 name = DEMO_COLLECTION_NAME,
                 isInbox = false,
-                isGlobalAccess = false,
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )

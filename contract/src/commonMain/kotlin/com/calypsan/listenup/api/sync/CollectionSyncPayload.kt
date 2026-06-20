@@ -10,7 +10,6 @@ import kotlinx.serialization.Serializable
  * Collections are user-scoped: [ownerId] identifies the creating user and [libraryId]
  * scopes the collection to one library. The inbox ([isInbox] = `true`) is a special
  * system collection created automatically per user and is not deletable.
- * [isGlobalAccess] marks collections visible to all server users.
  *
  * Carries the canonical sync-discipline fields: [revision], [updatedAt], [deletedAt].
  */
@@ -27,8 +26,6 @@ data class CollectionSyncPayload(
     @SerialName("name") val name: String,
     /** Whether this is the user's auto-created inbox collection. Inbox collections are not deletable. */
     @SerialName("isInbox") val isInbox: Boolean = false,
-    /** Whether this collection is visible to all users on the server. */
-    @SerialName("isGlobalAccess") val isGlobalAccess: Boolean = false,
     /** Sync revision counter — bumped on every write. */
     @SerialName("revision") val revision: Long,
     /** Epoch millis of the last server-side write. */

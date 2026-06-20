@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.db.InviteEntity
 import com.calypsan.listenup.server.db.InviteTable
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.db.toDto
@@ -66,11 +67,16 @@ class InviteServiceImpl(
     private val serverName: String,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    /**
+     * Nullable so the invite module assembles independently of the collections module
+     * (test environments, phased startup). A null value silently skips default grant issuance.
+     */
+    private val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
 ) : InviteService,
     InviteServicePublic {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): InviteServiceImpl =
-        InviteServiceImpl(db, codeGenerator, hasher, sessionIssuer, serverName, clock, provider)
+        InviteServiceImpl(db, codeGenerator, hasher, sessionIssuer, serverName, clock, provider, defaultGrantIssuer)
 
     override suspend fun createInvite(
         email: String,
@@ -135,37 +141,58 @@ class InviteServiceImpl(
         // transaction so we don't hold a DB connection during it (mirrors register).
         val passwordHashed = hasher.hash(password)
         val now = clock.now().toEpochMilliseconds()
-        return suspendTransaction(db) {
-            val invite =
-                InviteEntity.find { InviteTable.code eq code }.firstOrNull()
-                    ?: return@suspendTransaction AppResult.Failure(InviteError.NotFound())
-            if (invite.claimedAt != null) return@suspendTransaction AppResult.Failure(InviteError.AlreadyClaimed())
-            if (invite.expiresAt < now) return@suspendTransaction AppResult.Failure(InviteError.Expired())
 
-            val normalized = Email.normalize(invite.email)
-            if (UserEntity.find { UserTable.emailNormalized eq normalized }.any()) {
-                return@suspendTransaction AppResult.Failure(InviteError.EmailInUse())
+        // Capture the created user's id and role so the best-effort grant can run
+        // after the transaction commits — mirrors AuthServiceImpl.register's pattern.
+        var createdUserId: String? = null
+        var createdUserRole: UserRoleColumn? = null
+
+        val result =
+            suspendTransaction(db) {
+                val invite =
+                    InviteEntity.find { InviteTable.code eq code }.firstOrNull()
+                        ?: return@suspendTransaction AppResult.Failure(InviteError.NotFound())
+                if (invite.claimedAt != null) return@suspendTransaction AppResult.Failure(InviteError.AlreadyClaimed())
+                if (invite.expiresAt < now) return@suspendTransaction AppResult.Failure(InviteError.Expired())
+
+                val normalized = Email.normalize(invite.email)
+                if (UserEntity.find { UserTable.emailNormalized eq normalized }.any()) {
+                    return@suspendTransaction AppResult.Failure(InviteError.EmailInUse())
+                }
+
+                // Create the user exactly as AuthServiceImpl.register does, minus the
+                // policy branch: the invite IS the admission, so status is always ACTIVE.
+                val user =
+                    UserEntity.new(newUserId()) {
+                        email = invite.email
+                        emailNormalized = normalized
+                        passwordHash = passwordHashed
+                        role = invite.role
+                        this.displayName = displayName ?: invite.displayName
+                        status = UserStatusColumn.ACTIVE
+                        invitedBy = invite.createdBy
+                        createdAt = now
+                        updatedAt = now
+                    }
+                // Single-use: stamp the claim so the code can't be redeemed again.
+                invite.claimedAt = now
+                invite.claimedBy = user.id.value
+                createdUserId = user.id.value
+                createdUserRole = user.role
+                AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
             }
 
-            // Create the user exactly as AuthServiceImpl.register does, minus the
-            // policy branch: the invite IS the admission, so status is always ACTIVE.
-            val user =
-                UserEntity.new(newUserId()) {
-                    email = invite.email
-                    emailNormalized = normalized
-                    passwordHash = passwordHashed
-                    role = invite.role
-                    this.displayName = displayName ?: invite.displayName
-                    status = UserStatusColumn.ACTIVE
-                    invitedBy = invite.createdBy
-                    createdAt = now
-                    updatedAt = now
-                }
-            // Single-use: stamp the claim so the code can't be redeemed again.
-            invite.claimedAt = now
-            invite.claimedBy = user.id.value
-            AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
+        // Best-effort default grant — mirrors createStarterShelfBestEffort in AuthServiceImpl.
+        // Runs after the transaction so the user FK exists for the grant row.
+        // The issuer itself never throws (re-raises CancellationException, swallows everything
+        // else), so no outer try/catch is needed here — matches register()'s call pattern.
+        val userId = createdUserId
+        val role = createdUserRole
+        if (result is AppResult.Success && userId != null && role != null) {
+            defaultGrantIssuer?.grantDefaultAllBooks(userId, role)
         }
+
+        return result
     }
 
     override suspend fun lookupInvite(code: String): AppResult<InvitePreview> {

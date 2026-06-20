@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -63,7 +62,6 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_collection_count
-import listenup.composeapp.generated.resources.admin_collection_global_access
 import listenup.composeapp.generated.resources.admin_collection_name
 import listenup.composeapp.generated.resources.admin_collection_new_collection
 import listenup.composeapp.generated.resources.admin_collection_shared_book_sets
@@ -441,26 +439,12 @@ private fun CollectionCardSubtitle(
                     .size(BOOK_DOT_SIZE_DP.dp)
                     .background(MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(50)),
         )
-        if (collection.isGlobalAccess) {
-            androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.Public,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(ACCESS_ICON_SIZE_DP.dp),
-            )
-            Text(
-                text = stringResource(Res.string.admin_collection_global_access),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.Group,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(ACCESS_ICON_SIZE_DP.dp),
-            )
-        }
+        androidx.compose.material3.Icon(
+            imageVector = Icons.Outlined.Group,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.size(ACCESS_ICON_SIZE_DP.dp),
+        )
     }
 }
 

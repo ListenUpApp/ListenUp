@@ -38,7 +38,6 @@ class CollectionEditDelegateTest :
                 name = name,
                 ownerId = "admin-1",
                 isInbox = false,
-                isGlobalAccess = false,
                 bookCount = 0,
                 callerPermission = SharePermission.Write,
                 isOwner = true,

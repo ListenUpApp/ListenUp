@@ -2,11 +2,6 @@
 
 package com.calypsan.listenup.server.scanner
 
-import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
-import com.calypsan.listenup.api.dto.scanner.CandidateBook
-import com.calypsan.listenup.api.dto.scanner.FileEntry
-import com.calypsan.listenup.api.dto.scanner.FileType
-import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -14,7 +9,6 @@ import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -33,24 +27,23 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Verifies the atomic inbox-membership seam in the book-insert transaction.
+ * Covers the **inbox-gate-ON** branch of the mutually-exclusive system-collection
+ * membership decision: when a library has `inboxEnabled = true`, a genuinely new
+ * book joins INBOX (not ALL_BOOKS).
  *
- * When a library is inbox-enabled and the scan ingest resolves the inbox collection,
- * [BookRepository.resolveOrInsert] threads its id down so that — only for a genuinely
- * NEW book — the book→inbox `collection_books` membership is written inside the very
- * same transaction as the book row. The firehose evaluates [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess]
- * at delivery, so committing membership atomically with the insert means a member
- * never sees the book (it is already in the admin-only inbox before the `book.Created`
- * publish is visible). This closes the TOCTOU leak the old scan-hook revert guarded.
+ * [BookRepository.resolveOrInsert] threads the resolved system-collection id down so
+ * that — only for a genuinely NEW book — the `collection_books` membership is written
+ * inside the very same transaction as the book row. The firehose evaluates
+ * [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery, so
+ * committing atomically means a member never sees a held book before it is released.
  *
  * Re-running `resolveOrInsert` for the SAME book is an UPDATE — it must NOT add a
  * second membership (only-on-create, idempotent re-scan).
+ *
+ * The gate-OFF branch (→ ALL_BOOKS, NOT INBOX) is covered by [ScanAllBooksMembershipTest].
  *
  * Drives a real [BookRepository] (the ingest port) and a real [CollectionServiceImpl]
  * (the inbox resolver) against a Flyway-migrated in-memory database — no mocks.
@@ -73,8 +66,8 @@ class ScannerInboxIngestTest :
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
-                            analyzed = book("Sanderson/Way of Kings", inode = 1L),
-                            inboxCollectionId = inboxId,
+                            analyzed = buildAnalyzedBook("Sanderson/Way of Kings", inode = 1L),
+                            systemCollectionId = inboxId,
                         )
                     require(outcome is AppResult.Success)
 
@@ -93,14 +86,14 @@ class ScannerInboxIngestTest :
                 runTest {
                     val fx = fixture(db)
                     val inboxId = fx.resolveInboxId()
-                    val analyzed = book("Sanderson/Way of Kings", inode = 1L)
+                    val analyzed = buildAnalyzedBook("Sanderson/Way of Kings", inode = 1L)
 
                     val first =
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
                             analyzed = analyzed,
-                            inboxCollectionId = inboxId,
+                            systemCollectionId = inboxId,
                         )
                     require(first is AppResult.Success)
 
@@ -110,18 +103,18 @@ class ScannerInboxIngestTest :
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
                             analyzed = analyzed,
-                            inboxCollectionId = inboxId,
+                            systemCollectionId = inboxId,
                         )
                     require(second is AppResult.Success)
 
-                    // Still exactly one membership — the update path must not re-inbox.
+                    // Still exactly one membership — the update path must not re-add membership.
                     fx.collectionBookRepo.findBookIdsForCollection(inboxId) shouldContainExactly
                         listOf(first.data.bookId.value)
                 }
             }
         }
 
-        test("no inbox id supplied: a NEW book is uncollected (public)") {
+        test("no system collection id supplied: a NEW book joins no system collection (not the inbox)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -130,12 +123,17 @@ class ScannerInboxIngestTest :
                     val fx = fixture(db)
                     val inboxId = fx.resolveInboxId()
 
+                    // A null systemCollectionId is the "no membership at all" branch: resolveOrInsert
+                    // writes the book row but no system-collection junction. (The non-held → ALL_BOOKS
+                    // path the scanner actually drives passes the ALL_BOOKS id as systemCollectionId;
+                    // that branch is covered by ScanAllBooksMembershipTest.) This test pins the inbox
+                    // gate's null contract: with no id supplied, nothing lands in the inbox.
                     val outcome =
                         fx.bookRepo.resolveOrInsert(
                             libraryId = LibraryId("test-library"),
                             folderId = FolderId("test-folder"),
-                            analyzed = book("Sanderson/Mistborn", inode = 2L),
-                            inboxCollectionId = null,
+                            analyzed = buildAnalyzedBook("Sanderson/Mistborn", inode = 2L),
+                            systemCollectionId = null,
                         )
                     require(outcome is AppResult.Success)
 
@@ -189,35 +187,4 @@ private fun fixture(db: Database): InboxFixture {
             principal = PrincipalProvider { null },
         )
     return InboxFixture(bookRepo, collectionBookRepo, collections)
-}
-
-private fun setInboxEnabled(
-    db: Database,
-    libraryId: String,
-    enabled: Boolean,
-) {
-    transaction(db) {
-        LibraryTable.update({ LibraryTable.id eq libraryId }) { it[inboxEnabled] = enabled }
-    }
-}
-
-private fun book(
-    rootRelPath: String,
-    inode: Long?,
-): AnalyzedBook {
-    val file =
-        FileEntry(
-            relPath = "$rootRelPath/01.m4b",
-            name = "01.m4b",
-            ext = "m4b",
-            size = 1024L,
-            mtimeMs = 0L,
-            inode = inode,
-            fileType = FileType.AUDIO,
-        )
-    return AnalyzedBook(
-        candidate = CandidateBook(rootRelPath = rootRelPath, isFile = false, files = listOf(file)),
-        title = rootRelPath.substringAfterLast('/'),
-        tracks = listOf(TrackEntry(file = file)),
-    )
 }
