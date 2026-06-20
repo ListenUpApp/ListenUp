@@ -106,6 +106,7 @@ import com.calypsan.listenup.server.sync.syncRoutes
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseHandle
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
@@ -428,6 +429,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
     val avatarImageStore by inject<ImageStore>()
     val db by inject<Database>()
+    val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
 
     routing {
@@ -492,12 +494,12 @@ private fun Application.installAppRoutes(homeDir: Path) {
             genreRoutes(genreService, bookAccessPolicy)
             collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
-            profileRoutes(db, avatarImageStore)
+            profileRoutes(sql, avatarImageStore)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
         }
         scannerRoutes(scannerService, eventBus)
-        audioRoutes(db, audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
+        audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
 }
 
