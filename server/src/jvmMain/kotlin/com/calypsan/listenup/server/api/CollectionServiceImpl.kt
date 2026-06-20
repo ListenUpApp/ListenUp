@@ -133,12 +133,17 @@ internal class CollectionServiceImpl(
 
         val collections =
             if (caller.role == UserRoleColumn.ROOT || caller.role == UserRoleColumn.ADMIN) {
+                // Admin god-view: all collections including system ones (ALL_BOOKS, INBOX).
                 collectionRepo.listAll()
             } else {
                 val owned = collectionRepo.listOwnedBy(caller.userId)
                 val sharedIds = grantRepo.listActiveGrantsForUser(caller.userId).map { it.collectionId }
                 val shared = sharedIds.mapNotNull { collectionRepo.findById(it) }
-                (owned + shared).distinctBy { it.id }
+                // Spec §3.2: ALL_BOOKS and INBOX must not appear in a member's collection list.
+                // Every member holds a default ALL_BOOKS grant, so the shared path leaks it;
+                // filter the combined result by the set of live system-collection ids.
+                val systemIds = collectionRepo.systemCollectionIds()
+                (owned + shared).distinctBy { it.id }.filterNot { it.id in systemIds }
             }
 
         val summaries = collections.map { summarize(it, caller) }

@@ -1,12 +1,14 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
 import com.calypsan.listenup.server.db.CollectionsTable
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -244,5 +246,24 @@ class CollectionRepository(
                         deletedAt = row[CollectionsTable.deletedAt],
                     )
                 }
+        }
+
+    /**
+     * Returns the ids of all live system collections (ALL_BOOKS and INBOX).
+     *
+     * System collections are never member-facing: spec §3.2 states they must not appear
+     * in a member's collection list. This query gives [CollectionServiceImpl.listCollections]
+     * the exclusion set it needs for the non-admin path, without leaking the server-only
+     * `type` column onto the wire or into the payload layer.
+     */
+    suspend fun systemCollectionIds(): Set<String> =
+        suspendTransaction(db) {
+            CollectionsTable
+                .selectAll()
+                .where {
+                    (CollectionsTable.type inList listOf(SYSTEM_TYPE_ALL_BOOKS, SYSTEM_TYPE_INBOX)) and
+                        CollectionsTable.deletedAt.isNull()
+                }.map { row -> row[CollectionsTable.id] }
+                .toSet()
         }
 }
