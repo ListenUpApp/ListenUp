@@ -103,7 +103,6 @@ class ListeningEventRepositoryTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
                     )

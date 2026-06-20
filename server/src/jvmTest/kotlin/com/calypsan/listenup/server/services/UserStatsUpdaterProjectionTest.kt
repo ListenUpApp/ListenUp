@@ -26,11 +26,10 @@ class UserStatsUpdaterProjectionTest :
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                     )
-                val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), db = this, publicProfileRepo = ppRepo)
+                val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), publicProfileRepo = ppRepo)
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { maintainer },
                     )

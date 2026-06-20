@@ -11,7 +11,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Rebuilds the materialized `user_stats` row from scratch by replaying all
@@ -21,14 +20,13 @@ import org.jetbrains.exposed.v1.jdbc.Database
  * Useful when the stats schema changes, after a bug, or after restoring from
  * backup. Idempotent — running it twice produces the same result.
  *
- * **Engines.** Event and position reads go through [sql] (the SQLDelight [ListenUpDatabase]);
- * the day-boundary timezone is read from the still-Exposed `users` table via [db]. The backfill
- * runs as a standalone admin/import operation (not nested inside another write transaction), so
- * its reads and the [UserStatsRepository.upsert] write are independent transactions.
+ * **Engines.** Everything reads through [sql] (the SQLDelight [ListenUpDatabase]): the event and
+ * position reads, plus the day-boundary timezone from `users` ([homeTimeZone]). The backfill runs
+ * as a standalone admin/import operation (not nested inside another write transaction), so its
+ * reads and the [UserStatsRepository.upsert] write are independent transactions.
  */
 class UserStatsBackfillService(
     private val sql: ListenUpDatabase,
-    private val db: Database,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
 ) {
@@ -51,7 +49,7 @@ class UserStatsBackfillService(
         //    All day-boundary math uses the user's home timezone — one consistent frame
         //    per user. The per-event tz field is ignored here because it can be "UTC" for
         //    ABS imports and mixed-frame for travelers, producing wrong streaks.
-        val userTz = db.homeTimeZone(userId)
+        val userTz = sql.homeTimeZone(userId)
         var totalAllTime = 0L
         val distinctBooks = mutableSetOf<String>()
         var lastDate: LocalDate? = null

@@ -77,7 +77,7 @@ fun authModule(config: ApplicationConfig): Module {
 
         single {
             SessionService(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 tokenHasher = get(),
                 tokenGenerator = get(),
                 refreshTtl = REFRESH_TOKEN_TTL_DAYS.days,
@@ -100,7 +100,7 @@ fun authModule(config: ApplicationConfig): Module {
 
         single {
             AuthServiceImpl(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 sessions = get(),
                 hasher = get(),
                 jwt = get(),
@@ -144,7 +144,7 @@ fun authModule(config: ApplicationConfig): Module {
 
         single {
             InviteServiceImpl(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 codeGenerator = get(),
                 hasher = get(),
                 sessionIssuer = get(),

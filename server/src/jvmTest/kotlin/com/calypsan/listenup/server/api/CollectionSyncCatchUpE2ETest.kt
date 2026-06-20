@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -77,7 +78,7 @@ class CollectionSyncCatchUpE2ETest :
                 collectionBookRepo = collectionBookRepo,
                 shareRepo = shareRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
                 db = db,
                 clock = fixedClock,

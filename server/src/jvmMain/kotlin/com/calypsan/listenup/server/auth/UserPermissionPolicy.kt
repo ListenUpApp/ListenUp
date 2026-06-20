@@ -4,9 +4,9 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.server.db.UserEntity
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.SelectPermissionsLiveById
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
 /**
  * Per-operation permission gate for the per-user `canEdit`/`canShare` flags.
@@ -27,29 +27,34 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * the denial to surface.
  */
 class UserPermissionPolicy(
-    private val db: Database,
+    private val db: ListenUpDatabase,
 ) {
     /** Null when [userId]/[role] may edit content metadata; [AuthError.PermissionDenied] otherwise. */
     suspend fun requireCanEdit(
         userId: UserId,
         role: UserRole,
-    ): AppError? = require(userId, role) { it.canEdit }
+    ): AppError? = require(userId, role) { it.can_edit != 0L }
 
     /** Null when [userId]/[role] may share a collection; [AuthError.PermissionDenied] otherwise. */
     suspend fun requireCanShare(
         userId: UserId,
         role: UserRole,
-    ): AppError? = require(userId, role) { it.canShare }
+    ): AppError? = require(userId, role) { it.can_share != 0L }
 
     private suspend fun require(
         userId: UserId,
         role: UserRole,
-        flag: (UserEntity) -> Boolean,
+        flag: (SelectPermissionsLiveById) -> Boolean,
     ): AppError? {
         if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        // selectPermissionsLiveById already filters deleted_at IS NULL, so a tombstoned or absent
+        // user yields no row → denied — matching the Exposed `takeIf { deletedAt == null }`.
         val granted =
             suspendTransaction(db) {
-                UserEntity.findById(userId.value)?.takeIf { it.deletedAt == null }?.let(flag) ?: false
+                db.usersQueries
+                    .selectPermissionsLiveById(id = userId.value)
+                    .executeAsOneOrNull()
+                    ?.let(flag) ?: false
             }
         return if (granted) null else AuthError.PermissionDenied()
     }

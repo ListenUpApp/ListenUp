@@ -72,8 +72,8 @@ fun playbackModule(): Module =
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
             )
         }
-        single { UserRoleLookup(db = get()) }
-        single(createdAtStart = true) { ActiveSessionRepository(db = get(), bus = get()) }
+        single { UserRoleLookup(db = get<ListenUpDatabase>()) }
+        single(createdAtStart = true) { ActiveSessionRepository(db = get<ListenUpDatabase>(), bus = get()) }
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
         single { ActivityRecorder(repo = get(), bus = get()) }
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
@@ -104,7 +104,6 @@ fun playbackModule(): Module =
         single {
             UserStatsUpdater(
                 sql = get<ListenUpDatabase>(),
-                db = get(),
                 userStatsRepo = get(),
                 publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
                 activityRecorder = get(),
@@ -119,7 +118,7 @@ fun playbackModule(): Module =
                 activityRecorder = get(),
             )
         }
-        single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), db = get(), userStatsRepo = get()) }
+        single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), userStatsRepo = get()) }
         single { ActiveSessionCleanupTask(db = get(), bus = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(

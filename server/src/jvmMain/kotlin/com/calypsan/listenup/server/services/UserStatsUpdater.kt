@@ -12,7 +12,6 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Maintains the materialized `user_stats` row incrementally.
@@ -22,16 +21,13 @@ import org.jetbrains.exposed.v1.jdbc.Database
  * [onPositionFinishedFlip]). Both writes are atomic with their source row, so stats are never
  * observably inconsistent with the events / positions they aggregate.
  *
- * **Engines.** Window/streak math reads `listening_events` through [sql] (the SQLDelight
- * [ListenUpDatabase]), the same connection the event repo holds open — so the just-inserted
- * event row is visible to the hook before the outer transaction commits, and the nested read
- * runs as a savepoint with no `SQLITE_BUSY`. The day-boundary timezone is read from the still-
- * Exposed `users` table via [db] ([homeTimeZone]); that is a pure WAL SELECT, safe to run
- * concurrently with the SQLDelight writer on a different connection.
+ * **Engines.** Everything reads through [sql] (the SQLDelight [ListenUpDatabase]): window/streak
+ * math over `listening_events` and the day-boundary timezone from `users` ([homeTimeZone]) share
+ * the connection the event repo holds open — so the just-inserted event row is visible to the hook
+ * before the outer transaction commits, and the nested reads run as savepoints with no `SQLITE_BUSY`.
  */
 class UserStatsUpdater(
     private val sql: ListenUpDatabase,
-    private val db: Database,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
     private val publicProfileMaintainerProvider: () -> PublicProfileMaintainer,
@@ -49,7 +45,7 @@ class UserStatsUpdater(
         val wallSeconds = (event.endedAt - event.startedAt) / 1_000L
         // Use the user's home timezone for day-boundary math so the streak frame is
         // consistent across devices and imports (which may store a different tz).
-        val tz = db.homeTimeZone(userId)
+        val tz = sql.homeTimeZone(userId)
         val eventInstant = Instant.fromEpochMilliseconds(event.endedAt)
         val eventDateStr = eventInstant.toLocalDateTime(tz).date.toString()
 

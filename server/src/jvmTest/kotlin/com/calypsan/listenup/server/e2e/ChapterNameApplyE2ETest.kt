@@ -178,7 +178,7 @@ private fun wire(
                     imageHome = Path(tempDir.toString()),
                 ),
             enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             db = db,
             genreRepository = genreRepo,
             principal = PrincipalProvider { UserPrincipal(UserId("root"), SessionId("s"), UserRole.ROOT) },

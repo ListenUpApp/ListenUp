@@ -103,7 +103,6 @@ class UserStatsLazyDecayTest :
                     val updaterWithNowClock =
                         UserStatsUpdater(
                             sql = db.asSqlDatabase(),
-                            db = db,
                             userStatsRepo = statsRepoThen,
                             clock = nowClock,
                             publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
@@ -168,7 +167,6 @@ class UserStatsLazyDecayTest :
                     val updaterWithNowClock =
                         UserStatsUpdater(
                             sql = db.asSqlDatabase(),
-                            db = db,
                             userStatsRepo = statsRepoThen,
                             clock = nowClock,
                             publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
@@ -221,7 +219,6 @@ class UserStatsLazyDecayTest :
                 updater =
                     UserStatsUpdater(
                         sql = db.asSqlDatabase(),
-                        db = db,
                         userStatsRepo = statsRepoThen,
                         clock = nowClock,
                         publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },

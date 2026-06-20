@@ -19,7 +19,7 @@ class RecordPositionPresenceTest :
 
         test("recordPosition (live, not finished) creates a live active_sessions row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -50,7 +50,7 @@ class RecordPositionPresenceTest :
 
         test("a second live recordPosition for the same (user, book) refreshes — still exactly one row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -85,7 +85,7 @@ class RecordPositionPresenceTest :
 
         test("a stale recordPosition (older lastPlayedAt) does not create a presence row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -128,7 +128,7 @@ class RecordPositionPresenceTest :
 
         test("a fresh finished=true write on an already-finished book does not resurrect a session") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -168,7 +168,7 @@ class RecordPositionPresenceTest :
 
         test("recordPosition finished=true on the finish-flip removes the active_sessions row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),

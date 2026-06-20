@@ -494,7 +494,7 @@ private fun makeService(
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry, productTagSource = productTagSource),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         db = db,
         genreRepository = genreRepo,
     )

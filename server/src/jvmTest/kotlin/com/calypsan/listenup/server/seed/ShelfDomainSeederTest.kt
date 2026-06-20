@@ -44,11 +44,12 @@ class ShelfDomainSeederTest :
             val pepper = "x".repeat(32).toByteArray()
             val clock = FixedClock(Instant.parse("2026-06-04T12:00:00Z"))
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AuthServiceImpl(
-                db = db,
+                db = db.asSqlDatabase(),
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,

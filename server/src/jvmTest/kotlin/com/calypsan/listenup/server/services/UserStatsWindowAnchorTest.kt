@@ -38,7 +38,6 @@ class UserStatsWindowAnchorTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },

@@ -40,13 +40,14 @@ class StarterShelfTest :
             val tmp = Files.createTempFile("listenup-starter-shelf-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -97,13 +98,14 @@ class StarterShelfTest :
             val tmp = Files.createTempFile("listenup-starter-shelf-pend-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.APPROVAL_QUEUE)
             val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -128,12 +130,13 @@ class StarterShelfTest :
             val tmp = Files.createTempFile("listenup-starter-shelf-null-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             val authSvcNoShelf =
                 AuthServiceImpl(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,

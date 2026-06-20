@@ -79,7 +79,7 @@ class TagRoutesTest :
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, db)
-                val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, principal = rootPrincipal())
+                val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, sql, principal = rootPrincipal())
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
                 val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
                 val accessPolicy = BookAccessPolicy(db)

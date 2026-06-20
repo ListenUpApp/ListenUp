@@ -142,7 +142,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         db = db,
         genreRepository = genreRepo,
     )

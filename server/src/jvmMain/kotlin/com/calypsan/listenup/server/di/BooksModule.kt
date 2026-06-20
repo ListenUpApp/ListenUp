@@ -141,7 +141,7 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
-        single { UserPermissionPolicy(db = get()) }
+        single { UserPermissionPolicy(db = get<ListenUpDatabase>()) }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
@@ -193,6 +193,7 @@ fun booksModule(
                 bookTagRepository = get<BookTagRepository>(),
                 reindexer = get<BookSearchReindexer>(),
                 db = get(),
+                sql = get<ListenUpDatabase>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("TagService"),
             )
@@ -254,6 +255,7 @@ private fun Module.moodBindings() {
             moodRepository = get<MoodRepository>(),
             bookMoodRepository = get<BookMoodRepository>(),
             db = get(),
+            sql = get<ListenUpDatabase>(),
             permissionPolicy = get<UserPermissionPolicy>(),
             principal = unscopedPlaceholder("MoodService"),
         )

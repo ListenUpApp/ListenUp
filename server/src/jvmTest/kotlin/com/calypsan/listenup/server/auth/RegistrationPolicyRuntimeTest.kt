@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -50,10 +51,10 @@ private fun makeAuthService(
     val pepper = "x".repeat(32).toByteArray()
     val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
     val hasher = PasswordHasher()
-    val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+    val sessions = SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
     val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
     return AuthServiceImpl(
-        db = db,
+        db = db.asSqlDatabase(),
         sessions = sessions,
         hasher = hasher,
         jwt = jwt,

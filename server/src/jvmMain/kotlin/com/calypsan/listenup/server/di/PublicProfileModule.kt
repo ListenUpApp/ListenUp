@@ -19,5 +19,5 @@ import org.koin.dsl.module
 fun publicProfileModule(): Module =
     module {
         single(createdAtStart = true) { PublicProfileRepository(get<ListenUpDatabase>(), get(), get()) }
-        single { PublicProfileMaintainer(sql = get<ListenUpDatabase>(), db = get(), publicProfileRepo = get()) }
+        single { PublicProfileMaintainer(sql = get<ListenUpDatabase>(), publicProfileRepo = get()) }
     }

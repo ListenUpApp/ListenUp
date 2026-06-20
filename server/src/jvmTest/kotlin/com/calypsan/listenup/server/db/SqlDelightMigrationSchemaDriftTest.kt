@@ -117,6 +117,10 @@ private val SQ_TABLES =
         "public_profiles",
         "activities",
         "book_reads",
+        "users",
+        "sessions",
+        "active_sessions",
+        "invites",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

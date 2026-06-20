@@ -66,7 +66,7 @@ class BookServiceImplSearchAccessTest :
                     db = this,
                     genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(this),
-                    permissionPolicy = UserPermissionPolicy(this),
+                    permissionPolicy = UserPermissionPolicy(this.asSqlDatabase()),
                     principal = PrincipalProvider { error("Unscoped — call copyWith") },
                 )
             return SearchAccessFixture(

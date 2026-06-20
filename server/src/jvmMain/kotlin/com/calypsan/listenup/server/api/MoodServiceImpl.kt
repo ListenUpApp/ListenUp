@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookMoodsTable
 import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.MoodSlug
@@ -53,13 +54,14 @@ internal class MoodServiceImpl(
     private val moodRepository: MoodRepository,
     private val bookMoodRepository: BookMoodRepository,
     private val db: Database,
+    private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MoodService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MoodServiceImpl =
-        MoodServiceImpl(moodRepository, bookMoodRepository, db, clock, permissionPolicy, principal)
+        MoodServiceImpl(moodRepository, bookMoodRepository, db, sql, clock, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass

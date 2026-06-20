@@ -227,7 +227,7 @@ private suspend fun stageService(
     val repo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val listeningEventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val statsBackfill = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
+    val statsBackfill = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
     val analyzer =
         ImportAnalyzer(
             reader = AbsBackupReader(),

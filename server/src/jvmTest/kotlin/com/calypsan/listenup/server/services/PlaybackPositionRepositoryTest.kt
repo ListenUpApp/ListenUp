@@ -202,7 +202,6 @@ class PlaybackPositionRepositoryTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
                     )
@@ -247,7 +246,6 @@ class PlaybackPositionRepositoryTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
                     )
@@ -275,7 +273,7 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition: finished=false → finished=true flip hard-deletes the active_sessions row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -316,7 +314,7 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition: finished=true on new (no prior position) also deletes the active_sessions row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -343,7 +341,7 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition: finished=true when priorFinished=true is a no-op for active_sessions") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),
@@ -383,7 +381,7 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition: finished=false does not touch active_sessions") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
                         db = this.asSqlDatabase(),

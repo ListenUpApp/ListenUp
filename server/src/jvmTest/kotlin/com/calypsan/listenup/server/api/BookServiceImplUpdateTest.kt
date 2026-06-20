@@ -75,7 +75,7 @@ class BookServiceImplUpdateTest :
                     db = db,
                     genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(db),
-                    permissionPolicy = UserPermissionPolicy(db),
+                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                     principal = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) },
                 )
             return service to repo
@@ -197,7 +197,7 @@ class BookServiceImplUpdateTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -245,7 +245,7 @@ class BookServiceImplUpdateTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -356,7 +356,7 @@ class BookServiceImplUpdateTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {

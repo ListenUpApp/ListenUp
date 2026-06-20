@@ -57,7 +57,7 @@ class PublicProfileLifecycleTest :
          */
         fun Database.buildMaintainerAndRepo(): Pair<PublicProfileMaintainer, PublicProfileRepository> {
             val repo = PublicProfileRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-            val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), db = this, publicProfileRepo = repo)
+            val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), publicProfileRepo = repo)
             return maintainer to repo
         }
 
@@ -72,7 +72,8 @@ class PublicProfileLifecycleTest :
         fun Database.makeAdminUserService(
             maintainer: PublicProfileMaintainer,
         ): AdminUserServiceImpl {
-            val sessions = SessionService(this, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val sessions =
+                SessionService(this.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(this, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
                 db = this,

@@ -17,7 +17,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -31,7 +30,6 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -46,11 +44,12 @@ class AuthServiceImplTest :
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = policy)
             return AuthServiceImpl(
-                db = db,
+                db = db.asSqlDatabase(),
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
@@ -68,13 +67,14 @@ class AuthServiceImplTest :
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = policy)
             val activities = ActivityRepository(db = db.asSqlDatabase())
             val svc =
                 AuthServiceImpl(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -213,9 +213,9 @@ class AuthServiceImplTest :
                 val s = svc.login(LoginRequest("alice@x", "x".repeat(8), timezone = "Europe/London")).shouldSucceed()
 
                 val storedTimezone =
-                    suspendTransaction(svc.db) {
-                        UserEntity[s.user.id.value].timezone
-                    }
+                    svc.db.usersQueries
+                        .selectTimezoneById(s.user.id.value)
+                        .executeAsOne()
                 storedTimezone shouldBe "Europe/London"
             }
         }
@@ -263,9 +263,10 @@ class AuthServiceImplTest :
 
                 // Soft-delete: stamp deletedAt directly, mirroring AdminUserServiceImpl.deleteUser.
                 // status stays ACTIVE — the deletedAt check, not the status branch, must deny login.
-                suspendTransaction(svc.db) {
-                    UserEntity[authed.session.user.id.value].deletedAt = clock.now().toEpochMilliseconds()
-                }
+                svc.db.usersQueries.markDeletedAt(
+                    deleted_at = clock.now().toEpochMilliseconds(),
+                    id = authed.session.user.id.value,
+                )
 
                 // Indistinguishable from a nonexistent account — no existence leak.
                 svc

@@ -120,7 +120,7 @@ private fun makeService(db: Database): PermServiceDeps {
             reindexer = reindexer,
             sqlDb = db.asSqlDatabase(),
             db = db,
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         )
     return PermServiceDeps(service, seriesRepo)
 }

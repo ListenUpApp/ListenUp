@@ -68,7 +68,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -127,7 +127,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -184,7 +184,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -238,7 +238,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -283,7 +283,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = genreRepo,
                         accessPolicy = BookAccessPolicy(db),
-                        permissionPolicy = UserPermissionPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {

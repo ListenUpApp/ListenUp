@@ -89,7 +89,7 @@ class SocialServiceTest :
                     genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
                 )
             return SocialServiceImpl(
-                activeSessions = ActiveSessionRepository(db = db, bus = bus),
+                activeSessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = bus),
                 bookAccessPolicy = BookAccessPolicy(db),
                 publicProfiles = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 playbackPositions = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
@@ -223,7 +223,7 @@ class SocialServiceTest :
                 seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
                 seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
-                    val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
+                    val sessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "book-a")
                     sessions.startOrRefresh(userId = "viewer", bookId = "book-a")
 
@@ -256,7 +256,7 @@ class SocialServiceTest :
                     // "private-book" is gated into alice's private collection; viewer can't see it.
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
 
-                    val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
+                    val sessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "public-book")
                     sessions.startOrRefresh(userId = "alice", bookId = "private-book")
 

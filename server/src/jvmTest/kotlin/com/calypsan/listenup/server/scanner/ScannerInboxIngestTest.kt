@@ -188,7 +188,7 @@ private fun fixture(db: Database): InboxFixture {
             collectionBookRepo = collectionBookRepo,
             shareRepo = shareRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             bus = bus,
             db = db,
             bookRevisionTouch = FakeBookRevisionTouch(),

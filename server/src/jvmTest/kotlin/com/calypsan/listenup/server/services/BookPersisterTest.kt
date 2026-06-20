@@ -556,7 +556,7 @@ private fun inertCollectionService(db: Database): CollectionServiceImpl {
         collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
         shareRepo = shareRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         bus = bus,
         db = db,
         bookRevisionTouch = FakeBookRevisionTouch(),

@@ -1,0 +1,116 @@
+-- users: the authentication/identity aggregate. PLAIN (non-syncable) server-owned table —
+-- it never crosses the sync wire; clients learn their own identity through the auth contract.
+--
+-- Effective schema is the union of the migrations that touch `users`:
+--   V1__auth_baseline.sql            (id, email, email_normalized UNIQUE, password_hash,
+--                                     role CHECK, display_name, status CHECK, created_at,
+--                                     updated_at, last_login_at)
+--   V26__user_permissions_and_settings.sql (can_edit, can_share, approved_by, approved_at, deleted_at)
+--   V27__invites.sql                 (invited_by)
+--   V29__user_profile_fields.sql     (tagline, avatar_type DEFAULT 'auto')
+--   V37__users_timezone.sql          (timezone DEFAULT 'UTC')
+--
+-- SECURITY-RELEVANT CONSTRAINTS preserved verbatim:
+--   * email_normalized UNIQUE — the single structural guarantee that one email maps to one
+--     account. The drift gate compares this index; the repo's email lookups rely on it.
+--   * role / status CHECK constraints — SQLite enforces the closed enum sets at write time.
+--     Stored by name (ROOT/ADMIN/MEMBER, ACTIVE/PENDING_APPROVAL/DENIED), exactly as the
+--     Exposed `enumerationByName` columns did; the repo maps name ↔ enum at the boundary.
+--   * password_hash holds the Argon2id PHC string verbatim — read and written as an opaque
+--     TEXT blob, never re-derived.
+--
+-- can_edit / can_share are INTEGER 0/1 (SQLite BOOLEAN affinity); the Exposed table mapped
+-- them to `bool`. The repo maps 0/1 ↔ Boolean at the boundary, the same place the Exposed
+-- bool adapter sat. FK declarations are not applicable (users is the root identity table).
+CREATE TABLE users (
+    id               TEXT    NOT NULL PRIMARY KEY,
+    email            TEXT    NOT NULL,
+    email_normalized TEXT    NOT NULL UNIQUE,
+    password_hash    TEXT    NOT NULL,
+    role             TEXT    NOT NULL CHECK (role IN ('ROOT', 'ADMIN', 'MEMBER')),
+    display_name     TEXT    NOT NULL,
+    status           TEXT    NOT NULL CHECK (status IN ('ACTIVE', 'PENDING_APPROVAL', 'DENIED')),
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL,
+    last_login_at    INTEGER,
+    can_edit         INTEGER NOT NULL DEFAULT 1,
+    can_share        INTEGER NOT NULL DEFAULT 1,
+    approved_by      TEXT,
+    approved_at      INTEGER,
+    deleted_at       INTEGER,
+    invited_by       TEXT,
+    tagline          TEXT,
+    avatar_type      TEXT    NOT NULL DEFAULT 'auto',
+    timezone         TEXT    NOT NULL DEFAULT 'UTC'
+);
+
+-- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed
+-- by the UNIQUE constraint on email_normalized.
+selectByEmailNormalized:
+SELECT * FROM users WHERE email_normalized = :email_normalized;
+
+-- True iff a (live or tombstoned) user already exists for this normalized email. Used by
+-- register / claimInvite to enforce one-account-per-email before inserting.
+existsByEmailNormalized:
+SELECT EXISTS(SELECT 1 FROM users WHERE email_normalized = :email_normalized);
+
+-- Single-row lookup by primary key.
+selectById:
+SELECT * FROM users WHERE id = :id;
+
+-- True iff ANY user row exists. Drives the setup-required / setup-already-complete gate
+-- (the first-ever account becomes ROOT via setupRoot).
+hasAnyUser:
+SELECT EXISTS(SELECT 1 FROM users);
+
+-- Role only, for the audio-URL role resolution (UserRoleLookup): a signed URL proves WHO
+-- but not their role, so the route resolves the live role here.
+selectRoleById:
+SELECT role FROM users WHERE id = :id;
+
+-- The id of the first user with a given role — used by the invite seeder to resolve the demo
+-- ROOT it acts as. Matches the Exposed `find { role eq ROOT }.firstOrNull()`.
+selectFirstByRole:
+SELECT id FROM users WHERE role = :role LIMIT 1;
+
+-- Permission flags for a LIVE (non-tombstoned) user — the per-operation canEdit/canShare gate
+-- (UserPermissionPolicy). A tombstoned or absent user yields no row → denied.
+selectPermissionsLiveById:
+SELECT can_edit, can_share FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- IANA timezone name for stats day-boundary math (homeTimeZone). Absent row → caller defaults UTC.
+selectTimezoneById:
+SELECT timezone FROM users WHERE id = :id;
+
+-- Display identity for a LIVE (non-tombstoned) user — drives the public_profiles projection
+-- (PublicProfileMaintainer). A tombstoned or absent user yields no row → the projection no-ops.
+selectIdentityLiveById:
+SELECT display_name, avatar_type, tagline FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- Ids of every LIVE (non-tombstoned) user — drives the one-time public_profiles backfill.
+selectLiveUserIds:
+SELECT id FROM users WHERE deleted_at IS NULL;
+
+-- Insert a new user row. Every column is written explicitly so the row shape is identical to
+-- the Exposed `UserEntity.new { … }` path (defaults are supplied by the caller, not the DDL).
+insert:
+INSERT INTO users (
+    id, email, email_normalized, password_hash, role, display_name, status,
+    created_at, updated_at, last_login_at, can_edit, can_share, approved_by, approved_at,
+    deleted_at, invited_by, tagline, avatar_type, timezone
+)
+VALUES (
+    :id, :email, :email_normalized, :password_hash, :role, :display_name, :status,
+    :created_at, :updated_at, :last_login_at, :can_edit, :can_share, :approved_by, :approved_at,
+    :deleted_at, :invited_by, :tagline, :avatar_type, :timezone
+);
+
+-- Stamp last_login_at + timezone on a successful login. Mirrors AuthServiceImpl.markLastLogin,
+-- which wrote both fields together (the device-reported tz is captured at login).
+updateLastLoginAndTimezone:
+UPDATE users SET last_login_at = :last_login_at, timezone = :timezone WHERE id = :id;
+
+-- Soft-delete a user by stamping deleted_at. Mirrors AdminUserServiceImpl.deleteUser's tombstone
+-- write; the login path treats a stamped row as nonexistent (InvalidCredentials).
+markDeletedAt:
+UPDATE users SET deleted_at = :deleted_at WHERE id = :id;

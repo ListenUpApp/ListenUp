@@ -42,7 +42,7 @@ class MoodServiceImplTest :
             val registry = SyncRegistry()
             val moodRepo = MoodRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val bookMoodRepo = BookMoodRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-            return MoodServiceImpl(moodRepo, bookMoodRepo, db, fixedClock, principal = rootPrincipal())
+            return MoodServiceImpl(moodRepo, bookMoodRepo, db, db.asSqlDatabase(), fixedClock, principal = rootPrincipal())
         }
 
         // ── listMoods ────────────────────────────────────────────────────────

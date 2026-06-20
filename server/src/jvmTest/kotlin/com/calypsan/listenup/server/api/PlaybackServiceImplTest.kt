@@ -86,7 +86,6 @@ class PlaybackServiceImplTest :
             val updater =
                 UserStatsUpdater(
                     sql = db.asSqlDatabase(),
-                    db = db,
                     userStatsRepo = statsRepo,
                     publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
                 )

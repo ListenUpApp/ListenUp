@@ -1,19 +1,12 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
-import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,16 +19,14 @@ private const val YEAR_WINDOW_DAYS = 365
  * their identity changes (via `ProfileServiceImpl`), or they are created/deleted.
  * Idempotent: [refresh] always rewrites the full row from source.
  *
- * **Engines.** Identity comes from the still-Exposed `users` table via [db] (a pure WAL SELECT,
- * safe under a concurrent SQLDelight writer). The aggregate fields and the 365-day window come
- * from `user_stats` / `listening_events` via [sql] (SQLDelight) — read on the same connection the
- * stats path holds open, so the just-written stats row is visible when [refresh] is invoked as a
- * hook. The projection write goes through [publicProfileRepo] (SQLDelight), nesting as a savepoint
- * inside any open transaction.
+ * **Engines.** Everything now reads through [sql] (SQLDelight). Identity comes from the `users`
+ * table; the aggregate fields and the 365-day window come from `user_stats` / `listening_events` —
+ * read on the same connection the stats path holds open, so the just-written stats row is visible
+ * when [refresh] is invoked as a hook. The projection write goes through [publicProfileRepo]
+ * (SQLDelight), nesting as a savepoint inside any open transaction.
  */
 class PublicProfileMaintainer(
     private val sql: ListenUpDatabase,
-    private val db: Database,
     private val publicProfileRepo: PublicProfileRepository,
     private val clock: Clock = Clock.System,
 ) {
@@ -45,20 +36,17 @@ class PublicProfileMaintainer(
      * when the user has no `user_stats` row yet.
      */
     suspend fun refresh(userId: String) {
-        // Identity from the Exposed `users` table (pure read).
+        // Identity from the `users` table (pure read; live rows only — a tombstoned/absent user
+        // yields no row and the projection refresh no-ops, matching the prior Exposed read).
         val identity =
-            exposedSuspendTransaction(db) {
-                UserTable
-                    .selectAll()
-                    .where { (UserTable.id eq userId) and UserTable.deletedAt.isNull() }
-                    .firstOrNull()
-                    ?.let {
-                        UserIdentity(
-                            displayName = it[UserTable.displayName],
-                            avatarType = it[UserTable.avatarType],
-                            tagline = it[UserTable.tagline],
-                        )
-                    }
+            suspendTransaction(sql) {
+                sql.usersQueries.selectIdentityLiveById(id = userId).executeAsOneOrNull()
+            }?.let {
+                UserIdentity(
+                    displayName = it.display_name,
+                    avatarType = it.avatar_type,
+                    tagline = it.tagline,
+                )
             } ?: return
 
         val nowMs = clock.now().toEpochMilliseconds()
@@ -137,11 +125,8 @@ class PublicProfileMaintainer(
      */
     suspend fun backfillAll() {
         val userIds =
-            exposedSuspendTransaction(db) {
-                UserTable
-                    .selectAll()
-                    .where { UserTable.deletedAt.isNull() }
-                    .map { it[UserTable.id].value }
+            suspendTransaction(sql) {
+                sql.usersQueries.selectLiveUserIds().executeAsList()
             }
         userIds.forEach { refresh(it) }
     }

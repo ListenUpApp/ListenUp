@@ -50,7 +50,7 @@ class PublicProfileMaintainerTest :
                 }
 
                 val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u1")
@@ -86,7 +86,7 @@ class PublicProfileMaintainerTest :
                 }
 
                 val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u2")
@@ -119,7 +119,7 @@ class PublicProfileMaintainerTest :
                 }
 
                 val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u4")
@@ -149,7 +149,7 @@ class PublicProfileMaintainerTest :
                 }
 
                 val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u3")

@@ -1,0 +1,117 @@
+-- sessions: refresh-token rows for the rotation / family-revoke auth flow. PLAIN (non-syncable)
+-- server-owned table.
+--
+-- Effective schema is the union of:
+--   V1__auth_baseline.sql        (id, user_id, refresh_token_hash, family_id, previous_hash,
+--                                 label, user_agent, created_at, expires_at, last_used_at,
+--                                 revoked_at + all five indexes)
+--   V28__session_device_info.sql (device_type, platform, platform_version, client_name,
+--                                 client_version, device_name, device_model)
+--
+-- SECURITY-RELEVANT properties preserved verbatim:
+--   * refresh_token_hash stores the HMAC-SHA-256(token, pepper) digest — never the raw token.
+--     idx_sessions_token_hash is UNIQUE: rotation is an O(1) indexed lookup, and two sessions
+--     can never collide on a hash. The drift gate asserts this index's uniqueness.
+--   * previous_hash holds the prior rotation's digest; idx_sessions_previous_hash makes the
+--     replay-detection probe (→ family revoke) a single indexed read.
+--   * family_id groups a rotation lineage; revoke-family updates every row sharing it.
+--
+-- The user_id → users(id) ON DELETE CASCADE foreign key is omitted here (SQLDelight cannot
+-- resolve cross-.sq refs); it lives in the migration DDL and is enforced at runtime under
+-- `PRAGMA foreign_keys = ON`. PRAGMA table_info never reports FKs, so it falls out of the drift
+-- comparison automatically.
+CREATE TABLE sessions (
+    id                 TEXT    NOT NULL PRIMARY KEY,
+    user_id            TEXT    NOT NULL,
+    refresh_token_hash TEXT    NOT NULL,
+    family_id          TEXT    NOT NULL,
+    previous_hash      TEXT,
+    label              TEXT,
+    user_agent         TEXT,
+    created_at         INTEGER NOT NULL,
+    expires_at         INTEGER NOT NULL,
+    last_used_at       INTEGER NOT NULL,
+    revoked_at         INTEGER,
+    device_type        TEXT,
+    platform           TEXT,
+    platform_version   TEXT,
+    client_name        TEXT,
+    client_version     TEXT,
+    device_name        TEXT,
+    device_model       TEXT
+);
+
+CREATE UNIQUE INDEX idx_sessions_token_hash    ON sessions(refresh_token_hash);
+CREATE        INDEX idx_sessions_previous_hash ON sessions(previous_hash);
+CREATE        INDEX idx_sessions_user_active   ON sessions(user_id, revoked_at);
+CREATE        INDEX idx_sessions_family        ON sessions(family_id);
+CREATE        INDEX idx_sessions_expires       ON sessions(expires_at);
+
+-- Insert a freshly-created session. previous_hash starts NULL (no rotation yet).
+insert:
+INSERT INTO sessions (
+    id, user_id, refresh_token_hash, family_id, previous_hash, label,
+    device_type, platform, platform_version, client_name, client_version, device_name, device_model,
+    user_agent, created_at, expires_at, last_used_at, revoked_at
+)
+VALUES (
+    :id, :user_id, :refresh_token_hash, :family_id, :previous_hash, :label,
+    :device_type, :platform, :platform_version, :client_name, :client_version, :device_name, :device_model,
+    :user_agent, :created_at, :expires_at, :last_used_at, :revoked_at
+);
+
+-- Single-row lookup by primary key.
+selectById:
+SELECT * FROM sessions WHERE id = :id;
+
+-- Rotation pass 1: the LIVE session matching an incoming token hash — not revoked, not expired.
+-- Indexed via the UNIQUE idx_sessions_token_hash. :now bounds expiry.
+selectLiveByTokenHash:
+SELECT * FROM sessions
+WHERE refresh_token_hash = :refresh_token_hash
+  AND revoked_at IS NULL
+  AND expires_at > :now
+LIMIT 1;
+
+-- Rotation pass 2 / wasReplay: a session whose previous_hash matches the incoming token hash —
+-- i.e. a replay of an already-rotated token. Indexed via idx_sessions_previous_hash.
+selectByPreviousHash:
+SELECT * FROM sessions WHERE previous_hash = :previous_hash LIMIT 1;
+
+-- Rotate a live session in place: advance previous_hash, install the new hash, bump last_used_at
+-- and expires_at. Keyed on the session id resolved by selectLiveByTokenHash.
+rotate:
+UPDATE sessions
+SET previous_hash = :previous_hash, refresh_token_hash = :refresh_token_hash,
+    last_used_at = :last_used_at, expires_at = :expires_at
+WHERE id = :id;
+
+-- Revoke every still-live row in a rotation family (replay defense). Only un-revoked rows are
+-- touched so the revoked_at timestamp records the first revocation.
+revokeFamily:
+UPDATE sessions SET revoked_at = :revoked_at WHERE family_id = :family_id AND revoked_at IS NULL;
+
+-- Revoke a single session owned by a specific user (logout / revokeSession). The user_id guard
+-- prevents one user revoking another's session; only an un-revoked row is affected.
+revokeByIdForUser:
+UPDATE sessions SET revoked_at = :revoked_at
+WHERE id = :id AND user_id = :user_id AND revoked_at IS NULL;
+
+-- Revoke all live sessions for a user (logoutAll).
+revokeAllForUser:
+UPDATE sessions SET revoked_at = :revoked_at WHERE user_id = :user_id AND revoked_at IS NULL;
+
+-- Active sessions for a user (listSessions): live + unexpired, newest-used first.
+selectActiveForUser:
+SELECT * FROM sessions
+WHERE user_id = :user_id AND revoked_at IS NULL AND expires_at > :now
+ORDER BY last_used_at DESC;
+
+-- Sweep-delete every session that expired before :before_ms (ExpiredSessionCleanupTask).
+deleteExpired:
+DELETE FROM sessions WHERE expires_at < :before_ms;
+
+-- Rows affected by the most recent statement on this connection — lets deleteExpired report how
+-- many rows it swept (SQLite's RETURNING is unavailable via the SQLDelight SQLite dialect).
+changes:
+SELECT changes();

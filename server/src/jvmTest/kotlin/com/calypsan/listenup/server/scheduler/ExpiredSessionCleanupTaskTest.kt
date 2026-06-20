@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -26,7 +27,13 @@ class ExpiredSessionCleanupTaskTest :
 
         fun makeTask(db: org.jetbrains.exposed.v1.jdbc.Database) =
             ExpiredSessionCleanupTask(
-                sessionService = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = FixedClock(now)),
+                sessionService =
+                    SessionService(
+                        db.asSqlDatabase(),
+                        RefreshTokenHasher(pepper),
+                        RefreshTokenGenerator(),
+                        clock = FixedClock(now),
+                    ),
                 clock = FixedClock(now),
             )
 
@@ -56,7 +63,7 @@ class ExpiredSessionCleanupTaskTest :
                 // Expired session: born with a -1ms TTL so it expires immediately.
                 val expiredSvc =
                     SessionService(
-                        this,
+                        this.asSqlDatabase(),
                         RefreshTokenHasher(pepper),
                         RefreshTokenGenerator(),
                         refreshTtl = (-1).milliseconds,
@@ -65,7 +72,7 @@ class ExpiredSessionCleanupTaskTest :
                 // Fresh session: born with a 1-hour TTL so it expires in the future.
                 val freshSvc =
                     SessionService(
-                        this,
+                        this.asSqlDatabase(),
                         RefreshTokenHasher(pepper),
                         RefreshTokenGenerator(),
                         clock = FixedClock(now),
@@ -98,7 +105,13 @@ class ExpiredSessionCleanupTaskTest :
             withInMemoryDatabase {
                 seedUser(this, "u-1")
                 seedUser(this, "u-2")
-                val svc = SessionService(this, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = FixedClock(now))
+                val svc =
+                    SessionService(
+                        this.asSqlDatabase(),
+                        RefreshTokenHasher(pepper),
+                        RefreshTokenGenerator(),
+                        clock = FixedClock(now),
+                    )
 
                 runTest {
                     svc.createSession(UserId("u-1"))

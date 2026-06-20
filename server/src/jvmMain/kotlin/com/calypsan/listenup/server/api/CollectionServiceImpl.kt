@@ -745,6 +745,7 @@ fun createCollectionService(
     shareRepo: CollectionShareRepository,
     bus: ChangeBus,
     db: Database,
+    sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     bookRevisionTouch: BookRevisionTouch,
     clock: Clock = Clock.System,
 ): CollectionService =
@@ -753,7 +754,7 @@ fun createCollectionService(
         collectionBookRepo = collectionBookRepo,
         shareRepo = shareRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
         db = db,
         clock = clock,

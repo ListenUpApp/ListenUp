@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookTagsTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -54,13 +55,14 @@ internal class TagServiceImpl(
     private val bookTagRepository: BookTagRepository,
     private val reindexer: BookSearchReindexer,
     private val db: Database,
+    private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : TagService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): TagServiceImpl =
-        TagServiceImpl(tagRepository, bookTagRepository, reindexer, db, clock, permissionPolicy, principal)
+        TagServiceImpl(tagRepository, bookTagRepository, reindexer, db, sql, clock, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass

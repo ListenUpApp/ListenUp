@@ -81,7 +81,8 @@ class AdminUserServiceImplTest :
             bus: ChangeBus = ChangeBus(),
             activityRecorder: ActivityRecorder? = null,
         ): AdminUserServiceImpl {
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
                 db = db,
@@ -211,7 +212,8 @@ class AdminUserServiceImplTest :
                 seedTestUser("a1", UserRoleColumn.ADMIN)
                 seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
-                    val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                    val sessions =
+                        SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
                     val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
                     val svc =
                         AdminUserServiceImpl(

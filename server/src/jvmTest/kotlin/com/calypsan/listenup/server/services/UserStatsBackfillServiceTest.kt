@@ -63,7 +63,7 @@ class UserStatsBackfillServiceTest :
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = clock)
                 val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val positionRepo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo, clock = clock)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo, clock = clock)
 
                 runTest {
                     // === Listening events ===
@@ -143,7 +143,7 @@ class UserStatsBackfillServiceTest :
                 val bus = ChangeBus()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = clock)
                 val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo, clock = clock)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo, clock = clock)
 
                 runTest {
                     // 3 consecutive days, all ~90 days before "now" (well outside today/yesterday window).
@@ -173,7 +173,7 @@ class UserStatsBackfillServiceTest :
                 val bus = ChangeBus()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = clock)
                 val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo, clock = clock)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo, clock = clock)
 
                 runTest {
                     // 3 consecutive days ending today (nowMs is 2026-05-22 12:00 UTC).
@@ -200,7 +200,7 @@ class UserStatsBackfillServiceTest :
                 val bus = ChangeBus()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = clock)
                 val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo, clock = clock)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo, clock = clock)
 
                 runTest {
                     // Seed one event: 1 day ago, 120 seconds
@@ -274,7 +274,7 @@ class UserStatsBackfillServiceTest :
                 val clock = FixedClock(Instant.fromEpochMilliseconds(testNowMs))
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
                 val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo, clock = clock)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo, clock = clock)
 
                 runTest {
                     // Both events store tz = "UTC" (like an ABS import) — the math must IGNORE this
@@ -314,7 +314,7 @@ class UserStatsBackfillServiceTest :
                 val clock = FixedClock(Instant.fromEpochMilliseconds(testNowMs))
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
                 val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo, clock = clock)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo, clock = clock)
 
                 runTest {
                     eventRepo.upsert(

@@ -121,7 +121,7 @@ private fun makeContributorPermService(db: Database): ContributorPermDeps {
             reindexer = reindexer,
             sqlDb = db.asSqlDatabase(),
             db = db,
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         )
     return ContributorPermDeps(service, contributorRepo)
 }

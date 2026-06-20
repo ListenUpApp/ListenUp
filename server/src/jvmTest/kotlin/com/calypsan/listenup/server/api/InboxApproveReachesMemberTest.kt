@@ -74,7 +74,7 @@ class InboxApproveReachesMemberTest :
                 collectionBookRepo = collectionBookRepo,
                 shareRepo = shareRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
                 db = db,
                 clock = fixedClock,

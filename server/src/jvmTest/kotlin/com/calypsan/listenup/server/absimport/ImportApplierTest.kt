@@ -448,13 +448,12 @@ private suspend fun stageAnalyzedImport(
     val statsUpdater =
         UserStatsUpdater(
             sql = db.asSqlDatabase(),
-            db = db,
             userStatsRepo = statsRepo,
             publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
         )
     val listeningEventRepo =
         ListeningEventRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, userStatsUpdater = statsUpdater)
-    val statsBackfill = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
+    val statsBackfill = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
 
     val analyzer =
         ImportAnalyzer(

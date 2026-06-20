@@ -183,7 +183,6 @@ internal fun withTestApplication(
                     userStatsUpdater =
                         UserStatsUpdater(
                             sql = db.asSqlDatabase(),
-                            db = db,
                             userStatsRepo = statsRepo,
                             publicProfileMaintainerProvider = { publicProfileMaintainer },
                         ).also { updater = it },
@@ -308,7 +307,7 @@ private fun buildPublicProfileMaintainer(
     registry: SyncRegistry,
 ): PublicProfileMaintainer {
     val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    return PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
+    return PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 }
 
 /**

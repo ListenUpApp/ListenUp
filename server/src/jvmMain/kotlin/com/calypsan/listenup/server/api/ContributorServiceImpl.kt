@@ -96,7 +96,7 @@ internal class ContributorServiceImpl(
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
     db: Database,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
     /**

@@ -60,7 +60,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -89,7 +88,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -119,7 +117,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -148,7 +145,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -177,7 +173,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -212,7 +207,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -249,7 +243,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -291,7 +284,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -322,7 +314,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -368,7 +359,6 @@ class UserStatsUpdaterTest :
                 val updater =
                     UserStatsUpdater(
                         sql = this.asSqlDatabase(),
-                        db = this,
                         userStatsRepo = statsRepo,
                         clock = testClock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },

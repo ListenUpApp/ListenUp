@@ -106,6 +106,6 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
         reindexer = reindexer,
         sqlDb = db.asSqlDatabase(),
         db = db,
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
     )
 }

@@ -265,7 +265,6 @@ fun Database.noOpPublicProfileMaintainer(): PublicProfileMaintainer {
     val sql = asSqlDatabase()
     return PublicProfileMaintainer(
         sql = sql,
-        db = this,
         publicProfileRepo = PublicProfileRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry()),
     )
 }

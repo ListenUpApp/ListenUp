@@ -53,7 +53,7 @@ class AdminRoutesTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -84,7 +84,7 @@ class AdminRoutesTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -115,7 +115,7 @@ class AdminRoutesTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -146,7 +146,7 @@ class AdminRoutesTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {

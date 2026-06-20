@@ -71,7 +71,7 @@ internal class GenreServiceImpl(
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
     private val db: Database,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : GenreService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */

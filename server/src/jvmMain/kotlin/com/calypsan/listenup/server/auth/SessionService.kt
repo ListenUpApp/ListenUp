@@ -6,17 +6,9 @@ import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.server.db.SessionEntity
-import com.calypsan.listenup.server.db.SessionTable
-import com.calypsan.listenup.server.db.UserEntity
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greater
-import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Sessions
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -45,9 +37,14 @@ data class RotatedSession(
  * storage. Deterministic hashing means rotation is an O(1) indexed lookup against
  * `sessions.refresh_token_hash` rather than a scan-and-Argon2id-verify of every
  * active session row.
+ *
+ * Persists over SQLDelight's [ListenUpDatabase] (the `sessions` table is a plain, non-syncable
+ * server-owned aggregate). Each method runs its statements inside a single
+ * [suspendTransaction] so multi-step operations (read-then-rotate, replay-then-revoke-family)
+ * are atomic — exactly as they were under the Exposed `suspendTransaction(db) { … }` blocks.
  */
 class SessionService(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val tokenHasher: RefreshTokenHasher,
     private val tokenGenerator: RefreshTokenGenerator,
     private val refreshTtl: Duration = DEFAULT_REFRESH_TTL,
@@ -66,25 +63,26 @@ class SessionService(
         val sid = newSessionId()
         val familyId = newFamilyId()
         suspendTransaction(db) {
-            SessionEntity.new(sid) {
-                user = UserEntity[userId.value]
-                refreshTokenHash = hash
-                this.familyId = familyId
-                previousHash = null
-                this.label = label
-                deviceType = deviceInfo?.deviceType
-                platform = deviceInfo?.platform
-                platformVersion = deviceInfo?.platformVersion
-                clientName = deviceInfo?.clientName
-                clientVersion = deviceInfo?.clientVersion
-                deviceName = deviceInfo?.deviceName
-                deviceModel = deviceInfo?.deviceModel
-                this.userAgent = userAgent
-                createdAt = now
-                expiresAt = expires
-                lastUsedAt = now
-                revokedAt = null
-            }
+            db.sessionsQueries.insert(
+                id = sid,
+                user_id = userId.value,
+                refresh_token_hash = hash,
+                family_id = familyId,
+                previous_hash = null,
+                label = label,
+                device_type = deviceInfo?.deviceType,
+                platform = deviceInfo?.platform,
+                platform_version = deviceInfo?.platformVersion,
+                client_name = deviceInfo?.clientName,
+                client_version = deviceInfo?.clientVersion,
+                device_name = deviceInfo?.deviceName,
+                device_model = deviceInfo?.deviceModel,
+                user_agent = userAgent,
+                created_at = now,
+                expires_at = expires,
+                last_used_at = now,
+                revoked_at = null,
+            )
         }
         return IssuedSession(SessionId(sid), RefreshToken(raw), expires)
     }
@@ -102,22 +100,23 @@ class SessionService(
 
         return suspendTransaction(db) {
             // Pass 1: live-token match → rotate. Indexed via UNIQUE INDEX
-            // idx_sessions_token_hash on refresh_token_hash.
+            // idx_sessions_token_hash on refresh_token_hash. The query bounds revoked/expired,
+            // so a revoked or expired session never rotates.
             val live =
-                SessionEntity
-                    .find {
-                        (SessionTable.refreshTokenHash eq incomingHash) and
-                            (SessionTable.revokedAt eq null) and
-                            (SessionTable.expiresAt greater clock.now().toEpochMilliseconds())
-                    }.firstOrNull()
+                db.sessionsQueries
+                    .selectLiveByTokenHash(refresh_token_hash = incomingHash, now = now)
+                    .executeAsOneOrNull()
             if (live != null) {
-                live.previousHash = live.refreshTokenHash
-                live.refreshTokenHash = newHash
-                live.lastUsedAt = now
-                live.expiresAt = newExpires
+                db.sessionsQueries.rotate(
+                    previous_hash = live.refresh_token_hash,
+                    refresh_token_hash = newHash,
+                    last_used_at = now,
+                    expires_at = newExpires,
+                    id = live.id,
+                )
                 return@suspendTransaction RotatedSession(
-                    sessionId = SessionId(live.id.value),
-                    userId = UserId(live.user.id.value),
+                    sessionId = SessionId(live.id),
+                    userId = UserId(live.user_id),
                     refreshToken = RefreshToken(newRaw),
                     expiresAt = newExpires,
                 )
@@ -125,13 +124,11 @@ class SessionService(
 
             // Pass 2: previous-hash match → replay; revoke the family.
             val replay =
-                SessionEntity
-                    .find { SessionTable.previousHash eq incomingHash }
-                    .firstOrNull()
+                db.sessionsQueries
+                    .selectByPreviousHash(previous_hash = incomingHash)
+                    .executeAsOneOrNull()
             if (replay != null) {
-                SessionTable.update({ SessionTable.familyId eq replay.familyId }) {
-                    it[revokedAt] = now
-                }
+                db.sessionsQueries.revokeFamily(revoked_at = now, family_id = replay.family_id)
             }
             null
         }
@@ -142,23 +139,20 @@ class SessionService(
         ownerUserId: UserId,
     ) {
         suspendTransaction(db) {
-            SessionTable.update({
-                (SessionTable.id eq sessionId.value) and
-                    (SessionTable.userId eq ownerUserId.value) and
-                    (SessionTable.revokedAt eq null)
-            }) {
-                it[revokedAt] = clock.now().toEpochMilliseconds()
-            }
+            db.sessionsQueries.revokeByIdForUser(
+                revoked_at = clock.now().toEpochMilliseconds(),
+                id = sessionId.value,
+                user_id = ownerUserId.value,
+            )
         }
     }
 
     suspend fun revokeAll(userId: UserId) {
         suspendTransaction(db) {
-            SessionTable.update({
-                (SessionTable.userId eq userId.value) and (SessionTable.revokedAt eq null)
-            }) {
-                it[revokedAt] = clock.now().toEpochMilliseconds()
-            }
+            db.sessionsQueries.revokeAllForUser(
+                revoked_at = clock.now().toEpochMilliseconds(),
+                user_id = userId.value,
+            )
         }
     }
 
@@ -175,38 +169,41 @@ class SessionService(
     suspend fun wasReplay(token: RefreshToken): Boolean {
         val hash = tokenHasher.hash(token.value)
         return suspendTransaction(db) {
-            SessionEntity
-                .find { SessionTable.previousHash eq hash }
-                .any()
+            db.sessionsQueries
+                .selectByPreviousHash(previous_hash = hash)
+                .executeAsOneOrNull() != null
         }
     }
 
     suspend fun isLive(sessionId: SessionId): Boolean =
         suspendTransaction(db) {
-            val s = SessionEntity.findById(sessionId.value) ?: return@suspendTransaction false
-            s.revokedAt == null && s.expiresAt > clock.now().toEpochMilliseconds()
+            val s =
+                db.sessionsQueries
+                    .selectById(id = sessionId.value)
+                    .executeAsOneOrNull()
+                    ?: return@suspendTransaction false
+            s.revoked_at == null && s.expires_at > clock.now().toEpochMilliseconds()
         }
 
-    suspend fun listActiveFor(userId: UserId): List<SessionEntity> =
+    suspend fun listActiveFor(userId: UserId): List<Sessions> =
         suspendTransaction(db) {
-            SessionEntity
-                .find {
-                    (SessionTable.userId eq userId.value) and
-                        (SessionTable.revokedAt eq null) and
-                        (SessionTable.expiresAt greater clock.now().toEpochMilliseconds())
-                }.sortedByDescending { it.lastUsedAt }
-                .toList()
+            db.sessionsQueries
+                .selectActiveForUser(user_id = userId.value, now = clock.now().toEpochMilliseconds())
+                .executeAsList()
         }
 
     /**
-     * Hard-deletes all session rows whose [SessionTable.expiresAt] timestamp is
-     * strictly less than [beforeMs] (epoch milliseconds). Returns the count of
-     * deleted rows. Called by [com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask]
-     * on a periodic schedule.
+     * Hard-deletes all session rows whose `expires_at` timestamp is strictly less than [beforeMs]
+     * (epoch milliseconds). Returns the count of deleted rows. Called by
+     * [com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask] on a periodic schedule.
      */
     suspend fun deleteExpired(beforeMs: Long): Int =
         suspendTransaction(db) {
-            SessionTable.deleteWhere { SessionTable.expiresAt less beforeMs }
+            db.sessionsQueries.deleteExpired(before_ms = beforeMs)
+            db.sessionsQueries
+                .changes()
+                .executeAsOne()
+                .toInt()
         }
 
     private fun newSessionId(): String = UUID.randomUUID().toString()

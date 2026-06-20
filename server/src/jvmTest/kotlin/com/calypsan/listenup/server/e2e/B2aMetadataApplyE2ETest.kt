@@ -355,7 +355,7 @@ private fun buildService(
                 imageHome = Path(tempDir),
             ),
         enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         db = db,
         genreRepository = genreRepo,
         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
