@@ -189,7 +189,7 @@ fun authModule(config: ApplicationConfig): Module {
 
         single<InstanceService> {
             InstanceServiceImpl(
-                db = get(),
+                sql = get<ListenUpDatabase>(),
                 settings = get(),
                 instanceIdentity = get(),
             )

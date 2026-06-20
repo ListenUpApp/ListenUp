@@ -34,7 +34,7 @@ fun shelfModule(): Module =
         // not the Exposed [Database] the service layer still uses.
         single(createdAtStart = true) { ShelfRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { ShelfBookRepository(get<ListenUpDatabase>(), get(), get()) }
-        single { ShelfReadAssembler(db = get()) }
+        single { ShelfReadAssembler(sql = get<ListenUpDatabase>()) }
         single {
             ShelfServiceImpl(
                 shelfRepo = get(),

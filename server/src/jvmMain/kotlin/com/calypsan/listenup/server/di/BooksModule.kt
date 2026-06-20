@@ -186,7 +186,6 @@ fun booksModule(
                 tagRepository = get<TagRepository>(),
                 bookTagRepository = get<BookTagRepository>(),
                 reindexer = get<BookSearchReindexer>(),
-                db = get(),
                 sql = get<ListenUpDatabase>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("TagService"),
@@ -266,7 +265,6 @@ private fun Module.moodBindings() {
         MoodServiceImpl(
             moodRepository = get<MoodRepository>(),
             bookMoodRepository = get<BookMoodRepository>(),
-            db = get(),
             sql = get<ListenUpDatabase>(),
             permissionPolicy = get<UserPermissionPolicy>(),
             principal = unscopedPlaceholder("MoodService"),

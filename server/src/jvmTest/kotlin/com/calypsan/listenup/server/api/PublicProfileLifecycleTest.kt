@@ -115,7 +115,7 @@ class PublicProfileLifecycleTest :
 
                     val svc =
                         ProfileServiceImpl(
-                            db = this@withInMemoryDatabase,
+                            sql = this@withInMemoryDatabase.asSqlDatabase(),
                             passwordHasher = PasswordHasher(),
                             publicProfileMaintainer = maintainer,
                         ).copyWith(principalFor("u1"))

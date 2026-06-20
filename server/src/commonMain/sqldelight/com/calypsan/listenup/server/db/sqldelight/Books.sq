@@ -183,6 +183,23 @@ SELECT changes();
 existsById:
 SELECT EXISTS(SELECT 1 FROM books WHERE id = :id);
 
+-- True iff a LIVE (non-tombstoned) book row exists for :id. The service-layer
+-- `bookExists` gate (Tag/Mood/Collection add-to flows) must reject a tombstoned
+-- book, so this excludes soft-deleted rows — replacing the Exposed
+-- `BookTable.selectAll().where { id eq … and deletedAt.isNull() }.count() > 0`.
+existsLiveById:
+SELECT EXISTS(SELECT 1 FROM books WHERE id = :id AND deleted_at IS NULL);
+
+-- (id, title) for a batch of LIVE books — the ShelfReadAssembler view projection.
+-- A tombstoned book yields no row, so it never appears in a shelf view.
+selectLiveTitlesByIds:
+SELECT id, title FROM books WHERE id IN :ids AND deleted_at IS NULL;
+
+-- total_duration for a batch of LIVE books — ShelfReadAssembler sums these for the
+-- shelf's aggregate duration. Tombstoned/absent books contribute nothing.
+selectLiveDurationsByIds:
+SELECT total_duration FROM books WHERE id IN :ids AND deleted_at IS NULL;
+
 softDeleteById:
 UPDATE books
 SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,

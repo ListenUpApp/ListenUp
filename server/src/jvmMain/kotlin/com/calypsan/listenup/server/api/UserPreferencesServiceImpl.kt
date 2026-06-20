@@ -6,16 +6,10 @@ import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.db.UserSettingsTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.User_settings
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 private const val DEFAULT_SPEED = 1.0f
 private const val DEFAULT_SKIP_FORWARD = 30
@@ -37,18 +31,18 @@ private val SLEEP_RANGE = 1..480
  * unauthenticated.
  */
 internal class UserPreferencesServiceImpl(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : UserPreferencesService {
     override suspend fun getMyPreferences(): AppResult<UserPreferencesDto> {
         val userId = currentUserId() ?: return AppResult.Failure(AuthError.PermissionDenied())
-        return suspendTransaction(db) { AppResult.Success(readRow(userId) ?: defaults()) }
+        return suspendTransaction(sql) { AppResult.Success(readRow(userId) ?: defaults()) }
     }
 
     override suspend fun updateMyPreferences(request: UpdateUserPreferencesRequest): AppResult<UserPreferencesDto> {
         val userId = currentUserId() ?: return AppResult.Failure(AuthError.PermissionDenied())
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             val current = readRow(userId) ?: defaults()
             val merged =
                 UserPreferencesDto(
@@ -67,46 +61,48 @@ internal class UserPreferencesServiceImpl(
         }
     }
 
+    /** Reads the caller's row. Must run inside a SQLDelight transaction. */
     private fun readRow(userId: String): UserPreferencesDto? =
-        UserSettingsTable
-            .selectAll()
-            .where { UserSettingsTable.userId eq userId }
-            .singleOrNull()
+        sql.userSettingsQueries
+            .selectByUserId(userId)
+            .executeAsOneOrNull()
             ?.toDto()
 
+    /** Get-or-create write: UPDATE first, INSERT when no row matched. Must run inside a transaction. */
     private fun upsert(
         userId: String,
         prefs: UserPreferencesDto,
     ) {
         val now = clock.now().toString()
-        val updated = UserSettingsTable.update({ UserSettingsTable.userId eq userId }) { it.applyPrefs(prefs, now) }
-        if (updated == 0) {
-            UserSettingsTable.insert {
-                it[UserSettingsTable.userId] = userId
-                it.applyPrefs(prefs, now)
-            }
+        sql.userSettingsQueries.update(
+            default_playback_speed = prefs.defaultPlaybackSpeed.toDouble(),
+            default_skip_forward_sec = prefs.defaultSkipForwardSec.toLong(),
+            default_skip_backward_sec = prefs.defaultSkipBackwardSec.toLong(),
+            default_sleep_timer_min = prefs.defaultSleepTimerMin?.toLong(),
+            shake_to_reset_sleep_timer = prefs.shakeToResetSleepTimer.toDbLong(),
+            updated_at = now,
+            user_id = userId,
+        )
+        if (sql.userSettingsQueries.changes().executeAsOne() == 0L) {
+            sql.userSettingsQueries.insert(
+                user_id = userId,
+                default_playback_speed = prefs.defaultPlaybackSpeed.toDouble(),
+                default_skip_forward_sec = prefs.defaultSkipForwardSec.toLong(),
+                default_skip_backward_sec = prefs.defaultSkipBackwardSec.toLong(),
+                default_sleep_timer_min = prefs.defaultSleepTimerMin?.toLong(),
+                shake_to_reset_sleep_timer = prefs.shakeToResetSleepTimer.toDbLong(),
+                updated_at = now,
+            )
         }
     }
 
-    private fun UpdateBuilder<*>.applyPrefs(
-        prefs: UserPreferencesDto,
-        now: String,
-    ) {
-        this[UserSettingsTable.defaultPlaybackSpeed] = prefs.defaultPlaybackSpeed
-        this[UserSettingsTable.defaultSkipForwardSec] = prefs.defaultSkipForwardSec
-        this[UserSettingsTable.defaultSkipBackwardSec] = prefs.defaultSkipBackwardSec
-        this[UserSettingsTable.defaultSleepTimerMin] = prefs.defaultSleepTimerMin
-        this[UserSettingsTable.shakeToResetSleepTimer] = prefs.shakeToResetSleepTimer
-        this[UserSettingsTable.updatedAt] = now
-    }
-
-    private fun ResultRow.toDto(): UserPreferencesDto =
+    private fun User_settings.toDto(): UserPreferencesDto =
         UserPreferencesDto(
-            defaultPlaybackSpeed = this[UserSettingsTable.defaultPlaybackSpeed],
-            defaultSkipForwardSec = this[UserSettingsTable.defaultSkipForwardSec],
-            defaultSkipBackwardSec = this[UserSettingsTable.defaultSkipBackwardSec],
-            defaultSleepTimerMin = this[UserSettingsTable.defaultSleepTimerMin],
-            shakeToResetSleepTimer = this[UserSettingsTable.shakeToResetSleepTimer],
+            defaultPlaybackSpeed = default_playback_speed.toFloat(),
+            defaultSkipForwardSec = default_skip_forward_sec.toInt(),
+            defaultSkipBackwardSec = default_skip_backward_sec.toInt(),
+            defaultSleepTimerMin = default_sleep_timer_min?.toInt(),
+            shakeToResetSleepTimer = shake_to_reset_sleep_timer != 0L,
         )
 
     private fun defaults(): UserPreferencesDto =
@@ -116,8 +112,11 @@ internal class UserPreferencesServiceImpl(
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): UserPreferencesServiceImpl =
-        UserPreferencesServiceImpl(db = db, clock = clock, principal = principal)
+        UserPreferencesServiceImpl(sql = sql, clock = clock, principal = principal)
 }
+
+/** Boolean → SQLite INTEGER (0/1) at the persistence boundary. */
+private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
 
 /**
  * Public factory for tests that need a [UserPreferencesService] without going through Koin.
@@ -126,7 +125,7 @@ internal class UserPreferencesServiceImpl(
  * the `internal` access on [UserPreferencesServiceImpl]. Production wiring constructs the impl
  * directly inside the Koin module.
  */
-fun createUserPreferencesService(db: Database): UserPreferencesService = UserPreferencesServiceImpl(db = db)
+fun createUserPreferencesService(sql: ListenUpDatabase): UserPreferencesService = UserPreferencesServiceImpl(sql = sql)
 
 /**
  * Scopes a [UserPreferencesService] built by [createUserPreferencesService] to [principal] for one

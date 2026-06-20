@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -21,7 +22,7 @@ class UserPreferencesServiceImplTest :
     FunSpec({
         fun Database.svc(userId: String) =
             userPreferencesServiceScopedTo(
-                createUserPreferencesService(this),
+                createUserPreferencesService(this.asSqlDatabase()),
                 PrincipalProvider {
                     UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
                 },
@@ -79,7 +80,7 @@ class UserPreferencesServiceImplTest :
             withInMemoryDatabase {
                 seedTestUser("u1")
                 runTest {
-                    val r = createUserPreferencesService(this@withInMemoryDatabase).getMyPreferences()
+                    val r = createUserPreferencesService(this@withInMemoryDatabase.asSqlDatabase()).getMyPreferences()
                     val failure = r.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }

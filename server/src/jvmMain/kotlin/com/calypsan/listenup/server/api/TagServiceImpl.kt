@@ -13,20 +13,14 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.BookTagsTable
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.TagSlug
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -54,7 +48,6 @@ internal class TagServiceImpl(
     private val tagRepository: TagRepository,
     private val bookTagRepository: BookTagRepository,
     private val reindexer: BookSearchReindexer,
-    private val db: Database,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
@@ -62,7 +55,7 @@ internal class TagServiceImpl(
 ) : TagService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): TagServiceImpl =
-        TagServiceImpl(tagRepository, bookTagRepository, reindexer, db, sql, clock, permissionPolicy, principal)
+        TagServiceImpl(tagRepository, bookTagRepository, reindexer, sql, clock, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -226,13 +219,15 @@ internal class TagServiceImpl(
         // Collect affected book IDs before tombstoning so we can reindex after.
         val affectedBookIds = bookTagRepository.findBookIdsForTag(tagId.value)
 
-        // Atomic cascade: tombstone all junctions + the tag itself in one transaction.
-        suspendTransaction(db) {
-            bookTagRepository.softDeleteAllForTag(tagId.value)
-            tagRepository.softDelete(tagId.value)
-        }
+        // Cascade: tombstone all junctions, then the tag itself. Both are suspend repo
+        // calls that each open their own SQLDelight transaction, so they run sequentially
+        // (they cannot nest inside one another's non-suspend transaction body). Sequential
+        // single-engine writes never contend for the lone SQLite write lock — matching the
+        // GenreServiceImpl / ContributorServiceImpl cutover shape.
+        bookTagRepository.softDeleteAllForTag(tagId.value)
+        tagRepository.softDelete(tagId.value)
 
-        // Reindex outside the transaction (FTS writes are separate).
+        // Reindex outside the cascade (FTS writes are separate).
         for (bookId in affectedBookIds) {
             reindexer.reindexBook(bookId)
         }
@@ -243,31 +238,12 @@ internal class TagServiceImpl(
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private suspend fun bookExists(bookId: String): Boolean =
-        suspendTransaction(db) {
-            com.calypsan.listenup.server.db.BookTable
-                .selectAll()
-                .where {
-                    (com.calypsan.listenup.server.db.BookTable.id eq bookId) and
-                        com.calypsan.listenup.server.db.BookTable.deletedAt
-                            .isNull()
-                }.count() > 0
-        }
+        suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
 
     private suspend fun countLiveJunctionsForTag(tagId: String): Long =
-        suspendTransaction(db) {
-            BookTagsTable
-                .selectAll()
-                .where { (BookTagsTable.tagId eq tagId) and BookTagsTable.deletedAt.isNull() }
-                .count()
-        }
+        suspendTransaction(sql) { sql.bookTagsQueries.countLiveForTag(tagId).executeAsOne() }
 
     private suspend fun TagRepository.softDelete(tagId: String): AppResult<Unit> = softDelete(tagId, clientOpId = null)
-
-    // Delegate to existing bulk helper — but we need it within the open
-    // suspendTransaction. The helper opens its own transaction; for simplicity
-    // we accept the nested semantics — both operate on the same underlying
-    // JDBC connection and SQLite in WAL mode handles this correctly.
-    private suspend fun BookTagRepository.softDeleteAllForTag(tagId: String): Int = this.softDeleteAllForTag(tagId)
 
     private suspend fun BookTagRepository.softDelete(
         bookId: String,

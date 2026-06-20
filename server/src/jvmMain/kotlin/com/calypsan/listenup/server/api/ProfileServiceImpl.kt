@@ -9,11 +9,11 @@ import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Users
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Server-side implementation of [ProfileService].
@@ -31,7 +31,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * running unauthenticated.
  */
 internal class ProfileServiceImpl(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val passwordHasher: PasswordHasher,
     private val publicProfileMaintainer: PublicProfileMaintainer,
     private val clock: Clock = Clock.System,
@@ -41,9 +41,9 @@ internal class ProfileServiceImpl(
         val userId =
             principal.current()?.userId?.value
                 ?: return AppResult.Failure(AuthError.PermissionDenied())
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             val u =
-                UserEntity.findById(userId)
+                sql.usersQueries.selectById(userId).executeAsOneOrNull()
                     ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
             AppResult.Success(u.toProfile())
         }
@@ -55,45 +55,66 @@ internal class ProfileServiceImpl(
                 ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Hash outside the transaction — Argon2 is CPU-bound and must not hold a DB connection.
         val newHash = request.password?.let { passwordHasher.hash(it.newPassword) }
-        val result =
-            suspendTransaction(db) {
-                val u =
-                    UserEntity.findById(userId)
-                        ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
-                request.password?.let { pc ->
-                    if (!passwordHasher.verify(pc.currentPassword, u.passwordHash)) {
-                        return@suspendTransaction AppResult.Failure(ProfileError.WrongPassword())
-                    }
-                    u.passwordHash = newHash!!
-                }
-                request.displayName?.let { u.displayName = it }
-                request.tagline?.let { u.tagline = it }
-                request.avatarType?.let { u.avatarType = it }
-                u.updatedAt = clock.now().toEpochMilliseconds()
-                AppResult.Success(u.toProfile())
+        // Read the current row first. The password verify and the write are split across two
+        // steps because the SQLDelight transaction body is non-suspend and cannot call the
+        // suspend Argon2 verify — matching the established cutover shape.
+        val current: Users =
+            suspendTransaction(sql) { sql.usersQueries.selectById(userId).executeAsOneOrNull() }
+                ?: return AppResult.Failure(AuthError.PermissionDenied())
+
+        // Verify the current password (suspend Argon2) outside any transaction.
+        request.password?.let { pc ->
+            if (!passwordHasher.verify(pc.currentPassword, current.password_hash)) {
+                return AppResult.Failure(ProfileError.WrongPassword())
             }
+        }
+
+        // Merge only the non-null request fields, then write the merged row back.
+        val mergedDisplayName = request.displayName ?: current.display_name
+        val mergedTagline = request.tagline ?: current.tagline
+        val mergedAvatarType = request.avatarType ?: current.avatar_type
+        val mergedHash = newHash ?: current.password_hash
+        val now = clock.now().toEpochMilliseconds()
+        suspendTransaction(sql) {
+            sql.usersQueries.updateProfileFields(
+                display_name = mergedDisplayName,
+                tagline = mergedTagline,
+                avatar_type = mergedAvatarType,
+                password_hash = mergedHash,
+                updated_at = now,
+                id = userId,
+            )
+        }
         // Refresh the projection after the user-row write commits — reads back from DB.
-        if (result is AppResult.Success) publicProfileMaintainer.refreshBestEffort(userId)
-        return result
+        publicProfileMaintainer.refreshBestEffort(userId)
+        return AppResult.Success(
+            Profile(
+                userId = UserId(userId),
+                displayName = mergedDisplayName,
+                tagline = mergedTagline,
+                avatarType = mergedAvatarType,
+                updatedAt = now,
+            ),
+        )
     }
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ProfileServiceImpl =
         ProfileServiceImpl(
-            db = db,
+            sql = sql,
             passwordHasher = passwordHasher,
             publicProfileMaintainer = publicProfileMaintainer,
             clock = clock,
             principal = principal,
         )
 
-    private fun UserEntity.toProfile(): Profile =
+    private fun Users.toProfile(): Profile =
         Profile(
-            userId = UserId(id.value),
-            displayName = displayName,
+            userId = UserId(id),
+            displayName = display_name,
             tagline = tagline,
-            avatarType = avatarType,
-            updatedAt = updatedAt,
+            avatarType = avatar_type,
+            updatedAt = updated_at,
         )
 }
 
@@ -106,11 +127,11 @@ internal class ProfileServiceImpl(
  * [com.calypsan.listenup.server.di.profileModule].
  */
 fun createProfileService(
-    db: Database,
+    sql: ListenUpDatabase,
     passwordHasher: PasswordHasher,
     publicProfileMaintainer: PublicProfileMaintainer,
 ): ProfileService =
-    ProfileServiceImpl(db = db, passwordHasher = passwordHasher, publicProfileMaintainer = publicProfileMaintainer)
+    ProfileServiceImpl(sql = sql, passwordHasher = passwordHasher, publicProfileMaintainer = publicProfileMaintainer)
 
 /**
  * Scopes a [ProfileService] built by [createProfileService] to [principal] for one request.

@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -28,7 +29,7 @@ class ProfileServiceImplTest :
     FunSpec({
         fun Database.svc(userId: String): ProfileServiceImpl =
             ProfileServiceImpl(
-                db = this,
+                sql = this.asSqlDatabase(),
                 passwordHasher = PasswordHasher(),
                 publicProfileMaintainer = noOpPublicProfileMaintainer(),
             ).copyWith(
@@ -51,7 +52,7 @@ class ProfileServiceImplTest :
                     val fixed = 1_700_000_000_000L
                     val svc =
                         ProfileServiceImpl(
-                            db = this@withInMemoryDatabase,
+                            sql = this@withInMemoryDatabase.asSqlDatabase(),
                             passwordHasher = PasswordHasher(),
                             publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(fixed)),
@@ -93,7 +94,7 @@ class ProfileServiceImplTest :
                     }
                     val svc =
                         ProfileServiceImpl(
-                            db = this@withInMemoryDatabase,
+                            sql = this@withInMemoryDatabase.asSqlDatabase(),
                             passwordHasher = hasher,
                             publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
                         ).copyWith(
@@ -124,7 +125,7 @@ class ProfileServiceImplTest :
                     }
                     val svc =
                         ProfileServiceImpl(
-                            db = this@withInMemoryDatabase,
+                            sql = this@withInMemoryDatabase.asSqlDatabase(),
                             passwordHasher = hasher,
                             publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
                         ).copyWith(

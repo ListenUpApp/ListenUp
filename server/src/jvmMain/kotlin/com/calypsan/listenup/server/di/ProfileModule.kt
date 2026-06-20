@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.server.api.ProfileServiceImpl
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.routes.AVATAR_MAX_BYTES
 import java.nio.file.Path
@@ -13,7 +14,7 @@ fun profileModule(avatarsDir: Path): Module =
     module {
         single<ProfileService> {
             ProfileServiceImpl(
-                db = get(),
+                sql = get<ListenUpDatabase>(),
                 passwordHasher = get(),
                 publicProfileMaintainer = get(),
                 clock = get(),

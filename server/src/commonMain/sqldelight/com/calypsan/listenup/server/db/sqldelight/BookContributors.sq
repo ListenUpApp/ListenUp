@@ -47,6 +47,17 @@ bookIdsForContributorWithCreditedAs:
 SELECT DISTINCT book_id FROM book_contributors
 WHERE contributor_id = :contributor_id AND credited_as = :credited_as;
 
+-- Author-role display names for a batch of books, ordered by credit ordinal —
+-- the ShelfReadAssembler view projection. Filters to the 'author' role and orders
+-- by ordinal so each book's author list preserves on-wire order. Replaces the
+-- Exposed `(BookContributorTable innerJoin ContributorTable).select(...)` group-by.
+authorNamesForBooks:
+SELECT bc.book_id, c.name
+FROM book_contributors bc
+JOIN contributors c ON c.id = bc.contributor_id
+WHERE bc.book_id IN :ids AND bc.role = 'author'
+ORDER BY bc.ordinal;
+
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 insert:

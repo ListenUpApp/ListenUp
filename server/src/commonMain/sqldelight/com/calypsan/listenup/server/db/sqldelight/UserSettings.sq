@@ -1,0 +1,58 @@
+-- user_settings: per-user playback preferences. PLAIN (non-syncable) server-owned table —
+-- one row per user, created on first write, cascade-deleted with the user. The RPC DTO
+-- does not surface updated_at (kept for parity/debugging).
+--
+-- Effective schema is V38__user_settings.sql verbatim. SQLDelight maps:
+--   * default_playback_speed     REAL     → Double  (DTO is Float; converted at the boundary)
+--   * default_skip_forward_sec   INTEGER  → Long    (DTO is Int)
+--   * default_skip_backward_sec  INTEGER  → Long    (DTO is Int)
+--   * default_sleep_timer_min    INTEGER? → Long?   (DTO is Int?)
+--   * shake_to_reset_sleep_timer INTEGER  → Long    (0/1; DTO is Boolean — mapped at the boundary)
+--   * updated_at                 TEXT     → String  (ISO-8601, set on every write)
+--
+-- FK declaration (user_id → users ON DELETE CASCADE) is omitted: SQLDelight cannot resolve
+-- the cross-table reference here. The constraint lives in the migration DDL and is enforced
+-- by SQLite at runtime.
+CREATE TABLE user_settings (
+    user_id                     TEXT NOT NULL PRIMARY KEY,
+    default_playback_speed      REAL NOT NULL DEFAULT 1.0,
+    default_skip_forward_sec    INTEGER NOT NULL DEFAULT 30,
+    default_skip_backward_sec   INTEGER NOT NULL DEFAULT 10,
+    default_sleep_timer_min     INTEGER,
+    shake_to_reset_sleep_timer  INTEGER NOT NULL DEFAULT 0,
+    updated_at                  TEXT NOT NULL
+);
+
+-- Single-row read for the authenticated caller (getMyPreferences / the read half of
+-- updateMyPreferences). Absent row → caller substitutes defaults.
+selectByUserId:
+SELECT * FROM user_settings WHERE user_id = :user_id;
+
+-- Update the caller's row (the get-or-create write path's UPDATE branch). The caller
+-- inspects `changes()` to decide whether to fall back to insert.
+update:
+UPDATE user_settings
+SET default_playback_speed = :default_playback_speed,
+    default_skip_forward_sec = :default_skip_forward_sec,
+    default_skip_backward_sec = :default_skip_backward_sec,
+    default_sleep_timer_min = :default_sleep_timer_min,
+    shake_to_reset_sleep_timer = :shake_to_reset_sleep_timer,
+    updated_at = :updated_at
+WHERE user_id = :user_id;
+
+-- Insert a fresh row (the get-or-create write path's INSERT branch, taken when UPDATE
+-- affected no rows).
+insert:
+INSERT INTO user_settings (
+    user_id, default_playback_speed, default_skip_forward_sec, default_skip_backward_sec,
+    default_sleep_timer_min, shake_to_reset_sleep_timer, updated_at
+)
+VALUES (
+    :user_id, :default_playback_speed, :default_skip_forward_sec, :default_skip_backward_sec,
+    :default_sleep_timer_min, :shake_to_reset_sleep_timer, :updated_at
+);
+
+-- Rows affected by the most recent statement on this connection — lets the upsert
+-- distinguish a 0-row UPDATE (→ insert) from a successful one.
+changes:
+SELECT changes();

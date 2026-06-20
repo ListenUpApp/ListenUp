@@ -73,7 +73,7 @@ class ShelfServiceUserShelvesTest :
                 shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                readAssembler = ShelfReadAssembler(db),
+                readAssembler = ShelfReadAssembler(db.asSqlDatabase()),
                 clock = fixedClock,
                 principal = principalFor(callerId, role),
             )

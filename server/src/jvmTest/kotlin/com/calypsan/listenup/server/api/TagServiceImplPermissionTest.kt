@@ -87,7 +87,6 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
         tagRepository = tagRepo,
         bookTagRepository = bookTagRepo,
         reindexer = reindexer,
-        db = dbs.exposed,
         sql = dbs.sql,
         permissionPolicy = UserPermissionPolicy(dbs.sql),
     )

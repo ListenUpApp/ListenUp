@@ -42,7 +42,7 @@ class TagServiceImplTest :
             val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
             val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
             val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed)
-            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, dbs.exposed, dbs.sql, fixedClock, principal = rootPrincipal())
+            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, dbs.sql, fixedClock, principal = rootPrincipal())
         }
 
         // ── listTags ─────────────────────────────────────────────────────────
