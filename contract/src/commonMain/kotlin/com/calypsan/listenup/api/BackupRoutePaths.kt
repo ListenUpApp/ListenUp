@@ -1,4 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.api
+
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 /**
  * Canonical REST route paths for the admin backup endpoints, shared by server + client to prevent drift.
@@ -8,6 +13,7 @@ package com.calypsan.listenup.api
  * uploader. Defining it once here makes client/server drift a compile-time concern, not a
  * runtime 404. Everything else in the backup surface is RPC ([BackupService]).
  */
+@HiddenFromObjC
 object BackupRoutePaths {
     /** `POST` — streams a `.listenup.zip` backup; responds a [com.calypsan.listenup.api.dto.backup.BackupSummary]. */
     const val UPLOAD: String = "/api/v1/admin/backups/upload"

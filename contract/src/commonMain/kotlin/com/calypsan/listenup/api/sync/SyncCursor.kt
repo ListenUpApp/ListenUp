@@ -1,6 +1,10 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.api.sync
 
+import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.jvm.JvmInline
+import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,6 +14,7 @@ import kotlinx.serialization.Serializable
  * resume or as the `?since=` query parameter on REST catch-up. The underlying
  * type is [Long]; the value class is for call-site clarity only.
  */
+@HiddenFromObjC
 @Serializable
 @JvmInline
 value class SyncCursor(

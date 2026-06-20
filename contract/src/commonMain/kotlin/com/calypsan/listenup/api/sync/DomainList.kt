@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.api.sync
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -12,6 +16,7 @@ import kotlinx.serialization.Serializable
  *
  * Order: server returns names sorted lexicographically for stability.
  */
+@HiddenFromObjC
 @Serializable
 data class DomainList(
     @SerialName("domains") val domains: List<String>,

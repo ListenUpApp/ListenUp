@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.api.sync
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -15,6 +19,7 @@ import kotlinx.serialization.Serializable
  * Used by clients to detect drift cheaply — match `(count, hash)` between local and server;
  * mismatch triggers a full domain re-pull (`?since=0`).
  */
+@HiddenFromObjC
 @Serializable
 data class DomainDigest(
     @SerialName("cursor")

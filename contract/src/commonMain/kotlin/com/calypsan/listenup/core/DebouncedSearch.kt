@@ -1,7 +1,9 @@
-@file:OptIn(FlowPreview::class)
+@file:OptIn(FlowPreview::class, ExperimentalObjCRefinement::class)
 
 package com.calypsan.listenup.core
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -170,6 +172,7 @@ internal class DebouncedSearch<K, R>(
  * fun onQueryChanged(query: String) = search.setQuery(query)
  * ```
  */
+@HiddenFromObjC
 class SingleDebouncedSearch<R>(
     scope: CoroutineScope,
     debounceMs: Long = DebouncedSearch.DEFAULT_DEBOUNCE_MS,
