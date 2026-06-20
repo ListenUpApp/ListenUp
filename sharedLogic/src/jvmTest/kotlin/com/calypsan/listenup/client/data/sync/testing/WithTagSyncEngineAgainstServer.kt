@@ -32,6 +32,8 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -92,6 +94,9 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
         // ---- Server side: temp-file SQLite + tag domains ----
         val tmp = Files.createTempFile("listenup-tags-e2e-", ".db").toFile().apply { deleteOnExit() }
         val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+        // SQLDelight view over the SAME migrated file — TagRepository and BookTagRepository are
+        // SQLDelight-converted and take this; still-Exposed surfaces keep taking [serverDb].
+        val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 
@@ -118,8 +123,8 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
             )
         }
 
-        val tagRepo = TagRepository(serverDb, bus, syncRegistry)
-        val bookTagRepo = BookTagRepository(serverDb, bus, syncRegistry)
+        val tagRepo = TagRepository(serverSqlDb, bus, syncRegistry)
+        val bookTagRepo = BookTagRepository(serverSqlDb, bus, syncRegistry)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }

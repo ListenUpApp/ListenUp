@@ -68,6 +68,8 @@ import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.rpcguard.guard
 import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -235,9 +237,16 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         // ---- Server side: in-memory SQLite + Tag and Book domains registered ----
         val tmp = Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
         val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+        // SQLDelight view over the SAME migrated file the Exposed [serverDb] is connected to.
+        // DatabaseFactory.init already ran the migrations, so the driver never calls
+        // Schema.create — it just opens a second connection (harmless in WAL mode). This
+        // reproduces `:server`'s own `Database.asSqlDatabase()` fixture, which isn't visible
+        // from `:sharedLogic`. The SQLDelight-converted server repos (Book, Contributor,
+        // Series) take this; the still-Exposed repos keep taking [serverDb].
+        val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
-        val serverRepos = buildServerRepositories(serverDb, bus, syncRegistry)
+        val serverRepos = buildServerRepositories(serverDb, serverSqlDb, bus, syncRegistry)
         val bookService: BookService =
             createBookService(
                 repo = serverRepos.bookRepo,
@@ -253,16 +262,17 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         // for the Tags-domain tests), so we just instantiate `BookTagRepository` here.
         val bookSearchReindexer =
             BookSearchReindexer(
-                bookTagRepository = BookTagRepository(serverDb, bus, syncRegistry),
+                bookTagRepository = BookTagRepository(serverSqlDb, bus, syncRegistry),
                 tagRepository = serverRepos.tagRepo,
-                db = serverDb,
+                db = serverSqlDb,
+                exposedDb = serverDb,
             )
         val contributorService: ContributorService =
             createContributorService(
                 contributorRepo = serverRepos.contributorRepo,
                 bookRepo = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
-                sqlDb = serverDb,
+                sqlDb = serverSqlDb,
                 db = serverDb,
             )
         // Books-C2 Task 25 needs `SeriesService` for the mergeSeries e2e test.
@@ -271,7 +281,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
-                sqlDb = serverDb,
+                sqlDb = serverSqlDb,
                 db = serverDb,
             )
         // Genres e2e tests need a `GenreService` against the same server scaffolding.
@@ -612,6 +622,7 @@ private fun registerClientSyncHandlers(
  */
 private fun buildServerRepositories(
     serverDb: ExposedDatabase,
+    serverSqlDb: ServerSqlDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
 ): ServerRepositories {
@@ -630,15 +641,24 @@ private fun buildServerRepositories(
                 "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
         )
     }
-    val tagRepo = TagRepository(serverDb, bus, registry)
+    val tagRepo = TagRepository(serverSqlDb, bus, registry)
     // Library and folder repos use their own bus+registry so their SSE events are published
     // on the shared bus and routed by the SyncRegistry to the catch-up / SSE subscriber.
     val libraryRepo = LibraryRepository(serverDb, bus, registry)
     val libraryFolderRepo = LibraryFolderRepository(serverDb, bus, registry)
-    val contributorRepo = ContributorRepository(serverDb, bus, registry)
-    val seriesRepo = SeriesRepository(serverDb, bus, registry)
+    val contributorRepo = ContributorRepository(serverSqlDb, bus, registry)
+    val seriesRepo = SeriesRepository(serverSqlDb, bus, registry)
     val genreRepo = ServerGenreRepository(serverDb, bus, registry)
-    val bookRepo = BookRepository(serverDb, bus, registry, contributorRepo, seriesRepo, genreRepo)
+    val bookRepo =
+        BookRepository(
+            db = serverSqlDb,
+            bus = bus,
+            registry = registry,
+            exposedDb = serverDb,
+            contributorRepository = contributorRepo,
+            seriesRepository = seriesRepo,
+            genreRepository = genreRepo,
+        )
     val activeSessionRepo = ActiveSessionRepository(serverDb, bus)
     val playbackPositionRepo =
         PlaybackPositionRepository(serverDb, bus, registry, activeSessionRepo = activeSessionRepo)
