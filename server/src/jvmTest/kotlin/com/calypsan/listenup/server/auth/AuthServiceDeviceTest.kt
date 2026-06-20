@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -37,11 +38,12 @@ class AuthServiceDeviceTest :
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = policy)
             return AuthServiceImpl(
-                db = db,
+                db = db.asSqlDatabase(),
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
@@ -99,12 +101,13 @@ class AuthServiceDeviceTest :
         test("listSessions tolerates a legacy row whose device field exceeds the 128-char limit") {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             val svc =
                 AuthServiceImpl(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     sessions = sessions,
                     hasher = PasswordHasher(),
                     jwt = jwt,

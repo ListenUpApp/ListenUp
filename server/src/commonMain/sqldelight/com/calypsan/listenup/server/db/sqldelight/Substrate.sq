@@ -1,0 +1,17 @@
+-- Global revision counter table. Matches V2__sync_foundation.sql exactly.
+-- Seeded with a single row: INSERT INTO sync_meta (key, value) VALUES ('revision_counter', 0).
+CREATE TABLE sync_meta (
+    key   TEXT    NOT NULL PRIMARY KEY,
+    value INTEGER NOT NULL
+);
+
+-- Read the current revision counter value.
+readRevision:
+SELECT value FROM sync_meta WHERE key = 'revision_counter';
+
+-- Increment the counter. Call inside a transaction immediately followed by readRevision
+-- to obtain the new value atomically — mirrors nextRevision() in SyncMeta.kt.
+-- (RETURNING is not supported by SQLDelight's SQLite dialect; the two-statement form is
+-- equivalent when both statements run inside the same transactionWithResult block.)
+bumpRevision:
+UPDATE sync_meta SET value = value + 1 WHERE key = 'revision_counter';

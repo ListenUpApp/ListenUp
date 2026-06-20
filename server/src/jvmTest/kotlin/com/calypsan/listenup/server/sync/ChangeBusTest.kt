@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -27,7 +29,7 @@ class ChangeBusTest :
         test("publish then subscribe receives the event") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -42,7 +44,7 @@ class ChangeBusTest :
         test("multiple subscribers each receive every event") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
                 runTest {
                     val sub1 = async { bus.subscribe().take(2).toList() }
                     val sub2 = async { bus.subscribe().take(2).toList() }
@@ -63,7 +65,7 @@ class ChangeBusTest :
         test("oldestRetainedRevision tracks the lowest in-buffer event") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
                 runTest {
                     bus.oldestRetainedRevision() shouldBe null
                     repo.upsert(Tag(id = "a", name = "x", slug = "x", revision = 0, updatedAt = 0))
@@ -76,7 +78,7 @@ class ChangeBusTest :
         test("BusEvent is type-bound to its source repository") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -91,7 +93,7 @@ class ChangeBusTest :
         test("publish carries an optional userId on the BusEvent") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val fakeRepo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val fakeRepo = TagRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
                 val fakeEvent =
                     SyncEvent.Created(
                         id = "x",

@@ -25,6 +25,8 @@ import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -65,9 +67,9 @@ class ShelfServiceTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db, bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
-                bookAccessPolicy = BookAccessPolicy(db),
+                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                 readAssembler = ShelfReadAssembler(db),
                 clock = fixedClock,
                 principal = principalFor("u1"),
@@ -81,9 +83,9 @@ class ShelfServiceTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db, bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
-                bookAccessPolicy = BookAccessPolicy(db),
+                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                 readAssembler = ShelfReadAssembler(db),
                 clock = fixedClock,
                 principal = principalFor("u1"),
@@ -128,7 +130,7 @@ class ShelfServiceTest :
                 seedTestLibraryAndFolder()
                 seedTestUser("u1")
                 runTest {
-                    val activities = ActivityRepository(db = db)
+                    val activities = ActivityRepository(db = db.asSqlDatabase())
                     val created =
                         makeServiceWithRecorder(db, activities)
                             .actAs("u1")
@@ -151,7 +153,7 @@ class ShelfServiceTest :
                 seedTestLibraryAndFolder()
                 seedTestUser("u1")
                 runTest {
-                    val activities = ActivityRepository(db = db)
+                    val activities = ActivityRepository(db = db.asSqlDatabase())
                     makeServiceWithRecorder(db, activities)
                         .actAs("u1")
                         .createShelf(name = "Secret", isPrivate = true)
@@ -226,8 +228,20 @@ class ShelfServiceTest :
                     // is a u1-owned collection (owner branch — no grant, no system user needed).
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                    val collectionRepo =
+                        CollectionRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            driver = db.asSqlDriver(),
+                        )
+                    val collectionBookRepo =
+                        CollectionBookRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            driver = db.asSqlDriver(),
+                        )
                     collectionRepo.upsert(
                         CollectionSyncPayload(
                             id = "u1-col",
@@ -283,8 +297,20 @@ class ShelfServiceTest :
                     // "hidden" is in u2's PRIVATE collection — invisible to MEMBER u1.
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                    val collectionRepo =
+                        CollectionRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            driver = db.asSqlDriver(),
+                        )
+                    val collectionBookRepo =
+                        CollectionBookRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            driver = db.asSqlDriver(),
+                        )
                     collectionRepo.upsert(
                         CollectionSyncPayload(
                             id = "priv",

@@ -9,11 +9,12 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class ContributorEnrichmentSeederTest :
     FunSpec({
 
-        fun makeRepo(db: Database): ContributorRepository = ContributorRepository(db, ChangeBus(), SyncRegistry())
+        fun makeRepo(db: Database): ContributorRepository = ContributorRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         test("seed enriches contributors that have no description") {
             withInMemoryDatabase {

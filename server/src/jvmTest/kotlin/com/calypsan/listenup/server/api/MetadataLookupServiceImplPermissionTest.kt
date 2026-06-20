@@ -48,6 +48,8 @@ import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * canEdit-gate tests for [MetadataLookupServiceImpl] (closes MA holistic-review finding I1).
@@ -112,15 +114,15 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-perm-").toAbsolutePath()
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, registry)
-    val seriesRepo = SeriesRepository(db, bus, registry)
-    val genreRepo = GenreRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = EmptyAudibleApi(),
             itunes = NoOpITunesApiForPerm(),
-            cache = MetadataCacheRepository(db),
+            cache = MetadataCacheRepository(db.asSqlDatabase()),
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
@@ -141,7 +143,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         db = db,
         genreRepository = genreRepo,
     )

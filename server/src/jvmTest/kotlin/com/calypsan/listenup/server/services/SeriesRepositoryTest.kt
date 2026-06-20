@@ -2,13 +2,17 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
@@ -20,9 +24,9 @@ class SeriesRepositoryTest :
     FunSpec({
 
         test("resolveOrCreate inserts a new series and publishes Created") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = SeriesRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = SeriesRepository(db = sql, bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -38,8 +42,8 @@ class SeriesRepositoryTest :
         }
 
         test("resolveOrCreate is idempotent on the normalized name") {
-            withInMemoryDatabase {
-                val repo = SeriesRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     val first = repo.resolveOrCreate("The Stormlight Archive")
                     val second = repo.resolveOrCreate("  the   STORMLIGHT archive ")
@@ -49,9 +53,116 @@ class SeriesRepositoryTest :
         }
 
         test("idAsString unwraps the value class to its raw string") {
-            withInMemoryDatabase {
-                val repo = SeriesRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 repo.idAsStringForTest(SeriesId("s1")) shouldBe "s1"
+            }
+        }
+
+        // ── SQLDelight cutover gap tests ──────────────────────────────────────────
+
+        test("first display name wins; later variant does not overwrite stored casing") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val id = repo.resolveOrCreate("Mistborn")
+                    repo.resolveOrCreate("MISTBORN")
+                    repo.findById(id.value)?.name shouldBe "Mistborn"
+                }
+            }
+        }
+
+        test("findById returns enrichment columns round-tripped through upsert") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.upsert(
+                        SeriesSyncPayload(
+                            id = "enriched",
+                            name = "Enriched Series",
+                            sortName = "Enriched Series",
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                            asin = "B0SERIES",
+                            description = "A described series.",
+                            coverPath = "covers/enriched.jpg",
+                            coverBlurHash = "LKO2",
+                        ),
+                    )
+                    val read = repo.findById("enriched")
+                    read.shouldNotBeNull()
+                    read.asin shouldBe "B0SERIES"
+                    read.description shouldBe "A described series."
+                    read.coverPath shouldBe "covers/enriched.jpg"
+                    read.coverBlurHash shouldBe "LKO2"
+                    read.sortName shouldBe "Enriched Series"
+                }
+            }
+        }
+
+        test("pullSince (batched readPayloads) returns inserted series in revision order") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.resolveOrCreate("Series One")
+                    repo.resolveOrCreate("Series Two")
+                    val page = repo.pullSince(userId = null, cursor = 0L, limit = 10)
+                    page.items.map { it.name } shouldContainExactly listOf("Series One", "Series Two")
+                }
+            }
+        }
+
+        test("soft-delete round-trip: tombstones the row and excludes it from listLiveIds") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val id = repo.resolveOrCreate("Doomed Series")
+                    val result = repo.softDelete(id)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.findById(id.value).shouldNotBeNull()
+                    repo.findById(id.value)?.deletedAt.shouldNotBeNull()
+                    repo.listLiveIds() shouldBe emptySet()
+                }
+            }
+        }
+
+        test("digest reflects inserted series and is stable") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.resolveOrCreate("Series One")
+                    repo.resolveOrCreate("Series Two")
+                    val cursor = repo.pullSince(userId = null, cursor = 0L, limit = 10).nextCursor!!
+                    val digest = repo.digest(userId = null, cursor = cursor)
+                    digest.count shouldBe 2
+                    digest.hash.startsWith("sha256:") shouldBe true
+                }
+            }
+        }
+
+        test("allIdRevisionsForTest returns all rows including soft-deleted") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val keep = repo.resolveOrCreate("Kept Series")
+                    val gone = repo.resolveOrCreate("Gone Series")
+                    repo.softDelete(gone)
+                    val ids = repo.allIdRevisionsForTest().map { it.first }
+                    ids shouldContainExactly listOf(keep.value, gone.value)
+                }
+            }
+        }
+
+        test("sortName null is preserved on resolveOrCreate insert") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val id = repo.resolveOrCreate("No Sort Series")
+                    repo.findById(id.value)?.sortName.shouldBeNull()
+                }
             }
         }
     })

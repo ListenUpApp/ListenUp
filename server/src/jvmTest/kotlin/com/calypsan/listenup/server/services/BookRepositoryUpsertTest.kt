@@ -41,6 +41,8 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryUpsertTest :
     FunSpec({
@@ -53,12 +55,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     // Seed the contributor/series catalogue rows the junction-row FKs
@@ -123,12 +127,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     transaction(db) {
@@ -192,12 +198,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     transaction(db) {
@@ -249,12 +257,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val warned =
@@ -290,12 +300,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     // Insert a book row directly with a bogus cover_source value that
@@ -351,12 +363,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     transaction(db) {
@@ -417,12 +431,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val analyzed = analyzedFixture(rootRelPath = "books/b-idempotent", hasScanWarning = false)
@@ -464,12 +480,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val original = analyzedFixture(rootRelPath = "books/b-changed", hasScanWarning = false)
@@ -509,12 +527,14 @@ class BookRepositoryUpsertTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))

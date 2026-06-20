@@ -1,10 +1,9 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.db.PendingBookGenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -21,7 +20,7 @@ private val logger = KotlinLogging.logger {}
  * [BookGenreWriter.resolveAndLink] — the same alias → normalizer → auto-create
  * cascade the scanner uses, but *additive*: it never wipes the book's
  * already-live `book_genres`. After a book's strings are resolved it drains that
- * book's pending rows ([PendingBookGenreTable.deleteAllForBook]).
+ * book's pending rows (`pendingBookGenresQueries.deleteAllForBook`).
  *
  * Idempotent by construction: once a book's rows are drained, a subsequent
  * [run] finds nothing pending for it, and the additive resolve uses
@@ -32,16 +31,24 @@ private val logger = KotlinLogging.logger {}
  * its rows.
  */
 internal class PendingGenrePromotion(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val bookGenreWriter: BookGenreWriter,
 ) {
     /**
-     * Drains the legacy pending-genre backlog. Each book is processed in its own
-     * transaction so a failure on one book can't roll back another's progress.
-     * Returns the number of books promoted.
+     * Drains the legacy pending-genre backlog. The resolve + drain for each book runs as a
+     * sequential SQLDelight pass (the additive `insertIfAbsent` link writes auto-commit, the
+     * auto-create upsert manages its own transaction, then the book's pending rows are deleted)
+     * so a failure on one book can't roll back another's progress. Returns the number of books
+     * promoted.
      */
     suspend fun run(): Int {
-        val grouped = suspendTransaction(db) { PendingBookGenreTable.allGroupedByBook() }
+        val grouped =
+            suspendTransaction(db) {
+                db.pendingBookGenresQueries
+                    .allRows()
+                    .executeAsList()
+                    .groupBy({ it.book_id }, { it.raw_string })
+            }
         if (grouped.isEmpty()) return 0
 
         logger.info { "pending-genre promotion: draining backlog for ${grouped.size} book(s)" }
@@ -50,12 +57,10 @@ internal class PendingGenrePromotion(
         for ((bookIdStr, rawStrings) in grouped) {
             val resolved =
                 runCatching {
-                    suspendTransaction(db) {
-                        for (raw in rawStrings) {
-                            bookGenreWriter.resolveAndLink(BookId(bookIdStr), raw)
-                        }
-                        PendingBookGenreTable.deleteAllForBook(bookIdStr)
+                    for (raw in rawStrings) {
+                        bookGenreWriter.resolveAndLink(BookId(bookIdStr), raw)
                     }
+                    suspendTransaction(db) { db.pendingBookGenresQueries.deleteAllForBook(bookIdStr) }
                 }
             resolved
                 .onSuccess { promoted++ }

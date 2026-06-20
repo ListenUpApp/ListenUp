@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
-import com.calypsan.listenup.server.db.ListeningEventTable
-import com.calypsan.listenup.server.db.PlaybackPositionTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.math.max
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -11,12 +11,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Rebuilds the materialized `user_stats` row from scratch by replaying all
@@ -25,9 +19,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  *
  * Useful when the stats schema changes, after a bug, or after restoring from
  * backup. Idempotent — running it twice produces the same result.
+ *
+ * **Engines.** Everything reads through [sql] (the SQLDelight [ListenUpDatabase]): the event and
+ * position reads, plus the day-boundary timezone from `users` ([homeTimeZone]). The backfill runs
+ * as a standalone admin/import operation (not nested inside another write transaction), so its
+ * reads and the [UserStatsRepository.upsert] write are independent transactions.
  */
 class UserStatsBackfillService(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
 ) {
@@ -40,21 +39,17 @@ class UserStatsBackfillService(
 
         // 1. Read all listening_events for this user, ordered by endedAt ascending.
         val events =
-            suspendTransaction(db) {
-                ListeningEventTable
-                    .selectAll()
-                    .where {
-                        (ListeningEventTable.userId eq userId) and
-                            ListeningEventTable.deletedAt.isNull()
-                    }.orderBy(ListeningEventTable.endedAt)
-                    .toList()
+            suspendTransaction(sql) {
+                sql.listeningEventsQueries
+                    .selectForUserOrderedByEndedAt(userId)
+                    .executeAsList()
             }
 
         // 2. Walk events to compute totals, distinct books, and streaks.
         //    All day-boundary math uses the user's home timezone — one consistent frame
         //    per user. The per-event tz field is ignored here because it can be "UTC" for
         //    ABS imports and mixed-frame for travelers, producing wrong streaks.
-        val userTz = db.homeTimeZone(userId)
+        val userTz = sql.homeTimeZone(userId)
         var totalAllTime = 0L
         val distinctBooks = mutableSetOf<String>()
         var lastDate: LocalDate? = null
@@ -62,13 +57,13 @@ class UserStatsBackfillService(
         var longestStreak = 0
 
         for (event in events) {
-            val wallSeconds = (event[ListeningEventTable.endedAt] - event[ListeningEventTable.startedAt]) / 1_000L
+            val wallSeconds = (event.ended_at - event.started_at) / 1_000L
             totalAllTime += wallSeconds
-            distinctBooks.add(event[ListeningEventTable.bookId])
+            distinctBooks.add(event.book_id)
 
             val eventDate =
                 Instant
-                    .fromEpochMilliseconds(event[ListeningEventTable.endedAt])
+                    .fromEpochMilliseconds(event.ended_at)
                     .toLocalDateTime(userTz)
                     .date
 
@@ -89,23 +84,19 @@ class UserStatsBackfillService(
         var last7 = 0L
         var last30 = 0L
         for (event in events) {
-            val endedAtMs = event[ListeningEventTable.endedAt]
-            val wallSeconds = (endedAtMs - event[ListeningEventTable.startedAt]) / 1_000L
+            val endedAtMs = event.ended_at
+            val wallSeconds = (endedAtMs - event.started_at) / 1_000L
             if (endedAtMs >= cutoff7) last7 += wallSeconds
             if (endedAtMs >= cutoff30) last30 += wallSeconds
         }
 
         // 4. Count finished positions (non-deleted) for this user.
         val booksFinished =
-            suspendTransaction(db) {
-                PlaybackPositionTable
-                    .selectAll()
-                    .where {
-                        (PlaybackPositionTable.userId eq userId) and
-                            (PlaybackPositionTable.finished eq true) and
-                            PlaybackPositionTable.deletedAt.isNull()
-                    }.toList()
-                    .size
+            suspendTransaction(sql) {
+                sql.playbackPositionsQueries
+                    .countFinishedForUser(userId)
+                    .executeAsOne()
+                    .toInt()
             }
 
         // 5. The walk's currentStreak is the streak as of lastDate; the *current* streak is only that

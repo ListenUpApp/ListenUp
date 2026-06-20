@@ -1,0 +1,55 @@
+-- invites: single-use admin-issued invitation tokens. PLAIN (non-syncable) server-owned table.
+-- Schema and the UNIQUE code index match V27__invites.sql exactly.
+--
+-- SECURITY-RELEVANT properties preserved verbatim:
+--   * code UNIQUE — a single structural guarantee that one code maps to one invite; the public
+--     claim / lookup path probes by code, and single-use is enforced by stamping claimed_at.
+--   * role is stored by name (ROOT/ADMIN/MEMBER), exactly as the Exposed enumerationByName column;
+--     the repo maps name ↔ enum at the boundary. V27 declares no CHECK on it (matching the Exposed
+--     table, which relied on the enum mapping alone), so none is added here.
+--   * claimed_at / claimed_by stay NULL until redemption; the claim path refuses an already-stamped
+--     invite, making the code genuinely single-use.
+--
+-- No FK on created_by / claimed_by (SQLDelight cross-.sq limitation; V27 declared none either).
+CREATE TABLE invites (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    code         TEXT    NOT NULL UNIQUE,
+    email        TEXT    NOT NULL,
+    display_name TEXT    NOT NULL,
+    role         TEXT    NOT NULL,
+    created_by   TEXT    NOT NULL,
+    expires_at   INTEGER NOT NULL,
+    claimed_at   INTEGER,
+    claimed_by   TEXT,
+    created_at   INTEGER NOT NULL
+);
+
+-- Insert a freshly-minted invite. claimed_at / claimed_by start NULL.
+insert:
+INSERT INTO invites (id, code, email, display_name, role, created_by, expires_at, claimed_at, claimed_by, created_at)
+VALUES (:id, :code, :email, :display_name, :role, :created_by, :expires_at, NULL, NULL, :created_at);
+
+-- Single-row lookup by primary key (revoke).
+selectById:
+SELECT * FROM invites WHERE id = :id;
+
+-- Single-row lookup by code — the public claim / lookup probe. Indexed by the UNIQUE constraint.
+selectByCode:
+SELECT * FROM invites WHERE code = :code;
+
+-- All invites, for the admin list (status is derived in Kotlin from claim/expiry).
+selectAll:
+SELECT * FROM invites;
+
+-- True iff any invite exists (seeder idempotency guard).
+hasAnyInvite:
+SELECT EXISTS(SELECT 1 FROM invites);
+
+-- Stamp the claim (single-use consumption). Keyed on id; the caller has already verified the
+-- invite is unclaimed and unexpired inside the same transaction.
+markClaimed:
+UPDATE invites SET claimed_at = :claimed_at, claimed_by = :claimed_by WHERE id = :id;
+
+-- Hard-delete an invite (revoke). The caller refuses this once claimed_at is set.
+deleteById:
+DELETE FROM invites WHERE id = :id;

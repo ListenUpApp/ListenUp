@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.BookRepository
@@ -67,6 +68,8 @@ internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
     val db: Database,
+    /** SQLDelight view over the same file as [db] — the engine [tagRepo] and other converted repos run on. */
+    val sqlDb: ListenUpDatabase,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
     private val listeningEventRepoOrNull: ListeningEventRepository?,
@@ -151,10 +154,10 @@ internal fun withTestApplication(
             DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val registry = SyncRegistry()
-        val tagRepo = TagRepository(db, bus, registry)
+        val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
         val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(db, bus, registry) else null
         val playbackPositionRepo =
-            if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
+            if (playbackPositions) PlaybackPositionRepository(db.asSqlDatabase(), bus, registry) else null
 
         // Playback P2: events + stats. The lazy provider breaks the UserStatsRepository ↔
         // UserStatsUpdater mutual reference — same pattern as the production Koin binding.
@@ -166,7 +169,7 @@ internal fun withTestApplication(
             lateinit var updater: UserStatsUpdater
             val statsRepo =
                 UserStatsRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = bus,
                     registry = registry,
                     userStatsUpdaterProvider = { updater },
@@ -174,28 +177,19 @@ internal fun withTestApplication(
             val publicProfileMaintainer = buildPublicProfileMaintainer(db = db, bus = bus, registry = registry)
             val eventRepo =
                 ListeningEventRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = bus,
                     registry = registry,
                     userStatsUpdater =
                         UserStatsUpdater(
-                            db = db,
+                            sql = db.asSqlDatabase(),
                             userStatsRepo = statsRepo,
                             publicProfileMaintainerProvider = { publicProfileMaintainer },
                         ).also { updater = it },
                 )
-            val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
+            val positionRepoForPlayback = PlaybackPositionRepository(db.asSqlDatabase(), bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val sharedRegistry = SyncRegistry()
-            val bookRepo =
-                BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = sharedRegistry,
-                    contributorRepository = ContributorRepository(db, bus, sharedRegistry),
-                    seriesRepository = SeriesRepository(db, bus, sharedRegistry),
-                    genreRepository = GenreRepository(db, bus, sharedRegistry),
-                )
+            val bookRepo = buildPlaybackBookRepository(db, bus)
             bookRepoForScope = bookRepo
             // Seed the library + folder a test book FKs to, so playback-event tests
             // can upsert a real (accessible) book for the access gate to admit.
@@ -208,7 +202,7 @@ internal fun withTestApplication(
                     playbackPositionRepository = positionRepoForPlayback,
                     listeningEventRepository = eventRepo,
                     userStatsRepository = statsRepo,
-                    accessPolicy = BookAccessPolicy(db),
+                    accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                     principal = PrincipalProvider { error("unscoped — copyWith required") },
                     db = db,
                 )
@@ -261,6 +255,7 @@ internal fun withTestApplication(
             client = jsonClient,
             tagRepo = tagRepo,
             db = db,
+            sqlDb = db.asSqlDatabase(),
             userScopedRepoOrNull = userScopedRepo,
             playbackPositionRepoOrNull = playbackPositionRepo,
             listeningEventRepoOrNull = listeningEventRepo,
@@ -268,6 +263,29 @@ internal fun withTestApplication(
             bookRepoOrNull = bookRepoForScope,
         ).block()
     }
+}
+
+/**
+ * Builds the SQLDelight-backed [BookRepository] the playback-events fixture wires, over a fresh
+ * shared [SyncRegistry]. Extracted from [withTestApplication] to keep that function within the
+ * detekt size budget; mirrors the production wiring (SQLDelight handle for the book aggregate +
+ * contributors/series, the Exposed handle for the not-yet-converted collaborators).
+ */
+private fun buildPlaybackBookRepository(
+    db: Database,
+    bus: ChangeBus,
+): BookRepository {
+    val sharedRegistry = SyncRegistry()
+    return BookRepository(
+        db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
+        exposedDb = db,
+        bus = bus,
+        registry = sharedRegistry,
+        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),
+        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, sharedRegistry),
+        genreRepository = GenreRepository(db.asSqlDatabase(), bus, sharedRegistry),
+    )
 }
 
 /** Creates and schema-initialises a [UserScopedFixtureRepository] for the given test database. */
@@ -289,8 +307,8 @@ private fun buildPublicProfileMaintainer(
     bus: ChangeBus,
     registry: SyncRegistry,
 ): PublicProfileMaintainer {
-    val repo = PublicProfileRepository(db = db, bus = bus, registry = registry)
-    return PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+    val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    return PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 }
 
 /**

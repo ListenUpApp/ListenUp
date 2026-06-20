@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
@@ -241,19 +244,19 @@ private fun enrichmentCtx(db: Database): EnrichmentCtx {
     val tempDir = Files.createTempDirectory("enrich-").also { it.toFile().deleteOnExit() }.toString()
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, registry)
-    val seriesRepo = SeriesRepository(db, bus, registry)
-    val genreRepo = GenreRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
-    val moodRepo = MoodRepository(db, bus, registry)
-    val bookMoodRepo = BookMoodRepository(db, bus, registry)
-    val tagRepo = TagRepository(db, bus, registry)
-    val bookTagRepo = BookTagRepository(db, bus, registry)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+    val moodRepo = MoodRepository(db.asSqlDatabase(), bus, registry)
+    val bookMoodRepo = BookMoodRepository(db.asSqlDatabase(), bus, registry)
+    val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
+    val bookTagRepo = BookTagRepository(db.asSqlDatabase(), bus, registry)
     val metadataService =
         MetadataService(
             audible = EnrichStubAudibleApi(enrichBook()),
             itunes = NoOpEnrichITunesApi(),
-            cache = MetadataCacheRepository(db, clock = FixedClock(ENRICH_NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(ENRICH_NOW)),
         )
     return EnrichmentCtx(
         db = db,

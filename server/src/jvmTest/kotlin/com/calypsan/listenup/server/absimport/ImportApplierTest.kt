@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -441,18 +442,18 @@ private suspend fun stageAnalyzedImport(
 
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val bookReads = BookReadsRepository(db = db)
-    val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry, bookReadsRepository = bookReads)
-    val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
+    val bookReads = BookReadsRepository(db = db.asSqlDatabase())
+    val repo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, bookReadsRepository = bookReads)
+    val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val statsUpdater =
         UserStatsUpdater(
-            db = db,
+            sql = db.asSqlDatabase(),
             userStatsRepo = statsRepo,
             publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
         )
     val listeningEventRepo =
-        ListeningEventRepository(db = db, bus = bus, registry = registry, userStatsUpdater = statsUpdater)
-    val statsBackfill = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+        ListeningEventRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, userStatsUpdater = statsUpdater)
+    val statsBackfill = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
 
     val analyzer =
         ImportAnalyzer(

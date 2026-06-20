@@ -19,6 +19,8 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -61,16 +63,34 @@ class CollectionListSystemVisibilityTest :
         fun makeService(db: Database): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
                 db = db,
                 clock = fixedClock,
@@ -108,7 +128,12 @@ class CollectionListSystemVisibilityTest :
                     // Seed the default ALL_BOOKS grant that every member receives — this is the
                     // production path that caused the leak.
                     val grantRepo =
-                        CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                        CollectionGrantRepository(
+                            db = db.asSqlDatabase(),
+                            bus = ChangeBus(),
+                            registry = SyncRegistry(),
+                            driver = db.asSqlDriver(),
+                        )
                     grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "grant-all-books-u1",

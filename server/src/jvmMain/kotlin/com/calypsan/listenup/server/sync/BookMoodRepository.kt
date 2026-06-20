@@ -3,26 +3,19 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.server.db.BookMoodsTable
+import com.calypsan.listenup.server.db.sqldelight.Book_moods
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.Column
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Composite key for `book_moods` junction rows.
  *
  * This is an internal server-side type; the wire representation is
  * [BookMoodSyncPayload], which carries [bookId] and [moodId] as top-level fields.
- * [asString] produces the synthetic `"$bookId:$moodId"` key stored in
- * [BookMoodsTable.id] and used by the [SyncableRepository] substrate.
+ * [asString] produces the synthetic `"$bookId:$moodId"` key stored in the
+ * `book_moods.id` column and used by the [SqlSyncableRepository] substrate.
  */
 data class BookMoodId(
     val bookId: String,
@@ -41,12 +34,12 @@ data class BookMoodId(
 }
 
 /**
- * Syncable repository for the `book_moods` global junction.
+ * SQLDelight syncable repository for the `book_moods` global junction — the
+ * composite-key sibling of [MoodRepository] and the twin of [BookTagRepository].
  *
- * Extends [SyncableRepository] with composite-key awareness. The [BookMoodsTable.id]
- * column stores the synthetic `"$bookId:$moodId"` key that the base class uses for
- * revision-cursor queries; the natural composite PK `(book_id, mood_id)` is the write
- * and lookup key.
+ * Extends [SqlSyncableRepository] with composite-key awareness. The `book_moods.id`
+ * column stores the synthetic `"$bookId:$moodId"` key the base uses for revision-cursor
+ * queries; the natural composite PK `(book_id, mood_id)` is the write and lookup key.
  *
  * In addition to the standard [upsert] / [softDelete], this repository provides
  * bulk cascade variants used by service-layer delete operations:
@@ -55,13 +48,12 @@ data class BookMoodId(
  *  - [findBookIdsForMood] — returns book IDs for any post-delete sweep
  */
 class BookMoodRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<BookMoodSyncPayload, BookMoodId>(
+) : SqlSyncableRepository<BookMoodSyncPayload, BookMoodId>(
         db = db,
-        table = BookMoodsTable,
         bus = bus,
         registry = registry,
         domainName = "book_moods",
@@ -73,30 +65,71 @@ class BookMoodRepository(
 
     override fun BookMoodSyncPayload.revisionOf(): Long = revision
 
-    /** Returns the synthetic [BookMoodsTable.id] column for the base-class WHERE clauses. */
-    override fun idColumn(): Column<String> = BookMoodsTable.id
-
     /** Converts a [BookMoodId] to the stored `"$bookId:$moodId"` string. */
     override fun idAsString(id: BookMoodId): String = id.asString()
 
-    override suspend fun readPayload(idStr: String): BookMoodSyncPayload? {
-        val key = BookMoodId.fromString(idStr)
-        return BookMoodsTable
-            .selectAll()
-            .where { (BookMoodsTable.bookId eq key.bookId) and (BookMoodsTable.moodId eq key.moodId) }
-            .firstOrNull()
-            ?.let { row ->
-                BookMoodSyncPayload(
-                    bookId = row[BookMoodsTable.bookId],
-                    moodId = row[BookMoodsTable.moodId],
-                    createdAt = row[BookMoodsTable.createdAt],
-                    revision = row[BookMoodsTable.revision],
-                    deletedAt = row[BookMoodsTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.bookMoodsQueries].
+     *
+     * Keyed on the synthetic `id` column — the base only ever passes the
+     * `"$bookId:$moodId"` string it gets back from [idAsString], so the substrate never
+     * needs to decompose it.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.bookMoodsQueries.existsById(id).executeAsOne()
+
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.bookMoodsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.bookMoodsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.bookMoodsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    // Tombstone-inclusive read by synthetic id — pullSince/readPayloads must hydrate
+    // soft-deleted rows so clients receive tombstones.
+    override fun readPayload(idStr: String): BookMoodSyncPayload? =
+        db.bookMoodsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<BookMoodSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.bookMoodsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toPayload() }
     }
 
-    override suspend fun writePayload(
+    override fun writePayload(
         value: BookMoodSyncPayload,
         rev: Long,
         now: Long,
@@ -104,48 +137,39 @@ class BookMoodRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        val syntheticId = BookMoodId(value.bookId, value.moodId).asString()
         if (existed) {
-            BookMoodsTable.update({
-                (BookMoodsTable.bookId eq value.bookId) and (BookMoodsTable.moodId eq value.moodId)
-            }) { stmt ->
-                stmt[BookMoodsTable.revision] = rev
-                stmt[BookMoodsTable.updatedAt] = now
-                stmt[BookMoodsTable.deletedAt] = null
-                stmt[BookMoodsTable.clientOpId] = clientOpId
-            }
+            db.bookMoodsQueries.update(
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                book_id = value.bookId,
+                mood_id = value.moodId,
+            )
         } else {
-            BookMoodsTable.insert { stmt ->
-                stmt[BookMoodsTable.id] = syntheticId
-                stmt[BookMoodsTable.bookId] = value.bookId
-                stmt[BookMoodsTable.moodId] = value.moodId
-                stmt[BookMoodsTable.createdAt] = now
-                stmt[BookMoodsTable.updatedAt] = now
-                stmt[BookMoodsTable.revision] = rev
-                stmt[BookMoodsTable.deletedAt] = null
-                stmt[BookMoodsTable.clientOpId] = clientOpId
-            }
+            db.bookMoodsQueries.insert(
+                id = BookMoodId(value.bookId, value.moodId).asString(),
+                book_id = value.bookId,
+                mood_id = value.moodId,
+                created_at = now,
+                updated_at = now,
+                revision = rev,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /**
-     * Returns all non-tombstoned junction rows for [bookId], ordered by [BookMoodsTable.createdAt].
+     * Returns all non-tombstoned junction rows for [bookId], ordered by `created_at`.
      */
     suspend fun findAllForBook(bookId: String): List<BookMoodSyncPayload> =
         suspendTransaction(db) {
-            BookMoodsTable
-                .selectAll()
-                .where { (BookMoodsTable.bookId eq bookId) and BookMoodsTable.deletedAt.isNull() }
-                .orderBy(BookMoodsTable.createdAt)
-                .map { row ->
-                    BookMoodSyncPayload(
-                        bookId = row[BookMoodsTable.bookId],
-                        moodId = row[BookMoodsTable.moodId],
-                        createdAt = row[BookMoodsTable.createdAt],
-                        revision = row[BookMoodsTable.revision],
-                        deletedAt = row[BookMoodsTable.deletedAt],
-                    )
-                }
+            db.bookMoodsQueries
+                .selectByBookId(bookId)
+                .executeAsList()
+                .sortedBy { it.created_at }
+                .map { it.toPayload() }
         }
 
     /**
@@ -153,18 +177,10 @@ class BookMoodRepository(
      */
     suspend fun findAllForMood(moodId: String): List<BookMoodSyncPayload> =
         suspendTransaction(db) {
-            BookMoodsTable
-                .selectAll()
-                .where { (BookMoodsTable.moodId eq moodId) and BookMoodsTable.deletedAt.isNull() }
-                .map { row ->
-                    BookMoodSyncPayload(
-                        bookId = row[BookMoodsTable.bookId],
-                        moodId = row[BookMoodsTable.moodId],
-                        createdAt = row[BookMoodsTable.createdAt],
-                        revision = row[BookMoodsTable.revision],
-                        deletedAt = row[BookMoodsTable.deletedAt],
-                    )
-                }
+            db.bookMoodsQueries
+                .selectByMoodId(moodId)
+                .executeAsList()
+                .map { it.toPayload() }
         }
 
     /**
@@ -174,10 +190,7 @@ class BookMoodRepository(
      */
     suspend fun findBookIdsForMood(moodId: String): List<String> =
         suspendTransaction(db) {
-            BookMoodsTable
-                .selectAll()
-                .where { (BookMoodsTable.moodId eq moodId) and BookMoodsTable.deletedAt.isNull() }
-                .map { row -> row[BookMoodsTable.bookId] }
+            db.bookMoodsQueries.selectBookIdsForMood(moodId).executeAsList()
         }
 
     /**
@@ -200,33 +213,8 @@ class BookMoodRepository(
      */
     suspend fun softDeleteAllForBook(bookId: String): Int =
         suspendTransaction(db) {
-            val live =
-                BookMoodsTable
-                    .selectAll()
-                    .where { (BookMoodsTable.bookId eq bookId) and BookMoodsTable.deletedAt.isNull() }
-                    .map { row -> row[BookMoodsTable.id] }
-
-            for (syntheticId in live) {
-                val rev = nextRevision()
-                val now = clock.now().toEpochMilliseconds()
-                BookMoodsTable.update({ BookMoodsTable.id eq syntheticId }) { stmt ->
-                    stmt[BookMoodsTable.revision] = rev
-                    stmt[BookMoodsTable.updatedAt] = now
-                    stmt[BookMoodsTable.deletedAt] = now
-                    stmt[BookMoodsTable.clientOpId] = null
-                }
-                bus.publish(
-                    repo = this@BookMoodRepository,
-                    event =
-                        SyncEvent.Deleted(
-                            id = syntheticId,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = null,
-                        ),
-                    userId = null,
-                )
-            }
+            val live = db.bookMoodsQueries.selectLiveIdsForBook(bookId).executeAsList()
+            tombstoneEach(live)
             live.size
         }
 
@@ -239,33 +227,54 @@ class BookMoodRepository(
      */
     suspend fun softDeleteAllForMood(moodId: String): Int =
         suspendTransaction(db) {
-            val live =
-                BookMoodsTable
-                    .selectAll()
-                    .where { (BookMoodsTable.moodId eq moodId) and BookMoodsTable.deletedAt.isNull() }
-                    .map { row -> row[BookMoodsTable.id] }
-
-            for (syntheticId in live) {
-                val rev = nextRevision()
-                val now = clock.now().toEpochMilliseconds()
-                BookMoodsTable.update({ BookMoodsTable.id eq syntheticId }) { stmt ->
-                    stmt[BookMoodsTable.revision] = rev
-                    stmt[BookMoodsTable.updatedAt] = now
-                    stmt[BookMoodsTable.deletedAt] = now
-                    stmt[BookMoodsTable.clientOpId] = null
-                }
-                bus.publish(
-                    repo = this@BookMoodRepository,
-                    event =
-                        SyncEvent.Deleted(
-                            id = syntheticId,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = null,
-                        ),
-                    userId = null,
-                )
-            }
+            val live = db.bookMoodsQueries.selectLiveIdsForMood(moodId).executeAsList()
+            tombstoneEach(live)
             live.size
         }
+
+    /**
+     * Tombstones each synthetic id in [syntheticIds] with its own revision bump, inside
+     * the caller's open transaction, and registers a per-row after-commit
+     * [SyncEvent.Deleted]. The shared body of [softDeleteAllForBook] / [softDeleteAllForMood].
+     */
+    private fun app.cash.sqldelight.TransactionWithReturn<*>.tombstoneEach(syntheticIds: List<String>) {
+        for (syntheticId in syntheticIds) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.bookMoodsQueries.softDeleteById(
+                revision = rev,
+                updated_at = now,
+                deleted_at = now,
+                client_op_id = null,
+                id = syntheticId,
+            )
+            emitAfterCommit(
+                event =
+                    SyncEvent.Deleted(
+                        id = syntheticId,
+                        revision = rev,
+                        occurredAt = now,
+                        clientOpId = null,
+                    ),
+            )
+        }
+    }
+
+    /** Maps a generated [Book_moods] row to the wire [BookMoodSyncPayload] DTO. */
+    private fun Book_moods.toPayload(): BookMoodSyncPayload =
+        BookMoodSyncPayload(
+            bookId = book_id,
+            moodId = mood_id,
+            createdAt = created_at,
+            revision = revision,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }

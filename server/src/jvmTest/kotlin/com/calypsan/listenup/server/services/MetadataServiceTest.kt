@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -284,7 +285,7 @@ private fun makeService(
     MetadataService(
         audible = audible,
         itunes = itunes,
-        cache = MetadataCacheRepository(db, clock),
+        cache = MetadataCacheRepository(db.asSqlDatabase(), clock),
         defaultRegion = defaultRegion,
         clock = clock,
     )

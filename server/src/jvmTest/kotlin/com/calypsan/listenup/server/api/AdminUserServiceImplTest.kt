@@ -33,6 +33,7 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -80,7 +81,8 @@ class AdminUserServiceImplTest :
             bus: ChangeBus = ChangeBus(),
             activityRecorder: ActivityRecorder? = null,
         ): AdminUserServiceImpl {
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
                 db = db,
@@ -210,7 +212,8 @@ class AdminUserServiceImplTest :
                 seedTestUser("a1", UserRoleColumn.ADMIN)
                 seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
-                    val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                    val sessions =
+                        SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
                     val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
                     val svc =
                         AdminUserServiceImpl(
@@ -430,7 +433,7 @@ class AdminUserServiceImplTest :
         test("decidePendingRegistration(approve) records one user_joined for the approved user") {
             withInMemoryDatabase {
                 val db = this
-                val activities = ActivityRepository(db = db)
+                val activities = ActivityRepository(db = db.asSqlDatabase())
                 seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
@@ -449,7 +452,7 @@ class AdminUserServiceImplTest :
         test("decidePendingRegistration(deny) records no user_joined") {
             withInMemoryDatabase {
                 val db = this
-                val activities = ActivityRepository(db = db)
+                val activities = ActivityRepository(db = db.asSqlDatabase())
                 seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {

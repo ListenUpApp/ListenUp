@@ -5,70 +5,92 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
-import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.SqlFragment
+import com.calypsan.listenup.server.sync.bindRaw
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
 /**
- * Transaction-scoped read helpers for the books aggregate.
+ * Transaction-scoped read helpers for the books aggregate, over the generated SQLDelight
+ * queries.
  *
- * Each method opens its own short read transaction via [suspendTransaction] —
- * they do NOT call [com.calypsan.listenup.server.sync.nextRevision], the change
- * bus, or any write DSL. The caller ([BookRepository]) provides [db].
+ * Each method opens its own short read transaction — they do NOT bump the global revision,
+ * the change bus, or any write query. The caller ([BookRepository]) provides [db] (the
+ * SQLDelight handle) and [driver] (the shared [SqlDriver] behind it, used only for the
+ * access-filtered FTS read whose spliced subquery is a runtime-built [SqlFragment] no static
+ * SQLDelight query can express). The raw query runs inside the [suspendTransaction] on the same
+ * connection, engine-neutral.
+ *
+ * @param db the SQLDelight database for the generated reads + aggregate hydration.
+ * @param driver the SQLDelight driver used only by the dynamic access-filtered [searchFts] path.
  */
 internal class BookFinder(
-    private val db: Database,
+    private val db: ListenUpDatabase,
+    private val driver: SqlDriver,
 ) {
     /**
      * Runs an FTS5 full-text search against `book_search` and returns matching
      * [BookId]s in rank order (best match first), capped at [limit] results.
      *
-     * Joins `book_search_map` to translate FTS5 integer rowids back to the
-     * string book ids this application uses. The search query is parameterised
-     * so user-supplied strings never touch the SQL text. [limit] is clamped
-     * by the caller ([BookServiceImpl]) before this method is invoked.
+     * The unfiltered path uses the generated `searchBookIds` query (the static
+     * MATCH+join+rank shape). When [accessFilter] is non-null its `SELECT b2.id …`
+     * subquery must be spliced as `AND m.book_id IN (<sql>)` — a runtime-built fragment
+     * that no static query can express — so that path runs the read engine-neutrally over the
+     * shared SQLDelight [driver] inside the [suspendTransaction]. **Args are bound in statement
+     * order and the order is security-relevant:** `MATCH ?` (the fts query) first, then the
+     * access subquery's args, then `LIMIT ?` — a wrong order could bind the query into the
+     * access subquery and leak inaccessible matches.
      *
-     * When [accessFilter] is non-null its `SELECT b2.id …` subquery is spliced as
-     * `AND m.book_id IN (<sql>)` so only ids the viewer can reach survive — the
-     * caller ([BookServiceImpl.searchBooks]) derives it from
+     * The caller ([BookServiceImpl.searchBooks]) derives [accessFilter] from
      * [BookAccessPolicy.accessibleBookIdsSql][com.calypsan.listenup.server.api.BookAccessPolicy.accessibleBookIdsSql],
-     * which yields `null` for ROOT/ADMIN (unfiltered). Args are spliced in statement
-     * order: `MATCH ?` → the access subquery's args → `LIMIT ?`.
+     * which yields `null` for ROOT/ADMIN (unfiltered). [limit] is clamped by the caller.
      */
     suspend fun searchFts(
         query: String,
         limit: Int,
         accessFilter: SqlFragment? = null,
     ): List<BookId> =
-        suspendTransaction(db) {
-            val results = mutableListOf<BookId>()
-            val accessClause = if (accessFilter != null) " AND m.book_id IN (${accessFilter.sql})" else ""
-            val stmt =
-                "SELECT m.book_id FROM book_search s " +
-                    "JOIN book_search_map m ON s.rowid = m.rowid " +
-                    "WHERE book_search MATCH ?" + accessClause + " ORDER BY rank LIMIT ?"
-            val args =
-                listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to query) +
-                    (accessFilter?.args ?: emptyList()) +
-                    listOf(IntegerColumnType() to limit)
-            TransactionManager.current().exec(stmt = stmt, args = args) { rs ->
-                while (rs.next()) results += BookId(rs.getString(1))
+        if (accessFilter == null) {
+            suspendTransaction(db) {
+                db.bookSearchQueries
+                    .searchBookIds(query, limit.toLong())
+                    .executeAsList()
+                    .map { BookId(it) }
             }
-            results
+        } else {
+            suspendTransaction(db) {
+                val sql =
+                    "SELECT m.book_id FROM book_search s " +
+                        "JOIN book_search_map m ON s.rowid = m.rowid " +
+                        "WHERE book_search MATCH ? AND m.book_id IN (${accessFilter.sql}) ORDER BY rank LIMIT ?"
+                // Placeholder count: MATCH ? (1) + access-subquery args + LIMIT ? (1).
+                val parameterCount = 1 + accessFilter.args.size + 1
+                driver
+                    .executeQuery(
+                        identifier = null,
+                        sql = sql,
+                        mapper = { cursor ->
+                            val out = mutableListOf<BookId>()
+                            while (cursor.next().value) {
+                                out += BookId(cursor.getString(0)!!)
+                            }
+                            QueryResult.Value(out.toList())
+                        },
+                        parameters = parameterCount,
+                        binders = {
+                            // Statement order — load-bearing for visibility.
+                            var index = 0
+                            bindString(index++, query)
+                            accessFilter.args.forEach { arg -> bindRaw(index++, arg) }
+                            bindLong(index, limit.toLong())
+                        },
+                    ).value
+            }
         }
 
     /** Resolves the natural key `(library_id, root_rel_path)` to a [BookId], or null. */
@@ -77,12 +99,9 @@ internal class BookFinder(
         rootRelPath: String,
     ): BookId? =
         suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where {
-                    (BookTable.libraryId eq libraryId.value) and (BookTable.rootRelPath eq rootRelPath)
-                }.firstOrNull()
-                ?.get(BookTable.id)
+            db.booksQueries
+                .selectIdByNaturalKey(libraryId.value, rootRelPath)
+                .executeAsOneOrNull()
                 ?.let { BookId(it) }
         }
 
@@ -98,10 +117,9 @@ internal class BookFinder(
     ): BookId? =
         suspendTransaction(db) {
             val matches =
-                BookTable
-                    .selectAll()
-                    .where { (BookTable.libraryId eq libraryId.value) and (BookTable.inode eq inode) }
-                    .map { it[BookTable.id] }
+                db.booksQueries
+                    .selectIdsByInode(libraryId.value, inode)
+                    .executeAsList()
             if (matches.size > 1) {
                 log.warn { "Multiple books share inode $inode in library ${libraryId.value}; picking first" }
             }
@@ -110,8 +128,7 @@ internal class BookFinder(
 
     /**
      * Returns the full book aggregates for every book that has a junction row for
-     * [contributorId] in [BookContributorTable]. Results are ordered by book
-     * [BookTable.createdAt] ascending (stable, scan-insertion order).
+     * [contributorId] in `book_contributors`.
      *
      * Used by [com.calypsan.listenup.server.api.ContributorServiceImpl.listBooksByContributor].
      * Opens its own read transaction — independent of the substrate's orchestration.
@@ -119,17 +136,15 @@ internal class BookFinder(
     suspend fun findByContributor(contributorId: ContributorId): List<BookSyncPayload> =
         suspendTransaction(db) {
             val bookIds =
-                BookContributorTable
-                    .select(BookContributorTable.bookId)
-                    .where { BookContributorTable.contributorId eq contributorId.value }
-                    .map { it[BookContributorTable.bookId] }
-            readBookPayloads(bookIds)
+                db.bookContributorsQueries
+                    .bookIdsForContributor(contributorId.value)
+                    .executeAsList()
+            db.readBookPayloads(bookIds)
         }
 
     /**
      * Returns the full book aggregates for every book that has a membership row for
-     * [seriesId] in [BookSeriesMembershipTable]. Results are ordered by
-     * [BookSeriesMembershipTable.ordinal] ascending (series-position order).
+     * [seriesId] in `book_series_memberships`, in series-position order.
      *
      * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
      * Opens its own read transaction — independent of the substrate's orchestration.
@@ -137,11 +152,9 @@ internal class BookFinder(
     suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> =
         suspendTransaction(db) {
             val bookIds =
-                BookSeriesMembershipTable
-                    .select(BookSeriesMembershipTable.bookId)
-                    .where { BookSeriesMembershipTable.seriesId eq seriesId.value }
-                    .orderBy(BookSeriesMembershipTable.ordinal)
-                    .map { it[BookSeriesMembershipTable.bookId] }
-            readBookPayloads(bookIds)
+                db.bookSeriesMembershipsQueries
+                    .bookIdsForSeries(seriesId.value)
+                    .executeAsList()
+            db.readBookPayloads(bookIds)
         }
 }

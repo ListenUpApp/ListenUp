@@ -29,6 +29,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * DB-backed coverage for the scanner's 3-step genre-resolution cascade in
@@ -157,8 +159,7 @@ private suspend fun seedTaxonomy(
     clock: FixedClock,
 ) {
     GenreDomainSeeder(
-        db = db,
-        genreRepository = GenreRepository(db, ChangeBus(), SyncRegistry(), clock),
+        genreRepository = GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock),
         clock = clock,
     ).seed()
 }
@@ -167,12 +168,14 @@ private fun newRepo(db: Database): BookRepository {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     return BookRepository(
-        db = db,
+        db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
+        exposedDb = db,
         bus = bus,
         registry = syncRegistry,
-        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-        genreRepository = GenreRepository(db, bus, syncRegistry),
+        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
     )
 }
 

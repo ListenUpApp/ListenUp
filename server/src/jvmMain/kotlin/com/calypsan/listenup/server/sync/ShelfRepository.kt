@@ -3,19 +3,12 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.ShelfId
-import com.calypsan.listenup.server.db.ShelvesTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Shelves
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.neq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * A live shelf paired with its owner's user id.
@@ -32,28 +25,36 @@ data class OwnedShelf(
 )
 
 /**
- * Syncable repository for per-user, user-owned shelves.
+ * SQLDelight syncable repository for per-user, user-owned shelves — the **first
+ * user-scoped aggregate** in the Exposed → SQLDelight cutover and the template the
+ * playback/listening domains follow.
  *
  * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest`
- * routes through the per-user dimension of the substrate: the owning `user_id`
- * is stamped on insert and every read/digest filters by the authenticated user.
+ * routes through the per-user dimension of the [SqlSyncableRepository] base: the
+ * owning `user_id` is stamped on insert, and pull/digest filter to the authenticated
+ * user via the substrate's `*ForUser` variants
+ * ([SyncableSubstrateQueries.selectIdsAboveRevisionForUser] /
+ * [SyncableSubstrateQueries.selectIdRevAtMostForUser]).
  *
  * `idAsString(ShelfId) = id.value` is load-bearing — Kotlin's default `toString()`
  * on a value class returns `"ShelfId(value=foo)"`, which would corrupt every column
  * the id is written to.
  *
- * Service-layer helpers beyond the base substrate:
+ * Service-layer helpers beyond the base substrate (each runs in its own transaction):
  *  - [listOwnedBy] — all live shelves for a user
  *  - [findById] — one live shelf by id, or null
+ *  - [findOwnedById] — one live shelf + its owner id, or null
+ *  - [createStarterShelf] — the one-shot "To Read" shelf created at registration
+ *  - [listForOwner] — every live public shelf owned by a user (with owner id)
+ *  - [listDiscoverable] — every live public shelf NOT owned by a user (with owner id)
  */
 class ShelfRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<ShelfSyncPayload, ShelfId>(
+) : SqlSyncableRepository<ShelfSyncPayload, ShelfId>(
         db = db,
-        table = ShelvesTable,
         bus = bus,
         registry = registry,
         domainName = "shelves",
@@ -69,14 +70,86 @@ class ShelfRepository(
 
     override fun ShelfSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): ShelfSyncPayload? =
-        ShelvesTable
-            .selectAll()
-            .where { ShelvesTable.id eq idStr }
-            .firstOrNull()
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.shelvesQueries].
+     *
+     * The canonical user-scoped adapter shape: the four global substrate methods forward
+     * to the unfiltered queries; the two `*ForUser` methods forward to the user-filtered
+     * queries the base calls when [userScoped] is true. Each `*ForUser` query carries the
+     * `user_id = :userId` predicate the Exposed base appends in a WHERE clause.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.shelvesQueries.existsById(id).executeAsOne()
+
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.shelvesQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.shelvesQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.shelvesQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdsAboveRevisionForUser(
+                userId: String,
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.shelvesQueries
+                    .selectIdsAboveRevisionForUser(userId, cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMostForUser(
+                userId: String,
+                cursor: Long,
+            ): List<IdRev> =
+                db.shelvesQueries
+                    .selectIdRevAtMostForUser(userId, cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    // Tombstone-inclusive read by id — pullSince/readPayloads must hydrate soft-deleted
+    // rows so clients receive tombstones.
+    override fun readPayload(idStr: String): ShelfSyncPayload? =
+        db.shelvesQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
             ?.toSyncPayload()
 
-    override suspend fun writePayload(
+    override fun readPayloads(idStrs: List<String>): List<ShelfSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.shelvesQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
+    }
+
+    override fun writePayload(
         value: ShelfSyncPayload,
         rev: Long,
         now: Long,
@@ -84,49 +157,48 @@ class ShelfRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        requireNotNull(userId) { "ShelfRepository.writePayload requires a userId" }
         if (existed) {
-            ShelvesTable.update({ ShelvesTable.id eq value.id }) { stmt ->
-                stmt[ShelvesTable.name] = value.name
-                stmt[ShelvesTable.description] = value.description
-                stmt[ShelvesTable.isPrivate] = value.isPrivate
-                stmt[ShelvesTable.revision] = rev
-                stmt[ShelvesTable.updatedAt] = now
-                stmt[ShelvesTable.deletedAt] = null
-                stmt[ShelvesTable.clientOpId] = clientOpId
-            }
+            db.shelvesQueries.update(
+                name = value.name,
+                description = value.description,
+                is_private = value.isPrivate.toDbLong(),
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            ShelvesTable.insert { stmt ->
-                stmt[ShelvesTable.id] = value.id
-                stmt[ShelvesTable.userId] = userId
-                stmt[ShelvesTable.name] = value.name
-                stmt[ShelvesTable.description] = value.description
-                stmt[ShelvesTable.isPrivate] = value.isPrivate
-                stmt[ShelvesTable.revision] = rev
-                stmt[ShelvesTable.createdAt] = now
-                stmt[ShelvesTable.updatedAt] = now
-                stmt[ShelvesTable.deletedAt] = null
-                stmt[ShelvesTable.clientOpId] = clientOpId
-            }
+            db.shelvesQueries.insert(
+                id = value.id,
+                user_id = requireNotNull(userId) { "ShelfRepository.writePayload requires a userId" },
+                name = value.name,
+                description = value.description,
+                is_private = value.isPrivate.toDbLong(),
+                created_at = now,
+                updated_at = now,
+                revision = rev,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /** Returns all live (non-tombstoned) shelves owned by [userId]. */
     suspend fun listOwnedBy(userId: String): List<ShelfSyncPayload> =
         suspendTransaction(db) {
-            ShelvesTable
-                .selectAll()
-                .where { (ShelvesTable.userId eq userId) and ShelvesTable.deletedAt.isNull() }
-                .map { row -> row.toSyncPayload() }
+            db.shelvesQueries
+                .listOwnedBy(userId)
+                .executeAsList()
+                .map { it.toSyncPayload() }
         }
 
     /** Returns the live shelf with [id], or null when absent or tombstoned. */
     suspend fun findById(id: String): ShelfSyncPayload? =
         suspendTransaction(db) {
-            ShelvesTable
-                .selectAll()
-                .where { (ShelvesTable.id eq id) and ShelvesTable.deletedAt.isNull() }
-                .firstOrNull()
+            db.shelvesQueries
+                .selectLiveById(id)
+                .executeAsOneOrNull()
                 ?.toSyncPayload()
         }
 
@@ -138,10 +210,9 @@ class ShelfRepository(
      */
     suspend fun findOwnedById(id: String): OwnedShelf? =
         suspendTransaction(db) {
-            ShelvesTable
-                .selectAll()
-                .where { (ShelvesTable.id eq id) and ShelvesTable.deletedAt.isNull() }
-                .firstOrNull()
+            db.shelvesQueries
+                .selectLiveById(id)
+                .executeAsOneOrNull()
                 ?.toOwnedShelf()
         }
 
@@ -179,13 +250,10 @@ class ShelfRepository(
      */
     suspend fun listForOwner(ownerId: String): List<OwnedShelf> =
         suspendTransaction(db) {
-            ShelvesTable
-                .selectAll()
-                .where {
-                    (ShelvesTable.userId eq ownerId) and
-                        (ShelvesTable.isPrivate eq false) and
-                        ShelvesTable.deletedAt.isNull()
-                }.map { row -> row.toOwnedShelf() }
+            db.shelvesQueries
+                .listPublicForOwner(ownerId)
+                .executeAsList()
+                .map { it.toOwnedShelf() }
         }
 
     /**
@@ -196,27 +264,38 @@ class ShelfRepository(
      */
     suspend fun listDiscoverable(excludeUserId: String): List<OwnedShelf> =
         suspendTransaction(db) {
-            ShelvesTable
-                .selectAll()
-                .where {
-                    (ShelvesTable.isPrivate eq false) and
-                        (ShelvesTable.userId neq excludeUserId) and
-                        ShelvesTable.deletedAt.isNull()
-                }.map { row -> row.toOwnedShelf() }
+            db.shelvesQueries
+                .listDiscoverable(excludeUserId)
+                .executeAsList()
+                .map { it.toOwnedShelf() }
         }
 
-    private fun org.jetbrains.exposed.v1.core.ResultRow.toOwnedShelf(): OwnedShelf =
-        OwnedShelf(ownerId = this[ShelvesTable.userId], shelf = toSyncPayload())
+    /** Maps a generated [Shelves] row to an [OwnedShelf] (owner id + wire payload). */
+    private fun Shelves.toOwnedShelf(): OwnedShelf = OwnedShelf(ownerId = user_id, shelf = toSyncPayload())
 
-    private fun org.jetbrains.exposed.v1.core.ResultRow.toSyncPayload(): ShelfSyncPayload =
+    /** Maps a generated [Shelves] row to the wire [ShelfSyncPayload] DTO (drops `user_id`). */
+    private fun Shelves.toSyncPayload(): ShelfSyncPayload =
         ShelfSyncPayload(
-            id = this[ShelvesTable.id],
-            name = this[ShelvesTable.name],
-            description = this[ShelvesTable.description],
-            isPrivate = this[ShelvesTable.isPrivate],
-            revision = this[ShelvesTable.revision],
-            updatedAt = this[ShelvesTable.updatedAt],
-            createdAt = this[ShelvesTable.createdAt],
-            deletedAt = this[ShelvesTable.deletedAt],
+            id = id,
+            name = name,
+            description = description,
+            // `is_private` is INTEGER (0/1) in SQLite — SQLDelight maps it to Long; convert at
+            // the boundary, the same place the Exposed bool adapter sat.
+            isPrivate = is_private == 1L,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
         )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+
+        /** SQLite stores booleans as INTEGER 0/1; map at the write boundary. */
+        private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
+    }
 }

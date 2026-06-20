@@ -9,12 +9,14 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -38,9 +40,9 @@ class MoodServiceImplTest :
         ): MoodServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val moodRepo = MoodRepository(db = db, bus = bus, registry = registry)
-            val bookMoodRepo = BookMoodRepository(db = db, bus = bus, registry = registry)
-            return MoodServiceImpl(moodRepo, bookMoodRepo, db, fixedClock, principal = rootPrincipal())
+            val moodRepo = MoodRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+            val bookMoodRepo = BookMoodRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+            return MoodServiceImpl(moodRepo, bookMoodRepo, db, db.asSqlDatabase(), fixedClock, principal = rootPrincipal())
         }
 
         // ── listMoods ────────────────────────────────────────────────────────
@@ -316,6 +318,49 @@ class MoodServiceImplTest :
                     val result = service.listMoodsForBook(BookId("book1"))
 
                     result shouldBe AppResult.Success(emptyList())
+                }
+            }
+        }
+
+        // A book with several moods exercises the batched findByIds read (the N+1 fix):
+        // one round-trip resolves every junction's mood rather than one findById per row.
+        test("listMoodsForBook returns all moods for a book with multiple moods") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("book1")
+                runTest {
+                    val service = makeService(db)
+                    service.addMoodToBook(BookId("book1"), "Feel-Good")
+                    service.addMoodToBook(BookId("book1"), "Tense")
+                    service.addMoodToBook(BookId("book1"), "Hopeful")
+
+                    val result = service.listMoodsForBook(BookId("book1"))
+                    require(result is AppResult.Success)
+                    result.data.map { it.name } shouldContainExactlyInAnyOrder
+                        listOf("Feel-Good", "Tense", "Hopeful")
+                }
+            }
+        }
+
+        // findByIds skips tombstoned moods: after a mood is deleted, its junction
+        // tombstones too, so listMoodsForBook must not surface the dead mood.
+        test("listMoodsForBook skips a deleted mood") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestBook("book1")
+                runTest {
+                    val service = makeService(db)
+                    service.addMoodToBook(BookId("book1"), "Feel-Good")
+                    val tense = service.addMoodToBook(BookId("book1"), "Tense")
+                    require(tense is AppResult.Success)
+
+                    service.deleteMood(MoodId(tense.data.id))
+
+                    val result = service.listMoodsForBook(BookId("book1"))
+                    require(result is AppResult.Success)
+                    result.data.map { it.name } shouldContainExactlyInAnyOrder listOf("Feel-Good")
                 }
             }
         }

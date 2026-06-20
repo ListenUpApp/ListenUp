@@ -1,6 +1,10 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.di.syncModule
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -33,14 +37,22 @@ class SyncRegistryPerKoinTest :
                     val koinA =
                         koinApplication {
                             modules(
-                                module { single<Database> { dbA } },
+                                module {
+                                    single<Database> { dbA }
+                                    single<ListenUpDatabase> { dbA.asSqlDatabase() }
+                                    single<SqlDriver> { dbA.asSqlDriver() }
+                                },
                                 syncModule(),
                             )
                         }
                     val koinB =
                         koinApplication {
                             modules(
-                                module { single<Database> { dbB } },
+                                module {
+                                    single<Database> { dbB }
+                                    single<ListenUpDatabase> { dbB.asSqlDatabase() }
+                                    single<SqlDriver> { dbB.asSqlDriver() }
+                                },
                                 syncModule(),
                             )
                         }
@@ -65,7 +77,11 @@ class SyncRegistryPerKoinTest :
                 val koin =
                     koinApplication {
                         modules(
-                            module { single<Database> { db } },
+                            module {
+                                single<Database> { db }
+                                single<ListenUpDatabase> { db.asSqlDatabase() }
+                                single<SqlDriver> { db.asSqlDriver() }
+                            },
                             syncModule(),
                         )
                     }
@@ -97,9 +113,9 @@ class SyncRegistryPerKoinTest :
             withInMemoryDatabase {
                 val db = this
                 val registry = SyncRegistry()
-                TagRepository(db, ChangeBus(), registry) // first registration succeeds
+                TagRepository(db.asSqlDatabase(), ChangeBus(), registry) // first registration succeeds
                 shouldThrow<IllegalStateException> {
-                    TagRepository(db, ChangeBus(), registry) // duplicate domainName → throws
+                    TagRepository(db.asSqlDatabase(), ChangeBus(), registry) // duplicate domainName → throws
                 }
             }
         }

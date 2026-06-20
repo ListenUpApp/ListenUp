@@ -25,6 +25,8 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -54,9 +56,9 @@ class SearchServiceAccessTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = this, bus = bus, registry = registry),
-                CollectionBookRepository(db = this, bus = bus, registry = registry),
-                CollectionGrantRepository(db = this, bus = bus, registry = registry),
+                CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver()),
+                CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver()),
+                CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver()),
             )
         }
 
@@ -76,7 +78,7 @@ class SearchServiceAccessTest :
                     colRepo.upsert(privateCollection("owned-col", owner = "member"))
                     colBookRepo.upsert(membership("owned-col", "public"))
 
-                    val service = SearchServiceImpl(db = db).copyWith(memberPrincipal("member"))
+                    val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver()).copyWith(memberPrincipal("member"))
                     val r = service.search(SearchQuery(text = "Dragon")) as AppResult.Success<SearchResults>
 
                     r.data.books.map { it.id.value } shouldBe listOf("public")
@@ -106,7 +108,7 @@ class SearchServiceAccessTest :
                     colRepo.upsert(privateCollection("owned-col", owner = "member"))
                     colBookRepo.upsert(membership("owned-col", "public"))
 
-                    val service = SearchServiceImpl(db = db).copyWith(memberPrincipal("member"))
+                    val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver()).copyWith(memberPrincipal("member"))
                     val r = service.search(SearchQuery(text = "Dragon")) as AppResult.Success<SearchResults>
 
                     // Only the accessible book counts in every facet dimension.
@@ -132,7 +134,7 @@ class SearchServiceAccessTest :
                     colRepo.upsert(privateCollection("private-col", owner = "stranger"))
                     colBookRepo.upsert(membership("private-col", "hidden"))
 
-                    val service = SearchServiceImpl(db = db).copyWith(adminPrincipal("admin"))
+                    val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver()).copyWith(adminPrincipal("admin"))
                     val r = service.search(SearchQuery(text = "Dragon")) as AppResult.Success<SearchResults>
 
                     r.data.books
@@ -161,7 +163,7 @@ class SearchServiceAccessTest :
                     colRepo.upsert(privateCollection("owned-col", owner = "member"))
                     colBookRepo.upsert(membership("owned-col", "owned"))
 
-                    val service = SearchServiceImpl(db = db).copyWith(memberPrincipal("member"))
+                    val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver()).copyWith(memberPrincipal("member"))
                     val r = service.search(SearchQuery(text = "Dragon")) as AppResult.Success<SearchResults>
 
                     r.data.books

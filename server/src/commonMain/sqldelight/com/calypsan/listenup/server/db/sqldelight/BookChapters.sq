@@ -1,0 +1,30 @@
+-- book_chapters: chapter rows owned by a book. Column set matches
+-- V7__books_children.sql. Composite PK (book_id, ordinal) so chapter order is
+-- part of identity. `id` is a stable per-chapter UUID surface for clients.
+--
+-- Replaced wholesale (delete-by-book then insert) on every aggregate upsert —
+-- there is no single-chapter update path.
+--
+-- FK declaration (book_id → books) omitted; it lives in the migration DDL.
+CREATE TABLE book_chapters (
+    book_id    TEXT    NOT NULL,
+    ordinal    INTEGER NOT NULL,
+    id         TEXT    NOT NULL,
+    title      TEXT    NOT NULL,
+    duration   INTEGER NOT NULL,
+    start_time INTEGER NOT NULL,
+    PRIMARY KEY (book_id, ordinal)
+);
+
+-- Batched read for readBookPayloads, ordered by ordinal so the assembled payload
+-- preserves chapter order.
+selectByBookIds:
+SELECT * FROM book_chapters WHERE book_id IN :ids ORDER BY ordinal;
+
+insert:
+INSERT INTO book_chapters (book_id, ordinal, id, title, duration, start_time)
+VALUES (:book_id, :ordinal, :id, :title, :duration, :start_time);
+
+-- Wholesale-replace step.
+deleteByBookId:
+DELETE FROM book_chapters WHERE book_id = :book_id;

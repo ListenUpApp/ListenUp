@@ -58,6 +58,8 @@ import java.nio.file.Files
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val TEST_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val TEST_ASIN = "B017V4IM1G"
@@ -116,11 +118,11 @@ class B2aMetadataApplyE2ETest :
                 val syncRegistry = SyncRegistry()
 
                 // ── Repositories ────────────────────────────────────────────────
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook = canned_WayOfKings()
@@ -138,7 +140,7 @@ class B2aMetadataApplyE2ETest :
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
                 // ── Wire MetadataService + MetadataLookupServiceImpl ────────────
-                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = audibleApi,
@@ -204,17 +206,17 @@ class B2aMetadataApplyE2ETest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
-                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = SingleBookFakeAudibleApi(canned_WayOfKings()),
@@ -266,13 +268,13 @@ class B2aMetadataApplyE2ETest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
 
-                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = SingleBookFakeAudibleApi(null),
@@ -354,7 +356,7 @@ private fun buildService(
                 imageHome = Path(tempDir),
             ),
         enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         db = db,
         genreRepository = genreRepo,
         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },

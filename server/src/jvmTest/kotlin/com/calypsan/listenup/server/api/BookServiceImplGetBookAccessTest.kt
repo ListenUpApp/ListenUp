@@ -35,6 +35,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Tests for the access gate on [BookServiceImpl.getBook] — proves a member cannot
@@ -52,12 +54,14 @@ class BookServiceImplGetBookAccessTest :
         fun Database.fixture(): GetBookFixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(this, bus, registry)
-            val seriesRepo = SeriesRepository(this, bus, registry)
-            val genreRepo = GenreRepository(this, bus, registry)
+            val contributorRepo = ContributorRepository(this.asSqlDatabase(), bus, registry)
+            val seriesRepo = SeriesRepository(this.asSqlDatabase(), bus, registry)
+            val genreRepo = GenreRepository(this.asSqlDatabase(), bus, registry)
             val bookRepo =
                 BookRepository(
-                    db = this,
+                    db = this.asSqlDatabase(),
+                    driver = this.asSqlDriver(),
+                    exposedDb = this,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -72,16 +76,34 @@ class BookServiceImplGetBookAccessTest :
                     coverStorage = CoverStorage(),
                     db = this,
                     genreRepo = genreRepo,
-                    accessPolicy = BookAccessPolicy(this),
-                    permissionPolicy = UserPermissionPolicy(this),
+                    accessPolicy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
+                    permissionPolicy = UserPermissionPolicy(this.asSqlDatabase()),
                     principal = PrincipalProvider { error("Unscoped — call copyWith") },
                 )
             return GetBookFixture(
                 service = service,
                 bookRepo = bookRepo,
-                collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
-                collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
-                grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry),
+                collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                collectionBookRepo =
+                    CollectionBookRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
             )
         }
 

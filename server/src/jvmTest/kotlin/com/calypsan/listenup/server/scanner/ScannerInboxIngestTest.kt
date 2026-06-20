@@ -28,20 +28,29 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Covers the **inbox-gate-ON** branch of the mutually-exclusive system-collection
  * membership decision: when a library has `inboxEnabled = true`, a genuinely new
  * book joins INBOX (not ALL_BOOKS).
  *
- * [BookRepository.resolveOrInsert] threads the resolved system-collection id down so
- * that — only for a genuinely NEW book — the `collection_books` membership is written
- * inside the very same transaction as the book row. The firehose evaluates
- * [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery, so
- * committing atomically means a member never sees a held book before it is released.
+ * When a library is inbox-enabled and the scan ingest resolves the INBOX system collection,
+ * [BookRepository.resolveOrInsert] threads the resolved `systemCollectionId` down so that — only
+ * for a genuinely NEW book — the book→inbox `collection_books` membership is written (via the
+ * SQLDelight `collectionBooksQueries`) inside the very same transaction as the book row. The
+ * firehose evaluates [com.calypsan.listenup.server.api.BookAccessPolicy.canAccess] at delivery, so
+ * committing membership atomically with the insert means a member never sees the held book: it is
+ * already in the admin-only inbox before the `book.Created` publish is visible, AND no member's
+ * REST catch-up can pull the book — under the pure-union rule a book that is never briefly
+ * uncollected is never momentarily visible. Atomicity — not firehose suppression — is what holds
+ * the quarantine invariant; the membership still emits its own `collection_books`
+ * `SyncEvent.Created`, so other devices learn of it.
  *
  * Re-running `resolveOrInsert` for the SAME book is an UPDATE — it must NOT add a
- * second membership (only-on-create, idempotent re-scan).
+ * second membership (only-on-create, idempotent re-scan): the inbox id is stashed only when the
+ * book did not already exist, so the UPDATE path never re-quarantines.
  *
  * The gate-OFF branch (→ ALL_BOOKS, NOT INBOX) is covered by [ScanAllBooksMembershipTest].
  *
@@ -161,26 +170,46 @@ private class InboxFixture(
 private fun fixture(db: Database): InboxFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = syncRegistry)
-    val bookRepo =
-        BookRepository(
-            db = db,
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = db.asSqlDatabase(),
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db, bus, syncRegistry),
-            seriesRepository = SeriesRepository(db, bus, syncRegistry),
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            driver = db.asSqlDriver(),
+        )
+    val bookRepo =
+        BookRepository(
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
+            bus = bus,
+            registry = syncRegistry,
+            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
-    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)
-    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = syncRegistry)
+    val collectionRepo =
+        CollectionRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
+    val grantRepo =
+        CollectionGrantRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
     val collections =
         CollectionServiceImpl(
             collectionRepo = collectionRepo,
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             bus = bus,
             db = db,
             bookRevisionTouch = FakeBookRevisionTouch(),

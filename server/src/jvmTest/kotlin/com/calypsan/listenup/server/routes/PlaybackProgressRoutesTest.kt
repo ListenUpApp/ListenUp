@@ -14,6 +14,8 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -69,15 +71,27 @@ class PlaybackProgressRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
+                val repo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val service =
                     PlaybackProgressServiceImpl(
                         repository = repo,
                         principal = PrincipalProvider { error("unscoped — copyWith required") },
                     )
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-                val accessPolicy = BookAccessPolicy(db)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
 
                 testApplication {
                     application {

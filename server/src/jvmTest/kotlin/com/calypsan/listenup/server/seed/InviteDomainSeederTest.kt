@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.db.InviteEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -30,7 +31,7 @@ class InviteDomainSeederTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestUser("root1", UserRoleColumn.ROOT)
-                val seeder = InviteDomainSeeder(db, makeInviteService(db))
+                val seeder = InviteDomainSeeder(db.asSqlDatabase(), makeInviteService(db))
 
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
@@ -49,7 +50,7 @@ class InviteDomainSeederTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestUser("root1", UserRoleColumn.ROOT)
-                val seeder = InviteDomainSeeder(db, makeInviteService(db))
+                val seeder = InviteDomainSeeder(db.asSqlDatabase(), makeInviteService(db))
 
                 runTest {
                     seeder.seed()
@@ -63,10 +64,10 @@ class InviteDomainSeederTest :
 private fun makeInviteService(db: Database): InviteServiceImpl {
     val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
     val pepper = "x".repeat(32).toByteArray()
-    val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+    val sessions = SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
     val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
     return InviteServiceImpl(
-        db = db,
+        db = db.asSqlDatabase(),
         codeGenerator = InviteCodeGenerator(),
         hasher = PasswordHasher(),
         sessionIssuer = SessionIssuer(sessions, jwt, clock),

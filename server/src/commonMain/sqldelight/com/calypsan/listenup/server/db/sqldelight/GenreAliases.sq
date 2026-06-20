@@ -1,0 +1,43 @@
+-- genre_aliases: maps raw scanner genre strings to canonical genre ids.
+-- Column set matches V23__genres.sql exactly. PK `raw_string` is `COLLATE NOCASE`
+-- so equality lookups are case-insensitive without canonicalizing at the helper
+-- layer ("Sci-Fi" and "sci-fi" share an alias row). Helpers trim whitespace before
+-- lookup/insert so "  Sci-Fi  " and "Sci-Fi" resolve to the same identity.
+--
+-- The `genre_id` FK (→ genres ON DELETE CASCADE) is omitted here per the .sq
+-- convention (cross-table refs the drift-gate covers); the migration keeps it.
+CREATE TABLE genre_aliases (
+    raw_string TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+    genre_id   TEXT NOT NULL
+);
+
+CREATE INDEX idx_genre_aliases_genre ON genre_aliases(genre_id);
+
+-- Genre id for a raw string, or none. Lookup is case-insensitive via the PK's
+-- COLLATE NOCASE; the caller trims the input first.
+resolve:
+SELECT genre_id FROM genre_aliases WHERE raw_string = :raw_string;
+
+-- Every alias string currently pointing at a genre — curator screen "what raw
+-- strings is this genre absorbing".
+aliasesForGenre:
+SELECT raw_string FROM genre_aliases WHERE genre_id = :genre_id;
+
+-- addAlias is delete-then-insert (SQLite has no Exposed-style upsert primitive and
+-- we need the destructive re-map semantics): the caller issues deleteByRawString then
+-- insert inside one transaction.
+deleteByRawString:
+DELETE FROM genre_aliases WHERE raw_string = :raw_string;
+
+insert:
+INSERT INTO genre_aliases (raw_string, genre_id) VALUES (:raw_string, :genre_id);
+
+-- Hard-deletes every alias row referencing a genre — genre hard-delete cascade /
+-- pre-step before a curator re-seeds aliases.
+removeAllForGenre:
+DELETE FROM genre_aliases WHERE genre_id = :genre_id;
+
+-- Merge cascade: re-points every alias from the source genre to the target genre so
+-- subsequent scans of those raw strings resolve to the surviving genre.
+repointAliases:
+UPDATE genre_aliases SET genre_id = :to_genre_id WHERE genre_id = :from_genre_id;

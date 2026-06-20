@@ -1,12 +1,12 @@
 package com.calypsan.listenup.server.api
 
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.SqlFragment
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.sync.bindRaw
 
 /**
  * The single source of truth for **book-level** visibility: the set of book ids a
@@ -40,17 +40,24 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * system collection provides visibility at the book level even though the collection row
  * itself never appears in a member's collection sync.
  *
+ * **Engine-neutral.** The visibility [SqlFragment]s carry plain raw bind values (the user id
+ * strings), so the access filter splices into either engine. The single-row probe methods
+ * ([canAccess], [accessibleBookIds], [canAccessCollection], [ownsCollection]) run over the
+ * SQLDelight [SqlDriver] within a [suspendTransaction], the same engine that backs every other
+ * read on the migrated db file.
+ *
  * Sibling to [CollectionAccessPolicy], which owns the collection-level *mutation* decision
  * (a repository-backed [CollectionAccessPolicy.Decision] used to gate writes); this owns the
  * raw-SQL *visibility* definitions consumed by the sync seams. Both the book-visibility rule
  * ([accessibleBookIdsSql]) and its collection-id analogs ([accessibleCollectionIdsSql],
  * [visibleCollectionGrantIdsSql], [accessibleCollectionBookIdsSql]) live here because they
- * share the identical `owner / active-grant` predicate, the same [Database] handle, and the
- * same [SqlFragment] splicing contract — keeping them together means the access boundary is
- * one definition, spliced into every sync domain that scopes to a viewer.
+ * share the identical `owner / active-grant` predicate, the same [db] handle, and the same
+ * [SqlFragment] splicing contract — keeping them together means the access boundary is one
+ * definition, spliced into every sync domain that scopes to a viewer.
  */
 class BookAccessPolicy(
-    private val db: Database,
+    private val db: ListenUpDatabase,
+    private val driver: SqlDriver,
 ) {
     /**
      * The WHERE-ready subquery selecting the ids of every book visible to `(userId, role)`,
@@ -86,10 +93,7 @@ class BookAccessPolicy(
               )
             )
             """.trimIndent()
-        return SqlFragment(
-            sql = sql,
-            args = listOf(TextColumnType() to userId, TextColumnType() to userId),
-        )
+        return SqlFragment(sql = sql, args = listOf(userId, userId))
     }
 
     /**
@@ -105,11 +109,7 @@ class BookAccessPolicy(
     ): Set<String>? {
         val frag = accessibleBookIdsSql(userId, role) ?: return null
         return suspendTransaction(db) {
-            val ids = mutableSetOf<String>()
-            TransactionManager.current().exec(stmt = frag.sql, args = frag.args) { rs ->
-                while (rs.next()) ids += rs.getString(1)
-            }
-            ids
+            queryStrings(frag.sql, frag.args).toSet()
         }
     }
 
@@ -127,23 +127,18 @@ class BookAccessPolicy(
             val frag =
                 accessibleBookIdsSql(userId, role)
                     ?: return@suspendTransaction bookExists(bookId)
-            var visible = false
-            TransactionManager.current().exec(
-                stmt = "SELECT 1 FROM (${frag.sql}) acc WHERE acc.id = ? LIMIT 1",
-                args = frag.args + listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to bookId),
-            ) { rs -> visible = rs.next() }
-            visible
+            existsRow(
+                sql = "SELECT 1 FROM (${frag.sql}) acc WHERE acc.id = ? LIMIT 1",
+                args = frag.args + bookId,
+            )
         }
 
     /** True when a live (non-tombstoned) book row with [bookId] exists — the ROOT/ADMIN check. */
-    private fun bookExists(bookId: String): Boolean {
-        var exists = false
-        TransactionManager.current().exec(
-            stmt = "SELECT 1 FROM books WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-            args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to bookId),
-        ) { rs -> exists = rs.next() }
-        return exists
-    }
+    private fun bookExists(bookId: String): Boolean =
+        existsRow(
+            sql = "SELECT 1 FROM books WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+            args = listOf(bookId),
+        )
 
     /**
      * The WHERE-ready subquery selecting the ids of every live collection visible to
@@ -166,14 +161,7 @@ class BookAccessPolicy(
         role: UserRole,
     ): SqlFragment? {
         if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
-        return SqlFragment(
-            sql = accessibleCollectionIdsSubquery,
-            args =
-                listOf(
-                    TextColumnType() to userId,
-                    TextColumnType() to userId,
-                ),
-        )
+        return SqlFragment(sql = accessibleCollectionIdsSubquery, args = listOf(userId, userId))
     }
 
     /**
@@ -211,7 +199,7 @@ class BookAccessPolicy(
                 SELECT c.id FROM collections c WHERE c.deleted_at IS NULL AND c.owner_id = ?
               )
             """.trimIndent()
-        return SqlFragment(sql = sql, args = listOf(TextColumnType() to userId, TextColumnType() to userId))
+        return SqlFragment(sql = sql, args = listOf(userId, userId))
     }
 
     /**
@@ -232,7 +220,7 @@ class BookAccessPolicy(
             SELECT cb.id FROM collection_books cb
             WHERE cb.collection_id IN ($accessibleCollectionIdsSubquery)
             """.trimIndent()
-        return SqlFragment(sql = sql, args = listOf(TextColumnType() to userId, TextColumnType() to userId))
+        return SqlFragment(sql = sql, args = listOf(userId, userId))
     }
 
     /**
@@ -249,12 +237,10 @@ class BookAccessPolicy(
             val frag =
                 accessibleCollectionIdsSql(userId, role)
                     ?: return@suspendTransaction collectionExists(collectionId)
-            var visible = false
-            TransactionManager.current().exec(
-                stmt = "SELECT 1 FROM (${frag.sql}) acc WHERE acc.id = ? LIMIT 1",
-                args = frag.args + listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to collectionId),
-            ) { rs -> visible = rs.next() }
-            visible
+            existsRow(
+                sql = "SELECT 1 FROM (${frag.sql}) acc WHERE acc.id = ? LIMIT 1",
+                args = frag.args + collectionId,
+            )
         }
 
     /**
@@ -267,23 +253,63 @@ class BookAccessPolicy(
         collectionId: String,
     ): Boolean =
         suspendTransaction(db) {
-            var owns = false
-            TransactionManager.current().exec(
-                stmt = "SELECT 1 FROM collections WHERE id = ? AND owner_id = ? AND deleted_at IS NULL LIMIT 1",
-                args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to collectionId, TextColumnType() to userId),
-            ) { rs -> owns = rs.next() }
-            owns
+            existsRow(
+                sql = "SELECT 1 FROM collections WHERE id = ? AND owner_id = ? AND deleted_at IS NULL LIMIT 1",
+                args = listOf(collectionId, userId),
+            )
         }
 
     /** True when a live (non-tombstoned) collection row with [collectionId] exists — the ROOT/ADMIN check. */
-    private fun collectionExists(collectionId: String): Boolean {
-        var exists = false
-        TransactionManager.current().exec(
-            stmt = "SELECT 1 FROM collections WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-            args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to collectionId),
-        ) { rs -> exists = rs.next() }
-        return exists
-    }
+    private fun collectionExists(collectionId: String): Boolean =
+        existsRow(
+            sql = "SELECT 1 FROM collections WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+            args = listOf(collectionId),
+        )
+
+    /**
+     * Runs [sql] (carrying [args] in `?` order) over the SQLDelight [driver] and returns the
+     * single string column of every row. Called inside the open [suspendTransaction], so the
+     * raw query runs on the surrounding transaction's connection.
+     */
+    private fun queryStrings(
+        sql: String,
+        args: List<Any?>,
+    ): List<String> =
+        driver
+            .executeQuery(
+                identifier = null,
+                sql = sql,
+                mapper = { cursor ->
+                    val out = mutableListOf<String>()
+                    while (cursor.next().value) {
+                        out += cursor.getString(0)!!
+                    }
+                    QueryResult.Value(out.toList())
+                },
+                parameters = args.size,
+                binders = {
+                    args.forEachIndexed { index, arg -> bindRaw(index, arg) }
+                },
+            ).value
+
+    /**
+     * True when [sql] (a `… LIMIT 1` existence probe carrying [args] in `?` order) returns at
+     * least one row. The engine-neutral twin of the prior `rs.next()` check.
+     */
+    private fun existsRow(
+        sql: String,
+        args: List<Any?>,
+    ): Boolean =
+        driver
+            .executeQuery(
+                identifier = null,
+                sql = sql,
+                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                parameters = args.size,
+                binders = {
+                    args.forEachIndexed { index, arg -> bindRaw(index, arg) }
+                },
+            ).value
 
     // system-collection type discriminators, single-sourced from SystemCollectionType to avoid SQL/enum drift
     private val systemTypeList = "'$SYSTEM_TYPE_ALL_BOOKS','$SYSTEM_TYPE_INBOX'"

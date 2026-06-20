@@ -26,6 +26,8 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -533,7 +535,7 @@ private fun persister(
     BookPersister(
         ingest = ingest,
         libraryRegistry = LibraryRegistry(db),
-        libraryRepository = LibraryRepository(db, ChangeBus(), SyncRegistry()),
+        libraryRepository = LibraryRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()),
         collectionService = inertCollectionService(db),
         db = db,
         scanResultBus = MutableSharedFlow(),
@@ -548,14 +550,14 @@ private fun persister(
 private fun inertCollectionService(db: Database): CollectionServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver())
+    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver())
     return CollectionServiceImpl(
         collectionRepo = collectionRepo,
-        collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
+        collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         bus = bus,
         db = db,
         bookRevisionTouch = FakeBookRevisionTouch(),

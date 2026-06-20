@@ -1,0 +1,32 @@
+-- book_audio_files: audio file rows owned by a book. Column set matches
+-- V7__books_children.sql. Composite PK (book_id, ordinal) preserves on-disk
+-- order. `id` is a stable per-file UUID surface for clients.
+--
+-- Replaced wholesale (delete-by-book then insert) on every aggregate upsert —
+-- there is no single-file update path.
+--
+-- FK declaration (book_id → books) omitted; it lives in the migration DDL.
+CREATE TABLE book_audio_files (
+    book_id  TEXT    NOT NULL,
+    ordinal  INTEGER NOT NULL,
+    id       TEXT    NOT NULL,
+    filename TEXT    NOT NULL,
+    format   TEXT    NOT NULL,
+    codec    TEXT    NOT NULL,
+    duration INTEGER NOT NULL,
+    size     INTEGER NOT NULL,
+    PRIMARY KEY (book_id, ordinal)
+);
+
+-- Batched read for readBookPayloads, ordered by ordinal so the assembled payload
+-- preserves file order.
+selectByBookIds:
+SELECT * FROM book_audio_files WHERE book_id IN :ids ORDER BY ordinal;
+
+insert:
+INSERT INTO book_audio_files (book_id, ordinal, id, filename, format, codec, duration, size)
+VALUES (:book_id, :ordinal, :id, :filename, :format, :codec, :duration, :size);
+
+-- Wholesale-replace step.
+deleteByBookId:
+DELETE FROM book_audio_files WHERE book_id = :book_id;

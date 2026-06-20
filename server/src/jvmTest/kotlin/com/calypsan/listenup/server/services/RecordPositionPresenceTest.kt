@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -18,10 +19,10 @@ class RecordPositionPresenceTest :
 
         test("recordPosition (live, not finished) creates a live active_sessions row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -49,10 +50,10 @@ class RecordPositionPresenceTest :
 
         test("a second live recordPosition for the same (user, book) refreshes — still exactly one row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -84,10 +85,10 @@ class RecordPositionPresenceTest :
 
         test("a stale recordPosition (older lastPlayedAt) does not create a presence row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -127,10 +128,10 @@ class RecordPositionPresenceTest :
 
         test("a fresh finished=true write on an already-finished book does not resurrect a session") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -167,10 +168,10 @@ class RecordPositionPresenceTest :
 
         test("recordPosition finished=true on the finish-flip removes the active_sessions row") {
             withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,

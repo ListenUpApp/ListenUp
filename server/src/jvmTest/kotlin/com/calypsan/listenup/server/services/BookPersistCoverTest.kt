@@ -50,6 +50,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Integration tests for Task 5: persist-at-scan and sticky-upload-merge.
@@ -87,12 +89,14 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db,
+                                db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
+                                exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -209,12 +213,14 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db,
+                                db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
+                                exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -278,12 +284,14 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db,
+                                db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
+                                exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -339,12 +347,14 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db,
+                                db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
+                                exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -409,12 +419,14 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db,
+                                db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
+                                exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
@@ -498,12 +510,14 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db,
+                                db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
+                                exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                                genreRepository = GenreRepository(db, bus, syncRegistry),
+                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )

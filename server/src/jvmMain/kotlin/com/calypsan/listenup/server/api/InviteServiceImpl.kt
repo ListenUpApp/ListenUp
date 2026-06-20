@@ -15,22 +15,19 @@ import com.calypsan.listenup.api.dto.invite.InviteSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.AuthUser
 import com.calypsan.listenup.server.auth.Email
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.toColumn
-import com.calypsan.listenup.server.db.InviteEntity
-import com.calypsan.listenup.server.db.InviteTable
-import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.db.UserTable
-import com.calypsan.listenup.server.db.toDto
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.db.sqldelight.Invites
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -38,6 +35,10 @@ import kotlin.time.ExperimentalTime
 
 /**
  * [InviteService] implementation — the administrative lifecycle of an invite.
+ *
+ * Persists over SQLDelight's [ListenUpDatabase] (`invites` + `users` are plain, non-syncable
+ * server-owned tables). The single-use guarantee (claimed_at stamp), the UNIQUE invite code, and
+ * the email-uniqueness probe are preserved verbatim from the Exposed implementation.
  *
  * Every method is admin-gated: the caller must be ROOT or ADMIN, resolved from
  * [principal] (never from request fields). Non-admins receive
@@ -60,7 +61,7 @@ import kotlin.time.ExperimentalTime
  * with exactly the same shape as `AuthServiceImpl.register`, minus the policy branch.
  */
 class InviteServiceImpl(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val codeGenerator: InviteCodeGenerator,
     private val hasher: PasswordHasher,
     private val sessionIssuer: SessionIssuer,
@@ -90,17 +91,30 @@ class InviteServiceImpl(
         if (displayName.isBlank()) return AppResult.Failure(InviteError.InvalidInput())
         if (expiresInDays != null && expiresInDays <= 0) return AppResult.Failure(InviteError.InvalidInput())
         val now = clock.now()
+        val invite =
+            Invites(
+                id = newInviteId(),
+                code = codeGenerator.generate(),
+                email = email,
+                display_name = displayName,
+                role = role.toColumn().name,
+                created_by = caller.userId.value,
+                expires_at = (now + (expiresInDays ?: DEFAULT_EXPIRY_DAYS).days).toEpochMilliseconds(),
+                claimed_at = null,
+                claimed_by = null,
+                created_at = now.toEpochMilliseconds(),
+            )
         return suspendTransaction(db) {
-            val invite =
-                InviteEntity.new(newInviteId()) {
-                    code = codeGenerator.generate()
-                    this.email = email
-                    this.displayName = displayName
-                    this.role = role.toColumn()
-                    createdBy = caller.userId.value
-                    expiresAt = (now + (expiresInDays ?: DEFAULT_EXPIRY_DAYS).days).toEpochMilliseconds()
-                    createdAt = now.toEpochMilliseconds()
-                }
+            db.invitesQueries.insert(
+                id = invite.id,
+                code = invite.code,
+                email = invite.email,
+                display_name = invite.display_name,
+                role = invite.role,
+                created_by = invite.created_by,
+                expires_at = invite.expires_at,
+                created_at = invite.created_at,
+            )
             AppResult.Success(invite.toDto())
         }
     }
@@ -110,7 +124,10 @@ class InviteServiceImpl(
         val now = clock.now().toEpochMilliseconds()
         return suspendTransaction(db) {
             AppResult.Success(
-                InviteEntity.all().map { InviteSummary(it.toDto(), it.deriveStatus(now)) },
+                db.invitesQueries
+                    .selectAll()
+                    .executeAsList()
+                    .map { InviteSummary(it.toDto(), it.deriveStatus(now)) },
             )
         }
     }
@@ -119,12 +136,12 @@ class InviteServiceImpl(
         requireAdmin()?.let { return it }
         return suspendTransaction(db) {
             val invite =
-                InviteEntity.findById(id.value)
+                db.invitesQueries.selectById(id = id.value).executeAsOneOrNull()
                     ?: return@suspendTransaction AppResult.Failure(InviteError.NotFound())
-            if (invite.claimedAt != null) {
+            if (invite.claimed_at != null) {
                 return@suspendTransaction AppResult.Failure(InviteError.AlreadyClaimed())
             }
-            invite.delete()
+            db.invitesQueries.deleteById(id = id.value)
             AppResult.Success(Unit)
         }
     }
@@ -141,72 +158,109 @@ class InviteServiceImpl(
         // transaction so we don't hold a DB connection during it (mirrors register).
         val passwordHashed = hasher.hash(password)
         val now = clock.now().toEpochMilliseconds()
+        // The validate → insert-user → mark-claimed steps run atomically in one transaction so the
+        // single-use guarantee holds (a row can't be both claimed and have no user). Session issuance
+        // is hoisted OUT: it opens its own session transaction, and the SQLDelight transaction body is
+        // non-suspending — exactly the boundary AuthServiceImpl.register draws between commit and issue.
+        val user: AuthUser =
+            when (val claim = claimUserAtomically(code, passwordHashed, displayName, now)) {
+                is AppResult.Failure -> return claim
+                is AppResult.Success -> claim.data
+            }
+        // Best-effort default ALL_BOOKS grant — mirrors AuthServiceImpl.register. Runs AFTER the
+        // atomic claim commits so the user FK exists for the grant row. The issuer itself never
+        // throws (re-raises CancellationException, swallows everything else), so no outer try/catch
+        // is needed; a MEMBER claim that fails to grant self-heals on next login. ROOT/ADMIN invites
+        // are a no-op inside the issuer (role gate).
+        defaultGrantIssuer?.grantDefaultAllBooks(user.id, user.role)
+        return AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
+    }
 
-        // Capture the created user's id and role so the best-effort grant can run
-        // after the transaction commits — mirrors AuthServiceImpl.register's pattern.
-        var createdUserId: String? = null
-        var createdUserRole: UserRoleColumn? = null
+    /**
+     * The transactional core of [claimInvite]: validate the code, insert the new ACTIVE user, and
+     * stamp the claim — all in one transaction. Returns the new [AuthUser] on success, or a typed
+     * [InviteError] failure. No suspending calls inside the block (SQLDelight transactions are
+     * non-suspending), so session issuance happens at the [claimInvite] call site after commit.
+     */
+    private suspend fun claimUserAtomically(
+        code: String,
+        passwordHashed: String,
+        displayName: String?,
+        now: Long,
+    ): AppResult<AuthUser> =
+        suspendTransaction(db) {
+            val invite =
+                db.invitesQueries.selectByCode(code = code).executeAsOneOrNull()
+                    ?: return@suspendTransaction AppResult.Failure(InviteError.NotFound())
+            if (invite.claimed_at != null) return@suspendTransaction AppResult.Failure(InviteError.AlreadyClaimed())
+            if (invite.expires_at < now) return@suspendTransaction AppResult.Failure(InviteError.Expired())
 
-        val result =
-            suspendTransaction(db) {
-                val invite =
-                    InviteEntity.find { InviteTable.code eq code }.firstOrNull()
-                        ?: return@suspendTransaction AppResult.Failure(InviteError.NotFound())
-                if (invite.claimedAt != null) return@suspendTransaction AppResult.Failure(InviteError.AlreadyClaimed())
-                if (invite.expiresAt < now) return@suspendTransaction AppResult.Failure(InviteError.Expired())
-
-                val normalized = Email.normalize(invite.email)
-                if (UserEntity.find { UserTable.emailNormalized eq normalized }.any()) {
-                    return@suspendTransaction AppResult.Failure(InviteError.EmailInUse())
-                }
-
-                // Create the user exactly as AuthServiceImpl.register does, minus the
-                // policy branch: the invite IS the admission, so status is always ACTIVE.
-                val user =
-                    UserEntity.new(newUserId()) {
-                        email = invite.email
-                        emailNormalized = normalized
-                        passwordHash = passwordHashed
-                        role = invite.role
-                        this.displayName = displayName ?: invite.displayName
-                        status = UserStatusColumn.ACTIVE
-                        invitedBy = invite.createdBy
-                        createdAt = now
-                        updatedAt = now
-                    }
-                // Single-use: stamp the claim so the code can't be redeemed again.
-                invite.claimedAt = now
-                invite.claimedBy = user.id.value
-                createdUserId = user.id.value
-                createdUserRole = user.role
-                AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
+            val normalized = Email.normalize(invite.email)
+            if (db.usersQueries.existsByEmailNormalized(email_normalized = normalized).executeAsOne()) {
+                return@suspendTransaction AppResult.Failure(InviteError.EmailInUse())
             }
 
-        // Best-effort default grant — mirrors createStarterShelfBestEffort in AuthServiceImpl.
-        // Runs after the transaction so the user FK exists for the grant row.
-        // The issuer itself never throws (re-raises CancellationException, swallows everything
-        // else), so no outer try/catch is needed here — matches register()'s call pattern.
-        val userId = createdUserId
-        val role = createdUserRole
-        if (result is AppResult.Success && userId != null && role != null) {
-            defaultGrantIssuer?.grantDefaultAllBooks(userId, role)
+            // Create the user exactly as AuthServiceImpl.register does, minus the
+            // policy branch: the invite IS the admission, so status is always ACTIVE.
+            val user =
+                AuthUser(
+                    id = newUserId(),
+                    email = invite.email,
+                    emailNormalized = normalized,
+                    passwordHash = passwordHashed,
+                    role = UserRoleColumn.valueOf(invite.role),
+                    displayName = displayName ?: invite.display_name,
+                    status = UserStatusColumn.ACTIVE,
+                    createdAt = now,
+                    canEdit = true,
+                    canShare = true,
+                    approvedBy = null,
+                    approvedAt = null,
+                    deletedAt = null,
+                )
+            db.usersQueries.insert(
+                id = user.id,
+                email = user.email,
+                email_normalized = user.emailNormalized,
+                password_hash = user.passwordHash,
+                role = user.role.name,
+                display_name = user.displayName,
+                status = user.status.name,
+                created_at = now,
+                updated_at = now,
+                last_login_at = null,
+                can_edit = 1L,
+                can_share = 1L,
+                approved_by = null,
+                approved_at = null,
+                deleted_at = null,
+                // Stamp the invitation graph: this user was invited by the issuing admin.
+                invited_by = invite.created_by,
+                tagline = null,
+                avatar_type = "auto",
+                timezone = "UTC",
+            )
+            // Single-use: stamp the claim so the code can't be redeemed again.
+            db.invitesQueries.markClaimed(claimed_at = now, claimed_by = user.id, id = invite.id)
+            AppResult.Success(user)
         }
-
-        return result
-    }
 
     override suspend fun lookupInvite(code: String): AppResult<InvitePreview> {
         val now = clock.now().toEpochMilliseconds()
         return suspendTransaction(db) {
             val invite =
-                InviteEntity.find { InviteTable.code eq code }.firstOrNull()
+                db.invitesQueries.selectByCode(code = code).executeAsOneOrNull()
                     ?: return@suspendTransaction AppResult.Failure(InviteError.NotFound())
-            val invitedByName = UserEntity.findById(invite.createdBy)?.displayName ?: "An administrator"
-            val claimed = invite.claimedAt != null
-            val expired = invite.expiresAt < now
+            val invitedByName =
+                db.usersQueries
+                    .selectById(id = invite.created_by)
+                    .executeAsOneOrNull()
+                    ?.display_name ?: "An administrator"
+            val claimed = invite.claimed_at != null
+            val expired = invite.expires_at < now
             AppResult.Success(
                 InvitePreview(
-                    displayName = invite.displayName,
+                    displayName = invite.display_name,
                     email = invite.email,
                     invitedByName = invitedByName,
                     serverName = serverName,
@@ -231,10 +285,10 @@ class InviteServiceImpl(
     }
 
     /** Lifecycle status derived from claim then expiry; PENDING when neither applies. */
-    private fun InviteEntity.deriveStatus(now: Long): InviteStatus =
+    private fun Invites.deriveStatus(now: Long): InviteStatus =
         when {
-            claimedAt != null -> InviteStatus.CLAIMED
-            expiresAt < now -> InviteStatus.EXPIRED
+            claimed_at != null -> InviteStatus.CLAIMED
+            expires_at < now -> InviteStatus.EXPIRED
             else -> InviteStatus.PENDING
         }
 
@@ -250,3 +304,22 @@ class InviteServiceImpl(
         const val DEFAULT_EXPIRY_DAYS = 7
     }
 }
+
+/**
+ * Map a generated `invites` row to the wire [InviteDto]. The role string is mapped through
+ * [UserRoleColumn] so an invited role round-trips identically to a persisted user role — exactly
+ * what the prior Exposed `InviteEntity.toDto()` did via its `enumerationByName` column.
+ */
+private fun Invites.toDto(): InviteDto =
+    InviteDto(
+        id = InviteId(id),
+        code = code,
+        email = email,
+        displayName = display_name,
+        role = UserRoleColumn.valueOf(role).toContract(),
+        createdBy = created_by,
+        expiresAt = expires_at,
+        createdAt = created_at,
+        claimedAt = claimed_at,
+        claimedBy = claimed_by,
+    )

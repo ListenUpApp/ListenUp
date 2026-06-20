@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -52,13 +55,15 @@ class BookServiceImplSetGenresTest :
         fun makeService(db: Database): BookServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db, bus, registry)
-            val seriesRepo = SeriesRepository(db, bus, registry)
-            val genreRepo = GenreRepository(db, bus, registry, fixedClock)
-            val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry, fixedClock)
+            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
+                    exposedDb = db,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -74,8 +79,8 @@ class BookServiceImplSetGenresTest :
                 coverStorage = CoverStorage(),
                 db = db,
                 genreRepo = genreRepo,
-                accessPolicy = BookAccessPolicy(db),
-                permissionPolicy = UserPermissionPolicy(db),
+                accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
             )
         }

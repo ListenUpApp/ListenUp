@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -50,8 +52,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -81,8 +83,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -112,8 +114,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -143,8 +145,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -176,9 +178,9 @@ private fun makeReindexService(
     bus: ChangeBus,
     registry: SyncRegistry,
 ): SearchReindexService {
-    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-    return SearchReindexService(db, BookSearchReindexer(bookTagRepo, tagRepo, db))
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    return SearchReindexService(db, BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db))
 }
 
 /**

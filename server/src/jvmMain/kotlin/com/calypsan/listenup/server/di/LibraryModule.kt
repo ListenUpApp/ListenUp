@@ -2,8 +2,10 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRepository
+import app.cash.sqldelight.db.SqlDriver
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -27,16 +29,17 @@ fun libraryModule(): Module =
         // rather than relying on an incidental eager deref during routing setup.
         single(createdAtStart = true) {
             LibraryRepository(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
             )
         }
         single(createdAtStart = true) {
             LibraryFolderRepository(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
+                driver = get<SqlDriver>(),
             )
         }
         single<LibraryAdminService> {

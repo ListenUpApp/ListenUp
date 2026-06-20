@@ -1,0 +1,101 @@
+-- collection_books junction: syncable, soft-deletable, revision-tracked. The synthetic
+-- `id` ("$collectionId:$bookId") is the sync-cursor identity; the natural composite PK
+-- (collection_id, book_id) is the write/lookup key.
+-- Column set matches V24__collections_substrate.sql exactly.
+-- FK declarations (REFERENCES collections/books) are omitted here, mirroring BookTags.sq:
+-- SQLDelight cannot resolve cross-table references for tables not defined in this schema's
+-- .sq files. The constraints are present in the migration DDL and enforced by SQLite at runtime.
+--
+-- Two write paths share this schema: the SQLDelight CollectionBookRepository (every junction
+-- read/write/cascade) and BookRepository's atomic inbox-quarantine membership write (which lands
+-- inside the book-insert transaction via insertMembership/existsByCollectionAndBook). Both agree
+-- on the synthetic `id` so a row written by either is read/updated identically by the other.
+CREATE TABLE collection_books (
+    id            TEXT    NOT NULL,
+    collection_id TEXT    NOT NULL,
+    book_id       TEXT    NOT NULL,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    revision      INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    client_op_id  TEXT,
+    PRIMARY KEY (collection_id, book_id)
+);
+
+CREATE UNIQUE INDEX idx_collection_books_id ON collection_books(id);
+CREATE INDEX idx_collection_books_book ON collection_books(book_id, collection_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_collection_books_revision ON collection_books(revision);
+
+-- Existence check keyed on the natural composite PK — idempotency guard for the inbox write
+-- so a rescan that re-enters the same (collection, book) pair never inserts a duplicate.
+existsByCollectionAndBook:
+SELECT EXISTS(SELECT 1 FROM collection_books WHERE collection_id = :collection_id AND book_id = :book_id);
+
+-- Inbox membership insert. The synthetic `id` is the canonical "$collectionId:$bookId" key
+-- (see CollectionBookId.asString); used by BookRepository's atomic quarantine write path.
+insertMembership:
+INSERT INTO collection_books (id, collection_id, book_id, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :collection_id, :book_id, :created_at, :updated_at, :revision, NULL, :client_op_id);
+
+-- ── substrate queries (keyed on the synthetic `id`) ─────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM collection_books WHERE id = :id);
+
+softDeleteById:
+UPDATE collection_books
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM collection_books WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM collection_books WHERE revision <= :cursor;
+
+-- ── root-row reads / writes ──────────────────────────────────────────────────────
+
+-- Tombstone-inclusive read by synthetic id. Used by the base's pullSince/readPayloads, which
+-- must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM collection_books WHERE id = :id;
+
+selectByIds:
+SELECT * FROM collection_books WHERE id IN :ids;
+
+-- Live (non-tombstoned) junction row for a (collection, book) pair, or none.
+selectLiveByCollectionAndBook:
+SELECT * FROM collection_books
+WHERE collection_id = :collection_id AND book_id = :book_id AND deleted_at IS NULL;
+
+-- Live book ids in a collection.
+liveBookIdsForCollection:
+SELECT book_id FROM collection_books
+WHERE collection_id = :collection_id AND deleted_at IS NULL;
+
+-- Live collection ids that contain a book.
+liveCollectionIdsForBook:
+SELECT collection_id FROM collection_books
+WHERE book_id = :book_id AND deleted_at IS NULL;
+
+-- Count of live junction rows for a collection.
+countLiveForCollection:
+SELECT COUNT(*) FROM collection_books
+WHERE collection_id = :collection_id AND deleted_at IS NULL;
+
+-- Live synthetic ids for a collection — the cascade set for softDeleteAllForCollection.
+liveIdsForCollection:
+SELECT id FROM collection_books
+WHERE collection_id = :collection_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO collection_books (id, collection_id, book_id, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :collection_id, :book_id, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+-- Update keyed on the natural composite PK (collection_id, book_id).
+update:
+UPDATE collection_books
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE collection_id = :collection_id AND book_id = :book_id;

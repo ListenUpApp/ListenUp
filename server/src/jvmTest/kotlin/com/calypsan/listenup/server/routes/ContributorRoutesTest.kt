@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -67,24 +70,38 @@ class ContributorRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db = db, bus = bus, registry = registry)
-                val seriesRepo = SeriesRepository(db = db, bus = bus, registry = registry)
+                val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
-                        genreRepository = GenreRepository(db = db, bus = bus, registry = registry),
+                        genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                     )
-                val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
-                val service = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db)
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-                val accessPolicy = BookAccessPolicy(db)
+                val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+                val service = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
 
                 testApplication {
                     application {
@@ -103,7 +120,14 @@ class ContributorRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    ContributorTestScope(jsonClient, db, contributorRepo, bookRepo, collectionRepo, collectionBookRepo).block()
+                    ContributorTestScope(
+                        jsonClient,
+                        db,
+                        contributorRepo,
+                        bookRepo,
+                        collectionRepo,
+                        collectionBookRepo,
+                    ).block()
                 }
             }
         }

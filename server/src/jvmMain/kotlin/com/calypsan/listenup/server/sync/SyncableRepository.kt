@@ -20,6 +20,7 @@ import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.IColumnType
 import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.LongColumnType
+import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -57,9 +58,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     protected val table: SyncableTable,
     protected val bus: ChangeBus,
     registry: SyncRegistry,
-    val domainName: String,
+    override val domainName: String,
     protected val clock: Clock = Clock.System,
-) {
+) : SyncableRepo<T> {
     init {
         registry.register(this)
     }
@@ -132,7 +133,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * concrete [elementSerializer]. Called by the catch-up route to work around
      * the type-erasure of the registry (`SyncableRepository<Any, Any>` cast).
      */
-    fun encodePageAsJson(page: Page<T>): String {
+    override fun encodePageAsJson(page: Page<T>): String {
         val json: JsonObject =
             buildJsonObject {
                 putJsonArray("items") {
@@ -153,7 +154,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * type-erased registry (`SyncableRepository<Any, Any>` cast).
      */
     @Suppress("UNCHECKED_CAST")
-    internal fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
+    override fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
         contractJson.encodeToString(SyncEvent.serializer(elementSerializer), event as SyncEvent<T>)
 
     protected abstract val T.id: ID
@@ -360,11 +361,11 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * payload-read could theoretically null a row, and the queried revision is
      * the canonical cursor advance regardless.
      */
-    open suspend fun pullSince(
+    override suspend fun pullSince(
         userId: String?,
         cursor: Long,
         limit: Int,
-        extraWhere: SqlFragment? = null,
+        extraWhere: SqlFragment?,
     ): Page<T> =
         suspendTransaction(db) {
             val idsWithRev =
@@ -407,10 +408,10 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * Empty domain → `count = 0`, `hash = ""`. This is a permanent wire contract — clients
      * compute identically over their local rows.
      */
-    suspend fun digest(
+    override suspend fun digest(
         userId: String?,
         cursor: Long,
-        extraWhere: SqlFragment? = null,
+        extraWhere: SqlFragment?,
     ): DomainDigest =
         suspendTransaction(db) {
             val rows =
@@ -476,9 +477,13 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
             }
         val args =
-            buildList {
+            buildList<Pair<IColumnType<*>, Any>> {
                 add(LongColumnType() to revisionArg)
-                addAll(extraWhere.args)
+                // The fragment now carries engine-neutral raw values; re-derive the Exposed column
+                // type per value so this Exposed base can still bind them. (All access-filtered
+                // domains are SQLDelight, so this path is exercised only by any future Exposed-backed
+                // access-filtered repo — kept correct, not dead-stripped.)
+                extraWhere.args.forEach { add(it.toExposedArg()) }
                 addAll(trailingArgs)
             }
         val results = mutableListOf<Pair<String, Long>>()
@@ -487,4 +492,13 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         }
         return results
     }
+
+    /** Re-derives the Exposed [IColumnType] for an engine-neutral raw bind value. */
+    private fun Any?.toExposedArg(): Pair<IColumnType<*>, Any> =
+        when (this) {
+            is String -> TextColumnType() to this
+            is Long -> LongColumnType() to this
+            is Int -> IntegerColumnType() to this
+            else -> error("Unsupported SqlFragment arg type ${this?.let { it::class.simpleName }}")
+        }
 }

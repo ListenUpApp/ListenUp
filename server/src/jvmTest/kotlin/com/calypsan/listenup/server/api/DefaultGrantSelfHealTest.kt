@@ -20,6 +20,8 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -64,11 +66,12 @@ class DefaultGrantSelfHealTest :
         fun buildDeps(db: Database): Deps {
             val syncRegistry = SyncRegistry()
             val bus = ChangeBus()
-            val collectionRepository = CollectionRepository(db, bus, syncRegistry)
-            val grantRepository = CollectionGrantRepository(db, bus, syncRegistry)
+            val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
+            val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
             val libraryRegistry = LibraryRegistry(db)
 
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             val sessionIssuer = SessionIssuer(sessions, jwt, fixedClock)
             val hasher = PasswordHasher()
@@ -84,7 +87,7 @@ class DefaultGrantSelfHealTest :
 
             val authSvc =
                 AuthServiceImpl(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,

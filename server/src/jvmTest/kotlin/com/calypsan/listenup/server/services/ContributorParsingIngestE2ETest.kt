@@ -24,6 +24,8 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * End-to-end proof that a multi-contributor author string survives the full ingest
@@ -45,16 +47,18 @@ class ContributorParsingIngestE2ETest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     val analyzed = analyzedWith(authors = listOf("Stephen King; Joe Hill - Introduction"))
@@ -88,16 +92,18 @@ class ContributorParsingIngestE2ETest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     // Book A: display-order name, sortName derived as "Sanderson, Brandon".
@@ -143,16 +149,18 @@ class ContributorParsingIngestE2ETest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     // Two display names that both map to sortName "Sanderson, Brandon" via the
@@ -195,16 +203,18 @@ class ContributorParsingIngestE2ETest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db, bus, registry)
-                val series = SeriesRepository(db, bus, registry)
+                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db, bus, registry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                     )
                 runTest {
                     // Book A: canonical name, derives sortName "Sanderson, Brandon".

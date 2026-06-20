@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.api
 
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlCursor
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.dto.BookHit
 import com.calypsan.listenup.api.dto.ContributorHit
@@ -16,16 +19,12 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.SqlFragment
+import com.calypsan.listenup.server.sync.bindRaw
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.LongColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Server-side implementation of [SearchService].
@@ -45,6 +44,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * Book author names are fetched in the same query via a `GROUP_CONCAT` sub-select
  * — no N+1 per-book round-trip.
  *
+ * **Engine-neutral over the SQLDelight driver.** The user-facing book search splices runtime SQL
+ * fragments — the access-control `AND b.id IN (<subquery>)` from [BookAccessPolicy], optional
+ * genre/duration/year filters from [buildFilterSql], and a sort override — each carrying plain
+ * raw positional args ([SqlFragment.args]). Every dynamic read runs over the shared [driver]
+ * inside a [suspendTransaction], the same engine that backs every other read on the migrated db
+ * file; there is no Exposed dependency here. The `book_search` *writes* (upsert, reindex) are
+ * SQLDelight too.
+ *
  * Results AND facet counts are access-gated through [BookAccessPolicy]: a member must
  * never see a book they can't reach in the result list OR in a facet bucket count (a
  * count leaks existence just as surely as a row). The authenticated caller is resolved
@@ -56,9 +63,10 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * [copyWith] to bind each request to the authenticated principal.
  */
 internal class SearchServiceImpl(
-    private val db: Database,
+    private val db: ListenUpDatabase,
+    private val driver: SqlDriver,
     private val facetCounter: SearchFacetCounter = SearchFacetCounter(),
-    private val accessPolicy: BookAccessPolicy = BookAccessPolicy(db),
+    private val accessPolicy: BookAccessPolicy = BookAccessPolicy(db, driver),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : SearchService {
     override suspend fun search(query: SearchQuery): AppResult<SearchResults> {
@@ -133,6 +141,7 @@ internal class SearchServiceImpl(
     fun copyWith(principal: PrincipalProvider): SearchServiceImpl =
         SearchServiceImpl(
             db = db,
+            driver = driver,
             facetCounter = facetCounter,
             accessPolicy = accessPolicy,
             principal = principal,
@@ -153,7 +162,7 @@ internal class SearchServiceImpl(
         ftsQuery: String,
         filters: SearchFilters?,
         access: SqlFragment?,
-    ): Pair<String, List<Pair<IColumnType<*>, Any>>> {
+    ): Pair<String, List<Any?>> {
         val filterSql = buildFilterSql(filters)
         val accessClause = if (access != null) " AND b.id IN (${access.sql})" else ""
         val sql =
@@ -162,7 +171,7 @@ internal class SearchServiceImpl(
                 filterSql.whereFragment +
                 accessClause
         val args =
-            listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to ftsQuery) +
+            listOf<Any?>(ftsQuery) +
                 filterSql.args +
                 (access?.args ?: emptyList())
         return sql to args
@@ -180,15 +189,15 @@ internal class SearchServiceImpl(
      */
     private suspend fun computeFacets(
         mbSql: String,
-        mbArgs: List<Pair<IColumnType<*>, Any>>,
+        mbArgs: List<Any?>,
     ): SearchFacets =
         suspendTransaction(db) {
-            var matchedBooks = 0
-            TransactionManager.current().exec(
-                stmt = "SELECT COUNT(*) AS cnt FROM ($mbSql)",
-                args = mbArgs,
-            ) { rs -> if (rs.next()) matchedBooks = rs.getInt("cnt") }
+            val matchedBooks =
+                driver
+                    .querySingleInt("SELECT COUNT(*) AS cnt FROM ($mbSql)", mbArgs)
+                    ?: 0
             facetCounter.count(
+                driver = driver,
                 matchedBooksSql = mbSql,
                 args = mbArgs,
                 bookCount = matchedBooks,
@@ -205,51 +214,41 @@ internal class SearchServiceImpl(
         suspendTransaction(db) {
             val filterSql = buildFilterSql(filters)
             val accessClause = if (access != null) " AND b.id IN (${access.sql})" else ""
-            val results = mutableListOf<BookHit>()
             // Join book_search → book_search_map → books and fetch author names via a
             // GROUP_CONCAT sub-select so there is no N+1 per-book round-trip.
-            // Args are spliced in statement order so positional binding matches:
+            // Args are bound in statement order so positional binding matches:
             // MATCH ? … <filters> … <access subquery> … LIMIT ?
-            TransactionManager.current().exec(
-                stmt =
-                    "SELECT b.id, b.title, b.cover_path, b.cover_hash, " +
-                        "(SELECT GROUP_CONCAT(c.name, ', ') " +
-                        "   FROM book_contributors bc " +
-                        "   JOIN contributors c ON c.id = bc.contributor_id " +
-                        "  WHERE bc.book_id = b.id AND bc.role = 'author' " +
-                        "  ORDER BY bc.ordinal) AS author_names " +
-                        "FROM book_search s " +
-                        "JOIN book_search_map m ON s.rowid = m.rowid " +
-                        "JOIN books b ON b.id = m.book_id " +
-                        "WHERE book_search MATCH ? " +
-                        "AND b.deleted_at IS NULL" +
-                        filterSql.whereFragment +
-                        accessClause +
-                        " ORDER BY ${orderByFor(sort)} LIMIT ?",
-                args =
-                    listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to ftsQuery) +
-                        filterSql.args +
-                        (access?.args ?: emptyList()) +
-                        listOf(IntegerColumnType() to limit),
-            ) { rs ->
-                while (rs.next()) {
-                    val authorsCsv = rs.getString("author_names")
-                    val authorNames = if (authorsCsv.isNullOrBlank()) emptyList() else authorsCsv.split(", ")
-                    val title = rs.getString("title")
-                    results +=
-                        BookHit(
-                            id = BookId(rs.getString("id")),
-                            title = title,
-                            authorNames = authorNames,
-                            coverPath = rs.getString("cover_path"),
-                            coverHash = rs.getString("cover_hash"),
-                            highlight =
-                                highlightMatches(title, ftsQuery)
-                                    ?: authorNames.firstNotNullOfOrNull { highlightMatches(it, ftsQuery) },
-                        )
-                }
+            val sql =
+                "SELECT b.id, b.title, b.cover_path, b.cover_hash, " +
+                    "(SELECT GROUP_CONCAT(c.name, ', ') " +
+                    "   FROM book_contributors bc " +
+                    "   JOIN contributors c ON c.id = bc.contributor_id " +
+                    "  WHERE bc.book_id = b.id AND bc.role = 'author' " +
+                    "  ORDER BY bc.ordinal) AS author_names " +
+                    "FROM book_search s " +
+                    "JOIN book_search_map m ON s.rowid = m.rowid " +
+                    "JOIN books b ON b.id = m.book_id " +
+                    "WHERE book_search MATCH ? " +
+                    "AND b.deleted_at IS NULL" +
+                    filterSql.whereFragment +
+                    accessClause +
+                    " ORDER BY ${orderByFor(sort)} LIMIT ?"
+            val args = listOf<Any?>(ftsQuery) + filterSql.args + (access?.args ?: emptyList()) + listOf(limit.toLong())
+            driver.queryList(sql, args) { cursor ->
+                val authorsCsv = cursor.getString(4)
+                val authorNames = if (authorsCsv.isNullOrBlank()) emptyList() else authorsCsv.split(", ")
+                val title = cursor.getString(1)!!
+                BookHit(
+                    id = BookId(cursor.getString(0)!!),
+                    title = title,
+                    authorNames = authorNames,
+                    coverPath = cursor.getString(2),
+                    coverHash = cursor.getString(3),
+                    highlight =
+                        highlightMatches(title, ftsQuery)
+                            ?: authorNames.firstNotNullOfOrNull { highlightMatches(it, ftsQuery) },
+                )
             }
-            results
         }
 
     private suspend fun searchContributors(
@@ -257,37 +256,26 @@ internal class SearchServiceImpl(
         limit: Int,
     ): List<ContributorHit> =
         suspendTransaction(db) {
-            val results = mutableListOf<ContributorHit>()
-            TransactionManager.current().exec(
-                stmt =
-                    "SELECT c.id, c.name, c.sort_name, c.image_path, c.image_blur_hash, " +
-                        "(SELECT COUNT(*) FROM book_contributors bc WHERE bc.contributor_id = c.id) AS book_count " +
-                        "FROM contributor_search cs " +
-                        "JOIN contributors c ON c.rowid = cs.rowid " +
-                        "WHERE contributor_search MATCH ? " +
-                        "AND c.deleted_at IS NULL " +
-                        "ORDER BY cs.rank LIMIT ?",
-                args =
-                    listOf(
-                        TextColumnType() to ftsQuery,
-                        IntegerColumnType() to limit,
-                    ),
-            ) { rs ->
-                while (rs.next()) {
-                    val name = rs.getString("name")
-                    results +=
-                        ContributorHit(
-                            id = ContributorId(rs.getString("id")),
-                            name = name,
-                            sortName = rs.getString("sort_name"),
-                            photoPath = rs.getString("image_path"),
-                            photoBlurHash = rs.getString("image_blur_hash"),
-                            bookCount = rs.getInt(COL_BOOK_COUNT),
-                            highlight = highlightMatches(name, ftsQuery),
-                        )
-                }
+            val sql =
+                "SELECT c.id, c.name, c.sort_name, c.image_path, c.image_blur_hash, " +
+                    "(SELECT COUNT(*) FROM book_contributors bc WHERE bc.contributor_id = c.id) AS book_count " +
+                    "FROM contributor_search cs " +
+                    "JOIN contributors c ON c.rowid = cs.rowid " +
+                    "WHERE contributor_search MATCH ? " +
+                    "AND c.deleted_at IS NULL " +
+                    "ORDER BY cs.rank LIMIT ?"
+            driver.queryList(sql, listOf(ftsQuery, limit.toLong())) { cursor ->
+                val name = cursor.getString(1)!!
+                ContributorHit(
+                    id = ContributorId(cursor.getString(0)!!),
+                    name = name,
+                    sortName = cursor.getString(2),
+                    photoPath = cursor.getString(3),
+                    photoBlurHash = cursor.getString(4),
+                    bookCount = cursor.getLong(5)!!.toInt(),
+                    highlight = highlightMatches(name, ftsQuery),
+                )
             }
-            results
         }
 
     private suspend fun searchSeries(
@@ -295,37 +283,26 @@ internal class SearchServiceImpl(
         limit: Int,
     ): List<SeriesHit> =
         suspendTransaction(db) {
-            val results = mutableListOf<SeriesHit>()
-            TransactionManager.current().exec(
-                stmt =
-                    "SELECT s.id, s.name, s.sort_name, s.cover_path, s.cover_blur_hash, " +
-                        "(SELECT COUNT(*) FROM book_series_memberships bsm WHERE bsm.series_id = s.id) AS book_count " +
-                        "FROM series_search ss " +
-                        "JOIN book_series s ON s.rowid = ss.rowid " +
-                        "WHERE series_search MATCH ? " +
-                        "AND s.deleted_at IS NULL " +
-                        "ORDER BY ss.rank LIMIT ?",
-                args =
-                    listOf(
-                        TextColumnType() to ftsQuery,
-                        IntegerColumnType() to limit,
-                    ),
-            ) { rs ->
-                while (rs.next()) {
-                    val name = rs.getString("name")
-                    results +=
-                        SeriesHit(
-                            id = SeriesId(rs.getString("id")),
-                            name = name,
-                            sortName = rs.getString("sort_name"),
-                            coverPath = rs.getString("cover_path"),
-                            coverBlurHash = rs.getString("cover_blur_hash"),
-                            bookCount = rs.getInt(COL_BOOK_COUNT),
-                            highlight = highlightMatches(name, ftsQuery),
-                        )
-                }
+            val sql =
+                "SELECT s.id, s.name, s.sort_name, s.cover_path, s.cover_blur_hash, " +
+                    "(SELECT COUNT(*) FROM book_series_memberships bsm WHERE bsm.series_id = s.id) AS book_count " +
+                    "FROM series_search ss " +
+                    "JOIN book_series s ON s.rowid = ss.rowid " +
+                    "WHERE series_search MATCH ? " +
+                    "AND s.deleted_at IS NULL " +
+                    "ORDER BY ss.rank LIMIT ?"
+            driver.queryList(sql, listOf(ftsQuery, limit.toLong())) { cursor ->
+                val name = cursor.getString(1)!!
+                SeriesHit(
+                    id = SeriesId(cursor.getString(0)!!),
+                    name = name,
+                    sortName = cursor.getString(2),
+                    coverPath = cursor.getString(3),
+                    coverBlurHash = cursor.getString(4),
+                    bookCount = cursor.getLong(5)!!.toInt(),
+                    highlight = highlightMatches(name, ftsQuery),
+                )
             }
-            results
         }
 
     private suspend fun searchTags(
@@ -333,40 +310,29 @@ internal class SearchServiceImpl(
         limit: Int,
     ): List<TagHit> =
         suspendTransaction(db) {
-            val results = mutableListOf<TagHit>()
             // JOIN tag_search → tags; COUNT(*) sub-select computes live bookCount
             // without a denormalized column — correctness over cleverness at our scale.
             // Soft-deleted tags (t.deleted_at IS NULL) and soft-deleted junction rows
             // (bt.deleted_at IS NULL) are both excluded so the count reflects live state.
-            TransactionManager.current().exec(
-                stmt =
-                    "SELECT t.id, t.name, t.slug, " +
-                        "(SELECT COUNT(*) FROM book_tags bt " +
-                        " WHERE bt.tag_id = t.id AND bt.deleted_at IS NULL) AS book_count " +
-                        "FROM tag_search ts " +
-                        "JOIN tags t ON t.rowid = ts.rowid " +
-                        "WHERE tag_search MATCH ? " +
-                        "AND t.deleted_at IS NULL " +
-                        "ORDER BY ts.rank LIMIT ?",
-                args =
-                    listOf(
-                        TextColumnType() to ftsQuery,
-                        IntegerColumnType() to limit,
-                    ),
-            ) { rs ->
-                while (rs.next()) {
-                    val name = rs.getString("name")
-                    results +=
-                        TagHit(
-                            id = TagId(rs.getString("id")),
-                            name = name,
-                            slug = rs.getString("slug"),
-                            bookCount = rs.getLong(COL_BOOK_COUNT),
-                            highlight = highlightMatches(name, ftsQuery),
-                        )
-                }
+            val sql =
+                "SELECT t.id, t.name, t.slug, " +
+                    "(SELECT COUNT(*) FROM book_tags bt " +
+                    " WHERE bt.tag_id = t.id AND bt.deleted_at IS NULL) AS book_count " +
+                    "FROM tag_search ts " +
+                    "JOIN tags t ON t.rowid = ts.rowid " +
+                    "WHERE tag_search MATCH ? " +
+                    "AND t.deleted_at IS NULL " +
+                    "ORDER BY ts.rank LIMIT ?"
+            driver.queryList(sql, listOf(ftsQuery, limit.toLong())) { cursor ->
+                val name = cursor.getString(1)!!
+                TagHit(
+                    id = TagId(cursor.getString(0)!!),
+                    name = name,
+                    slug = cursor.getString(2)!!,
+                    bookCount = cursor.getLong(3)!!,
+                    highlight = highlightMatches(name, ftsQuery),
+                )
             }
-            results
         }
 
     /**
@@ -387,26 +353,26 @@ internal class SearchServiceImpl(
 
     private data class FilterSql(
         val whereFragment: String,
-        val args: List<Pair<IColumnType<*>, Any>>,
+        val args: List<Any?>,
     )
 
     private fun buildFilterSql(filters: SearchFilters?): FilterSql {
         if (filters == null || !filters.isActive) return FilterSql("", emptyList())
         val clauses = mutableListOf<String>()
-        val args = mutableListOf<Pair<IColumnType<*>, Any>>()
+        val args = mutableListOf<Any?>()
         val genreClauses = mutableListOf<String>()
         if (filters.genreSlugs.isNotEmpty()) {
             val placeholders = filters.genreSlugs.joinToString(",") { "?" }
             genreClauses += "g.slug IN ($placeholders)"
-            filters.genreSlugs.forEach { args += TextColumnType() to it }
+            filters.genreSlugs.forEach { args += it }
         }
         if (filters.genrePath != null) {
             // Kotlin doesn't compose the outer `filters != null` smart-cast with this nested
-            // property null-check, so !! is required to satisfy the Pair<…, Any> bound.
+            // property null-check, so !! is required.
             val path = filters.genrePath!!
             genreClauses += "(g.path = ? OR g.path LIKE ? || '/%')"
-            args.add(TextColumnType() to path)
-            args.add(TextColumnType() to path)
+            args.add(path)
+            args.add(path)
         }
         if (genreClauses.isNotEmpty()) {
             clauses +=
@@ -415,23 +381,23 @@ internal class SearchServiceImpl(
         }
         // total_duration is stored in milliseconds; contract fields are in seconds → multiply by 1000.
         // !! required: Kotlin doesn't compose the outer `filters != null` smart-cast with nested
-        // property null-checks, so we must assert non-null to satisfy Pair<IColumnType<*>, Any>.
+        // property null-checks.
         if (filters.durationMinSeconds != null) {
             clauses += "b.total_duration >= ?"
-            args += LongColumnType() to filters.durationMinSeconds!! * 1_000L
+            args += filters.durationMinSeconds!! * 1_000L
         }
         if (filters.durationMaxSeconds != null) {
             clauses += "b.total_duration <= ?"
-            args += LongColumnType() to filters.durationMaxSeconds!! * 1_000L
+            args += filters.durationMaxSeconds!! * 1_000L
         }
         // publish_year is nullable — NULL rows are naturally excluded by >= / <= comparisons.
         if (filters.yearMin != null) {
             clauses += "b.publish_year >= ?"
-            args += IntegerColumnType() to filters.yearMin!!
+            args += filters.yearMin!!.toLong()
         }
         if (filters.yearMax != null) {
             clauses += "b.publish_year <= ?"
-            args += IntegerColumnType() to filters.yearMax!!
+            args += filters.yearMax!!.toLong()
         }
         return FilterSql(
             whereFragment = if (clauses.isEmpty()) "" else " AND " + clauses.joinToString(" AND "),
@@ -441,7 +407,6 @@ internal class SearchServiceImpl(
 
     private companion object {
         const val MAX_LIMIT = 100
-        const val COL_BOOK_COUNT = "book_count"
         val EMPTY_RESULTS =
             SearchResults(
                 books = emptyList(),
@@ -464,3 +429,51 @@ internal class SearchServiceImpl(
         fun sanitizeFts5Query(q: String): String = q.replace(Regex("[^A-Za-z0-9 ]"), " ").trim()
     }
 }
+
+/**
+ * Runs [sql] (with engine-neutral [args] in `?` order) over the driver and maps every row through
+ * [rowMapper]. Called inside an open [suspendTransaction], so the raw query runs on the
+ * surrounding transaction's connection. Bind indices are 0-based (the SQLDelight JDBC convention).
+ */
+internal fun <T : Any> SqlDriver.queryList(
+    sql: String,
+    args: List<Any?>,
+    rowMapper: (SqlCursor) -> T,
+): List<T> =
+    executeQuery(
+        identifier = null,
+        sql = sql,
+        mapper = { cursor ->
+            val out = mutableListOf<T>()
+            while (cursor.next().value) {
+                out += rowMapper(cursor)
+            }
+            QueryResult.Value(out.toList())
+        },
+        parameters = args.size,
+        binders = {
+            args.forEachIndexed { index, arg -> bindRaw(index, arg) }
+        },
+    ).value
+
+/**
+ * Runs [sql] (a single-row, single-int-column aggregate, e.g. `COUNT(*)`) over the driver and
+ * returns the value, or null if no row. Used for the matched-book count and the facet GROUP BY
+ * bucket counts.
+ */
+internal fun SqlDriver.querySingleInt(
+    sql: String,
+    args: List<Any?>,
+): Int? =
+    executeQuery(
+        identifier = null,
+        sql = sql,
+        mapper = { cursor ->
+            val value = if (cursor.next().value) cursor.getLong(0)?.toInt() else null
+            QueryResult.Value(value)
+        },
+        parameters = args.size,
+        binders = {
+            args.forEachIndexed { index, arg -> bindRaw(index, arg) }
+        },
+    ).value

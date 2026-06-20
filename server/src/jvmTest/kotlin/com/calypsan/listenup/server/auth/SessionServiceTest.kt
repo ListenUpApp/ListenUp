@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.db.SessionTable
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -55,7 +56,8 @@ class SessionServiceTest :
         test("createSession persists a row and returns the raw token only once") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val issued = svc.createSession(UserId("u-1"), label = "iPhone")
 
@@ -73,7 +75,8 @@ class SessionServiceTest :
         test("rotate issues a new token, advances previousHash, keeps the session live") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val issued = svc.createSession(UserId("u-1"))
             val rotated = svc.rotate(issued.refreshToken).shouldNotBeNull()
@@ -93,7 +96,8 @@ class SessionServiceTest :
         test("rotate with an unknown token returns null and does nothing") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             svc.createSession(UserId("u-1"))
             val rotated = svc.rotate(RefreshToken("not-a-real-token"))
@@ -104,7 +108,8 @@ class SessionServiceTest :
         test("rotate replaying the previous token revokes the entire family") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val issued = svc.createSession(UserId("u-1"))
             val firstRotation = svc.rotate(issued.refreshToken).shouldNotBeNull()
@@ -126,7 +131,8 @@ class SessionServiceTest :
         test("revoke marks the session row revoked; revokeAll does the same for every active session") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val a = svc.createSession(UserId("u-1"))
             val b = svc.createSession(UserId("u-1"))
@@ -150,7 +156,8 @@ class SessionServiceTest :
         test("rotate returns null for an explicitly-revoked session") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val s = svc.createSession(UserId("u-1"))
             svc.revoke(s.sessionId, UserId("u-1"))
@@ -164,7 +171,7 @@ class SessionServiceTest :
             // Use a tiny TTL so the session is born already-expired by the test clock.
             val svc =
                 SessionService(
-                    db,
+                    db.asSqlDatabase(),
                     RefreshTokenHasher(pepper),
                     RefreshTokenGenerator(),
                     refreshTtl = (-1).milliseconds,
@@ -178,7 +185,8 @@ class SessionServiceTest :
         test("wasReplay distinguishes 'unknown token' from 'replayed-and-revoked'") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val issued = svc.createSession(UserId("u-1"))
             svc.rotate(issued.refreshToken).shouldNotBeNull()
@@ -193,7 +201,8 @@ class SessionServiceTest :
             val db = freshDb()
             seedUser(db, "u-1")
             seedUser(db, "u-2")
-            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val svc =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             // Create some noise: 10 other sessions for u-2
             repeat(10) { svc.createSession(UserId("u-2")) }

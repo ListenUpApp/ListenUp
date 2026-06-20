@@ -45,6 +45,8 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Contract and ACL tests for [SocialServiceImpl] — the crown-jewel ACL surface.
@@ -82,19 +84,26 @@ class SocialServiceTest :
             val bookRegistry = SyncRegistry()
             val books =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
+                    exposedDb = db,
                     bus = bus,
                     registry = bookRegistry,
-                    contributorRepository = ContributorRepository(db = db, bus = bus, registry = bookRegistry),
-                    seriesRepository = SeriesRepository(db = db, bus = bus, registry = bookRegistry),
-                    genreRepository = GenreRepository(db = db, bus = bus, registry = bookRegistry),
+                    contributorRepository =
+                        ContributorRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = bookRegistry,
+                        ),
+                    seriesRepository = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
+                    genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
                 )
             return SocialServiceImpl(
-                activeSessions = ActiveSessionRepository(db = db, bus = bus),
-                bookAccessPolicy = BookAccessPolicy(db),
-                publicProfiles = PublicProfileRepository(db = db, bus = bus, registry = registry),
-                playbackPositions = PlaybackPositionRepository(db = db, bus = bus, registry = registry),
-                bookReads = BookReadsRepository(db = db),
+                activeSessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = bus),
+                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                publicProfiles = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                playbackPositions = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                bookReads = BookReadsRepository(db = db.asSqlDatabase()),
                 books = books,
                 principal = principal,
             )
@@ -188,8 +197,20 @@ class SocialServiceTest :
         ) {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             collectionRepo.upsert(
                 CollectionSyncPayload(
                     id = collectionId,
@@ -229,9 +250,27 @@ class SocialServiceTest :
         ) {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             collectionRepo.upsert(
                 CollectionSyncPayload(
                     id = allBooksId,
@@ -279,7 +318,7 @@ class SocialServiceTest :
                     // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
                     makeBookAccessible(db, bookId = "book-a", viewer = "viewer")
 
-                    val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
+                    val sessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "book-a")
                     sessions.startOrRefresh(userId = "viewer", bookId = "book-a")
 
@@ -314,7 +353,7 @@ class SocialServiceTest :
                     // "public-book" is reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
                     makeBookAccessible(db, bookId = "public-book", viewer = "viewer")
 
-                    val sessions = ActiveSessionRepository(db = db, bus = ChangeBus())
+                    val sessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "public-book")
                     sessions.startOrRefresh(userId = "alice", bookId = "private-book")
 

@@ -61,6 +61,8 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val NOW = Instant.parse("2026-05-24T12:00:00Z")
 
@@ -253,12 +255,14 @@ class MetadataLookupServiceImplTest :
 
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val genreRepo = GenreRepository(db, bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -269,7 +273,7 @@ class MetadataLookupServiceImplTest :
                     MetadataService(
                         audible = BookStubAudibleApi(bookWithCover("https://example.test/cover.jpg")),
                         itunes = NoOpITunesApi(),
-                        cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
+                        cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
                     )
                 // MockEngine returns a minimal valid JPEG so CoverImageStore validation passes.
                 val jpegBytes =
@@ -456,16 +460,18 @@ private fun makeService(
         MetadataService(
             audible = audible,
             itunes = itunes,
-            cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
         )
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-    val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-    val genreRepo = GenreRepository(db, bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
     val bookRepository =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
@@ -491,7 +497,7 @@ private fun makeService(
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry, productTagSource = productTagSource),
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         db = db,
         genreRepository = genreRepo,
     )

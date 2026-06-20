@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -24,7 +26,7 @@ class BusEventTypedTest :
         test("BusEvent.repo provides the serializer needed to encode the event payload") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = TagRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val deferredBusEvent = async { bus.subscribe().first() }

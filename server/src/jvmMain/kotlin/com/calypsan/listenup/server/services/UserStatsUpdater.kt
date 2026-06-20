@@ -3,7 +3,8 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
-import com.calypsan.listenup.server.db.ListeningEventTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.math.max
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -11,37 +12,31 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greaterEq
-import org.jetbrains.exposed.v1.core.neq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Maintains the materialized `user_stats` row incrementally.
  *
- * Called from inside the listening-event upsert path (via [onListeningEvent])
- * and from `PlaybackPositionRepository.recordPosition` when `finished` flips
- * false → true (via [onPositionFinishedFlip]). Both writes are atomic with their
- * source row, so stats are never observably inconsistent with the events /
- * positions they aggregate.
+ * Called from inside the listening-event upsert path (via [onListeningEvent]) and from
+ * `PlaybackPositionRepository.recordPosition` when `finished` flips false → true (via
+ * [onPositionFinishedFlip]). Both writes are atomic with their source row, so stats are never
+ * observably inconsistent with the events / positions they aggregate.
  *
- * Window math (last 7 / 30 days) is recomputed via indexed `SUM`s over
- * [ListeningEventTable]; cheap with the (`user_id`, `ended_at`) index.
+ * **Engines.** Everything reads through [sql] (the SQLDelight [ListenUpDatabase]): window/streak
+ * math over `listening_events` and the day-boundary timezone from `users` ([homeTimeZone]) share
+ * the connection the event repo holds open — so the just-inserted event row is visible to the hook
+ * before the outer transaction commits, and the nested reads run as savepoints with no `SQLITE_BUSY`.
  */
 class UserStatsUpdater(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
     private val publicProfileMaintainerProvider: () -> PublicProfileMaintainer,
     private val activityRecorder: ActivityRecorder? = null,
 ) {
     /**
-     * Increment-and-upsert called after a `listening_events` row commits.
-     * May run inside an existing Exposed transaction (nested transactions
-     * short-circuit in Exposed JDBC).
+     * Increment-and-upsert called after a `listening_events` row commits. Runs as a nested
+     * savepoint inside the event repo's open SQLDelight transaction, so the new event row is
+     * visible to the window SUMs below.
      */
     suspend fun onListeningEvent(
         userId: String,
@@ -50,7 +45,7 @@ class UserStatsUpdater(
         val wallSeconds = (event.endedAt - event.startedAt) / 1_000L
         // Use the user's home timezone for day-boundary math so the streak frame is
         // consistent across devices and imports (which may store a different tz).
-        val tz = db.homeTimeZone(userId)
+        val tz = sql.homeTimeZone(userId)
         val eventInstant = Instant.fromEpochMilliseconds(event.endedAt)
         val eventDateStr = eventInstant.toLocalDateTime(tz).date.toString()
 
@@ -159,15 +154,10 @@ class UserStatsUpdater(
         bookId: String,
         excludingId: String,
     ): Boolean =
-        suspendTransaction(db) {
-            ListeningEventTable
-                .selectAll()
-                .where {
-                    (ListeningEventTable.userId eq userId) and
-                        (ListeningEventTable.bookId eq bookId) and
-                        (ListeningEventTable.id neq excludingId)
-                }.limit(1)
-                .any()
+        suspendTransaction(sql) {
+            sql.listeningEventsQueries
+                .existsOtherEventForBook(userId, bookId, excludingId)
+                .executeAsOne()
         }
 
     private suspend fun sumWindowSeconds(
@@ -176,16 +166,10 @@ class UserStatsUpdater(
         asOfMs: Long,
     ): Long {
         val cutoffMs = asOfMs - days * 86_400_000L
-        return suspendTransaction(db) {
-            ListeningEventTable
-                .selectAll()
-                .where {
-                    (ListeningEventTable.userId eq userId) and
-                        (ListeningEventTable.endedAt greaterEq cutoffMs)
-                }.toList()
-                .sumOf { row ->
-                    (row[ListeningEventTable.endedAt] - row[ListeningEventTable.startedAt]) / 1_000L
-                }
+        return suspendTransaction(sql) {
+            sql.listeningEventsQueries
+                .sumWallSecondsSince(userId, cutoffMs)
+                .executeAsOne()
         }
     }
 

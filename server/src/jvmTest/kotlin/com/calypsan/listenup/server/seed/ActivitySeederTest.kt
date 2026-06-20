@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -22,7 +23,7 @@ class ActivitySeederTest :
             withInMemoryDatabase {
                 val db = this
                 seedDemoUser(db)
-                val seeder = ActivitySeeder(db, ActivityRepository(db))
+                val seeder = ActivitySeeder(db, ActivityRepository(db = db.asSqlDatabase()))
 
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
@@ -41,7 +42,7 @@ class ActivitySeederTest :
                 seedDemoUser(db)
                 seedTestLibraryAndFolder()
                 seedTestBook("book-1")
-                val seeder = ActivitySeeder(db, ActivityRepository(db))
+                val seeder = ActivitySeeder(db, ActivityRepository(db = db.asSqlDatabase()))
 
                 runTest {
                     seeder.seed()
@@ -57,7 +58,7 @@ class ActivitySeederTest :
             withInMemoryDatabase {
                 val db = this
                 seedDemoUser(db)
-                val seeder = ActivitySeeder(db, ActivityRepository(db))
+                val seeder = ActivitySeeder(db, ActivityRepository(db = db.asSqlDatabase()))
 
                 runTest {
                     // First run: no books yet — nothing seeded, still re-runnable.

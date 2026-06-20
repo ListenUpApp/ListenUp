@@ -1,0 +1,81 @@
+-- book_contributors junction: links a book to a contributor in a given role.
+-- Column set matches V5__books_contributors.sql exactly. Composite PK
+-- (book_id, contributor_id, role) so one person credited as both author and
+-- narrator on the same book yields two rows. `ordinal` preserves on-wire order.
+--
+-- Not syncable — book updates carry their contributor set inline via
+-- BookSyncPayload.contributors, so the junction has no revision substrate.
+-- Replaced wholesale (delete-by-book then insert) on every aggregate upsert.
+--
+-- FK declarations (book_id → books, contributor_id → contributors) are omitted:
+-- both target tables live in other .sq files in this set, but SQLDelight resolves
+-- FK targets only within a single .sq file, so the constraints stay in the
+-- migration DDL and are enforced at runtime.
+CREATE TABLE book_contributors (
+    book_id        TEXT    NOT NULL,
+    contributor_id TEXT    NOT NULL,
+    role           TEXT    NOT NULL,
+    credited_as    TEXT,
+    ordinal        INTEGER NOT NULL,
+    PRIMARY KEY (book_id, contributor_id, role)
+);
+
+CREATE INDEX idx_bc_contributor_role ON book_contributors(contributor_id, role);
+
+-- ── reads ────────────────────────────────────────────────────────────────────
+
+-- Joined batched read for readBookPayloads: every junction row for the id-chunk,
+-- enriched with the contributor's display name + sort name, ordered by ordinal so
+-- the assembled payload preserves on-wire order.
+selectByBookIds:
+SELECT bc.book_id, bc.contributor_id, bc.role, bc.credited_as, bc.ordinal,
+       c.name, c.sort_name
+FROM book_contributors bc
+JOIN contributors c ON c.id = bc.contributor_id
+WHERE bc.book_id IN :ids
+ORDER BY bc.ordinal;
+
+-- Distinct book ids linked (via any role) to a contributor — drives the
+-- deleteContributor cascade and the updateContributor reindex flow.
+bookIdsForContributor:
+SELECT DISTINCT book_id FROM book_contributors WHERE contributor_id = :contributor_id;
+
+-- Distinct book ids matching (contributor_id = ? AND credited_as = ?) — used by
+-- unmergeContributor to enumerate affected books before the relink so the search
+-- index can be re-upserted afterward.
+bookIdsForContributorWithCreditedAs:
+SELECT DISTINCT book_id FROM book_contributors
+WHERE contributor_id = :contributor_id AND credited_as = :credited_as;
+
+-- ── writes ───────────────────────────────────────────────────────────────────
+
+insert:
+INSERT INTO book_contributors (book_id, contributor_id, role, credited_as, ordinal)
+VALUES (:book_id, :contributor_id, :role, :credited_as, :ordinal);
+
+-- Wholesale-replace step: clears a book's junction rows before re-inserting.
+deleteByBookId:
+DELETE FROM book_contributors WHERE book_id = :book_id;
+
+-- Hard-deletes every junction row referencing a contributor — deleteContributor
+-- cascade.
+deleteAllForContributor:
+DELETE FROM book_contributors WHERE contributor_id = :contributor_id;
+
+-- COALESCE credit-preserving relink (mergeContributors). Re-points every junction
+-- row from :from_id to :to_id, capturing the source contributor's display name
+-- into credited_as only where it was previously NULL — books already carrying an
+-- explicit credit keep it. Exposed's update DSL can't express
+-- `SET col = COALESCE(col, ?)`, so this is the typed home for that raw SQL.
+relinkContributorPreservingCredit:
+UPDATE book_contributors
+SET credited_as = COALESCE(credited_as, :source_name), contributor_id = :to_id
+WHERE contributor_id = :from_id;
+
+-- Re-links rows matching (contributor_id = :from_id AND credited_as = :alias_name)
+-- to :to_id and clears credited_as — the new contributor's canonical name IS the
+-- alias, so the per-book override is no longer needed (unmergeContributor).
+relinkByCreditedAs:
+UPDATE book_contributors
+SET contributor_id = :to_id, credited_as = NULL
+WHERE contributor_id = :from_id AND credited_as = :alias_name;

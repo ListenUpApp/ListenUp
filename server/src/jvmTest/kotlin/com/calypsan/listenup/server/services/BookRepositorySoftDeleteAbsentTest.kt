@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositorySoftDeleteAbsentTest :
     FunSpec({
@@ -213,12 +215,14 @@ private fun repository(
     val syncRegistry = SyncRegistry()
     val repo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db, bus, syncRegistry),
-            seriesRepository = SeriesRepository(db, bus, syncRegistry),
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
         )
     return SoftDeleteRepoFixture(repo, registry)
 }

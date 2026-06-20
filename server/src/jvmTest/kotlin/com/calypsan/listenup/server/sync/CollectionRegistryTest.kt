@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
@@ -23,9 +25,9 @@ class CollectionRegistryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
 
-                CollectionRepository(db, bus, registry)
-                CollectionBookRepository(db, bus, registry)
-                CollectionGrantRepository(db, bus, registry)
+                CollectionRepository(db.asSqlDatabase(), bus, registry, driver = db.asSqlDriver())
+                CollectionBookRepository(db.asSqlDatabase(), bus, registry, driver = db.asSqlDriver())
+                CollectionGrantRepository(db.asSqlDatabase(), bus, registry, driver = db.asSqlDriver())
 
                 registry.knownDomains() shouldContainAll
                     listOf("collections", "collection_books", "collection_shares")

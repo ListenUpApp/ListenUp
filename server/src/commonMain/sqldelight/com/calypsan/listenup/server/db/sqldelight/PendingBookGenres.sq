@@ -1,0 +1,54 @@
+-- pending_book_genres: raw scanner genre strings that didn't resolve via
+-- genre_aliases, keyed back to the originating book. Column set matches
+-- V23__genres.sql exactly. Composite PK (book_id, raw_string); raw_string is
+-- `COLLATE NOCASE` so two strings that differ only by case ("Sci-Fi"/"sci-fi")
+-- collide on the PK rather than producing two pending rows.
+--
+-- The `book_id` FK (→ books ON DELETE CASCADE) is omitted here per the .sq
+-- convention; the migration keeps it.
+CREATE TABLE pending_book_genres (
+    book_id       TEXT    NOT NULL,
+    raw_string    TEXT    NOT NULL COLLATE NOCASE,
+    first_seen_at INTEGER NOT NULL,
+    PRIMARY KEY (book_id, raw_string)
+);
+
+CREATE INDEX idx_pending_book_genres_raw ON pending_book_genres(raw_string);
+
+-- Inserts a (book_id, raw_string) row; silently no-ops on PK conflict so re-emitting
+-- the same pair doesn't change the recorded first-seen timestamp. The caller trims
+-- raw_string first.
+addPending:
+INSERT OR IGNORE INTO pending_book_genres (book_id, raw_string, first_seen_at)
+VALUES (:book_id, :raw_string, :first_seen_at);
+
+-- Wholesale-replace step (idempotent rescan): clears a book's pending rows. Paired
+-- with per-string addPending to rewrite the book's current unmapped set.
+deleteAllForBook:
+DELETE FROM pending_book_genres WHERE book_id = :book_id;
+
+-- One row per distinct raw string in the queue, with the count of distinct books
+-- contributing it and the earliest first-seen timestamp across those books. Drives
+-- the curator screen's "unmapped strings" list, ordered by book-count descending
+-- (most-impactful first) then raw string ascending. GROUP BY + COUNT(DISTINCT) is
+-- the JDBC-precise form the Exposed DSL couldn't express cleanly.
+aggregateByString:
+SELECT raw_string, COUNT(DISTINCT book_id) AS book_count, MIN(first_seen_at) AS first_seen
+FROM pending_book_genres
+GROUP BY raw_string
+ORDER BY book_count DESC, raw_string ASC;
+
+-- Every pending row as (book_id, raw_string) — the legacy backlog promotion groups
+-- these by book in Kotlin.
+allRows:
+SELECT book_id, raw_string FROM pending_book_genres;
+
+-- Distinct book ids that contributed a raw string — the curator-mapping flow links
+-- each to the chosen genre. The caller trims the input first.
+bookIdsByRawString:
+SELECT DISTINCT book_id FROM pending_book_genres WHERE raw_string = :raw_string;
+
+-- Hard-deletes every pending row for a raw string — called after a curator maps the
+-- string to a canonical genre. The caller trims the input first.
+deleteAllForRawString:
+DELETE FROM pending_book_genres WHERE raw_string = :raw_string;

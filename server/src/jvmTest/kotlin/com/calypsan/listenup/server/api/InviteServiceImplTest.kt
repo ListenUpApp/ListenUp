@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -69,14 +70,15 @@ class InviteServiceImplTest :
 
         fun sessionIssuerFor(db: Database): SessionIssuer {
             val pepper = "x".repeat(32).toByteArray()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             return SessionIssuer(sessions, jwt, fixedClock)
         }
 
         fun makeInviteService(db: Database): InviteServiceImpl =
             InviteServiceImpl(
-                db = db,
+                db = db.asSqlDatabase(),
                 codeGenerator = InviteCodeGenerator(),
                 hasher = PasswordHasher(),
                 sessionIssuer = sessionIssuerFor(db),

@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.db.ActiveSessionTable
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -76,9 +77,17 @@ class ActiveSessionPresenceTest :
         test("startOrRefresh inserts one live row and returns true; a second call returns false and bumps updatedAt") {
             withInMemoryDatabase {
                 val repo =
-                    ActiveSessionRepository(db = this, bus = ChangeBus(), clock = FixedClock(Instant.fromEpochMilliseconds(1000L)))
+                    ActiveSessionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        clock = FixedClock(Instant.fromEpochMilliseconds(1000L)),
+                    )
                 val laterRepo =
-                    ActiveSessionRepository(db = this, bus = ChangeBus(), clock = FixedClock(Instant.fromEpochMilliseconds(5000L)))
+                    ActiveSessionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        clock = FixedClock(Instant.fromEpochMilliseconds(5000L)),
+                    )
                 runTest {
                     repo.startOrRefresh("u1", "book-1") shouldBe true
                     liveRowCount("u1", "book-1") shouldBe 1L
@@ -96,7 +105,7 @@ class ActiveSessionPresenceTest :
                 seedSession("s1", "u1", "book-1")
                 seedSession("s2", "u2", "book-2")
                 seedSession("s3", "u3", "book-3")
-                val repo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val repo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 runTest {
                     val rows = repo.listCurrentlyListening(excludeUserId = "u2")
                     rows.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u3")
@@ -110,7 +119,7 @@ class ActiveSessionPresenceTest :
                 seedSession("s2", "u2", "book-1")
                 seedSession("s3", "u3", "book-1")
                 seedSession("s4", "u4", "book-other")
-                val repo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val repo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 runTest {
                     val rows = repo.listReadersForBook(bookId = "book-1", excludeUserId = "u2")
                     rows.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u3")
@@ -124,7 +133,7 @@ class ActiveSessionPresenceTest :
                 seedSession("s1", "u1", "book-1")
                 seedSession("s2", "u1", "book-2")
                 seedSession("s3", "u2", "book-1")
-                val repo = ActiveSessionRepository(db = this, bus = ChangeBus())
+                val repo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
                 runTest {
                     repo.deleteForUserBook("u1", "book-1")
 

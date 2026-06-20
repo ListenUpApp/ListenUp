@@ -2,45 +2,46 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.server.db.ContributorAliasTable
-import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.sqldelight.Contributors
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable-domain repository for contributors (Books-B1).
+ * SQLDelight syncable repository for contributors (Books-B1, SQLDelight cutover).
  *
- * Single-table domain — one row per contributor. The substrate
- * ([SyncableRepository]) owns revision bumping, timestamping, and
- * change-bus publication; this class supplies the row read/write shape.
+ * Single-table syncable domain with one child table — `contributor_aliases` — that
+ * backs the wire payload's embedded `aliases: List<String>` field. The base
+ * [SqlSyncableRepository] owns revision bumping, timestamping, the
+ * created-vs-updated discrimination, and change-bus publication; this class supplies
+ * only the contributor-shaped pieces:
+ *  - [substrate] — the [SyncableSubstrateQueries] adapter over `contributorsQueries`
+ *  - [readPayload] / [readPayloads] — root row + alias child rows by id
+ *  - [writePayload] — insert-or-update root row, then replace the alias set
+ *  - [elementSerializer] / `ContributorSyncPayload.id` / `revisionOf`
  *
- * `idAsString(ContributorId) = id.value` is load-bearing — the substrate's
- * default `toString()` on a value class returns `"ContributorId(value=foo)"`,
- * which would corrupt every column the id is written to.
+ * `idAsString(ContributorId) = id.value` is load-bearing — the base's default
+ * `toString()` on a value class returns `"ContributorId(value=foo)"`, which would
+ * corrupt every column the id is written to.
  *
  * Contributors are created by the scanner through [resolveOrCreate], not by a
  * client write — there is no contributor write API in B1.
  */
 class ContributorRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<ContributorSyncPayload, ContributorId>(
+) : SqlSyncableRepository<ContributorSyncPayload, ContributorId>(
         db = db,
-        table = ContributorTable,
         bus = bus,
         registry = registry,
         domainName = "contributors",
@@ -55,32 +56,69 @@ class ContributorRepository(
 
     override fun ContributorSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): ContributorSyncPayload? =
-        ContributorTable
-            .selectAll()
-            .where { ContributorTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                ContributorSyncPayload(
-                    id = row[ContributorTable.id],
-                    name = row[ContributorTable.name],
-                    sortName = row[ContributorTable.sortName],
-                    revision = row[ContributorTable.revision],
-                    updatedAt = row[ContributorTable.updatedAt],
-                    createdAt = row[ContributorTable.createdAt],
-                    deletedAt = row[ContributorTable.deletedAt],
-                    asin = row[ContributorTable.asin],
-                    description = row[ContributorTable.description],
-                    imagePath = row[ContributorTable.imagePath],
-                    imageBlurHash = row[ContributorTable.imageBlurHash],
-                    birthDate = row[ContributorTable.birthDate],
-                    deathDate = row[ContributorTable.deathDate],
-                    website = row[ContributorTable.website],
-                    aliases = ContributorAliasTable.aliasesFor(row[ContributorTable.id]),
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.contributorsQueries].
+     * Mirrors the canonical [com.calypsan.listenup.server.sync.TagRepository] shape.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.contributorsQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.contributorsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.contributorsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.contributorsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): ContributorSyncPayload? =
+        db.contributorsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toPayload(db.contributorsQueries.aliasesFor(idStr).executeAsList())
+
+    override fun readPayloads(idStrs: List<String>): List<ContributorSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch root rows and alias rows in chunks of 900 and
+        // preserve the requested order. One round-trip per chunk replaces the per-id N+1.
+        val rowsById =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.contributorsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        val aliasesById =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.contributorsQueries.aliasesForIds(chunk).executeAsList() }
+                .groupBy({ it.contributor_id }, { it.alias })
+        return idStrs.mapNotNull { id -> rowsById[id]?.toPayload(aliasesById[id].orEmpty()) }
+    }
+
+    override fun writePayload(
         value: ContributorSyncPayload,
         rev: Long,
         now: Long,
@@ -89,54 +127,68 @@ class ContributorRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            // normalizedName is the dedup key established at INSERT — do not update it.
+            // normalized_name is the dedup key established at INSERT — do not update it.
             // Changing it post-creation could violate the unique index and break in-flight lookups.
-            ContributorTable.update({ ContributorTable.id eq value.id }) { stmt ->
-                stmt[ContributorTable.name] = value.name
-                stmt[ContributorTable.sortName] = value.sortName
-                stmt[ContributorTable.asin] = value.asin
-                stmt[ContributorTable.description] = value.description
-                stmt[ContributorTable.imagePath] = value.imagePath
-                stmt[ContributorTable.imageBlurHash] = value.imageBlurHash
-                stmt[ContributorTable.birthDate] = value.birthDate
-                stmt[ContributorTable.deathDate] = value.deathDate
-                stmt[ContributorTable.website] = value.website
-                stmt[ContributorTable.revision] = rev
-                stmt[ContributorTable.updatedAt] = now
-                stmt[ContributorTable.deletedAt] = null
-                stmt[ContributorTable.clientOpId] = clientOpId
-            }
+            db.contributorsQueries.update(
+                name = value.name,
+                sort_name = value.sortName,
+                asin = value.asin,
+                description = value.description,
+                image_path = value.imagePath,
+                image_blur_hash = value.imageBlurHash,
+                birth_date = value.birthDate,
+                death_date = value.deathDate,
+                website = value.website,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
             // Must stay in sync with resolveOrCreate's lookup key: both use contributorDedupKey,
             // so a row written via a direct upsert gets the same dedup bucket that resolveOrCreate
             // would compute. value.sortName is always non-null here because resolveOrCreate stores
             // the derived sort name before calling upsert.
             val normalized = contributorDedupKey(value.name, value.sortName)
-            ContributorTable.insert { stmt ->
-                stmt[ContributorTable.id] = value.id
-                stmt[ContributorTable.normalizedName] = normalized
-                stmt[ContributorTable.name] = value.name
-                stmt[ContributorTable.sortName] = value.sortName
-                stmt[ContributorTable.asin] = value.asin
-                stmt[ContributorTable.description] = value.description
-                stmt[ContributorTable.imagePath] = value.imagePath
-                stmt[ContributorTable.imageBlurHash] = value.imageBlurHash
-                stmt[ContributorTable.birthDate] = value.birthDate
-                stmt[ContributorTable.deathDate] = value.deathDate
-                stmt[ContributorTable.website] = value.website
-                stmt[ContributorTable.revision] = rev
-                stmt[ContributorTable.createdAt] = now
-                stmt[ContributorTable.updatedAt] = now
-                stmt[ContributorTable.deletedAt] = null
-                stmt[ContributorTable.clientOpId] = clientOpId
-            }
+            db.contributorsQueries.insert(
+                id = value.id,
+                normalized_name = normalized,
+                name = value.name,
+                sort_name = value.sortName,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                asin = value.asin,
+                description = value.description,
+                image_path = value.imagePath,
+                image_blur_hash = value.imageBlurHash,
+                birth_date = value.birthDate,
+                death_date = value.deathDate,
+                website = value.website,
+            )
         }
-        ContributorAliasTable.replaceForContributor(value.id, value.aliases)
+        replaceAliases(value.id, value.aliases)
+    }
+
+    /**
+     * Atomically replaces the alias set for [contributorId] via delete-then-insert,
+     * mirroring the wire payload's embedded array. Called from [writePayload] inside
+     * the base's open transaction.
+     */
+    private fun replaceAliases(
+        contributorId: String,
+        aliases: List<String>,
+    ) {
+        db.contributorsQueries.deleteAliasesFor(contributorId)
+        aliases.forEach { alias -> db.contributorsQueries.insertAlias(contributorId, alias) }
     }
 
     /**
      * Finds the contributor whose dedup key matches [contributorDedupKey]`(name, sortName)`,
-     * or creates one through the substrate's `upsert` (which bumps the domain revision and
+     * or creates one through the base's `upsert` (which bumps the domain revision and
      * publishes `SyncEvent.Created`). Returns the stable [ContributorId] either way.
      *
      * The dedup key is always `contributorDedupKey(name, sortName)` — the normalized sort name,
@@ -165,11 +217,10 @@ class ContributorRepository(
         val normalized = contributorDedupKey(name, derivedSortName)
         val existing =
             suspendTransaction(db) {
-                ContributorTable
-                    .selectAll()
-                    .where { ContributorTable.normalizedName eq normalized }
-                    .firstOrNull()
-                    ?.get(ContributorTable.id)
+                db.contributorsQueries
+                    .selectByNormalizedName(normalized)
+                    .executeAsOneOrNull()
+                    ?.id
             }
         if (existing != null) return ContributorId(existing)
 
@@ -202,12 +253,40 @@ class ContributorRepository(
      */
     suspend fun listLiveIds(): Set<String> =
         suspendTransaction(db) {
-            ContributorTable
-                .selectAll()
-                .where { ContributorTable.deletedAt.isNull() }
-                .mapTo(HashSet()) { it[ContributorTable.id] }
+            db.contributorsQueries
+                .selectLiveIds()
+                .executeAsList()
+                .toHashSet()
         }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: ContributorId): String = idAsString(id)
+
+    /** Maps a generated [Contributors] root row plus its [aliases] to the wire payload. */
+    private fun Contributors.toPayload(aliases: List<String>): ContributorSyncPayload =
+        ContributorSyncPayload(
+            id = id,
+            name = name,
+            sortName = sort_name,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
+            asin = asin,
+            description = description,
+            imagePath = image_path,
+            imageBlurHash = image_blur_hash,
+            birthDate = birth_date,
+            deathDate = death_date,
+            website = website,
+            aliases = aliases,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }

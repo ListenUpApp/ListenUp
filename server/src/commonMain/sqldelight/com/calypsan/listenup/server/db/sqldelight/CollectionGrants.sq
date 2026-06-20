@@ -1,0 +1,89 @@
+-- collection_grants: per-collection principal grants. Syncable, soft-deletable,
+-- revision-tracked, GLOBAL. Storage is principal-based (principal_type / principal_id /
+-- granted_by_user_id); today the only principal_type is 'USER', and a USER grant maps to
+-- the unchanged wire CollectionShareSyncPayload (principal_id → sharedWithUserId,
+-- granted_by_user_id → sharedByUserId). The wire domain stays "collection_shares".
+--
+-- Column set matches the FINAL migration state (V24 collection_shares + V39 rename to
+-- collection_grants with shared_with_user_id → principal_id, shared_by_user_id →
+-- granted_by_user_id, + principal_type column). FK declarations (REFERENCES collections /
+-- users) are omitted here, mirroring CollectionBooks.sq: SQLDelight cannot resolve
+-- cross-table references for tables not defined in this schema's .sq files. The constraints
+-- are present in the migration DDL and enforced by SQLite at runtime.
+CREATE TABLE collection_grants (
+    id                 TEXT    NOT NULL PRIMARY KEY,
+    collection_id      TEXT    NOT NULL,
+    principal_type     TEXT    NOT NULL DEFAULT 'USER',
+    principal_id       TEXT    NOT NULL,
+    granted_by_user_id TEXT    NOT NULL,
+    permission         TEXT    NOT NULL DEFAULT 'read',
+    created_at         INTEGER NOT NULL,
+    updated_at         INTEGER NOT NULL,
+    revision           INTEGER NOT NULL,
+    deleted_at         INTEGER,
+    client_op_id       TEXT
+);
+
+CREATE UNIQUE INDEX idx_collection_grants_active ON collection_grants(collection_id, principal_type, principal_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_collection_grants_principal ON collection_grants(principal_type, principal_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_collection_grants_revision ON collection_grants(revision);
+
+-- ── substrate queries ──────────────────────────────────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM collection_grants WHERE id = :id);
+
+softDeleteById:
+UPDATE collection_grants
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM collection_grants WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM collection_grants WHERE revision <= :cursor;
+
+-- ── root-row reads / writes ──────────────────────────────────────────────────────
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads, which must
+-- hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM collection_grants WHERE id = :id;
+
+selectByIds:
+SELECT * FROM collection_grants WHERE id IN :ids;
+
+-- Active (non-tombstoned) USER grant for a (collection, principal) pair, or none.
+selectActiveUserGrant:
+SELECT * FROM collection_grants
+WHERE collection_id = :collection_id AND principal_type = 'USER'
+  AND principal_id = :principal_id AND deleted_at IS NULL;
+
+-- All active USER grants on a collection.
+listActiveUserGrantsForCollection:
+SELECT * FROM collection_grants
+WHERE collection_id = :collection_id AND principal_type = 'USER' AND deleted_at IS NULL;
+
+-- All active USER grants where the principal is the recipient.
+listActiveUserGrantsForPrincipal:
+SELECT * FROM collection_grants
+WHERE principal_type = 'USER' AND principal_id = :principal_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO collection_grants (
+    id, collection_id, principal_type, principal_id, granted_by_user_id, permission,
+    created_at, updated_at, revision, deleted_at, client_op_id
+) VALUES (
+    :id, :collection_id, :principal_type, :principal_id, :granted_by_user_id, :permission,
+    :created_at, :updated_at, :revision, :deleted_at, :client_op_id
+);
+
+update:
+UPDATE collection_grants
+SET collection_id = :collection_id, principal_type = :principal_type, principal_id = :principal_id,
+    granted_by_user_id = :granted_by_user_id, permission = :permission,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;

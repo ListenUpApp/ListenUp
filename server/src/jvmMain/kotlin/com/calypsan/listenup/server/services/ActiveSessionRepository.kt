@@ -3,21 +3,11 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.SyncControl
-import com.calypsan.listenup.server.db.ActiveSessionTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.neq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Server-derived presence store for per-user active listening sessions.
@@ -29,6 +19,12 @@ import org.jetbrains.exposed.v1.jdbc.update
  * [deleteForUserBook] when the book is finished, and swept after a staleness threshold
  * by [com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask].
  *
+ * Reimplemented as a PLAIN SQLDelight repository over [ListenUpDatabase]: although the
+ * `active_sessions` row carries the sync-discipline columns (it shares the table with the
+ * syncable substrate's column shape), presence is never actually synced, so there is no
+ * `SqlSyncableRepository` machinery here — the inserts still stamp `revision = 0` and the
+ * substrate timestamps to keep the row identical to the prior Exposed insert.
+ *
  * Mutations publish a content-free [SyncControl.ActiveSessionsChanged] broadcast nudge
  * — a re-derive hint that carries no per-user or per-resource data, so it cannot leak.
  * Connected clients re-query presence on receipt. Standalone calls (cleanup, finish-flip)
@@ -39,7 +35,7 @@ import org.jetbrains.exposed.v1.jdbc.update
  * sees the prior state and re-derives again on the next nudge.
  */
 class ActiveSessionRepository(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
 ) {
@@ -59,29 +55,21 @@ class ActiveSessionRepository(
             suspendTransaction(db) {
                 val now = clock.now().toEpochMilliseconds()
                 val existing =
-                    ActiveSessionTable
-                        .selectAll()
-                        .where {
-                            (ActiveSessionTable.userId eq userId) and
-                                (ActiveSessionTable.bookId eq bookId) and
-                                ActiveSessionTable.deletedAt.isNull()
-                        }.firstOrNull()
+                    db.activeSessionsQueries
+                        .selectLiveForUserBook(user_id = userId, book_id = bookId)
+                        .executeAsOneOrNull()
                 if (existing != null) {
-                    ActiveSessionTable.update({
-                        ActiveSessionTable.sessionId eq existing[ActiveSessionTable.sessionId]
-                    }) { it[updatedAt] = now }
+                    db.activeSessionsQueries.refreshUpdatedAt(updated_at = now, session_id = existing.session_id)
                     false
                 } else {
-                    ActiveSessionTable.insert {
-                        it[sessionId] = Uuid.random().toString()
-                        it[ActiveSessionTable.userId] = userId
-                        it[ActiveSessionTable.bookId] = bookId
-                        it[startedAt] = now
-                        it[updatedAt] = now
-                        it[createdAt] = now
-                        it[revision] = 0L
-                        it[deletedAt] = null
-                    }
+                    db.activeSessionsQueries.insert(
+                        session_id = Uuid.random().toString(),
+                        user_id = userId,
+                        book_id = bookId,
+                        started_at = now,
+                        created_at = now,
+                        updated_at = now,
+                    )
                     true
                 }
             }
@@ -95,10 +83,10 @@ class ActiveSessionRepository(
      */
     suspend fun listCurrentlyListening(excludeUserId: String): List<ActiveSessionRow> =
         suspendTransaction(db) {
-            ActiveSessionTable
-                .selectAll()
-                .where { (ActiveSessionTable.userId neq excludeUserId) and ActiveSessionTable.deletedAt.isNull() }
-                .map { it.toRow() }
+            db.activeSessionsQueries
+                .selectCurrentlyListeningExcluding(exclude_user_id = excludeUserId)
+                .executeAsList()
+                .map { ActiveSessionRow(userId = it.user_id, bookId = it.book_id, startedAt = it.started_at) }
         }
 
     /**
@@ -110,13 +98,10 @@ class ActiveSessionRepository(
         excludeUserId: String,
     ): List<ActiveSessionRow> =
         suspendTransaction(db) {
-            ActiveSessionTable
-                .selectAll()
-                .where {
-                    (ActiveSessionTable.bookId eq bookId) and
-                        (ActiveSessionTable.userId neq excludeUserId) and
-                        ActiveSessionTable.deletedAt.isNull()
-                }.map { it.toRow() }
+            db.activeSessionsQueries
+                .selectReadersForBookExcluding(book_id = bookId, exclude_user_id = excludeUserId)
+                .executeAsList()
+                .map { ActiveSessionRow(userId = it.user_id, bookId = it.book_id, startedAt = it.started_at) }
         }
 
     /**
@@ -131,9 +116,8 @@ class ActiveSessionRepository(
     ) {
         val deleted =
             suspendTransaction(db) {
-                ActiveSessionTable.deleteWhere {
-                    (ActiveSessionTable.userId eq userId) and (ActiveSessionTable.bookId eq bookId)
-                } > 0
+                db.activeSessionsQueries.deleteForUserBook(user_id = userId, book_id = bookId)
+                db.activeSessionsQueries.changes().executeAsOne() > 0
             }
         if (deleted) bus.broadcastControl(SyncControl.ActiveSessionsChanged)
     }
@@ -145,10 +129,3 @@ data class ActiveSessionRow(
     val bookId: String,
     val startedAt: Long,
 )
-
-private fun ResultRow.toRow() =
-    ActiveSessionRow(
-        userId = this[ActiveSessionTable.userId],
-        bookId = this[ActiveSessionTable.bookId],
-        startedAt = this[ActiveSessionTable.startedAt],
-    )

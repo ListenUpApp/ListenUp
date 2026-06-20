@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -39,9 +40,8 @@ class GenreAliasSeededTargetsTest :
                 runTest {
                     val seeder =
                         GenreDomainSeeder(
-                            db = db,
                             genreRepository =
-                                GenreRepository(db, ChangeBus(), SyncRegistry(), fixedClock),
+                                GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), fixedClock),
                             clock = fixedClock,
                         )
                     seeder.seed()

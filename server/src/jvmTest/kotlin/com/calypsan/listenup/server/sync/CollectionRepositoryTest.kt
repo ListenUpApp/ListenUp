@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -47,9 +49,10 @@ class CollectionRepositoryTest :
                 val fixedTime = Instant.fromEpochMilliseconds(1_730_000_000_000L)
                 val repo =
                     CollectionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = bus,
                         registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
                         clock =
                             object : Clock {
                                 override fun now() = fixedTime
@@ -94,7 +97,13 @@ class CollectionRepositoryTest :
         test("findById returns the collection after upsert") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
+                    )
 
                 runTest {
                     val payload =
@@ -120,7 +129,13 @@ class CollectionRepositoryTest :
         test("findById returns null for a soft-deleted collection") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
+                    )
 
                 runTest {
                     val payload =
@@ -145,7 +160,13 @@ class CollectionRepositoryTest :
         test("findInboxForLibrary returns only the inbox collection") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
+                    )
 
                 runTest {
                     // Seed a regular collection and the inbox; stamp type='INBOX' since
@@ -184,7 +205,13 @@ class CollectionRepositoryTest :
         test("findInboxForLibrary returns null when no inbox exists") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
+                    )
 
                 runTest {
                     repo.findInboxForLibrary("test-library").shouldBeNull()
@@ -197,7 +224,13 @@ class CollectionRepositoryTest :
         test("listOwnedBy returns only collections owned by the given user") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
+                    )
 
                 runTest {
                     repo.upsert(
@@ -231,7 +264,13 @@ class CollectionRepositoryTest :
         test("listAll returns all non-deleted collections") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
-                val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = this.asSqlDriver(),
+                    )
 
                 runTest {
                     repo.upsert(
@@ -272,8 +311,20 @@ class CollectionRepositoryTest :
                 seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val junctionRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val junctionRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -309,8 +360,20 @@ class CollectionRepositoryTest :
                 seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val junctionRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val junctionRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -346,8 +409,20 @@ class CollectionRepositoryTest :
                 seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val junctionRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val junctionRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -383,8 +458,20 @@ class CollectionRepositoryTest :
                 seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val junctionRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val junctionRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -417,8 +504,20 @@ class CollectionRepositoryTest :
                 seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -459,8 +558,20 @@ class CollectionRepositoryTest :
                 seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -500,8 +611,20 @@ class CollectionRepositoryTest :
                 seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     collectionRepo.upsert(
@@ -539,8 +662,19 @@ class CollectionRepositoryTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                CollectionRepository(db = db, bus = bus, registry = registry)
-                val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
 
                 runTest {
                     val result = grantRepo.softDeleteGrant("col-none", "user-none")

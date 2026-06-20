@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
@@ -19,25 +20,22 @@ import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Sessions
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -49,13 +47,17 @@ private val logger = KotlinLogging.logger {}
  * absent. Caller identity is fetched through [PrincipalProvider] so the service
  * stays unit-testable without a live request scope.
  *
+ * Persists over SQLDelight's [ListenUpDatabase] (the `users` table is a plain, non-syncable
+ * server-owned aggregate). The Argon2id `password_hash`, the email-uniqueness probe, and the
+ * ACTIVE/PENDING/DENIED status gate are all preserved verbatim from the Exposed implementation.
+ *
  * Failures are values: every method returns [AppResult] with a typed
  * [com.calypsan.listenup.api.error.AuthError] in the failure variant. No
  * server-side exception wrapper, no RPC interceptor — failures travel as data
  * over both REST and RPC transports.
  */
 class AuthServiceImpl(
-    internal val db: Database,
+    internal val db: ListenUpDatabase,
     internal val sessions: SessionService,
     internal val hasher: PasswordHasher,
     internal val jwt: JwtConfiguration,
@@ -86,8 +88,8 @@ class AuthServiceImpl(
         val normalized = Email.normalize(request.email)
         val user =
             suspendTransaction(db) {
-                UserEntity.find { UserTable.emailNormalized eq normalized }.firstOrNull()
-            } ?: return AppResult.Failure(AuthError.InvalidCredentials())
+                db.usersQueries.selectByEmailNormalized(normalized).executeAsOneOrNull()
+            }?.toAuthUser() ?: return AppResult.Failure(AuthError.InvalidCredentials())
 
         // A soft-deleted account must be indistinguishable from a nonexistent one:
         // same InvalidCredentials, so admin deletion is final and existence doesn't leak.
@@ -103,13 +105,13 @@ class AuthServiceImpl(
             UserStatusColumn.ACTIVE -> Unit
         }
 
-        markLastLogin(user.id.value, request.timezone)
+        markLastLogin(user.id, request.timezone)
         // Best-effort self-heal: if this MEMBER's ALL_BOOKS grant was never issued (or was
         // somehow lost), re-assert it on login. The issuer is idempotent — it checks for a
         // live grant first and skips the upsert when one already exists — so this is a cheap
         // no-op on the happy path. ROOT/ADMIN are a no-op inside the issuer (role gate).
         // Placed after status checks and before session issuance so it can't block the caller.
-        defaultGrantIssuer?.grantDefaultAllBooks(user.id.value, user.role)
+        defaultGrantIssuer?.grantDefaultAllBooks(user.id, user.role)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,
@@ -126,7 +128,7 @@ class AuthServiceImpl(
         val normalized = Email.normalize(request.email)
         val empty =
             suspendTransaction(db) {
-                UserEntity.all().limit(1).empty()
+                !db.usersQueries.hasAnyUser().executeAsOne()
             }
         if (empty) return AppResult.Failure(AuthError.SetupRequired())
 
@@ -140,7 +142,7 @@ class AuthServiceImpl(
 
         val existing =
             suspendTransaction(db) {
-                UserEntity.find { UserTable.emailNormalized eq normalized }.any()
+                db.usersQueries.existsByEmailNormalized(normalized).executeAsOne()
             }
         if (existing) return AppResult.Failure(AuthError.EmailAlreadyExists())
 
@@ -148,28 +150,27 @@ class AuthServiceImpl(
         // transaction so we don't hold a DB connection during the hash.
         val passwordHashed = hasher.hash(request.password)
         val now = clock.now().toEpochMilliseconds()
-        val user =
-            suspendTransaction(db) {
-                UserEntity.new(newUserId()) {
-                    email = request.email
-                    emailNormalized = normalized
-                    passwordHash = passwordHashed
-                    role = UserRoleColumn.MEMBER
-                    displayName = request.displayName
-                    status =
-                        if (policy == RegistrationPolicy.APPROVAL_QUEUE) {
-                            UserStatusColumn.PENDING_APPROVAL
-                        } else {
-                            UserStatusColumn.ACTIVE
-                        }
-                    createdAt = now
-                    updatedAt = now
-                }
+        val status =
+            if (policy == RegistrationPolicy.APPROVAL_QUEUE) {
+                UserStatusColumn.PENDING_APPROVAL
+            } else {
+                UserStatusColumn.ACTIVE
             }
+        val user =
+            newAuthUser(
+                email = request.email,
+                emailNormalized = normalized,
+                passwordHash = passwordHashed,
+                role = UserRoleColumn.MEMBER,
+                displayName = request.displayName,
+                status = status,
+                now = now,
+            )
+        suspendTransaction(db) { insert(user) }
 
         val outcome =
-            if (user.status == UserStatusColumn.PENDING_APPROVAL) {
-                RegisterResult.PendingApproval(userId = UserId(user.id.value))
+            if (status == UserStatusColumn.PENDING_APPROVAL) {
+                RegisterResult.PendingApproval(userId = UserId(user.id))
             } else {
                 RegisterResult.Authenticated(
                     sessionIssuer.issue(
@@ -180,13 +181,13 @@ class AuthServiceImpl(
                     ),
                 )
             }
-        createStarterShelfBestEffort(user.id.value)
+        createStarterShelfBestEffort(user.id)
         // Only ACTIVE users get side-effects immediately; PENDING_APPROVAL users
         // get theirs when the admin approves them (via AdminUserServiceImpl).
-        if (user.status == UserStatusColumn.ACTIVE) {
-            defaultGrantIssuer?.grantDefaultAllBooks(user.id.value, UserRoleColumn.MEMBER)
-            publicProfileMaintainer?.refreshBestEffort(user.id.value)
-            activityRecorder?.record(user.id.value, ActivityType.USER_JOINED)
+        if (status == UserStatusColumn.ACTIVE) {
+            defaultGrantIssuer?.grantDefaultAllBooks(user.id, UserRoleColumn.MEMBER)
+            publicProfileMaintainer?.refreshBestEffort(user.id)
+            activityRecorder?.record(user.id, ActivityType.USER_JOINED)
         }
         return AppResult.Success(outcome)
     }
@@ -196,28 +197,27 @@ class AuthServiceImpl(
 
         val empty =
             suspendTransaction(db) {
-                UserEntity.all().limit(1).empty()
+                !db.usersQueries.hasAnyUser().executeAsOne()
             }
         if (!empty) return AppResult.Failure(AuthError.SetupAlreadyComplete())
 
         val passwordHashed = hasher.hash(request.password)
+        val normalized = Email.normalize(request.email)
         val now = clock.now().toEpochMilliseconds()
         val user =
-            suspendTransaction(db) {
-                UserEntity.new(newUserId()) {
-                    email = request.email
-                    emailNormalized = Email.normalize(request.email)
-                    passwordHash = passwordHashed
-                    role = UserRoleColumn.ROOT
-                    displayName = request.displayName
-                    status = UserStatusColumn.ACTIVE
-                    createdAt = now
-                    updatedAt = now
-                }
-            }
-        createStarterShelfBestEffort(user.id.value)
-        publicProfileMaintainer?.refreshBestEffort(user.id.value)
-        activityRecorder?.record(user.id.value, ActivityType.USER_JOINED)
+            newAuthUser(
+                email = request.email,
+                emailNormalized = normalized,
+                passwordHash = passwordHashed,
+                role = UserRoleColumn.ROOT,
+                displayName = request.displayName,
+                status = UserStatusColumn.ACTIVE,
+                now = now,
+            )
+        suspendTransaction(db) { insert(user) }
+        createStarterShelfBestEffort(user.id)
+        publicProfileMaintainer?.refreshBestEffort(user.id)
+        activityRecorder?.record(user.id, ActivityType.USER_JOINED)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,
@@ -237,7 +237,10 @@ class AuthServiceImpl(
 
         val user =
             suspendTransaction(db) {
-                UserEntity[rotated.userId.value]
+                db.usersQueries
+                    .selectById(rotated.userId.value)
+                    .executeAsOne()
+                    .toAuthUser()
             }
         val role = user.role.toContract()
         val accessJwt = jwt.issue(userId = rotated.userId, sessionId = rotated.sessionId, role = role)
@@ -334,8 +337,8 @@ class AuthServiceImpl(
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         val user =
             suspendTransaction(db) {
-                UserEntity.findById(p.userId.value)
-            } ?: return AppResult.Failure(AuthError.SessionNotFound())
+                db.usersQueries.selectById(p.userId.value).executeAsOneOrNull()
+            }?.toAuthUser() ?: return AppResult.Failure(AuthError.SessionNotFound())
         return AppResult.Success(user.toContract())
     }
 
@@ -344,13 +347,13 @@ class AuthServiceImpl(
         val list =
             sessions.listActiveFor(p.userId).map { s ->
                 SessionSummary(
-                    id = SessionId(s.id.value),
+                    id = SessionId(s.id),
                     label = s.label,
                     deviceInfo = deviceInfoOf(s),
-                    userAgent = s.userAgent,
-                    createdAt = s.createdAt,
-                    lastUsedAt = s.lastUsedAt,
-                    current = s.id.value == p.sessionId.value,
+                    userAgent = s.user_agent,
+                    createdAt = s.created_at,
+                    lastUsedAt = s.last_used_at,
+                    current = s.id == p.sessionId.value,
                 )
             }
         return AppResult.Success(list)
@@ -362,13 +365,11 @@ class AuthServiceImpl(
     ) {
         val now = clock.now().toEpochMilliseconds()
         suspendTransaction(db) {
-            val user = UserEntity[userId]
-            user.lastLoginAt = now
-            user.timezone = timezone
+            db.usersQueries.updateLastLoginAndTimezone(last_login_at = now, timezone = timezone, id = userId)
         }
     }
 
-    private fun deviceInfoOf(s: SessionEntity): DeviceInfo? {
+    private fun deviceInfoOf(s: Sessions): DeviceInfo? {
         // The read path must not assume stored rows honour the current DeviceInfo
         // invariants: legacy sessions (old Go server / pre-validation) may hold blank
         // or over-long fields. Sanitize before constructing so DeviceInfo.init's
@@ -376,21 +377,80 @@ class AuthServiceImpl(
         fun field(value: String?): String? = value?.takeIf { it.isNotBlank() }?.take(DEVICE_FIELD_MAX)
         val info =
             DeviceInfo(
-                deviceType = field(s.deviceType),
+                deviceType = field(s.device_type),
                 platform = field(s.platform),
-                platformVersion = field(s.platformVersion),
-                clientName = field(s.clientName),
-                clientVersion = field(s.clientVersion),
-                deviceName = field(s.deviceName),
-                deviceModel = field(s.deviceModel),
+                platformVersion = field(s.platform_version),
+                clientName = field(s.client_name),
+                clientVersion = field(s.client_version),
+                deviceName = field(s.device_name),
+                deviceModel = field(s.device_model),
             )
         return info.takeIf { it != DeviceInfo() }
     }
 
-    // Phase 1 placeholder. UUIDv7 (lexicographically sortable, time-ordered) is the
-    // long-term shape — UUIDv4 is fine while ids are TEXT primary keys with no
-    // timestamp-driven scan path.
-    private fun newUserId(): String = UUID.randomUUID().toString()
+    /**
+     * Build the in-memory [AuthUser] for a brand-new account with the exact default shape the
+     * Exposed `UserEntity.new { … }` path produced: a freshly-minted id, last_login_at NULL,
+     * can_edit / can_share true, approval / invite / tagline fields NULL, avatar_type "auto",
+     * timezone "UTC". The value is both inserted ([insert]) and handed to [SessionIssuer], so the
+     * issued session reflects the persisted row without a re-read.
+     */
+    private fun newAuthUser(
+        email: String,
+        emailNormalized: String,
+        passwordHash: String,
+        role: UserRoleColumn,
+        displayName: String,
+        status: UserStatusColumn,
+        now: Long,
+    ): AuthUser =
+        AuthUser(
+            // Phase 1 placeholder. UUIDv7 (lexicographically sortable, time-ordered) is the
+            // long-term shape — UUIDv4 is fine while ids are TEXT primary keys with no
+            // timestamp-driven scan path.
+            id = UUID.randomUUID().toString(),
+            email = email,
+            emailNormalized = emailNormalized,
+            passwordHash = passwordHash,
+            role = role,
+            displayName = displayName,
+            status = status,
+            createdAt = now,
+            canEdit = true,
+            canShare = true,
+            approvedBy = null,
+            approvedAt = null,
+            deletedAt = null,
+        )
+
+    /**
+     * Persist [user] into the `users` table. created_at / updated_at are set to the user's
+     * createdAt (a fresh insert), and the boolean permission flags map to 0/1 — the same encoding
+     * the Exposed `bool` adapter used. Must run inside a [suspendTransaction].
+     */
+    private fun insert(user: AuthUser) {
+        db.usersQueries.insert(
+            id = user.id,
+            email = user.email,
+            email_normalized = user.emailNormalized,
+            password_hash = user.passwordHash,
+            role = user.role.name,
+            display_name = user.displayName,
+            status = user.status.name,
+            created_at = user.createdAt,
+            updated_at = user.createdAt,
+            last_login_at = null,
+            can_edit = if (user.canEdit) 1L else 0L,
+            can_share = if (user.canShare) 1L else 0L,
+            approved_by = user.approvedBy,
+            approved_at = user.approvedAt,
+            deleted_at = user.deletedAt,
+            invited_by = null,
+            tagline = null,
+            avatar_type = "auto",
+            timezone = "UTC",
+        )
+    }
 }
 
 internal fun UserRoleColumn.toContract(): UserRole =
@@ -414,6 +474,12 @@ internal fun UserStatusColumn.toContract(): UserStatus =
         UserStatusColumn.DENIED -> UserStatus.DENIED
     }
 
+/**
+ * The wire-facing [User] contract for an Exposed [UserEntity]. Retained for the still-Exposed
+ * admin / profile read paths ([com.calypsan.listenup.server.api.AdminUserServiceImpl]); the auth
+ * domain itself now reads through [AuthUser.toContract]. Removed when the Exposed entities are
+ * deleted in the final phase.
+ */
 internal fun UserEntity.toContract(): User =
     User(
         id = UserId(id.value),

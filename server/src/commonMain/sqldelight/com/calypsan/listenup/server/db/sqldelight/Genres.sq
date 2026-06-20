@@ -1,0 +1,139 @@
+-- Genres table — syncable, hierarchical (materialized-path) genre taxonomy.
+--
+-- Column set matches V23__genres.sql exactly. `id` is declared NOT NULL (every
+-- persisted row carries an id; the migration writes `id TEXT PRIMARY KEY`, the
+-- substrate never inserts a null id) so the generated `g.id` / `g.path` JOIN
+-- columns in BookGenres.sq stay non-null — mirroring the Exposed
+-- `GenreTable.id = varchar("id", 36)` non-nullable shape.
+--
+-- SyncableTable substrate columns (revision / created_at / updated_at / deleted_at /
+-- client_op_id) mirror tags/contributors/series. Hierarchy via materialized path:
+-- `path` stores the slash-separated slug path (e.g. "/fiction/fantasy/epic-fantasy");
+-- `depth` is the cached path-component count; `parent_id` is the direct parent for
+-- child queries. The materialized path is the authoritative shape — `parent_id` is
+-- denormalised state that always tracks the path.
+--
+-- The parent_id self-FK is retained (it targets a table in THIS file, so SQLDelight
+-- resolves it), matching the migration.
+CREATE TABLE genres (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    name         TEXT    NOT NULL,
+    slug         TEXT    NOT NULL,
+    path         TEXT    NOT NULL,
+    parent_id    TEXT,
+    depth        INTEGER NOT NULL DEFAULT 0,
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    color        TEXT,
+    description  TEXT,
+    revision     INTEGER NOT NULL DEFAULT 0,
+    updated_at   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL DEFAULT 0,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    FOREIGN KEY (parent_id) REFERENCES genres(id) ON DELETE SET NULL
+);
+
+CREATE UNIQUE INDEX idx_genres_slug_live ON genres(slug) WHERE deleted_at IS NULL;
+CREATE INDEX idx_genres_path ON genres(path);
+CREATE INDEX idx_genres_parent ON genres(parent_id);
+CREATE INDEX idx_genres_revision ON genres(revision);
+
+-- ── root-row reads / writes ────────────────────────────────────────────────────
+
+selectById:
+SELECT * FROM genres WHERE id = :id;
+
+insert:
+INSERT INTO genres (
+    id, name, slug, path, parent_id, depth, sort_order, color, description,
+    revision, created_at, updated_at, deleted_at, client_op_id
+) VALUES (
+    :id, :name, :slug, :path, :parent_id, :depth, :sort_order, :color, :description,
+    :revision, :created_at, :updated_at, :deleted_at, :client_op_id
+);
+
+update:
+UPDATE genres
+SET name = :name, slug = :slug, path = :path, parent_id = :parent_id, depth = :depth,
+    sort_order = :sort_order, color = :color, description = :description,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+-- ── substrate queries ──────────────────────────────────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM genres WHERE id = :id);
+
+softDeleteById:
+UPDATE genres
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM genres WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM genres WHERE revision <= :cursor;
+
+-- ── lookups ────────────────────────────────────────────────────────────────────
+
+-- Id of the live (non-tombstoned) genre with the given slug, or none. Slug
+-- uniqueness is enforced among live rows by `idx_genres_slug_live`.
+findBySlug:
+SELECT id FROM genres WHERE slug = :slug AND deleted_at IS NULL;
+
+-- Id of the live genre at the given materialized path, or none. Path is unique
+-- among live genres (every node has a distinct slug per parent).
+findByPath:
+SELECT id FROM genres WHERE path = :path AND deleted_at IS NULL;
+
+-- Count of live (non-tombstoned) genres — the seeder's run-once idempotency check.
+countLive:
+SELECT COUNT(*) FROM genres WHERE deleted_at IS NULL;
+
+-- ── hierarchy primitives ───────────────────────────────────────────────────────
+
+-- Ids of `path_prefix` itself plus all of its descendants, regardless of tombstone
+-- state. Collision-safe pattern `path = ? OR path LIKE ? || '/%'` so "/fic" does not
+-- match "/fiction/…". The cascade operations (move, merge, delete-subtree) need to
+-- see tombstoned descendants too, so this does NOT filter on deleted_at.
+descendantIds:
+SELECT id FROM genres WHERE path = :path_prefix OR path LIKE :path_prefix || '/%';
+
+-- Direct children (live only) of the given parent.
+directChildren:
+SELECT id FROM genres WHERE parent_id = :parent_id AND deleted_at IS NULL;
+
+-- Bulk-rewrites `path` + `depth` on the subtree rooted at the old prefix, replacing
+-- the prefix with the new one and shifting depth by the delta. The materialized-path
+-- reparent primitive (`moveGenre` / `mergeGenres` build on top). `SUBSTR(path, :substr_from)`
+-- strips the old prefix (`:substr_from` = oldPrefix.length + 1, computed in Kotlin so no
+-- `LENGTH(:param)`/arithmetic-on-param mis-inference) and re-prepends the new one; the
+-- `path = ? OR path LIKE ? || '/%'` predicate selects the subtree collision-safely. The
+-- `CAST(... AS INTEGER)` pins `:substr_from` to a numeric bind. Matches the Exposed
+-- GenreTable.rewritePathPrefix semantics exactly.
+rewritePathPrefix:
+UPDATE genres
+SET path = :new_prefix || SUBSTR(path, CAST(:substr_from AS INTEGER)),
+    depth = depth + :depth_delta
+WHERE path = :old_prefix OR path LIKE :old_prefix || '/%';
+
+-- Updates a single genre's parent_id (null clears the pointer, marking the row as a
+-- root). Used by `moveGenre` after rewritePathPrefix has rewritten the subtree paths.
+updateParentId:
+UPDATE genres SET parent_id = :parent_id WHERE id = :id;
+
+-- ── browse / list reads ────────────────────────────────────────────────────────
+
+-- All live genres ordered by materialized path — the listGenres backbone (book
+-- counts are joined in by the service over book_genres).
+listLiveOrderedByPath:
+SELECT * FROM genres WHERE deleted_at IS NULL ORDER BY path;
+
+-- Live direct children of a parent, ordered by sort_order then path — getGenreChildren.
+liveChildrenOrdered:
+SELECT * FROM genres
+WHERE parent_id = :parent_id AND deleted_at IS NULL
+ORDER BY sort_order, path;

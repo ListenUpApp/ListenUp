@@ -1,0 +1,106 @@
+-- collections: user-owned (or system-managed) groupings of books. Syncable,
+-- soft-deletable, revision-tracked, GLOBAL (no user_id column — per-user visibility
+-- is enforced at the service/access layer, not by a userScoped substrate).
+--
+-- Column set matches the FINAL migration state (V24 substrate + V40 `type` +
+-- V41 dropped `is_global_access` + V42 dropped `is_inbox`). The `type` column is the
+-- server-only system-collection discriminator ('NORMAL' | 'ALL_BOOKS' | 'INBOX') and
+-- never crosses the wire — `CollectionSyncPayload.isInbox` is projected from `type = 'INBOX'`.
+--
+-- FK declaration (REFERENCES libraries) is omitted here, mirroring CollectionBooks.sq /
+-- ShelfBooks.sq: SQLDelight cannot resolve cross-table references for tables not defined
+-- in this schema's .sq files. The constraint is present in the migration DDL and enforced
+-- by SQLite at runtime. NOT-NULL on the substrate columns follows the .sq convention even
+-- where the migration backfilled via DEFAULT — the repo always writes them.
+CREATE TABLE collections (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    library_id   TEXT    NOT NULL,
+    owner_id     TEXT    NOT NULL,
+    name         TEXT    NOT NULL,
+    type         TEXT    NOT NULL DEFAULT 'NORMAL',
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT
+);
+
+CREATE INDEX idx_collections_owner ON collections(owner_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_collections_library ON collections(library_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_collections_revision ON collections(revision);
+CREATE INDEX idx_collections_type ON collections(type);
+-- ALL_BOOKS / INBOX are hard singletons per library (one live row each), backstopping the
+-- lazy find-or-create against a concurrent first-call race.
+CREATE UNIQUE INDEX idx_collections_all_books ON collections(library_id) WHERE type = 'ALL_BOOKS' AND deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_collections_inbox ON collections(library_id) WHERE type = 'INBOX' AND deleted_at IS NULL;
+
+-- ── substrate queries ──────────────────────────────────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM collections WHERE id = :id);
+
+softDeleteById:
+UPDATE collections
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM collections WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM collections WHERE revision <= :cursor;
+
+-- ── root-row reads / writes ──────────────────────────────────────────────────────
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads, which must
+-- hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM collections WHERE id = :id;
+
+selectByIds:
+SELECT * FROM collections WHERE id IN :ids;
+
+-- Live (non-tombstoned) collection by id.
+selectLiveById:
+SELECT * FROM collections WHERE id = :id AND deleted_at IS NULL;
+
+-- Live inbox collection for a library (type = 'INBOX'); at most one by partial unique index.
+selectLiveInboxForLibrary:
+SELECT * FROM collections
+WHERE library_id = :library_id AND type = 'INBOX' AND deleted_at IS NULL;
+
+-- Live system collection of a given type for a library (ALL_BOOKS or INBOX).
+selectLiveSystemForLibrary:
+SELECT * FROM collections
+WHERE library_id = :library_id AND type = :type AND deleted_at IS NULL;
+
+-- All live collections owned by a user.
+listLiveOwnedBy:
+SELECT * FROM collections WHERE owner_id = :owner_id AND deleted_at IS NULL;
+
+-- All live collections across all users and libraries (the admin god-view source).
+listAllLive:
+SELECT * FROM collections WHERE deleted_at IS NULL;
+
+-- Ids of every live system collection (ALL_BOOKS or INBOX) — the member-list exclusion set.
+selectLiveSystemCollectionIds:
+SELECT id FROM collections
+WHERE type IN ('ALL_BOOKS', 'INBOX') AND deleted_at IS NULL;
+
+insert:
+INSERT INTO collections (id, library_id, owner_id, name, type, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :library_id, :owner_id, :name, :type, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+-- Root-row update — never touches `type` (server-only, stamped via setType).
+update:
+UPDATE collections
+SET library_id = :library_id, owner_id = :owner_id, name = :name,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+-- Stamps the server-only `type` column. No revision bump, no publish — `type` never
+-- crosses the wire, so this is a bare column write used by the find-or-create flow.
+setType:
+UPDATE collections SET type = :type WHERE id = :id;

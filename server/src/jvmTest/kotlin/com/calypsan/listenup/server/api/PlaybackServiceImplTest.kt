@@ -54,6 +54,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class PlaybackServiceImplTest :
     FunSpec({
@@ -75,33 +77,59 @@ class PlaybackServiceImplTest :
             val registry = SyncRegistry()
             val bookRepo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
+                    exposedDb = db,
                     bus = bus,
                     registry = registry,
-                    contributorRepository = ContributorRepository(db, bus, registry),
-                    seriesRepository = SeriesRepository(db, bus, registry),
-                    genreRepository = GenreRepository(db, bus, registry),
+                    contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
+                    seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
+                    genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
                 )
-            val positionRepo = PlaybackPositionRepository(db = db, bus = bus, registry = SyncRegistry())
+            val positionRepo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+            val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
             val updater =
                 UserStatsUpdater(
-                    db = db,
+                    sql = db.asSqlDatabase(),
                     userStatsRepo = statsRepo,
                     publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
                 )
-            val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), userStatsUpdater = updater)
+            val eventRepo =
+                ListeningEventRepository(
+                    db = db.asSqlDatabase(),
+                    bus = ChangeBus(),
+                    registry = SyncRegistry(),
+                    userStatsUpdater = updater,
+                )
             return TestDeps(
                 bookRepo = bookRepo,
                 positionRepo = positionRepo,
                 signer = signer,
                 eventRepo = eventRepo,
                 statsRepo = statsRepo,
-                accessPolicy = BookAccessPolicy(db),
-                collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry),
-                collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
-                grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry),
+                accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    ),
+                collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    ),
+                grantRepo =
+                    CollectionGrantRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    ),
             )
         }
 

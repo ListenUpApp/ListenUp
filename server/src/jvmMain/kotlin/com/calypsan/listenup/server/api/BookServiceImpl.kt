@@ -258,29 +258,37 @@ internal class BookServiceImpl(
                 ),
             )
         }
-        return suspendTransaction(db) {
-            val current = repo.findById(id) ?: return@suspendTransaction bookNotFound(id)
+        // The genre relink writes `book_genres` (Exposed); the book re-upsert writes the book row
+        // (SQLDelight). During the cutover these are two engines that cannot share one transaction,
+        // so they run SEQUENTIALLY — the Exposed relink commits, then the SQLDelight upsert runs.
+        // Nesting the SQLDelight write inside the Exposed write transaction deadlocks on the single
+        // SQLite write lock (SQLITE_BUSY). The genre junction re-derives on the next book read, so
+        // the re-upsert (which only bumps the revision + publishes) sees the relinked genres.
+        val current = repo.findById(id) ?: return bookNotFound(id)
 
-            // Validate every input genre exists and is live BEFORE the relink. Unknown ids
-            // surface as BookError.InvalidInput per spec (no auto-create).
-            for (input in genres) {
-                val genre = genreRepo.findById(input.genreId.value)
-                if (genre == null || genre.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(
-                        BookError.InvalidInput(debugInfo = "unknownGenre=${input.genreId.value}"),
-                    )
+        // Validate every input genre exists and is live BEFORE the relink. Unknown ids surface as
+        // BookError.InvalidInput per spec (no auto-create). The validate + relink share one Exposed
+        // transaction so a partial relink never lands on a bad input.
+        val relinkResult =
+            suspendTransaction(db) {
+                for (input in genres) {
+                    val genre = genreRepo.findById(input.genreId.value)
+                    if (genre == null || genre.deletedAt != null) {
+                        return@suspendTransaction AppResult.Failure(
+                            BookError.InvalidInput(debugInfo = "unknownGenre=${input.genreId.value}"),
+                        )
+                    }
                 }
+                BookGenreTable.relinkBookGenres(id.value, genres.map { it.genreId.value })
+                AppResult.Success(Unit)
             }
+        if (relinkResult is AppResult.Failure) return relinkResult
 
-            // Atomic replace: wipe prior book_genres, write new (book, genre) rows.
-            BookGenreTable.relinkBookGenres(id.value, genres.map { it.genreId.value })
-
-            // Re-upsert the book so the substrate bumps revision + publishes `book.Updated`.
-            // The book payload's `genres` field re-derives from the live junction on next read.
-            when (val upsertResult = repo.upsert(current)) {
-                is AppResult.Success -> AppResult.Success(Unit)
-                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
-            }
+        // Re-upsert the book so the substrate bumps revision + publishes `book.Updated`. The book
+        // payload's `genres` field re-derives from the live junction on read.
+        return when (val upsertResult = repo.upsert(current)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
     }
 
@@ -386,6 +394,8 @@ fun createBookService(
     seriesRepo: SeriesRepository,
     coverStorage: CoverStorage,
     db: org.jetbrains.exposed.v1.jdbc.Database,
+    sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
     genreRepo: com.calypsan.listenup.server.services.GenreRepository,
     principal: PrincipalProvider =
         PrincipalProvider { error("Unscoped BookService — call bookServiceScopedTo at the route") },
@@ -397,8 +407,8 @@ fun createBookService(
         coverStorage,
         db,
         genreRepo,
-        BookAccessPolicy(db),
-        UserPermissionPolicy(db),
+        BookAccessPolicy(db = sql, driver = driver),
+        UserPermissionPolicy(sql),
         principal,
     )
 

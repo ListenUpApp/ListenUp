@@ -7,14 +7,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.InviteEntity
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -34,7 +30,7 @@ private val logger = KotlinLogging.logger {}
  * claimable across a normal demo session.
  */
 class InviteDomainSeeder(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val inviteService: InviteServiceImpl,
 ) : DomainSeeder {
     override val domainName: String = "invite"
@@ -42,7 +38,10 @@ class InviteDomainSeeder(
     // After UserDomainSeeder (0) — createInvite needs the demo root to exist as created_by.
     override val order: Int = 1
 
-    override suspend fun isAlreadySeeded(): Boolean = suspendTransaction(db) { !InviteEntity.all().limit(1).empty() }
+    override suspend fun isAlreadySeeded(): Boolean =
+        suspendTransaction(db) {
+            db.invitesQueries.hasAnyInvite().executeAsOne()
+        }
 
     override suspend fun seed() {
         val rootPrincipal = resolveRootPrincipal()
@@ -72,9 +71,12 @@ class InviteDomainSeeder(
      */
     private suspend fun resolveRootPrincipal(): UserPrincipal? =
         suspendTransaction(db) {
-            UserEntity.find { UserTable.role eq UserRoleColumn.ROOT }.firstOrNull()?.let { root ->
-                UserPrincipal(UserId(root.id.value), SessionId("seed-invite-${root.id.value}"), UserRole.ROOT)
-            }
+            db.usersQueries
+                .selectFirstByRole(role = UserRoleColumn.ROOT.name)
+                .executeAsOneOrNull()
+                ?.let { rootId ->
+                    UserPrincipal(UserId(rootId), SessionId("seed-invite-$rootId"), UserRole.ROOT)
+                }
         }
 
     companion object {

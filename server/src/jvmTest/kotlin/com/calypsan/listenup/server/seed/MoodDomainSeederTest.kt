@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -23,7 +24,7 @@ class MoodDomainSeederTest :
         // The canonical Audible mood vocabulary count seeded by MoodDomainSeeder.
         val expectedMoodCount = 24
 
-        fun makeMoodRepo(db: Database): MoodRepository = MoodRepository(db, ChangeBus(), SyncRegistry())
+        fun makeMoodRepo(db: Database): MoodRepository = MoodRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         test("isAlreadySeeded returns false when no moods exist") {
             withInMemoryDatabase {

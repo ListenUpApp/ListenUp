@@ -1,11 +1,9 @@
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.server.db.UserTable
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
 /**
  * Resolves a user id to its [UserRole] via a single indexed primary-key lookup.
@@ -20,15 +18,13 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * deleted or unknown user, which the route treats as a 404.
  */
 internal class UserRoleLookup(
-    private val db: Database,
+    private val db: ListenUpDatabase,
 ) {
     suspend fun roleOf(userId: String): UserRole? =
         suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.id eq userId }
-                .firstOrNull()
-                ?.get(UserTable.role)
-                ?.toContract()
+            db.usersQueries
+                .selectRoleById(id = userId)
+                .executeAsOneOrNull()
+                ?.let { UserRoleColumn.valueOf(it).toContract() }
         }
 }

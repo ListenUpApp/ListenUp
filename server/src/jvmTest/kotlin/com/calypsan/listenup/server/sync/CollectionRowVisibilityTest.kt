@@ -14,6 +14,8 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.module
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -61,9 +63,9 @@ class CollectionRowVisibilityTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = db, bus = bus, registry = registry),
-                CollectionGrantRepository(db = db, bus = bus, registry = registry),
-                CollectionBookRepository(db = db, bus = bus, registry = registry),
+                CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+                CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+                CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
             )
         }
 
@@ -84,7 +86,7 @@ class CollectionRowVisibilityTest :
                     collections.upsert(collectionFixture("inbox", owner = "admin", isInbox = true))
                     shares.upsert(shareFixture("share1", "shared", sharedWith = "member"))
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.accessibleCollectionIdsSql("member", UserRole.MEMBER)
 
                     val page = collections.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -111,7 +113,7 @@ class CollectionRowVisibilityTest :
                     shares.upsert(shareFixture("s-on-owned", "owned", sharedWith = "other"))
                     shares.upsert(shareFixture("s-irrelevant", "strangers", sharedWith = "other"))
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.visibleCollectionGrantIdsSql("member", UserRole.MEMBER)
 
                     val page = shares.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -137,7 +139,7 @@ class CollectionRowVisibilityTest :
                     memberships.upsert(membershipFixture("owned", "b1"))
                     memberships.upsert(membershipFixture("private", "b2"))
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.accessibleCollectionBookIdsSql("member", UserRole.MEMBER)
 
                     val page = memberships.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -160,7 +162,7 @@ class CollectionRowVisibilityTest :
                     collections.upsert(collectionFixture("private", owner = "stranger"))
                     collections.upsert(collectionFixture("inbox", owner = "admin", isInbox = true))
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.accessibleCollectionIdsSql("admin", UserRole.ADMIN)
 
                     // Admin → null fragment → no filter → every row.

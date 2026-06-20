@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -42,8 +43,8 @@ class PublicProfileBackfillTest :
                     }
                 }
 
-                val repo = PublicProfileRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+                val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
 
                 runTest {
                     maintainer.backfillAll()

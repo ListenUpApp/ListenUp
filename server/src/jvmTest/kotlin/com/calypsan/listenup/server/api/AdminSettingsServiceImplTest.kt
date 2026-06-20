@@ -41,6 +41,8 @@ import java.nio.file.Path
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Integration tests for [AdminSettingsServiceImpl].
@@ -238,7 +240,7 @@ private fun makeAdminSettingsService(
     bus: ChangeBus = ChangeBus(),
     principal: PrincipalProvider,
 ): AdminSettingsFixture {
-    val libraryRepo = LibraryRepository(db = db, bus = bus, registry = SyncRegistry())
+    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
     val libraryRegistry = LibraryRegistry(db = db)
     val svc =
         AdminSettingsServiceImpl(
@@ -260,20 +262,28 @@ private suspend fun seedLibrary(
     principal: PrincipalProvider,
 ) {
     val bus = ChangeBus()
-    val libraryRepo = LibraryRepository(db = db, bus = bus, registry = SyncRegistry())
-    val folderRepo = LibraryFolderRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-    val contributorRepo = ContributorRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-    val seriesRepo = SeriesRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
+    val folderRepo =
+        LibraryFolderRepository(
+            db = db.asSqlDatabase(),
+            bus = ChangeBus(),
+            registry = SyncRegistry(),
+            driver = db.asSqlDriver(),
+        )
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository =
                 com.calypsan.listenup.server.services.GenreRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = ChangeBus(),
                     registry = SyncRegistry(),
                 ),

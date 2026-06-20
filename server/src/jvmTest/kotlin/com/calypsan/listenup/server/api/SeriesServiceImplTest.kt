@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
@@ -307,25 +310,28 @@ private data class SeriesServiceDeps(
 private fun makeSeriesServiceAndDeps(db: Database): SeriesServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db, bus = bus, registry = syncRegistry),
+            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry),
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             principal = rootPrincipal(),
         )

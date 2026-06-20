@@ -42,6 +42,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Clock
 import kotlin.time.Instant
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class LibraryAdminServiceImplTest :
     FunSpec({
@@ -416,30 +418,38 @@ private fun makeService(
 ): ServiceFixture {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val libraryRepo = LibraryRepository(db = db, bus = bus, registry = registry)
-    val folderRepo = LibraryFolderRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val folderRepo =
+        LibraryFolderRepository(
+            db = db.asSqlDatabase(),
+            bus = ChangeBus(),
+            registry = SyncRegistry(),
+            driver = db.asSqlDriver(),
+        )
     val contributorRepo =
         com.calypsan.listenup.server.services.ContributorRepository(
-            db = db,
+            db = db.asSqlDatabase(),
             bus = ChangeBus(),
             registry = SyncRegistry(),
         )
     val seriesRepo =
         com.calypsan.listenup.server.services.SeriesRepository(
-            db = db,
+            db = db.asSqlDatabase(),
             bus = ChangeBus(),
             registry = SyncRegistry(),
         )
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository =
                 com.calypsan.listenup.server.services.GenreRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = ChangeBus(),
                     registry = SyncRegistry(),
                 ),

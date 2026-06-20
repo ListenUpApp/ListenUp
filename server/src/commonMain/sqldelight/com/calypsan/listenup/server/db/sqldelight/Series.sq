@@ -1,0 +1,89 @@
+-- Book series table: syncable series domain. Table name is `book_series`;
+-- the sync domain name is "series".
+-- Effective schema is the union of:
+--   V6__books_series.sql                  (id, name, sort_name)
+--   V10__books_series_normalized_name.sql (normalized_name)
+--   V14__book_series_syncable.sql         (revision, created_at, updated_at, deleted_at, client_op_id)
+--   V18__b2a_substrate.sql                (asin, description, cover_path, cover_blur_hash)
+--
+-- revision / created_at / updated_at are declared NOT NULL here so the generated
+-- column types are non-null `Long` — every live row carries them (V14 backfills the
+-- pre-existing rows and the substrate writes them on every upsert).
+--
+-- FK declarations are omitted: book_series has no outgoing references.
+CREATE TABLE book_series (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    name            TEXT    NOT NULL,
+    sort_name       TEXT,
+    normalized_name TEXT    NOT NULL,
+    revision        INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    deleted_at      INTEGER,
+    client_op_id    TEXT,
+    asin            TEXT,
+    description     TEXT,
+    cover_path      TEXT,
+    cover_blur_hash TEXT
+);
+
+CREATE UNIQUE INDEX idx_series_normalized ON book_series(normalized_name);
+CREATE INDEX idx_book_series_revision ON book_series(revision);
+
+-- ── root-row queries ───────────────────────────────────────────────────────────
+
+selectById:
+SELECT * FROM book_series WHERE id = :id;
+
+selectByIds:
+SELECT * FROM book_series WHERE id IN :ids;
+
+-- Dedup lookup: resolveOrCreate finds an existing series by its normalized name.
+selectByNormalizedName:
+SELECT * FROM book_series WHERE normalized_name = :normalized_name;
+
+-- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
+-- cover images whose series still exists.
+selectLiveIds:
+SELECT id FROM book_series WHERE deleted_at IS NULL;
+
+-- (id, revision) for ALL rows, soft-deleted included, no filter — feeds the
+-- cross-stack digest parity test (allIdRevisionsForTest).
+selectAllIdRevisions:
+SELECT id, revision FROM book_series;
+
+insert:
+INSERT INTO book_series (
+    id, normalized_name, name, sort_name, revision, created_at, updated_at,
+    deleted_at, client_op_id, asin, description, cover_path, cover_blur_hash
+) VALUES (
+    :id, :normalized_name, :name, :sort_name, :revision, :created_at, :updated_at,
+    :deleted_at, :client_op_id, :asin, :description, :cover_path, :cover_blur_hash
+);
+
+-- normalized_name is re-derived from name on every write (matches the Exposed
+-- SeriesRepository.writePayload, which sets it on both insert and update).
+update:
+UPDATE book_series
+SET normalized_name = :normalized_name, name = :name, sort_name = :sort_name,
+    asin = :asin, description = :description, cover_path = :cover_path,
+    cover_blur_hash = :cover_blur_hash, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+-- ── substrate queries ──────────────────────────────────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM book_series WHERE id = :id);
+
+softDeleteById:
+UPDATE book_series
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM book_series WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM book_series WHERE revision <= :cursor;

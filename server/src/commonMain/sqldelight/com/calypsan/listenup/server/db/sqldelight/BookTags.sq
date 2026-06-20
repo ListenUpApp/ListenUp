@@ -1,0 +1,75 @@
+-- book_tags junction: syncable, soft-deletable, revision-tracked.
+-- Column set matches V21__tags_substrate.sql exactly.
+-- FK declarations (REFERENCES books/tags) are omitted here: SQLDelight cannot resolve
+-- cross-table references for tables not yet defined in this schema's .sq files. The
+-- constraints are present in the migration DDL and enforced by SQLite at runtime.
+CREATE TABLE book_tags (
+    id           TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    tag_id       TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (book_id, tag_id)
+);
+
+CREATE UNIQUE INDEX idx_book_tags_id ON book_tags(id);
+CREATE INDEX idx_book_tags_tag_id ON book_tags(tag_id, book_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_book_tags_revision ON book_tags(revision);
+
+-- Substrate queries keyed on the synthetic `id` column.
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM book_tags WHERE id = :id);
+
+softDeleteById:
+UPDATE book_tags
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM book_tags WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM book_tags WHERE revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by synthetic id. Used by the base's pullSince/readPayloads,
+-- which must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM book_tags WHERE id = :id;
+
+selectByIds:
+SELECT * FROM book_tags WHERE id IN :ids;
+
+selectByBookId:
+SELECT * FROM book_tags WHERE book_id = :book_id AND deleted_at IS NULL;
+
+selectByBookIds:
+SELECT * FROM book_tags WHERE book_id IN :ids AND deleted_at IS NULL;
+
+selectByTagId:
+SELECT * FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
+
+selectBookIdsForTag:
+SELECT book_id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO book_tags (id, book_id, tag_id, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :book_id, :tag_id, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+update:
+UPDATE book_tags
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE book_id = :book_id AND tag_id = :tag_id;
+
+selectLiveIdsForBook:
+SELECT id FROM book_tags WHERE book_id = :book_id AND deleted_at IS NULL;
+
+selectLiveIdsForTag:
+SELECT id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;

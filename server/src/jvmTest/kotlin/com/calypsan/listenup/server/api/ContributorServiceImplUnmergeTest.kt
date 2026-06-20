@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -292,25 +295,28 @@ private data class UnmergeServiceDeps(
 private fun makeUnmergeServiceAndDeps(db: Database): UnmergeServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             principal = rootPrincipal(),
         )

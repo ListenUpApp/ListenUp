@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -67,8 +68,8 @@ class UserStatsLazyDecayTest :
 
                 val bus = ChangeBus()
                 // statsRepoThen writes rows with updatedAt = thenMs (stale)
-                val statsRepoThen = UserStatsRepository(db = db, bus = bus, registry = SyncRegistry(), clock = thenClock)
-                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepoThen = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = thenClock)
+                val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
                     // Seed an event from 10 days ago for u1.
@@ -101,14 +102,14 @@ class UserStatsLazyDecayTest :
                     // Now create a repo with the current clock and a lazy-decay updater.
                     val updaterWithNowClock =
                         UserStatsUpdater(
-                            db = db,
+                            sql = db.asSqlDatabase(),
                             userStatsRepo = statsRepoThen,
                             clock = nowClock,
                             publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
                         )
                     val statsRepoWithDecay =
                         UserStatsRepository(
-                            db = db,
+                            db = db.asSqlDatabase(),
                             bus = bus,
                             registry = SyncRegistry(),
                             clock = nowClock,
@@ -135,8 +136,8 @@ class UserStatsLazyDecayTest :
                 val nowClock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
 
                 val bus = ChangeBus()
-                val statsRepoThen = UserStatsRepository(db = db, bus = bus, registry = SyncRegistry(), clock = thenClock)
-                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepoThen = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = thenClock)
+                val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
                     val oldEvent = eventAt("evt-old", "book-1", endedAtMs = nowMs - 10 * dayMs, wallSeconds = 3600L)
@@ -165,14 +166,14 @@ class UserStatsLazyDecayTest :
 
                     val updaterWithNowClock =
                         UserStatsUpdater(
-                            db = db,
+                            sql = db.asSqlDatabase(),
                             userStatsRepo = statsRepoThen,
                             clock = nowClock,
                             publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
                         )
                     val statsRepoWithDecay =
                         UserStatsRepository(
-                            db = db,
+                            db = db.asSqlDatabase(),
                             bus = bus,
                             registry = SyncRegistry(),
                             clock = nowClock,
@@ -202,13 +203,13 @@ class UserStatsLazyDecayTest :
                 val bus = ChangeBus()
 
                 // statsRepoThen seeds the stale row.
-                val statsRepoThen = UserStatsRepository(db = db, bus = bus, registry = SyncRegistry(), clock = thenClock)
+                val statsRepoThen = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry(), clock = thenClock)
                 // Production-like repo: provider returns the updater, but the updater is not
                 // yet constructed when statsRepoWithDecay is constructed — same as Koin.
                 lateinit var updater: UserStatsUpdater
                 val statsRepoWithDecay =
                     UserStatsRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
                         bus = bus,
                         registry = SyncRegistry(),
                         clock = nowClock,
@@ -217,13 +218,13 @@ class UserStatsLazyDecayTest :
                 // Construct the updater after the repo — mirroring Koin's resolution order.
                 updater =
                     UserStatsUpdater(
-                        db = db,
+                        sql = db.asSqlDatabase(),
                         userStatsRepo = statsRepoThen,
                         clock = nowClock,
                         publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
                     )
 
-                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
                     val oldEvent = eventAt("evt-koin", "book-1", endedAtMs = nowMs - 10 * dayMs, wallSeconds = 3600L)

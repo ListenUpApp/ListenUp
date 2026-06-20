@@ -13,6 +13,8 @@ import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandle
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
@@ -60,8 +62,11 @@ class DigestParityE2ETest :
                 }
             val db =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            // SeriesRepository is SQLDelight-converted: open a SQLDelight view over the same
+            // already-migrated file the Exposed [db] is connected to.
+            val sqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
 
-            val repo = SeriesRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+            val repo = SeriesRepository(db = sqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             runTest {
                 // Seed: two live series + one that is immediately soft-deleted (tombstoned).
@@ -94,8 +99,11 @@ class DigestParityE2ETest :
                 }
             val serverDb =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            // UserStatsRepository is SQLDelight-converted: open a SQLDelight view over the same
+            // already-migrated file the Exposed [serverDb] is connected to.
+            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
             val userStatsRepo =
-                UserStatsRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+                UserStatsRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             val clientDb = createInMemoryTestDatabase()
             try {
@@ -163,9 +171,12 @@ class DigestParityE2ETest :
                 }
             val serverDb =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            // ListeningEventRepository is SQLDelight-converted: open a SQLDelight view over the same
+            // already-migrated file the Exposed [serverDb] is connected to.
+            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
             // null userStatsUpdater is safe here — stats accrual is not under test.
             val listeningEventRepo =
-                ListeningEventRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+                ListeningEventRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             val clientDb = createInMemoryTestDatabase()
             try {
@@ -250,7 +261,10 @@ class DigestParityE2ETest :
                 }
             val serverDb =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-            val bookTagRepo = BookTagRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+            // BookTagRepository is SQLDelight-converted: open a SQLDelight view over the same
+            // already-migrated file the Exposed [serverDb] is connected to.
+            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+            val bookTagRepo = BookTagRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             val clientDb = createInMemoryTestDatabase()
             try {
@@ -332,8 +346,14 @@ class DigestParityE2ETest :
                 }
             val serverDb =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
             val collectionBookRepo =
-                CollectionBookRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+                CollectionBookRepository(
+                    db = ServerSqlDatabase(serverDriver),
+                    bus = ChangeBus(),
+                    registry = SyncRegistry(),
+                    driver = serverDriver,
+                )
 
             val clientDb = createInMemoryTestDatabase()
             try {

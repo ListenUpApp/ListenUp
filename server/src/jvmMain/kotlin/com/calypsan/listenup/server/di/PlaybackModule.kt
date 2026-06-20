@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.ActivityRecorder
@@ -71,14 +72,14 @@ fun playbackModule(): Module =
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
             )
         }
-        single { UserRoleLookup(db = get()) }
-        single(createdAtStart = true) { ActiveSessionRepository(db = get(), bus = get()) }
-        single { ActivityRepository(db = get()) }
+        single { UserRoleLookup(db = get<ListenUpDatabase>()) }
+        single(createdAtStart = true) { ActiveSessionRepository(db = get<ListenUpDatabase>(), bus = get()) }
+        single { ActivityRepository(db = get<ListenUpDatabase>()) }
         single { ActivityRecorder(repo = get(), bus = get()) }
-        single { BookReadsRepository(db = get(), clock = get()) }
+        single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
         single(createdAtStart = true) {
             PlaybackPositionRepository(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
                 userStatsUpdater = get(),
@@ -94,7 +95,7 @@ fun playbackModule(): Module =
         // runtime inside pullSince(), by which time both singletons are fully resolved.
         single(createdAtStart = true) {
             UserStatsRepository(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
                 userStatsUpdaterProvider = { get<UserStatsUpdater>() },
@@ -102,7 +103,7 @@ fun playbackModule(): Module =
         }
         single {
             UserStatsUpdater(
-                db = get(),
+                sql = get<ListenUpDatabase>(),
                 userStatsRepo = get(),
                 publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
                 activityRecorder = get(),
@@ -110,14 +111,14 @@ fun playbackModule(): Module =
         }
         single(createdAtStart = true) {
             ListeningEventRepository(
-                db = get(),
+                db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
                 userStatsUpdater = get(),
                 activityRecorder = get(),
             )
         }
-        single { UserStatsBackfillService(db = get(), userStatsRepo = get()) }
+        single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), userStatsRepo = get()) }
         single { ActiveSessionCleanupTask(db = get(), bus = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(

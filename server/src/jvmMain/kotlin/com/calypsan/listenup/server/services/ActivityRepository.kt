@@ -2,16 +2,11 @@
 
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.db.ActivitiesTable
+import com.calypsan.listenup.server.db.sqldelight.Activities
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.SortOrder
-import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * One persisted activity row, as stored. Type-specific columns are nullable / defaulted: a
@@ -45,9 +40,16 @@ data class ActivityRow(
  * [page] is intentionally raw (no identity join, no ACL filter): the [ActivityServiceImpl] layer
  * overfetches, joins `public_profiles` identity, and drops items the caller may not see, then
  * re-pages. Keeping that policy out of the store keeps this class a thin persistence seam.
+ *
+ * This is a **plain** (non-syncable) append-only log — there is no revision / soft-delete
+ * substrate, so it persists directly over the generated [ListenUpDatabase.activitiesQueries]
+ * rather than through `SqlSyncableRepository`. [record] is a hook target of the playback and
+ * listening-event repos (via [ActivityRecorder]); when those run SQLDelight, the insert nests
+ * as a savepoint inside the open event transaction (same [ListenUpDatabase] connection) — no
+ * `SQLITE_BUSY`.
  */
 class ActivityRepository(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val clock: Clock = Clock.System,
 ) {
     /** Appends one activity row and returns its generated id. */
@@ -66,20 +68,20 @@ class ActivityRepository(
         suspendTransaction(db) {
             val now = clock.now().toEpochMilliseconds()
             val rowId = Uuid.random().toString()
-            ActivitiesTable.insert {
-                it[ActivitiesTable.id] = rowId
-                it[ActivitiesTable.userId] = userId
-                it[ActivitiesTable.type] = type
-                it[ActivitiesTable.createdAt] = now
-                it[ActivitiesTable.occurredAt] = occurredAt ?: now
-                it[ActivitiesTable.bookId] = bookId
-                it[ActivitiesTable.isReread] = isReread
-                it[ActivitiesTable.durationMs] = durationMs
-                it[ActivitiesTable.milestoneValue] = milestoneValue
-                it[ActivitiesTable.milestoneUnit] = milestoneUnit
-                it[ActivitiesTable.shelfId] = shelfId
-                it[ActivitiesTable.shelfName] = shelfName
-            }
+            db.activitiesQueries.insert(
+                id = rowId,
+                user_id = userId,
+                type = type,
+                created_at = now,
+                occurred_at = occurredAt ?: now,
+                book_id = bookId,
+                is_reread = if (isReread) 1L else 0L,
+                duration_ms = durationMs,
+                milestone_value = milestoneValue.toLong(),
+                milestone_unit = milestoneUnit,
+                shelf_id = shelfId,
+                shelf_name = shelfName,
+            )
             rowId
         }
 
@@ -92,27 +94,28 @@ class ActivityRepository(
         limit: Int,
     ): List<ActivityRow> =
         suspendTransaction(db) {
-            val query = ActivitiesTable.selectAll()
-            val filtered = if (before != null) query.where { ActivitiesTable.occurredAt less before } else query
-            filtered
-                .orderBy(ActivitiesTable.occurredAt to SortOrder.DESC, ActivitiesTable.id to SortOrder.DESC)
-                .limit(limit)
-                .map { it.toRow() }
+            val rows =
+                if (before != null) {
+                    db.activitiesQueries.pageBefore(before, limit.toLong()).executeAsList()
+                } else {
+                    db.activitiesQueries.pageFirst(limit.toLong()).executeAsList()
+                }
+            rows.map { it.toRow() }
         }
 
-    private fun ResultRow.toRow() =
+    private fun Activities.toRow(): ActivityRow =
         ActivityRow(
-            id = this[ActivitiesTable.id],
-            userId = this[ActivitiesTable.userId],
-            type = this[ActivitiesTable.type],
-            createdAt = this[ActivitiesTable.createdAt],
-            occurredAt = this[ActivitiesTable.occurredAt],
-            bookId = this[ActivitiesTable.bookId],
-            isReread = this[ActivitiesTable.isReread],
-            durationMs = this[ActivitiesTable.durationMs],
-            milestoneValue = this[ActivitiesTable.milestoneValue],
-            milestoneUnit = this[ActivitiesTable.milestoneUnit],
-            shelfId = this[ActivitiesTable.shelfId],
-            shelfName = this[ActivitiesTable.shelfName],
+            id = id,
+            userId = user_id,
+            type = type,
+            createdAt = created_at,
+            occurredAt = occurred_at,
+            bookId = book_id,
+            isReread = is_reread == 1L,
+            durationMs = duration_ms,
+            milestoneValue = milestone_value.toInt(),
+            milestoneUnit = milestone_unit,
+            shelfId = shelf_id,
+            shelfName = shelf_name,
         )
 }

@@ -8,6 +8,8 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryIdAsStringTest :
     FunSpec({
@@ -17,12 +19,14 @@ class BookRepositoryIdAsStringTest :
                 val registry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
+                        driver = this.asSqlDriver(),
+                        exposedDb = this,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(this, bus, registry),
-                        seriesRepository = SeriesRepository(this, bus, registry),
-                        genreRepository = GenreRepository(this, bus, registry),
+                        contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
+                        seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(this.asSqlDatabase(), bus, registry),
                     )
                 repo.idAsStringForTest(BookId("abc-123")) shouldBe "abc-123"
             }
@@ -34,12 +38,14 @@ class BookRepositoryIdAsStringTest :
                 val registry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
+                        driver = this.asSqlDriver(),
+                        exposedDb = this,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(this, bus, registry),
-                        seriesRepository = SeriesRepository(this, bus, registry),
-                        genreRepository = GenreRepository(this, bus, registry),
+                        contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
+                        seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(this.asSqlDatabase(), bus, registry),
                     )
                 repo.domainName shouldBe "books"
             }

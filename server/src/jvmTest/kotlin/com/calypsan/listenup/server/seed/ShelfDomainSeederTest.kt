@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -37,17 +38,18 @@ import kotlin.time.Instant
 class ShelfDomainSeederTest :
     FunSpec({
 
-        fun makeShelfRepo(db: Database): ShelfRepository = ShelfRepository(db, ChangeBus(), SyncRegistry())
+        fun makeShelfRepo(db: Database): ShelfRepository = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         fun newAuthService(db: Database): AuthServiceImpl {
             val pepper = "x".repeat(32).toByteArray()
             val clock = FixedClock(Instant.parse("2026-06-04T12:00:00Z"))
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AuthServiceImpl(
-                db = db,
+                db = db.asSqlDatabase(),
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,

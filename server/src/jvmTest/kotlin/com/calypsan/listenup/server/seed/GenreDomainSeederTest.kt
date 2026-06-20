@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -35,10 +36,9 @@ class GenreDomainSeederTest :
                 runTest {
                     val seeder =
                         GenreDomainSeeder(
-                            db = this@withInMemoryDatabase,
                             genreRepository =
                                 GenreRepository(
-                                    db = this@withInMemoryDatabase,
+                                    db = this@withInMemoryDatabase.asSqlDatabase(),
                                     bus = ChangeBus(),
                                     registry = SyncRegistry(),
                                     clock = fixedClock,
@@ -56,9 +56,8 @@ class GenreDomainSeederTest :
                 runTest {
                     val seeder =
                         GenreDomainSeeder(
-                            db = db,
                             genreRepository =
-                                GenreRepository(db, ChangeBus(), SyncRegistry(), fixedClock),
+                                GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), fixedClock),
                             clock = fixedClock,
                         )
                     seeder.seed()
@@ -92,9 +91,8 @@ class GenreDomainSeederTest :
                 runTest {
                     val seeder =
                         GenreDomainSeeder(
-                            db = db,
                             genreRepository =
-                                GenreRepository(db, ChangeBus(), SyncRegistry(), fixedClock),
+                                GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), fixedClock),
                             clock = fixedClock,
                         )
                     seeder.seed()
@@ -109,9 +107,8 @@ class GenreDomainSeederTest :
                 runTest {
                     val seeder =
                         GenreDomainSeeder(
-                            db = db,
                             genreRepository =
-                                GenreRepository(db, ChangeBus(), SyncRegistry(), fixedClock),
+                                GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), fixedClock),
                             clock = fixedClock,
                         )
                     seeder.seed()
@@ -135,9 +132,8 @@ class GenreDomainSeederTest :
                 runTest {
                     val seeder =
                         GenreDomainSeeder(
-                            db = db,
                             genreRepository =
-                                GenreRepository(db, ChangeBus(), SyncRegistry(), fixedClock),
+                                GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), fixedClock),
                             clock = fixedClock,
                         )
                     seeder.seed()

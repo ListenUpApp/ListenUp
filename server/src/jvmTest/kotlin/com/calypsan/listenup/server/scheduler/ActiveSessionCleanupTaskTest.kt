@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.scheduler
 
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -20,7 +21,7 @@ class ActiveSessionCleanupTaskTest :
         fun makeRepo(
             db: org.jetbrains.exposed.v1.jdbc.Database,
             clock: kotlin.time.Clock = kotlin.time.Clock.System,
-        ): ActiveSessionRepository = ActiveSessionRepository(db = db, bus = ChangeBus(), clock = clock)
+        ): ActiveSessionRepository = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus(), clock = clock)
 
         test("runOnce deletes only rows whose updated_at is older than staleAfter") {
             withInMemoryDatabase {

@@ -1,10 +1,12 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 /**
  * Service-layer reindexer for the `book_search` FTS5 table.
@@ -23,11 +25,25 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * reindexing for testability and decoupling — a trigger cannot join across
  * `book_tags → tags → book_search_map` cleanly, whereas this class does it in
  * readable, testable Kotlin.
+ *
+ * **Two database handles during the cutover.** [db] (the SQLDelight [ListenUpDatabase])
+ * backs the `book_search` FTS write path — [reindexBook] reads its source columns,
+ * tag names and genre names through generated SQLDelight queries and writes the FTS row
+ * with `deleteFtsRow` + `insertFtsRow`. [exposedDb] (the Exposed [Database] over the same
+ * WAL file) still backs the two surfaces this unit (U3b) deliberately left on Exposed:
+ *   - the `contributor_search` FTS write in [reindexContributorAliases] — a *different*
+ *     FTS table, out of U3b's `book_search` scope; it ports with the contributor FTS work;
+ *   - the affected-book enumeration in the `reindexAllBooksFor*` sweeps, which reads the
+ *     Exposed table objects ([com.calypsan.listenup.server.db.BookContributorTable] etc.,
+ *     KEPT per the cutover plan). Each sweep still funnels the per-book FTS write through
+ *     [reindexBook], so the `book_search` write itself is always SQLDelight.
+ * Both handles read/write the one underlying file; in WAL mode cross-engine reads are safe.
  */
 class BookSearchReindexer(
     private val bookTagRepository: BookTagRepository,
     private val tagRepository: TagRepository,
-    private val db: Database,
+    private val db: ListenUpDatabase,
+    private val exposedDb: Database,
 ) {
     /**
      * Recomputes the `book_search` FTS5 row for [bookId] from the live source tables.
@@ -39,10 +55,10 @@ class BookSearchReindexer(
      * FTS5 idiom for `contentless_delete=1`).
      *
      * Safe to call when the book has no `book_search_map` row (never scanned, or
-     * tombstoned) — the SQL is a no-op in those cases.
+     * tombstoned) — the rowid lookup returns null and the call silently no-ops.
      */
     suspend fun reindexBook(bookId: String) {
-        // Resolve live tag names for this book.
+        // Resolve live tag names for this book (through the already-SQLDelight repos).
         val junctions = bookTagRepository.findAllForBook(bookId)
         val tagNames =
             junctions.mapNotNull { junc ->
@@ -50,35 +66,35 @@ class BookSearchReindexer(
             }
         val tagsValue = tagNames.joinToString(" ")
 
-        suspendTransaction(db) {
-            val tx = TransactionManager.current()
+        suspendTransaction<Unit>(db) {
             // Resolve the FTS5 rowid via book_search_map. If absent, nothing to do.
-            val rowid = resolveRowid(tx, bookId) ?: return@suspendTransaction
+            val rowid =
+                db.bookSearchQueries.selectRowidForBook(bookId).executeAsOneOrNull()
+                    ?: return@suspendTransaction
 
             // Read the existing FTS content from the source tables so we can re-insert
             // all columns — FTS5 contentless tables don't store the original text.
-            val existing = readExistingFtsRow(tx, rowid)
+            val existing = db.bookSearchQueries.selectFtsSourceByRowid(rowid).executeAsOneOrNull()
 
-            // Read live genre names via book_genres JOIN genres; tombstoned genres
-            // are filtered via `g.deleted_at IS NULL`. Space-joined for FTS5 tokenisation.
-            val genresValue = readGenreNames(tx, bookId).joinToString(" ")
+            // Live genre names via book_genres JOIN genres; tombstoned genres are filtered
+            // by the query (g.deleted_at IS NULL), name-ordered. Space-joined for FTS5 tokens.
+            val genresValue =
+                db.bookGenresQueries
+                    .genreNamesForBook(bookId)
+                    .executeAsList()
+                    .joinToString(" ")
 
-            // FTS5 contentless_delete=1: delete old tokens first, then re-insert full row.
-            tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
-            tx.exec(
-                stmt =
-                    "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags, genres) " +
-                        "VALUES ($rowid, ?, ?, ?, ?, ?, ?, ?)",
-                args =
-                    listOf(
-                        TextColumnType() to (existing?.title ?: ""),
-                        TextColumnType() to (existing?.subtitle ?: ""),
-                        TextColumnType() to (existing?.description ?: ""),
-                        TextColumnType() to (existing?.contributorNames ?: ""),
-                        TextColumnType() to (existing?.seriesNames ?: ""),
-                        TextColumnType() to tagsValue,
-                        TextColumnType() to genresValue,
-                    ),
+            // FTS5 contentless_delete=1: delete old tokens first, then re-insert full 8-col row.
+            db.bookSearchQueries.deleteFtsRow(rowid)
+            db.bookSearchQueries.insertFtsRow(
+                rowid = rowid,
+                title = existing?.title ?: "",
+                subtitle = existing?.subtitle ?: "",
+                description = existing?.description ?: "",
+                contributor_names = existing?.contributor_names ?: "",
+                series_names = existing?.series_names ?: "",
+                tags = tagsValue,
+                genres = genresValue,
             )
         }
     }
@@ -105,9 +121,11 @@ class BookSearchReindexer(
      * Each per-book reindex re-pulls `contributor_names` from source via [reindexBook].
      */
     suspend fun reindexAllBooksForContributor(contributorId: String) {
-        val bookIds = suspendTransaction(db) {
-            com.calypsan.listenup.server.db.BookContributorTable.bookIdsForContributor(contributorId)
-        }
+        val bookIds =
+            exposedSuspendTransaction(exposedDb) {
+                com.calypsan.listenup.server.db.BookContributorTable
+                    .bookIdsForContributor(contributorId)
+            }
         for (bookId in bookIds) {
             reindexBook(bookId)
         }
@@ -118,9 +136,11 @@ class BookSearchReindexer(
      * junction row referencing [seriesId].
      */
     suspend fun reindexAllBooksForSeries(seriesId: String) {
-        val bookIds = suspendTransaction(db) {
-            com.calypsan.listenup.server.db.BookSeriesMembershipTable.bookIdsForSeries(seriesId)
-        }
+        val bookIds =
+            exposedSuspendTransaction(exposedDb) {
+                com.calypsan.listenup.server.db.BookSeriesMembershipTable
+                    .bookIdsForSeries(seriesId)
+            }
         for (bookId in bookIds) {
             reindexBook(bookId)
         }
@@ -137,9 +157,11 @@ class BookSearchReindexer(
      * Each per-book reindex re-pulls `genres` from source via [reindexBook].
      */
     suspend fun reindexAllBooksForGenre(genreId: String) {
-        val bookIds = suspendTransaction(db) {
-            com.calypsan.listenup.server.db.BookGenreTable.bookIdsForGenre(genreId)
-        }
+        val bookIds =
+            exposedSuspendTransaction(exposedDb) {
+                com.calypsan.listenup.server.db.BookGenreTable
+                    .bookIdsForGenre(genreId)
+            }
         for (bookId in bookIds) {
             reindexBook(bookId)
         }
@@ -156,9 +178,11 @@ class BookSearchReindexer(
      * (`g.path = ? OR g.path LIKE ? || '/%'`).
      */
     suspend fun reindexAllBooksForSubtree(pathPrefix: String) {
-        val bookIds = suspendTransaction(db) {
-            com.calypsan.listenup.server.db.BookGenreTable.booksForGenrePrefix(pathPrefix, Int.MAX_VALUE)
-        }
+        val bookIds =
+            exposedSuspendTransaction(exposedDb) {
+                com.calypsan.listenup.server.db.BookGenreTable
+                    .booksForGenrePrefix(pathPrefix, Int.MAX_VALUE)
+            }
         for (bookId in bookIds) {
             reindexBook(bookId)
         }
@@ -180,6 +204,10 @@ class BookSearchReindexer(
      * re-read from the source so the FTS row stays internally consistent even if a
      * trigger update has not yet been observed.
      *
+     * **Stays on Exposed (U3b):** `contributor_search` is a *different* FTS table from
+     * `book_search` — outside this unit's scope. It ports alongside the contributor FTS
+     * work; until then it reads/writes [exposedDb] over the shared WAL.
+     *
      * Called by
      * [com.calypsan.listenup.server.api.ContributorServiceImpl.mergeContributors]
      * and `unmergeContributor` after the alias set changes. Safe to call when the
@@ -187,13 +215,13 @@ class BookSearchReindexer(
      * silently no-ops.
      */
     suspend fun reindexContributorAliases(contributorId: String) {
-        suspendTransaction(db) {
+        exposedSuspendTransaction(exposedDb) {
             val tx = TransactionManager.current()
 
             // contributor_search is contentless and shares rowids with contributors
             // via the V22 triggers (which use new.rowid / old.rowid). Resolve the
             // contributor's SQLite rowid; absent → no FTS row to refresh.
-            val source = readContributorSource(tx, contributorId) ?: return@suspendTransaction
+            val source = readContributorSource(tx, contributorId) ?: return@exposedSuspendTransaction
             val aliasesValue =
                 com.calypsan.listenup.server.db.ContributorAliasTable
                     .aliasesFor(contributorId)
@@ -218,50 +246,6 @@ class BookSearchReindexer(
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
-    /**
-     * Reads the live (non-tombstoned) genre names linked to [bookId] via the
-     * `book_genres` junction. Sorted by name for deterministic FTS content.
-     */
-    private fun readGenreNames(
-        tx: org.jetbrains.exposed.v1.jdbc.JdbcTransaction,
-        bookId: String,
-    ): List<String> {
-        val names = mutableListOf<String>()
-        tx.exec(
-            stmt =
-                "SELECT g.name FROM book_genres bg " +
-                    "JOIN genres g ON g.id = bg.genre_id " +
-                    "WHERE bg.book_id = ? AND g.deleted_at IS NULL " +
-                    "ORDER BY g.name",
-            args = listOf(TextColumnType() to bookId),
-        ) { rs ->
-            while (rs.next()) names.add(rs.getString(1))
-        }
-        return names
-    }
-
-    private fun resolveRowid(
-        tx: org.jetbrains.exposed.v1.jdbc.JdbcTransaction,
-        bookId: String,
-    ): Int? {
-        var rowid: Int? = null
-        tx.exec(
-            stmt = "SELECT rowid FROM book_search_map WHERE book_id = ?",
-            args = listOf(TextColumnType() to bookId),
-        ) { rs ->
-            if (rs.next()) rowid = rs.getInt("rowid")
-        }
-        return rowid
-    }
-
-    private data class FtsRow(
-        val title: String,
-        val subtitle: String,
-        val description: String,
-        val contributorNames: String,
-        val seriesNames: String,
-    )
 
     private data class ContributorFtsSource(
         val rowid: Int,
@@ -294,47 +278,6 @@ class BookSearchReindexer(
                         name = rs.getString("name") ?: "",
                         sortName = rs.getString("sort_name") ?: "",
                         description = rs.getString("description") ?: "",
-                    )
-            }
-        }
-        return result
-    }
-
-    /**
-     * Reads the current book columns from the content-source tables
-     * (`books` + junction tables) rather than from `book_search` (which is
-     * contentless and doesn't store the original text).
-     */
-    private fun readExistingFtsRow(
-        tx: org.jetbrains.exposed.v1.jdbc.JdbcTransaction,
-        rowid: Int,
-    ): FtsRow? {
-        var result: FtsRow? = null
-        tx.exec(
-            stmt =
-                "SELECT b.title, COALESCE(b.subtitle, '') AS subtitle, " +
-                    "COALESCE(b.description, '') AS description, " +
-                    "COALESCE((SELECT GROUP_CONCAT(c.name, ', ') " +
-                    " FROM book_contributors bc " +
-                    " JOIN contributors c ON c.id = bc.contributor_id " +
-                    " WHERE bc.book_id = b.id), '') AS contributor_names, " +
-                    "COALESCE((SELECT GROUP_CONCAT(bs.name, ', ') " +
-                    " FROM book_series_memberships bsm " +
-                    " JOIN book_series bs ON bs.id = bsm.series_id " +
-                    " WHERE bsm.book_id = b.id), '') AS series_names " +
-                    "FROM book_search_map m " +
-                    "JOIN books b ON b.id = m.book_id " +
-                    "WHERE m.rowid = ?",
-            args = listOf(IntegerColumnType() to rowid),
-        ) { rs ->
-            if (rs.next()) {
-                result =
-                    FtsRow(
-                        title = rs.getString("title") ?: "",
-                        subtitle = rs.getString("subtitle") ?: "",
-                        description = rs.getString("description") ?: "",
-                        contributorNames = rs.getString("contributor_names") ?: "",
-                        seriesNames = rs.getString("series_names") ?: "",
                     )
             }
         }

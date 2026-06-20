@@ -21,6 +21,8 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -169,26 +171,46 @@ private class AllBooksFixture(
 private fun allBooksFixture(db: Database): AllBooksFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = syncRegistry)
-    val bookRepo =
-        BookRepository(
-            db = db,
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = db.asSqlDatabase(),
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db, bus, syncRegistry),
-            seriesRepository = SeriesRepository(db, bus, syncRegistry),
-            genreRepository = GenreRepository(db, bus, syncRegistry),
+            driver = db.asSqlDriver(),
+        )
+    val bookRepo =
+        BookRepository(
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
+            bus = bus,
+            registry = syncRegistry,
+            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
-    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)
-    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = syncRegistry)
+    val collectionRepo =
+        CollectionRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
+    val grantRepo =
+        CollectionGrantRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
     val collections =
         CollectionServiceImpl(
             collectionRepo = collectionRepo,
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             bus = bus,
             db = db,
             bookRevisionTouch = FakeBookRevisionTouch(),

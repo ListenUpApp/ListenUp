@@ -1,0 +1,53 @@
+-- Tags table: syncable tag domain.
+-- Matches V2__sync_foundation.sql (base columns) + V21__tags_substrate.sql (slug column).
+CREATE TABLE tags (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    name         TEXT    NOT NULL,
+    revision     INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    slug         TEXT    NOT NULL
+);
+
+CREATE INDEX idx_tags_revision ON tags (revision);
+CREATE INDEX idx_tags_name ON tags (name);
+CREATE UNIQUE INDEX idx_tags_slug ON tags(slug) WHERE deleted_at IS NULL;
+
+selectById:
+SELECT * FROM tags WHERE id = :id;
+
+selectByIds:
+SELECT * FROM tags WHERE id IN :ids;
+
+selectBySlug:
+SELECT * FROM tags WHERE slug = :slug AND deleted_at IS NULL;
+
+listAll:
+SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY name ASC;
+
+insert:
+INSERT INTO tags (id, name, slug, revision, created_at, updated_at, deleted_at, client_op_id)
+VALUES (:id, :name, :slug, :revision, :created_at, :updated_at, :deleted_at, :client_op_id);
+
+update:
+UPDATE tags
+SET name = :name, slug = :slug, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM tags WHERE id = :id);
+
+softDeleteById:
+UPDATE tags
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM tags WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM tags WHERE revision <= :cursor;

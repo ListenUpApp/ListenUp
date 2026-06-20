@@ -70,16 +70,21 @@ import org.koin.ktor.ext.inject
  * When a library is `inboxEnabled`, the scan path ([BookPersister]) must resolve the
  * library's inbox once per scan and thread its id into the ingest so that — atomically
  * with the book-insert transaction — a newly-scanned book lands in the admin-only inbox.
- * The firehose evaluates [BookAccessPolicy.canAccess] at delivery, so atomic membership
- * means a member never sees the book: not through the live firehose, not through
- * `getBook`. An admin sees it in the inbox, and `releaseBooks` makes it visible to the
- * member.
+ * The `collection_books` membership is written by the SQLDelight `collectionBooksQueries`
+ * inside the same transaction as the book row, so the book is collected the instant it
+ * exists. The firehose evaluates [BookAccessPolicy.canAccess] at delivery, so atomic
+ * membership means a member never sees the book: not through the live firehose, not through
+ * `getBook`, and not through a REST catch-up pull (there is no window in which the book is
+ * uncollected-and-therefore-public). An admin sees it in the inbox, and `releaseBooks` makes
+ * it visible to the member.
  *
  * This test drives the *real* singleton [BookPersister] (the production scan consumer)
  * inside a full [module] — real Koin graph, real DB, real SSE firehose, real
- * [CollectionServiceImpl] inbox resolution. It is **load-bearing**: it fails the moment
- * inbox membership is committed in a separate transaction from the book insert, because
- * the member's firehose would then receive the momentarily-public `book.Created`.
+ * [CollectionServiceImpl] inbox resolution. It is **load-bearing**: the quarantine invariant
+ * holds purely by atomicity (the membership shares the book's transaction), with no firehose
+ * suppression involved — so were the membership ever moved back to a separate post-commit
+ * transaction, this test would catch the regression because the member's firehose would then
+ * receive the momentarily-public `book.Created`.
  *
  * Book ids are minted UUIDs, so the test resolves title→id via the admin's catch-up page
  * (the admin sees every book) and keys all assertions off that resolved id.

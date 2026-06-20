@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -49,7 +50,8 @@ class SessionServiceDeviceTest :
         test("createSession persists DeviceInfo fields and userAgent") {
             val db = freshDb()
             seedUser(db, "u-1")
-            val service = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val service =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val issued =
                 service.createSession(
@@ -68,12 +70,12 @@ class SessionServiceDeviceTest :
                     userAgent = "ListenUp/1.0",
                 )
 
-            val row = service.listActiveFor(UserId("u-1")).single { it.id.value == issued.sessionId.value }
+            val row = service.listActiveFor(UserId("u-1")).single { it.id == issued.sessionId.value }
             row.platform shouldBe "iOS"
-            row.deviceModel shouldBe "iPhone15,2"
-            row.deviceName shouldBe "Simon's iPhone"
-            row.clientName shouldBe "ListenUp iOS"
-            row.userAgent shouldBe "ListenUp/1.0"
+            row.device_model shouldBe "iPhone15,2"
+            row.device_name shouldBe "Simon's iPhone"
+            row.client_name shouldBe "ListenUp iOS"
+            row.user_agent shouldBe "ListenUp/1.0"
             row.label shouldBe "My iPhone"
         }
     })

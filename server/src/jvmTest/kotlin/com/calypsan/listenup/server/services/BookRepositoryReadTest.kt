@@ -22,6 +22,8 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryReadTest :
     FunSpec({
@@ -33,12 +35,14 @@ class BookRepositoryReadTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     suspendTransaction(db = db) {
@@ -56,12 +60,14 @@ class BookRepositoryReadTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     // Resolve the library id first — this bootstraps the `libraries`
@@ -190,12 +196,14 @@ class BookRepositoryReadTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                        genreRepository = GenreRepository(db, bus, syncRegistry),
+                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
                     )
                 runTest {
                     val libId = registry.currentLibrary().value

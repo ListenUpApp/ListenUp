@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -41,19 +42,20 @@ class PublicProfileDomainSeederTest :
     FunSpec({
 
         fun makePublicProfileMaintainer(db: Database): PublicProfileMaintainer {
-            val repo = PublicProfileRepository(db, ChangeBus(), SyncRegistry())
-            return PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+            val repo = PublicProfileRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+            return PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
         }
 
         fun newAuthService(db: Database): AuthServiceImpl {
             val pepper = "x".repeat(32).toByteArray()
             val clock = FixedClock(Instant.parse("2026-06-04T12:00:00Z"))
             val hasher = PasswordHasher()
-            val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val sessions =
+                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AuthServiceImpl(
-                db = db,
+                db = db.asSqlDatabase(),
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,

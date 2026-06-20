@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.InviteServiceImpl
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.seed.ActiveSessionSeeder
 import com.calypsan.listenup.server.seed.ActivitySeeder
 import com.calypsan.listenup.server.seed.CollectionDomainSeeder
@@ -75,7 +76,7 @@ fun seedModule(
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
-        single { InviteDomainSeeder(db = get(), inviteService = get<InviteServiceImpl>()) }
+        single { InviteDomainSeeder(db = get<ListenUpDatabase>(), inviteService = get<InviteServiceImpl>()) }
         if (hasPlaybackModule) {
             single { PlaybackPositionDomainSeeder(db = get(), playbackPositionRepository = get()) }
             single { ListeningEventDomainSeeder(db = get(), listeningEventRepository = get()) }

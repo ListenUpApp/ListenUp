@@ -36,14 +36,14 @@ internal fun testEnrichmentDeps(
         bookMoodWriter =
             BookMoodWriter(
                 clock = clock,
-                moodRepository = MoodRepository(db, bus, registry),
-                bookMoodRepository = BookMoodRepository(db, bus, registry),
+                moodRepository = MoodRepository(db.asSqlDatabase(), bus, registry),
+                bookMoodRepository = BookMoodRepository(db.asSqlDatabase(), bus, registry),
             ),
         bookTagWriter =
             BookTagWriter(
                 clock = clock,
-                tagRepository = TagRepository(db, bus, registry),
-                bookTagRepository = BookTagRepository(db, bus, registry),
+                tagRepository = TagRepository(db.asSqlDatabase(), bus, registry),
+                bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry),
             ),
         productTagSource = productTagSource,
     )

@@ -21,6 +21,8 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -69,9 +71,27 @@ class CollectionServiceImplSetBookCollectionsTest :
         fun makeHarness(db: Database): Harness {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             val service =
                 CollectionServiceImpl(
@@ -82,7 +102,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     bus = bus,
                     db = db,
                     clock = fixedClock,
-                    permissionPolicy = UserPermissionPolicy(db),
+                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                     bookRevisionTouch = FakeBookRevisionTouch(),
                     principal = principalFor("u1"),
                 )
@@ -231,10 +251,12 @@ class CollectionServiceImplSetBookCollectionsTest :
                     // Subscribe only after the initial placement so we observe the move's frames alone.
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     // Move book [c1] → [c2]: u2 loses access (c1 removed), u3 gains access (c2 added),
                     // plus the owner (u1) of both touched collections.
                     admin.setBookCollections(BookId("book1"), listOf(c2.data.id)) shouldBe AppResult.Success(Unit)
+                    drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2", "u3")
                     frames.forEach { it.control shouldBe SyncControl.AccessChanged }
@@ -242,3 +264,14 @@ class CollectionServiceImplSetBookCollectionsTest :
             }
         }
     })
+
+/**
+ * Lets the unconfined `backgroundScope` control-frame collector drain before asserting on the
+ * captured `frames` — the published `AccessChanged` frame is already in the `SharedFlow` when the
+ * mutating call returns, but the `launchIn(backgroundScope)` collector (on `UnconfinedTestDispatcher`)
+ * may not have been scheduled yet. Yielding deterministically dispatches the pending continuations.
+ * See `AccessChangedEmissionTest.drainControlFrames` for the full rationale.
+ */
+private suspend fun drainControlFrames() {
+    repeat(8) { kotlinx.coroutines.yield() }
+}

@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -97,27 +100,30 @@ private data class ContributorPermDeps(
 private fun makeContributorPermService(db: Database): ContributorPermDeps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = registry)
-    val seriesRepo = SeriesRepository(db = db, bus = bus, registry = registry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = bus,
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db, bus, registry),
+            genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         )
     return ContributorPermDeps(service, contributorRepo)
 }

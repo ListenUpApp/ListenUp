@@ -4,76 +4,82 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
-import com.calypsan.listenup.api.sync.BookAudioFilePayload
-import com.calypsan.listenup.api.sync.BookChapterPayload
-import com.calypsan.listenup.api.sync.BookContributorPayload
-import com.calypsan.listenup.api.sync.BookGenrePayload
-import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.server.db.BookAudioFileTable
-import com.calypsan.listenup.server.db.BookChapterTable
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.BookSearchMapTable
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
-import com.calypsan.listenup.server.db.BookSeriesTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.ManagedCoverFiles
-import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.server.cover.StoredCoverInfo
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlFragment
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
-import com.calypsan.listenup.server.sync.nextRevision
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import com.calypsan.listenup.server.sync.accessFilteredDigest
+import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
+import app.cash.sqldelight.db.SqlDriver
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.UUID
-import kotlin.coroutines.coroutineContext
 import kotlin.time.Clock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 private val log = KotlinLogging.logger {}
 
 /**
- * Server-side repository for the books aggregate.
+ * Server-side repository for the books aggregate, over SQLDelight.
  *
- * Extends the [SyncableRepository] substrate, owning the multi-table read/write
+ * Extends the [SqlSyncableRepository] substrate, owning the multi-table read/write
  * for a book + its contributors + series + chapters + audio files. The substrate
  * orchestrates revision bumping and change-bus publication; this class
  * implements [readPayload] and [writePayload] to manage the aggregate shape.
  *
  * `idAsString(BookId) = id.value` is load-bearing — the substrate's default
  * `toString()` on a value class returns `"BookId(value=foo)"`, which would
- * corrupt every column the id is written to. The Konsist rule
- * `IdAsStringRequiredForValueClassIdsRule` enforces this override at build time.
+ * corrupt every column the id is written to.
+ *
+ * **Database handles.** [db] (the SQLDelight [ListenUpDatabase]) backs every book read/write,
+ * the genre junction writes, and the FTS index. [driver] (the shared SQLDelight [SqlDriver]
+ * behind [db]) runs the access-filtered [pullSince] / [digest] id reads engine-neutrally — the
+ * runtime-built [SqlFragment] access subquery now carries plain raw args, so it splices over the
+ * driver inside the same `suspendTransaction(db)`. The access-filtered FTS read ([searchFts]) is
+ * likewise engine-neutral inside [BookFinder].
+ *
+ * [exposedDb] (the Exposed [Database] over the same migrated file) remains ONLY for the cover
+ * collaborator [ManagedCoverFiles] / [coverInfo], which reads `library_folders` (out of this
+ * unit's `.sq` set). That is a read over the shared WAL file, so it coexists with the SQLDelight
+ * writer safely.
+ *
+ * Genre writes ([bookGenreWriter]) now run over SQLDelight too, as a **separate, sequential**
+ * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
+ * SQLDelight book transaction — so a single writer never contends for the SQLite write lock.
+ *
+ * The system-collection membership (#680 pure-union model) is the one exception: a genuinely-new
+ * book's `collection_books` row — ALL_BOOKS for a non-held library, INBOX for a held one — is
+ * written ATOMICALLY inside the SQLDelight book transaction ([writeSystemMembership]), because a
+ * separate post-commit write left a narrow REST-catch-up window where a member could pull a held
+ * book before its INBOX membership landed. That write uses the same SQLDelight engine as the book
+ * row, so it never nests an Exposed write inside the SQLDelight transaction; the Exposed
+ * [CollectionBookRepository] stays canonical for every other `collection_books` operation.
  *
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
- *   stable [com.calypsan.listenup.core.ContributorId] before the aggregate write.
+ *   stable [ContributorId] before the aggregate write.
  * @param seriesRepository the syncable series catalogue;
  *   [upsertFromAnalyzed] resolves each series name through it before the
  *   aggregate write.
@@ -88,9 +94,11 @@ private val log = KotlinLogging.logger {}
  *   book soft-delete cascades through it.
  */
 class BookRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
+    private val driver: SqlDriver,
+    private val exposedDb: Database,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val genreRepository: GenreRepository,
@@ -101,9 +109,8 @@ class BookRepository(
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
-) : SyncableRepository<BookSyncPayload, BookId>(
+) : SqlSyncableRepository<BookSyncPayload, BookId>(
         db = db,
-        table = BookTable,
         bus = bus,
         registry = registry,
         domainName = "books",
@@ -111,16 +118,16 @@ class BookRepository(
     ),
     BookIngestPort,
     BookRevisionTouch {
-    /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
-    private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
+    /** Cover file and path helpers — file I/O and path resolution outside the sync seam (Exposed reads). */
+    private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, exposedDb)
 
-    /** Book-row + child-table write mechanics (transaction-scoped, no revision/bus calls). */
-    private val bookAggregateWriter = BookAggregateWriter()
+    /** Book-row child-table write mechanics (transaction-scoped, no revision/bus calls). */
+    private val bookAggregateWriter = BookAggregateWriter(db)
 
     /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
-    private val bookFinder = BookFinder(db)
+    private val bookFinder = BookFinder(db, driver)
 
-    /** Genre junction write helpers — `book_genres` and auto-create for unknown strings (no revision/bus). */
+    /** Genre junction write helpers (SQLDelight) — `book_genres` and auto-create (no revision/bus). */
     private val bookGenreWriter = BookGenreWriter(db, clock, GenreAutoCreator(genreRepository))
 
     /**
@@ -146,122 +153,76 @@ class BookRepository(
     override fun BookSyncPayload.revisionOf(): Long = revision
 
     /**
-     * Reads the book aggregate by id — joins child tables for contributors,
-     * series, chapters, and audio files, and constructs the cover payload from
-     * the root row's `coverSource` + `coverHash` columns. Returns null when the
-     * book row is absent.
-     *
-     * Bound to the open Exposed transaction opened by the substrate's
-     * `upsert` / `pullSince` / etc.; child queries iterate by `ordinal` so the
-     * on-wire shape preserves the canonical order across upserts.
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.booksQueries].
+     * Mirrors the canonical Tag/Contributor shape.
      */
-    override suspend fun readPayload(idStr: String): BookSyncPayload? {
-        val bookRow =
-            BookTable
-                .selectAll()
-                .where { BookTable.id eq idStr }
-                .firstOrNull() ?: return null
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.booksQueries.existsById(id).executeAsOne()
 
-        val contributors =
-            (BookContributorTable innerJoin ContributorTable)
-                .selectAll()
-                .where { BookContributorTable.bookId eq idStr }
-                .orderBy(BookContributorTable.ordinal)
-                .map { row ->
-                    BookContributorPayload(
-                        id = row[ContributorTable.id],
-                        name = row[ContributorTable.name],
-                        sortName = row[ContributorTable.sortName],
-                        role = row[BookContributorTable.role],
-                        creditedAs = row[BookContributorTable.creditedAs],
-                    )
-                }
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long {
+                db.booksQueries.softDeleteById(
+                    revision = revision,
+                    updated_at = updatedAt,
+                    deleted_at = deletedAt,
+                    client_op_id = clientOpId,
+                    id = id,
+                )
+                // The `Books.sq` softDeleteById is a plain UPDATE (no rows-affected return), so
+                // unlike the Tag/Contributor template's `.value` we read SQLite changes()
+                // directly — per-connection, reflects the immediately-preceding statement in
+                // this same transaction.
+                return db.booksQueries.changes().executeAsOne()
+            }
 
-        val series =
-            (BookSeriesMembershipTable innerJoin BookSeriesTable)
-                .selectAll()
-                .where { BookSeriesMembershipTable.bookId eq idStr }
-                .orderBy(BookSeriesMembershipTable.ordinal)
-                .map { row ->
-                    BookSeriesPayload(
-                        id = row[BookSeriesTable.id],
-                        name = row[BookSeriesTable.name],
-                        sequence = row[BookSeriesMembershipTable.sequence],
-                    )
-                }
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.booksQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
 
-        val chapters =
-            BookChapterTable
-                .selectAll()
-                .where { BookChapterTable.bookId eq idStr }
-                .orderBy(BookChapterTable.ordinal)
-                .map { row ->
-                    BookChapterPayload(
-                        id = row[BookChapterTable.id],
-                        title = row[BookChapterTable.title],
-                        duration = row[BookChapterTable.duration],
-                        startTime = row[BookChapterTable.startTime],
-                    )
-                }
-
-        val genres =
-            (BookGenreTable innerJoin GenreTable)
-                .selectAll()
-                .where { (BookGenreTable.bookId eq idStr) and GenreTable.deletedAt.isNull() }
-                .orderBy(GenreTable.path)
-                .map { row ->
-                    BookGenrePayload(
-                        id = row[GenreTable.id],
-                        name = row[GenreTable.name],
-                        slug = row[GenreTable.slug],
-                        path = row[GenreTable.path],
-                    )
-                }
-
-        val audioFiles =
-            BookAudioFileTable
-                .selectAll()
-                .where { BookAudioFileTable.bookId eq idStr }
-                .orderBy(BookAudioFileTable.ordinal)
-                .map { row ->
-                    BookAudioFilePayload(
-                        id = row[BookAudioFileTable.id],
-                        index = row[BookAudioFileTable.ordinal],
-                        filename = row[BookAudioFileTable.filename],
-                        format = row[BookAudioFileTable.format],
-                        codec = row[BookAudioFileTable.codec],
-                        duration = row[BookAudioFileTable.duration],
-                        size = row[BookAudioFileTable.size],
-                    )
-                }
-
-        return assembleBookPayload(bookRow, contributors, series, genres, audioFiles, chapters)
-    }
-
-    /** Batched hydration: fetches each child table once per id-chunk and assembles in input-id order. */
-    override suspend fun readPayloads(idStrs: List<String>): List<BookSyncPayload> = readBookPayloads(idStrs)
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.booksQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
 
     /**
-     * Writes the full book aggregate inside the substrate's open transaction.
-     *
-     * **Atomicity is the contract.** All five surfaces — the root row, the four
-     * child tables (contributors, series, chapters, audio files), and the FTS
-     * index (`book_search` + `book_search_map`) — land together or not at all.
-     * The substrate has already opened the transaction and resolved [existed];
-     * this method issues DSL writes that bind to that transaction.
-     *
-     * Child rows are replaced wholesale (delete-then-insert) on every upsert.
-     * The on-wire shape carries the canonical order; preserving it on disk via
-     * `ordinal` is cheaper than computing a structural diff to skip touched
-     * rows that didn't change.
-     *
-     * Contributor and series junction rows reference the payload's ids directly.
-     * Those ids MUST already exist in [ContributorTable] / [BookSeriesTable] —
-     * see [replaceContributors] / [replaceSeries]. The only path that builds a
-     * [BookSyncPayload] (`upsertFromAnalyzed`) satisfies this by resolving every
-     * contributor/series through the syncable catalogues before calling `upsert`.
+     * Reads the book aggregate by id — joins child tables for contributors,
+     * series, chapters, genres, and audio files. Returns null when the book row
+     * is absent. Bound to the open SQLDelight transaction opened by the substrate's
+     * `upsert` / `pullSince` / etc.
      */
-    override suspend fun writePayload(
+    override fun readPayload(idStr: String): BookSyncPayload? = db.readBookPayloads(listOf(idStr)).firstOrNull()
+
+    /** Batched hydration: fetches each child table once per id-chunk and assembles in input-id order. */
+    override fun readPayloads(idStrs: List<String>): List<BookSyncPayload> = db.readBookPayloads(idStrs)
+
+    /**
+     * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
+     *
+     * **Atomicity is the contract.** The root row, the four child tables (contributors,
+     * series, chapters, audio files), the FTS index (`book_search` + `book_search_map`), and —
+     * for a genuinely-new book the scan path assigned to a system collection — the book→collection
+     * `collection_books` membership ([writeSystemMembership]) land together or not at all. The
+     * substrate has already opened the transaction and resolved [existed]; this method issues
+     * writes that bind to that transaction.
+     *
+     * Genre writes do NOT happen here — they run as a separate, sequential Exposed transaction
+     * after this one commits (see [upsertFromAnalyzed]) so the not-yet-converted Exposed genre
+     * writer never nests inside the SQLDelight write lock. The system-collection membership, by
+     * contrast, is a SQLDelight write on the same engine, so it joins this transaction safely and
+     * atomically.
+     */
+    override fun writePayload(
         value: BookSyncPayload,
         rev: Long,
         now: Long,
@@ -269,71 +230,121 @@ class BookRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        // Read per-call extras injected via the coroutine context by upsertFromAnalyzed.
-        // Null for all other callers — same semantics as before, but scoped to the call, not the map.
-        val extras = coroutineContext[BookWriteExtras.Key]
+        // Read per-call extras the scan/edit paths installed via the coroutine context (mirrored
+        // to a thread-local by BookWriteExtras's ThreadContextElement, so this non-suspend method
+        // can read it inside the SQLDelight transaction). Null for all other callers.
+        val extras = BookWriteExtras.current()
         val managedCover = extras?.managedCover
 
         if (existed) {
             // Sticky-upload merge: if the existing row carries a user-uploaded cover
-            // (cover_source = 'uploaded'), preserve the cover columns so a re-scan
-            // does not clobber an intentional user choice. Any other existing source
-            // (filesystem, embedded, enriched) gets overwritten by the new scan data.
+            // (cover_source = 'uploaded'), preserve the cover columns so a re-scan does not
+            // clobber an intentional user choice. Any other existing source (filesystem,
+            // embedded, enriched) gets overwritten by the new scan data.
             val existingCoverSource =
-                BookTable
-                    .selectAll()
-                    .where { BookTable.id eq value.id }
-                    .firstOrNull()
-                    ?.get(BookTable.coverSource)
+                db.booksQueries
+                    .selectCoverSourceById(value.id)
+                    .executeAsOneOrNull()
+                    ?.cover_source
             val isUploadedLocked = existingCoverSource == CoverSource.UPLOADED.name.lowercase()
 
-            BookTable.update({ BookTable.id eq value.id }) { stmt ->
-                bookAggregateWriter.applyBookFields(
-                    stmt,
-                    value,
-                    preserveCoverColumns = isUploadedLocked,
-                    managedCover = managedCover,
+            if (isUploadedLocked) {
+                db.booksQueries.updateContentPreserveCover(
+                    title = value.title,
+                    sort_title = value.sortTitle,
+                    subtitle = value.subtitle,
+                    description = value.description,
+                    publish_year = value.publishYear?.toLong(),
+                    publisher = value.publisher,
+                    language = value.language,
+                    isbn = value.isbn,
+                    asin = value.asin,
+                    abridged = value.abridged.toDbLong(),
+                    explicit = value.explicit.toDbLong(),
+                    has_scan_warning = value.hasScanWarning.toDbLong(),
+                    total_duration = value.totalDuration,
+                    root_rel_path = value.rootRelPath,
+                    inode = value.inode,
+                    scanned_at = value.scannedAt,
+                    revision = rev,
+                    updated_at = now,
+                    client_op_id = clientOpId,
+                    id = value.id,
                 )
-                stmt[BookTable.revision] = rev
-                stmt[BookTable.updatedAt] = now
-                stmt[BookTable.deletedAt] = null
-                stmt[BookTable.clientOpId] = clientOpId
-                // Edit-path only: re-stamp the added date. `applyBookFields` never writes
-                // createdAt, so a rescan's placeholder value stays ignored — only an explicit
-                // metadata edit (which sets this override) can move it.
-                extras?.createdAtOverride?.let { stmt[BookTable.createdAt] = it }
+            } else {
+                val cover = resolveCoverColumns(value, managedCover)
+                db.booksQueries.updateContent(
+                    title = value.title,
+                    sort_title = value.sortTitle,
+                    subtitle = value.subtitle,
+                    description = value.description,
+                    publish_year = value.publishYear?.toLong(),
+                    publisher = value.publisher,
+                    language = value.language,
+                    isbn = value.isbn,
+                    asin = value.asin,
+                    abridged = value.abridged.toDbLong(),
+                    explicit = value.explicit.toDbLong(),
+                    has_scan_warning = value.hasScanWarning.toDbLong(),
+                    total_duration = value.totalDuration,
+                    cover_source = cover.source,
+                    cover_path = cover.path,
+                    cover_hash = cover.hash,
+                    root_rel_path = value.rootRelPath,
+                    inode = value.inode,
+                    scanned_at = value.scannedAt,
+                    revision = rev,
+                    updated_at = now,
+                    client_op_id = clientOpId,
+                    id = value.id,
+                )
             }
+            // Edit-path only: re-stamp the added date. `updateContent`/`updateContentPreserveCover`
+            // never write created_at, so a rescan's placeholder value stays ignored — only an
+            // explicit metadata edit (which sets this override) can move it.
+            extras?.createdAtOverride?.let { db.booksQueries.updateCreatedAt(it, value.id) }
         } else {
-            BookTable.insert { stmt ->
-                stmt[BookTable.id] = value.id
-                // libraryId + folderId come from the payload; the legacy registry
-                // was the Books-A single-library resolver and is no longer the
-                // source of truth here.
-                stmt[BookTable.libraryId] = value.libraryId.value
-                stmt[BookTable.folderId] = value.folderId.value
-                bookAggregateWriter.applyBookFields(
-                    stmt,
-                    value,
-                    preserveCoverColumns = false,
-                    managedCover = managedCover,
-                )
-                stmt[BookTable.revision] = rev
-                stmt[BookTable.createdAt] = now
-                stmt[BookTable.updatedAt] = now
-                stmt[BookTable.deletedAt] = null
-                stmt[BookTable.clientOpId] = clientOpId
-            }
-            // Atomic system-collection membership: insertSystemMembership's upsert joins THIS transaction.
-            // A stashed system collection id without a wired repo is a misconfiguration — fail loudly
-            // rather than silently drop the membership (which would re-open the firehose leak for
-            // held books, or leave non-held books uncollected and invisible to members).
-            extras?.systemCollectionId?.let { sysId ->
-                val repo =
-                    requireNotNull(collectionBookRepository) {
-                        "system-collection membership requested but CollectionBookRepository is not wired"
-                    }
-                insertSystemMembership(repo, sysId, value.id, now)
-            }
+            val cover = resolveCoverColumns(value, managedCover)
+            db.booksQueries.insert(
+                id = value.id,
+                library_id = value.libraryId.value,
+                folder_id = value.folderId.value,
+                title = value.title,
+                sort_title = value.sortTitle,
+                subtitle = value.subtitle,
+                description = value.description,
+                publish_year = value.publishYear?.toLong(),
+                publisher = value.publisher,
+                language = value.language,
+                isbn = value.isbn,
+                asin = value.asin,
+                abridged = value.abridged.toDbLong(),
+                explicit = value.explicit.toDbLong(),
+                has_scan_warning = value.hasScanWarning.toDbLong(),
+                total_duration = value.totalDuration,
+                cover_source = cover.source,
+                cover_path = cover.path,
+                cover_hash = cover.hash,
+                root_rel_path = value.rootRelPath,
+                inode = value.inode,
+                scanned_at = value.scannedAt,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
+            // Atomic system-collection membership (#680 pure-union model). When the scan path stashed
+            // a system collection id (genuinely-new book — ALL_BOOKS for a non-held library, INBOX for
+            // a held one), write the book→collection `collection_books` membership in THIS same
+            // SQLDelight transaction, so the book is collected the instant it exists. The two cases are
+            // mutually exclusive and resolved upstream (BookPersister.resolveSystemCollectionId): a held
+            // book joins INBOX only, never ALL_BOOKS, so it is never visible to members via the ALL_BOOKS
+            // grant. The firehose's delivery-time access filter therefore never observes a held book as
+            // accessible, and no member can pull it in the REST catch-up window — the TOCTOU a post-commit
+            // membership write left open is closed by atomicity. The membership emits its own
+            // `collection_books` `SyncEvent.Created` so it propagates to every device.
+            extras?.systemCollectionId?.let { sysId -> writeSystemMembership(sysId, value.id, now) }
         }
 
         bookAggregateWriter.replaceContributors(value.id, value.contributors)
@@ -343,30 +354,58 @@ class BookRepository(
         upsertFtsRow(value)
     }
 
+    /**
+     * The cover columns to write for [value] on an INSERT or non-sticky UPDATE.
+     *
+     * When [managedCover] is non-null, the scan-time managed cover lands in the same
+     * statement (source + relPath + hash). Otherwise the source/hash come from the wire
+     * payload's cover and the path is null — the managed path is set separately by
+     * [setManagedCover]. Mirrors the prior `applyBookFields` cover branch exactly.
+     */
+    private fun resolveCoverColumns(
+        value: BookSyncPayload,
+        managedCover: StoredCoverInfo?,
+    ): CoverColumns =
+        if (managedCover != null) {
+            CoverColumns(
+                source = managedCover.source.name.lowercase(),
+                path = managedCover.relPath,
+                hash = managedCover.hash,
+            )
+        } else {
+            CoverColumns(
+                source =
+                    value.cover
+                        ?.source
+                        ?.name
+                        ?.lowercase(),
+                path = null,
+                hash = value.cover?.hash,
+            )
+        }
+
+    private data class CoverColumns(
+        val source: String?,
+        val path: String?,
+        val hash: String?,
+    )
+
     // --- Identity resolution -------------------------------------------------
 
     /**
      * Resolves an [AnalyzedBook] from the scanner to a stable [BookId] and writes
      * its aggregate, using the three-key identity model (spec §5.1):
      *
-     *  1. **Natural key** `(library_id, root_rel_path)` — the path the scanner
-     *     produces. A hit means a plain rescan; the existing UUID is reused and
-     *     the aggregate is refreshed in place.
-     *  2. **Move-detection hint** `(library_id, inode)` — checked only when the
-     *     natural-key lookup misses. A hit means the book's directory was
-     *     renamed/moved; the existing UUID is preserved, `root_rel_path` is
-     *     updated to the new value, and the move is logged at INFO so operators
-     *     can audit it. The book-level inode is the first audio file's inode
-     *     ([CandidateBook.files]`.first().inode`); a null inode skips this
-     *     branch entirely (filesystems without stable file keys).
-     *  3. **No match** — a genuinely new book; a fresh UUID is allocated.
+     *  1. **Natural key** `(library_id, root_rel_path)` — a hit means a plain rescan.
+     *  2. **Move-detection hint** `(library_id, inode)` — checked only when the natural-key
+     *     lookup misses; a hit preserves the UUID and updates `root_rel_path`.
+     *  3. **No match** — a fresh UUID.
      *
-     * In every branch the write goes through [upsertFromAnalyzed], which builds
-     * a [BookSyncPayload] and hands it to the substrate's `upsert` — so revision
-     * bumping and `SyncEvent` publication happen uniformly. Each lookup opens
-     * its own short read transaction; the subsequent write opens its own. SQLite
-     * is single-writer, so the consecutive transactions serialize cleanly with
-     * no risk of a lost-update race within a single scan pass.
+     * In every branch the write goes through [upsertFromAnalyzed], which builds a
+     * [BookSyncPayload] and hands it to the substrate's `upsert` — so revision bumping and
+     * `SyncEvent` publication happen uniformly. Each lookup opens its own short read transaction;
+     * the subsequent write opens its own. SQLite is single-writer, so the consecutive transactions
+     * serialize cleanly with no lost-update race within a single scan pass.
      *
      * @return [AppResult.Success] carrying an [IngestOutcome] — the stable
      *   [BookId] (newly minted or pre-existing) plus a `wasNew` flag the scan
@@ -409,13 +448,6 @@ class BookRepository(
     /**
      * Tombstones this book and cascade-soft-deletes all of its `book_tags` junction
      * rows so clients receive per-row tombstones for the orphaned junctions.
-     *
-     * The cascade runs after the book row is tombstoned — the `book_tags` soft-deletes
-     * each bump their own revision and publish [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
-     * to the change bus, matching the behaviour of an explicit tag removal.
-     *
-     * The book's FTS row is excluded by the existing `books_ad` trigger; no explicit
-     * `book_search` reindex is needed here.
      */
     override suspend fun softDelete(
         id: BookId,
@@ -430,25 +462,10 @@ class BookRepository(
     }
 
     /**
-     * Tombstones every non-deleted book in [libraryId] that a completed FULL
-     * scan did not see — the book's directory was deleted or moved out of the
-     * library tree (spec §5.4).
+     * Tombstones every non-deleted book in [libraryId] that a completed FULL scan did not
+     * see — the book's directory was deleted or moved out of the library tree (spec §5.4).
      *
-     * **Full-scan only.** A book's absence from [seenIds] is meaningful only
-     * when the scanner walked the entire library: an incremental scan visits a
-     * subtree, so books outside that subtree are absent for a benign reason and
-     * must not be swept. Incremental scans must never call this method.
-     *
-     * Each swept book is removed through the substrate's [softDelete], so every
-     * sweep emits exactly one [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
-     * per book on the change bus, with a bumped revision — clients apply the
-     * tombstone like any other delete. Books already carrying a `deletedAt`
-     * tombstone are excluded by the query, so a re-sweep neither re-bumps a
-     * revision nor re-emits a Deleted event.
-     *
-     * The to-delete ids are read in one short transaction; each [softDelete]
-     * then opens its own transaction. `softDelete` is not wrapped in an outer
-     * transaction here — doing so would nest transactions needlessly.
+     * **Full-scan only.** Incremental scans must never call this method.
      */
     suspend fun softDeleteAbsent(
         libraryId: LibraryId,
@@ -457,11 +474,10 @@ class BookRepository(
         val seenSet = seenIds.mapTo(mutableSetOf()) { it.value }
         val toDelete =
             suspendTransaction(db) {
-                BookTable
-                    .selectAll()
-                    .where {
-                        (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull()
-                    }.map { it[BookTable.id] }
+                db.booksQueries
+                    .selectLiveIdsAndPathsForLibrary(libraryId.value)
+                    .executeAsList()
+                    .map { it.id }
                     .filterNot { it in seenSet }
             }
         for (id in toDelete) {
@@ -473,12 +489,7 @@ class BookRepository(
      * Tombstones every non-deleted book in [libraryId] whose `rootRelPath` is not
      * in [seenPaths] — the path-keyed counterpart to [softDeleteAbsent].
      *
-     * **Full-scan only.** Same authoritativity contract as [softDeleteAbsent]:
-     * call this only after a complete library walk; incremental scans must not call it.
-     *
-     * Using `rootRelPath` avoids the need to resolve a [BookId] for every
-     * unchanged book during a re-scan — the path-set is built cheaply from the
-     * scan result without any DB round-trips.
+     * **Full-scan only.** Same authoritativity contract as [softDeleteAbsent].
      */
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
@@ -486,13 +497,11 @@ class BookRepository(
     ) {
         val toDelete =
             suspendTransaction(db) {
-                BookTable
-                    .selectAll()
-                    .where {
-                        (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull()
-                    }.map { it[BookTable.id] to it[BookTable.rootRelPath] }
-                    .filterNot { (_, path) -> path in seenPaths }
-                    .map { (id, _) -> id }
+                db.booksQueries
+                    .selectLiveIdsAndPathsForLibrary(libraryId.value)
+                    .executeAsList()
+                    .filterNot { it.root_rel_path in seenPaths }
+                    .map { it.id }
             }
         for (id in toDelete) {
             softDelete(BookId(id), clientOpId = null)
@@ -503,27 +512,17 @@ class BookRepository(
      * Soft-deletes the live book at [rootRelPath] inside [libraryId], if one exists.
      *
      * Idempotent: a no-op when no live (non-deleted) book exists at that path.
-     * When a book is found it is removed through [softDelete], which bumps the
-     * revision and emits [com.calypsan.listenup.api.sync.SyncEvent.Deleted] on the
-     * change bus — clients reflow exactly as they would for any other delete.
-     *
-     * Called by [BookPersister] on a [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed]
-     * event from an incremental scan, where the full-scan tombstone sweep does not run.
      */
     override suspend fun softDeleteByPath(
         libraryId: LibraryId,
         rootRelPath: String,
     ) {
         val id =
-            suspendTransaction(db) {
-                BookTable
-                    .selectAll()
-                    .where {
-                        (BookTable.libraryId eq libraryId.value) and
-                            (BookTable.rootRelPath eq rootRelPath) and
-                            BookTable.deletedAt.isNull()
-                    }.firstOrNull()
-                    ?.let { BookId(it[BookTable.id]) }
+            suspendTransaction<BookId?>(db) {
+                db.booksQueries
+                    .selectLiveIdByPath(libraryId.value, rootRelPath)
+                    .executeAsOneOrNull()
+                    ?.let { BookId(it) }
             } ?: return // already gone — idempotent no-op
         softDelete(id, clientOpId = null)
     }
@@ -532,32 +531,18 @@ class BookRepository(
      * Builds a [BookSyncPayload] from [analyzed] under the supplied [bookId] and
      * writes the full aggregate through the substrate's `upsert`.
      *
-     * The mapping flattens the scanner's resolved view onto the wire shape:
-     *  - `authors` + `narrators` become contributor rows (`role = "author"` /
-     *    `"narrator"`); each is resolved through [ContributorRepository.resolveOrCreate]
-     *    by normalized name, so the junction rows reference an existing catalogue id.
-     *  - `series` entries map one-to-one to series memberships, each resolved
-     *    through [SeriesRepository.resolveOrCreate] the same way.
-     *  - `tracks` map to audio files; `filename`/`format`/`size` come from the
-     *    track's [com.calypsan.listenup.api.dto.scanner.FileEntry].
-     *  - `chapters` map to chapter rows (`duration = endMs - startMs`).
+     * Genres and scan tags are reconciled in **separate, sequential** transactions after
+     * the book write commits (genres via the Exposed [bookGenreWriter], tags via
+     * [bookTagWriter]).
      *
-     * **Duration caveat.** The Scanner's `AnalyzedBook` carries no per-track
-     * duration — `TrackEntry` wraps only a `FileEntry` (path/size/inode), and
-     * `codec` is not surfaced anywhere. The single authoritative duration is
-     * `embedded.durationMs`, produced by the parser for the *primary* audio
-     * file only (spec §3 non-goal: multi-file books parse the first file).
-     * So `totalDuration` and the first audio file's `duration` carry that
-     * value; non-primary files get `0L`; `codec` is left blank. Phase 2's
-     * per-file duration backfill (or Books-B) is the natural home for richer
-     * audio-file metadata — flagged for the Task 11/15 implementers.
-     *
-     * `pendingCover` is the raw cover bytes from the scanner. When non-null and the existing
-     * row does not carry an UPLOADED cover, the bytes are stored to the managed cover store
-     * (file I/O outside the DB transaction) and the resulting [StoredCoverInfo] is written
-     * atomically with the rest of the book row — one write, one revision bump, one [SyncEvent].
-     * When the existing row carries an UPLOADED cover, [pendingCover] is discarded so no orphan
-     * file is written and the user's uploaded cover is preserved.
+     * The book→system-collection membership for a genuinely-new book, by contrast, is written
+     * **atomically** inside the book-insert transaction: when [systemCollectionId] is non-null and
+     * this call INSERTs a new book, the id rides in via [BookWriteExtras] and `writePayload` lands
+     * the `collection_books` row in the same SQLDelight transaction (see [writeSystemMembership]).
+     * The id is stashed only when `existing == null`, so the UPDATE path of a rescan can never
+     * re-collect a book into a system collection. Atomicity closes the REST-catch-up window a
+     * post-commit membership write would otherwise open — a held book is never momentarily
+     * pullable by a member.
      */
     suspend fun upsertFromAnalyzed(
         bookId: BookId,
@@ -588,19 +573,14 @@ class BookRepository(
         // sticky-UPLOADED skip, and the only-on-create system-collection membership gate.
         val existing = findById(bookId)
         val isNew = existing == null
-        // The cover must be treated as unchanged for the idempotency check when:
-        //  • the existing cover is UPLOADED (sticky — we never overwrite it on re-scan regardless), OR
-        //  • the SHA-256 of the incoming cover bytes matches the stored hash (byte-identical artwork).
-        // Any other case (new artwork, cover removed, cover added) means the write must land.
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
         val coverUnchanged =
             existing?.cover?.source == CoverSource.UPLOADED ||
                 pendingCoverHash == existing?.cover?.hash
         val result: AppResult<BookSyncPayload> =
             if (existing != null && coverUnchanged && payload.matchesStoredContent(existing)) {
-                // Idempotent re-scan: content is identical to what's stored, so skip the
-                // revision-bumping upsert AND the cover file-write. resolveOrInsert already
-                // returned this bookId, so the tombstone sweep still sees the book.
+                // Idempotent re-scan: content identical to what's stored — skip the
+                // revision-bumping upsert AND the cover file-write.
                 log.debug { "upsertFromAnalyzed: idempotent re-scan for ${bookId.value}, skipping revision bump" }
                 AppResult.Success(existing)
             } else {
@@ -611,6 +591,13 @@ class BookRepository(
                     } else {
                         managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
                     }
+                // A genuinely-new book assigned to a system collection (ALL_BOOKS or INBOX) has its
+                // `collection_books` membership written ATOMICALLY inside writePayload's INSERT branch
+                // (see writeSystemMembership), so the book is collected the instant it exists. The
+                // `book.Created` emit fires normally — the firehose's delivery-time access filter sees
+                // the book already collected, so a held (INBOX) book is correctly excluded from members.
+                // The id rides in via BookWriteExtras; it is stashed only for a genuinely-new book
+                // (`isNew`), never on the UPDATE path, so a rescan can't re-collect a released book.
                 withContext(
                     BookWriteExtras(
                         managedCover = storedCover,
@@ -622,7 +609,10 @@ class BookRepository(
             }
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
-            suspendTransaction(db) { bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now) }
+            // Genres: a separate, sequential pass over SQLDelight (idempotent, no revision bump).
+            // The writer's synchronous junction queries auto-commit and the auto-create upsert runs
+            // its own transaction — sequential after the book write, so no SQLITE_BUSY contention.
+            bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
@@ -631,26 +621,10 @@ class BookRepository(
     /**
      * True when [this] freshly-scanned payload matches the [stored] aggregate in every content field.
      *
-     * The scanned payload carries placeholder server-assigned fields (`revision`/`updatedAt`/`createdAt`
-     * = 0, `scannedAt` = now), a `null` cover (the cover is stored + written separately), and empty
-     * `genres` (genres are reconciled separately by [bookGenreWriter]). Those are normalized to the
-     * stored values before comparing, so the result reflects only real content changes. A match means
-     * the re-scan changed nothing — the revision must NOT bump (otherwise every scan makes the client
-     * re-pull every book).
-     *
-     * Audio-file and chapter rows carry server-generated UUIDs at rest but are produced with `id = ""`
-     * by the mapper (the server assigns IDs on first write). To make the comparison id-stable, both
-     * sides drop the `id` field from audio files and chapters before comparing — structural equality of
-     * every other field is sufficient to detect a real content change.
-     *
-     * Cover is NOT included in the fields compared here because the scanned payload always carries
-     * `cover = null`. The caller gates the shortcut separately via [sha256Hex] comparison of the
-     * pending cover bytes against the stored hash, so a cover-only change (new embedded artwork in
-     * otherwise unchanged audio metadata) is still detected.
-     *
-     * Genre-only changes are still written by [bookGenreWriter] on both branches (idempotent) but
-     * do NOT bump the book revision on their own — an acceptable trade-off versus the full-resync
-     * storm this check prevents.
+     * Normalizes the scanned payload's placeholder server-assigned fields (revision/updatedAt/createdAt
+     * = 0, scannedAt = now), its `null` cover, and its empty `genres` to the stored values before
+     * comparing, so the result reflects only real content changes. Audio-file and chapter rows drop
+     * their `id` (server-generated UUID at rest, `""` from the mapper) before comparing.
      */
     private fun BookSyncPayload.matchesStoredContent(stored: BookSyncPayload): Boolean {
         val normalized =
@@ -675,11 +649,9 @@ class BookRepository(
 
     /**
      * Replaces [bookId]'s genres with [rawGenres], resolved through the same 3-step cascade as the
-     * scanner (curator alias → [GenreNormalizer] → pending). Idempotent —
-     * wipes the book's prior `book_genres`/`pending_book_genres` first. Writes the junction only; it
-     * does NOT bump the book's revision or publish — pair it with a book `upsert` (which re-reads the
-     * junction and emits) so the change propagates. The match-apply wizard calls this immediately
-     * before its text upsert.
+     * scanner. Idempotent — wipes the prior `book_genres`/`pending_book_genres` first. Writes the
+     * junction only; pair it with a book `upsert` (which re-reads the junction and emits) so the
+     * change propagates.
      */
     suspend fun setBookGenres(
         bookId: BookId,
@@ -688,21 +660,29 @@ class BookRepository(
 
     /**
      * Reads the full book aggregate for [id], or null when absent. Opens its own
-     * read transaction — usable outside the substrate's `upsert`/`pullSince`
-     * orchestration (the scanner reads a book's current `rootRelPath` before
-     * logging a move; tests assert post-write state).
+     * read transaction — usable outside the substrate's orchestration.
      */
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
+
+    /**
+     * Batch-reads the full book aggregates for [bookIds] in input order, skipping ids whose
+     * root row is absent. One round-trip per child table per id-chunk (chunked at 900) — the
+     * batched alternative to a per-id [findById] loop.
+     *
+     * Used by the cross-aggregate Contributor/Series merge/delete/unmerge service flows to
+     * re-upsert every affected book after a junction relink without an N+1. Opens its own
+     * SQLDelight transaction; when called from inside an already-open transaction (the service
+     * flows do) it nests as a savepoint on the same connection.
+     */
+    suspend fun findAllByIds(bookIds: List<String>): List<BookSyncPayload> =
+        suspendTransaction(db) { readPayloads(bookIds) }
 
     /**
      * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
      * row's revision so the change propagates to clients via the sync bus.
      *
-     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
-     * carries the full aggregate so clients can refresh immediately.
-     *
-     * @return [AppResult.Success] on success;
-     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     * Opens its own transaction. The `SyncEvent.Updated` is published after the transaction
+     * commits, carrying the full aggregate.
      */
     suspend fun setManagedCover(
         id: BookId,
@@ -714,78 +694,37 @@ class BookRepository(
         return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
-            val rowsAffected =
-                BookTable.update({ BookTable.id eq idStr }) { stmt ->
-                    stmt[BookTable.coverSource] = source.name.lowercase()
-                    stmt[BookTable.coverPath] = relPath
-                    stmt[BookTable.coverHash] = hash
-                    stmt[BookTable.revision] = rev
-                    stmt[BookTable.updatedAt] = now
-                }
-            if (rowsAffected == 0) {
+            db.booksQueries.updateManagedCover(
+                cover_source = source.name.lowercase(),
+                cover_path = relPath,
+                cover_hash = hash,
+                revision = rev,
+                updated_at = now,
+                id = idStr,
+            )
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
-                val saved =
-                    readPayload(idStr)
-                        ?: error("readPayload returned null immediately after setManagedCover for $idStr")
-                bus.publish(
-                    repo = this@BookRepository,
-                    event =
-                        SyncEvent.Updated(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = null,
-                            payload = saved,
-                        ),
-                    userId = null,
-                )
+                publishUpdatedAfterCommit(idStr, rev, now)
                 AppResult.Success(Unit)
             }
         }
     }
 
     /**
-     * Nulls the managed-cover columns (`cover_source`, `cover_path`, `cover_hash`) and bumps
-     * the row's revision so the change propagates to clients via the sync bus.
-     *
-     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
-     * carries the full aggregate so clients can refresh immediately.
-     *
-     * @return [AppResult.Success] on success;
-     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     * Nulls the managed-cover columns and bumps the row's revision so the change propagates.
+     * Opens its own transaction.
      */
     suspend fun clearManagedCover(id: BookId): AppResult<Unit> {
         val idStr = idAsString(id)
         return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
-            val rowsAffected =
-                BookTable.update({ BookTable.id eq idStr }) { stmt ->
-                    stmt[BookTable.coverSource] = null
-                    stmt[BookTable.coverPath] = null
-                    stmt[BookTable.coverHash] = null
-                    stmt[BookTable.revision] = rev
-                    stmt[BookTable.updatedAt] = now
-                }
-            if (rowsAffected == 0) {
+            db.booksQueries.clearManagedCover(revision = rev, updated_at = now, id = idStr)
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
-                val saved =
-                    readPayload(idStr)
-                        ?: error("readPayload returned null immediately after clearManagedCover for $idStr")
-                bus.publish(
-                    repo = this@BookRepository,
-                    event =
-                        SyncEvent.Updated(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = null,
-                            payload = saved,
-                        ),
-                    userId = null,
-                )
+                publishUpdatedAfterCommit(idStr, rev, now)
                 AppResult.Success(Unit)
             }
         }
@@ -794,43 +733,18 @@ class BookRepository(
     /**
      * Bumps the row's revision (and `updatedAt`) without touching any content column, so a
      * visibility-only change — collection membership add/remove — re-enters every member's
-     * incremental `revision > cursor AND <accessible>` pull and newly-visible books reach them.
-     *
-     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
-     * carries the full aggregate so clients refresh immediately. Mirrors
-     * [setManagedCover] minus the cover-column writes.
-     *
-     * @return [AppResult.Success] on success;
-     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     * incremental pull. Opens its own transaction.
      */
     override suspend fun touchRevision(id: BookId): AppResult<Unit> {
         val idStr = idAsString(id)
         return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
-            val rowsAffected =
-                BookTable.update({ BookTable.id eq idStr }) { stmt ->
-                    stmt[BookTable.revision] = rev
-                    stmt[BookTable.updatedAt] = now
-                }
-            if (rowsAffected == 0) {
+            db.booksQueries.touchRevision(revision = rev, updated_at = now, id = idStr)
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
-                val saved =
-                    readPayload(idStr)
-                        ?: error("readPayload returned null immediately after touchRevision for $idStr")
-                bus.publish(
-                    repo = this@BookRepository,
-                    event =
-                        SyncEvent.Updated(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = null,
-                            payload = saved,
-                        ),
-                    userId = null,
-                )
+                publishUpdatedAfterCommit(idStr, rev, now)
                 AppResult.Success(Unit)
             }
         }
@@ -838,10 +752,7 @@ class BookRepository(
 
     /**
      * Resolves where [id]'s cover image lives for the cover-serving route. Delegates to
-     * [ManagedCoverFiles.coverInfo] — see that method's KDoc for the full resolution contract.
-     * Returns null when the book is absent or has no cover (plain 404 to the caller).
-     *
-     * Opens its own short read transaction — callable outside any substrate orchestration.
+     * [ManagedCoverFiles.coverInfo]. Returns null when the book is absent or has no cover.
      */
     suspend fun coverInfo(id: BookId): CoverInfo? = managedCoverFiles.coverInfo(id)
 
@@ -849,17 +760,8 @@ class BookRepository(
      * Runs an FTS5 full-text search against `book_search` and returns matching
      * [BookId]s in rank order (best match first), capped at [limit] results.
      *
-     * Joins `book_search_map` to translate FTS5 integer rowids back to the
-     * string book ids this application uses. The search query is parameterised
-     * so user-supplied strings never touch the SQL text. [limit] is clamped
-     * by the caller ([BookServiceImpl]) before this method is invoked.
-     *
-     * When [accessFilter] is non-null its `SELECT b2.id …` subquery is spliced as
-     * `AND m.book_id IN (<sql>)` so only ids the viewer can reach survive — the
-     * caller ([BookServiceImpl.searchBooks]) derives it from
-     * [BookAccessPolicy.accessibleBookIdsSql][com.calypsan.listenup.server.api.BookAccessPolicy.accessibleBookIdsSql],
-     * which yields `null` for ROOT/ADMIN (unfiltered). Args are spliced in statement
-     * order: `MATCH ?` → the access subquery's args → `LIMIT ?`.
+     * When [accessFilter] is non-null only ids the viewer can reach survive. See
+     * [BookFinder.searchFts] for the splicing contract.
      */
     suspend fun searchFts(
         query: String,
@@ -868,133 +770,261 @@ class BookRepository(
     ): List<BookId> = bookFinder.searchFts(query, limit, accessFilter)
 
     /**
-     * Returns the full book aggregates for every book that has a junction row for
-     * [contributorId] in [BookContributorTable]. Results are ordered by book
-     * [BookTable.createdAt] ascending (stable, scan-insertion order).
+     * Returns the full book aggregates for every book linked to [contributorId].
      *
      * Used by [com.calypsan.listenup.server.api.ContributorServiceImpl.listBooksByContributor].
-     * Opens its own read transaction — independent of the substrate's orchestration.
      */
     suspend fun findByContributor(contributorId: ContributorId): List<BookSyncPayload> =
         bookFinder.findByContributor(contributorId)
 
     /**
-     * Returns the full book aggregates for every book that has a membership row for
-     * [seriesId] in [BookSeriesMembershipTable]. Results are ordered by
-     * [BookSeriesMembershipTable.ordinal] ascending (series-position order).
+     * Returns the full book aggregates for every book in [seriesId], in series-position order.
      *
      * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
-     * Opens its own read transaction — independent of the substrate's orchestration.
      */
     suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> = bookFinder.findBySeries(seriesId)
 
     /**
-     * Test-only accessor for the protected [idAsString]. Used by
-     * `BookRepositoryIdAsStringTest` to verify the value-class unwrap.
+     * Access-filtered catch-up pull (spec §collections-propagation). The unfiltered path
+     * ([extraWhere] null) delegates to the base; the filtered path reads the `(id, revision)`
+     * page engine-neutrally over the SQLDelight driver (the runtime-built access subquery now
+     * carries plain raw args) and hydrates via the SQLDelight [readPayloads].
+     */
+    override suspend fun pullSince(
+        userId: String?,
+        cursor: Long,
+        limit: Int,
+        extraWhere: SqlFragment?,
+    ): Page<BookSyncPayload> {
+        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
+        return suspendTransaction(db) {
+            val idsWithRev =
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision > ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = true,
+                    limit = limit,
+                )
+            Page(
+                items = readPayloads(idsWithRev.map { it.id }),
+                nextCursor = idsWithRev.lastOrNull()?.revision,
+                hasMore = idsWithRev.size == limit,
+            )
+        }
+    }
+
+    /**
+     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
+     * path reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and
+     * computes the permanent-wire-contract SHA-256 digest identically to the base.
+     */
+    override suspend fun digest(
+        userId: String?,
+        cursor: Long,
+        extraWhere: SqlFragment?,
+    ): DomainDigest {
+        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
+        val rows =
+            suspendTransaction(db) {
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision <= ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = false,
+                    limit = null,
+                )
+            }.sortedBy { it.id }
+        return accessFilteredDigest(cursor, rows)
+    }
+
+    // --- FTS write (inside the open SQLDelight transaction) -------------------
+
+    /**
+     * Replaces the FTS row for [payload] in `book_search`, allocating or reusing the integer
+     * rowid via `book_search_map`.
+     *
+     * `book_search` is a `contentless_delete=1` FTS5 table, so an update is a plain
+     * `DELETE FROM book_search WHERE rowid = ?` (generated `deleteFtsRow`) followed by a fresh
+     * `INSERT` (generated `insertFtsRow`). The insert covers all 8 columns; `tags`/`genres` are
+     * written EMPTY on this book-upsert path (the richer population happens in the reindexer),
+     * preserving the prior write-time behaviour, which only wrote the first five columns.
+     *
+     * Mirrors the prior Exposed `upsertFtsRow` exactly: resolve-or-allocate the rowid, blind
+     * DELETE (harmless when no row exists for the rowid), then INSERT — never a read-then-merge.
+     */
+    private fun upsertFtsRow(payload: BookSyncPayload) {
+        val rowid = resolveOrAllocateFtsRowid(payload.id)
+        val contributorNames = payload.contributors.joinToString(", ") { it.name }
+        val seriesNames = payload.series.joinToString(", ") { it.name }
+        db.bookSearchQueries.deleteFtsRow(rowid)
+        db.bookSearchQueries.insertFtsRow(
+            rowid = rowid,
+            title = payload.title,
+            subtitle = payload.subtitle ?: "",
+            description = payload.description ?: "",
+            contributor_names = contributorNames,
+            series_names = seriesNames,
+            // tags/genres are populated by the reindexer (U3b), not at book-upsert time. Pass
+            // EMPTY strings (not null/omitted) to preserve the prior write-time behaviour.
+            tags = "",
+            genres = "",
+        )
+    }
+
+    /**
+     * Returns the existing FTS rowid for [bookId], or allocates `MAX(rowid)+1` and records the
+     * mapping. The rowid is a SQLite INTEGER — `Long` in SQLDelight (it was `Int` in Exposed);
+     * the boundary conversion is deliberate, and FTS rowids never approach the Int ceiling at
+     * library scale, so the wider type is purely safer.
+     */
+    private fun resolveOrAllocateFtsRowid(bookId: String): Long {
+        db.bookSearchQueries
+            .selectRowidForBook(bookId)
+            .executeAsOneOrNull()
+            ?.let { return it }
+        val nextRowid =
+            (
+                db.bookSearchQueries
+                    .selectMaxRowid()
+                    .executeAsOne()
+                    .MAX ?: 0L
+            ) + 1L
+        db.bookSearchQueries.insertMap(book_id = bookId, rowid = nextRowid)
+        return nextRowid
+    }
+
+    /**
+     * Writes the `(systemCollectionId, bookId)` membership into `collection_books` inside the
+     * open SQLDelight book transaction, atomically with the book insert (#680 pure-union model).
+     *
+     * [systemCollectionId] is exactly one of the library's two system collections, resolved upstream
+     * by [com.calypsan.listenup.server.services.BookPersister.resolveSystemCollectionId]: ALL_BOOKS
+     * when the inbox gate is off (the new book is immediately visible to every member via the default
+     * ALL_BOOKS grant), or INBOX when the gate is on (the new book is quarantined, admin-only). The
+     * two are mutually exclusive — a held book joins INBOX only, never ALL_BOOKS — so the quarantine
+     * invariant (a member never observes a held book as accessible) holds by construction.
+     *
+     * Replicates the canonical syncable-write shape the Exposed [CollectionBookRepository] uses for
+     * a new junction row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via
+     * the shared counter ([nextRevision]), and a post-commit `collection_books`
+     * [SyncEvent.Created] emit so other devices learn of the membership exactly as before. The emit
+     * is routed through [collectionBookRepository] (the `collection_books` domain's
+     * [com.calypsan.listenup.server.sync.SyncableRepo]) — not this book repo — so the firehose
+     * encodes it with the collection-book serializer and delivers it under the right domain.
+     *
+     * Idempotent: a pre-existing live or tombstoned row for the pair is left untouched (the
+     * INSERT is skipped). For the genuinely-new-book INSERT path this guard is defensive — the
+     * composite PK includes `book_id`, which cannot already exist — but it keeps the write safe
+     * against any future caller that reaches this branch for a non-new book.
+     *
+     * **Must run inside the open SQLDelight transaction.** The emit is deferred to the
+     * transaction's `afterCommit` (via a nested no-op transaction whose hook transfers to the
+     * outermost commit), so it never races the firehose's delivery-time access read against an
+     * uncommitted row — exactly the deferral semantics the base's own emits use.
+     *
+     * @throws IllegalArgumentException when a system-collection id was stashed but no
+     *   [CollectionBookRepository] is wired — a misconfiguration that would silently drop the
+     *   membership (re-opening the firehose leak for a held book, or leaving a non-held book
+     *   uncollected and invisible to members), so it fails loudly.
+     */
+    private fun writeSystemMembership(
+        systemCollectionId: String,
+        bookId: String,
+        now: Long,
+    ) {
+        val repo =
+            requireNotNull(collectionBookRepository) {
+                "system-collection membership requested but CollectionBookRepository is not wired"
+            }
+        // Idempotency: never re-insert an existing pair (defensive on the new-book INSERT path).
+        if (db.collectionBooksQueries.existsByCollectionAndBook(systemCollectionId, bookId).executeAsOne()) {
+            return
+        }
+        val syntheticId = "$systemCollectionId:$bookId"
+        val membershipRev = nextRevision()
+        db.collectionBooksQueries.insertMembership(
+            id = syntheticId,
+            collection_id = systemCollectionId,
+            book_id = bookId,
+            created_at = now,
+            updated_at = now,
+            revision = membershipRev,
+            client_op_id = null,
+        )
+        val event =
+            SyncEvent.Created(
+                id = syntheticId,
+                revision = membershipRev,
+                occurredAt = now,
+                clientOpId = null,
+                payload =
+                    CollectionBookSyncPayload(
+                        collectionId = systemCollectionId,
+                        bookId = bookId,
+                        createdAt = now,
+                        revision = membershipRev,
+                        deletedAt = null,
+                    ),
+            )
+        // Defer the collection_books emit to the outermost transaction's after-commit, in publish
+        // order. A nested transaction transfers its afterCommit hooks to the enclosing one, so this
+        // fires once, after the book + membership rows are durably committed — the engine-native
+        // equivalent of the base's deferEmit, but routed through the collection_books repo.
+        db.transaction {
+            afterCommit { bus.emit(repo = repo, event = event, userId = null) }
+        }
+    }
+
+    /**
+     * Reads the saved aggregate and registers a post-commit `SyncEvent.Updated` emit carrying it.
+     * Shared by [setManagedCover] / [clearManagedCover] / [touchRevision]. Must run inside the
+     * open SQLDelight transaction (the `afterCommit` hook fires when it commits).
+     */
+    private fun app.cash.sqldelight.TransactionWithReturn<*>.publishUpdatedAfterCommit(
+        idStr: String,
+        rev: Long,
+        now: Long,
+    ) {
+        val saved =
+            readPayload(idStr)
+                ?: error("readPayload returned null immediately after a cover/touch write for $idStr")
+        emitAfterCommit(
+            event =
+                SyncEvent.Updated(
+                    id = idStr,
+                    revision = rev,
+                    occurredAt = now,
+                    clientOpId = null,
+                    payload = saved,
+                ),
+            userId = null,
+        )
+    }
+
+    /**
+     * Test-only accessor for the protected [idAsString].
      */
     internal fun idAsStringForTest(id: BookId): String = idAsString(id)
 
     /**
-     * Test-only accessor for the protected [readPayload]. Used by
-     * `BookRepositoryReadTest` to verify the aggregate-read shape directly,
-     * outside the substrate's `upsert` / `pullSince` orchestration.
+     * Test-only accessor for the protected [readPayload].
      */
-    internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? = readPayload(idStr)
+    internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? =
+        suspendTransaction(db) { readPayload(idStr) }
 
     /** Test-only accessor for the protected [readPayloads]. */
-    internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> = readPayloads(idStrs)
+    internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> =
+        suspendTransaction(db) { readPayloads(idStrs) }
 }
 
-/**
- * Replaces the FTS row for [payload] in `book_search`, allocating or reusing
- * the integer rowid via [BookSearchMapTable].
- *
- * `book_search` is a `contentless_delete=1` FTS5 table (V9 migration), which
- * lets the inverted index drop a row's tokens via plain `DELETE FROM book_search
- * WHERE rowid = ?`. Without that flag, contentless FTS5 requires the special
- * `INSERT INTO ft(ft, rowid, ...) VALUES('delete', rowid, ...old values...)`
- * command — a workable but heavier path that this table deliberately avoids.
- *
- * The rowid is interpolated into the SQL string because it's an Int we just
- * computed (no injection surface). Text columns are parameterised through
- * Exposed's `exec(args = ...)` form. Must run inside an open transaction.
- */
-private fun upsertFtsRow(payload: BookSyncPayload) {
-    val rowid = resolveOrAllocateFtsRowid(payload.id)
-    val contributorNames = payload.contributors.joinToString(", ") { it.name }
-    val seriesNames = payload.series.joinToString(", ") { it.name }
-    val tx = TransactionManager.current()
-    tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
-    tx.exec(
-        stmt =
-            "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names) " +
-                "VALUES ($rowid, ?, ?, ?, ?, ?)",
-        args =
-            listOf(
-                TextColumnType() to payload.title,
-                TextColumnType() to (payload.subtitle ?: ""),
-                TextColumnType() to (payload.description ?: ""),
-                TextColumnType() to contributorNames,
-                TextColumnType() to seriesNames,
-            ),
-    )
-}
-
-private fun resolveOrAllocateFtsRowid(bookId: String): Int {
-    val existing =
-        BookSearchMapTable
-            .selectAll()
-            .where { BookSearchMapTable.bookId eq bookId }
-            .firstOrNull()
-    if (existing != null) return existing[BookSearchMapTable.rowid]
-    val maxExpr = BookSearchMapTable.rowid.max()
-    val nextRowid =
-        (
-            BookSearchMapTable
-                .select(maxExpr)
-                .firstOrNull()
-                ?.get(maxExpr)
-                ?: 0
-        ) + 1
-    BookSearchMapTable.insert {
-        it[BookSearchMapTable.bookId] = bookId
-        it[BookSearchMapTable.rowid] = nextRowid
-    }
-    return nextRowid
-}
-
-/**
- * Commits the `(systemCollectionId, bookId)` membership for a newly-inserted book.
- *
- * Called from inside [BookRepository.writePayload]'s INSERT branch — already within the
- * book-insert transaction. [CollectionBookRepository.upsert] opens a `suspendTransaction`
- * that JOINS that transaction (Exposed coroutine txn reuse), so the membership lands
- * atomically with the book row; it is never a separate transaction.
- *
- * [systemCollectionId] is either the library's ALL_BOOKS collection id (inbox gate off)
- * or its INBOX collection id (inbox gate on). The two cases are mutually exclusive and
- * are resolved by [com.calypsan.listenup.server.services.BookPersister.resolveSystemCollectionId]
- * before this is called.
- */
-private suspend fun insertSystemMembership(
-    collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository,
-    systemCollectionId: String,
-    bookId: String,
-    now: Long,
-) {
-    collectionBookRepository.upsert(
-        com.calypsan.listenup.api.sync.CollectionBookSyncPayload(
-            collectionId = systemCollectionId,
-            bookId = bookId,
-            createdAt = now,
-            revision = 0L,
-            deletedAt = null,
-        ),
-    )
-}
-
-/** Returns the SHA-256 hex digest of [this] byte array — matches [ImageStore]'s hash algorithm. */
+/** Returns the SHA-256 hex digest of [this] byte array. */
 private fun ByteArray.sha256Hex(): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(this)
     return digest.joinToString("") { "%02x".format(it) }
 }
+
+/** Maps a wire `Boolean` to the SQLite `0/1` INTEGER the books table stores. */
+private fun Boolean.toDbLong(): Long = if (this) 1L else 0L

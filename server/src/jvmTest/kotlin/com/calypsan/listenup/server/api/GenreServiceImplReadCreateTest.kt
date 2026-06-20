@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
@@ -54,15 +57,17 @@ class GenreServiceImplReadCreateTest :
         fun makeService(db: Database): GenreServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val genreRepo = GenreRepository(db, bus, registry, fixedClock)
-            val contributorRepo = ContributorRepository(db, bus, registry)
-            val seriesRepo = SeriesRepository(db, bus, registry)
-            val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-            val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry, fixedClock)
+            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+            val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
             val bookRepo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
+                    exposedDb = db,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -71,7 +76,7 @@ class GenreServiceImplReadCreateTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db, principal = rootPrincipal())
+            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db, principal = rootPrincipal())
         }
 
         // ── listGenres ────────────────────────────────────────────────────────

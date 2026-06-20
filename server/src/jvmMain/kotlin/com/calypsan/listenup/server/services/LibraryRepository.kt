@@ -5,39 +5,47 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.sqldelight.Libraries
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
-import com.calypsan.listenup.server.sync.nextRevision
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable-domain repository for libraries (Libraries phase).
+ * SQLDelight syncable repository for libraries — a **global (cross-user)** aggregate,
+ * the same global template as [com.calypsan.listenup.server.sync.TagRepository] (not
+ * user-scoped: it never touches the `*ForUser` substrate variants).
  *
- * Libraries are a global (cross-user) domain backed by [LibraryTable].
- * The substrate ([SyncableRepository]) owns revision bumping, timestamping,
- * and change-bus publication; this class supplies the row read/write shape.
+ * The base [SqlSyncableRepository] owns revision-bump / timestamp / created-vs-updated /
+ * emit-after-commit orchestration; this class supplies only the library-shaped pieces:
+ *  - [substrate] — the [SyncableSubstrateQueries] adapter over `librariesQueries`
+ *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
+ *  - [writePayload] — insert-or-update inside the open transaction
+ *  - [elementSerializer] / `LibrarySyncPayload.id` / `LibrarySyncPayload.revisionOf`
  *
- * `idAsString(LibraryId) = id.value` is load-bearing — the substrate's default
- * `toString()` on a value class returns `"LibraryId(value=foo)"`, which would
- * corrupt every column the id is written into.
+ * `idAsString(LibraryId) = id.value` is load-bearing — Kotlin's default `toString()`
+ * on a value class returns `"LibraryId(value=foo)"`, which would corrupt every column
+ * the id is written into.
+ *
+ * **The `inbox_enabled` gate is OFF-payload.** It is a server-side scanner gate read by
+ * the ingest path, deliberately absent from [LibrarySyncPayload] (not member-synced). It
+ * is written/read by [setInboxEnabled] / [readInboxEnabled] through dedicated queries
+ * (`setInboxEnabled` / `selectInboxEnabled`), never through the syncable `update` — so a
+ * normal library upsert never clobbers it, and a gate toggle never rewrites the synced
+ * library fields.
  */
 class LibraryRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<LibrarySyncPayload, LibraryId>(
+) : SqlSyncableRepository<LibrarySyncPayload, LibraryId>(
         db = db,
-        table = LibraryTable,
         bus = bus,
         registry = registry,
         domainName = "libraries",
@@ -47,31 +55,71 @@ class LibraryRepository(
 
     override fun idAsString(id: LibraryId): String = id.value
 
-    override val LibrarySyncPayload.id: LibraryId
-        get() = LibraryId(this.id)
+    override val LibrarySyncPayload.id: LibraryId get() = LibraryId(this.id)
 
     override fun LibrarySyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): LibrarySyncPayload? =
-        LibraryTable
-            .selectAll()
-            .where { LibraryTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                LibrarySyncPayload(
-                    id = row[LibraryTable.id],
-                    name = row[LibraryTable.name],
-                    metadataPrecedence = row[LibraryTable.metadataPrecedence],
-                    accessMode = row[LibraryTable.accessMode],
-                    createdByUserId = row[LibraryTable.createdByUserId],
-                    revision = row[LibraryTable.revision],
-                    updatedAt = row[LibraryTable.updatedAt],
-                    createdAt = row[LibraryTable.createdAt],
-                    deletedAt = row[LibraryTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.librariesQueries].
+     *
+     * The canonical global adapter shape: the four substrate methods forward to the matching
+     * generated query, mapping revision-cursor rows into the engine-neutral [IdRev]. The
+     * `*ForUser` variants are intentionally left as the base's throwing defaults — libraries
+     * are global and never route through them.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.librariesQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.librariesQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.librariesQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.librariesQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): LibrarySyncPayload? =
+        db.librariesQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toSyncPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<LibrarySyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.librariesQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
+    }
+
+    override fun writePayload(
         value: LibrarySyncPayload,
         rev: Long,
         now: Long,
@@ -80,45 +128,48 @@ class LibraryRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            LibraryTable.update({ LibraryTable.id eq value.id }) { stmt ->
-                stmt[LibraryTable.name] = value.name
-                stmt[LibraryTable.metadataPrecedence] = value.metadataPrecedence
-                stmt[LibraryTable.accessMode] = value.accessMode
-                stmt[LibraryTable.createdByUserId] = value.createdByUserId
-                stmt[LibraryTable.revision] = rev
-                stmt[LibraryTable.updatedAt] = now
-                stmt[LibraryTable.deletedAt] = null
-                stmt[LibraryTable.clientOpId] = clientOpId
-            }
+            // `inbox_enabled` is intentionally omitted — the syncable update must never clobber
+            // the off-payload server-side gate (its own setInboxEnabled query owns that column).
+            db.librariesQueries.update(
+                name = value.name,
+                metadata_precedence = value.metadataPrecedence,
+                access_mode = value.accessMode,
+                created_by_user_id = value.createdByUserId,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            LibraryTable.insert { stmt ->
-                stmt[LibraryTable.id] = value.id
-                stmt[LibraryTable.name] = value.name
-                stmt[LibraryTable.metadataPrecedence] = value.metadataPrecedence
-                stmt[LibraryTable.accessMode] = value.accessMode
-                stmt[LibraryTable.createdByUserId] = value.createdByUserId
-                stmt[LibraryTable.revision] = rev
-                stmt[LibraryTable.createdAt] = now
-                stmt[LibraryTable.updatedAt] = now
-                stmt[LibraryTable.deletedAt] = null
-                stmt[LibraryTable.clientOpId] = clientOpId
-            }
+            db.librariesQueries.insert(
+                id = value.id,
+                name = value.name,
+                metadata_precedence = value.metadataPrecedence,
+                access_mode = value.accessMode,
+                created_by_user_id = value.createdByUserId,
+                created_at = now,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /**
      * Reads the `inbox_enabled` gate for [libraryId], or `false` when no live row
-     * exists. The flag lives only on [LibraryTable] — it is deliberately absent
-     * from [LibrarySyncPayload] (a server-side scanner gate, not member-synced) —
-     * so the admin-facing read path resolves it directly here.
+     * exists. The flag lives only on the `libraries` table — it is deliberately absent
+     * from [LibrarySyncPayload] (a server-side scanner gate, not member-synced) — so the
+     * admin-facing read path resolves it directly through `selectInboxEnabled`, which
+     * already filters to non-tombstoned rows.
      */
     suspend fun readInboxEnabled(libraryId: LibraryId): Boolean =
         suspendTransaction(db) {
-            LibraryTable
-                .selectAll()
-                .where { LibraryTable.id eq libraryId.value }
-                .firstOrNull()
-                ?.let { it[LibraryTable.deletedAt] == null && it[LibraryTable.inboxEnabled] }
+            db.librariesQueries
+                .selectInboxEnabled(libraryId.value)
+                .executeAsOneOrNull()
+                ?.let { it == 1L }
                 ?: false
         }
 
@@ -127,9 +178,12 @@ class LibraryRepository(
      * library's revision and publishing a [SyncEvent.Updated] so connected clients
      * reconcile reactively. The flag itself is not carried on [LibrarySyncPayload]
      * (server-side scanner gate, not member-synced), so this writes the column
-     * directly rather than routing through [upsert].
+     * directly through `setInboxEnabled` rather than routing through [upsert] — a
+     * gate toggle must not rewrite the synced library fields.
      *
-     * Returns [LibraryError.NotFound] when no live row exists for [libraryId].
+     * Returns [LibraryError.NotFound] when no live row exists for [libraryId]. The
+     * `SyncEvent.Updated` emit is deferred to after-commit via [emitAfterCommit],
+     * the same publish-order-preserving path the base's own writes use.
      */
     suspend fun setInboxEnabled(
         libraryId: LibraryId,
@@ -137,41 +191,57 @@ class LibraryRepository(
     ): AppResult<Unit> =
         suspendTransaction(db) {
             val idStr = libraryId.value
-            val isLive =
-                LibraryTable
-                    .selectAll()
-                    .where { LibraryTable.id eq idStr }
-                    .firstOrNull()
-                    ?.let { it[LibraryTable.deletedAt] == null } == true
-            if (!isLive) {
-                return@suspendTransaction AppResult.Failure(LibraryError.NotFound())
-            }
-
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
-            LibraryTable.update({ LibraryTable.id eq idStr }) { stmt ->
-                stmt[LibraryTable.inboxEnabled] = enabled
-                stmt[LibraryTable.revision] = rev
-                stmt[LibraryTable.updatedAt] = now
-                stmt[LibraryTable.clientOpId] = null
-            }
-
-            val saved = readPayload(idStr) ?: error("library $idStr vanished mid-transaction")
-            bus.publish(
-                repo = this@LibraryRepository,
-                event =
-                    SyncEvent.Updated(
-                        id = idStr,
+            val rowsAffected =
+                db.librariesQueries
+                    .setInboxEnabled(
+                        inbox_enabled = if (enabled) 1L else 0L,
                         revision = rev,
-                        occurredAt = now,
-                        clientOpId = null,
-                        payload = saved,
-                    ),
-                userId = null,
-            )
-            AppResult.Success(Unit)
+                        updated_at = now,
+                        client_op_id = null,
+                        id = idStr,
+                    ).value
+            if (rowsAffected == 0L) {
+                AppResult.Failure(LibraryError.NotFound())
+            } else {
+                val saved = readPayload(idStr) ?: error("library $idStr vanished mid-transaction")
+                emitAfterCommit(
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                )
+                AppResult.Success(Unit)
+            }
         }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: LibraryId): String = idAsString(id)
+
+    /** Maps a generated [Libraries] row to the wire [LibrarySyncPayload] DTO (drops `inbox_enabled`). */
+    private fun Libraries.toSyncPayload(): LibrarySyncPayload =
+        LibrarySyncPayload(
+            id = id,
+            name = name,
+            metadataPrecedence = metadata_precedence,
+            accessMode = access_mode,
+            createdByUserId = created_by_user_id,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }

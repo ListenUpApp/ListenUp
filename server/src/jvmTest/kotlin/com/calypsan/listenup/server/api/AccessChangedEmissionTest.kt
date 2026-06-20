@@ -20,6 +20,8 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -66,9 +68,27 @@ class AccessChangedEmissionTest :
         fun makeHarness(db: Database): Harness {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             val service =
                 CollectionServiceImpl(
@@ -76,7 +96,7 @@ class AccessChangedEmissionTest :
                     collectionBookRepo = collectionBookRepo,
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
-                    permissionPolicy = UserPermissionPolicy(db),
+                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                     bus = bus,
                     db = db,
                     clock = fixedClock,
@@ -101,6 +121,7 @@ class AccessChangedEmissionTest :
                     val (service, bus) = makeHarness(db)
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
@@ -109,6 +130,7 @@ class AccessChangedEmissionTest :
                     owner.shareCollection(created.data.id, "u2", SharePermission.Read).let {
                         require(it is AppResult.Success)
                     }
+                    drainControlFrames()
 
                     frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
                 }
@@ -133,10 +155,12 @@ class AccessChangedEmissionTest :
                     // Subscribe only after the initial share so we observe the update's frame alone.
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     owner.updateShare(created.data.id, "u2", SharePermission.Write).let {
                         require(it is AppResult.Success)
                     }
+                    drainControlFrames()
 
                     frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
                 }
@@ -160,8 +184,10 @@ class AccessChangedEmissionTest :
 
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     owner.revokeShare(created.data.id, "u2") shouldBe AppResult.Success(Unit)
+                    drainControlFrames()
 
                     frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
                 }
@@ -182,8 +208,10 @@ class AccessChangedEmissionTest :
 
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     owner.revokeShare(created.data.id, "u2") shouldBe AppResult.Success(Unit)
+                    drainControlFrames()
 
                     frames shouldBe emptyList()
                 }
@@ -214,11 +242,13 @@ class AccessChangedEmissionTest :
 
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     admin.releaseBooks(
                         "test-library",
                         mapOf("book1" to listOf(target.data.id.value)),
                     ) shouldBe AppResult.Success(Unit)
+                    drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
                     frames.forEach { it.control shouldBe SyncControl.AccessChanged }
@@ -245,8 +275,10 @@ class AccessChangedEmissionTest :
                     // Subscribe after the share so we observe only the add's frames.
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     u1.addBookToCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
+                    drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
                     frames.forEach { it.control shouldBe SyncControl.AccessChanged }
@@ -274,8 +306,10 @@ class AccessChangedEmissionTest :
                     // Subscribe after the add so we observe only the remove's frames.
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     u1.removeBookFromCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
+                    drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
                     frames.forEach { it.control shouldBe SyncControl.AccessChanged }
@@ -305,3 +339,20 @@ class AccessChangedEmissionTest :
             }
         }
     })
+
+/**
+ * Lets the unconfined `backgroundScope` control-frame collector drain before asserting on the
+ * captured `frames`.
+ *
+ * The mutating service methods publish their `AccessChanged` frame (via `ChangeBus.publishControl`'s
+ * `tryEmit`) before the suspend call returns, so by the time we reach the assertion the frame is
+ * already in the `SharedFlow` buffer — but the `launchIn(backgroundScope)` collector that appends it
+ * to the test's `frames` list runs on the `UnconfinedTestDispatcher` and has not necessarily been
+ * scheduled yet. The permission read now hops to `Dispatchers.IO` (the SQLDelight
+ * `UserPermissionPolicy`), which reorders that scheduling relative to the assertion. Yielding a few
+ * times deterministically dispatches the pending unconfined continuations, so the collector observes
+ * the already-emitted frame — no real-time sleep, no busy-wait.
+ */
+private suspend fun drainControlFrames() {
+    repeat(8) { kotlinx.coroutines.yield() }
+}

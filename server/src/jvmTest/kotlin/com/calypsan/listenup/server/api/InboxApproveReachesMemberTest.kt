@@ -38,6 +38,8 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * The member-facing end of the collections-propagation fix: when an admin approves a held
@@ -66,16 +68,34 @@ class InboxApproveReachesMemberTest :
         ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
                 db = db,
                 clock = fixedClock,
@@ -98,10 +118,16 @@ class InboxApproveReachesMemberTest :
                 seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val bookRepo = buildBookRepository(db) // real touch
-                    val accessPolicy = BookAccessPolicy(db)
+                    val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val service = makeCollectionService(db, bookRevisionTouch = bookRepo)
                     val admin = service.actAs("admin", UserRole.ADMIN)
-                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val grantRepo =
+                        CollectionGrantRepository(
+                            db = db.asSqlDatabase(),
+                            bus = ChangeBus(),
+                            registry = SyncRegistry(),
+                            driver = db.asSqlDriver(),
+                        )
 
                     // Every member holds a default ALL_BOOKS grant in production; mirror that here
                     // so the member can see books once they reach the public substrate.
@@ -166,11 +192,13 @@ private fun buildBookRepository(db: Database): BookRepository {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     return BookRepository(
-        db = db,
+        db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
+        exposedDb = db,
         bus = bus,
         registry = syncRegistry,
-        contributorRepository = ContributorRepository(db, bus, syncRegistry),
-        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-        genreRepository = GenreRepository(db, bus, syncRegistry),
+        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
+        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
+        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
     )
 }

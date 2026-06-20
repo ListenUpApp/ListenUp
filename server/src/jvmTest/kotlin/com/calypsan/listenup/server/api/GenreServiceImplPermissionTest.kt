@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -82,26 +85,29 @@ class GenreServiceImplPermissionTest :
 private fun makeGenrePermService(db: Database): GenreServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db, bus = bus, registry = registry)
-    val seriesRepo = SeriesRepository(db = db, bus = bus, registry = registry)
-    val genreRepo = GenreRepository(db = db, bus = bus, registry = registry)
+    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val genreRepo = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
+            exposedDb = db,
             bus = bus,
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,
         )
-    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
     return GenreServiceImpl(
         genreRepository = genreRepo,
         bookRepository = bookRepo,
         reindexer = reindexer,
+        sqlDb = db.asSqlDatabase(),
         db = db,
-        permissionPolicy = UserPermissionPolicy(db),
+        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
     )
 }

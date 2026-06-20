@@ -34,6 +34,8 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -130,6 +132,11 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
         // ---- Server side: temp-file SQLite + collection/book domains + access policy ----
         val tmp = Files.createTempFile("listenup-collections-e2e-", ".db").toFile().apply { deleteOnExit() }
         val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+        // SQLDelight view over the SAME migrated file the Exposed [serverDb] is connected to.
+        // Migrations have already run; the SQLDelight-converted server repos (Book, Contributor,
+        // Series) take this, while the still-Exposed repos keep taking [serverDb].
+        val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
+        val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 
@@ -155,14 +162,24 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
 
         // Repos self-register into the SyncRegistry on construction, so syncRoutes() can look
         // them up by domain name. BookRepository needs contributor + series repos as deps.
-        val contributorRepo = ContributorRepository(serverDb, bus, syncRegistry)
-        val seriesRepo = SeriesRepository(serverDb, bus, syncRegistry)
-        val genreRepo = GenreRepository(serverDb, bus, syncRegistry)
-        val bookRepo = BookRepository(serverDb, bus, syncRegistry, contributorRepo, seriesRepo, genreRepo)
-        val collectionRepo = CollectionRepository(serverDb, bus, syncRegistry)
-        val collectionBookRepo = CollectionBookRepository(serverDb, bus, syncRegistry)
-        val grantRepo = CollectionGrantRepository(serverDb, bus, syncRegistry)
-        val bookAccessPolicy = BookAccessPolicy(serverDb)
+        val contributorRepo = ContributorRepository(serverSqlDb, bus, syncRegistry)
+        val seriesRepo = SeriesRepository(serverSqlDb, bus, syncRegistry)
+        val genreRepo = GenreRepository(serverSqlDb, bus, syncRegistry)
+        val bookRepo =
+            BookRepository(
+                db = serverSqlDb,
+                bus = bus,
+                registry = syncRegistry,
+                driver = serverDriver,
+                exposedDb = serverDb,
+                contributorRepository = contributorRepo,
+                seriesRepository = seriesRepo,
+                genreRepository = genreRepo,
+            )
+        val collectionRepo = CollectionRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
+        val collectionBookRepo = CollectionBookRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
+        val grantRepo = CollectionGrantRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
+        val bookAccessPolicy = BookAccessPolicy(serverSqlDb, serverDriver)
 
         val collectionService =
             createCollectionService(
@@ -171,6 +188,7 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
                 grantRepo = grantRepo,
                 bus = bus,
                 db = serverDb,
+                sql = serverSqlDb,
                 bookRevisionTouch = bookRepo,
             )
         val adminCollections =

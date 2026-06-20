@@ -16,6 +16,8 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.TagTable
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -34,7 +36,7 @@ class SearchServiceImplTest :
 
         test("search with blank query returns empty lists across all categories") {
             withInMemoryDatabase {
-                val service = SearchServiceImpl(db = this)
+                val service = SearchServiceImpl(db = this.asSqlDatabase(), driver = this.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "  ", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books.shouldBeEmpty()
@@ -46,7 +48,7 @@ class SearchServiceImplTest :
 
         test("search with no matches returns empty lists, not failure") {
             withInMemoryDatabase {
-                val service = SearchServiceImpl(db = this)
+                val service = SearchServiceImpl(db = this.asSqlDatabase(), driver = this.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "xyznosuchterm", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books.shouldBeEmpty()
@@ -58,7 +60,7 @@ class SearchServiceImplTest :
 
         test("search escapes FTS5 special characters without throwing") {
             withInMemoryDatabase {
-                val service = SearchServiceImpl(db = this)
+                val service = SearchServiceImpl(db = this.asSqlDatabase(), driver = this.asSqlDriver())
                 runTest {
                     for (dangerous in listOf("abc\"def", "abc;DROP TABLE books", "abc*", "(test)", "abc:def")) {
                         service.search(SearchQuery(text = dangerous, limit = 20)).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -72,7 +74,7 @@ class SearchServiceImplTest :
                 val db = this
                 val libId = seedLibrary(db)
                 seedBook(db = db, bookId = "b1", title = "The Way of Kings", libraryId = libId)
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Kings", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books shouldHaveSize 1
@@ -85,7 +87,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedContributor(db = db, contributorId = "c1", name = "Brandon Sanderson")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Sanderson", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.contributors shouldHaveSize 1
@@ -99,7 +101,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedSeries(db = db, seriesId = "s1", name = "Stormlight Archive")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Stormlight", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.series shouldHaveSize 1
@@ -114,7 +116,7 @@ class SearchServiceImplTest :
                 val libId = seedLibrary(db)
                 repeat(10) { i -> seedBook(db = db, bookId = "bk$i", title = "Dragon Test Book $i", libraryId = libId) }
                 repeat(10) { i -> seedContributor(db = db, contributorId = "co$i", name = "Dragon Author $i") }
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Dragon", limit = 3)) as AppResult.Success<SearchResults>
                     result.data.books.size shouldBe 3
@@ -128,7 +130,7 @@ class SearchServiceImplTest :
                 val db = this
                 val libId = seedLibrary(db)
                 seedBook(db = db, bookId = "del1", title = "Deleted Unique Phantasm", libraryId = libId, deleted = true)
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Phantasm", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books.shouldBeEmpty()
@@ -143,7 +145,7 @@ class SearchServiceImplTest :
                 seedBook(db = db, bookId = "b2", title = "Mistborn", libraryId = libId)
                 seedContributor(db = db, contributorId = "ca1", name = "Brandon Sanderson")
                 seedBookContributor(db = db, bookId = "b2", contributorId = "ca1", role = "author", ordinal = 0)
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Mistborn", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books shouldHaveSize 1
@@ -161,7 +163,7 @@ class SearchServiceImplTest :
                 seedBook(db = db, bookId = "b1", title = "Project Hail Mary", libraryId = libId)
                 seedTag(db = db, tagId = "t1", name = "Sci-Fi", slug = "sci-fi")
                 seedBookTag(db = db, bookId = "b1", tagId = "t1")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Sci", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags shouldHaveSize 1
@@ -176,7 +178,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTag(db = db, tagId = "t1", name = "Fantasy", slug = "fantasy")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "xyznosuchterm", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags.shouldBeEmpty()
@@ -188,7 +190,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTag(db = db, tagId = "t1", name = "Mystery", slug = "mystery", deleted = true)
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Mystery", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags.shouldBeEmpty()
@@ -200,7 +202,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTag(db = db, tagId = "t1", name = "Non-Fiction", slug = "non-fiction")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Non", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags shouldHaveSize 1
@@ -218,7 +220,7 @@ class SearchServiceImplTest :
                 seedTag(db = db, tagId = "t1", name = "Classics", slug = "classics")
                 seedBookTag(db = db, bookId = "b1", tagId = "t1")
                 seedBookTag(db = db, bookId = "b2", tagId = "t1", deleted = true)
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Classics", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags shouldHaveSize 1
@@ -236,7 +238,7 @@ class SearchServiceImplTest :
                 seedContributor(db = db, contributorId = "cx", name = "Dragon Author")
                 seedSeries(db = db, seriesId = "sx", name = "Dragon Chronicles")
                 seedTag(db = db, tagId = "tx", name = "Dragon Age", slug = "dragon-age")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val result = service.search(SearchQuery(text = "Dragon", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books shouldHaveSize 1
@@ -253,7 +255,7 @@ class SearchServiceImplTest :
                 val lib = seedLibrary(db)
                 seedBook(db, "b1", "Dragon Zephyr", lib)
                 seedBook(db, "b2", "Dragon Alpha", lib)
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -270,7 +272,7 @@ class SearchServiceImplTest :
                 val lib = seedLibrary(db)
                 seedBook(db, "long", "Dragon L", lib, durationSeconds = 36_000)
                 seedBook(db, "short", "Dragon S", lib, durationSeconds = 3_600)
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -287,7 +289,7 @@ class SearchServiceImplTest :
                 val libId = seedLibrary(db)
                 seedBook(db = db, bookId = "b1", title = "Dragon Quest", libraryId = libId)
                 seedContributor(db = db, contributorId = "c1", name = "Dragon Author")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -307,7 +309,7 @@ class SearchServiceImplTest :
                 val libId = seedLibrary(db)
                 seedBook(db = db, bookId = "b1", title = "Dragon Quest", libraryId = libId)
                 seedContributor(db = db, contributorId = "c1", name = "Dragon Author")
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -329,7 +331,7 @@ class SearchServiceImplTest :
                 seedBook(db, "b2", "Dragon Two", lib)
                 seedGenre(db, "g-fan", "fantasy", "/fiction/fantasy", "Fantasy")
                 linkBookGenre(db, "b1", "g-fan")
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -353,7 +355,7 @@ class SearchServiceImplTest :
                 linkBookGenre(db, "b1", "g-epic")
                 linkBookGenre(db, "b2", "g-sci")
                 linkBookGenre(db, "b3", "g-fanclassics")
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -370,7 +372,7 @@ class SearchServiceImplTest :
                 val lib = seedLibrary(db)
                 seedBook(db, "short", "Dragon Short", lib, durationSeconds = 3_600) // 1h
                 seedBook(db, "long", "Dragon Long", lib, durationSeconds = 36_000) // 10h
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -387,7 +389,7 @@ class SearchServiceImplTest :
                 val lib = seedLibrary(db)
                 seedBook(db, "old", "Dragon Old", lib, publishYear = 1999)
                 seedBook(db, "new", "Dragon New", lib, publishYear = 2020)
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -409,7 +411,7 @@ class SearchServiceImplTest :
                 linkBookGenre(db, "match", "g-fan")
                 linkBookGenre(db, "wrongYear", "g-fan")
                 // "noGenre" deliberately has no genre link
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(
@@ -431,7 +433,7 @@ class SearchServiceImplTest :
                 linkBookGenre(db, "b2", "g-fan")
                 seedContributor(db, "c1", "Some Author")
                 seedBookContributor(db = db, bookId = "b1", contributorId = "c1", role = "author", ordinal = 0)
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r = service.search(SearchQuery(text = "Dragon")) as AppResult.Success<SearchResults>
                     r.data.facets.genres
@@ -453,7 +455,7 @@ class SearchServiceImplTest :
                 val db = this
                 val lib = seedLibrary(db)
                 seedBook(db, "b1", "The Way of Kings", lib)
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r = service.search(SearchQuery(text = "Kings")) as AppResult.Success<SearchResults>
                     r.data.books[0].highlight shouldBe "The Way of ${HL_START}Kings$HL_END"
@@ -473,7 +475,7 @@ class SearchServiceImplTest :
                 linkBookGenre(db, "f1", "g-fan")
                 linkBookGenre(db, "f2", "g-fan")
                 linkBookGenre(db, "s1", "g-sci")
-                val service = SearchServiceImpl(db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 runTest {
                     val r =
                         service.search(

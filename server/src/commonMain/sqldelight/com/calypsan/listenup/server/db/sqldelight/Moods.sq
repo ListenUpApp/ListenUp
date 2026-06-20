@@ -1,0 +1,53 @@
+-- Moods table: syncable mood domain — the affective twin of `tags`.
+-- Matches V36__moods.sql (moods catalog) exactly.
+CREATE TABLE moods (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    name         TEXT    NOT NULL,
+    slug         TEXT    NOT NULL,
+    revision     INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT
+);
+
+CREATE INDEX idx_moods_revision ON moods (revision);
+CREATE INDEX idx_moods_name ON moods (name);
+CREATE UNIQUE INDEX idx_moods_slug ON moods(slug) WHERE deleted_at IS NULL;
+
+selectById:
+SELECT * FROM moods WHERE id = :id;
+
+selectByIds:
+SELECT * FROM moods WHERE id IN :ids;
+
+selectBySlug:
+SELECT * FROM moods WHERE slug = :slug AND deleted_at IS NULL;
+
+listAll:
+SELECT * FROM moods WHERE deleted_at IS NULL ORDER BY name ASC;
+
+insert:
+INSERT INTO moods (id, name, slug, revision, created_at, updated_at, deleted_at, client_op_id)
+VALUES (:id, :name, :slug, :revision, :created_at, :updated_at, :deleted_at, :client_op_id);
+
+update:
+UPDATE moods
+SET name = :name, slug = :slug, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM moods WHERE id = :id);
+
+softDeleteById:
+UPDATE moods
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM moods WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM moods WHERE revision <= :cursor;

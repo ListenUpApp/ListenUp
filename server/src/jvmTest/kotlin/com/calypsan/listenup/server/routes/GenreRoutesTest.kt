@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
@@ -63,25 +66,39 @@ class GenreRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val genreRepo = GenreRepository(db, bus, registry)
-                val contributorRepo = ContributorRepository(db, bus, registry)
-                val seriesRepo = SeriesRepository(db, bus, registry)
-                val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
+                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
                         genreRepository = genreRepo,
                     )
-                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db)
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-                val accessPolicy = BookAccessPolicy(db)
+                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
 
                 testApplication {
                     application {

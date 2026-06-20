@@ -22,6 +22,8 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -61,16 +63,16 @@ class CollectionServiceImplTest :
         fun makeService(db: Database): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo = db.newCollectionRepo(bus, registry)
+            val collectionBookRepo = db.newCollectionBookRepo(bus, registry)
+            val grantRepo = db.newCollectionGrantRepo(bus, registry)
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
                 db = db,
                 clock = fixedClock,
@@ -152,7 +154,8 @@ class CollectionServiceImplTest :
                     ownerAdd shouldBe AppResult.Success(Unit)
 
                     // Read-share to u2.
-                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val grantRepo =
+                        db.newCollectionGrantRepo(ChangeBus(), SyncRegistry())
                     grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
@@ -249,7 +252,8 @@ class CollectionServiceImplTest :
 
                     // Seed an inbox collection directly; deleting it is rejected.
                     // type='INBOX' must be stamped explicitly — is_inbox column is gone.
-                    val collectionRepo = CollectionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val collectionRepo =
+                        db.newCollectionRepo(ChangeBus(), SyncRegistry())
                     collectionRepo.upsert(
                         CollectionSyncPayload(
                             id = "inbox1",
@@ -285,8 +289,10 @@ class CollectionServiceImplTest :
                     // branches run against NON-empty sets.
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
 
-                    val collectionBookRepo = CollectionBookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val collectionBookRepo =
+                        db.newCollectionBookRepo(ChangeBus(), SyncRegistry())
+                    val grantRepo =
+                        db.newCollectionGrantRepo(ChangeBus(), SyncRegistry())
                     grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
@@ -340,7 +346,8 @@ class CollectionServiceImplTest :
                     require(colU2 is AppResult.Success)
 
                     // Share colSharedOut with u2 (read).
-                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val grantRepo =
+                        db.newCollectionGrantRepo(ChangeBus(), SyncRegistry())
                     grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
@@ -768,3 +775,21 @@ class CollectionServiceImplTest :
             }
         }
     })
+
+// Test-only factory helpers — kept top-level (outside the spec class) so the verbose
+// dual-engine wiring (SQLDelight view + Exposed access-filter handle over one file) lives
+// in one place and does not inflate the spec class past the detekt LargeClass threshold.
+private fun Database.newCollectionRepo(
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): CollectionRepository = CollectionRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
+
+private fun Database.newCollectionBookRepo(
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): CollectionBookRepository = CollectionBookRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
+
+private fun Database.newCollectionGrantRepo(
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): CollectionGrantRepository = CollectionGrantRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())

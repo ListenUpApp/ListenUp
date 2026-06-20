@@ -1,0 +1,120 @@
+-- Contributors table: syncable contributor domain (authors, narrators, …).
+-- Effective schema is the union of:
+--   V5__books_contributors.sql   (id, normalized_name, name, sort_name)
+--   V13__contributors_syncable.sql (revision, created_at, updated_at, deleted_at, client_op_id)
+--   V18__b2a_substrate.sql       (asin, description, image_path, image_blur_hash,
+--                                 birth_date, death_date, website)
+--
+-- revision / created_at / updated_at are declared NOT NULL here so the generated
+-- column types are non-null `Long` — every live row carries them (V13 backfills the
+-- pre-existing rows and the substrate writes them on every upsert). The migration
+-- DDL adds `revision INTEGER` and `created_at/updated_at INTEGER NOT NULL DEFAULT 0`;
+-- this matches the runtime invariant the readPayload mapper relies on.
+--
+-- date columns (birth_date / death_date) are stored as TEXT (ISO-8601 `YYYY-MM-DD`),
+-- matching VARCHAR(10) in the Exposed table — no column adapter, mapped directly to String?.
+--
+-- FK declarations are omitted: contributors has no outgoing references. The
+-- contributor_aliases child table below declares its FK to contributors(id).
+CREATE TABLE contributors (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    normalized_name TEXT    NOT NULL,
+    name            TEXT    NOT NULL,
+    sort_name       TEXT,
+    revision        INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    deleted_at      INTEGER,
+    client_op_id    TEXT,
+    asin            TEXT,
+    description     TEXT,
+    image_path      TEXT,
+    image_blur_hash TEXT,
+    birth_date      TEXT,
+    death_date      TEXT,
+    website         TEXT
+);
+
+CREATE UNIQUE INDEX idx_contributor_normalized ON contributors(normalized_name);
+CREATE INDEX idx_contributors_revision ON contributors(revision);
+
+-- contributor_aliases child table: the normalised backing rows for the payload's
+-- embedded `aliases: List<String>` field. Replaced wholesale on every contributor
+-- write (delete-then-insert) to mirror the embedded-array contract.
+CREATE TABLE contributor_aliases (
+    contributor_id TEXT NOT NULL,
+    alias          TEXT NOT NULL,
+    PRIMARY KEY (contributor_id, alias),
+    FOREIGN KEY (contributor_id) REFERENCES contributors(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_contributor_aliases_contributor_id ON contributor_aliases(contributor_id);
+
+-- ── root-row queries ───────────────────────────────────────────────────────────
+
+selectById:
+SELECT * FROM contributors WHERE id = :id;
+
+selectByIds:
+SELECT * FROM contributors WHERE id IN :ids;
+
+-- Dedup lookup: resolveOrCreate finds an existing contributor by its normalized key.
+selectByNormalizedName:
+SELECT * FROM contributors WHERE normalized_name = :normalized_name;
+
+-- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
+-- images whose contributor still exists.
+selectLiveIds:
+SELECT id FROM contributors WHERE deleted_at IS NULL;
+
+insert:
+INSERT INTO contributors (
+    id, normalized_name, name, sort_name, revision, created_at, updated_at,
+    deleted_at, client_op_id, asin, description, image_path, image_blur_hash,
+    birth_date, death_date, website
+) VALUES (
+    :id, :normalized_name, :name, :sort_name, :revision, :created_at, :updated_at,
+    :deleted_at, :client_op_id, :asin, :description, :image_path, :image_blur_hash,
+    :birth_date, :death_date, :website
+);
+
+-- normalized_name is the dedup key established at INSERT — never updated (see
+-- ContributorRepository.writePayload). sort_name and the enrichment columns update.
+update:
+UPDATE contributors
+SET name = :name, sort_name = :sort_name, asin = :asin, description = :description,
+    image_path = :image_path, image_blur_hash = :image_blur_hash, birth_date = :birth_date,
+    death_date = :death_date, website = :website, revision = :revision,
+    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+-- ── substrate queries ──────────────────────────────────────────────────────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM contributors WHERE id = :id);
+
+softDeleteById:
+UPDATE contributors
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM contributors WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM contributors WHERE revision <= :cursor;
+
+-- ── contributor_aliases queries ─────────────────────────────────────────────────
+
+aliasesFor:
+SELECT alias FROM contributor_aliases WHERE contributor_id = :contributor_id;
+
+aliasesForIds:
+SELECT contributor_id, alias FROM contributor_aliases WHERE contributor_id IN :ids;
+
+deleteAliasesFor:
+DELETE FROM contributor_aliases WHERE contributor_id = :contributor_id;
+
+insertAlias:
+INSERT INTO contributor_aliases (contributor_id, alias) VALUES (:contributor_id, :alias);

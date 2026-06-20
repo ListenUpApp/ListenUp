@@ -8,11 +8,11 @@ import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.BookContributorTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
@@ -42,9 +42,8 @@ private val logger = KotlinLogging.logger {}
  * re-upserts each affected book with the contributor stripped — which bumps each
  * book's revision and publishes the resulting `Updated` events so clients see
  * the contributor disappear from book detail views — and finally soft-deletes
- * the contributor itself. The whole cascade runs inside one [suspendTransaction]
- * so any failure rolls back the lot. Post-commit, every affected book has its
- * `book_search` FTS row reindexed (best-effort; logged on failure).
+ * the contributor itself. Post-commit, every affected book has its `book_search`
+ * FTS row reindexed (best-effort; logged on failure).
  *
  * [mergeContributors] folds the [source] contributor into [target]: re-links
  * every `book_contributors` row from source to target while capturing the
@@ -52,24 +51,35 @@ private val logger = KotlinLogging.logger {}
  * that already had an explicit override keep it), re-upserts each affected book
  * to bump its revision and publish a `book.Updated` event, adds source's name
  * and aliases to target's alias set (case-insensitive dedup, target's own name
- * excluded), and finally soft-deletes the source. Every state mutation runs
- * inside one [suspendTransaction] so a mid-flight failure rolls back the lot.
- * Post-commit, the target's affected books reindex `book_search.contributor_names`
- * and the target's `contributor_search.aliases` is refreshed; reindex failures
- * are logged and swallowed.
+ * excluded), and finally soft-deletes the source. Post-commit, the target's
+ * affected books reindex `book_search.contributor_names` and the target's
+ * `contributor_search.aliases` is refreshed; reindex failures are logged and swallowed.
  *
  * [unmergeContributor] is the inverse of [mergeContributors]: splits a single
- * alias back into its own fresh contributor row. Creates a new contributor whose
- * canonical name IS the alias (no enrichment carried over — the alias's
- * previous history was just a name on someone else's row), re-links only the
+ * alias back into its own fresh contributor row. Resolves-or-creates a contributor
+ * whose canonical name IS the alias (dedup-aware via [ContributorRepository.resolveOrCreate]
+ * — a pre-existing live row for that normalized name is reused rather than blind-inserted,
+ * which would violate the `normalized_name` unique index), re-links only the
  * `book_contributors` rows whose `credited_as` matches the alias and clears
  * that column (the new contributor's canonical name covers it now), re-upserts
  * each affected book to bump revision and publish `book.Updated`, then removes
- * the alias from the target. Every state mutation runs inside one
- * [suspendTransaction]. Post-commit, both contributors' books reindex
+ * the alias from the target. Returns the new contributor's id so callers can
+ * navigate to it. Post-commit, both contributors' books reindex
  * `book_search.contributor_names` and the target's `contributor_search.aliases`
- * is refreshed; reindex failures are logged and swallowed. Returns the new
- * contributor's id so callers can navigate to it.
+ * is refreshed; reindex failures are logged and swallowed.
+ *
+ * **Transaction model (SQLDelight cutover).** Each flow runs its read-consistency
+ * checks under an outer Exposed read transaction, but every WRITE — the junction
+ * relink/delete and the contributor/book upserts — goes through the single
+ * SQLDelight connection (junction queries via [ContributorRepository] / the generated
+ * `bookContributorsQueries`, aggregate writes via the syncable substrate). Keeping the
+ * junction writes off the Exposed connection is what eliminates the cross-engine
+ * `SQLITE_BUSY`: the outer Exposed transaction never takes the SQLite write lock, so
+ * the SQLDelight writes on the lone SQLDelight connection serialize without contention.
+ * Whole-flow atomicity is not guaranteed across the independent SQLDelight writes —
+ * matching the established `BookServiceImpl` cutover shape — but each individual
+ * aggregate write is atomic, and the dedup-aware unmerge creation removes the only
+ * data-corrupting failure mode the prior split exhibited.
  *
  * Contributor reads ([getContributor], [listBooksByContributor]) are open to any
  * authenticated user. Contributor-metadata mutations ([updateContributor],
@@ -84,13 +94,20 @@ internal class ContributorServiceImpl(
     private val contributorRepo: ContributorRepository,
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
-    private val db: Database,
-    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val sqlDb: ListenUpDatabase,
+    db: Database,
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
+    /**
+     * The Exposed handle is retained only so the default [permissionPolicy] can be built from it;
+     * every merge/delete/unmerge flow now runs over the SQLDelight [sqlDb] connection.
+     */
+    private val db: Database = db
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
-        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db, permissionPolicy, principal)
+        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, db, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -166,22 +183,26 @@ internal class ContributorServiceImpl(
                     )
                 }
 
-                // Snapshot the affected books BEFORE the relink — afterwards the junction
-                // rows for source.value are gone.
-                val affectedBookIds = BookContributorTable.bookIdsForContributor(source.value)
-
-                // Re-link junction rows from source → target, capturing source.name into
-                // credited_as where the column was NULL. Books with an explicit override
-                // keep it (COALESCE).
-                BookContributorTable.relinkContributorPreservingCredit(
-                    fromId = source.value,
-                    toId = target.value,
-                    sourceName = sourcePayload.name,
-                )
+                // Snapshot the affected books, then re-link junction rows source → target —
+                // both over the single SQLDelight connection, atomically in one mini-transaction.
+                // Capturing source.name into credited_as where it was NULL; books with an explicit
+                // override keep it (COALESCE). Keeping the junction writes off the Exposed
+                // connection is what closes the SQLITE_BUSY window: the outer Exposed transaction
+                // never takes the write lock, so the SQLDelight writes never contend with it.
+                val affectedBookIds =
+                    sqlTransaction(sqlDb) {
+                        val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(source.value).executeAsList()
+                        sqlDb.bookContributorsQueries.relinkContributorPreservingCredit(
+                            source_name = sourcePayload.name,
+                            to_id = target.value,
+                            from_id = source.value,
+                        )
+                        ids
+                    }
 
                 // Re-upsert every affected book — bumps revision, publishes book.Updated.
-                for (bookId in affectedBookIds) {
-                    val payload = bookRepo.findById(BookId(bookId)) ?: continue
+                // One batched read replaces the per-book N+1 lookup.
+                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
                     when (val upsertResult = bookRepo.upsert(payload)) {
                         is AppResult.Success -> Unit
                         is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
@@ -243,53 +264,49 @@ internal class ContributorServiceImpl(
                     )
                 }
 
-                // 1. Create the fresh contributor whose canonical name IS the alias.
-                val newId =
-                    ContributorId(
-                        java.util.UUID
-                            .randomUUID()
-                            .toString(),
-                    )
-                val newPayload =
-                    ContributorSyncPayload(
-                        id = newId.value,
-                        name = aliasName,
-                        sortName = aliasName,
-                        revision = 0L,
-                        updatedAt = 0L,
-                        createdAt = 0L,
-                        deletedAt = null,
-                    )
-                when (val upsertResult = contributorRepo.upsert(newPayload)) {
-                    is AppResult.Success -> Unit
-                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                }
+                // 1. Resolve-or-create the contributor whose canonical name IS the alias.
+                //    Dedup-aware: a pre-existing live row with the same normalized name is
+                //    reused rather than blind-inserted, which would violate the
+                //    `normalized_name` unique index. The prior code blind-`upsert`ed a fresh
+                //    UUID, and because the new-contributor write ran on the SQLDelight
+                //    connection while the Exposed-outer transaction held the write lock, a
+                //    busy-snapshot retry of the outer block re-ran the insert and failed UNIQUE.
+                //    Routing the write through resolveOrCreate (single SQLDelight connection,
+                //    dedup-aware) removes both halves. Passing aliasName as both name and
+                //    sortName keeps the canonical name free of `Last, First` reordering,
+                //    matching the prior blind-insert shape.
+                val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName)
 
-                // 2. Snapshot affected books BEFORE the relink — afterwards the matching
-                // junction rows no longer have credited_as = aliasName.
+                // 2. Snapshot affected books, then re-link the matching junction rows to newId
+                //    and clear credited_as — both over the single SQLDelight connection in one
+                //    mini-transaction. Snapshotting BEFORE the relink because afterwards the
+                //    matching rows no longer carry credited_as = aliasName.
                 val affectedBookIds =
-                    BookContributorTable.bookIdsForContributorWithCreditedAs(
-                        id = contributorId.value,
-                        aliasName = aliasName,
-                    )
+                    sqlTransaction(sqlDb) {
+                        val ids =
+                            sqlDb.bookContributorsQueries
+                                .bookIdsForContributorWithCreditedAs(
+                                    contributor_id = contributorId.value,
+                                    credited_as = aliasName,
+                                ).executeAsList()
+                        sqlDb.bookContributorsQueries.relinkByCreditedAs(
+                            to_id = newId.value,
+                            from_id = contributorId.value,
+                            alias_name = aliasName,
+                        )
+                        ids
+                    }
 
-                // 3. Re-link those junction rows to newId, clearing credited_as.
-                BookContributorTable.relinkByCreditedAs(
-                    fromContributorId = contributorId.value,
-                    aliasName = aliasName,
-                    toContributorId = newId.value,
-                )
-
-                // 4. Re-upsert each affected book — bumps revision, publishes book.Updated.
-                for (bookId in affectedBookIds) {
-                    val payload = bookRepo.findById(BookId(bookId)) ?: continue
+                // 3. Re-upsert each affected book — bumps revision, publishes book.Updated.
+                // One batched read replaces the per-book N+1 lookup.
+                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
                     when (val upsertResult = bookRepo.upsert(payload)) {
                         is AppResult.Success -> Unit
                         is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
                     }
                 }
 
-                // 5. Remove the alias from target, re-upsert — publishes contributor.Updated(target).
+                // 4. Remove the alias from target, re-upsert — publishes contributor.Updated(target).
                 when (
                     val upsertResult =
                         contributorRepo.upsert(targetPayload.copy(aliases = targetPayload.aliases - aliasName))
@@ -320,10 +337,15 @@ internal class ContributorServiceImpl(
             suspendTransaction(db) {
                 contributorRepo.findById(id.value)
                     ?: return@suspendTransaction contributorNotFound(id)
-                val affectedBookIds = BookContributorTable.bookIdsForContributor(id.value)
-                BookContributorTable.deleteAllForContributor(id.value)
-                for (bookId in affectedBookIds) {
-                    val payload = bookRepo.findById(BookId(bookId)) ?: continue
+                // Snapshot the affected books, then hard-delete every junction row for the
+                // contributor — both over the single SQLDelight connection in one mini-transaction.
+                val affectedBookIds =
+                    sqlTransaction(sqlDb) {
+                        val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(id.value).executeAsList()
+                        sqlDb.bookContributorsQueries.deleteAllForContributor(id.value)
+                        ids
+                    }
+                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
                     val stripped = payload.copy(contributors = payload.contributors.filter { it.id != id.value })
                     when (val upsertResult = bookRepo.upsert(stripped)) {
                         is AppResult.Success -> Unit
@@ -360,8 +382,9 @@ fun createContributorService(
     contributorRepo: ContributorRepository,
     bookRepo: BookRepository,
     reindexer: BookSearchReindexer,
+    sqlDb: ListenUpDatabase,
     db: Database,
-): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db)
+): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, db)
 
 /**
  * Scopes a [ContributorService] built by [createContributorService] to [principal] for one

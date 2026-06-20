@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -21,7 +22,7 @@ class ActivityRepositoryTest :
 
         test("record returns a non-blank id and inserts a retrievable row") {
             withInMemoryDatabase {
-                val repo = ActivityRepository(db = this, clock = FixedClock(Instant.fromEpochMilliseconds(1000L)))
+                val repo = repoAt(1000L)
                 runTest {
                     val id = repo.record(userId = "u1", type = ActivityType.STARTED_BOOK, bookId = "book-1")
                     id shouldNotBe ""
@@ -100,4 +101,7 @@ class ActivityRepositoryTest :
         }
     })
 
-private fun Database.repoAt(millis: Long) = ActivityRepository(db = this, clock = FixedClock(Instant.fromEpochMilliseconds(millis)))
+private fun Database.repoAt(millis: Long): ActivityRepository {
+    val clock = FixedClock(Instant.fromEpochMilliseconds(millis))
+    return ActivityRepository(db = this.asSqlDatabase(), clock = clock)
+}

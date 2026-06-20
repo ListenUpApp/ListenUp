@@ -1,0 +1,102 @@
+-- book_genres junction: cross-user book↔genre links (one shared genre set per
+-- book). Column set matches V23__genres.sql. Composite PK (book_id, genre_id).
+--
+-- Not syncable — book updates carry their genre set inline via
+-- BookSyncPayload.genres, so the junction has no revision substrate. Replaced
+-- wholesale (delete-by-book then insert) on every write.
+--
+-- FK declarations (book_id → books, genre_id → genres) are omitted; the `genres`
+-- table IS described in Genres.sq (so the JOIN reads resolve), but the junction's
+-- own FKs stay in the migration DDL to keep the convention uniform.
+CREATE TABLE book_genres (
+    book_id  TEXT NOT NULL,
+    genre_id TEXT NOT NULL,
+    PRIMARY KEY (book_id, genre_id)
+);
+
+CREATE INDEX idx_book_genres_genre ON book_genres(genre_id);
+
+-- ── reads ────────────────────────────────────────────────────────────────────
+
+-- Joined batched read for readBookPayloads: every live-genre link for the
+-- id-chunk, enriched with the genre's display fields, ordered by path so the
+-- assembled payload has a stable genre order. Tombstoned genres are excluded.
+selectByBookIds:
+SELECT bg.book_id, g.id, g.name, g.slug, g.path
+FROM book_genres bg
+JOIN genres g ON g.id = bg.genre_id
+WHERE bg.book_id IN :ids AND g.deleted_at IS NULL
+ORDER BY g.path;
+
+-- Single-book live-genre read (readPayload's per-id path), enriched + path-ordered.
+genresForBook:
+SELECT g.id, g.name, g.slug, g.path
+FROM book_genres bg
+JOIN genres g ON g.id = bg.genre_id
+WHERE bg.book_id = :book_id AND g.deleted_at IS NULL
+ORDER BY g.path;
+
+-- Live genre NAMES linked to a book, name-ordered — BookSearchReindexer joins these
+-- into the FTS `genres` column for deterministic content.
+genreNamesForBook:
+SELECT g.name
+FROM book_genres bg
+JOIN genres g ON g.id = bg.genre_id
+WHERE bg.book_id = :book_id AND g.deleted_at IS NULL
+ORDER BY g.name;
+
+-- Up to :limit book ids linked to a genre — curator screen + post-rename reindex.
+booksForGenre:
+SELECT book_id FROM book_genres WHERE genre_id = :genre_id LIMIT :limit;
+
+-- Up to :limit distinct book ids linked to any LIVE genre whose materialized path
+-- equals :path_prefix or starts with `path_prefix + "/"`. The collision-safe
+-- `path = ? OR path LIKE ? || '/%'` predicate keeps a `/fic` prefix from matching
+-- a `/fiction` subtree. Drives browse-by-genre (descendant rollup) and
+-- reindexAllBooksForSubtree.
+booksForGenrePrefix:
+SELECT DISTINCT bg.book_id
+FROM book_genres bg
+JOIN genres g ON g.id = bg.genre_id
+WHERE g.deleted_at IS NULL AND (g.path = :path_prefix OR g.path LIKE :path_prefix || '/%')
+LIMIT :limit;
+
+-- Distinct book ids linked to a genre — enumerate affected books before a genre
+-- rename / merge so each can be reindexed.
+bookIdsForGenre:
+SELECT DISTINCT book_id FROM book_genres WHERE genre_id = :genre_id;
+
+-- Per-genre count of LIVE books (a soft-deleted book keeps its book_genres row —
+-- FK cascade is hard-delete only — so the join filters `books.deleted_at IS NULL`).
+-- Drives the `bookCount` column on the listGenres summary. genre_id keys the map; the
+-- service defaults absent genres to 0.
+bookCountsOverLiveBooks:
+SELECT bg.genre_id, COUNT(*) AS book_count
+FROM book_genres bg
+JOIN books b ON b.id = bg.book_id
+WHERE b.deleted_at IS NULL
+GROUP BY bg.genre_id;
+
+-- ── writes ───────────────────────────────────────────────────────────────────
+
+-- Add-if-absent insert (the junction's only insert path): silently no-ops on PK
+-- conflict, mirroring the Exposed `insertIgnore`. Covers relinkBookGenres' insert
+-- step and the unmapped-string mapping flow's insertIfAbsent.
+insertIfAbsent:
+INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (:book_id, :genre_id);
+
+-- Wholesale-replace / cascade step: clears a book's genre links.
+deleteByBookId:
+DELETE FROM book_genres WHERE book_id = :book_id;
+
+-- Hard-deletes every link referencing a genre — genre hard-delete / merge cascade.
+deleteAllForGenre:
+DELETE FROM book_genres WHERE genre_id = :genre_id;
+
+-- Merge primitive, additive half: copies links from :from_id onto :to_id,
+-- skipping rows that would collide on the composite PK. Paired with
+-- deleteAllForGenre(:from_id) to complete the relink (relinkGenre). Exposed's DSL
+-- can't express `INSERT OR IGNORE ... SELECT`, so this is its typed home.
+relinkGenreCopy:
+INSERT OR IGNORE INTO book_genres (book_id, genre_id)
+SELECT book_id, :to_id FROM book_genres WHERE genre_id = :from_id;

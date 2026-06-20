@@ -30,6 +30,9 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverImageStore
+import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
@@ -110,19 +113,26 @@ fun booksModule(
             )
         }
 
-        single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
-        single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
-        single(createdAtStart = true) { GenreRepository(get(), get(), get()) }
+        // Contributor + Series are SQLDelight conversions (the cutover template):
+        // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
+        // Transitional: the merge/unmerge/delete service flows still wrap an Exposed
+        // suspendTransaction around these SQLDelight writes, so those flows can hit
+        // SQLITE_BUSY against these two domains until the merge-txn unit converts them.
+        single(createdAtStart = true) { ContributorRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { SeriesRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { GenreRepository(get<ListenUpDatabase>(), get(), get()) }
         single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {
             BookRepository(
-                get(),
-                get(),
-                get(),
-                get(),
-                get(),
-                get<GenreRepository>(),
-                get(),
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+                exposedDb = get(),
+                contributorRepository = get(),
+                seriesRepository = get(),
+                genreRepository = get<GenreRepository>(),
+                analyzedBookMapper = get(),
                 clock = get(),
                 collectionBookRepository = get(),
                 tagRepository = getOrNull<TagRepository>(),
@@ -133,7 +143,7 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
-        single { UserPermissionPolicy(db = get()) }
+        single { UserPermissionPolicy(db = get<ListenUpDatabase>()) }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
@@ -153,6 +163,7 @@ fun booksModule(
                 contributorRepo = get(),
                 bookRepo = get(),
                 reindexer = get(),
+                sqlDb = get<ListenUpDatabase>(),
                 db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("ContributorService"),
@@ -163,26 +174,20 @@ fun booksModule(
                 seriesRepo = get(),
                 bookRepo = get(),
                 reindexer = get(),
+                sqlDb = get<ListenUpDatabase>(),
                 db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("SeriesService"),
             )
         }
-        single<SearchService> {
-            SearchServiceImpl(
-                db = get(),
-                accessPolicy = get<BookAccessPolicy>(),
-                principal = unscopedPlaceholder("SearchService"),
-            )
-        }
-        single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
-        single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
+        searchBindings()
         single<TagService> {
             TagServiceImpl(
                 tagRepository = get<TagRepository>(),
                 bookTagRepository = get<BookTagRepository>(),
                 reindexer = get<BookSearchReindexer>(),
                 db = get(),
+                sql = get<ListenUpDatabase>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("TagService"),
             )
@@ -193,6 +198,7 @@ fun booksModule(
                 genreRepository = get<GenreRepository>(),
                 bookRepository = get<BookRepository>(),
                 reindexer = get<BookSearchReindexer>(),
+                sqlDb = get<ListenUpDatabase>(),
                 db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("GenreService"),
@@ -220,6 +226,24 @@ fun booksModule(
     }
 
 /**
+ * Search-slice singletons — the [SearchService] (over SQLDelight via the shared [SqlDriver]),
+ * the FTS reindexer, and the manual reindex trigger. Split out of [booksModule] to keep that
+ * module body under the length budget.
+ */
+private fun Module.searchBindings() {
+    single<SearchService> {
+        SearchServiceImpl(
+            db = get<ListenUpDatabase>(),
+            driver = get<SqlDriver>(),
+            accessPolicy = get<BookAccessPolicy>(),
+            principal = unscopedPlaceholder("SearchService"),
+        )
+    }
+    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<Database>()) }
+    single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
+}
+
+/**
  * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):
  *  - [BookMoodWriter] — scan/enrich-time find-or-create-then-link writer (add-only).
  *  - [MoodService] / [MoodServiceImpl] — the interactive curation surface.
@@ -243,6 +267,7 @@ private fun Module.moodBindings() {
             moodRepository = get<MoodRepository>(),
             bookMoodRepository = get<BookMoodRepository>(),
             db = get(),
+            sql = get<ListenUpDatabase>(),
             permissionPolicy = get<UserPermissionPolicy>(),
             principal = unscopedPlaceholder("MoodService"),
         )
@@ -262,11 +287,11 @@ private fun Module.moodBindings() {
  * under the length budget.
  */
 private fun Module.genreBootstrapBindings() {
-    single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
+    single { GenreDomainSeeder(genreRepository = get<GenreRepository>()) }
     single {
         PendingGenrePromotion(
-            db = get(),
-            bookGenreWriter = BookGenreWriter(get(), get(), GenreAutoCreator(get<GenreRepository>())),
+            db = get<ListenUpDatabase>(),
+            bookGenreWriter = BookGenreWriter(get<ListenUpDatabase>(), get(), GenreAutoCreator(get<GenreRepository>())),
         )
     }
 }

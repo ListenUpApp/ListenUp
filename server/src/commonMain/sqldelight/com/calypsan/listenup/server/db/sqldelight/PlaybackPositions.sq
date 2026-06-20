@@ -1,0 +1,123 @@
+-- playback_positions: per-user resume points (Playback P1). Syncable, soft-deletable,
+-- revision-tracked, and userScoped — every row carries the owning `user_id`, so the
+-- per-user substrate variants filter every pull/digest by that user. One row per
+-- (user_id, book_id) pair; `last_played_at`-wins conflict resolution lives in the repo.
+-- `finished` is INTEGER 0/1 (mapped to Boolean at the repo boundary).
+-- Column set matches V15__playback_positions.sql exactly.
+CREATE TABLE playback_positions (
+    id                 TEXT    NOT NULL PRIMARY KEY,
+    user_id            TEXT    NOT NULL,
+    book_id            TEXT    NOT NULL,
+    position_ms        INTEGER NOT NULL,
+    last_played_at     INTEGER NOT NULL,
+    finished           INTEGER NOT NULL DEFAULT 0,
+    playback_speed     REAL    NOT NULL DEFAULT 1.0,
+    current_chapter_id TEXT,
+    revision           INTEGER NOT NULL DEFAULT 0,
+    created_at         INTEGER NOT NULL,
+    updated_at         INTEGER NOT NULL,
+    deleted_at         INTEGER,
+    client_op_id       TEXT
+);
+
+CREATE UNIQUE INDEX idx_playback_position_user_book ON playback_positions(user_id, book_id);
+CREATE        INDEX idx_playback_position_user_id   ON playback_positions(user_id);
+CREATE        INDEX idx_playback_position_revision  ON playback_positions(revision);
+CREATE        INDEX idx_playback_position_user_rev  ON playback_positions(user_id, revision);
+
+-- Global substrate queries (kept for source-compatibility with the base contract;
+-- a userScoped repo routes pullSince/digest through the *ForUser variants instead).
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM playback_positions WHERE id = :id);
+
+softDeleteById:
+UPDATE playback_positions
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM playback_positions WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM playback_positions WHERE revision <= :cursor;
+
+-- User-scoped substrate variants — the per-user filtering the Exposed base applies
+-- via `(revision <cmp> cursor) AND user_id = userId`.
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM playback_positions
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM playback_positions
+WHERE user_id = :userId AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads.
+selectById:
+SELECT * FROM playback_positions WHERE id = :id;
+
+selectByIds:
+SELECT * FROM playback_positions WHERE id IN :ids;
+
+-- Live position for a (user_id, book_id) pair.
+selectLiveForUserBook:
+SELECT * FROM playback_positions
+WHERE user_id = :userId AND book_id = :bookId AND deleted_at IS NULL;
+
+-- All live positions for a user, capped at :limit (order unspecified).
+listForUser:
+SELECT * FROM playback_positions
+WHERE user_id = :userId AND deleted_at IS NULL
+LIMIT :limit;
+
+-- Sparse batch lookup for a user across a set of book ids (only existing rows return).
+findByBookIds:
+SELECT * FROM playback_positions
+WHERE user_id = :userId AND book_id IN :bookIds AND deleted_at IS NULL;
+
+-- Continue-listening: started-but-not-finished, most-recently-played first.
+recentlyListenedForUser:
+SELECT * FROM playback_positions
+WHERE user_id = :userId AND deleted_at IS NULL AND finished = 0 AND position_ms > 0
+ORDER BY last_played_at DESC
+LIMIT :limit;
+
+-- Finished books for a user, most-recently-finished first.
+completedForUser:
+SELECT * FROM playback_positions
+WHERE user_id = :userId AND deleted_at IS NULL AND finished = 1
+ORDER BY last_played_at DESC
+LIMIT :limit;
+
+-- (user_id, position_ms) for every user in-progress on a book.
+listInProgressForBook:
+SELECT user_id, position_ms FROM playback_positions
+WHERE book_id = :bookId AND finished = 0 AND position_ms > 0;
+
+-- Stats support: count of finished, non-deleted positions for a user (books_finished).
+countFinishedForUser:
+SELECT COUNT(*) FROM playback_positions
+WHERE user_id = :userId AND finished = 1 AND deleted_at IS NULL;
+
+insert:
+INSERT INTO playback_positions (
+    id, user_id, book_id, position_ms, last_played_at, finished, playback_speed,
+    current_chapter_id, revision, created_at, updated_at, deleted_at, client_op_id
+)
+VALUES (
+    :id, :user_id, :book_id, :position_ms, :last_played_at, :finished, :playback_speed,
+    :current_chapter_id, :revision, :created_at, :updated_at, :deleted_at, :client_op_id
+);
+
+update:
+UPDATE playback_positions
+SET position_ms = :position_ms, last_played_at = :last_played_at, finished = :finished,
+    playback_speed = :playback_speed, current_chapter_id = :current_chapter_id,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;

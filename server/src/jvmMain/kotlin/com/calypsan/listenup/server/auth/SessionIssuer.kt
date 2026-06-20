@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.server.db.UserEntity
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -16,14 +15,14 @@ class SessionIssuer(
     private val jwt: JwtConfiguration,
     private val clock: Clock = Clock.System,
 ) {
-    suspend fun issue(
-        userEntity: UserEntity,
+    internal suspend fun issue(
+        user: AuthUser,
         label: String?,
         deviceInfo: DeviceInfo? = null,
         userAgent: String? = null,
     ): AuthSession {
-        val userId = UserId(userEntity.id.value)
-        val role = userEntity.role.toContract()
+        val userId = UserId(user.id)
+        val role = user.role.toContract()
         val issued = sessions.createSession(userId, label = label, deviceInfo = deviceInfo, userAgent = userAgent)
         val accessJwt = jwt.issue(userId = userId, sessionId = issued.sessionId, role = role)
         val expiresAt = (clock.now() + jwt.accessTokenTtl).toEpochMilliseconds()
@@ -33,7 +32,7 @@ class SessionIssuer(
             refreshToken = issued.refreshToken,
             refreshTokenExpiresAt = issued.expiresAt,
             sessionId = issued.sessionId,
-            user = userEntity.toContract(),
+            user = user.toContract(),
         )
     }
 }

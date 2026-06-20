@@ -17,6 +17,8 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -57,16 +59,34 @@ class CollectionMembershipRevisionTest :
         ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
                 db = db,
                 clock = fixedClock,

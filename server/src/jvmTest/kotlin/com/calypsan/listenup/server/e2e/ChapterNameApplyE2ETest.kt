@@ -57,6 +57,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val TEST_NOW = Instant.parse("2026-06-05T12:00:00Z")
 private const val ASIN = "B0CHAPTERS"
@@ -147,15 +149,15 @@ private fun wire(
     val tempDir = Files.createTempDirectory("chapter-e2e-").also { it.toFile().deleteOnExit() }
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db, bus, registry)
-    val seriesRepo = SeriesRepository(db, bus, registry)
-    val genreRepo = GenreRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
+    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
+    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(chapters),
             itunes = NoOpITunes(),
-            cache = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW)),
         )
     val service =
         MetadataLookupServiceImpl(
@@ -177,7 +179,7 @@ private fun wire(
                     imageHome = Path(tempDir.toString()),
                 ),
             enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-            permissionPolicy = UserPermissionPolicy(db),
+            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             db = db,
             genreRepository = genreRepo,
             principal = PrincipalProvider { UserPrincipal(UserId("root"), SessionId("s"), UserRole.ROOT) },

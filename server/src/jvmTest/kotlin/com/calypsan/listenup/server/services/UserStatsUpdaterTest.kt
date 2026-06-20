@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -54,11 +55,11 @@ class UserStatsUpdaterTest :
 
         test("first-ever event for u1 creates a row with correct totals and streak = 1") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -82,11 +83,11 @@ class UserStatsUpdaterTest :
 
         test("second event same book same day increments time but not booksStarted or streak") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -111,11 +112,11 @@ class UserStatsUpdaterTest :
 
         test("event for a new book on same day increments booksStarted but not streak") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -139,11 +140,11 @@ class UserStatsUpdaterTest :
 
         test("event on next day increments streak to 2") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -167,11 +168,11 @@ class UserStatsUpdaterTest :
 
         test("event after 3-day gap resets currentStreak to 1 but longestStreak stays at prior max") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -201,11 +202,11 @@ class UserStatsUpdaterTest :
 
         test("totalSecondsLast7Days sums only events within 7 days of the latest event") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -236,12 +237,12 @@ class UserStatsUpdaterTest :
 
         test("streak reaching exactly 7 records one streak_milestone(7, days); a same-day no-op event adds no duplicate") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val activities = ActivityRepository(db = this)
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val activities = ActivityRepository(db = this.asSqlDatabase())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -277,12 +278,12 @@ class UserStatsUpdaterTest :
 
         test("total listening hours crossing 10 records one listening_milestone(10, hours)") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val activities = ActivityRepository(db = this)
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val activities = ActivityRepository(db = this.asSqlDatabase())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -309,10 +310,10 @@ class UserStatsUpdaterTest :
 
         test("onPositionFinishedFlip increments booksFinished each call") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = clock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
@@ -347,11 +348,17 @@ class UserStatsUpdaterTest :
 
             withInMemoryDatabase {
                 seedTestUser(userId = "u1", timezone = "America/New_York")
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry(), clock = testClock)
-                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo =
+                    UserStatsRepository(
+                        db = this.asSqlDatabase(),
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        clock = testClock,
+                    )
+                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        db = this,
+                        sql = this.asSqlDatabase(),
                         userStatsRepo = statsRepo,
                         clock = testClock,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },

@@ -1,0 +1,51 @@
+-- activities: append-only social-activity log — one row per recordable user action
+-- (started/finished a book, listening milestone, shelf created, …). Read back as a
+-- paginated, most-recent-first feed via the `feed` RPC. PLAIN (NON-syncable) — no
+-- revision/soft-delete substrate, clients never write it. Type-specific columns are
+-- nullable / defaulted per activity type.
+-- Column set matches V33__activities.sql + V35__activities_occurred_at.sql
+-- (`occurred_at` added by V35) exactly.
+CREATE TABLE activities (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    user_id         TEXT    NOT NULL,
+    type            TEXT    NOT NULL,
+    created_at      INTEGER NOT NULL,
+    book_id         TEXT,
+    is_reread       INTEGER NOT NULL DEFAULT 0,
+    duration_ms     INTEGER NOT NULL DEFAULT 0,
+    milestone_value INTEGER NOT NULL DEFAULT 0,
+    milestone_unit  TEXT,
+    shelf_id        TEXT,
+    shelf_name      TEXT,
+    occurred_at     INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_activities_created_at  ON activities(created_at);
+CREATE INDEX idx_activities_occurred_at ON activities(occurred_at);
+
+-- Append one activity row. `is_reread` is INTEGER 0/1 (mapped to Boolean at the repo
+-- boundary). occurred_at defaults to created_at at the repo when the caller omits it.
+insert:
+INSERT INTO activities (
+    id, user_id, type, created_at, occurred_at, book_id, is_reread, duration_ms,
+    milestone_value, milestone_unit, shelf_id, shelf_name
+)
+VALUES (
+    :id, :user_id, :type, :created_at, :occurred_at, :book_id, :is_reread, :duration_ms,
+    :milestone_value, :milestone_unit, :shelf_id, :shelf_name
+);
+
+-- Raw most-recent-first page. Keyset pagination by (occurred_at, id) DESC: when :before
+-- is bound the page covers rows strictly older than that occurred_at; the secondary id
+-- tiebreak gives a stable total order. The service ACL-filters/overfetches on top.
+pageBefore:
+SELECT * FROM activities
+WHERE occurred_at < :before
+ORDER BY occurred_at DESC, id DESC
+LIMIT :limit;
+
+-- First page (no cursor) — most-recent-first.
+pageFirst:
+SELECT * FROM activities
+ORDER BY occurred_at DESC, id DESC
+LIMIT :limit;

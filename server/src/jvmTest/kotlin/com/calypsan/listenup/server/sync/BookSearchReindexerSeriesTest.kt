@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.asSqlDatabase
+
 import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -33,7 +35,7 @@ class BookSearchReindexerSeriesTest :
             db: org.jetbrains.exposed.v1.jdbc.Database,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
 
         /** Seeds a minimal book_search_map + book_search FTS row for [bookId]. */
         suspend fun seedFtsRow(
@@ -141,8 +143,8 @@ class BookSearchReindexerSeriesTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // Rename the series directly (bypassing the service layer).
@@ -171,8 +173,8 @@ class BookSearchReindexerSeriesTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // No junction rows → should complete without error.
@@ -197,8 +199,8 @@ class BookSearchReindexerSeriesTest :
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     reindexer.reindexAllBooksForSeries("s1")
