@@ -20,20 +20,23 @@ import kotlinx.coroutines.ThreadContextElement
 class BookWriteExtras(
     val managedCover: StoredCoverInfo? = null,
     /**
+     * The library's target system collection id (#680 pure-union model), set only when a
+     * genuinely-new book must be auto-assigned to a system collection: ALL_BOOKS when the inbox
+     * gate is off (immediately member-visible via the default grant), or INBOX when on
+     * (quarantined, admin-only). The two are mutually exclusive — a held book joins INBOX only.
+     * Non-null → [BookRepository.writePayload]'s INSERT branch writes the `collection_books`
+     * membership row **inside the same SQLDelight transaction** as the book row, so a held book is
+     * never momentarily pullable by a member (the access filter already sees it collected before
+     * any `book.Created` is delivered). The scanner sets this via
+     * `resolveOrInsert(systemCollectionId = …)`; every other write path leaves it null.
+     */
+    val systemCollectionId: String? = null,
+    /**
      * Edit-path override for the book's `createdAt` (the "added date"). Non-null only when an
      * explicit metadata edit re-stamps the added date — [BookRepository.writePayload]'s UPDATE
      * branch writes it through. The scanner never sets this.
      */
     val createdAtOverride: Long? = null,
-    /**
-     * The library's inbox collection id, set only when a genuinely-new book must be
-     * auto-quarantined into the admin-only inbox. Non-null → [BookRepository.writePayload]'s
-     * INSERT branch writes the `collection_books` membership row **inside the same SQLDelight
-     * transaction** as the book row, so the book is never momentarily public (the access filter
-     * already sees it collected before any `book.Created` is delivered). The scanner sets this
-     * via `resolveOrInsert(inboxCollectionId = …)`; every other write path leaves it null.
-     */
-    val inboxCollectionId: String? = null,
 ) : ThreadContextElement<BookWriteExtras?> {
     override val key: CoroutineContext.Key<*> get() = Key
 

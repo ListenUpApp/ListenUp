@@ -321,16 +321,6 @@
         }
       }
     },
-    "admin.collection_global_access": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Everyone"
-          }
-        }
-      }
-    },
     "admin.collection_members_count": {
       "localizations": {
         "en": {

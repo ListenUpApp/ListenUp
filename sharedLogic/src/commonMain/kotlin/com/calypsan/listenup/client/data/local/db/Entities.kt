@@ -124,10 +124,6 @@ data class BookEntity(
     val subtitle: String? = null, // Book subtitle
     val coverHash: String? = null, // Content hash of the cover image, supplied by the sync wire event
     val coverBlurHash: String? = null, // BlurHash for cover placeholder
-    // Cached palette colors extracted from cover (ARGB ints for instant gradient rendering)
-    val dominantColor: Int? = null,
-    val darkMutedColor: Int? = null,
-    val vibrantColor: Int? = null,
     val totalDuration: Long, // Total audiobook duration in milliseconds
     val description: String? = null,
     // Series is now managed via book_series junction table (many-to-many)

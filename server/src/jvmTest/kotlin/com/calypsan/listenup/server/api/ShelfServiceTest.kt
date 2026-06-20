@@ -223,6 +223,30 @@ class ShelfServiceTest :
                 seedTestBook("b2")
                 seedAuthor(db, bookId = "b1", contributorId = "c1", name = "Ada Lovelace")
                 runTest {
+                    // Under pure union, u1 must see b1/b2 to shelve them. The simplest reach
+                    // is a u1-owned collection (owner branch — no grant, no system user needed).
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+                    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                    collectionRepo.upsert(
+                        CollectionSyncPayload(
+                            id = "u1-col",
+                            libraryId = "test-library",
+                            ownerId = "u1",
+                            name = "u1 Collection",
+                            isInbox = false,
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(collectionId = "u1-col", bookId = "b1", createdAt = 0L, revision = 0L),
+                    )
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(collectionId = "u1-col", bookId = "b2", createdAt = 0L, revision = 0L),
+                    )
+
                     val service = makeService(db).actAs("u1")
                     val shelf = service.createShelf(name = "Reading").value()
 
@@ -269,7 +293,6 @@ class ShelfServiceTest :
                             ownerId = "u2",
                             name = "Private",
                             isInbox = false,
-                            isGlobalAccess = false,
                             revision = 0L,
                             updatedAt = 0L,
                         ),

@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for a collection (Collections — Room v24).
+ * Room entity for a collection (Collections — Room v34).
  *
  * Collections are admin-owned, library-scoped groupings of books with an explicit
  * per-user ACL (see [CollectionShareEntity]). The row mirrors the wire
@@ -34,8 +34,6 @@ data class CollectionEntity(
     val name: String,
     /** Whether this is the user's auto-created inbox collection (not deletable). */
     val isInbox: Boolean,
-    /** Whether this collection is visible to all users on the server. */
-    val isGlobalAccess: Boolean,
     /** Monotonic server revision, advanced on every committed change. */
     val revision: Long = 0,
     /** Epoch ms tombstone; null when the collection is live. */

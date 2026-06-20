@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.CollectionService
@@ -20,15 +22,14 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -40,6 +41,52 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
+
+/**
+ * Sentinel owner id for server-managed system collections (ALL_BOOKS, INBOX).
+ *
+ * System collections are created at library bootstrap — before any admin user exists — so their
+ * owner cannot be a real user id. This fixed string serves as the owner column value for all
+ * system collections. It is never inserted into `users.id`; the `owner_id` column in
+ * [com.calypsan.listenup.server.db.CollectionsTable] is a plain text column (not a foreign key)
+ * specifically to allow this sentinel.
+ *
+ * [com.calypsan.listenup.server.api.CollectionAccessPolicy] grants owner-write via
+ * `coll.ownerId == userId`; with this sentinel no real user matches, so the owner branch is
+ * correctly inert for system collections. Admins reach them via the god-view null-filter path.
+ */
+internal const val SYSTEM_OWNER_ID = "system"
+
+/**
+ * The per-library system collections the server materialises lazily on first need.
+ *
+ * Identified by the server-only `collections.type` column (never on the wire). Member-facing
+ * sync uses [CollectionSyncPayload.isInbox] / the access layer; `type` is a server-internal
+ * discriminator that distinguishes the always-everything [ALL_BOOKS] view from the quarantine
+ * [INBOX]. The enum name is the persisted column value.
+ */
+internal enum class SystemCollectionType {
+    ALL_BOOKS,
+    INBOX,
+}
+
+/**
+ * Persisted column value for the ALL_BOOKS system collection type.
+ *
+ * Equals [SystemCollectionType.ALL_BOOKS].name. Declared as a val so
+ * [LibraryRegistry] (which inserts the row inline at bootstrap) can reference the
+ * canonical string without duplicating the literal. A rename of the enum member
+ * must update this val too — the comment is the guardrail.
+ */
+internal val SYSTEM_TYPE_ALL_BOOKS: String = SystemCollectionType.ALL_BOOKS.name
+
+/**
+ * Persisted column value for the INBOX system collection type.
+ *
+ * Equals [SystemCollectionType.INBOX].name. Same single-source guarantee as
+ * [SYSTEM_TYPE_ALL_BOOKS].
+ */
+internal val SYSTEM_TYPE_INBOX: String = SystemCollectionType.INBOX.name
 
 /**
  * [CollectionService] implementation.
@@ -70,7 +117,7 @@ private const val MAX_NAME_LENGTH = 200
 internal class CollectionServiceImpl(
     private val collectionRepo: CollectionRepository,
     private val collectionBookRepo: CollectionBookRepository,
-    private val shareRepo: CollectionShareRepository,
+    private val grantRepo: CollectionGrantRepository,
     private val accessPolicy: CollectionAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
     private val bus: ChangeBus,
@@ -86,12 +133,17 @@ internal class CollectionServiceImpl(
 
         val collections =
             if (caller.role == UserRoleColumn.ROOT || caller.role == UserRoleColumn.ADMIN) {
+                // Admin god-view: all collections including system ones (ALL_BOOKS, INBOX).
                 collectionRepo.listAll()
             } else {
                 val owned = collectionRepo.listOwnedBy(caller.userId)
-                val sharedIds = shareRepo.listActiveSharesForUser(caller.userId).map { it.collectionId }
+                val sharedIds = grantRepo.listActiveGrantsForUser(caller.userId).map { it.collectionId }
                 val shared = sharedIds.mapNotNull { collectionRepo.findById(it) }
-                (owned + shared).distinctBy { it.id }
+                // Spec §3.2: ALL_BOOKS and INBOX must not appear in a member's collection list.
+                // Every member holds a default ALL_BOOKS grant, so the shared path leaks it;
+                // filter the combined result by the set of live system-collection ids.
+                val systemIds = collectionRepo.systemCollectionIds()
+                (owned + shared).distinctBy { it.id }.filterNot { it.id in systemIds }
             }
 
         val summaries = collections.map { summarize(it, caller) }
@@ -133,12 +185,11 @@ internal class CollectionServiceImpl(
 
         val payload =
             CollectionSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 libraryId = libraryId,
                 ownerId = caller.userId,
                 name = trimmed,
                 isInbox = false,
-                isGlobalAccess = false,
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )
@@ -175,8 +226,8 @@ internal class CollectionServiceImpl(
 
         suspendTransaction(db) {
             collectionBookRepo.softDeleteAllForCollection(id.value)
-            for (share in shareRepo.listActiveSharesForCollection(id.value)) {
-                shareRepo.softDelete(share.id)
+            for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
+                grantRepo.softDelete(grant.id)
             }
             collectionRepo.softDelete(id.value)
         }
@@ -211,6 +262,7 @@ internal class CollectionServiceImpl(
                 bookRevisionTouch.touchRevision(bookId)
                 AppResult.Success(Unit)
             }
+
             is AppResult.Failure -> {
                 AppResult.Failure(result.error)
             }
@@ -301,18 +353,19 @@ internal class CollectionServiceImpl(
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
         // canShare is an ADDITIONAL gate beyond ownership: a member must hold canShare AND own
         // (or admin-bypass) the collection to share it. ROOT/ADMIN pass the flag implicitly.
-        permissionPolicy.requireCanShare(UserId(caller.userId), caller.role.toContract())
+        permissionPolicy
+            .requireCanShare(UserId(caller.userId), caller.role.toContract())
             ?.let { return AppResult.Failure(it) }
 
         if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
         if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
-        if (shareRepo.findActiveShare(id.value, sharedWithUserId) != null) {
+        if (grantRepo.findActiveGrant(id.value, sharedWithUserId) != null) {
             return AppResult.Failure(CollectionError.AlreadyShared())
         }
 
         val payload =
             CollectionShareSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 collectionId = id.value,
                 sharedWithUserId = sharedWithUserId,
                 sharedByUserId = caller.userId,
@@ -321,12 +374,13 @@ internal class CollectionServiceImpl(
                 updatedAt = clock.now().toEpochMilliseconds(),
                 deletedAt = null,
             )
-        return when (val result = shareRepo.upsert(payload)) {
+        return when (val result = grantRepo.upsert(payload)) {
             is AppResult.Success -> {
                 // The newly-shared user's accessible set just grew — tell them to re-derive.
                 bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
                 AppResult.Success(result.data.toDto())
             }
+
             is AppResult.Failure -> {
                 AppResult.Failure(result.error)
             }
@@ -343,16 +397,17 @@ internal class CollectionServiceImpl(
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
         val existing =
-            shareRepo.findActiveShare(id.value, sharedWithUserId)
+            grantRepo.findActiveGrant(id.value, sharedWithUserId)
                 ?: return AppResult.Failure(CollectionError.NotFound())
 
         val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
-        return when (val result = shareRepo.upsert(updated)) {
+        return when (val result = grantRepo.upsert(updated)) {
             is AppResult.Success -> {
                 // The share's permission changed — the recipient must re-derive what they can do.
                 bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
                 AppResult.Success(result.data.toDto())
             }
+
             is AppResult.Failure -> {
                 AppResult.Failure(result.error)
             }
@@ -367,10 +422,10 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-        // softDeleteShare returns Failure(NotFound) when no live share exists; revoke is
+        // softDeleteGrant returns Failure(NotFound) when no live grant exists; revoke is
         // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
-        // when a live share was actually removed: a no-op revoke didn't change their access.
-        if (shareRepo.softDeleteShare(id.value, sharedWithUserId) is AppResult.Success) {
+        // when a live grant was actually removed: a no-op revoke didn't change their access.
+        if (grantRepo.softDeleteGrant(id.value, sharedWithUserId) is AppResult.Success) {
             bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
         }
         return AppResult.Success(Unit)
@@ -381,7 +436,7 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-        val shares = shareRepo.listActiveSharesForCollection(id.value).map { it.toDto() }
+        val shares = grantRepo.listActiveGrantsForCollection(id.value).map { it.toDto() }
         return AppResult.Success(shares)
     }
 
@@ -392,44 +447,67 @@ internal class CollectionServiceImpl(
     // public methods so the admin REST routes (and, eventually, the scanner) can call them.
 
     /**
-     * Resolves the library's inbox, creating it on first use.
+     * Resolves the library's per-library system collection of [type], creating it on first use.
      *
-     * The inbox is a per-library SYSTEM collection (`isInbox = true`, never globally
-     * accessible, not deletable). It is created lazily: the first call materialises it,
-     * subsequent calls return the same row. Idempotency rests on
-     * [CollectionRepository.findInboxForLibrary] plus the `idx_collections_inbox` partial
-     * unique index that guarantees at most one live inbox per library.
+     * A system collection (owned by [SYSTEM_OWNER_ID]) is identified by
+     * the server-only `collections.type` column ([SystemCollectionType.name]) — never on the wire.
+     * It is created lazily: the first call materialises it, subsequent calls return the same row.
+     * Idempotency rests on [CollectionRepository.findSystemCollection], backstopped at the DB by a
+     * per-type partial unique index — `idx_collections_inbox` (one live INBOX per library) and
+     * `idx_collections_all_books` (one live ALL_BOOKS per library) — so a concurrent first-call
+     * cannot create a duplicate system collection.
      *
-     * **Owner resolution.** The inbox owner is the library's `createdByUserId` when set
-     * (forward-staged for the multi-user phase; null today), otherwise the first ROOT user,
-     * otherwise the first ADMIN user. If the server has no admin at all the inbox cannot be
-     * attributed and we fail with [CollectionError.InvalidInput] rather than orphan it.
+     * The row is materialised through the normal [CollectionRepository.upsert] path (which never
+     * sees `type` — it's not a payload field), then [CollectionRepository.setType] stamps the
+     * server-only column with no revision bump or publish.
+     *
+     * **Owner.** System collections are owned by the [SYSTEM_OWNER_ID] sentinel — a fixed string
+     * that is never inserted into `users.id`. This means creation succeeds before any admin user
+     * exists (e.g. at library bootstrap). [CollectionAccessPolicy] grants owner-write via
+     * `coll.ownerId == userId`; with the sentinel owner no real user matches that branch.
+     * Admins reach system collections through the god-view null-filter path.
      *
      * This is a system operation: it does not require or consult a caller principal.
      */
-    suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> {
-        collectionRepo.findInboxForLibrary(libraryId)?.let { return summarizeSystem(it) }
-
-        val ownerId = resolveInboxOwner(libraryId) ?: return AppResult.Failure(
-            CollectionError.InvalidInput(debugInfo = "No admin user available to own the inbox for library $libraryId"),
-        )
+    suspend fun getOrCreateSystemCollection(
+        libraryId: String,
+        type: SystemCollectionType,
+    ): AppResult<CollectionSummary> {
+        collectionRepo.findSystemCollection(libraryId, type.name)?.let { return summarizeSystem(it) }
 
         val payload =
             CollectionSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 libraryId = libraryId,
-                ownerId = ownerId,
-                name = "Inbox",
-                isInbox = true,
-                isGlobalAccess = false,
+                ownerId = SYSTEM_OWNER_ID,
+                name = if (type == SystemCollectionType.ALL_BOOKS) "All Books" else "Inbox",
+                isInbox = type == SystemCollectionType.INBOX,
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )
         return when (val result = collectionRepo.upsert(payload)) {
-            is AppResult.Success -> summarizeSystem(result.data)
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Success -> {
+                collectionRepo.setType(result.data.id, type.name)
+                // Re-read after setType so that isInbox is derived from the freshly-stamped
+                // type column (writePayload does not write is_inbox; isInbox is a projection of type).
+                val refreshed = collectionRepo.findById(result.data.id) ?: result.data
+                summarizeSystem(refreshed)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
         }
     }
+
+    /**
+     * Resolves the library's inbox, creating it on first use.
+     *
+     * Delegates to [getOrCreateSystemCollection] with [SystemCollectionType.INBOX] — the inbox is
+     * a per-library system collection (`isInbox = true`, never globally accessible, not deletable).
+     */
+    suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> =
+        getOrCreateSystemCollection(libraryId, SystemCollectionType.INBOX)
 
     /**
      * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
@@ -476,9 +554,12 @@ internal class CollectionServiceImpl(
      *
      * [assignments] maps `bookId → target collectionIds`. For each book the inbox junction
      * is soft-deleted, then a junction is added for every target collection. A book with an
-     * empty target list is simply removed from the inbox and becomes uncollected. The whole
-     * release runs in a single transaction so a partial failure does not strand books
-     * half-released.
+     * **empty** target list is released to `ALL_BOOKS` — the library's public substrate
+     * collection — so it stays visible to every member under the pure-union visibility rule.
+     * (Under that rule "uncollected" means *invisible*, so approving a held book into no
+     * collection would silently hide it; releasing into `ALL_BOOKS` is how a book becomes
+     * public.) The whole release runs in a single transaction so a partial failure does not
+     * strand books half-released.
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
@@ -492,12 +573,25 @@ internal class CollectionServiceImpl(
         val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
         val inboxId = inbox.id.value
 
+        // Books released with no explicit target join ALL_BOOKS (the public substrate). Resolve
+        // (or create) it once, up front, only when at least one book needs it — keeping the
+        // common "release into explicit collections" path free of system-collection lookups.
+        val needsAllBooks = assignments.values.any { it.isEmpty() }
+        val allBooksId =
+            if (needsAllBooks) {
+                getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
+                    .getOrElse { return AppResult.Failure(it) }
+                    .id.value
+            } else {
+                null
+            }
+
         // Validate every distinct target collection up front — exists, live, same library —
         // before mutating anything: a bad id otherwise surfaces as an opaque FK violation, and
         // a tombstoned target would be silently resurrected by upsert. Validating before the
         // transaction keeps the whole release atomic and the error typed.
-        val distinctTargetIds = assignments.values.flatten().toSet()
-        for (targetId in distinctTargetIds) {
+        val explicitTargetIds = assignments.values.flatten().toSet()
+        for (targetId in explicitTargetIds) {
             val target =
                 collectionRepo.findById(targetId)
                     ?: return AppResult.Failure(CollectionError.NotFound())
@@ -511,7 +605,9 @@ internal class CollectionServiceImpl(
         suspendTransaction(db) {
             for ((bookId, targetCollectionIds) in assignments) {
                 collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
-                for (targetId in targetCollectionIds) {
+                // Empty target → release to ALL_BOOKS so the book stays publicly visible.
+                val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
+                for (targetId in resolvedTargets) {
                     collectionBookRepo.upsert(
                         CollectionBookSyncPayload(
                             collectionId = targetId,
@@ -526,8 +622,8 @@ internal class CollectionServiceImpl(
         }
 
         // Every user who can see a target collection just gained access to the released books —
-        // nudge each once to re-derive.
-        notifyAccessChanged(distinctTargetIds)
+        // nudge each once to re-derive. ALL_BOOKS is included so its grant recipients re-derive.
+        notifyAccessChanged(explicitTargetIds + listOfNotNull(allBooksId))
         // Bump each released book's revision so members' incremental `revision > cursor` pull
         // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
         for (bookId in assignments.keys) {
@@ -552,7 +648,7 @@ internal class CollectionServiceImpl(
             collectionIds
                 .flatMap { collectionId ->
                     val owner = collectionRepo.findById(collectionId)?.ownerId
-                    val shareUsers = shareRepo.listActiveSharesForCollection(collectionId).map { it.sharedWithUserId }
+                    val shareUsers = grantRepo.listActiveGrantsForCollection(collectionId).map { it.sharedWithUserId }
                     if (owner != null) shareUsers + owner else shareUsers
                 }.toSet()
         for (affectedUserId in affectedUserIds) {
@@ -582,7 +678,7 @@ internal class CollectionServiceImpl(
         CollectionServiceImpl(
             collectionRepo = collectionRepo,
             collectionBookRepo = collectionBookRepo,
-            shareRepo = shareRepo,
+            grantRepo = grantRepo,
             accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
             bus = bus,
@@ -627,31 +723,6 @@ internal class CollectionServiceImpl(
     private fun adminGate(role: UserRoleColumn): CollectionError? =
         if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
 
-    /**
-     * Resolves the user id that should own the library's inbox: the library's
-     * `createdByUserId` if set, else the first ROOT user, else the first ADMIN user,
-     * else null when the server has no admin at all.
-     */
-    private suspend fun resolveInboxOwner(libraryId: String): String? =
-        suspendTransaction(db) {
-            LibraryTable
-                .selectAll()
-                .where { LibraryTable.id eq libraryId }
-                .firstOrNull()
-                ?.get(LibraryTable.createdByUserId)
-                ?: firstUserWithRole(UserRoleColumn.ROOT)
-                ?: firstUserWithRole(UserRoleColumn.ADMIN)
-        }
-
-    /** First user id whose role matches [role], or null. Must run inside a transaction. */
-    private fun firstUserWithRole(role: UserRoleColumn): String? =
-        UserTable
-            .selectAll()
-            .where { UserTable.role eq role }
-            .firstOrNull()
-            ?.get(UserTable.id)
-            ?.value
-
     /** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
     private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =
         when {
@@ -671,7 +742,6 @@ internal class CollectionServiceImpl(
             name = collection.name,
             ownerId = UserId(collection.ownerId),
             isInbox = collection.isInbox,
-            isGlobalAccess = collection.isGlobalAccess,
             bookCount = collectionBookRepo.countLiveForCollection(collection.id),
             callerPermission = verdict.permission,
             isOwner = verdict.isOwner,
@@ -692,7 +762,6 @@ internal class CollectionServiceImpl(
                 name = collection.name,
                 ownerId = UserId(collection.ownerId),
                 isInbox = collection.isInbox,
-                isGlobalAccess = collection.isGlobalAccess,
                 bookCount = collectionBookRepo.countLiveForCollection(collection.id),
                 callerPermission = SharePermission.Write,
                 isOwner = true,
@@ -725,7 +794,7 @@ internal class CollectionServiceImpl(
 
     private suspend fun CollectionRepository.softDelete(id: String): AppResult<Unit> = softDelete(id, clientOpId = null)
 
-    private suspend fun CollectionShareRepository.softDelete(id: String): AppResult<Unit> =
+    private suspend fun CollectionGrantRepository.softDelete(id: String): AppResult<Unit> =
         softDelete(id, clientOpId = null)
 }
 
@@ -742,7 +811,7 @@ internal class CollectionServiceImpl(
 fun createCollectionService(
     collectionRepo: CollectionRepository,
     collectionBookRepo: CollectionBookRepository,
-    shareRepo: CollectionShareRepository,
+    grantRepo: CollectionGrantRepository,
     bus: ChangeBus,
     db: Database,
     sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
@@ -752,8 +821,8 @@ fun createCollectionService(
     CollectionServiceImpl(
         collectionRepo = collectionRepo,
         collectionBookRepo = collectionBookRepo,
-        shareRepo = shareRepo,
-        accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+        grantRepo = grantRepo,
+        accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
         db = db,

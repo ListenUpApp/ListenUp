@@ -12,7 +12,7 @@ class CollectionsMigrationTest :
                 transaction(this) {
                     CollectionsTable.selectAll().toList()
                     CollectionBooksTable.selectAll().toList()
-                    CollectionSharesTable.selectAll().toList()
+                    CollectionGrantsTable.selectAll().toList()
                 }
             }
         }

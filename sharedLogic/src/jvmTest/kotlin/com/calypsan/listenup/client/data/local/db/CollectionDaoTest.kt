@@ -198,7 +198,6 @@ private fun collection(
     ownerId = ownerId,
     name = name,
     isInbox = false,
-    isGlobalAccess = false,
     revision = 1L,
     deletedAt = deletedAt,
     updatedAt = 100L,

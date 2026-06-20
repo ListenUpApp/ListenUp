@@ -88,12 +88,10 @@ struct CollectionRowModel: Identifiable {
     let id: String
     let name: String
     let bookCount: Int
-    let isGlobalAccess: Bool
 
     init(from collection: Collection) {
         self.id = collection.id
         self.name = collection.name
         self.bookCount = Int(collection.bookCount)
-        self.isGlobalAccess = collection.isGlobalAccess
     }
 }

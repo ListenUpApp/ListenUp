@@ -2,10 +2,12 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -19,7 +21,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -67,12 +69,12 @@ class InboxApproveReachesMemberTest :
             val registry = SyncRegistry()
             val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
             val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
-            val accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
-                shareRepo = shareRepo,
+                grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
@@ -100,6 +102,24 @@ class InboxApproveReachesMemberTest :
                     val accessPolicy = BookAccessPolicy(db)
                     val service = makeCollectionService(db, bookRevisionTouch = bookRepo)
                     val admin = service.actAs("admin", UserRole.ADMIN)
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+
+                    // Every member holds a default ALL_BOOKS grant in production; mirror that here
+                    // so the member can see books once they reach the public substrate.
+                    val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    grantRepo.upsert(
+                        CollectionShareSyncPayload(
+                            id = "member-all-books-grant",
+                            collectionId = allBooks.data.id.value,
+                            sharedWithUserId = "member",
+                            sharedByUserId = "system",
+                            permission = SharePermission.Read,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            deletedAt = null,
+                        ),
+                    )
 
                     val inbox = admin.getOrCreateInbox("test-library")
                     require(inbox is AppResult.Success)
@@ -111,12 +131,13 @@ class InboxApproveReachesMemberTest :
                     accessPolicy.canAccess("member", UserRole.MEMBER, "b1") shouldBe false
                     val revisionBeforeApprove = readBookRevision(db, "b1")
 
-                    // Approve to library (empty target list → uncollected → public).
+                    // Approve to library (empty target list → ALL_BOOKS → public substrate).
                     admin.releaseBooks("test-library", mapOf("b1" to emptyList<String>())).let {
                         require(it is AppResult.Success)
                     }
 
-                    // Approved → visible AND its revision advanced, so a member's incremental
+                    // Approved → the book joined ALL_BOOKS, so the granted member can now see it,
+                    // AND its revision advanced, so the member's incremental
                     // `revision > cursor AND accessible` pull will deliver it.
                     accessPolicy.canAccess("member", UserRole.MEMBER, "b1") shouldBe true
                     readBookRevision(db, "b1") shouldBeGreaterThan revisionBeforeApprove

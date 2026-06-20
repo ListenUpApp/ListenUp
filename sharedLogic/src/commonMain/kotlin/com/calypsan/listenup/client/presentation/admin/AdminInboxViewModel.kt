@@ -28,9 +28,10 @@ import kotlinx.coroutines.launch
  * VM then hydrates each id into an [InboxBookItem] (cover/title/author/duration) by observing
  * [BookDao.observeByIdsWithContributors] so the review-and-release queue shows real book detail
  * rather than raw ids. The admin selects books and **releases** them: every inbox release is
- * public (uncollected), so the single 1b `releaseBooks(libraryId, assignments)` call maps each
- * selected id to an empty target-collection list. Per-book collection assignment is book-edit's
- * job, not the inbox's.
+ * public — `releaseBooks` with an empty target list moves the book into the shared `ALL_BOOKS`
+ * collection every member can see — so the single `releaseBooks(libraryId, assignments)` call
+ * maps each selected id to an empty target-collection list. Per-book collection assignment is
+ * book-edit's job, not the inbox's.
  *
  * Subscribes to admin SSE events for real-time inbox add/release updates.
  */
@@ -155,7 +156,8 @@ class AdminInboxViewModel(
     }
 
     /**
-     * Release the selected books from the inbox as publicly visible (uncollected).
+     * Release the selected books from the inbox as publicly visible (moved into the shared
+     * `ALL_BOOKS` collection every member can see).
      *
      * Every inbox release is public — per-book collection assignment is book-edit's job,
      * not the inbox's — so each selected id maps to an empty target-collection list in the

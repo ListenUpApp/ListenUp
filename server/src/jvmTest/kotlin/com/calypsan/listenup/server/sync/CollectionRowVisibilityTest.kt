@@ -57,12 +57,12 @@ private const val PULL_LIMIT = 100
 class CollectionRowVisibilityTest :
     FunSpec({
 
-        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionShareRepository, CollectionBookRepository> {
+        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionGrantRepository, CollectionBookRepository> {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
                 CollectionRepository(db = db, bus = bus, registry = registry),
-                CollectionShareRepository(db = db, bus = bus, registry = registry),
+                CollectionGrantRepository(db = db, bus = bus, registry = registry),
                 CollectionBookRepository(db = db, bus = bus, registry = registry),
             )
         }
@@ -112,7 +112,7 @@ class CollectionRowVisibilityTest :
                     shares.upsert(shareFixture("s-irrelevant", "strangers", sharedWith = "other"))
 
                     val policy = BookAccessPolicy(db)
-                    val frag = policy.visibleCollectionShareIdsSql("member", UserRole.MEMBER)
+                    val frag = policy.visibleCollectionGrantIdsSql("member", UserRole.MEMBER)
 
                     val page = shares.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
 
@@ -183,26 +183,33 @@ class CollectionRowVisibilityTest :
                     val client = sseClient()
 
                     client.mintRootToken()
-                    val memberToken = client.registerMember()
+                    val member = client.registerMember()
                     seedTestLibraryAndFolder()
                     val collections by application.inject<CollectionRepository>()
+                    val grants by application.inject<CollectionGrantRepository>()
+
+                    // The visible control is a regular (non-system) collection the member is
+                    // granted on — under pure union, collection-domain visibility comes from
+                    // ownership or a live grant (there is no global-access branch). Grant it
+                    // before the firehose subscription so canAccessCollection sees it at delivery.
+                    collections.upsert(collectionFixture("shared-col", owner = "stranger"))
+                    grants.upsert(shareFixture("share-shared-col", "shared-col", sharedWith = member.userId))
 
                     client.sse(
                         urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(memberToken) },
+                        request = { bearerAuth(member.token) },
                     ) {
                         coroutineScope {
-                            // The first collections event the member sees must be the public
-                            // (global-access) one — never the stranger's private one.
+                            // The first collections event the member sees must be the granted
+                            // (shared) one — never the stranger's private one.
                             val deferred = async { incoming.first { it.event == "collections" } }
                             collections.upsert(collectionFixture("private-col", owner = "stranger"))
-                            collections.upsert(
-                                collectionFixture("public-col", owner = "stranger", isGlobalAccess = true),
-                            )
+                            // Re-upsert the granted collection to publish a firehose event for it.
+                            collections.upsert(collectionFixture("shared-col", owner = "stranger"))
                             val event = deferred.await()
 
                             event.event shouldBe "collections"
-                            event.data!!.contains(""""id":"public-col"""") shouldBe true
+                            event.data!!.contains(""""id":"shared-col"""") shouldBe true
                             event.data!!.contains(""""id":"private-col"""") shouldBe false
                         }
                     }
@@ -227,7 +234,12 @@ private suspend fun HttpClient.mintRootToken(): String =
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 
-private suspend fun HttpClient.registerMember(): String {
+private data class MemberPrincipal(
+    val token: String,
+    val userId: String,
+)
+
+private suspend fun HttpClient.registerMember(): MemberPrincipal {
     val result =
         post("/api/v1/auth/register") {
             contentType(ContentType.Application.Json)
@@ -235,14 +247,14 @@ private suspend fun HttpClient.registerMember(): String {
         }.body<AppResult<RegisterResult>>()
             .let { it as AppResult.Success<RegisterResult> }
             .data
-    return (result as RegisterResult.Authenticated).session.accessToken.value
+    val session = (result as RegisterResult.Authenticated).session
+    return MemberPrincipal(token = session.accessToken.value, userId = session.user.id.value)
 }
 
 private fun collectionFixture(
     id: String,
     owner: String,
     isInbox: Boolean = false,
-    isGlobalAccess: Boolean = false,
 ): CollectionSyncPayload =
     CollectionSyncPayload(
         id = id,
@@ -250,7 +262,6 @@ private fun collectionFixture(
         ownerId = owner,
         name = id,
         isInbox = isInbox,
-        isGlobalAccess = isGlobalAccess,
         revision = 0L,
         updatedAt = 0L,
     )

@@ -7,8 +7,12 @@ import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
+import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.api.InstanceServiceImpl
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
@@ -98,6 +102,25 @@ fun authModule(config: ApplicationConfig): Module {
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 
+        // Nullable — booksModule (which binds LibraryRegistry) and syncModule (which binds
+        // CollectionRepository / CollectionGrantRepository) may not be loaded in minimal
+        // test containers. getOrNull() returns null when any dependency is absent.
+        single {
+            val collectionRepository = getOrNull<CollectionRepository>()
+            val grantRepository = getOrNull<CollectionGrantRepository>()
+            val libraryRegistry = getOrNull<LibraryRegistry>()
+            if (collectionRepository != null && grantRepository != null && libraryRegistry != null) {
+                DefaultAllBooksGrantIssuer(
+                    collectionGrantRepository = grantRepository,
+                    collectionRepository = collectionRepository,
+                    libraryRegistry = libraryRegistry,
+                    clock = get(),
+                )
+            } else {
+                null
+            }
+        }
+
         single {
             AuthServiceImpl(
                 db = get<ListenUpDatabase>(),
@@ -114,6 +137,7 @@ fun authModule(config: ApplicationConfig): Module {
                 publicProfileMaintainer = getOrNull(),
                 // Nullable — playbackModule (which binds ActivityRecorder) may not be loaded.
                 activityRecorder = getOrNull(),
+                defaultGrantIssuer = getOrNull(),
             )
         }
 
@@ -127,6 +151,7 @@ fun authModule(config: ApplicationConfig): Module {
                 clock = get(),
                 publicProfileMaintainer = getOrNull(),
                 activityRecorder = getOrNull(),
+                defaultGrantIssuer = getOrNull(),
             )
         }
 
@@ -150,6 +175,7 @@ fun authModule(config: ApplicationConfig): Module {
                 sessionIssuer = get(),
                 serverName = config.serverName(),
                 clock = get(),
+                defaultGrantIssuer = getOrNull(),
             )
         }
 

@@ -19,13 +19,11 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
  *
  * ## Preservation semantics
  *
- * Palette colors ([BookEntity.dominantColor], [BookEntity.darkMutedColor],
- * [BookEntity.vibrantColor]) and [BookEntity.coverBlurHash] are computed client-side
- * by extracting them from the cover image after download. They are never on the wire.
- * Overwriting them with `null` on every sync update would erase already-computed palette
- * data and cause the gradient UI behind book covers to flicker back to its default state
- * until the cover is re-analysed. This mapper preserves those fields from [existing] so
- * sync updates are visually transparent.
+ * [BookEntity.coverBlurHash] is computed client-side by extracting it from the cover image
+ * after download. It is never on the wire. Overwriting it with `null` on every sync update
+ * would erase the already-computed BlurHash and cause the cover placeholder to flicker back
+ * to its default state until the cover is re-analysed. This mapper preserves it from
+ * [existing] so sync updates are visually transparent.
  *
  * ## Children
  *
@@ -35,12 +33,12 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 class BookEntityMapper {
     /**
      * Produce a [BookEntity] by combining server-authoritative fields from [payload] with
-     * client-computed palette/blur-hash fields taken from [existing].
+     * the client-computed blur-hash field taken from [existing].
      *
      * @param payload The wire snapshot delivered by the sync substrate.
      * @param existing The current [BookEntity] in Room for this book ID, or `null` if this
-     *   is the first time the book is being seen on this client. When `null`, all
-     *   client-computed fields default to `null` (they will be populated once the cover image
+     *   is the first time the book is being seen on this client. When `null`, the
+     *   client-computed BlurHash defaults to `null` (it will be populated once the cover image
      *   is downloaded and analysed).
      */
     fun toBookEntity(
@@ -65,13 +63,10 @@ class BookEntityMapper {
             abridged = payload.abridged,
             totalDuration = payload.totalDuration,
             coverHash = payload.cover?.hash,
-            // Client-computed fields — preserved from the existing row so that a sync update
-            // never discards palette data already extracted from the cover image on this device.
-            // When existing is null (first-seen book) these are all null and will be populated
-            // after the cover image is downloaded and analysed.
-            dominantColor = existing?.dominantColor,
-            darkMutedColor = existing?.darkMutedColor,
-            vibrantColor = existing?.vibrantColor,
+            // Client-computed field — preserved from the existing row so that a sync update
+            // never discards the BlurHash already extracted from the cover image on this device.
+            // When existing is null (first-seen book) it is null and will be populated after the
+            // cover image is downloaded and analysed.
             coverBlurHash = existing?.coverBlurHash,
             // Sync substrate fields.
             revision = payload.revision,
@@ -145,9 +140,6 @@ fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
         coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null,
         coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
-        dominantColor = book.dominantColor,
-        darkMutedColor = book.darkMutedColor,
-        vibrantColor = book.vibrantColor,
         addedAt = book.createdAt,
         updatedAt = book.updatedAt,
         description = book.description,
@@ -219,9 +211,6 @@ fun BookWithContributors.toDetail(
         coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null,
         coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
-        dominantColor = book.dominantColor,
-        darkMutedColor = book.darkMutedColor,
-        vibrantColor = book.vibrantColor,
         addedAt = book.createdAt,
         updatedAt = book.updatedAt,
         description = book.description,

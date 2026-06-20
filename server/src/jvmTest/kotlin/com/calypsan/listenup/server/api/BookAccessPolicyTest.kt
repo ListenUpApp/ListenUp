@@ -11,7 +11,7 @@ import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -44,7 +44,7 @@ class BookAccessPolicyTest :
             return Fixture(
                 collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
-                shareRepo = CollectionShareRepository(db = this, bus = bus, registry = registry),
+                grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry),
                 policy = BookAccessPolicy(this),
             )
         }
@@ -73,13 +73,47 @@ class BookAccessPolicyTest :
             }
         }
 
-        test("uncollected book is public (any member sees it)") {
+        test("book in NO collection is INVISIBLE to a member (pure union — no uncollected→public)") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
                 seedTestBook("loose-book")
                 val f = fixture()
                 runTest {
-                    f.policy.canAccess("anyone", UserRole.MEMBER, "loose-book") shouldBe true
+                    // Under pure union, a book in no reachable collection is invisible, period.
+                    f.policy.canAccess("anyone", UserRole.MEMBER, "loose-book") shouldBe false
+                }
+            }
+        }
+
+        test("book in ALL_BOOKS is visible to a granted member") {
+            withInMemoryDatabase {
+                seedTestLibraryAndFolder()
+                seedTestUser("member")
+                seedTestBook("public-book")
+                val f = fixture()
+                runTest {
+                    // ALL_BOOKS is the public substrate: a system collection every member holds a
+                    // grant on. Membership in it + the member's grant = visibility under pure union.
+                    f.collectionRepo.upsert(collectionFixture("all-books", owner = "system"))
+                    f.collectionBookRepo.upsert(membership("all-books", "public-book"))
+                    f.grantRepo.upsert(share("g1", "all-books", "member", SharePermission.Read))
+
+                    f.policy.canAccess("member", UserRole.MEMBER, "public-book") shouldBe true
+                }
+            }
+        }
+
+        test("book in a collection the member neither owns nor is granted is INVISIBLE") {
+            withInMemoryDatabase {
+                seedTestLibraryAndFolder()
+                seedTestUser("member")
+                seedTestBook("walled-book")
+                val f = fixture()
+                runTest {
+                    f.collectionRepo.upsert(collectionFixture("stranger-col", owner = "stranger"))
+                    f.collectionBookRepo.upsert(membership("stranger-col", "walled-book"))
+
+                    f.policy.canAccess("member", UserRole.MEMBER, "walled-book") shouldBe false
                 }
             }
         }
@@ -107,7 +141,7 @@ class BookAccessPolicyTest :
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "shared-book"))
-                    f.shareRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
+                    f.grantRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
 
                     f.policy.canAccess("recipient", UserRole.MEMBER, "shared-book") shouldBe true
                 }
@@ -123,7 +157,7 @@ class BookAccessPolicyTest :
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "shared-book"))
-                    f.shareRepo.upsert(share("s1", "col1", "recipient", SharePermission.Write))
+                    f.grantRepo.upsert(share("s1", "col1", "recipient", SharePermission.Write))
 
                     f.policy.canAccess("recipient", UserRole.MEMBER, "shared-book") shouldBe true
                 }
@@ -139,25 +173,10 @@ class BookAccessPolicyTest :
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "shared-book"))
-                    f.shareRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
-                    f.shareRepo.softDeleteShare("col1", "recipient")
+                    f.grantRepo.upsert(share("s1", "col1", "recipient", SharePermission.Read))
+                    f.grantRepo.softDeleteGrant("col1", "recipient")
 
                     f.policy.canAccess("recipient", UserRole.MEMBER, "shared-book") shouldBe false
-                }
-            }
-        }
-
-        test("global-access collection's books are visible to all members") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("global-book")
-                val f = fixture()
-                runTest {
-                    f.collectionRepo.upsert(collectionFixture("col1", owner = "owner", isGlobalAccess = true))
-                    f.collectionBookRepo.upsert(membership("col1", "global-book"))
-
-                    // A member with no share and no ownership still sees it.
-                    f.policy.canAccess("stranger", UserRole.MEMBER, "global-book") shouldBe true
                 }
             }
         }
@@ -198,24 +217,22 @@ class BookAccessPolicyTest :
                 seedTestBook("book")
                 val f = fixture()
                 runTest {
-                    // Owner's membership is the only one, and it's tombstoned → the book is
-                    // no longer in any live collection, so it becomes a public (uncollected) book.
-                    // To prove the membership itself is ignored, the book also lives in a private
-                    // collection owned by a stranger via a LIVE membership.
+                    // "me"'s membership in their own collection is tombstoned, so that branch no
+                    // longer reaches "me". The only LIVE membership is in a private stranger-owned
+                    // collection "me" neither owns nor is granted → under pure union, denied. This
+                    // proves the tombstoned membership is ignored (it would otherwise grant access).
                     f.collectionRepo.upsert(collectionFixture("owned-col", owner = "me"))
                     f.collectionBookRepo.upsert(membership("owned-col", "book"))
                     f.collectionBookRepo.softDelete("owned-col", "book")
                     f.collectionRepo.upsert(collectionFixture("private-col", owner = "stranger"))
                     f.collectionBookRepo.upsert(membership("private-col", "book"))
 
-                    // "me" only ever had a tombstoned membership; the live membership is in a
-                    // private stranger-owned collection → denied.
                     f.policy.canAccess("me", UserRole.MEMBER, "book") shouldBe false
                 }
             }
         }
 
-        test("soft-deleted collection does not grant access (book falls to uncollected→public)") {
+        test("soft-deleted collection drops its membership (book has no live collection → INVISIBLE)") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
                 seedTestUser("u2")
@@ -225,18 +242,18 @@ class BookAccessPolicyTest :
                     // Book lives in exactly one collection — a private one owned by a stranger.
                     // Tombstoning the COLLECTION (not the membership, not a share) removes the
                     // only live membership: the `c.deleted_at IS NULL` guard excludes it from
-                    // both subqueries, so `book` has no live collection and falls through to the
-                    // "uncollected = public" branch, visible to any member.
+                    // the union subquery, so `book` is in no live reachable collection. Under
+                    // pure union that means INVISIBLE — there is no uncollected→public fallback.
                     f.collectionRepo.upsert(collectionFixture("private-col", owner = "stranger"))
                     f.collectionBookRepo.upsert(membership("private-col", "book"))
                     f.collectionRepo.softDelete("private-col")
 
-                    f.policy.canAccess("u2", UserRole.MEMBER, "book") shouldBe true
+                    f.policy.canAccess("u2", UserRole.MEMBER, "book") shouldBe false
                     // Equivalence holds on this branch too.
                     val accessibleIds =
                         f.policy.accessibleBookIds("u2", UserRole.MEMBER)
                             ?: error("expected a constrained id set for a member")
-                    ("book" in accessibleIds) shouldBe true
+                    ("book" in accessibleIds) shouldBe false
                 }
             }
         }
@@ -247,7 +264,8 @@ class BookAccessPolicyTest :
                 seedTestBook("gone-book")
                 val f = fixture()
                 runTest {
-                    f.collectionRepo.upsert(collectionFixture("col1", owner = "owner", isGlobalAccess = true))
+                    // Owned collection → the book would be visible to "owner" if it were live.
+                    f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("col1", "gone-book"))
                     softDeleteBook("gone-book")
 
@@ -260,14 +278,16 @@ class BookAccessPolicyTest :
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
                 seedTestUser("u2")
-                // Seed books spanning all six states for member u2.
+                // Seed books spanning the pure-union states for member u2: owned (visible),
+                // shared (visible), public-via-ALL_BOOKS (visible), private (invisible),
+                // uncollected (invisible), inbox (invisible).
                 val owned = "owned-book"
                 val shared = "shared-book"
-                val global = "global-book"
+                val public = "public-book"
                 val private = "private-book"
                 val uncollected = "uncollected-book"
                 val inbox = "inbox-book"
-                listOf(owned, shared, global, private, uncollected, inbox).forEach { seedTestBook(it) }
+                listOf(owned, shared, public, private, uncollected, inbox).forEach { seedTestBook(it) }
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("owned-col", owner = "u2"))
@@ -275,10 +295,12 @@ class BookAccessPolicyTest :
 
                     f.collectionRepo.upsert(collectionFixture("shared-col", owner = "owner"))
                     f.collectionBookRepo.upsert(membership("shared-col", shared))
-                    f.shareRepo.upsert(share("s1", "shared-col", "u2", SharePermission.Read))
+                    f.grantRepo.upsert(share("s1", "shared-col", "u2", SharePermission.Read))
 
-                    f.collectionRepo.upsert(collectionFixture("global-col", owner = "owner", isGlobalAccess = true))
-                    f.collectionBookRepo.upsert(membership("global-col", global))
+                    // Public substrate: ALL_BOOKS membership + u2's grant.
+                    f.collectionRepo.upsert(collectionFixture("all-books", owner = "system"))
+                    f.collectionBookRepo.upsert(membership("all-books", public))
+                    f.grantRepo.upsert(share("g1", "all-books", "u2", SharePermission.Read))
 
                     f.collectionRepo.upsert(collectionFixture("private-col", owner = "stranger"))
                     f.collectionBookRepo.upsert(membership("private-col", private))
@@ -286,12 +308,12 @@ class BookAccessPolicyTest :
                     f.collectionRepo.upsert(collectionFixture("inbox-col", owner = "stranger", isInbox = true))
                     f.collectionBookRepo.upsert(membership("inbox-col", inbox))
 
-                    // uncollected stays in no collection.
+                    // uncollected stays in no collection → invisible under pure union.
 
                     val accessibleIds =
                         f.policy.accessibleBookIds("u2", UserRole.MEMBER)
                             ?: error("expected a constrained id set for a member")
-                    listOf(owned, shared, global, private, uncollected, inbox).forEach { bookId ->
+                    listOf(owned, shared, public, private, uncollected, inbox).forEach { bookId ->
                         f.policy.canAccess("u2", UserRole.MEMBER, bookId) shouldBe (bookId in accessibleIds)
                     }
                 }
@@ -302,7 +324,7 @@ class BookAccessPolicyTest :
 private data class Fixture(
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
-    val shareRepo: CollectionShareRepository,
+    val grantRepo: CollectionGrantRepository,
     val policy: BookAccessPolicy,
 )
 
@@ -310,7 +332,6 @@ private fun collectionFixture(
     id: String,
     owner: String,
     isInbox: Boolean = false,
-    isGlobalAccess: Boolean = false,
 ): CollectionSyncPayload =
     CollectionSyncPayload(
         id = id,
@@ -318,7 +339,6 @@ private fun collectionFixture(
         ownerId = owner,
         name = id,
         isInbox = isInbox,
-        isGlobalAccess = isGlobalAccess,
         revision = 0L,
         updatedAt = 0L,
     )

@@ -20,7 +20,7 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
@@ -64,12 +64,12 @@ class CollectionServiceImplTest :
             val registry = SyncRegistry()
             val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
             val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
-            val accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
                 collectionBookRepo = collectionBookRepo,
-                shareRepo = shareRepo,
+                grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
@@ -153,8 +153,8 @@ class CollectionServiceImplTest :
                     ownerAdd shouldBe AppResult.Success(Unit)
 
                     // Read-share to u2.
-                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    shareRepo.upsert(
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = collectionId.value,
@@ -249,6 +249,7 @@ class CollectionServiceImplTest :
                     }
 
                     // Seed an inbox collection directly; deleting it is rejected.
+                    // type='INBOX' must be stamped explicitly — is_inbox column is gone.
                     val collectionRepo = CollectionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
                     collectionRepo.upsert(
                         CollectionSyncPayload(
@@ -256,11 +257,11 @@ class CollectionServiceImplTest :
                             libraryId = "test-library",
                             ownerId = "u1",
                             name = "Inbox",
-                            isInbox = true,
                             revision = 0L,
                             updatedAt = 0L,
                         ),
                     )
+                    collectionRepo.setType("inbox1", "INBOX")
                     val inboxDelete = service.deleteCollection(CollectionId("inbox1"))
                     require(inboxDelete is AppResult.Failure)
                     inboxDelete.error.shouldBeInstanceOf<CollectionError.InboxNotDeletable>()
@@ -286,8 +287,8 @@ class CollectionServiceImplTest :
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
 
                     val collectionBookRepo = CollectionBookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    shareRepo.upsert(
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = collectionId.value,
@@ -301,7 +302,7 @@ class CollectionServiceImplTest :
 
                     // Preconditions: cascade targets exist and are live.
                     collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 1L
-                    require(shareRepo.findActiveShare(collectionId.value, "u2") != null)
+                    require(grantRepo.findActiveGrant(collectionId.value, "u2") != null)
 
                     service.deleteCollection(collectionId) shouldBe AppResult.Success(Unit)
 
@@ -310,8 +311,8 @@ class CollectionServiceImplTest :
                     collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 0L
 
                     // Cascade: active share soft-deleted.
-                    shareRepo.findActiveShare(collectionId.value, "u2") shouldBe null
-                    shareRepo.listActiveSharesForCollection(collectionId.value) shouldHaveSize 0
+                    grantRepo.findActiveGrant(collectionId.value, "u2") shouldBe null
+                    grantRepo.listActiveGrantsForCollection(collectionId.value) shouldHaveSize 0
                 }
             }
         }
@@ -340,8 +341,8 @@ class CollectionServiceImplTest :
                     require(colU2 is AppResult.Success)
 
                     // Share colSharedOut with u2 (read).
-                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    shareRepo.upsert(
+                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    grantRepo.upsert(
                         CollectionShareSyncPayload(
                             id = "share1",
                             collectionId = colSharedOut.data.id.value,
@@ -635,7 +636,7 @@ class CollectionServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+                // No admin required: inbox is owned by the "system" sentinel, not a real user.
                 runTest {
                     val service = makeService(db)
 
@@ -643,7 +644,7 @@ class CollectionServiceImplTest :
                     require(first is AppResult.Success)
                     first.data.isInbox shouldBe true
                     first.data.name shouldBe "Inbox"
-                    first.data.ownerId shouldBe UserId("admin")
+                    first.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
 
                     // Idempotent: a second call returns the same inbox, not a new one.
                     val second = service.getOrCreateInbox("test-library")
@@ -694,7 +695,7 @@ class CollectionServiceImplTest :
             }
         }
 
-        test("releaseBooks moves books out of inbox into staged collections (or none → uncollected)") {
+        test("releaseBooks moves books out of inbox into staged collections (or none → ALL_BOOKS)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -713,7 +714,7 @@ class CollectionServiceImplTest :
                     val collA = admin.createCollection("test-library", "Collection A")
                     require(collA is AppResult.Success)
 
-                    // Release: book1 → [collA], book2 → [] (becomes uncollected).
+                    // Release: book1 → [collA], book2 → [] (empty target → ALL_BOOKS, stays public).
                     val released =
                         admin.releaseBooks(
                             "test-library",
@@ -733,6 +734,13 @@ class CollectionServiceImplTest :
                     val collABooks = admin.listCollectionBooks(collA.data.id)
                     require(collABooks is AppResult.Success)
                     collABooks.data shouldBe listOf(BookId("book1"))
+
+                    // book2 (empty target) landed in ALL_BOOKS — the public substrate.
+                    val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksMembers = admin.listCollectionBooks(allBooks.data.id)
+                    require(allBooksMembers is AppResult.Success)
+                    allBooksMembers.data shouldBe listOf(BookId("book2"))
                 }
             }
         }

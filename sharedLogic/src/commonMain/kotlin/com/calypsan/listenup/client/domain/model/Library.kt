@@ -59,8 +59,8 @@ data class LibraryFolderRef(
  */
 enum class AccessMode {
     /**
-     * Open mode: uncollected books are visible to all users.
-     * Collections restrict access (carve out privacy).
+     * Open mode: newly added books are public by default — they join the shared `ALL_BOOKS`
+     * collection that every member can see. Collections carve out privacy.
      */
     OPEN,
 

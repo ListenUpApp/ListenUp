@@ -22,7 +22,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
@@ -490,7 +490,7 @@ private class FakeBookIngest(
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
-        inboxCollectionId: String?,
+        systemCollectionId: String?,
     ): AppResult<IngestOutcome> {
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
@@ -550,12 +550,12 @@ private fun inertCollectionService(db: Database): CollectionServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-    val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
+    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
     return CollectionServiceImpl(
         collectionRepo = collectionRepo,
         collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
-        shareRepo = shareRepo,
-        accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+        grantRepo = grantRepo,
+        accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
         bus = bus,
         db = db,

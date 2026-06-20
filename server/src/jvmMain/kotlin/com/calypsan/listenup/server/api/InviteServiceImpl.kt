@@ -68,11 +68,16 @@ class InviteServiceImpl(
     private val serverName: String,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    /**
+     * Nullable so the invite module assembles independently of the collections module
+     * (test environments, phased startup). A null value silently skips default grant issuance.
+     */
+    private val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
 ) : InviteService,
     InviteServicePublic {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): InviteServiceImpl =
-        InviteServiceImpl(db, codeGenerator, hasher, sessionIssuer, serverName, clock, provider)
+        InviteServiceImpl(db, codeGenerator, hasher, sessionIssuer, serverName, clock, provider, defaultGrantIssuer)
 
     override suspend fun createInvite(
         email: String,
@@ -162,6 +167,12 @@ class InviteServiceImpl(
                 is AppResult.Failure -> return claim
                 is AppResult.Success -> claim.data
             }
+        // Best-effort default ALL_BOOKS grant — mirrors AuthServiceImpl.register. Runs AFTER the
+        // atomic claim commits so the user FK exists for the grant row. The issuer itself never
+        // throws (re-raises CancellationException, swallows everything else), so no outer try/catch
+        // is needed; a MEMBER claim that fails to grant self-heals on next login. ROOT/ADMIN invites
+        // are a no-op inside the issuer (role gate).
+        defaultGrantIssuer?.grantDefaultAllBooks(user.id, user.role)
         return AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
     }
 

@@ -3,8 +3,6 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.core.AppleSecureStorage
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.local.images.CommonImageStorage
-import com.calypsan.listenup.client.data.local.images.CoverColorExtractor
-import com.calypsan.listenup.client.data.local.images.AppleCoverColorExtractor
 import com.calypsan.listenup.client.data.local.images.AppleStoragePaths
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.repository.AppleNetworkMonitor
@@ -33,9 +31,5 @@ actual val platformStorageModule: Module =
 
         single<NetworkMonitor> {
             AppleNetworkMonitor()
-        }
-
-        single<CoverColorExtractor> {
-            AppleCoverColorExtractor()
         }
     }

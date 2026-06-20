@@ -284,7 +284,6 @@ private fun collectionPayload(
     ownerId = "u1",
     name = name,
     isInbox = false,
-    isGlobalAccess = false,
     revision = revision,
     updatedAt = 100L,
     deletedAt = deletedAt,

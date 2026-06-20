@@ -69,12 +69,13 @@ private val log = KotlinLogging.logger {}
  * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
  * SQLDelight book transaction — so a single writer never contends for the SQLite write lock.
  *
- * The inbox-quarantine membership is the one exception: it is written ATOMICALLY inside the
- * SQLDelight book transaction ([writeInboxMembership]), because a separate post-commit write left
- * a narrow REST-catch-up window where a member could pull the briefly-uncollected (public) book.
- * That write uses the same SQLDelight engine as the book row, so it never nests an Exposed write
- * inside the SQLDelight transaction; the Exposed [CollectionBookRepository] stays canonical for
- * every other `collection_books` operation.
+ * The system-collection membership (#680 pure-union model) is the one exception: a genuinely-new
+ * book's `collection_books` row — ALL_BOOKS for a non-held library, INBOX for a held one — is
+ * written ATOMICALLY inside the SQLDelight book transaction ([writeSystemMembership]), because a
+ * separate post-commit write left a narrow REST-catch-up window where a member could pull a held
+ * book before its INBOX membership landed. That write uses the same SQLDelight engine as the book
+ * row, so it never nests an Exposed write inside the SQLDelight transaction; the Exposed
+ * [CollectionBookRepository] stays canonical for every other `collection_books` operation.
  *
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
@@ -209,15 +210,16 @@ class BookRepository(
      *
      * **Atomicity is the contract.** The root row, the four child tables (contributors,
      * series, chapters, audio files), the FTS index (`book_search` + `book_search_map`), and —
-     * for a genuinely-new book the scan path marked for quarantine — the book→inbox
-     * `collection_books` membership ([writeInboxMembership]) land together or not at all. The
+     * for a genuinely-new book the scan path assigned to a system collection — the book→collection
+     * `collection_books` membership ([writeSystemMembership]) land together or not at all. The
      * substrate has already opened the transaction and resolved [existed]; this method issues
      * writes that bind to that transaction.
      *
      * Genre writes do NOT happen here — they run as a separate, sequential Exposed transaction
      * after this one commits (see [upsertFromAnalyzed]) so the not-yet-converted Exposed genre
-     * writer never nests inside the SQLDelight write lock. The inbox membership, by contrast, is
-     * a SQLDelight write on the same engine, so it joins this transaction safely and atomically.
+     * writer never nests inside the SQLDelight write lock. The system-collection membership, by
+     * contrast, is a SQLDelight write on the same engine, so it joins this transaction safely and
+     * atomically.
      */
     override fun writePayload(
         value: BookSyncPayload,
@@ -331,15 +333,17 @@ class BookRepository(
                 deleted_at = null,
                 client_op_id = clientOpId,
             )
-            // Atomic inbox quarantine. When the scan path stashed an inbox id (genuinely-new book
-            // in an inbox-enabled library), write the book→inbox `collection_books` membership in
-            // THIS same SQLDelight transaction, so the book is collected the instant it exists.
-            // The firehose's delivery-time access filter therefore never sees a momentarily-public
-            // book, and no member can pull it as public in the REST catch-up window — the TOCTOU
-            // the post-commit (Exposed) membership write left open is closed by atomicity. The
-            // membership emits its own `collection_books` `SyncEvent.Created` so it propagates to
-            // every device exactly as the Exposed path's emit did.
-            extras?.inboxCollectionId?.let { inboxId -> writeInboxMembership(inboxId, value.id, now) }
+            // Atomic system-collection membership (#680 pure-union model). When the scan path stashed
+            // a system collection id (genuinely-new book — ALL_BOOKS for a non-held library, INBOX for
+            // a held one), write the book→collection `collection_books` membership in THIS same
+            // SQLDelight transaction, so the book is collected the instant it exists. The two cases are
+            // mutually exclusive and resolved upstream (BookPersister.resolveSystemCollectionId): a held
+            // book joins INBOX only, never ALL_BOOKS, so it is never visible to members via the ALL_BOOKS
+            // grant. The firehose's delivery-time access filter therefore never observes a held book as
+            // accessible, and no member can pull it in the REST catch-up window — the TOCTOU a post-commit
+            // membership write left open is closed by atomicity. The membership emits its own
+            // `collection_books` `SyncEvent.Created` so it propagates to every device.
+            extras?.systemCollectionId?.let { sysId -> writeSystemMembership(sysId, value.id, now) }
         }
 
         bookAggregateWriter.replaceContributors(value.id, value.contributors)
@@ -396,21 +400,30 @@ class BookRepository(
      *     lookup misses; a hit preserves the UUID and updates `root_rel_path`.
      *  3. **No match** — a fresh UUID.
      *
-     * In every branch the write goes through [upsertFromAnalyzed]. Each lookup opens its
-     * own short read transaction; the subsequent write opens its own. SQLite is single-writer,
-     * so the consecutive transactions serialize cleanly with no lost-update race within a scan.
+     * In every branch the write goes through [upsertFromAnalyzed], which builds a
+     * [BookSyncPayload] and hands it to the substrate's `upsert` — so revision bumping and
+     * `SyncEvent` publication happen uniformly. Each lookup opens its own short read transaction;
+     * the subsequent write opens its own. SQLite is single-writer, so the consecutive transactions
+     * serialize cleanly with no lost-update race within a single scan pass.
+     *
+     * @return [AppResult.Success] carrying an [IngestOutcome] — the stable
+     *   [BookId] (newly minted or pre-existing) plus a `wasNew` flag the scan
+     *   coordinator uses to gate system-collection membership — only when the aggregate write
+     *   landed. An [AppResult.Failure] means [upsertFromAnalyzed] did not persist
+     *   the book; callers must not treat the failure as a persisted aggregate,
+     *   and for a new book the minted UUID points at nothing.
      */
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
-        inboxCollectionId: String?,
+        systemCollectionId: String?,
     ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         bookFinder.findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
                 .map { IngestOutcome(existing, wasNew = false) }
         }
 
@@ -421,13 +434,13 @@ class BookRepository(
                 bookFinder.findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
                         .map { IngestOutcome(existing, wasNew = false) }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover, inboxCollectionId)
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
             .map { IngestOutcome(newId, wasNew = true) }
     }
 
@@ -521,13 +534,14 @@ class BookRepository(
      * the book write commits (genres via the Exposed [bookGenreWriter], tags via
      * [bookTagWriter]).
      *
-     * The book→inbox membership for a genuinely-new book, by contrast, is written **atomically**
-     * inside the book-insert transaction: when [inboxCollectionId] is non-null and this call
-     * INSERTs a new book, the id rides in via [BookWriteExtras] and `writePayload` lands the
-     * `collection_books` row in the same SQLDelight transaction (see [writeInboxMembership]). The
-     * inbox id is stashed only when `existing == null`, so the UPDATE path of a rescan can never
-     * re-inbox a released book. Atomicity closes the REST-catch-up window a post-commit membership
-     * write would otherwise open — the book is never momentarily public.
+     * The book→system-collection membership for a genuinely-new book, by contrast, is written
+     * **atomically** inside the book-insert transaction: when [systemCollectionId] is non-null and
+     * this call INSERTs a new book, the id rides in via [BookWriteExtras] and `writePayload` lands
+     * the `collection_books` row in the same SQLDelight transaction (see [writeSystemMembership]).
+     * The id is stashed only when `existing == null`, so the UPDATE path of a rescan can never
+     * re-collect a book into a system collection. Atomicity closes the REST-catch-up window a
+     * post-commit membership write would otherwise open — a held book is never momentarily
+     * pullable by a member.
      */
     suspend fun upsertFromAnalyzed(
         bookId: BookId,
@@ -535,7 +549,7 @@ class BookRepository(
         folderId: FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
-        inboxCollectionId: String? = null,
+        systemCollectionId: String? = null,
     ): AppResult<BookSyncPayload> {
         val resolvedContributors =
             analyzedBookMapper.buildContributors(analyzed).map { c ->
@@ -555,7 +569,7 @@ class BookRepository(
                 resolvedSeries = resolvedSeries,
             )
         // Read the existing aggregate ONCE — drives the idempotency check, the cover-source
-        // sticky-UPLOADED skip, and the only-on-create inbox quarantine gate.
+        // sticky-UPLOADED skip, and the only-on-create system-collection membership gate.
         val existing = findById(bookId)
         val isNew = existing == null
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
@@ -576,17 +590,17 @@ class BookRepository(
                     } else {
                         managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
                     }
-                // A genuinely-new book bound for the inbox has its `collection_books` membership
-                // written ATOMICALLY inside writePayload's INSERT branch (see writeInboxMembership),
-                // so the book is collected the instant it exists. There is no momentarily-public
-                // window, so the `book.Created` emit fires normally — the firehose's delivery-time
-                // access filter correctly excludes the now-collected book from members. The inbox id
-                // rides in via BookWriteExtras; it is stashed only for a genuinely-new book (`isNew`),
-                // never on the UPDATE path, so a rescan can't re-inbox a released book.
+                // A genuinely-new book assigned to a system collection (ALL_BOOKS or INBOX) has its
+                // `collection_books` membership written ATOMICALLY inside writePayload's INSERT branch
+                // (see writeSystemMembership), so the book is collected the instant it exists. The
+                // `book.Created` emit fires normally — the firehose's delivery-time access filter sees
+                // the book already collected, so a held (INBOX) book is correctly excluded from members.
+                // The id rides in via BookWriteExtras; it is stashed only for a genuinely-new book
+                // (`isNew`), never on the UPDATE path, so a rescan can't re-collect a released book.
                 withContext(
                     BookWriteExtras(
                         managedCover = storedCover,
-                        inboxCollectionId = if (isNew) inboxCollectionId else null,
+                        systemCollectionId = if (isNew) systemCollectionId else null,
                     ),
                 ) {
                     upsert(payload, clientOpId = null)
@@ -919,8 +933,15 @@ class BookRepository(
     }
 
     /**
-     * Writes the `(inboxCollectionId, bookId)` membership into `collection_books` inside the
-     * open SQLDelight book transaction, atomically with the book insert.
+     * Writes the `(systemCollectionId, bookId)` membership into `collection_books` inside the
+     * open SQLDelight book transaction, atomically with the book insert (#680 pure-union model).
+     *
+     * [systemCollectionId] is exactly one of the library's two system collections, resolved upstream
+     * by [com.calypsan.listenup.server.services.BookPersister.resolveSystemCollectionId]: ALL_BOOKS
+     * when the inbox gate is off (the new book is immediately visible to every member via the default
+     * ALL_BOOKS grant), or INBOX when the gate is on (the new book is quarantined, admin-only). The
+     * two are mutually exclusive — a held book joins INBOX only, never ALL_BOOKS — so the quarantine
+     * invariant (a member never observes a held book as accessible) holds by construction.
      *
      * Replicates the canonical syncable-write shape the Exposed [CollectionBookRepository] uses for
      * a new junction row: the synthetic `"$collectionId:$bookId"` id, the global revision bump via
@@ -940,28 +961,29 @@ class BookRepository(
      * outermost commit), so it never races the firehose's delivery-time access read against an
      * uncommitted row — exactly the deferral semantics the base's own emits use.
      *
-     * @throws IllegalArgumentException when an inbox id was stashed but no
+     * @throws IllegalArgumentException when a system-collection id was stashed but no
      *   [CollectionBookRepository] is wired — a misconfiguration that would silently drop the
-     *   quarantine, so it fails loudly rather than leaking a public book.
+     *   membership (re-opening the firehose leak for a held book, or leaving a non-held book
+     *   uncollected and invisible to members), so it fails loudly.
      */
-    private fun writeInboxMembership(
-        inboxCollectionId: String,
+    private fun writeSystemMembership(
+        systemCollectionId: String,
         bookId: String,
         now: Long,
     ) {
         val repo =
             requireNotNull(collectionBookRepository) {
-                "inbox quarantine requested but CollectionBookRepository is not wired"
+                "system-collection membership requested but CollectionBookRepository is not wired"
             }
         // Idempotency: never re-insert an existing pair (defensive on the new-book INSERT path).
-        if (db.collectionBooksQueries.existsByCollectionAndBook(inboxCollectionId, bookId).executeAsOne()) {
+        if (db.collectionBooksQueries.existsByCollectionAndBook(systemCollectionId, bookId).executeAsOne()) {
             return
         }
-        val syntheticId = "$inboxCollectionId:$bookId"
+        val syntheticId = "$systemCollectionId:$bookId"
         val membershipRev = nextRevision()
         db.collectionBooksQueries.insertMembership(
             id = syntheticId,
-            collection_id = inboxCollectionId,
+            collection_id = systemCollectionId,
             book_id = bookId,
             created_at = now,
             updated_at = now,
@@ -976,7 +998,7 @@ class BookRepository(
                 clientOpId = null,
                 payload =
                     CollectionBookSyncPayload(
-                        collectionId = inboxCollectionId,
+                        collectionId = systemCollectionId,
                         bookId = bookId,
                         createdAt = now,
                         revision = membershipRev,

@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -58,11 +59,13 @@ import java.nio.file.Files
  * private-book session over the real wire — not just in a hand-built service instance.
  *
  * Two users:
- *  - **A** (ROOT, via `/auth/setup`) listens to a globally-accessible (uncollected) book
- *    and a book gated into A's own private collection.
- *  - **B** (MEMBER, via `/auth/register` under OPEN policy) is the viewer. B has no
- *    relationship to A's private collection, so `BookAccessPolicy` denies B the private
- *    book.
+ *  - **A** (ROOT, via `/auth/setup`) listens to a public book (placed in the library's
+ *    `ALL_BOOKS` system collection — the public substrate under the pure-union rule) and a
+ *    book gated into A's own private collection.
+ *  - **B** (MEMBER, via `/auth/register` under OPEN policy) is the viewer. B is registered
+ *    through the real auth flow, so B holds the default `ALL_BOOKS` grant and reaches the
+ *    public book under pure union; B has no relationship to A's private collection, so
+ *    `BookAccessPolicy` denies B the private book.
  *
  * Driving the reads as B over RPC, the test asserts:
  *  - `currentlyListening()` returns the accessible-book session and **omits** the
@@ -140,7 +143,6 @@ class SocialAclE2ETest :
                     ownerId = ownerId,
                     name = collectionId,
                     isInbox = false,
-                    isGlobalAccess = false,
                     revision = 0L,
                     updatedAt = 0L,
                 ),
@@ -166,7 +168,7 @@ class SocialAclE2ETest :
                     val alice = restClient.setupRoot()
                     val bob = restClient.registerMember()
 
-                    // ── Seed library + two books: one uncollected (public), one gated private ──
+                    // ── Seed library + two books: one public (joins ALL_BOOKS), one gated private ──
                     seedTestLibraryAndFolder()
                     val db by application.inject<Database>()
                     db.seedTestBook("public-book")
@@ -180,6 +182,32 @@ class SocialAclE2ETest :
                         bookId = "private-book",
                         collectionId = "alice-private",
                         ownerId = alice.userId,
+                    )
+
+                    // ── Make public-book actually public under pure union: place it in the
+                    //    library's ALL_BOOKS system collection. B (registered via the real auth
+                    //    flow) holds the default ALL_BOOKS grant on this same library, so the
+                    //    grant branch of BookAccessPolicy reaches the book — there is no
+                    //    uncollected→public fallback anymore. Resolve ALL_BOOKS for the bootstrap
+                    //    library (the one B's default grant targets, per DefaultAllBooksGrantIssuer),
+                    //    then add the membership directly via the repo (a system write, no principal).
+                    val collectionService by application.inject<CollectionServiceImpl>()
+                    val registry by application.inject<LibraryRegistry>()
+                    val bootstrapLibraryId = registry.currentLibrary().value
+                    val allBooksId =
+                        (
+                            collectionService.getOrCreateSystemCollection(
+                                bootstrapLibraryId,
+                                SystemCollectionType.ALL_BOOKS,
+                            ) as AppResult.Success
+                        ).data.id.value
+                    collectionBooks.upsert(
+                        CollectionBookSyncPayload(
+                            collectionId = allBooksId,
+                            bookId = "public-book",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
                     )
 
                     // ── A needs a live public_profiles identity, else her session is dropped. ──

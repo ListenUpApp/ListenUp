@@ -40,6 +40,10 @@ private const val SSE_EVENT_CONTROL = "control"
 // Every other domain passes a null filter (unchanged behaviour).
 private const val BOOKS_DOMAIN = "books"
 private const val COLLECTIONS_DOMAIN = "collections"
+
+// Wire domain stays "collection_shares" while the storage table is collection_grants — a USER grant
+// maps to a share on the wire. Do NOT rename to "collection_grants" without a coordinated client
+// migration (it would orphan client sync cursors). See CollectionGrantRepository.
 private const val COLLECTION_SHARES_DOMAIN = "collection_shares"
 private const val COLLECTION_BOOKS_DOMAIN = "collection_books"
 
@@ -74,7 +78,7 @@ private fun accessFilterFor(
     when (domainName) {
         BOOKS_DOMAIN -> policy().accessibleBookIdsSql(userId, role)
         COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
-        COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionShareIdsSql(userId, role)
+        COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionGrantIdsSql(userId, role)
         COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
         LIBRARY_FOLDERS_DOMAIN -> if (isAdmin(role)) null else LIBRARY_FOLDERS_HIDDEN
         else -> null
@@ -379,9 +383,9 @@ private fun isLibraryFolderEventHidden(
  *  - `collections` — the event id *is* the collection id; gated by [BookAccessPolicy.canAccessCollection].
  *  - `collection_books` — the event id is the synthetic `"$collectionId:$bookId"` key
  *    ([CollectionBookId.fromString]); gated by the parsed collection's access.
- *  - `collection_shares` — the event id is the share row id, so the collection id and named
- *    user come from the [CollectionShareSyncPayload]; visible iff the share names the viewer
- *    or the viewer owns the collection (the `visibleCollectionShareIdsSql` rule).
+ *  - `collection_shares` — the event id is the grant row id, so the collection id and named
+ *    user come from the [CollectionShareSyncPayload]; visible iff the grant names the viewer
+ *    or the viewer owns the collection (the `visibleCollectionGrantIdsSql` rule).
  */
 private suspend fun isCollectionEventHidden(
     busEvent: BusEvent<*>,

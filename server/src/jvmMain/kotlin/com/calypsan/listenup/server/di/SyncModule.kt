@@ -6,8 +6,8 @@ import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -49,5 +49,5 @@ fun syncModule(): Module =
         single(createdAtStart = true) { BookMoodRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { CollectionRepository(get(), get(), get()) }
         single(createdAtStart = true) { CollectionBookRepository(get(), get(), get()) }
-        single(createdAtStart = true) { CollectionShareRepository(get(), get(), get()) }
+        single(createdAtStart = true) { CollectionGrantRepository(get(), get(), get()) }
     }

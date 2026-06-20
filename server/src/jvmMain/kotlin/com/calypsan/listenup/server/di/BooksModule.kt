@@ -215,7 +215,7 @@ fun booksModule(
             CollectionServiceImpl(
                 collectionRepo = get(),
                 collectionBookRepo = get(),
-                shareRepo = get(),
+                grantRepo = get(),
                 accessPolicy = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 bus = get(),

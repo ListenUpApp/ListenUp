@@ -137,7 +137,6 @@ private fun CollectionWithBookCount.toDomain(): Collection =
         name = collection.name,
         ownerId = collection.ownerId,
         isInbox = collection.isInbox,
-        isGlobalAccess = collection.isGlobalAccess,
         bookCount = bookCount,
         // Room mirror does not carry the caller's effective permission; ownership is
         // derived by the caller (admin context). Default to Write — admins manage
@@ -152,7 +151,6 @@ private fun CollectionSummary.toDomain(): Collection =
         name = name,
         ownerId = ownerId.value,
         isInbox = isInbox,
-        isGlobalAccess = isGlobalAccess,
         bookCount = bookCount.toInt(),
         callerPermission = callerPermission,
         isOwner = isOwner,

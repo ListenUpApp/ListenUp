@@ -25,7 +25,7 @@ class CollectionRegistryTest :
 
                 CollectionRepository(db, bus, registry)
                 CollectionBookRepository(db, bus, registry)
-                CollectionShareRepository(db, bus, registry)
+                CollectionGrantRepository(db, bus, registry)
 
                 registry.knownDomains() shouldContainAll
                     listOf("collections", "collection_books", "collection_shares")

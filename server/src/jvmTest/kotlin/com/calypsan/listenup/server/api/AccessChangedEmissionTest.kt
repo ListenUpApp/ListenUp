@@ -18,7 +18,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
@@ -69,13 +69,13 @@ class AccessChangedEmissionTest :
             val registry = SyncRegistry()
             val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
             val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val shareRepo = CollectionShareRepository(db = db, bus = bus, registry = registry)
-            val accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo)
+            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             val service =
                 CollectionServiceImpl(
                     collectionRepo = collectionRepo,
                     collectionBookRepo = collectionBookRepo,
-                    shareRepo = shareRepo,
+                    grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
                     permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                     bus = bus,

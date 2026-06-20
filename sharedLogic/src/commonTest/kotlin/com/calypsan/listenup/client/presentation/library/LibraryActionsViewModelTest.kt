@@ -116,7 +116,6 @@ class LibraryActionsViewModelTest :
                 name = name,
                 ownerId = "user-1",
                 isInbox = false,
-                isGlobalAccess = false,
                 bookCount = bookCount,
                 callerPermission = SharePermission.Write,
                 isOwner = true,

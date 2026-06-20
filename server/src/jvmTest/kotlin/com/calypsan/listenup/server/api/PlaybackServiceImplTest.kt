@@ -4,11 +4,13 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
@@ -35,6 +37,7 @@ import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.db.UserEntity
@@ -65,6 +68,7 @@ class PlaybackServiceImplTest :
             val accessPolicy: BookAccessPolicy,
             val collectionRepo: CollectionRepository,
             val collectionBookRepo: CollectionBookRepository,
+            val grantRepo: CollectionGrantRepository,
         )
 
         fun buildDeps(db: org.jetbrains.exposed.v1.jdbc.Database): TestDeps {
@@ -105,6 +109,7 @@ class PlaybackServiceImplTest :
                 accessPolicy = BookAccessPolicy(db),
                 collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry),
                 collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
+                grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry),
             )
         }
 
@@ -137,13 +142,32 @@ class PlaybackServiceImplTest :
                 db = db,
             )
 
+        /**
+         * Makes [bookId] visible to each (already-seeded) member in [userIds] the pure-union way:
+         * drops the book into the per-library `ALL_BOOKS` substrate and grants each a live read
+         * grant on it — exactly how production exposes a public book. The users must already exist
+         * (`seedTestUser`): the grant's `principal_id` is a FK into `users`.
+         */
+        suspend fun TestDeps.makeReachable(
+            bookId: String,
+            vararg userIds: String,
+        ) {
+            collectionRepo.upsert(playbackCollection("all-books", owner = "system"))
+            collectionBookRepo.upsert(playbackMembership("all-books", bookId))
+            for (uid in userIds) {
+                grantRepo.upsert(playbackShare("grant-$bookId-$uid", "all-books", uid))
+            }
+        }
+
         test("prepare returns PreparedPlayback with audio files ordered by index for an unplayed book") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
 
                     val service = deps.service(db, "u1")
 
@@ -171,9 +195,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
                     deps.positionRepo.recordPosition(
                         userId = "u1",
                         bookId = "b1",
@@ -200,9 +226,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
 
                     val service = deps.service(db, "u1")
 
@@ -229,9 +257,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
 
                     val service = deps.service(db, "u1")
 
@@ -246,9 +276,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
 
                     val service = deps.service(db, "u1")
 
@@ -277,9 +309,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
 
                     val service = deps.service(db, "u1")
 
@@ -308,9 +342,12 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1", "u2")
                     deps.positionRepo.recordPosition("u1", "b1", 10_000L, 1_730_000_000_000L, false, 1.0f, null)
                     deps.positionRepo.recordPosition("u2", "b1", 20_000L, 1_730_000_000_000L, false, 1.5f, "chap-2")
 
@@ -361,19 +398,24 @@ class PlaybackServiceImplTest :
             }
         }
 
-        test("prepare returns the playback for a member on an uncollected (public) book") {
+        test("prepare returns the playback for a member granted via ALL_BOOKS (the public substrate)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("member")
                 val deps = buildDeps(db)
                 runTest {
-                    deps.bookRepo.upsert(bookWithThreeFiles("loose-book"))
+                    deps.bookRepo.upsert(bookWithThreeFiles("public-book"))
+                    // ALL_BOOKS membership + the member's grant = visibility under pure union.
+                    deps.collectionRepo.upsert(playbackCollection("all-books", owner = "system"))
+                    deps.collectionBookRepo.upsert(playbackMembership("all-books", "public-book"))
+                    deps.grantRepo.upsert(playbackShare("g1", "all-books", "member"))
 
-                    val service = deps.service(db, userId = "anyone", role = UserRole.MEMBER)
+                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
 
-                    val result = service.prepare(BookId("loose-book"))
+                    val result = service.prepare(BookId("public-book"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
-                    success.data.bookId shouldBe "loose-book"
+                    success.data.bookId shouldBe "public-book"
                 }
             }
         }
@@ -504,9 +546,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
+                    deps.makeReachable("book-1", "u1")
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
@@ -537,9 +581,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
+                    deps.makeReachable("book-1", "u1")
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
@@ -575,6 +621,7 @@ class PlaybackServiceImplTest :
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-tz"))
+                    deps.makeReachable("book-tz", "u1")
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
@@ -639,9 +686,11 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
+                seedTestUser("u1")
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
+                    deps.makeReachable("book-1", "u1")
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
@@ -736,7 +785,6 @@ private fun playbackCollection(
         ownerId = owner,
         name = id,
         isInbox = isInbox,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )
@@ -750,4 +798,20 @@ private fun playbackMembership(
         bookId = bookId,
         createdAt = 0L,
         revision = 0L,
+    )
+
+private fun playbackShare(
+    id: String,
+    collectionId: String,
+    userId: String,
+): CollectionShareSyncPayload =
+    CollectionShareSyncPayload(
+        id = id,
+        collectionId = collectionId,
+        sharedWithUserId = userId,
+        sharedByUserId = "system",
+        permission = SharePermission.Read,
+        revision = 0L,
+        updatedAt = 0L,
+        deletedAt = null,
     )
