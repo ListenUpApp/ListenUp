@@ -32,7 +32,8 @@ interface BookIngestPort {
      * Only when this call genuinely INSERTS a new book is its book→collection membership
      * written inside the same transaction as the book row, so the firehose (which evaluates
      * access at delivery) never exposes a held book to members. Re-scans/updates of an
-     * existing book never add membership. Null leaves the new book uncollected.
+     * existing book never add membership. Null leaves the new book uncollected (invisible to
+     * members under the pure-union rule until an admin collects it).
      *
      * The two cases are mutually exclusive: a held book must NOT join ALL_BOOKS (doing so
      * would expose it to every member via the ALL_BOOKS grant); a non-held book must NOT

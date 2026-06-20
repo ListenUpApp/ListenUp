@@ -63,7 +63,8 @@ private val log = KotlinLogging.logger {}
  * `book.Created` publish is observable). This closes the TOCTOU leak that the old
  * separate-transaction `addToInbox` hook carried. Re-scans/updates of an existing
  * book never re-add membership. Resolution failure logs a warning and falls back to
- * null, leaving the scanned books uncollected (offline-safe ingest).
+ * null, leaving the scanned books uncollected — invisible to members under the pure-union
+ * rule until an admin collects them (a rare ingest fallback that never fails the scan).
  *
  * [coverImageStore] is optional: when non-null, the persister extracts cover
  * bytes from each [AnalyzedBook] (filesystem or embedded) and passes a
@@ -172,7 +173,8 @@ class BookPersister internal constructor(
         // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
         // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —
         // a held book must never join ALL_BOOKS or it becomes visible to all members. A resolution
-        // failure must never fail the scan — fall back to null (book lands uncollected).
+        // failure must never fail the scan — fall back to null (book lands uncollected →
+        // invisible to members under pure-union until an admin collects it).
         val systemCollectionId = resolveSystemCollectionId(libraryId)
         var persisted = 0
         var failed = 0
@@ -247,9 +249,8 @@ class BookPersister internal constructor(
      *
      * Resolution failure (typed [AppResult.Failure] or escaped DB fault) must not fail the
      * scan — it logs a warning and returns null, leaving the new book uncollected. Under the
-     * old pre-2b-i rule, uncollected books defaulted to public; see spec §3.4 for how
-     * 2b-i's BookAccessPolicy handles uncollected books going forward.
-     * [CancellationException] is always re-raised.
+     * pure-union rule an uncollected book is invisible to members until an admin adds it to a
+     * collection (it is never silently public). [CancellationException] is always re-raised.
      */
     private suspend fun resolveSystemCollectionId(libraryId: LibraryId): String? =
         try {
