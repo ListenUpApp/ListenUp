@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.resources.AuthResources
+import com.calypsan.listenup.server.routes.resources.AuthResources
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER

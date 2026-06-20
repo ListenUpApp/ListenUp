@@ -22,7 +22,7 @@ import kotlinx.rpc.annotations.Rpc
  *
  * Wire shapes are defined in [com.calypsan.listenup.api.dto.MetadataBook] and
  * siblings. The third-party REST mirrors are in
- * [com.calypsan.listenup.api.resources.MetadataResources].
+ * `MetadataResources`.
  *
  * Two complementary surfaces:
  * - **Search / fetch** — [searchBooks], [getBookMetadata], [getBookChapters],

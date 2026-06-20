@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.LibraryResources
+import com.calypsan.listenup.server.routes.resources.LibraryResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl

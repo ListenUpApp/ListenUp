@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.BookTagsResources
-import com.calypsan.listenup.api.resources.TagResources
+import com.calypsan.listenup.server.routes.resources.BookTagsResources
+import com.calypsan.listenup.server.routes.resources.TagResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId

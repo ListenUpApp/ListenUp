@@ -18,7 +18,7 @@ import kotlinx.rpc.annotations.Rpc
  * [InviteServicePublic].
  *
  * REST mirrors are defined in
- * [com.calypsan.listenup.api.resources.InviteResources].
+ * `InviteResources`.
  */
 @Rpc
 interface InviteService {

@@ -1,4 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.core
+
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 /**
  * Platform-specific utilities for cross-platform code.
@@ -12,6 +17,7 @@ package com.calypsan.listenup.core
  * - getPlatformName(): Gets the platform name ("Android" or "iOS")
  * - getPlatformVersion(): Gets the OS version string
  */
+@HiddenFromObjC
 expect object PlatformUtils {
     /**
      * Checks if the app is running on an emulator/simulator.

@@ -31,7 +31,7 @@ import kotlinx.rpc.annotations.Rpc
  *   public shelves with access-filtered book lists; private shelves return
  *   [com.calypsan.listenup.api.error.ShelfError.NotFound] to non-owners.
  *
- * REST mirrors are defined in `com.calypsan.listenup.api.resources.ShelfResources`.
+ * REST mirrors are defined in `ShelfResources`.
  */
 @Rpc
 interface ShelfService {

@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.api.sync
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import com.calypsan.listenup.api.error.AppError
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -13,6 +17,7 @@ import kotlinx.serialization.Serializable
  *
  * Stable `@SerialName` discriminators — wire contract.
  */
+@HiddenFromObjC
 @Serializable
 sealed interface SyncControl {
     /**
@@ -20,6 +25,7 @@ sealed interface SyncControl {
      * replay window. Client must fall back to REST per-domain catch-up against
      * each registered domain.
      */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.CursorStale")
     data class CursorStale(
@@ -32,6 +38,7 @@ sealed interface SyncControl {
      * [error] is the same typed [AppError] surface the rest of the contract
      * uses; stacktraces never cross the wire.
      */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.StreamError")
     data class StreamError(
@@ -45,6 +52,7 @@ sealed interface SyncControl {
      * The client treats this as "re-derive your accessible library" and re-pulls
      * the access-aware books digest. A bare signal is enough; no scope is carried.
      */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.AccessChanged")
     data object AccessChanged : SyncControl
@@ -54,6 +62,7 @@ sealed interface SyncControl {
      * and may surface [reason]. Delivered per-user on the firehose control channel, published
      * before session revocation so the still-authed connection receives it.
      */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.UserDeleted")
     data class UserDeleted(
@@ -61,11 +70,13 @@ sealed interface SyncControl {
     ) : SyncControl
 
     /** Content-free broadcast nudge: active-session presence changed; re-fetch via SocialService. */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.ActiveSessionsChanged")
     data object ActiveSessionsChanged : SyncControl
 
     /** Content-free broadcast nudge: a new activity was recorded; re-fetch via ActivityService. */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.ActivityChanged")
     data object ActivityChanged : SyncControl
@@ -76,6 +87,7 @@ sealed interface SyncControl {
      * their stored remote-URL fallback — so an admin's new domain reaches connected clients without a
      * cold start. No payload: the value travels on the existing getServerInfo probe (one source of truth).
      */
+    @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.ServerInfoChanged")
     data object ServerInfoChanged : SyncControl

@@ -1,7 +1,9 @@
-@file:OptIn(FlowPreview::class)
+@file:OptIn(FlowPreview::class, ExperimentalObjCRefinement::class)
 
 package com.calypsan.listenup.core
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -14,56 +16,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
-/**
- * Reusable debounced search utility.
- *
- * Encapsulates the common pattern of:
- * - MutableStateFlow for query input
- * - Debouncing to avoid excessive API calls
- * - Minimum query length filtering
- * - Job management to cancel in-flight searches
- * - Loading state tracking
- *
- * Single-channel usage (search bar):
- * ```kotlin
- * class SearchViewModel(private val repository: SearchRepository) : ViewModel() {
- *     private val search = DebouncedSearch<Unit, List<Book>>(
- *         scope = viewModelScope,
- *         onSearch = { _, query -> repository.search(query) },
- *         onResult = { _, results -> state.update { it.copy(results = results, isLoading = false) } },
- *         onClear = { _ -> state.update { it.copy(results = emptyList()) } },
- *         onLoadingChange = { _, loading -> state.update { it.copy(isLoading = loading) } }
- *     )
- *
- *     fun onQueryChanged(query: String) = search.setQuery(Unit, query)
- * }
- * ```
- *
- * Multi-channel usage (per-role contributor search):
- * ```kotlin
- * private val search = DebouncedSearch<ContributorRole, List<Contributor>>(
- *     scope = scope,
- *     onSearch = { role, query -> repository.search(query) },
- *     onResult = { role, results -> state.update { it.copy(roleResults = it.roleResults + (role to results)) } },
- *     onClear = { role -> state.update { it.copy(roleResults = it.roleResults - role) } },
- *     onLoadingChange = { role, loading -> state.update { it.copy(roleLoading = it.roleLoading + (role to loading)) } }
- * )
- *
- * fun onQueryChanged(role: ContributorRole, query: String) = search.setQuery(role, query)
- * ```
- *
- * @param K Key type for multi-channel search (use Unit for single channel)
- * @param R Result type returned by search
- * @param scope CoroutineScope for launching search operations
- * @param debounceMs Debounce delay in milliseconds (default 300ms)
- * @param minQueryLength Minimum query length to trigger search (default 2)
- * @param onSearch Suspend function to perform the search
- * @param onResult Callback when results are received
- * @param onClear Callback when query is cleared
- * @param onLoadingChange Optional callback for loading state changes
- * @param onError Optional callback for search errors
- */
-class DebouncedSearch<K, R>(
+internal class DebouncedSearch<K, R>(
     private val scope: CoroutineScope,
     private val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
     private val minQueryLength: Int = DEFAULT_MIN_QUERY_LENGTH,
@@ -219,6 +172,7 @@ class DebouncedSearch<K, R>(
  * fun onQueryChanged(query: String) = search.setQuery(query)
  * ```
  */
+@HiddenFromObjC
 class SingleDebouncedSearch<R>(
     scope: CoroutineScope,
     debounceMs: Long = DebouncedSearch.DEFAULT_DEBOUNCE_MS,

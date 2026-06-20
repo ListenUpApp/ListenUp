@@ -18,7 +18,7 @@ import kotlinx.rpc.annotations.Rpc
  *   [deleteBookCover] mutate server state; SSE delivers the authoritative
  *   payload back to all connected clients.
  *
- * REST mirrors are defined in [com.calypsan.listenup.api.resources.BookResources].
+ * REST mirrors are defined in `BookResources`.
  *
  * // TODO: gate mutations by user permissions when Multi-user lands
  */

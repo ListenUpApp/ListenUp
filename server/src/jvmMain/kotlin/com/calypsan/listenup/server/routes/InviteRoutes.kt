@@ -6,8 +6,8 @@ import com.calypsan.listenup.api.dto.invite.ClaimInviteRequest
 import com.calypsan.listenup.api.dto.invite.CreateInviteRequest
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.InvitePreviewResource
-import com.calypsan.listenup.api.resources.InviteResources
+import com.calypsan.listenup.server.routes.resources.InvitePreviewResource
+import com.calypsan.listenup.server.routes.resources.InviteResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider

@@ -15,7 +15,7 @@ import kotlinx.rpc.annotations.Rpc
  * exceptions, so they survive both transports as in-band data.
  *
  * REST mirrors are defined in
- * [com.calypsan.listenup.api.resources.InviteResources].
+ * `InviteResources`.
  */
 @Rpc
 interface InviteServicePublic {

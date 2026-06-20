@@ -30,7 +30,7 @@ import kotlinx.rpc.annotations.Rpc
  * collections on the server.
  *
  * REST mirrors are defined in
- * [com.calypsan.listenup.api.resources.CollectionResources].
+ * `CollectionResources`.
  */
 @Rpc
 interface CollectionService {

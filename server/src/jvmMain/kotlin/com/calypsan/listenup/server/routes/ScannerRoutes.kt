@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
-import com.calypsan.listenup.api.resources.ScannerResources
+import com.calypsan.listenup.server.routes.resources.ScannerResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.withCorrelationId

@@ -128,8 +128,10 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor-client-auth = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
-# Ktor Resources — KMP @Resource annotation (shared commonMain contract surface)
+# Ktor Resources — @Resource REST-route annotation (used by :server routes/resources)
 ktor-resources = { module = "io.ktor:ktor-resources", version.ref = "ktor" }
+# Ktor IO — multiplatform io.ktor.utils.io.* (ByteReadChannel, etc.)
+ktor-io = { module = "io.ktor:ktor-io", version.ref = "ktor" }
 # Ktor server (core)
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }

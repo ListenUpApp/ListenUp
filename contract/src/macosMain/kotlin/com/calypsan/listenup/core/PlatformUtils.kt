@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.core
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import platform.Foundation.NSProcessInfo
 
 /**
@@ -8,6 +12,7 @@ import platform.Foundation.NSProcessInfo
  * Uses NSProcessInfo for system information.
  * Desktop is never an emulator.
  */
+@HiddenFromObjC
 actual object PlatformUtils {
     actual fun isEmulator(): Boolean = false
 

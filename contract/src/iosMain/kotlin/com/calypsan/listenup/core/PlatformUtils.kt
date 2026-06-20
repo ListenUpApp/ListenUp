@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.core
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import platform.UIKit.UIDevice
 
 /**
@@ -9,6 +13,7 @@ import platform.UIKit.UIDevice
  * This is the standard approach for iOS and works reliably across
  * all simulator types (iPhone, iPad, etc.).
  */
+@HiddenFromObjC
 actual object PlatformUtils {
     actual fun isEmulator(): Boolean = UIDevice.currentDevice.name.contains("Simulator", ignoreCase = true)
 

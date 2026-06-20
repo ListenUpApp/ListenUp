@@ -1,4 +1,9 @@
+@file:OptIn(ExperimentalObjCRefinement::class)
+
 package com.calypsan.listenup.api
+
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 /**
  * Canonical REST paths for the admin Audiobookshelf import surface.
@@ -8,6 +13,7 @@ package com.calypsan.listenup.api
  * uploader. Defining it once here makes client/server drift a compile-time concern, not a
  * runtime 404. Everything else in the import surface is RPC ([ImportService]).
  */
+@HiddenFromObjC
 object ImportRoutePaths {
     /** `POST` — streams a `.audiobookshelf` zip; responds an [com.calypsan.listenup.api.dto.imports.ImportSummary]. */
     const val ABS_UPLOAD: String = "/api/v1/admin/imports/abs/upload"

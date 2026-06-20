@@ -1,13 +1,13 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.GenreService
-import com.calypsan.listenup.api.dto.CreateGenreBody
+import com.calypsan.listenup.server.routes.resources.CreateGenreBody
 import com.calypsan.listenup.api.dto.GenreUpdate
-import com.calypsan.listenup.api.dto.MapUnmappedBody
-import com.calypsan.listenup.api.dto.MergeGenresBody
-import com.calypsan.listenup.api.dto.MoveGenreBody
+import com.calypsan.listenup.server.routes.resources.MapUnmappedBody
+import com.calypsan.listenup.server.routes.resources.MergeGenresBody
+import com.calypsan.listenup.server.routes.resources.MoveGenreBody
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.resources.GenreResources
+import com.calypsan.listenup.server.routes.resources.GenreResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.api.BookAccessPolicy
