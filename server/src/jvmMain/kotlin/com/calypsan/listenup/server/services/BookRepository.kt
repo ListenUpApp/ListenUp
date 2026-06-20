@@ -172,6 +172,10 @@ class BookRepository(
                     client_op_id = clientOpId,
                     id = id,
                 )
+                // The `Books.sq` softDeleteById is a plain UPDATE (no rows-affected return), so
+                // unlike the Tag/Contributor template's `.value` we read SQLite changes()
+                // directly — per-connection, reflects the immediately-preceding statement in
+                // this same transaction.
                 return db.booksQueries.changes().executeAsOne()
             }
 

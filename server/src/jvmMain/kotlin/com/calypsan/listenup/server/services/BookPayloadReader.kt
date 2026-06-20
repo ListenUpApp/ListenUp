@@ -14,7 +14,7 @@ import com.calypsan.listenup.server.db.sqldelight.Books
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 
 /** Keeps `id IN (?, ?, …)` under SQLite's variable-parameter ceiling. */
-private const val IN_LIST_CHUNK = 900
+private const val SQLITE_IN_CHUNK = 900
 
 /**
  * Builds a [BookSyncPayload] from an already-fetched root [bookRow] (a generated
@@ -95,7 +95,7 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
     val genresByBook = HashMap<String, MutableList<BookGenrePayload>>()
     val audioByBook = HashMap<String, MutableList<BookAudioFilePayload>>()
 
-    idStrs.chunked(IN_LIST_CHUNK).forEach { chunk ->
+    idStrs.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
         booksQueries.selectByIds(chunk).executeAsList().forEach { row -> bookRows[row.id] = row }
 
         bookContributorsQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
