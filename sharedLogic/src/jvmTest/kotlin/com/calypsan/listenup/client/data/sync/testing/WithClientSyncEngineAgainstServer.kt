@@ -254,7 +254,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 contributorRepo = serverRepos.contributorRepo,
                 seriesRepo = serverRepos.seriesRepo,
                 coverStorage = CoverStorage(),
-                db = serverDb,
                 sql = serverSqlDb,
                 driver = serverDriver,
                 genreRepo = serverRepos.genreRepo,

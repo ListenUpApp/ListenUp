@@ -252,7 +252,7 @@ private fun newService(
             contributorRepo = contributorRepo,
             seriesRepo = seriesRepo,
             coverStorage = CoverStorage(),
-            db = db,
+            sql = db.asSqlDatabase(),
             genreRepo = genreRepo,
             accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
             permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),

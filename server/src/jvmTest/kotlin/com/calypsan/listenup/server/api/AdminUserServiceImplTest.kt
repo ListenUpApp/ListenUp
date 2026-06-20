@@ -85,7 +85,7 @@ class AdminUserServiceImplTest :
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
-                db = db,
+                sql = db.asSqlDatabase(),
                 sessions = sessions,
                 settings = settings,
                 clock = fixedClock,
@@ -217,7 +217,7 @@ class AdminUserServiceImplTest :
                     val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
                     val svc =
                         AdminUserServiceImpl(
-                            db = db,
+                            sql = db.asSqlDatabase(),
                             sessions = sessions,
                             settings = settings,
                             clock = fixedClock,

@@ -212,7 +212,7 @@ private fun allBooksFixture(db: Database): AllBooksFixture {
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
             permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             bus = bus,
-            db = db,
+            sql = db.asSqlDatabase(),
             bookRevisionTouch = FakeBookRevisionTouch(),
             principal = PrincipalProvider { null },
         )

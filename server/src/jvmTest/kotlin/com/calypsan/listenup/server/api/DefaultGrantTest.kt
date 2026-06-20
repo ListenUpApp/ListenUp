@@ -121,7 +121,7 @@ class DefaultGrantTest :
 
             val adminSvc =
                 AdminUserServiceImpl(
-                    db = db,
+                    sql = db.asSqlDatabase(),
                     sessions = sessions,
                     settings = settings,
                     registrationBroadcaster = RegistrationBroadcaster(),

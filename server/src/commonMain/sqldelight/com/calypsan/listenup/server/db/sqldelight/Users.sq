@@ -122,6 +122,11 @@ VALUES (
 updateLastLoginAndTimezone:
 UPDATE users SET last_login_at = :last_login_at, timezone = :timezone WHERE id = :id;
 
+-- Best-effort timezone refresh on a live listening event (PlaybackServiceImpl) — keeps the
+-- user's home tz current as they travel. A no-op when the user row is absent.
+updateTimezone:
+UPDATE users SET timezone = :timezone WHERE id = :id;
+
 -- Soft-delete a user by stamping deleted_at. Mirrors AdminUserServiceImpl.deleteUser's tombstone
 -- write; the login path treats a stamped row as nonexistent (InvalidCredentials).
 markDeletedAt:

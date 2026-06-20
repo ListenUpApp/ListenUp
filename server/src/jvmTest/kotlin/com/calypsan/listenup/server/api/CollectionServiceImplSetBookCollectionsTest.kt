@@ -100,7 +100,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
                     bus = bus,
-                    db = db,
+                    sql = db.asSqlDatabase(),
                     clock = fixedClock,
                     permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                     bookRevisionTouch = FakeBookRevisionTouch(),

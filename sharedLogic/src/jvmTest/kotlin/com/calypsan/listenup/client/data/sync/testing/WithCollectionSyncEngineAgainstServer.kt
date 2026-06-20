@@ -187,7 +187,6 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 bus = bus,
-                db = serverDb,
                 sql = serverSqlDb,
                 bookRevisionTouch = bookRepo,
             )

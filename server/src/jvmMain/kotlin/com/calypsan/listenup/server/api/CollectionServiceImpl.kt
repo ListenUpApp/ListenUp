@@ -21,9 +21,9 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
-import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -31,12 +31,6 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
@@ -121,7 +115,7 @@ internal class CollectionServiceImpl(
     private val accessPolicy: CollectionAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
     private val bus: ChangeBus,
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
     private val bookRevisionTouch: BookRevisionTouch,
     private val principal: PrincipalProvider,
@@ -224,13 +218,15 @@ internal class CollectionServiceImpl(
         val collection = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
         if (collection.isInbox) return AppResult.Failure(CollectionError.InboxNotDeletable())
 
-        suspendTransaction(db) {
-            collectionBookRepo.softDeleteAllForCollection(id.value)
-            for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
-                grantRepo.softDelete(grant.id)
-            }
-            collectionRepo.softDelete(id.value)
+        // Cascade: tombstone the membership rows, every active grant, then the collection. Each is
+        // a suspend repo call that opens its own SQLDelight transaction, so they run sequentially
+        // (they cannot nest inside a non-suspend SQLDelight transaction body). Sequential
+        // single-engine writes never contend for the lone SQLite write lock.
+        collectionBookRepo.softDeleteAllForCollection(id.value)
+        for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
+            grantRepo.softDelete(grant.id)
         }
+        collectionRepo.softDelete(id.value)
         return AppResult.Success(Unit)
     }
 
@@ -310,21 +306,21 @@ internal class CollectionServiceImpl(
         val added = targetIds - current
         val removed = current - targetIds
 
-        suspendTransaction(db) {
-            for (collectionId in removed) {
-                collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
-            }
-            for (collectionId in added) {
-                collectionBookRepo.upsert(
-                    CollectionBookSyncPayload(
-                        collectionId = collectionId,
-                        bookId = bookId.value,
-                        createdAt = clock.now().toEpochMilliseconds(),
-                        revision = 0L,
-                        deletedAt = null,
-                    ),
-                )
-            }
+        // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
+        // cannot nest inside a non-suspend SQLDelight transaction body.
+        for (collectionId in removed) {
+            collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
+        }
+        for (collectionId in added) {
+            collectionBookRepo.upsert(
+                CollectionBookSyncPayload(
+                    collectionId = collectionId,
+                    bookId = bookId.value,
+                    createdAt = clock.now().toEpochMilliseconds(),
+                    revision = 0L,
+                    deletedAt = null,
+                ),
+            )
         }
 
         // Changing the book's collection set changes who can see the book. Every enumerable user
@@ -602,22 +598,24 @@ internal class CollectionServiceImpl(
             }
         }
 
-        suspendTransaction(db) {
-            for ((bookId, targetCollectionIds) in assignments) {
-                collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
-                // Empty target → release to ALL_BOOKS so the book stays publicly visible.
-                val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
-                for (targetId in resolvedTargets) {
-                    collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(
-                            collectionId = targetId,
-                            bookId = bookId,
-                            createdAt = clock.now().toEpochMilliseconds(),
-                            revision = 0L,
-                            deletedAt = null,
-                        ),
-                    )
-                }
+        // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
+        // cannot nest inside a non-suspend SQLDelight transaction body. The pre-flight validation
+        // above kept the release typed; a partial failure here is the same risk the prior outer
+        // Exposed transaction carried, since it never took the SQLite write lock anyway.
+        for ((bookId, targetCollectionIds) in assignments) {
+            collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
+            // Empty target → release to ALL_BOOKS so the book stays publicly visible.
+            val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
+            for (targetId in resolvedTargets) {
+                collectionBookRepo.upsert(
+                    CollectionBookSyncPayload(
+                        collectionId = targetId,
+                        bookId = bookId,
+                        createdAt = clock.now().toEpochMilliseconds(),
+                        revision = 0L,
+                        deletedAt = null,
+                    ),
+                )
             }
         }
 
@@ -682,7 +680,7 @@ internal class CollectionServiceImpl(
             accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
             bus = bus,
-            db = db,
+            sql = sql,
             clock = clock,
             bookRevisionTouch = bookRevisionTouch,
             principal = principal,
@@ -769,20 +767,10 @@ internal class CollectionServiceImpl(
         )
 
     private suspend fun bookExists(bookId: String): Boolean =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where { (BookTable.id eq bookId) and BookTable.deletedAt.isNull() }
-                .count() > 0
-        }
+        suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
 
     private suspend fun userExists(userId: String): Boolean =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.id eq userId }
-                .count() > 0
-        }
+        suspendTransaction(sql) { sql.usersQueries.existsById(userId).executeAsOne() }
 
     private fun CollectionShareSyncPayload.toDto(): CollectionShareDto =
         CollectionShareDto(
@@ -813,7 +801,6 @@ fun createCollectionService(
     collectionBookRepo: CollectionBookRepository,
     grantRepo: CollectionGrantRepository,
     bus: ChangeBus,
-    db: Database,
     sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     bookRevisionTouch: BookRevisionTouch,
     clock: Clock = Clock.System,
@@ -825,7 +812,7 @@ fun createCollectionService(
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
-        db = db,
+        sql = sql,
         clock = clock,
         bookRevisionTouch = bookRevisionTouch,
         principal = PrincipalProvider { error("Unscoped CollectionService — call collectionServiceScopedTo") },

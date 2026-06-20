@@ -159,7 +159,7 @@ class PlaybackServiceImplTest :
                 userStatsRepository = statsRepo,
                 accessPolicy = accessPolicy,
                 principal = principal(userId, role),
-                db = db,
+                sql = db.asSqlDatabase(),
             )
 
         /**

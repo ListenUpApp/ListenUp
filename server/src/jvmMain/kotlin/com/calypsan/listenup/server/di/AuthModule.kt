@@ -151,7 +151,7 @@ fun authModule(config: ApplicationConfig): Module {
 
         single {
             AdminUserServiceImpl(
-                db = get(),
+                sql = get<ListenUpDatabase>(),
                 sessions = get(),
                 settings = get(),
                 registrationBroadcaster = get(),

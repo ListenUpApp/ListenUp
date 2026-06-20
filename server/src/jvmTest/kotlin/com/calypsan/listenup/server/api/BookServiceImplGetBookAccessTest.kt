@@ -74,7 +74,7 @@ class BookServiceImplGetBookAccessTest :
                     contributorRepo = contributorRepo,
                     seriesRepo = seriesRepo,
                     coverStorage = CoverStorage(),
-                    db = this,
+                    sql = this.asSqlDatabase(),
                     genreRepo = genreRepo,
                     accessPolicy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
                     permissionPolicy = UserPermissionPolicy(this.asSqlDatabase()),

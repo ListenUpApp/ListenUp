@@ -204,7 +204,7 @@ internal fun withTestApplication(
                     userStatsRepository = statsRepo,
                     accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                     principal = PrincipalProvider { error("unscoped — copyWith required") },
-                    db = db,
+                    sql = db.asSqlDatabase(),
                 )
             listeningEventRepo = eventRepo
             userStatsRepo = statsRepo

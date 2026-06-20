@@ -88,7 +88,7 @@ class CollectionMembershipRevisionTest :
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
-                db = db,
+                sql = db.asSqlDatabase(),
                 clock = fixedClock,
                 bookRevisionTouch = bookRevisionTouch,
                 principal = principalFor("u1"),

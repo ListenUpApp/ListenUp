@@ -76,7 +76,7 @@ class PublicProfileLifecycleTest :
                 SessionService(this.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(this, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
-                db = this,
+                sql = this.asSqlDatabase(),
                 sessions = sessions,
                 settings = settings,
                 clock = fixedClock,

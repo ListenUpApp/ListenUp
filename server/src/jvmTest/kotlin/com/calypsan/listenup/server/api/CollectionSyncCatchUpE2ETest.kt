@@ -99,7 +99,7 @@ class CollectionSyncCatchUpE2ETest :
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
-                db = db,
+                sql = db.asSqlDatabase(),
                 clock = fixedClock,
                 bookRevisionTouch = FakeBookRevisionTouch(),
                 principal = principalFor("u1"),

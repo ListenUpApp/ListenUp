@@ -97,7 +97,7 @@ class InboxApproveReachesMemberTest :
                 accessPolicy = accessPolicy,
                 permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                 bus = bus,
-                db = db,
+                sql = db.asSqlDatabase(),
                 clock = fixedClock,
                 bookRevisionTouch = bookRevisionTouch,
                 principal = principalFor("admin", UserRole.ADMIN),

@@ -2,7 +2,9 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.server.auth.PasswordHasher
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -24,6 +26,7 @@ class ProfileModuleVerifyTest :
                             modules(
                                 module {
                                     single { db }
+                                    single<ListenUpDatabase> { db.asSqlDatabase() }
                                     single { PasswordHasher() }
                                     single { db.noOpPublicProfileMaintainer() }
                                     single<Clock> { Clock.System }

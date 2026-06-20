@@ -135,7 +135,7 @@ fun playbackModule(): Module =
                             "Unscoped PlaybackService — call copyWith(PrincipalProvider) at the route",
                         )
                     },
-                db = get(),
+                sql = get<ListenUpDatabase>(),
             )
         }
         single<PlaybackProgressService> {
