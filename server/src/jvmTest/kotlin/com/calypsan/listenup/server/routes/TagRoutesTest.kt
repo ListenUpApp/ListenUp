@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -80,8 +81,8 @@ class TagRoutesTest :
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, db)
                 val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, sql, principal = rootPrincipal())
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+                val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
                 val accessPolicy = BookAccessPolicy(db)
 
                 testApplication {

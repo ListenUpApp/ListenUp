@@ -549,11 +549,11 @@ private fun persister(
 private fun inertCollectionService(db: Database): CollectionServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
     return CollectionServiceImpl(
         collectionRepo = collectionRepo,
-        collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
+        collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),

@@ -107,9 +107,9 @@ class PlaybackServiceImplTest :
                 eventRepo = eventRepo,
                 statsRepo = statsRepo,
                 accessPolicy = BookAccessPolicy(db),
-                collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry),
-                collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
-                grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry),
+                collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+                collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+                grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
             )
         }
 

@@ -72,8 +72,8 @@ class BookServiceImplSearchAccessTest :
             return SearchAccessFixture(
                 service = service,
                 bookRepo = bookRepo,
-                collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
-                collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
+                collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
+                collectionBookRepo = CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
             )
         }
 

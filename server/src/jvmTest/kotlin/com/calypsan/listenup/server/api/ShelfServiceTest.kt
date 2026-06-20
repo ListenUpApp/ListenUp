@@ -227,8 +227,14 @@ class ShelfServiceTest :
                     // is a u1-owned collection (owner branch — no grant, no system user needed).
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+                    val collectionBookRepo =
+                        CollectionBookRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            exposedDb = db,
+                        )
                     collectionRepo.upsert(
                         CollectionSyncPayload(
                             id = "u1-col",
@@ -284,8 +290,14 @@ class ShelfServiceTest :
                     // "hidden" is in u2's PRIVATE collection — invisible to MEMBER u1.
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+                    val collectionBookRepo =
+                        CollectionBookRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            exposedDb = db,
+                        )
                     collectionRepo.upsert(
                         CollectionSyncPayload(
                             id = "priv",

@@ -102,8 +102,8 @@ class ShelfServiceUserShelvesTest :
         ) {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
             kotlinx.coroutines.runBlocking {
                 collectionRepo.upsert(
                     CollectionSyncPayload(
@@ -141,9 +141,9 @@ class ShelfServiceUserShelvesTest :
         ) {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
             kotlinx.coroutines.runBlocking {
                 collectionRepo.upsert(
                     CollectionSyncPayload(

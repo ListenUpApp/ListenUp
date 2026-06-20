@@ -1,47 +1,61 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
-import com.calypsan.listenup.server.db.CollectionGrantsTable
+import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.server.db.sqldelight.Collection_grants
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.IColumnType
+import org.jetbrains.exposed.v1.core.IntegerColumnType
+import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
+
+/** Principal type for a user-share grant — the only principal kind today. */
+private const val PRINCIPAL_TYPE_USER = "USER"
 
 /**
- * Syncable repository for collection grant records.
+ * SQLDelight syncable repository for collection grant records — a **global (cross-user)** aggregate.
  *
- * Storage is principal-based ([CollectionGrantsTable]: `principal_type` / `principal_id` /
+ * Storage is principal-based (`collection_grants`: `principal_type` / `principal_id` /
  * `granted_by_user_id`), but the wire is unchanged: a USER-principal grant maps to a
  * [CollectionShareSyncPayload] (`sharedWithUserId` / `sharedByUserId`) over sync, and the
  * `domainName` stays `"collection_shares"`. [readPayload] / [writePayload] adapt between the
  * two — `principalType` is always `"USER"` on write. The wire/client rename to "grant" is
  * deferred to the phase that introduces GROUP principals.
  *
- * Permission is stored as a lowercase TEXT column (`"read"` / `"write"`); on read a corrupt
- * or unknown value defaults to [SharePermission.Read] (least-privilege).
+ * Permission is stored as a lowercase TEXT column (`"read"` / `"write"`); on read a corrupt or
+ * unknown value defaults to [SharePermission.Read] (least-privilege).
+ *
+ * **Access-filtered sync.** A member's grant catch-up/digest must exclude grants they cannot
+ * see (notably their own default ALL_BOOKS grant), so the firehose arrives with a non-null
+ * [SqlFragment] `extraWhere` (the `visibleCollectionGrantIdsSql` rule). This class overrides the
+ * filtered [pullSince] / [digest] path over the Exposed connection ([exposedDb]); the unfiltered
+ * (admin / null) path delegates to the base — identical to
+ * [com.calypsan.listenup.server.services.BookRepository] / [CollectionRepository].
  *
  * Service-layer helpers beyond the base substrate (all USER-principal scoped):
- *  - [findActiveGrant] — fetch the live grant for a `(collectionId, userId)` pair
- *  - [listActiveGrantsForCollection] — fetch all live USER grants on a collection
- *  - [listActiveGrantsForUser] — fetch all collections granted to a user
+ *  - [findActiveGrant] — the live grant for a `(collectionId, userId)` pair
+ *  - [listActiveGrantsForCollection] — all live USER grants on a collection
+ *  - [listActiveGrantsForUser] — all collections granted to a user
  *  - [softDeleteGrant] — revoke the active grant for a `(collectionId, userId)` pair
  */
 class CollectionGrantRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
+    private val exposedDb: Database,
     clock: Clock = Clock.System,
-) : SyncableRepository<CollectionShareSyncPayload, String>(
+) : SqlSyncableRepository<CollectionShareSyncPayload, String>(
         db = db,
-        table = CollectionGrantsTable,
         bus = bus,
         registry = registry,
         // Wire domain stays "collection_shares" — see class KDoc. A USER-principal grant is a
@@ -55,14 +69,63 @@ class CollectionGrantRepository(
 
     override fun CollectionShareSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): CollectionShareSyncPayload? =
-        CollectionGrantsTable
-            .selectAll()
-            .where { CollectionGrantsTable.id eq idStr }
-            .firstOrNull()
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.collectionGrantsQueries].
+     * Global aggregate — the `*ForUser` variants stay the base's throwing defaults.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.collectionGrantsQueries.existsById(id).executeAsOne()
+
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.collectionGrantsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.collectionGrantsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.collectionGrantsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    // Tombstone-inclusive read by id — pullSince/readPayloads must hydrate soft-deleted rows so
+    // clients receive tombstones.
+    override fun readPayload(idStr: String): CollectionShareSyncPayload? =
+        db.collectionGrantsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
             ?.toSharePayload()
 
-    override suspend fun writePayload(
+    override fun readPayloads(idStrs: List<String>): List<CollectionShareSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.collectionGrantsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSharePayload() }
+    }
+
+    override fun writePayload(
         value: CollectionShareSyncPayload,
         rev: Long,
         now: Long,
@@ -73,86 +136,72 @@ class CollectionGrantRepository(
         // A USER-principal grant is the only kind today; map the share payload onto the
         // principal columns (principalType = "USER").
         if (existed) {
-            CollectionGrantsTable.update({ CollectionGrantsTable.id eq value.id }) { stmt ->
-                stmt[CollectionGrantsTable.collectionId] = value.collectionId
-                stmt[CollectionGrantsTable.principalType] = "USER"
-                stmt[CollectionGrantsTable.principalId] = value.sharedWithUserId
-                stmt[CollectionGrantsTable.grantedByUserId] = value.sharedByUserId
-                stmt[CollectionGrantsTable.permission] = value.permission.name.lowercase()
-                stmt[CollectionGrantsTable.revision] = rev
-                stmt[CollectionGrantsTable.updatedAt] = now
-                stmt[CollectionGrantsTable.deletedAt] = null
-                stmt[CollectionGrantsTable.clientOpId] = clientOpId
-            }
+            db.collectionGrantsQueries.update(
+                collection_id = value.collectionId,
+                principal_type = PRINCIPAL_TYPE_USER,
+                principal_id = value.sharedWithUserId,
+                granted_by_user_id = value.sharedByUserId,
+                permission = value.permission.name.lowercase(),
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            CollectionGrantsTable.insert { stmt ->
-                stmt[CollectionGrantsTable.id] = value.id
-                stmt[CollectionGrantsTable.collectionId] = value.collectionId
-                stmt[CollectionGrantsTable.principalType] = "USER"
-                stmt[CollectionGrantsTable.principalId] = value.sharedWithUserId
-                stmt[CollectionGrantsTable.grantedByUserId] = value.sharedByUserId
-                stmt[CollectionGrantsTable.permission] = value.permission.name.lowercase()
-                stmt[CollectionGrantsTable.revision] = rev
-                stmt[CollectionGrantsTable.createdAt] = now
-                stmt[CollectionGrantsTable.updatedAt] = now
-                stmt[CollectionGrantsTable.deletedAt] = null
-                stmt[CollectionGrantsTable.clientOpId] = clientOpId
-            }
+            db.collectionGrantsQueries.insert(
+                id = value.id,
+                collection_id = value.collectionId,
+                principal_type = PRINCIPAL_TYPE_USER,
+                principal_id = value.sharedWithUserId,
+                granted_by_user_id = value.sharedByUserId,
+                permission = value.permission.name.lowercase(),
+                created_at = now,
+                updated_at = now,
+                revision = rev,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /**
-     * Returns the active (non-tombstoned) USER grant for `(collectionId, userId)`,
-     * or null when no live grant exists.
+     * Returns the active (non-tombstoned) USER grant for `(collectionId, userId)`, or null when
+     * no live grant exists.
      */
     suspend fun findActiveGrant(
         collectionId: String,
         userId: String,
     ): CollectionShareSyncPayload? =
         suspendTransaction(db) {
-            CollectionGrantsTable
-                .selectAll()
-                .where {
-                    (CollectionGrantsTable.collectionId eq collectionId) and
-                        (CollectionGrantsTable.principalType eq "USER") and
-                        (CollectionGrantsTable.principalId eq userId) and
-                        CollectionGrantsTable.deletedAt.isNull()
-                }.firstOrNull()
+            db.collectionGrantsQueries
+                .selectActiveUserGrant(collectionId, userId)
+                .executeAsOneOrNull()
                 ?.toSharePayload()
         }
 
-    /**
-     * Returns all active (non-tombstoned) USER grants on [collectionId].
-     */
+    /** Returns all active (non-tombstoned) USER grants on [collectionId]. */
     suspend fun listActiveGrantsForCollection(collectionId: String): List<CollectionShareSyncPayload> =
         suspendTransaction(db) {
-            CollectionGrantsTable
-                .selectAll()
-                .where {
-                    (CollectionGrantsTable.collectionId eq collectionId) and
-                        (CollectionGrantsTable.principalType eq "USER") and
-                        CollectionGrantsTable.deletedAt.isNull()
-                }.map { it.toSharePayload() }
+            db.collectionGrantsQueries
+                .listActiveUserGrantsForCollection(collectionId)
+                .executeAsList()
+                .map { it.toSharePayload() }
         }
 
-    /**
-     * Returns all active (non-tombstoned) USER grants where [userId] is the recipient.
-     */
+    /** Returns all active (non-tombstoned) USER grants where [userId] is the recipient. */
     suspend fun listActiveGrantsForUser(userId: String): List<CollectionShareSyncPayload> =
         suspendTransaction(db) {
-            CollectionGrantsTable
-                .selectAll()
-                .where {
-                    (CollectionGrantsTable.principalType eq "USER") and
-                        (CollectionGrantsTable.principalId eq userId) and
-                        CollectionGrantsTable.deletedAt.isNull()
-                }.map { it.toSharePayload() }
+            db.collectionGrantsQueries
+                .listActiveUserGrantsForPrincipal(userId)
+                .executeAsList()
+                .map { it.toSharePayload() }
         }
 
     /**
      * Soft-deletes the active USER grant for `(collectionId, userId)`. Bumps revision and
-     * publishes [com.calypsan.listenup.api.sync.SyncEvent.Deleted]. Returns
-     * [AppResult.Failure] if no live grant exists for this pair.
+     * publishes [com.calypsan.listenup.api.sync.SyncEvent.Deleted]. Returns [AppResult.Failure]
+     * if no live grant exists for this pair.
      */
     suspend fun softDeleteGrant(
         collectionId: String,
@@ -161,36 +210,134 @@ class CollectionGrantRepository(
     ): AppResult<Unit> {
         val grant =
             findActiveGrant(collectionId, userId) ?: return AppResult.Failure(
-                com.calypsan.listenup.api.error.SyncError.NotFound(
+                SyncError.NotFound(
                     domain = domainName,
                     entityId = "$collectionId:$userId",
                 ),
             )
         return softDelete(grant.id, clientOpId = clientOpId)
     }
+
+    /**
+     * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins) delegates
+     * to the base; the filtered path (a member's `visibleCollectionGrantIdsSql` subquery) reads
+     * the `(id, revision)` page over the Exposed connection and hydrates via the SQLDelight
+     * [readPayloads].
+     */
+    override suspend fun pullSince(
+        userId: String?,
+        cursor: Long,
+        limit: Int,
+        extraWhere: SqlFragment?,
+    ): Page<CollectionShareSyncPayload> {
+        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
+        val idsWithRev =
+            selectIdsWithRevRaw(
+                revisionPredicate = "revision > ?",
+                revisionArg = cursor,
+                extraWhere = extraWhere,
+                orderAndLimit = "ORDER BY revision ASC LIMIT ?",
+                trailingArgs = listOf(IntegerColumnType() to limit),
+            )
+        val items = suspendTransaction(db) { readPayloads(idsWithRev.map { it.first }) }
+        return Page(
+            items = items,
+            nextCursor = idsWithRev.lastOrNull()?.second,
+            hasMore = idsWithRev.size == limit,
+        )
+    }
+
+    /**
+     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered path
+     * reads the `(id, revision)` slice over the Exposed connection and computes the
+     * permanent-wire-contract SHA-256 digest identically to the base.
+     */
+    override suspend fun digest(
+        userId: String?,
+        cursor: Long,
+        extraWhere: SqlFragment?,
+    ): DomainDigest {
+        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
+        val rows =
+            selectIdsWithRevRaw(
+                revisionPredicate = "revision <= ?",
+                revisionArg = cursor,
+                extraWhere = extraWhere,
+                orderAndLimit = "",
+                trailingArgs = emptyList(),
+            ).sortedBy { it.first }
+        return if (rows.isEmpty()) {
+            DomainDigest(cursor = cursor, count = 0, hash = "")
+        } else {
+            val md = MessageDigest.getInstance("SHA-256")
+            val joined = rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
+            val hex = md.digest(joined.toByteArray(Charsets.UTF_8)).toHexStringLower()
+            DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
+        }
+    }
+
+    /**
+     * Raw-SQL `(id, revision)` read for the access-filtered ([extraWhere] non-null) path.
+     *
+     * Splices the access subquery as `id IN (<extraWhere.sql>)` and runs it on the Exposed
+     * connection over the shared WAL file. **Argument order is load-bearing**: [revisionArg]
+     * first, then the [extraWhere] args, then any [trailingArgs] (the LIMIT `?`).
+     */
+    private suspend fun selectIdsWithRevRaw(
+        revisionPredicate: String,
+        revisionArg: Long,
+        extraWhere: SqlFragment,
+        orderAndLimit: String,
+        trailingArgs: List<Pair<IColumnType<*>, Any>>,
+    ): List<Pair<String, Long>> =
+        exposedSuspendTransaction(exposedDb) {
+            val sql =
+                buildString {
+                    append("SELECT id, revision FROM collection_grants ")
+                    append("WHERE $revisionPredicate AND id IN (${extraWhere.sql})")
+                    if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
+                }
+            val args =
+                buildList {
+                    add(LongColumnType() to revisionArg)
+                    addAll(extraWhere.args)
+                    addAll(trailingArgs)
+                }
+            val results = mutableListOf<Pair<String, Long>>()
+            TransactionManager.current().exec(stmt = sql, args = args) { rs ->
+                while (rs.next()) results += rs.getString(1) to rs.getLong(2)
+            }
+            results
+        }
+
+    /**
+     * Adapts a generated [Collection_grants] row to the unchanged wire [CollectionShareSyncPayload]:
+     * `principalId` → `sharedWithUserId`, `granted_by_user_id` → `sharedByUserId`.
+     */
+    private fun Collection_grants.toSharePayload(): CollectionShareSyncPayload =
+        CollectionShareSyncPayload(
+            id = id,
+            collectionId = collection_id,
+            sharedWithUserId = principal_id,
+            sharedByUserId = granted_by_user_id,
+            permission = permission.toSharePermission(),
+            revision = revision,
+            updatedAt = updated_at,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /** Chunk size for `IN (…)` batch reads. Kept under SQLite's default 999 var limit. */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }
 
 /**
- * Adapts a [CollectionGrantsTable] row to the unchanged wire [CollectionShareSyncPayload]:
- * `principalId` → `sharedWithUserId`, `grantedByUserId` → `sharedByUserId`.
- */
-private fun org.jetbrains.exposed.v1.core.ResultRow.toSharePayload(): CollectionShareSyncPayload =
-    CollectionShareSyncPayload(
-        id = this[CollectionGrantsTable.id],
-        collectionId = this[CollectionGrantsTable.collectionId],
-        sharedWithUserId = this[CollectionGrantsTable.principalId],
-        sharedByUserId = this[CollectionGrantsTable.grantedByUserId],
-        permission = this[CollectionGrantsTable.permission].toSharePermission(),
-        revision = this[CollectionGrantsTable.revision],
-        updatedAt = this[CollectionGrantsTable.updatedAt],
-        deletedAt = this[CollectionGrantsTable.deletedAt],
-    )
-
-/**
- * Converts a stored TEXT permission value to [SharePermission].
- *
- * A corrupt or unrecognised value defaults to [SharePermission.Read] — the
- * least-privilege choice — rather than throwing and crashing the read path.
+ * Converts a stored TEXT permission value to [SharePermission]. A corrupt or unrecognised value
+ * defaults to [SharePermission.Read] — the least-privilege choice — rather than throwing.
  */
 private fun String.toSharePermission(): SharePermission =
     if (this == "write") SharePermission.Write else SharePermission.Read
+
+/** Lowercase-hex of a digest byte array — the permanent-wire-contract digest formatting. */
+private fun ByteArray.toHexStringLower(): String = joinToString("") { "%02x".format(it) }

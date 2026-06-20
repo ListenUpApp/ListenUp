@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -54,9 +55,9 @@ class SearchServiceAccessTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = this, bus = bus, registry = registry),
-                CollectionBookRepository(db = this, bus = bus, registry = registry),
-                CollectionGrantRepository(db = this, bus = bus, registry = registry),
+                CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
+                CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
+                CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
             )
         }
 

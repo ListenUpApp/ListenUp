@@ -56,9 +56,9 @@ class BookCatchUpAccessTest :
                         seriesRepository = seriesRepo,
                         genreRepository = GenreRepository(db = this.asSqlDatabase(), bus = bus, registry = registry),
                     ),
-                collectionRepo = CollectionRepository(db = this, bus = bus, registry = registry),
-                collectionBookRepo = CollectionBookRepository(db = this, bus = bus, registry = registry),
-                grantRepo = CollectionGrantRepository(db = this, bus = bus, registry = registry),
+                collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
+                collectionBookRepo = CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
+                grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
                 policy = BookAccessPolicy(this),
             )
         }

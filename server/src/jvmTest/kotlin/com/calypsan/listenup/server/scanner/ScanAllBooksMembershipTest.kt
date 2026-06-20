@@ -170,7 +170,7 @@ private class AllBooksFixture(
 private fun allBooksFixture(db: Database): AllBooksFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = syncRegistry)
+    val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry, exposedDb = db)
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
@@ -182,8 +182,8 @@ private fun allBooksFixture(db: Database): AllBooksFixture {
             genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
-    val collectionRepo = CollectionRepository(db = db, bus = bus, registry = syncRegistry)
-    val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = syncRegistry)
+    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry, exposedDb = db)
+    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry, exposedDb = db)
     val collections =
         CollectionServiceImpl(
             collectionRepo = collectionRepo,

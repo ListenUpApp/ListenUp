@@ -67,9 +67,9 @@ class InboxApproveReachesMemberTest :
         ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-            val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
-            val grantRepo = CollectionGrantRepository(db = db, bus = bus, registry = registry)
+            val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
@@ -102,7 +102,13 @@ class InboxApproveReachesMemberTest :
                     val accessPolicy = BookAccessPolicy(db)
                     val service = makeCollectionService(db, bookRevisionTouch = bookRepo)
                     val admin = service.actAs("admin", UserRole.ADMIN)
-                    val grantRepo = CollectionGrantRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val grantRepo =
+                        CollectionGrantRepository(
+                            db = db.asSqlDatabase(),
+                            bus = ChangeBus(),
+                            registry = SyncRegistry(),
+                            exposedDb = db,
+                        )
 
                     // Every member holds a default ALL_BOOKS grant in production; mirror that here
                     // so the member can see books once they reach the public substrate.

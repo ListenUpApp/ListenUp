@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -42,9 +43,9 @@ class SystemCollectionSyncExclusionTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = db, bus = bus, registry = registry),
-                CollectionGrantRepository(db = db, bus = bus, registry = registry),
-                CollectionBookRepository(db = db, bus = bus, registry = registry),
+                CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+                CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+                CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
             )
         }
 

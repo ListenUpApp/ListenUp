@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -47,7 +48,17 @@ fun syncModule(): Module =
         single(createdAtStart = true) { BookTagRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { MoodRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { BookMoodRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(createdAtStart = true) { CollectionRepository(get(), get(), get()) }
-        single(createdAtStart = true) { CollectionBookRepository(get(), get(), get()) }
-        single(createdAtStart = true) { CollectionGrantRepository(get(), get(), get()) }
+        // Collection aggregate — SQLDelight conversions. They resolve [ListenUpDatabase] for the
+        // engine-native read/write path and keep the Exposed [Database] only for the access-filtered
+        // catch-up/digest raw reads (the firehose's runtime-built `extraWhere` subquery is
+        // Exposed-typed; see each repo's pullSince override).
+        single(createdAtStart = true) {
+            CollectionRepository(get<ListenUpDatabase>(), get(), get(), exposedDb = get<Database>())
+        }
+        single(createdAtStart = true) {
+            CollectionBookRepository(get<ListenUpDatabase>(), get(), get(), exposedDb = get<Database>())
+        }
+        single(createdAtStart = true) {
+            CollectionGrantRepository(get<ListenUpDatabase>(), get(), get(), exposedDb = get<Database>())
+        }
     }

@@ -65,8 +65,8 @@ class DefaultGrantSelfHealTest :
         fun buildDeps(db: Database): Deps {
             val syncRegistry = SyncRegistry()
             val bus = ChangeBus()
-            val collectionRepository = CollectionRepository(db, bus, syncRegistry)
-            val grantRepository = CollectionGrantRepository(db, bus, syncRegistry)
+            val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, exposedDb = db)
+            val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, exposedDb = db)
             val libraryRegistry = LibraryRegistry(db)
 
             val sessions =

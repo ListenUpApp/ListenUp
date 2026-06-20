@@ -82,8 +82,8 @@ class GenreRoutesTest :
                         genreRepository = genreRepo,
                     )
                 val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
-                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
-                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+                val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
                 val accessPolicy = BookAccessPolicy(db)
 
                 testApplication {
