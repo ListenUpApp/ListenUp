@@ -101,6 +101,27 @@ selectLiveIdByPath:
 SELECT id FROM books
 WHERE library_id = :library_id AND root_rel_path = :root_rel_path AND deleted_at IS NULL;
 
+-- ── ABS-import matching (BookMatcher / MappingValidator) ─────────────────────
+
+-- ASIN tier: live book ids in a library carrying an exact ASIN. Exactly one is a
+-- confident match; more than one stops the search as AMBIGUOUS.
+selectLiveIdByLibraryAndAsin:
+SELECT id FROM books WHERE library_id = :library_id AND asin = :asin AND deleted_at IS NULL;
+
+-- ISBN tier: live book ids in a library carrying an exact ISBN.
+selectLiveIdByLibraryAndIsbn:
+SELECT id FROM books WHERE library_id = :library_id AND isbn = :isbn AND deleted_at IS NULL;
+
+-- TITLE_AUTHOR tier: (id, title) for every live book in a library. Titles are not
+-- pre-normalized in the DB, so the matcher compares normalized values in memory.
+selectLiveIdsAndTitlesForLibrary:
+SELECT id, title FROM books WHERE library_id = :library_id AND deleted_at IS NULL;
+
+-- Mapping validation: which of the requested ids are LIVE (non-tombstoned) —
+-- MappingValidator rejects a book override pointing at a missing/soft-deleted book.
+selectLiveIdsByIds:
+SELECT id FROM books WHERE id IN :ids AND deleted_at IS NULL;
+
 -- ── writes ───────────────────────────────────────────────────────────────────
 
 insert:

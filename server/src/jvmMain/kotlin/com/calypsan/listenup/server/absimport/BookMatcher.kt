@@ -3,15 +3,8 @@ package com.calypsan.listenup.server.absimport
 import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
 /**
  * Matches one Audiobookshelf item against the ListenUp library using confidence tiers, biased
@@ -26,13 +19,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * Every tier filters out tombstoned books (`deletedAt IS NULL`): a soft-deleted book must never be
  * auto-matched, or apply would write progress to a row the user already removed.
  *
- * Every lookup is a parameterized Exposed `eq` (never string-interpolated SQL). Path and title/author
- * tiers compare normalized values: ABS `relPath` and ListenUp `rootRelPath` are not pre-normalized in
- * the database, so those tiers load `(id, key)` for the library and compare in-memory (the library is
- * bounded, so a single pass is cheap). All work happens inside one `suspendTransaction`.
+ * Every lookup is a parameterized SQLDelight query (never string-interpolated SQL). Path and
+ * title/author tiers compare normalized values: ABS `relPath` and ListenUp `rootRelPath` are not
+ * pre-normalized in the database, so those tiers load `(id, key)` for the library and compare
+ * in-memory (the library is bounded, so a single pass is cheap). All work happens inside one
+ * `suspendTransaction`.
  */
 internal class BookMatcher(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
 ) {
     /** The outcome of matching a single ABS item: a book id when confident, plus the tier. */
     data class BookMatch(
@@ -45,7 +39,7 @@ internal class BookMatcher(
         item: AbsItem,
         libraryId: LibraryId,
     ): BookMatch =
-        suspendTransaction(db) {
+        suspendTransaction(sql) {
             matchByAsin(item, libraryId)
                 ?: matchByIsbn(item, libraryId)
                 ?: matchByPath(item, libraryId)
@@ -58,14 +52,7 @@ internal class BookMatcher(
         libraryId: LibraryId,
     ): BookMatch? {
         val asin = item.asin ?: return null
-        val ids =
-            BookTable
-                .select(BookTable.id)
-                .where {
-                    (BookTable.libraryId eq libraryId.value) and
-                        (BookTable.asin eq asin) and
-                        BookTable.deletedAt.isNull()
-                }.map { it[BookTable.id] }
+        val ids = sql.booksQueries.selectLiveIdByLibraryAndAsin(libraryId.value, asin).executeAsList()
         return resolve(ids, MatchTier.ASIN)
     }
 
@@ -74,14 +61,7 @@ internal class BookMatcher(
         libraryId: LibraryId,
     ): BookMatch? {
         val isbn = item.isbn ?: return null
-        val ids =
-            BookTable
-                .select(BookTable.id)
-                .where {
-                    (BookTable.libraryId eq libraryId.value) and
-                        (BookTable.isbn eq isbn) and
-                        BookTable.deletedAt.isNull()
-                }.map { it[BookTable.id] }
+        val ids = sql.booksQueries.selectLiveIdByLibraryAndIsbn(libraryId.value, isbn).executeAsList()
         return resolve(ids, MatchTier.ISBN)
     }
 
@@ -91,11 +71,11 @@ internal class BookMatcher(
     ): BookMatch? {
         val target = item.relPath?.let(::normalizeRelPath) ?: return null
         val ids =
-            BookTable
-                .select(BookTable.id, BookTable.rootRelPath)
-                .where { (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull() }
-                .filter { normalizeRelPath(it[BookTable.rootRelPath]) == target }
-                .map { it[BookTable.id] }
+            sql.booksQueries
+                .selectLiveIdsAndPathsForLibrary(libraryId.value)
+                .executeAsList()
+                .filter { normalizeRelPath(it.root_rel_path) == target }
+                .map { it.id }
         return resolve(ids, MatchTier.PATH)
     }
 
@@ -107,11 +87,11 @@ internal class BookMatcher(
         if (targetTitle.isEmpty()) return null
         val targetAuthor = item.authorName?.let(::normalizeText)?.takeIf { it.isNotEmpty() }
         val ids =
-            BookTable
-                .select(BookTable.id, BookTable.title)
-                .where { (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull() }
-                .filter { normalizeText(it[BookTable.title]) == targetTitle }
-                .map { it[BookTable.id] }
+            sql.booksQueries
+                .selectLiveIdsAndTitlesForLibrary(libraryId.value)
+                .executeAsList()
+                .filter { normalizeText(it.title) == targetTitle }
+                .map { it.id }
                 .filter { bookId -> targetAuthor == null || authorMatches(bookId, targetAuthor) }
         return resolve(ids, MatchTier.TITLE_AUTHOR)
     }
@@ -119,16 +99,17 @@ internal class BookMatcher(
     /**
      * True when the book has at least one `author`-role contributor whose normalized name equals
      * [targetAuthor]. When the ABS item carries an author we require it to match; this is the guard
-     * that keeps two same-titled-but-different-author books from collapsing into one match.
+     * that keeps two same-titled-but-different-author books from collapsing into one match. The
+     * `authorNamesForBooks` query already filters to the `author` role.
      */
     private fun authorMatches(
         bookId: String,
         targetAuthor: String,
     ): Boolean =
-        (BookContributorTable innerJoin ContributorTable)
-            .select(ContributorTable.name)
-            .where { (BookContributorTable.bookId eq bookId) and (BookContributorTable.role eq AUTHOR_ROLE) }
-            .any { normalizeText(it[ContributorTable.name]) == targetAuthor }
+        sql.bookContributorsQueries
+            .authorNamesForBooks(listOf(bookId))
+            .executeAsList()
+            .any { normalizeText(it.name) == targetAuthor }
 
     /** Exactly one → matched at [tier]; more than one → AMBIGUOUS; none → null (try the next tier). */
     private fun resolve(
@@ -140,10 +121,6 @@ internal class BookMatcher(
             1 -> BookMatch(bookId = BookId(ids.first()), tier = tier)
             else -> BookMatch(bookId = null, tier = MatchTier.AMBIGUOUS)
         }
-
-    private companion object {
-        const val AUTHOR_ROLE = "author"
-    }
 }
 
 /**

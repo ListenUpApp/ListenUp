@@ -233,10 +233,10 @@ private suspend fun stageService(
             reader = AbsBackupReader(),
             store = store,
             paths = paths,
-            bookMatcher = BookMatcher(db),
+            bookMatcher = BookMatcher(db.asSqlDatabase()),
             userMatcher = UserMatcher(),
             libraryRegistry = LibraryRegistry(db),
-            db = db,
+            sql = db.asSqlDatabase(),
         )
     val applier =
         ImportApplier(
@@ -253,7 +253,7 @@ private suspend fun stageService(
             store = store,
             analyzer = analyzer,
             applier = applier,
-            validator = MappingValidator(db),
+            validator = MappingValidator(db.asSqlDatabase()),
             eventBus = kotlinx.coroutines.flow.MutableSharedFlow(replay = 0, extraBufferCapacity = 64),
             principal = principal,
         )

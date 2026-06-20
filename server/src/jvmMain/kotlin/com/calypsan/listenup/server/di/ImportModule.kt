@@ -57,7 +57,7 @@ fun importModule(homeDir: Path): Module =
                 bookMatcher = get(),
                 userMatcher = get(),
                 libraryRegistry = get(),
-                db = get(),
+                sql = get(),
             )
         }
 

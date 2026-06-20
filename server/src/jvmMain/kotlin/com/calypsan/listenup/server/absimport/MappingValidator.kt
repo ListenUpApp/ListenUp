@@ -5,14 +5,11 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.UserTable
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+
+/** Chunk size for SQLite `IN` lists — stays comfortably under the 999-parameter limit. */
+private const val SQLITE_IN_CHUNK = 900
 
 /**
  * Validates an admin-confirmed ABS import mapping before it is persisted or applied.
@@ -30,7 +27,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * validate at `confirmMapping` time, before anything is written.
  */
 class MappingValidator(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
 ) {
     /** Returns [ImportError.MappingInvalid] describing the first problem found, or null if valid. */
     suspend fun validateMapping(
@@ -63,11 +60,10 @@ class MappingValidator(
         if (userIds.isEmpty()) return null
         val wanted = userIds.map { it.value }
         val present =
-            suspendTransaction(db) {
-                UserTable
-                    .select(UserTable.id)
-                    .where { (UserTable.id inList wanted) and UserTable.deletedAt.isNull() }
-                    .mapTo(mutableSetOf()) { it[UserTable.id].value }
+            suspendTransaction(sql) {
+                wanted
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMapTo(mutableSetOf()) { chunk -> sql.usersQueries.selectLiveIdsByIds(chunk).executeAsList() }
             }
         return userIds.firstOrNull { it.value !in present }
     }
@@ -77,11 +73,10 @@ class MappingValidator(
         if (bookIds.isEmpty()) return null
         val wanted = bookIds.map { it.value }
         val present =
-            suspendTransaction(db) {
-                BookTable
-                    .select(BookTable.id)
-                    .where { (BookTable.id inList wanted) and BookTable.deletedAt.isNull() }
-                    .mapTo(mutableSetOf()) { it[BookTable.id] }
+            suspendTransaction(sql) {
+                wanted
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMapTo(mutableSetOf()) { chunk -> sql.booksQueries.selectLiveIdsByIds(chunk).executeAsList() }
             }
         return bookIds.firstOrNull { it.value !in present }
     }

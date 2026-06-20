@@ -314,7 +314,7 @@ class ImportApplierTest :
                 val db = this
                 runTest {
                     seedLibraryUser(db)
-                    val validator = MappingValidator(db)
+                    val validator = MappingValidator(db.asSqlDatabase())
 
                     val error =
                         validator.validateMapping(
@@ -334,7 +334,7 @@ class ImportApplierTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val validator = MappingValidator(db)
+                    val validator = MappingValidator(db.asSqlDatabase())
 
                     val error =
                         validator.validateMapping(
@@ -351,7 +351,7 @@ class ImportApplierTest :
                 val db = this
                 runTest {
                     seedLibraryUser(db)
-                    val validator = MappingValidator(db)
+                    val validator = MappingValidator(db.asSqlDatabase())
 
                     val error =
                         validator.validateMapping(
@@ -391,7 +391,7 @@ class ImportApplierTest :
                 runTest {
                     val libId = seedLibraryUser(db)
                     transaction(db) { seedApplierBooks(libId.value) }
-                    val validator = MappingValidator(db)
+                    val validator = MappingValidator(db.asSqlDatabase())
 
                     val error =
                         validator.validateMapping(
@@ -460,10 +460,10 @@ private suspend fun stageAnalyzedImport(
             reader = AbsBackupReader(),
             store = ImportStore(paths),
             paths = paths,
-            bookMatcher = BookMatcher(db),
+            bookMatcher = BookMatcher(db.asSqlDatabase()),
             userMatcher = UserMatcher(),
             libraryRegistry = LibraryRegistry(db),
-            db = db,
+            sql = db.asSqlDatabase(),
         )
     analyzer.analyze(importId) {}
     return StagedImport(paths, importId, repo, statsRepo, listeningEventRepo, statsBackfill, bookReads)

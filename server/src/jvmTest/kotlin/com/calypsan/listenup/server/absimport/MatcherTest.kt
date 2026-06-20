@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -173,7 +174,7 @@ private fun withSeededLibrary(block: suspend (matcher: BookMatcher, libId: Libra
         runTest {
             val libId = LibraryRegistry(db).currentLibrary()
             transaction(db) { seedBooks(libId.value) }
-            block(BookMatcher(db), libId)
+            block(BookMatcher(db.asSqlDatabase()), libId)
         }
     }
 }

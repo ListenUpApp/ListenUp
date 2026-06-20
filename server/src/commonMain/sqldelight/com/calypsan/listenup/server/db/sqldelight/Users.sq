@@ -103,6 +103,16 @@ SELECT display_name, avatar_type, tagline FROM users WHERE id = :id AND deleted_
 selectLiveUserIds:
 SELECT id FROM users WHERE deleted_at IS NULL;
 
+-- ABS-import user matching: (id, email, display_name) for every live user — the matchable
+-- roster ImportAnalyzer compares ABS users against (UserMatcher email/name tiers).
+selectMatchableLiveUsers:
+SELECT id, email, display_name FROM users WHERE deleted_at IS NULL;
+
+-- ABS-import mapping validation: which of the requested ids are LIVE (non-tombstoned) —
+-- MappingValidator rejects a user mapping pointing at a missing/soft-deleted user.
+selectLiveIdsByIds:
+SELECT id FROM users WHERE id IN :ids AND deleted_at IS NULL;
+
 -- Insert a new user row. Every column is written explicitly so the row shape is identical to
 -- the Exposed `UserEntity.new { … }` path (defaults are supplied by the caller, not the DDL).
 insert:

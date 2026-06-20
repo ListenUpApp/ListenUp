@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
@@ -173,10 +174,10 @@ private fun analyzerFor(
         reader = AbsBackupReader(),
         store = ImportStore(paths),
         paths = paths,
-        bookMatcher = BookMatcher(db),
+        bookMatcher = BookMatcher(db.asSqlDatabase()),
         userMatcher = UserMatcher(),
         libraryRegistry = LibraryRegistry(db),
-        db = db,
+        sql = db.asSqlDatabase(),
     )
 
 /** Seeds ListenUp books that match the synthetic ABS fixture by ASIN (kings) and title+author (mist). */
