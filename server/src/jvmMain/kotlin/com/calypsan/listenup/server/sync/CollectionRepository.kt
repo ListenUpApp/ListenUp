@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
 import com.calypsan.listenup.server.db.CollectionsTable
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
@@ -58,7 +59,7 @@ class CollectionRepository(
                     libraryId = row[CollectionsTable.libraryId],
                     ownerId = row[CollectionsTable.ownerId],
                     name = row[CollectionsTable.name],
-                    isInbox = row[CollectionsTable.isInbox],
+                    isInbox = row[CollectionsTable.type] == SYSTEM_TYPE_INBOX,
                     revision = row[CollectionsTable.revision],
                     updatedAt = row[CollectionsTable.updatedAt],
                     deletedAt = row[CollectionsTable.deletedAt],
@@ -78,7 +79,6 @@ class CollectionRepository(
                 stmt[CollectionsTable.libraryId] = value.libraryId
                 stmt[CollectionsTable.ownerId] = value.ownerId
                 stmt[CollectionsTable.name] = value.name
-                stmt[CollectionsTable.isInbox] = value.isInbox
                 stmt[CollectionsTable.revision] = rev
                 stmt[CollectionsTable.updatedAt] = now
                 stmt[CollectionsTable.deletedAt] = null
@@ -90,7 +90,6 @@ class CollectionRepository(
                 stmt[CollectionsTable.libraryId] = value.libraryId
                 stmt[CollectionsTable.ownerId] = value.ownerId
                 stmt[CollectionsTable.name] = value.name
-                stmt[CollectionsTable.isInbox] = value.isInbox
                 stmt[CollectionsTable.revision] = rev
                 stmt[CollectionsTable.createdAt] = now
                 stmt[CollectionsTable.updatedAt] = now
@@ -115,7 +114,7 @@ class CollectionRepository(
                         libraryId = row[CollectionsTable.libraryId],
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
-                        isInbox = row[CollectionsTable.isInbox],
+                        isInbox = row[CollectionsTable.type] == SYSTEM_TYPE_INBOX,
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -135,7 +134,7 @@ class CollectionRepository(
                 .selectAll()
                 .where {
                     (CollectionsTable.libraryId eq libraryId) and
-                        (CollectionsTable.isInbox eq true) and
+                        (CollectionsTable.type eq SYSTEM_TYPE_INBOX) and
                         CollectionsTable.deletedAt.isNull()
                 }.firstOrNull()
                 ?.let { row ->
@@ -144,7 +143,7 @@ class CollectionRepository(
                         libraryId = row[CollectionsTable.libraryId],
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
-                        isInbox = row[CollectionsTable.isInbox],
+                        isInbox = true,
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -177,7 +176,7 @@ class CollectionRepository(
                         libraryId = row[CollectionsTable.libraryId],
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
-                        isInbox = row[CollectionsTable.isInbox],
+                        isInbox = row[CollectionsTable.type] == SYSTEM_TYPE_INBOX,
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -217,7 +216,7 @@ class CollectionRepository(
                         libraryId = row[CollectionsTable.libraryId],
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
-                        isInbox = row[CollectionsTable.isInbox],
+                        isInbox = row[CollectionsTable.type] == SYSTEM_TYPE_INBOX,
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -239,7 +238,7 @@ class CollectionRepository(
                         libraryId = row[CollectionsTable.libraryId],
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
-                        isInbox = row[CollectionsTable.isInbox],
+                        isInbox = row[CollectionsTable.type] == SYSTEM_TYPE_INBOX,
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],

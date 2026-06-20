@@ -483,7 +483,10 @@ internal class CollectionServiceImpl(
         return when (val result = collectionRepo.upsert(payload)) {
             is AppResult.Success -> {
                 collectionRepo.setType(result.data.id, type.name)
-                summarizeSystem(result.data)
+                // Re-read after setType so that isInbox is derived from the freshly-stamped
+                // type column (writePayload does not write is_inbox; isInbox is a projection of type).
+                val refreshed = collectionRepo.findById(result.data.id) ?: result.data
+                summarizeSystem(refreshed)
             }
 
             is AppResult.Failure -> {

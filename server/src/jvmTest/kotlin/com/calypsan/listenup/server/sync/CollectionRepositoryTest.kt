@@ -148,14 +148,15 @@ class CollectionRepositoryTest :
                 val repo = CollectionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
-                    // Seed a regular collection and the inbox
+                    // Seed a regular collection and the inbox; stamp type='INBOX' since
+                    // the payload.isInbox field is no longer written as a storage column —
+                    // findInboxForLibrary now queries type = 'INBOX'.
                     repo.upsert(
                         CollectionSyncPayload(
                             id = "col-regular",
                             libraryId = "test-library",
                             ownerId = "user1",
                             name = "Regular",
-                            isInbox = false,
                             revision = 0L,
                             updatedAt = 0L,
                         ),
@@ -166,11 +167,11 @@ class CollectionRepositoryTest :
                             libraryId = "test-library",
                             ownerId = "user1",
                             name = "Inbox",
-                            isInbox = true,
                             revision = 0L,
                             updatedAt = 0L,
                         ),
                     )
+                    repo.setType("col-inbox", "INBOX")
 
                     val inbox = repo.findInboxForLibrary("test-library")
                     inbox.shouldNotBeNull()

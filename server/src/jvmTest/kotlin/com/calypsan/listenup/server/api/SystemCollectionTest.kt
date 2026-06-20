@@ -72,16 +72,6 @@ class SystemCollectionTest :
                     ?.get(CollectionsTable.type)
             }
 
-        /** Reads the back-compat `collections.is_inbox` column for [collectionId]. */
-        suspend fun Database.isInboxColumnOf(collectionId: String): Boolean? =
-            suspendTransaction(this) {
-                CollectionsTable
-                    .selectAll()
-                    .where { CollectionsTable.id eq collectionId }
-                    .firstOrNull()
-                    ?.get(CollectionsTable.isInbox)
-            }
-
         test("getOrCreateSystemCollection creates ALL_BOOKS with type column, name, and system owner") {
             withInMemoryDatabase {
                 val db = this
@@ -133,7 +123,7 @@ class SystemCollectionTest :
             }
         }
 
-        test("getOrCreateSystemCollection INBOX is distinct from ALL_BOOKS and back-compat is_inbox is set") {
+        test("getOrCreateSystemCollection INBOX is distinct from ALL_BOOKS and isInbox is derived from type") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -152,7 +142,6 @@ class SystemCollectionTest :
                     (inbox.data.id == allBooks.data.id) shouldBe false
 
                     db.typeColumnOf(inbox.data.id.value) shouldBe "INBOX"
-                    db.isInboxColumnOf(inbox.data.id.value) shouldBe true
                 }
             }
         }

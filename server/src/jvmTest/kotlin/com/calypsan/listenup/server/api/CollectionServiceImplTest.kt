@@ -248,6 +248,7 @@ class CollectionServiceImplTest :
                     }
 
                     // Seed an inbox collection directly; deleting it is rejected.
+                    // type='INBOX' must be stamped explicitly — is_inbox column is gone.
                     val collectionRepo = CollectionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
                     collectionRepo.upsert(
                         CollectionSyncPayload(
@@ -255,11 +256,11 @@ class CollectionServiceImplTest :
                             libraryId = "test-library",
                             ownerId = "u1",
                             name = "Inbox",
-                            isInbox = true,
                             revision = 0L,
                             updatedAt = 0L,
                         ),
                     )
+                    collectionRepo.setType("inbox1", "INBOX")
                     val inboxDelete = service.deleteCollection(CollectionId("inbox1"))
                     require(inboxDelete is AppResult.Failure)
                     inboxDelete.error.shouldBeInstanceOf<CollectionError.InboxNotDeletable>()

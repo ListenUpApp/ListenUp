@@ -41,7 +41,7 @@ class LibraryRegistryBootstrapSystemCollectionsTest :
                     rows[0][CollectionsTable.libraryId] shouldBe libraryId.value
                     rows[0][CollectionsTable.ownerId] shouldBe SYSTEM_OWNER_ID
                     rows[0][CollectionsTable.name] shouldBe "All Books"
-                    rows[0][CollectionsTable.isInbox] shouldBe false
+                    rows[0][CollectionsTable.type] shouldBe "ALL_BOOKS"
                     rows[0][CollectionsTable.revision] shouldBeGreaterThan 0L
                 }
             }
@@ -66,7 +66,7 @@ class LibraryRegistryBootstrapSystemCollectionsTest :
                     rows[0][CollectionsTable.libraryId] shouldBe libraryId.value
                     rows[0][CollectionsTable.ownerId] shouldBe SYSTEM_OWNER_ID
                     rows[0][CollectionsTable.name] shouldBe "Inbox"
-                    rows[0][CollectionsTable.isInbox] shouldBe true
+                    rows[0][CollectionsTable.type] shouldBe "INBOX"
                     rows[0][CollectionsTable.revision] shouldBeGreaterThan 0L
                 }
             }

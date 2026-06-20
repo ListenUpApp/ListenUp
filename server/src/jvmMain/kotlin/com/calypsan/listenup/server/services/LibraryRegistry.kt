@@ -94,7 +94,6 @@ class LibraryRegistry(
             it[CollectionsTable.ownerId] = SYSTEM_OWNER_ID
             it[CollectionsTable.name] = "All Books"
             it[CollectionsTable.type] = SYSTEM_TYPE_ALL_BOOKS
-            it[CollectionsTable.isInbox] = false
             it[CollectionsTable.revision] = nextRevision()
             it[CollectionsTable.createdAt] = now
             it[CollectionsTable.updatedAt] = now
@@ -106,7 +105,6 @@ class LibraryRegistry(
             it[CollectionsTable.ownerId] = SYSTEM_OWNER_ID
             it[CollectionsTable.name] = "Inbox"
             it[CollectionsTable.type] = SYSTEM_TYPE_INBOX
-            it[CollectionsTable.isInbox] = true
             it[CollectionsTable.revision] = nextRevision()
             it[CollectionsTable.createdAt] = now
             it[CollectionsTable.updatedAt] = now
