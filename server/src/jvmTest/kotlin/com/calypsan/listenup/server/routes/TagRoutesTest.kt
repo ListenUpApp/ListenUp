@@ -78,7 +78,7 @@ class TagRoutesTest :
                 // Exposed during the cutover — both views share the one migrated file.
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, db)
                 val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, principal = rootPrincipal())
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
                 val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)

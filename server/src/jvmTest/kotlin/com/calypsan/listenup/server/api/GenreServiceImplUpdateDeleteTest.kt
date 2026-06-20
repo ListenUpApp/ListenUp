@@ -61,7 +61,7 @@ class GenreServiceImplUpdateDeleteTest :
             val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
             val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
             val bookRepo =
                 BookRepository(
                     db = db.asSqlDatabase(),

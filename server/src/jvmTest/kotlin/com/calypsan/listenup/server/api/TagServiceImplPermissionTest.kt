@@ -82,7 +82,7 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
     val registry = SyncRegistry()
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.exposed)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed)
     return TagServiceImpl(
         tagRepository = tagRepo,
         bookTagRepository = bookTagRepo,

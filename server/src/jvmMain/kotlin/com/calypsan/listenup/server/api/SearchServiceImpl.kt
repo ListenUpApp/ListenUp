@@ -45,6 +45,20 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * Book author names are fetched in the same query via a `GROUP_CONCAT` sub-select
  * — no N+1 per-book round-trip.
  *
+ * **Stays on Exposed raw `exec` during the SQLDelight cutover (U3b, path B).** The
+ * user-facing book search splices runtime SQL fragments — the access-control
+ * `AND b.id IN (<subquery>)` from [BookAccessPolicy], optional genre/duration/year
+ * filters from [buildFilterSql], and a sort override — each carrying Exposed
+ * `IColumnType<*>` positional args ([SqlFragment.args]). [BookAccessPolicy] is the one
+ * source of truth for book visibility across `BookService`, `SearchService`, and the
+ * sync firehose; reshaping its arg type to an engine-neutral form would be a large
+ * cross-seam rewrite, out of proportion to this unit. So the dynamic search reads stay
+ * on Exposed [Database] raw `exec` over the shared WAL (consistent with U3a leaving
+ * `BookRepository`'s access-filtered `pullSince`/`digest`/`searchFts` on Exposed). The
+ * `book_search` *writes* (upsert, reindex) are already SQLDelight; only this filtered
+ * read path is deferred to the dedicated access-filter port (the Exposed-removal phase).
+ * Cross-engine reads over the one WAL file are safe.
+ *
  * Results AND facet counts are access-gated through [BookAccessPolicy]: a member must
  * never see a book they can't reach in the result list OR in a facet bucket count (a
  * count leaks existence just as surely as a row). The authenticated caller is resolved

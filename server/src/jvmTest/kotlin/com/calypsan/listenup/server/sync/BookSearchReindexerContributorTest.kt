@@ -35,7 +35,7 @@ class BookSearchReindexerContributorTest :
             db: org.jetbrains.exposed.v1.jdbc.Database,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
 
         /** Seeds a minimal book_search_map + book_search FTS row for [bookId]. */
         suspend fun seedFtsRow(

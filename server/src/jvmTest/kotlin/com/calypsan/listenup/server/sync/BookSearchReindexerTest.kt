@@ -30,7 +30,7 @@ class BookSearchReindexerTest :
             db: org.jetbrains.exposed.v1.jdbc.Database,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
 
         /** Seeds a minimal book_search_map + book_search FTS row for [bookId]. */
         suspend fun seedFtsRow(
@@ -268,6 +268,60 @@ class BookSearchReindexerTest :
 
                     ftsTagsMatch(db, 1, "SciFi") shouldBe true
                     ftsTagsMatch(db, 2, "SciFi") shouldBe true
+                }
+            }
+        }
+
+        /**
+         * Returns true if a MATCH on the `title` column for [searchTerm] finds [rowid].
+         * Column-scoped so the assertion proves the title column specifically carries the
+         * term, not a cross-column hit. Guards the SQLDelight `selectFtsSourceByRowid`
+         * read path — the title is re-read from the `books` table on every reindex.
+         */
+        suspend fun ftsTitleMatch(
+            db: org.jetbrains.exposed.v1.jdbc.Database,
+            rowid: Int,
+            searchTerm: String,
+        ): Boolean {
+            val dq = '"'
+            val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
+            var found = false
+            suspendTransaction(db) {
+                val tx = TransactionManager.current()
+                tx.exec(
+                    stmt = "SELECT rowid FROM book_search WHERE title MATCH ? AND rowid = ?",
+                    args =
+                        listOf(
+                            TextColumnType() to quotedTerm,
+                            org.jetbrains.exposed.v1.core
+                                .IntegerColumnType() to rowid,
+                        ),
+                ) { rs -> found = rs.next() }
+            }
+            return found
+        }
+
+        test("reindexBook re-reads the title from the books table into book_search.title") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                // seedTestBook sets books.title = "Test Book <id>". reindexBook re-reads
+                // the live source columns via the SQLDelight selectFtsSourceByRowid query
+                // and writes them back, so the title must survive the contentless rebuild.
+                seedTestBook("book1")
+                runTest {
+                    seedFtsRow(db, "book1", 1)
+
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+
+                    reindexer.reindexBook("book1")
+
+                    // "Test" comes from the books-table title, proving the source read landed.
+                    ftsTitleMatch(db, 1, "Test") shouldBe true
                 }
             }
         }

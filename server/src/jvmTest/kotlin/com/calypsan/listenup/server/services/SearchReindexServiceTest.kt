@@ -44,7 +44,7 @@ class SearchReindexServiceTest :
                     val registry = SyncRegistry()
                     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+                    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
 
                     SearchReindexService(db, reindexer).reindexAll()
 
@@ -71,7 +71,7 @@ class SearchReindexServiceTest :
                     val registry = SyncRegistry()
                     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
+                    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
 
                     SearchReindexService(db, reindexer).reindexAll()
 

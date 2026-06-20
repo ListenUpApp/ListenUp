@@ -180,7 +180,7 @@ private fun makeReindexService(
 ): SearchReindexService {
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    return SearchReindexService(db, BookSearchReindexer(bookTagRepo, tagRepo, db))
+    return SearchReindexService(db, BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db))
 }
 
 /**
