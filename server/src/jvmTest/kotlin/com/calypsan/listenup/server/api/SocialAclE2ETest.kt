@@ -143,7 +143,6 @@ class SocialAclE2ETest :
                     ownerId = ownerId,
                     name = collectionId,
                     isInbox = false,
-                    isGlobalAccess = false,
                     revision = 0L,
                     updatedAt = 0L,
                 ),

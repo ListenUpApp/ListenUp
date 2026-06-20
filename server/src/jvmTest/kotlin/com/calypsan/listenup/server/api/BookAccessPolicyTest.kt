@@ -332,7 +332,6 @@ private fun collectionFixture(
     id: String,
     owner: String,
     isInbox: Boolean = false,
-    isGlobalAccess: Boolean = false,
 ): CollectionSyncPayload =
     CollectionSyncPayload(
         id = id,
@@ -340,7 +339,6 @@ private fun collectionFixture(
         ownerId = owner,
         name = id,
         isInbox = isInbox,
-        isGlobalAccess = isGlobalAccess,
         revision = 0L,
         updatedAt = 0L,
     )

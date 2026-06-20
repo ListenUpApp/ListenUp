@@ -360,7 +360,6 @@ private data class Fixtures(
 private fun collectionFixture(
     id: String,
     owner: String,
-    isGlobalAccess: Boolean = false,
 ): CollectionSyncPayload =
     CollectionSyncPayload(
         id = id,
@@ -368,7 +367,6 @@ private fun collectionFixture(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = isGlobalAccess,
         revision = 0L,
         updatedAt = 0L,
     )

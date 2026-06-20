@@ -202,7 +202,6 @@ private fun privateCollection(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )
@@ -215,7 +214,6 @@ private fun allBooksCollection(id: String): CollectionSyncPayload =
         ownerId = "system",
         name = "All Books",
         isInbox = false,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )

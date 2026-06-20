@@ -95,7 +95,6 @@ class LibraryRegistry(
             it[CollectionsTable.name] = "All Books"
             it[CollectionsTable.type] = SYSTEM_TYPE_ALL_BOOKS
             it[CollectionsTable.isInbox] = false
-            it[CollectionsTable.isGlobalAccess] = false
             it[CollectionsTable.revision] = nextRevision()
             it[CollectionsTable.createdAt] = now
             it[CollectionsTable.updatedAt] = now
@@ -108,7 +107,6 @@ class LibraryRegistry(
             it[CollectionsTable.name] = "Inbox"
             it[CollectionsTable.type] = SYSTEM_TYPE_INBOX
             it[CollectionsTable.isInbox] = true
-            it[CollectionsTable.isGlobalAccess] = false
             it[CollectionsTable.revision] = nextRevision()
             it[CollectionsTable.createdAt] = now
             it[CollectionsTable.updatedAt] = now

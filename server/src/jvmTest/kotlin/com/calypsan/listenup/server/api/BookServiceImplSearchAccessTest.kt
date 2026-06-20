@@ -151,7 +151,6 @@ private fun searchCollectionFixture(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )

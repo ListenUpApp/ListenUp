@@ -223,7 +223,6 @@ private fun systemCollectionFixture(
         ownerId = "system",
         name = if (isInbox) "Inbox" else "All Books",
         isInbox = isInbox,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )
@@ -238,7 +237,6 @@ private fun normalCollectionFixture(
         ownerId = owner,
         name = id,
         isInbox = false,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )

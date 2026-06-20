@@ -59,7 +59,6 @@ class CollectionRepository(
                     ownerId = row[CollectionsTable.ownerId],
                     name = row[CollectionsTable.name],
                     isInbox = row[CollectionsTable.isInbox],
-                    isGlobalAccess = row[CollectionsTable.isGlobalAccess],
                     revision = row[CollectionsTable.revision],
                     updatedAt = row[CollectionsTable.updatedAt],
                     deletedAt = row[CollectionsTable.deletedAt],
@@ -80,7 +79,6 @@ class CollectionRepository(
                 stmt[CollectionsTable.ownerId] = value.ownerId
                 stmt[CollectionsTable.name] = value.name
                 stmt[CollectionsTable.isInbox] = value.isInbox
-                stmt[CollectionsTable.isGlobalAccess] = value.isGlobalAccess
                 stmt[CollectionsTable.revision] = rev
                 stmt[CollectionsTable.updatedAt] = now
                 stmt[CollectionsTable.deletedAt] = null
@@ -93,7 +91,6 @@ class CollectionRepository(
                 stmt[CollectionsTable.ownerId] = value.ownerId
                 stmt[CollectionsTable.name] = value.name
                 stmt[CollectionsTable.isInbox] = value.isInbox
-                stmt[CollectionsTable.isGlobalAccess] = value.isGlobalAccess
                 stmt[CollectionsTable.revision] = rev
                 stmt[CollectionsTable.createdAt] = now
                 stmt[CollectionsTable.updatedAt] = now
@@ -119,7 +116,6 @@ class CollectionRepository(
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
                         isInbox = row[CollectionsTable.isInbox],
-                        isGlobalAccess = row[CollectionsTable.isGlobalAccess],
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -149,7 +145,6 @@ class CollectionRepository(
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
                         isInbox = row[CollectionsTable.isInbox],
-                        isGlobalAccess = row[CollectionsTable.isGlobalAccess],
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -183,7 +178,6 @@ class CollectionRepository(
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
                         isInbox = row[CollectionsTable.isInbox],
-                        isGlobalAccess = row[CollectionsTable.isGlobalAccess],
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -224,7 +218,6 @@ class CollectionRepository(
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
                         isInbox = row[CollectionsTable.isInbox],
-                        isGlobalAccess = row[CollectionsTable.isGlobalAccess],
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],
@@ -247,7 +240,6 @@ class CollectionRepository(
                         ownerId = row[CollectionsTable.ownerId],
                         name = row[CollectionsTable.name],
                         isInbox = row[CollectionsTable.isInbox],
-                        isGlobalAccess = row[CollectionsTable.isGlobalAccess],
                         revision = row[CollectionsTable.revision],
                         updatedAt = row[CollectionsTable.updatedAt],
                         deletedAt = row[CollectionsTable.deletedAt],

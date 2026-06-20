@@ -12,9 +12,6 @@ import org.jetbrains.exposed.v1.core.ReferenceOption
  * ([CollectionGrantsTable]) — there is no "uncollected is public" fallback. Public books
  * live in the per-library `ALL_BOOKS` system collection that every member is granted.
  *
- * [isGlobalAccess] is **vestigial** — the visibility rule no longer reads it; the column
- * persists only until the next slice removes it.
- *
  * [isInbox] marks the system-managed inbox collection for a library — at most one live
  * inbox per library is enforced by a partial unique index on [libraryId] in the migration.
  * [ownerId] references `users.id`; stored as a plain text column (not `reference()`) so
@@ -27,6 +24,5 @@ internal object CollectionsTable : SyncableTable("collections") {
     val name = text("name")
     val type = text("type").default("NORMAL")
     val isInbox = bool("is_inbox").default(false)
-    val isGlobalAccess = bool("is_global_access").default(false)
     override val primaryKey = PrimaryKey(id)
 }

@@ -777,7 +777,6 @@ private fun playbackCollection(
         ownerId = owner,
         name = id,
         isInbox = isInbox,
-        isGlobalAccess = false,
         revision = 0L,
         updatedAt = 0L,
     )

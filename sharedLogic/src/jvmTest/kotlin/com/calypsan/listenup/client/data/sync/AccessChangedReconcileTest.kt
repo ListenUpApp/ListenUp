@@ -267,7 +267,6 @@ private fun collectionPayload(id: String): CollectionSyncPayload =
         ownerId = "u1",
         name = "Collection $id",
         isInbox = false,
-        isGlobalAccess = false,
         revision = 1L,
         updatedAt = 100L,
         deletedAt = null,

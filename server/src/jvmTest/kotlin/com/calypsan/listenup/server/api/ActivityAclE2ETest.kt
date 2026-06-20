@@ -129,7 +129,6 @@ class ActivityAclE2ETest :
             bookId: String,
             collectionId: String,
             ownerId: String,
-            isGlobalAccess: Boolean = false,
         ) {
             collections.upsert(
                 CollectionSyncPayload(
@@ -138,7 +137,6 @@ class ActivityAclE2ETest :
                     ownerId = ownerId,
                     name = collectionId,
                     isInbox = false,
-                    isGlobalAccess = isGlobalAccess,
                     revision = 0L,
                     updatedAt = 0L,
                 ),

@@ -248,7 +248,7 @@ private struct CollectionTile: View {
                     .lineLimit(2)
 
                 HStack(spacing: 4) {
-                    Image(systemName: collection.isGlobalAccess ? "globe" : "person.2")
+                    Image(systemName: "person.2")
                         .font(.caption)
                         .foregroundStyle(Color.luLabel2)
                     Text("\(collection.bookCount)")

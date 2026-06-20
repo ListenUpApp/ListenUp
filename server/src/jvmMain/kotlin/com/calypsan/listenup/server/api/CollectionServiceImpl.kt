@@ -185,7 +185,6 @@ internal class CollectionServiceImpl(
                 ownerId = caller.userId,
                 name = trimmed,
                 isInbox = false,
-                isGlobalAccess = false,
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )
@@ -445,7 +444,7 @@ internal class CollectionServiceImpl(
     /**
      * Resolves the library's per-library system collection of [type], creating it on first use.
      *
-     * A system collection (`isGlobalAccess = false`, owned by [SYSTEM_OWNER_ID]) is identified by
+     * A system collection (owned by [SYSTEM_OWNER_ID]) is identified by
      * the server-only `collections.type` column ([SystemCollectionType.name]) — never on the wire.
      * It is created lazily: the first call materialises it, subsequent calls return the same row.
      * Idempotency rests on [CollectionRepository.findSystemCollection], backstopped at the DB by a
@@ -478,7 +477,6 @@ internal class CollectionServiceImpl(
                 ownerId = SYSTEM_OWNER_ID,
                 name = if (type == SystemCollectionType.ALL_BOOKS) "All Books" else "Inbox",
                 isInbox = type == SystemCollectionType.INBOX,
-                isGlobalAccess = false,
                 revision = 0L,
                 updatedAt = clock.now().toEpochMilliseconds(),
             )
@@ -736,7 +734,6 @@ internal class CollectionServiceImpl(
             name = collection.name,
             ownerId = UserId(collection.ownerId),
             isInbox = collection.isInbox,
-            isGlobalAccess = collection.isGlobalAccess,
             bookCount = collectionBookRepo.countLiveForCollection(collection.id),
             callerPermission = verdict.permission,
             isOwner = verdict.isOwner,
@@ -757,7 +754,6 @@ internal class CollectionServiceImpl(
                 name = collection.name,
                 ownerId = UserId(collection.ownerId),
                 isInbox = collection.isInbox,
-                isGlobalAccess = collection.isGlobalAccess,
                 bookCount = collectionBookRepo.countLiveForCollection(collection.id),
                 callerPermission = SharePermission.Write,
                 isOwner = true,
