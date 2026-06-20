@@ -17,6 +17,8 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.rpcguard.guard
@@ -70,6 +72,18 @@ class ProfileE2ETest :
         }
 
         /**
+         * Opens a SQLDelight [ServerSqlDatabase] over the same already-migrated SQLite file this
+         * Exposed [Database] is connected to. Mirrors `:server`'s `Database.asSqlDatabase()` test
+         * helper, which is not visible from `:sharedLogic:jvmTest`. Migrations have already run via
+         * [DatabaseFactory.init], so the driver never calls `Schema.create`; both views read/write
+         * the one file.
+         */
+        fun Database.asServerSqlDatabase(): ServerSqlDatabase {
+            val path = url.removePrefix("jdbc:sqlite:")
+            return ServerSqlDatabase(DriverFactory().createDriver(path))
+        }
+
+        /**
          * Seeds a minimal user row via raw SQL.
          *
          * [com.calypsan.listenup.server.testing.seedTestUser] lives in `:server`'s test source set
@@ -94,14 +108,17 @@ class ProfileE2ETest :
         test("updateMyProfile then getMyProfile returns updated displayName and tagline") {
             val serverDb = setupServerDb()
             serverDb.seedUser("u1")
+            // PublicProfileMaintainer/PublicProfileRepository are SQLDelight-converted: open a
+            // SQLDelight view over the same already-migrated file the Exposed [serverDb] uses.
+            val serverSqlDb = serverDb.asServerSqlDatabase()
             val profileService =
                 createProfileService(
                     db = serverDb,
                     passwordHasher = PasswordHasher(),
                     publicProfileMaintainer =
                         PublicProfileMaintainer(
-                            serverDb,
-                            PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry()),
+                            serverSqlDb,
+                            PublicProfileRepository(serverSqlDb, ChangeBus(), SyncRegistry()),
                         ),
                 )
 
@@ -147,14 +164,17 @@ class ProfileE2ETest :
             // Seed the user with a real Argon2 hash so passwordHasher.verify() can succeed or fail.
             val realHash = hasher.hash("correct-pass")
             serverDb.seedUser("u2", passwordHash = realHash)
+            // PublicProfileMaintainer/PublicProfileRepository are SQLDelight-converted: open a
+            // SQLDelight view over the same already-migrated file the Exposed [serverDb] uses.
+            val serverSqlDb = serverDb.asServerSqlDatabase()
             val profileService =
                 createProfileService(
                     db = serverDb,
                     passwordHasher = hasher,
                     publicProfileMaintainer =
                         PublicProfileMaintainer(
-                            serverDb,
-                            PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry()),
+                            serverSqlDb,
+                            PublicProfileRepository(serverSqlDb, ChangeBus(), SyncRegistry()),
                         ),
                 )
 

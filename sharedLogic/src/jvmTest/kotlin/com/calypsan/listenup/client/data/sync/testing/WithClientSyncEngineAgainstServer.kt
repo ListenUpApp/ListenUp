@@ -665,30 +665,30 @@ private fun buildServerRepositories(
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,
         )
-    val activeSessionRepo = ActiveSessionRepository(serverDb, bus)
+    val activeSessionRepo = ActiveSessionRepository(serverSqlDb, bus)
     val playbackPositionRepo =
-        PlaybackPositionRepository(serverDb, bus, registry, activeSessionRepo = activeSessionRepo)
+        PlaybackPositionRepository(serverSqlDb, bus, registry, activeSessionRepo = activeSessionRepo)
 
     // P2: break the UserStatsRepository ↔ UserStatsUpdater cycle with a lateinit, matching
     // the pattern in SyncTestApplication.
     lateinit var statsUpdater: UserStatsUpdater
     val userStatsRepo =
         UserStatsRepository(
-            db = serverDb,
+            db = serverSqlDb,
             bus = bus,
             registry = registry,
             userStatsUpdaterProvider = { statsUpdater },
         )
     val publicProfileMaintainer =
-        PublicProfileMaintainer(serverDb, PublicProfileRepository(serverDb, bus, registry))
+        PublicProfileMaintainer(serverSqlDb, PublicProfileRepository(serverSqlDb, bus, registry))
     val listeningEventRepo =
         ListeningEventRepository(
-            db = serverDb,
+            db = serverSqlDb,
             bus = bus,
             registry = registry,
             userStatsUpdater =
                 UserStatsUpdater(
-                    db = serverDb,
+                    sql = serverSqlDb,
                     userStatsRepo = userStatsRepo,
                     publicProfileMaintainerProvider = { publicProfileMaintainer },
                 ).also { statsUpdater = it },

@@ -188,6 +188,7 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
                 grantRepo = grantRepo,
                 bus = bus,
                 db = serverDb,
+                sql = serverSqlDb,
                 bookRevisionTouch = bookRepo,
             )
         val adminCollections =

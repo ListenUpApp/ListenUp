@@ -99,8 +99,11 @@ class DigestParityE2ETest :
                 }
             val serverDb =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            // UserStatsRepository is SQLDelight-converted: open a SQLDelight view over the same
+            // already-migrated file the Exposed [serverDb] is connected to.
+            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
             val userStatsRepo =
-                UserStatsRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+                UserStatsRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             val clientDb = createInMemoryTestDatabase()
             try {
@@ -168,9 +171,12 @@ class DigestParityE2ETest :
                 }
             val serverDb =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            // ListeningEventRepository is SQLDelight-converted: open a SQLDelight view over the same
+            // already-migrated file the Exposed [serverDb] is connected to.
+            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
             // null userStatsUpdater is safe here — stats accrual is not under test.
             val listeningEventRepo =
-                ListeningEventRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+                ListeningEventRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             val clientDb = createInMemoryTestDatabase()
             try {
