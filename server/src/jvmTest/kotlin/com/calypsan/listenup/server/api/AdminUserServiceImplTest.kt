@@ -83,7 +83,7 @@ class AdminUserServiceImplTest :
         ): AdminUserServiceImpl {
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
                 sql = db.asSqlDatabase(),
                 sessions = sessions,
@@ -214,7 +214,7 @@ class AdminUserServiceImplTest :
                 runTest {
                     val sessions =
                         SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                     val svc =
                         AdminUserServiceImpl(
                             sql = db.asSqlDatabase(),

@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
@@ -75,7 +76,7 @@ class DefaultGrantSelfHealTest :
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             val sessionIssuer = SessionIssuer(sessions, jwt, fixedClock)
             val hasher = PasswordHasher()
-            val settings = ServerSettingsRepository(db, default = com.calypsan.listenup.api.dto.auth.RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
 
             val grantIssuer =
                 DefaultAllBooksGrantIssuer(

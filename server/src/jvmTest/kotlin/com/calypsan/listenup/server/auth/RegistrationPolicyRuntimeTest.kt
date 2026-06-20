@@ -29,7 +29,7 @@ class RegistrationPolicyRuntimeTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                     val auth = makeAuthService(db, settings)
                     auth.setupRoot(RegisterRequest("root@x.y", "x".repeat(8), "Root"))
 

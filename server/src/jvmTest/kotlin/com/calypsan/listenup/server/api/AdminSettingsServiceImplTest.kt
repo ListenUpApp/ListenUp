@@ -244,7 +244,7 @@ private fun makeAdminSettingsService(
     val libraryRegistry = LibraryRegistry(db = db)
     val svc =
         AdminSettingsServiceImpl(
-            settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN),
+            settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN),
             changeBus = bus,
             libraryRegistry = libraryRegistry,
             libraryRepository = libraryRepo,

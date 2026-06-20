@@ -16,7 +16,7 @@ class InstanceServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                     val svc = InstanceServiceImpl(db.asSqlDatabase(), settings, InstanceIdentity(settings))
                     (svc.getServerInfo() as AppResult.Success).data.name shouldBe ServerIdentity.NAME
                     settings.setServerName("Renamed")
@@ -29,7 +29,7 @@ class InstanceServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                     val svc = InstanceServiceImpl(db.asSqlDatabase(), settings, InstanceIdentity(settings))
                     settings.setValue("remote_url", "https://library.example.com")
                     (svc.getServerInfo() as AppResult.Success).data.remoteUrl shouldBe "https://library.example.com"
@@ -41,7 +41,7 @@ class InstanceServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                     val svc = InstanceServiceImpl(db.asSqlDatabase(), settings, InstanceIdentity(settings))
                     (svc.getServerInfo() as AppResult.Success).data.remoteUrl shouldBe null
                 }
@@ -52,7 +52,7 @@ class InstanceServiceImplTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                     val identity = InstanceIdentity(settings)
                     val expectedId = identity.instanceId()
 

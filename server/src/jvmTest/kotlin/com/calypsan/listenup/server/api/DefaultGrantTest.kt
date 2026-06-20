@@ -86,7 +86,7 @@ class DefaultGrantTest :
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             val sessionIssuer = SessionIssuer(sessions, jwt, fixedClock)
             val hasher = PasswordHasher()
-            val settings = ServerSettingsRepository(db, default = registrationPolicy)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = registrationPolicy)
 
             val grantIssuer =
                 DefaultAllBooksGrantIssuer(

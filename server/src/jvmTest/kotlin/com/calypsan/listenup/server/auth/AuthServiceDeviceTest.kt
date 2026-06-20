@@ -41,7 +41,7 @@ class AuthServiceDeviceTest :
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db, default = policy)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = policy)
             return AuthServiceImpl(
                 db = db.asSqlDatabase(),
                 sessions = sessions,
@@ -104,7 +104,7 @@ class AuthServiceDeviceTest :
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
             val svc =
                 AuthServiceImpl(
                     db = db.asSqlDatabase(),

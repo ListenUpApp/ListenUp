@@ -53,7 +53,7 @@ class PublicProfileDomainSeederTest :
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
             return AuthServiceImpl(
                 db = db.asSqlDatabase(),
                 sessions = sessions,

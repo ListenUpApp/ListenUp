@@ -106,7 +106,7 @@ fun authModule(config: ApplicationConfig): Module {
             )
         }
 
-        single { ServerSettingsRepository(db = get(), default = config.registrationPolicy()) }
+        single { ServerSettingsRepository(sql = get(), default = config.registrationPolicy()) }
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 

@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -27,7 +29,8 @@ class MdnsModuleVerifyTest :
                         modules(
                             module {
                                 single<Database> { db }
-                                single { ServerSettingsRepository(get<Database>(), RegistrationPolicy.CLOSED) }
+                                single<ListenUpDatabase> { db.asSqlDatabase() }
+                                single { ServerSettingsRepository(get<ListenUpDatabase>(), RegistrationPolicy.CLOSED) }
                             },
                             mdnsModule(scope, port = 8080),
                         )

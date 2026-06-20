@@ -43,7 +43,7 @@ class StarterShelfTest :
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
             val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
@@ -101,7 +101,7 @@ class StarterShelfTest :
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.APPROVAL_QUEUE)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.APPROVAL_QUEUE)
             val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
@@ -133,7 +133,7 @@ class StarterShelfTest :
             val sessions =
                 SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
             val authSvcNoShelf =
                 AuthServiceImpl(
                     db = db.asSqlDatabase(),

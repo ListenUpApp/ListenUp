@@ -274,7 +274,7 @@ class InviteServiceImplTest :
                 val db = this
                 seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                    ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
                         .setRegistrationPolicy(RegistrationPolicy.CLOSED)
                     val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
