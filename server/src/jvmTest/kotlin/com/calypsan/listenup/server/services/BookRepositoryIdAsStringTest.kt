@@ -21,7 +21,6 @@ class BookRepositoryIdAsStringTest :
                     BookRepository(
                         db = this.asSqlDatabase(),
                         driver = this.asSqlDriver(),
-                        exposedDb = this,
                         bus = bus,
                         registry = registry,
                         contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
@@ -40,7 +39,6 @@ class BookRepositoryIdAsStringTest :
                     BookRepository(
                         db = this.asSqlDatabase(),
                         driver = this.asSqlDriver(),
-                        exposedDb = this,
                         bus = bus,
                         registry = registry,
                         contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),

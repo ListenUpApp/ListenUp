@@ -63,7 +63,6 @@ class BookServiceImplSetGenresTest :
                 BookRepository(
                     db = db.asSqlDatabase(),
                     driver = db.asSqlDriver(),
-                    exposedDb = db,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,

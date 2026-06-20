@@ -279,7 +279,6 @@ private fun buildPlaybackBookRepository(
     return BookRepository(
         db = db.asSqlDatabase(),
         driver = db.asSqlDriver(),
-        exposedDb = db,
         bus = bus,
         registry = sharedRegistry,
         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),

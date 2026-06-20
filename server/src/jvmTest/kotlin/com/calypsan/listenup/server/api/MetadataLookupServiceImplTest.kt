@@ -262,7 +262,6 @@ class MetadataLookupServiceImplTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -472,7 +471,6 @@ private fun makeService(
         BookRepository(
             db = db.asSqlDatabase(),
             driver = db.asSqlDriver(),
-            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,

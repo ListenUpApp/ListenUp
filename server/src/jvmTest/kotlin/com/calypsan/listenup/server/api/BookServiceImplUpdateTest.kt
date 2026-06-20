@@ -61,7 +61,6 @@ class BookServiceImplUpdateTest :
                 BookRepository(
                     db = db.asSqlDatabase(),
                     driver = db.asSqlDriver(),
-                    exposedDb = db,
                     bus = bus,
                     registry = syncRegistry,
                     contributorRepository = contributorRepo,
@@ -184,7 +183,6 @@ class BookServiceImplUpdateTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -233,7 +231,6 @@ class BookServiceImplUpdateTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -345,7 +342,6 @@ class BookServiceImplUpdateTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,

@@ -61,7 +61,6 @@ class AudioFileLocatorTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),

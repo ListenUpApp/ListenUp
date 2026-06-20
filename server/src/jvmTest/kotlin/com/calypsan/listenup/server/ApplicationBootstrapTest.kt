@@ -188,7 +188,6 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
         BookRepository(
             db = db.asSqlDatabase(),
             driver = db.asSqlDriver(),
-            exposedDb = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,

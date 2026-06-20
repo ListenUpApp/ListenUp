@@ -40,7 +40,6 @@ class BookRepositoryContributorDelegationTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
@@ -78,7 +77,6 @@ class BookRepositoryContributorDelegationTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,

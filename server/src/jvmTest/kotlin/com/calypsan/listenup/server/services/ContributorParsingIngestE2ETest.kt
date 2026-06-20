@@ -53,7 +53,6 @@ class ContributorParsingIngestE2ETest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
@@ -98,7 +97,6 @@ class ContributorParsingIngestE2ETest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
@@ -155,7 +153,6 @@ class ContributorParsingIngestE2ETest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
@@ -209,7 +206,6 @@ class ContributorParsingIngestE2ETest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,

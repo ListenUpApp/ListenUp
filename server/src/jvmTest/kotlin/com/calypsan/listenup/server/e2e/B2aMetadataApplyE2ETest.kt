@@ -122,7 +122,7 @@ class B2aMetadataApplyE2ETest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook = canned_WayOfKings()
@@ -210,7 +210,7 @@ class B2aMetadataApplyE2ETest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
@@ -272,7 +272,7 @@ class B2aMetadataApplyE2ETest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
 
                 val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =

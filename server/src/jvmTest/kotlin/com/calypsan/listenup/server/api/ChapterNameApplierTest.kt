@@ -165,7 +165,6 @@ private fun deps(
             bus,
             registry,
             db.asSqlDriver(),
-            db,
             contributorRepo,
             seriesRepo,
             GenreRepository(db.asSqlDatabase(), bus, registry),

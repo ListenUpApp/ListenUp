@@ -54,7 +54,6 @@ class BookServiceImplSetContributorsTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -112,7 +111,6 @@ class BookServiceImplSetContributorsTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -170,7 +168,6 @@ class BookServiceImplSetContributorsTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -237,7 +234,6 @@ class BookServiceImplSetContributorsTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -283,7 +279,6 @@ class BookServiceImplSetContributorsTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,

@@ -51,7 +51,6 @@ class BookCatchUpAccessTest :
                     BookRepository(
                         db = this.asSqlDatabase(),
                         driver = this.asSqlDriver(),
-                        exposedDb = this,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,

@@ -181,7 +181,6 @@ private fun fixture(db: Database): InboxFixture {
         BookRepository(
             db = db.asSqlDatabase(),
             driver = db.asSqlDriver(),
-            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),

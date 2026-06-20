@@ -332,7 +332,6 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
         BookRepository(
             db = db.asSqlDatabase(),
             driver = db.asSqlDriver(),
-            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,

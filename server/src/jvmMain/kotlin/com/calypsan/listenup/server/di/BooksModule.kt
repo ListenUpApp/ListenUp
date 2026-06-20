@@ -128,7 +128,6 @@ fun booksModule(
                 bus = get(),
                 registry = get(),
                 driver = get<SqlDriver>(),
-                exposedDb = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),
                 genreRepository = get<GenreRepository>(),

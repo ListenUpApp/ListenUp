@@ -2,9 +2,8 @@ package com.calypsan.listenup.server.cover
 
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.db.BookAudioFileTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PendingCover
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Files
@@ -12,10 +11,6 @@ import java.nio.file.Path
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -36,23 +31,23 @@ data class StoredCoverInfo(
  * Self-contained cover file and path helpers extracted from `BookRepository`.
  *
  * Holds the [CoverImageStore] and [homeDir] that the managed-cover surface needs, plus
- * the [db] handle required by [coverInfo] to read the book row before resolving the
+ * the [sql] handle required by [coverInfo] to read the book row before resolving the
  * filesystem path. This collaborator is constructed by `BookRepository` from its own
  * constructor parameters and owns all I/O-side cover logic that does NOT touch the
  * syncable-repository template-method seam ([nextRevision], [ChangeBus], [readPayload]).
  *
- * All suspension points are safe to call from outside an Exposed transaction (file I/O
+ * All suspension points are safe to call from outside a transaction (file I/O
  * runs on [Dispatchers.IO]; [coverInfo] opens its own short read transaction internally).
  *
  * @param coverImageStore the cover-scoped [ImageStore] wrapper; null when the managed
  *   store is not configured (no library path set).
  * @param homeDir `$LISTENUP_HOME` as a [Path]; null when the library is not configured.
- * @param db the Exposed [Database] handle used by [coverInfo] to read book rows.
+ * @param sql the [ListenUpDatabase] handle used by [coverInfo] to read book rows.
  */
 class ManagedCoverFiles(
     private val coverImageStore: CoverImageStore?,
     private val homeDir: Path?,
-    private val db: Database,
+    private val sql: ListenUpDatabase,
 ) {
     /**
      * Stores [pending] to the managed cover store (if configured + non-null) and returns a
@@ -60,7 +55,7 @@ class ManagedCoverFiles(
      * when [coverImageStore] is not configured, [pending] is null, or storage fails (logged,
      * not propagated — cover is best-effort at scan time).
      *
-     * Must be called OUTSIDE any DB transaction — file I/O must not run inside an Exposed
+     * Must be called OUTSIDE any DB transaction — file I/O must not run inside a
      * `suspendTransaction`.
      */
     suspend fun storeCoverIfPresent(
@@ -112,32 +107,26 @@ class ManagedCoverFiles(
      */
     suspend fun coverInfo(id: BookId): CoverInfo? {
         val resolved =
-            suspendTransaction(db) {
+            suspendTransaction<ResolvedCover?>(sql) {
                 val bookRow =
-                    BookTable
-                        .selectAll()
-                        .where { BookTable.id eq id.value }
-                        .firstOrNull() ?: return@suspendTransaction null
-                val source = bookRow[BookTable.coverSource] ?: return@suspendTransaction null
-                val rootRelPath = bookRow[BookTable.rootRelPath]
-                val hash = bookRow[BookTable.coverHash]
+                    sql.booksQueries
+                        .selectById(id.value)
+                        .executeAsOneOrNull() ?: return@suspendTransaction null
+                val source = bookRow.cover_source ?: return@suspendTransaction null
+                val rootRelPath = bookRow.root_rel_path
+                val hash = bookRow.cover_hash
                 // Resolve the folder root path via the book's folder_id column.
                 // TODO: surface a typed error (LIB-C) if the folder row is missing.
                 val folderRoot =
-                    LibraryFolderTable
-                        .selectAll()
-                        .where { LibraryFolderTable.id eq bookRow[BookTable.folderId] }
-                        .firstOrNull()
-                        ?.get(LibraryFolderTable.rootPath)
-                        ?: return@suspendTransaction null
+                    sql.libraryFoldersQueries
+                        .selectById(bookRow.folder_id)
+                        .executeAsOneOrNull()
+                        ?.root_path ?: return@suspendTransaction null
                 val primaryFilename =
-                    BookAudioFileTable
-                        .selectAll()
-                        .where { BookAudioFileTable.bookId eq id.value }
-                        .orderBy(BookAudioFileTable.ordinal)
-                        .firstOrNull()
-                        ?.get(BookAudioFileTable.filename)
-                val coverPath = bookRow[BookTable.coverPath]
+                    sql.bookAudioFilesQueries
+                        .selectPrimaryFilenameForBook(id.value)
+                        .executeAsOneOrNull()
+                val coverPath = bookRow.cover_path
                 ResolvedCover(source, folderRoot, rootRelPath, primaryFilename, hash, coverPath)
             } ?: return null
 

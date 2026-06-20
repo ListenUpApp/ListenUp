@@ -105,7 +105,6 @@ private fun makeService(db: Database): PermServiceDeps {
         BookRepository(
             db = db.asSqlDatabase(),
             driver = db.asSqlDriver(),
-            exposedDb = db,
             bus = bus,
             registry = registry,
             contributorRepository = contributorRepo,

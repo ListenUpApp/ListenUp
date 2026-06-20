@@ -40,7 +40,6 @@ class BookRepositorySoftDeleteCascadeTest :
                         BookRepository(
                             db = db.asSqlDatabase(),
                             driver = db.asSqlDriver(),
-                            exposedDb = db,
                             bus = bus,
                             registry = syncRegistry,
                             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -82,7 +81,6 @@ class BookRepositorySoftDeleteCascadeTest :
                         BookRepository(
                             db = db.asSqlDatabase(),
                             driver = db.asSqlDriver(),
-                            exposedDb = db,
                             bus = bus,
                             registry = syncRegistry,
                             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),

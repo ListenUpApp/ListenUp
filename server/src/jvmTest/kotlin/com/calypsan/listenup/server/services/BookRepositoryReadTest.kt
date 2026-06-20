@@ -37,7 +37,6 @@ class BookRepositoryReadTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -62,7 +61,6 @@ class BookRepositoryReadTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -198,7 +196,6 @@ class BookRepositoryReadTest :
                     BookRepository(
                         db = db.asSqlDatabase(),
                         driver = db.asSqlDriver(),
-                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
