@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -16,7 +17,7 @@ class BookReadsRepositoryTest :
     FunSpec({
         test("recordRead appends a row and finishesForBook returns it") {
             withInMemoryDatabase {
-                val repo = BookReadsRepository(this, FixedClock(NOW))
+                val repo = BookReadsRepository(db = this.asSqlDatabase(), clock = FixedClock(NOW))
                 runTest {
                     repo.recordRead(id = "r1", userId = "u1", bookId = "b1", finishedAt = 100L, source = "playback")
                     repo.finishesForBook("b1") shouldContainExactly
@@ -27,7 +28,7 @@ class BookReadsRepositoryTest :
 
         test("re-reads stack: two rows for the same user+book, newest-first per user") {
             withInMemoryDatabase {
-                val repo = BookReadsRepository(this, FixedClock(NOW))
+                val repo = BookReadsRepository(db = this.asSqlDatabase(), clock = FixedClock(NOW))
                 runTest {
                     repo.recordRead("r1", "u1", "b1", finishedAt = 100L, source = "playback")
                     repo.recordRead("r2", "u1", "b1", finishedAt = 300L, source = "playback")

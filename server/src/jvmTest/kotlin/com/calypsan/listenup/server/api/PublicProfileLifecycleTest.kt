@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -55,8 +56,8 @@ class PublicProfileLifecycleTest :
          * database. Returns both so the test can query the projection after each act.
          */
         fun Database.buildMaintainerAndRepo(): Pair<PublicProfileMaintainer, PublicProfileRepository> {
-            val repo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-            val maintainer = PublicProfileMaintainer(db = this, publicProfileRepo = repo)
+            val repo = PublicProfileRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), db = this, publicProfileRepo = repo)
             return maintainer to repo
         }
 

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -32,7 +33,7 @@ class PublicProfileRepositoryTest :
     FunSpec({
         test("pullSince returns ALL users' rows regardless of requesting user (global domain)") {
             withInMemoryDatabase {
-                val repo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PublicProfileRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
                     repo.upsert(row("u1", 100))

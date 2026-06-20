@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -48,8 +49,8 @@ class PublicProfileMaintainerTest :
                     }
                 }
 
-                val repo = PublicProfileRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+                val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u1")
@@ -84,8 +85,8 @@ class PublicProfileMaintainerTest :
                     }
                 }
 
-                val repo = PublicProfileRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+                val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u2")
@@ -117,8 +118,8 @@ class PublicProfileMaintainerTest :
                     }
                 }
 
-                val repo = PublicProfileRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+                val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u4")
@@ -147,8 +148,8 @@ class PublicProfileMaintainerTest :
                     }
                 }
 
-                val repo = PublicProfileRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                val maintainer = PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+                val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
 
                 runTest {
                     maintainer.refresh("u3")

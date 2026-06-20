@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -72,7 +73,7 @@ class ActivityServiceTest :
             return ActivityServiceImpl(
                 activities = activities,
                 bookAccessPolicy = BookAccessPolicy(db),
-                publicProfiles = PublicProfileRepository(db = db, bus = bus, registry = registry),
+                publicProfiles = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 principal = principal,
             )
         }
@@ -149,7 +150,7 @@ class ActivityServiceTest :
                 seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
                 runTest {
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db, clock = clock)
+                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
                     activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-b")
@@ -188,7 +189,7 @@ class ActivityServiceTest :
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db, clock = clock)
+                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "public-book")
@@ -220,7 +221,7 @@ class ActivityServiceTest :
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db, clock = clock)
+                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
                     // A book activity the viewer can't see, plus two non-book activities.
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
@@ -258,7 +259,7 @@ class ActivityServiceTest :
                 seedPublicProfile("alice", displayName = "Alice")
                 runTest {
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db, clock = clock)
+                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
                     activities.record(userId = "alice", type = ActivityType.USER_JOINED) // 1_000
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
                     activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a") // 2_000
@@ -291,7 +292,7 @@ class ActivityServiceTest :
                     makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(0L))
-                    val activities = ActivityRepository(db = db, clock = clock)
+                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
                     // 20 accessible (non-book) rows interleaved with 20 inaccessible book rows.
                     var t = 1L
                     repeat(20) {
@@ -322,7 +323,7 @@ class ActivityServiceTest :
                 val db = this
                 runTest {
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db, clock = clock)
+                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
                     // Insert at clock=1_000 but with occurredAt=1_000 (older real event)
                     activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 1_000L)
                     // Insert at clock=2_000 but with occurredAt=9_000 (newer real event)
@@ -339,7 +340,11 @@ class ActivityServiceTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val activities = ActivityRepository(db = db, clock = MutableClock(Instant.fromEpochMilliseconds(1_000L)))
+                    val activities =
+                        ActivityRepository(
+                            db = db.asSqlDatabase(),
+                            clock = MutableClock(Instant.fromEpochMilliseconds(1_000L)),
+                        )
                     // Two activities sharing the same occurredAt — the secondary `id DESC` sort must order them.
                     val idA = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
                     val idB = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
@@ -355,7 +360,7 @@ class ActivityServiceTest :
                 val db = this
                 seedTestLibraryAndFolder()
                 runTest {
-                    val activities = ActivityRepository(db = db)
+                    val activities = ActivityRepository(db = db.asSqlDatabase())
                     val result = makeService(db, activities, noPrincipal()).feed(before = null, limit = 20)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()

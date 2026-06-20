@@ -2,15 +2,10 @@
 
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.db.BookReadsTable
+import com.calypsan.listenup.server.db.sqldelight.Book_reads
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.SortOrder
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /** A single completion event: who finished what, when, and how. */
 data class BookReadRow(
@@ -26,9 +21,18 @@ data class BookReadRow(
  * Append-only: rows are never updated or deleted. Re-reads of the same book stack
  * as distinct rows (naturally deduplicated by [finishedAt]). Used by the readership
  * RPC surface to show persistent readers on the Book Detail screen.
+ *
+ * This is a **plain** (non-syncable) append-only log — there is no revision /
+ * soft-delete substrate, so it persists directly over the generated
+ * [ListenUpDatabase.bookReadsQueries] rather than through `SqlSyncableRepository`.
+ *
+ * [recordRead] is a hook target of `PlaybackPositionRepository.recordPosition`: when
+ * that repo runs SQLDelight, its `recordRead` call nests as a savepoint inside the
+ * open `recordPosition` transaction (same [ListenUpDatabase] connection), so the
+ * completion row commits atomically with the position write — no `SQLITE_BUSY`.
  */
 class BookReadsRepository(
-    private val db: Database,
+    private val db: ListenUpDatabase,
     private val clock: Clock = Clock.System,
 ) {
     /**
@@ -43,23 +47,24 @@ class BookReadsRepository(
         bookId: String,
         finishedAt: Long,
         source: String,
-    ) = suspendTransaction(db) { insertRow(id, userId, bookId, finishedAt, source) }
+    ) = suspendTransaction(db) {
+        db.bookReadsQueries.insert(
+            id = id,
+            user_id = userId,
+            book_id = bookId,
+            finished_at = finishedAt,
+            source = source,
+            created_at = clock.now().toEpochMilliseconds(),
+        )
+    }
 
     /** All completions of [bookId] across all users, newest-first. */
     suspend fun finishesForBook(bookId: String): List<BookReadRow> =
         suspendTransaction(db) {
-            BookReadsTable
-                .selectAll()
-                .where { BookReadsTable.bookId eq bookId }
-                .orderBy(BookReadsTable.finishedAt, SortOrder.DESC)
-                .map {
-                    BookReadRow(
-                        userId = it[BookReadsTable.userId],
-                        bookId = it[BookReadsTable.bookId],
-                        finishedAt = it[BookReadsTable.finishedAt],
-                        source = it[BookReadsTable.readSource],
-                    )
-                }
+            db.bookReadsQueries
+                .finishesForBook(bookId)
+                .executeAsList()
+                .map { it.toRow() }
         }
 
     /** All completion timestamps for a single user+book pair, newest-first. */
@@ -68,27 +73,16 @@ class BookReadsRepository(
         bookId: String,
     ): List<Long> =
         suspendTransaction(db) {
-            BookReadsTable
-                .selectAll()
-                .where { (BookReadsTable.userId eq userId) and (BookReadsTable.bookId eq bookId) }
-                .orderBy(BookReadsTable.finishedAt, SortOrder.DESC)
-                .map { it[BookReadsTable.finishedAt] }
+            db.bookReadsQueries
+                .finishesForUserBook(userId, bookId)
+                .executeAsList()
         }
 
-    private fun insertRow(
-        id: String,
-        userId: String,
-        bookId: String,
-        finishedAt: Long,
-        source: String,
-    ) {
-        BookReadsTable.insert {
-            it[BookReadsTable.id] = id
-            it[BookReadsTable.userId] = userId
-            it[BookReadsTable.bookId] = bookId
-            it[BookReadsTable.finishedAt] = finishedAt
-            it[BookReadsTable.readSource] = source
-            it[BookReadsTable.createdAt] = clock.now().toEpochMilliseconds()
-        }
-    }
+    private fun Book_reads.toRow(): BookReadRow =
+        BookReadRow(
+            userId = user_id,
+            bookId = book_id,
+            finishedAt = finished_at,
+            source = source,
+        )
 }

@@ -1,0 +1,85 @@
+-- public_profiles: a GLOBAL, book-agnostic projection of each user's socially-visible
+-- facet (identity + listening aggregates). Syncable, soft-deletable, revision-tracked,
+-- but NOT userScoped — every client receives every user's row (powers the Discover
+-- leaderboard and social roster). One row per user (`id == user_id`). Server-maintained
+-- by PublicProfileMaintainer; clients never write it.
+-- Column set matches V31__public_profiles.sql + V32__public_profiles_tagline.sql
+-- (`tagline` added by V32) exactly.
+CREATE TABLE public_profiles (
+    id                          TEXT    NOT NULL PRIMARY KEY,
+    display_name                TEXT    NOT NULL,
+    avatar_type                 TEXT    NOT NULL DEFAULT 'auto',
+    total_seconds_all_time      INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_7_days   INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_30_days  INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_365_days INTEGER NOT NULL DEFAULT 0,
+    books_finished              INTEGER NOT NULL DEFAULT 0,
+    current_streak_days         INTEGER NOT NULL DEFAULT 0,
+    longest_streak_days         INTEGER NOT NULL DEFAULT 0,
+    created_at                  INTEGER NOT NULL,
+    updated_at                  INTEGER NOT NULL,
+    revision                    INTEGER NOT NULL,
+    deleted_at                  INTEGER,
+    client_op_id                TEXT,
+    tagline                     TEXT
+);
+
+CREATE INDEX idx_public_profiles_revision ON public_profiles(revision);
+
+-- Global substrate queries — public_profiles is a global syncable aggregate (NOT
+-- userScoped), so pull/digest go through these unfiltered variants (Tag pattern).
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM public_profiles WHERE id = :id);
+
+softDeleteById:
+UPDATE public_profiles
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM public_profiles WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM public_profiles WHERE revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads.
+selectById:
+SELECT * FROM public_profiles WHERE id = :id;
+
+selectByIds:
+SELECT * FROM public_profiles WHERE id IN :ids;
+
+-- Batch identity read: (id, display_name, avatar_type) for live profiles in a set of ids.
+-- Tombstoned / absent rows are simply missing from the result.
+identitiesForIds:
+SELECT id, display_name, avatar_type FROM public_profiles
+WHERE id IN :ids AND deleted_at IS NULL;
+
+insert:
+INSERT INTO public_profiles (
+    id, display_name, avatar_type, tagline, total_seconds_all_time, total_seconds_last_7_days,
+    total_seconds_last_30_days, total_seconds_last_365_days, books_finished, current_streak_days,
+    longest_streak_days, revision, created_at, updated_at, deleted_at, client_op_id
+)
+VALUES (
+    :id, :display_name, :avatar_type, :tagline, :total_seconds_all_time, :total_seconds_last_7_days,
+    :total_seconds_last_30_days, :total_seconds_last_365_days, :books_finished, :current_streak_days,
+    :longest_streak_days, :revision, :created_at, :updated_at, :deleted_at, :client_op_id
+);
+
+update:
+UPDATE public_profiles
+SET display_name = :display_name, avatar_type = :avatar_type, tagline = :tagline,
+    total_seconds_all_time = :total_seconds_all_time,
+    total_seconds_last_7_days = :total_seconds_last_7_days,
+    total_seconds_last_30_days = :total_seconds_last_30_days,
+    total_seconds_last_365_days = :total_seconds_last_365_days,
+    books_finished = :books_finished, current_streak_days = :current_streak_days,
+    longest_streak_days = :longest_streak_days,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;

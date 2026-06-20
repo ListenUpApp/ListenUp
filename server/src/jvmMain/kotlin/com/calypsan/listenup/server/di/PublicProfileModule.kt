@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import org.koin.core.module.Module
@@ -17,6 +18,6 @@ import org.koin.dsl.module
  */
 fun publicProfileModule(): Module =
     module {
-        single(createdAtStart = true) { PublicProfileRepository(get(), get(), get()) }
-        single { PublicProfileMaintainer(db = get(), publicProfileRepo = get()) }
+        single(createdAtStart = true) { PublicProfileRepository(get<ListenUpDatabase>(), get(), get()) }
+        single { PublicProfileMaintainer(sql = get<ListenUpDatabase>(), db = get(), publicProfileRepo = get()) }
     }

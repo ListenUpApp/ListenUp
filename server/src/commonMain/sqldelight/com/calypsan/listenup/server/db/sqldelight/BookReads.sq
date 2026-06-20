@@ -1,0 +1,32 @@
+-- book_reads: append-only per-completion read history — one row per time a user finishes
+-- a book. Re-reads stack as distinct rows. PLAIN (NON-syncable) server-only persistence,
+-- read by the readership RPC, never streamed over sync. Rows are never updated or deleted.
+-- Column set matches V34__book_reads.sql exactly.
+CREATE TABLE book_reads (
+    id          TEXT    NOT NULL PRIMARY KEY,
+    user_id     TEXT    NOT NULL,
+    book_id     TEXT    NOT NULL,
+    finished_at INTEGER NOT NULL,
+    source      TEXT    NOT NULL,
+    created_at  INTEGER NOT NULL
+);
+
+CREATE INDEX idx_book_reads_book      ON book_reads(book_id);
+CREATE INDEX idx_book_reads_user_book ON book_reads(user_id, book_id);
+
+-- Append a completion row unconditionally (a fresh id per finish, so re-reads stack).
+insert:
+INSERT INTO book_reads (id, user_id, book_id, finished_at, source, created_at)
+VALUES (:id, :user_id, :book_id, :finished_at, :source, :created_at);
+
+-- All completions of a book across all users, newest-first.
+finishesForBook:
+SELECT * FROM book_reads
+WHERE book_id = :bookId
+ORDER BY finished_at DESC;
+
+-- All completion timestamps for a single user+book pair, newest-first.
+finishesForUserBook:
+SELECT finished_at FROM book_reads
+WHERE user_id = :userId AND book_id = :bookId
+ORDER BY finished_at DESC;

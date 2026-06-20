@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -41,8 +42,8 @@ class PublicProfileDomainSeederTest :
     FunSpec({
 
         fun makePublicProfileMaintainer(db: Database): PublicProfileMaintainer {
-            val repo = PublicProfileRepository(db, ChangeBus(), SyncRegistry())
-            return PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+            val repo = PublicProfileRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+            return PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
         }
 
         fun newAuthService(db: Database): AuthServiceImpl {

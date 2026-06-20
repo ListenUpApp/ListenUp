@@ -1,0 +1,95 @@
+-- user_stats: per-user materialized listening stats (Playback P2). Syncable,
+-- soft-deletable, revision-tracked, and userScoped — one row per user (`id == user_id`),
+-- so the per-user substrate variants filter every pull/digest by that user. Rolling
+-- windows are recomputed lazily on catch-up (see UserStatsRepository.pullSince).
+-- Column set matches V16__listening_events_and_user_stats.sql exactly.
+CREATE TABLE user_stats (
+    id                          TEXT    NOT NULL PRIMARY KEY,
+    user_id                     TEXT    NOT NULL,
+    total_seconds_all_time      INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_7_days   INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_30_days  INTEGER NOT NULL DEFAULT 0,
+    books_started               INTEGER NOT NULL DEFAULT 0,
+    books_finished              INTEGER NOT NULL DEFAULT 0,
+    current_streak_days         INTEGER NOT NULL DEFAULT 0,
+    longest_streak_days         INTEGER NOT NULL DEFAULT 0,
+    last_event_date             TEXT,
+    revision                    INTEGER NOT NULL DEFAULT 0,
+    created_at                  INTEGER NOT NULL,
+    updated_at                  INTEGER NOT NULL,
+    deleted_at                  INTEGER,
+    client_op_id                TEXT
+);
+
+CREATE UNIQUE INDEX idx_user_stats_user          ON user_stats(user_id);
+CREATE        INDEX idx_user_stats_user_revision ON user_stats(user_id, revision);
+
+-- Global substrate queries (kept for source-compatibility with the base contract;
+-- a userScoped repo routes pullSince/digest through the *ForUser variants instead).
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM user_stats WHERE id = :id);
+
+softDeleteById:
+UPDATE user_stats
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM user_stats WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM user_stats WHERE revision <= :cursor;
+
+-- User-scoped substrate variants — the per-user filtering the Exposed base applies
+-- via `(revision <cmp> cursor) AND user_id = userId`.
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM user_stats
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM user_stats
+WHERE user_id = :userId AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads, which
+-- must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM user_stats WHERE id = :id;
+
+selectByIds:
+SELECT * FROM user_stats WHERE id IN :ids;
+
+-- Live (non-tombstoned) stats row for a user (id == userId).
+selectLiveForUser:
+SELECT * FROM user_stats WHERE user_id = :userId AND deleted_at IS NULL;
+
+insert:
+INSERT INTO user_stats (
+    id, user_id, total_seconds_all_time, total_seconds_last_7_days, total_seconds_last_30_days,
+    books_started, books_finished, current_streak_days, longest_streak_days, last_event_date,
+    revision, created_at, updated_at, deleted_at, client_op_id
+)
+VALUES (
+    :id, :user_id, :total_seconds_all_time, :total_seconds_last_7_days, :total_seconds_last_30_days,
+    :books_started, :books_finished, :current_streak_days, :longest_streak_days, :last_event_date,
+    :revision, :created_at, :updated_at, :deleted_at, :client_op_id
+);
+
+update:
+UPDATE user_stats
+SET total_seconds_all_time = :total_seconds_all_time,
+    total_seconds_last_7_days = :total_seconds_last_7_days,
+    total_seconds_last_30_days = :total_seconds_last_30_days,
+    books_started = :books_started,
+    books_finished = :books_finished,
+    current_streak_days = :current_streak_days,
+    longest_streak_days = :longest_streak_days,
+    last_event_date = :last_event_date,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;

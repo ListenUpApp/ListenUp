@@ -261,11 +261,14 @@ fun memberPrincipal(userId: String): PrincipalProvider =
  * is a structural no-op when the user row doesn't exist in [UserTable] — so tests that don't
  * call [seedTestUser] pay no cost beyond a single SELECT per stats write.
  */
-fun Database.noOpPublicProfileMaintainer(): PublicProfileMaintainer =
-    PublicProfileMaintainer(
+fun Database.noOpPublicProfileMaintainer(): PublicProfileMaintainer {
+    val sql = asSqlDatabase()
+    return PublicProfileMaintainer(
+        sql = sql,
         db = this,
-        publicProfileRepo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry()),
+        publicProfileRepo = PublicProfileRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry()),
     )
+}
 
 /**
  * Canonical fixture builder for [BookSyncPayload] test instances.
