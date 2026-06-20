@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -65,8 +66,8 @@ class ShelfServiceUserShelvesTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db, bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
+                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 bookAccessPolicy = BookAccessPolicy(db),
                 readAssembler = ShelfReadAssembler(db),
                 clock = fixedClock,
@@ -141,7 +142,7 @@ class ShelfServiceUserShelvesTest :
                     // Seed both books directly through the repo (bypasses owner-access gate)
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf.id.value, "accessible", userId = "owner")
                     shelfBookRepo.addBook(shelf.id.value, "hidden", userId = "owner")
 
@@ -173,7 +174,7 @@ class ShelfServiceUserShelvesTest :
                     val privateShelf = ownerService.createShelf(name = "Secret", isPrivate = true).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     shelfBookRepo.addBook(publicShelf.id.value, "b1", userId = "owner")
                     shelfBookRepo.addBook(privateShelf.id.value, "b1", userId = "owner")
 
@@ -204,7 +205,7 @@ class ShelfServiceUserShelvesTest :
                     val shelf = ownerService.createShelf(name = "All Hidden", isPrivate = false).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf.id.value, "hidden", userId = "owner")
 
                     // Viewer cannot access the only book → shelf must be excluded entirely.
@@ -234,7 +235,7 @@ class ShelfServiceUserShelvesTest :
                     val shelf = ownerService.createShelf(name = "Mixed", isPrivate = false).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf.id.value, "visible", userId = "owner")
                     shelfBookRepo.addBook(shelf.id.value, "hidden", userId = "owner")
 
@@ -266,7 +267,7 @@ class ShelfServiceUserShelvesTest :
                     val shelf2 = ownerService.createShelf(name = "Shelf Two", isPrivate = false).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf1.id.value, "b1", userId = "owner")
                     shelfBookRepo.addBook(shelf2.id.value, "b2", userId = "owner")
 

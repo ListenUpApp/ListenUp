@@ -1,0 +1,106 @@
+-- shelf_books junction: syncable, soft-deletable, revision-tracked, userScoped.
+-- Composite PK (shelf_id, book_id); synthetic `id` ("$shelfId:$bookId") is the
+-- sync-cursor identity. `sort_order` is the denormalized display position within
+-- the shelf. Every row carries the owning `user_id`, so the per-user substrate
+-- variants filter every pull/digest by that user.
+-- Column set matches V30__shelves_substrate.sql exactly.
+-- FK declarations (REFERENCES shelves/books) are omitted here: SQLDelight cannot
+-- resolve cross-table references for tables not defined in this schema's .sq files.
+-- The constraints are present in the migration DDL and enforced by SQLite at runtime.
+CREATE TABLE shelf_books (
+    id           TEXT    NOT NULL,
+    user_id      TEXT    NOT NULL,
+    shelf_id     TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    sort_order   INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (shelf_id, book_id)
+);
+
+CREATE UNIQUE INDEX idx_shelf_books_id ON shelf_books(id);
+CREATE INDEX idx_shelf_books_shelf ON shelf_books(shelf_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_shelf_books_book ON shelf_books(book_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_shelf_books_user ON shelf_books(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_shelf_books_revision ON shelf_books(revision);
+
+-- Global substrate queries (kept for source-compatibility with the base contract;
+-- a userScoped repo routes pullSince/digest through the *ForUser variants instead),
+-- keyed on the synthetic `id` column.
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM shelf_books WHERE id = :id);
+
+softDeleteById:
+UPDATE shelf_books
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM shelf_books WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM shelf_books WHERE revision <= :cursor;
+
+-- User-scoped substrate variants — the per-user filtering the Exposed base applies
+-- via `(revision <cmp> cursor) AND user_id = userId`. Used by the userScoped
+-- pullSince/digest path so user A's pull never observes user B's junction rows.
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM shelf_books
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM shelf_books
+WHERE user_id = :userId AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by synthetic id. Used by the base's pullSince/readPayloads,
+-- which must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM shelf_books WHERE id = :id;
+
+selectByIds:
+SELECT * FROM shelf_books WHERE id IN :ids;
+
+-- Live junction rows for a shelf, ordered by sort_order (the display ordering).
+selectByShelf:
+SELECT * FROM shelf_books
+WHERE shelf_id = :shelf_id AND deleted_at IS NULL
+ORDER BY sort_order ASC;
+
+-- Live junction row for a (shelf, book) pair, or none.
+selectLiveByShelfAndBook:
+SELECT * FROM shelf_books
+WHERE shelf_id = :shelf_id AND book_id = :book_id AND deleted_at IS NULL;
+
+-- The next free sort_order for a shelf — max(sort_order) + 1 over live rows, or 0
+-- when the shelf is empty. COALESCE over the all-NULL aggregate yields a non-null
+-- result, so the generated column is a plain non-null Long (no wrapper).
+nextSortOrderForShelf:
+SELECT COALESCE(MAX(sort_order) + 1, 0) AS next_sort_order FROM shelf_books
+WHERE shelf_id = :shelf_id AND deleted_at IS NULL;
+
+-- Live synthetic ids for a shelf — the cascade set for softDeleteByShelf.
+selectLiveIdsForShelf:
+SELECT id FROM shelf_books WHERE shelf_id = :shelf_id AND deleted_at IS NULL;
+
+-- Live synthetic ids for a book — the cascade set when a book is deleted.
+selectLiveIdsForBook:
+SELECT id FROM shelf_books WHERE book_id = :book_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO shelf_books (id, user_id, shelf_id, book_id, sort_order, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :user_id, :shelf_id, :book_id, :sort_order, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+update:
+UPDATE shelf_books
+SET sort_order = :sort_order, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE shelf_id = :shelf_id AND book_id = :book_id;

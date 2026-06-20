@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.ShelfReadAssembler
 import com.calypsan.listenup.server.api.ShelfServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -29,8 +30,10 @@ import org.koin.dsl.module
  */
 fun shelfModule(): Module =
     module {
-        single(createdAtStart = true) { ShelfRepository(get(), get(), get()) }
-        single(createdAtStart = true) { ShelfBookRepository(get(), get(), get()) }
+        // Shelf + ShelfBook are SQLDelight conversions — they resolve [ListenUpDatabase],
+        // not the Exposed [Database] the service layer still uses.
+        single(createdAtStart = true) { ShelfRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { ShelfBookRepository(get<ListenUpDatabase>(), get(), get()) }
         single { ShelfReadAssembler(db = get()) }
         single {
             ShelfServiceImpl(

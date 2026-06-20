@@ -151,13 +151,15 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     /**
      * `true` for a per-user domain whose root table carries a `user_id` column:
      * every write records the owning user and every read/digest filters by it.
-     * Default `false` is a global domain (Tags) — the `userId` argument is ignored.
+     * Default `false` is a global domain (Tags, Moods) — the `userId` argument is
+     * ignored and the global substrate path is taken unchanged.
      *
-     * User-scoped read/write filtering is **deferred** in this base: no syncable
-     * SQLDelight aggregate is user-scoped yet (Tag, the first conversion, is
-     * global). When a user-scoped aggregate is converted, this base gains the
-     * filtered substrate-query variants and the `userId`-equality predicate that
-     * the Exposed base carries.
+     * When `true`, [pullSince] and [digest] route through the user-scoped substrate
+     * variants ([SyncableSubstrateQueries.selectIdsAboveRevisionForUser] /
+     * [SyncableSubstrateQueries.selectIdRevAtMostForUser]) with a required non-null
+     * [userId], reproducing the `AND user_id = ?` predicate the Exposed base appends
+     * for a [UserScopedSyncableTable]. Shelf/ShelfBook are the first such aggregates;
+     * the playback/listening domains reuse this path.
      */
     protected open val userScoped: Boolean = false
 
@@ -356,6 +358,11 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * id-query and the payload-read could null a row, and the queried revision is
      * the canonical cursor advance regardless. Mirrors [SyncableRepository.pullSince].
      *
+     * For a user-scoped domain ([userScoped] `= true`) the id query routes through
+     * [SyncableSubstrateQueries.selectIdsAboveRevisionForUser] with a required non-null
+     * [userId], so the page covers only that user's rows — exactly the `AND user_id = ?`
+     * the Exposed base applies. Global domains ignore [userId].
+     *
      * [extraWhere] (the access-filtered path) is **deferred** — see the parameter
      * note. It is accepted so route call sites stay source-compatible, but a
      * non-null fragment is not yet supported.
@@ -371,7 +378,14 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                 "override for access-filtered domains"
         }
         return suspendTransaction(db) {
-            val idsWithRev = substrate.selectIdsAboveRevision(cursor, limit.toLong())
+            val idsWithRev =
+                if (userScoped) {
+                    val scopedUserId =
+                        requireNotNull(userId) { "user-scoped pullSince on '$domainName' requires a userId" }
+                    substrate.selectIdsAboveRevisionForUser(scopedUserId, cursor, limit.toLong())
+                } else {
+                    substrate.selectIdsAboveRevision(cursor, limit.toLong())
+                }
             val items = readPayloads(idsWithRev.map { it.id })
             Page(
                 items = items,
@@ -391,6 +405,11 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * UTF-8 bytes, format as `"sha256:<lowercase-hex>"`. Empty domain → `count = 0`,
      * `hash = ""`.
      *
+     * For a user-scoped domain ([userScoped] `= true`) the slice routes through
+     * [SyncableSubstrateQueries.selectIdRevAtMostForUser] with a required non-null
+     * [userId], so the digest covers only that user's rows. Global domains ignore
+     * [userId].
+     *
      * [extraWhere] (the access-filtered path) is **deferred** — accepted for
      * source-compatibility, non-null not yet supported.
      */
@@ -404,9 +423,16 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                 "override for access-filtered domains"
         }
         return suspendTransaction(db) {
+            val idRevs =
+                if (userScoped) {
+                    val scopedUserId =
+                        requireNotNull(userId) { "user-scoped digest on '$domainName' requires a userId" }
+                    substrate.selectIdRevAtMostForUser(scopedUserId, cursor)
+                } else {
+                    substrate.selectIdRevAtMost(cursor)
+                }
             val rows =
-                substrate
-                    .selectIdRevAtMost(cursor)
+                idRevs
                     .map { it.id to it.revision }
                     .sortedBy { it.first }
             if (rows.isEmpty()) {

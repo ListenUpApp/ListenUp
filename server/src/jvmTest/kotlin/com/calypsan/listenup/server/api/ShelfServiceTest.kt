@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -65,8 +66,8 @@ class ShelfServiceTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db, bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
+                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 bookAccessPolicy = BookAccessPolicy(db),
                 readAssembler = ShelfReadAssembler(db),
                 clock = fixedClock,
@@ -81,8 +82,8 @@ class ShelfServiceTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db, bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
+                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
                 bookAccessPolicy = BookAccessPolicy(db),
                 readAssembler = ShelfReadAssembler(db),
                 clock = fixedClock,

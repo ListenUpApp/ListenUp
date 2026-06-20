@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -37,7 +38,7 @@ import kotlin.time.Instant
 class ShelfDomainSeederTest :
     FunSpec({
 
-        fun makeShelfRepo(db: Database): ShelfRepository = ShelfRepository(db, ChangeBus(), SyncRegistry())
+        fun makeShelfRepo(db: Database): ShelfRepository = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
 
         fun newAuthService(db: Database): AuthServiceImpl {
             val pepper = "x".repeat(32).toByteArray()

@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -42,7 +43,7 @@ class StarterShelfTest :
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
-            val shelfRepo = ShelfRepository(db, ChangeBus(), SyncRegistry(), clock)
+            val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
                     db = db,
@@ -99,7 +100,7 @@ class StarterShelfTest :
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.APPROVAL_QUEUE)
-            val shelfRepo = ShelfRepository(db, ChangeBus(), SyncRegistry(), clock)
+            val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
                     db = db,

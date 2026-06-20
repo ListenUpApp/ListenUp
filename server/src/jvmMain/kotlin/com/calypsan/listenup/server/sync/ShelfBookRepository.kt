@@ -2,29 +2,19 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfBookSyncPayload
-import com.calypsan.listenup.server.db.ShelfBooksTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Shelf_books
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.Column
-import org.jetbrains.exposed.v1.core.SortOrder
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.max
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Composite key for `shelf_books` junction rows.
  *
  * The wire representation is [ShelfBookSyncPayload], which carries [shelfId] and
  * [bookId] as top-level fields. [asString] produces the synthetic
- * `"$shelfId:$bookId"` key stored in [ShelfBooksTable.id] and used by the
- * [SyncableRepository] substrate for revision-cursor identity.
+ * `"$shelfId:$bookId"` key stored in the `shelf_books.id` column and used by the
+ * [SqlSyncableRepository] substrate for revision-cursor identity.
  */
 data class ShelfBookId(
     val shelfId: String,
@@ -43,12 +33,19 @@ data class ShelfBookId(
 }
 
 /**
- * Syncable repository for the `shelf_books` userScoped junction.
+ * SQLDelight syncable repository for the `shelf_books` userScoped junction — the
+ * composite-key, user-scoped sibling of [ShelfRepository].
  *
- * `userScoped = true` — junction rows carry the owning `user_id` and sync only
- * to that user. The [ShelfBooksTable.id] column stores the synthetic
- * `"$shelfId:$bookId"` key the base class uses for revision-cursor queries; the
- * natural composite PK `(shelf_id, book_id)` is the write and lookup key.
+ * `userScoped = true` — junction rows carry the owning `user_id` (the shelf owner)
+ * and sync only to that user. Pull/digest route through the substrate's `*ForUser`
+ * variants ([SyncableSubstrateQueries.selectIdsAboveRevisionForUser] /
+ * [SyncableSubstrateQueries.selectIdRevAtMostForUser]). The `shelf_books.id` column
+ * stores the synthetic `"$shelfId:$bookId"` key the base uses for revision-cursor
+ * queries; the natural composite PK `(shelf_id, book_id)` is the write and lookup key.
+ *
+ * `sort_order` is the denormalized display position within the shelf, preserved
+ * verbatim across the conversion (Int on the wire, INTEGER in SQLite, mapped at the
+ * boundary).
  *
  * Service-layer helpers beyond the base substrate — all route through the
  * substrate's [upsert]/[softDelete] so every mutation bumps a revision and
@@ -60,13 +57,12 @@ data class ShelfBookId(
  *  - [softDeleteByShelf] — cascade soft-delete every junction row of a shelf
  */
 class ShelfBookRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<ShelfBookSyncPayload, ShelfBookId>(
+) : SqlSyncableRepository<ShelfBookSyncPayload, ShelfBookId>(
         db = db,
-        table = ShelfBooksTable,
         bus = bus,
         registry = registry,
         domainName = "shelf_books",
@@ -80,24 +76,89 @@ class ShelfBookRepository(
 
     override fun ShelfBookSyncPayload.revisionOf(): Long = revision
 
-    /** Returns the synthetic [ShelfBooksTable.id] column for the base-class WHERE clauses. */
-    override fun idColumn(): Column<String> = ShelfBooksTable.id
-
     /** Converts a [ShelfBookId] to the stored `"$shelfId:$bookId"` string. */
     override fun idAsString(id: ShelfBookId): String = id.asString()
 
-    override suspend fun readPayload(idStr: String): ShelfBookSyncPayload? {
-        val key = ShelfBookId.fromString(idStr)
-        return ShelfBooksTable
-            .selectAll()
-            .where {
-                (ShelfBooksTable.shelfId eq key.shelfId) and
-                    (ShelfBooksTable.bookId eq key.bookId)
-            }.firstOrNull()
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.shelfBooksQueries].
+     *
+     * Keyed on the synthetic `id` column — the base only ever passes the
+     * `"$shelfId:$bookId"` string it gets back from [idAsString], so the substrate never
+     * needs to decompose it. The two `*ForUser` methods carry the `user_id = :userId`
+     * predicate the base applies for a user-scoped aggregate.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.shelfBooksQueries.existsById(id).executeAsOne()
+
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.shelfBooksQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.shelfBooksQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.shelfBooksQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdsAboveRevisionForUser(
+                userId: String,
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.shelfBooksQueries
+                    .selectIdsAboveRevisionForUser(userId, cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMostForUser(
+                userId: String,
+                cursor: Long,
+            ): List<IdRev> =
+                db.shelfBooksQueries
+                    .selectIdRevAtMostForUser(userId, cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    // Tombstone-inclusive read by synthetic id — pullSince/readPayloads must hydrate
+    // soft-deleted rows so clients receive tombstones.
+    override fun readPayload(idStr: String): ShelfBookSyncPayload? =
+        db.shelfBooksQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
             ?.toSyncPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<ShelfBookSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.shelfBooksQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
     }
 
-    override suspend fun writePayload(
+    override fun writePayload(
         value: ShelfBookSyncPayload,
         rev: Long,
         now: Long,
@@ -105,42 +166,39 @@ class ShelfBookRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        requireNotNull(userId) { "ShelfBookRepository.writePayload requires a userId" }
         if (existed) {
-            ShelfBooksTable.update({
-                (ShelfBooksTable.shelfId eq value.shelfId) and
-                    (ShelfBooksTable.bookId eq value.bookId)
-            }) { stmt ->
-                stmt[ShelfBooksTable.sortOrder] = value.sortOrder
-                stmt[ShelfBooksTable.revision] = rev
-                stmt[ShelfBooksTable.updatedAt] = now
-                stmt[ShelfBooksTable.deletedAt] = null
-                stmt[ShelfBooksTable.clientOpId] = clientOpId
-            }
+            db.shelfBooksQueries.update(
+                sort_order = value.sortOrder.toLong(),
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                shelf_id = value.shelfId,
+                book_id = value.bookId,
+            )
         } else {
-            ShelfBooksTable.insert { stmt ->
-                stmt[ShelfBooksTable.id] = ShelfBookId(value.shelfId, value.bookId).asString()
-                stmt[ShelfBooksTable.userId] = userId
-                stmt[ShelfBooksTable.shelfId] = value.shelfId
-                stmt[ShelfBooksTable.bookId] = value.bookId
-                stmt[ShelfBooksTable.sortOrder] = value.sortOrder
-                stmt[ShelfBooksTable.revision] = rev
-                stmt[ShelfBooksTable.createdAt] = now
-                stmt[ShelfBooksTable.updatedAt] = now
-                stmt[ShelfBooksTable.deletedAt] = null
-                stmt[ShelfBooksTable.clientOpId] = clientOpId
-            }
+            db.shelfBooksQueries.insert(
+                id = ShelfBookId(value.shelfId, value.bookId).asString(),
+                user_id = requireNotNull(userId) { "ShelfBookRepository.writePayload requires a userId" },
+                shelf_id = value.shelfId,
+                book_id = value.bookId,
+                sort_order = value.sortOrder.toLong(),
+                created_at = now,
+                updated_at = now,
+                revision = rev,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /** Returns all live (non-tombstoned) junction rows for [shelfId], ordered by sort order. */
     suspend fun listByShelf(shelfId: String): List<ShelfBookSyncPayload> =
         suspendTransaction(db) {
-            ShelfBooksTable
-                .selectAll()
-                .where { (ShelfBooksTable.shelfId eq shelfId) and ShelfBooksTable.deletedAt.isNull() }
-                .orderBy(ShelfBooksTable.sortOrder, SortOrder.ASC)
-                .map { row -> row.toSyncPayload() }
+            db.shelfBooksQueries
+                .selectByShelf(shelfId)
+                .executeAsList()
+                .map { it.toSyncPayload() }
         }
 
     /**
@@ -158,13 +216,9 @@ class ShelfBookRepository(
     ): AppResult<ShelfBookSyncPayload> {
         val existingLive =
             suspendTransaction(db) {
-                ShelfBooksTable
-                    .selectAll()
-                    .where {
-                        (ShelfBooksTable.shelfId eq shelfId) and
-                            (ShelfBooksTable.bookId eq bookId) and
-                            ShelfBooksTable.deletedAt.isNull()
-                    }.firstOrNull()
+                db.shelfBooksQueries
+                    .selectLiveByShelfAndBook(shelfId, bookId)
+                    .executeAsOneOrNull()
                     ?.toSyncPayload()
             }
         if (existingLive != null) return AppResult.Success(existingLive)
@@ -234,25 +288,31 @@ class ShelfBookRepository(
     /** Returns the next free sort order for [shelfId] — `max(sortOrder) + 1` over live rows, or 0. */
     private suspend fun nextSortOrderFor(shelfId: String): Int =
         suspendTransaction(db) {
-            val maxExpr = ShelfBooksTable.sortOrder.max()
-            ShelfBooksTable
-                .select(maxExpr)
-                .where { (ShelfBooksTable.shelfId eq shelfId) and ShelfBooksTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.get(maxExpr)
-                ?.let { it + 1 }
-                ?: 0
+            db.shelfBooksQueries
+                .nextSortOrderForShelf(shelfId)
+                .executeAsOne()
+                .toInt()
         }
 
-    private fun org.jetbrains.exposed.v1.core.ResultRow.toSyncPayload(): ShelfBookSyncPayload =
+    /** Maps a generated [Shelf_books] row to the wire [ShelfBookSyncPayload] DTO (drops `user_id`). */
+    private fun Shelf_books.toSyncPayload(): ShelfBookSyncPayload =
         ShelfBookSyncPayload(
-            id = this[ShelfBooksTable.id],
-            shelfId = this[ShelfBooksTable.shelfId],
-            bookId = this[ShelfBooksTable.bookId],
-            sortOrder = this[ShelfBooksTable.sortOrder],
-            revision = this[ShelfBooksTable.revision],
-            updatedAt = this[ShelfBooksTable.updatedAt],
-            createdAt = this[ShelfBooksTable.createdAt],
-            deletedAt = this[ShelfBooksTable.deletedAt],
+            id = id,
+            shelfId = shelf_id,
+            bookId = book_id,
+            // `sort_order` is INTEGER in SQLite → Long in SQLDelight; the wire field is Int.
+            sortOrder = sort_order.toInt(),
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
         )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }
