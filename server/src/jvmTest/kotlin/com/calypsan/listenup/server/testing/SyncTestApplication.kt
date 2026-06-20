@@ -157,7 +157,7 @@ internal fun withTestApplication(
         val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
         val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(db, bus, registry) else null
         val playbackPositionRepo =
-            if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
+            if (playbackPositions) PlaybackPositionRepository(db.asSqlDatabase(), bus, registry) else null
 
         // Playback P2: events + stats. The lazy provider breaks the UserStatsRepository ↔
         // UserStatsUpdater mutual reference — same pattern as the production Koin binding.
@@ -169,7 +169,7 @@ internal fun withTestApplication(
             lateinit var updater: UserStatsUpdater
             val statsRepo =
                 UserStatsRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = bus,
                     registry = registry,
                     userStatsUpdaterProvider = { updater },
@@ -177,17 +177,18 @@ internal fun withTestApplication(
             val publicProfileMaintainer = buildPublicProfileMaintainer(db = db, bus = bus, registry = registry)
             val eventRepo =
                 ListeningEventRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
                     bus = bus,
                     registry = registry,
                     userStatsUpdater =
                         UserStatsUpdater(
+                            sql = db.asSqlDatabase(),
                             db = db,
                             userStatsRepo = statsRepo,
                             publicProfileMaintainerProvider = { publicProfileMaintainer },
                         ).also { updater = it },
                 )
-            val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
+            val positionRepoForPlayback = PlaybackPositionRepository(db.asSqlDatabase(), bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
             val bookRepo = buildPlaybackBookRepository(db, bus)
             bookRepoForScope = bookRepo
@@ -306,8 +307,8 @@ private fun buildPublicProfileMaintainer(
     bus: ChangeBus,
     registry: SyncRegistry,
 ): PublicProfileMaintainer {
-    val repo = PublicProfileRepository(db = db, bus = bus, registry = registry)
-    return PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+    val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    return PublicProfileMaintainer(sql = db.asSqlDatabase(), db = db, publicProfileRepo = repo)
 }
 
 /**

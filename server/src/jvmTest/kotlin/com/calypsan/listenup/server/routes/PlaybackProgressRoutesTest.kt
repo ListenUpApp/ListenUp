@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -69,7 +70,7 @@ class PlaybackProgressRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
+                val repo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val service =
                     PlaybackProgressServiceImpl(
                         repository = repo,

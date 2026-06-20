@@ -3,47 +3,53 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.PlaybackPositionId
-import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.server.db.PlaybackPositionTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Playback_positions
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.SortOrder
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greater
-import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable-domain repository for per-user playback positions (Playback P1).
+ * SQLDelight syncable repository for per-user playback positions (Playback P1).
  *
- * One row per `(userId, bookId)` pair — the current resume point for one user's
- * progress through one book. `lastPlayedAt`-wins conflict resolution: a write
- * with a stale `lastPlayedAt` (less than the stored value) is silently dropped
- * so a stale offline write never clobbers a fresher position from another device.
+ * One row per `(userId, bookId)` pair — the current resume point for one user's progress through
+ * one book. `lastPlayedAt`-wins conflict resolution: a write with a stale `lastPlayedAt` (less
+ * than the stored value) is silently dropped so a stale offline write never clobbers a fresher
+ * position from another device.
  *
- * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest`
- * call routes through the per-user dimension of the substrate.
+ * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest` call routes
+ * through the per-user dimension of the [SqlSyncableRepository] base (the [ShelfRepository]
+ * pattern).
  *
- * `idAsString(PlaybackPositionId) = id.value` is load-bearing — Kotlin's default
- * `toString()` on a value class returns `"PlaybackPositionId(value=foo)"`, which
- * would corrupt every column the id is written to.
+ * `idAsString(PlaybackPositionId) = id.value` is load-bearing — Kotlin's default `toString()` on
+ * a value class returns `"PlaybackPositionId(value=foo)"`, which would corrupt every column the
+ * id is written to.
+ *
+ * **Hooks.** [recordPosition] fires the completion/start cascade. All hooks are **de-nested**: the
+ * position row commits in [SqlSyncableRepository.upsert]'s own transaction first, then the hooks run
+ * sequentially afterwards (the `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not
+ * merely convenient: the project's SQLDelight `suspendTransaction` body is a plain (non-suspend)
+ * `transactionWithResult` lambda, so the suspend hook calls — [userStatsUpdater] / [activityRecorder]
+ * / [bookReadsRepository], each opening its own transaction — cannot nest inside it; and
+ * [activeSessionRepo] is still Exposed (`active_sessions`, V17, out of this cluster's scope), so it
+ * would in any case deadlock on the SQLite write lock if run while a SQLDelight write transaction were
+ * held. Running each hook in its own transaction after the position commits, on the single serialized
+ * SQLite connection, is `SQLITE_BUSY`-free. The flip/start decision is taken with the in-transaction
+ * `existed`/`priorFinished` view captured before the write, so it is unaffected by the de-nesting.
  */
 class PlaybackPositionRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
@@ -51,9 +57,8 @@ class PlaybackPositionRepository(
     private val activeSessionRepo: ActiveSessionRepository? = null,
     private val activityRecorder: ActivityRecorder? = null,
     private val bookReadsRepository: BookReadsRepository? = null,
-) : SyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
+) : SqlSyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
-        table = PlaybackPositionTable,
         bus = bus,
         registry = registry,
         domainName = "playback_positions",
@@ -71,28 +76,78 @@ class PlaybackPositionRepository(
 
     override fun PlaybackPositionSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): PlaybackPositionSyncPayload? =
-        PlaybackPositionTable
-            .selectAll()
-            .where { PlaybackPositionTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                PlaybackPositionSyncPayload(
-                    id = row[PlaybackPositionTable.id],
-                    bookId = row[PlaybackPositionTable.bookId],
-                    positionMs = row[PlaybackPositionTable.positionMs],
-                    lastPlayedAt = row[PlaybackPositionTable.lastPlayedAt],
-                    finished = row[PlaybackPositionTable.finished],
-                    playbackSpeed = row[PlaybackPositionTable.playbackSpeed],
-                    currentChapterId = row[PlaybackPositionTable.currentChapterId],
-                    revision = row[PlaybackPositionTable.revision],
-                    updatedAt = row[PlaybackPositionTable.updatedAt],
-                    createdAt = row[PlaybackPositionTable.createdAt],
-                    deletedAt = row[PlaybackPositionTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.playbackPositionsQueries].
+     * Canonical user-scoped adapter shape (see [ShelfRepository]).
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.playbackPositionsQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.playbackPositionsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.playbackPositionsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.playbackPositionsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdsAboveRevisionForUser(
+                userId: String,
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.playbackPositionsQueries
+                    .selectIdsAboveRevisionForUser(userId, cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMostForUser(
+                userId: String,
+                cursor: Long,
+            ): List<IdRev> =
+                db.playbackPositionsQueries
+                    .selectIdRevAtMostForUser(userId, cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): PlaybackPositionSyncPayload? =
+        db.playbackPositionsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toSyncPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<PlaybackPositionSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.playbackPositionsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
+    }
+
+    override fun writePayload(
         value: PlaybackPositionSyncPayload,
         rev: Long,
         now: Long,
@@ -102,41 +157,45 @@ class PlaybackPositionRepository(
     ) {
         requireNotNull(userId) { "PlaybackPositionRepository.writePayload requires a userId" }
         if (existed) {
-            PlaybackPositionTable.update({ PlaybackPositionTable.id eq value.id }) { stmt ->
-                stmt[PlaybackPositionTable.positionMs] = value.positionMs
-                stmt[PlaybackPositionTable.lastPlayedAt] = value.lastPlayedAt
-                stmt[PlaybackPositionTable.finished] = value.finished
-                stmt[PlaybackPositionTable.playbackSpeed] = value.playbackSpeed
-                stmt[PlaybackPositionTable.currentChapterId] = value.currentChapterId
-                stmt[PlaybackPositionTable.revision] = rev
-                stmt[PlaybackPositionTable.updatedAt] = now
-                stmt[PlaybackPositionTable.deletedAt] = null
-                stmt[PlaybackPositionTable.clientOpId] = clientOpId
-            }
+            db.playbackPositionsQueries.update(
+                position_ms = value.positionMs,
+                last_played_at = value.lastPlayedAt,
+                finished = value.finished.toDbLong(),
+                playback_speed = value.playbackSpeed.toDouble(),
+                current_chapter_id = value.currentChapterId,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            PlaybackPositionTable.insert { stmt ->
-                stmt[PlaybackPositionTable.id] = value.id
-                stmt[PlaybackPositionTable.userId] = userId
-                stmt[PlaybackPositionTable.bookId] = value.bookId
-                stmt[PlaybackPositionTable.positionMs] = value.positionMs
-                stmt[PlaybackPositionTable.lastPlayedAt] = value.lastPlayedAt
-                stmt[PlaybackPositionTable.finished] = value.finished
-                stmt[PlaybackPositionTable.playbackSpeed] = value.playbackSpeed
-                stmt[PlaybackPositionTable.currentChapterId] = value.currentChapterId
-                stmt[PlaybackPositionTable.revision] = rev
-                stmt[PlaybackPositionTable.createdAt] = now
-                stmt[PlaybackPositionTable.updatedAt] = now
-                stmt[PlaybackPositionTable.deletedAt] = null
-                stmt[PlaybackPositionTable.clientOpId] = clientOpId
-            }
+            db.playbackPositionsQueries.insert(
+                id = value.id,
+                user_id = userId,
+                book_id = value.bookId,
+                position_ms = value.positionMs,
+                last_played_at = value.lastPlayedAt,
+                finished = value.finished.toDbLong(),
+                playback_speed = value.playbackSpeed.toDouble(),
+                current_chapter_id = value.currentChapterId,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /**
-     * Record a playback position for `(userId, bookId)`. `lastPlayedAt`-wins: if
-     * a row already exists with a `lastPlayedAt >= the incoming one, this is a
-     * no-op and the stored payload is returned unchanged — a stale offline write
-     * never clobbers a fresher position from another device.
+     * Record a playback position for `(userId, bookId)`. `lastPlayedAt`-wins: if a row already
+     * exists with a `lastPlayedAt >=` the incoming one, this is a no-op and the stored payload is
+     * returned unchanged — a stale offline write never clobbers a fresher position from another
+     * device.
+     *
+     * The position row commits via [SqlSyncableRepository.upsert]; the completion/start cascade hooks
+     * are de-nested and fire sequentially afterwards (see the class KDoc).
      */
     suspend fun recordPosition(
         userId: String,
@@ -146,64 +205,66 @@ class PlaybackPositionRepository(
         finished: Boolean,
         playbackSpeed: Float,
         currentChapterId: String?,
-    ): AppResult<PlaybackPositionSyncPayload> =
-        suspendTransaction(db) {
-            val existing = getPosition(userId, bookId)
-            if (existing != null && existing.lastPlayedAt >= lastPlayedAt) {
-                return@suspendTransaction AppResult.Success(existing)
-            }
-
-            val priorFinished = existing?.finished ?: false
-            val id = existing?.id ?: Uuid.random().toString()
-            val payload =
-                PlaybackPositionSyncPayload(
-                    id = id,
-                    bookId = bookId,
-                    positionMs = positionMs,
-                    lastPlayedAt = lastPlayedAt,
-                    finished = finished,
-                    playbackSpeed = playbackSpeed,
-                    currentChapterId = currentChapterId,
-                    revision = 0L,
-                    updatedAt = 0L,
-                    createdAt = 0L,
-                    deletedAt = null,
-                )
-            val result = upsert(payload, clientOpId = null, userId = userId)
-            // Fire the finished flip when false → true. The caller is responsible for
-            // detecting the flip condition; the updater unconditionally increments booksFinished.
-            if (result is AppResult.Success && finished && !priorFinished) {
-                userStatsUpdater?.onPositionFinishedFlip(userId)
-                activeSessionRepo?.deleteForUserBook(userId, bookId)
-                activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId, occurredAt = lastPlayedAt)
-                bookReadsRepository?.recordRead(
-                    id = Uuid.random().toString(),
-                    userId = userId,
-                    bookId = bookId,
-                    finishedAt = lastPlayedAt,
-                    source = "playback",
-                )
-            } else if (result is AppResult.Success && !finished) {
-                activeSessionRepo?.startOrRefresh(userId, bookId)
-                if (existing == null) {
-                    activityRecorder?.record(
-                        userId,
-                        ActivityType.STARTED_BOOK,
-                        bookId = bookId,
-                        occurredAt = lastPlayedAt,
-                    )
-                } else if (priorFinished) {
-                    activityRecorder?.record(
-                        userId,
-                        ActivityType.STARTED_BOOK,
-                        bookId = bookId,
-                        isReread = true,
-                        occurredAt = lastPlayedAt,
-                    )
-                }
-            }
-            result
+    ): AppResult<PlaybackPositionSyncPayload> {
+        val existing = getPosition(userId, bookId)
+        // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
+        if (existing != null && existing.lastPlayedAt >= lastPlayedAt) {
+            return AppResult.Success(existing)
         }
+
+        val priorFinished = existing?.finished ?: false
+        val id = existing?.id ?: Uuid.random().toString()
+        val payload =
+            PlaybackPositionSyncPayload(
+                id = id,
+                bookId = bookId,
+                positionMs = positionMs,
+                lastPlayedAt = lastPlayedAt,
+                finished = finished,
+                playbackSpeed = playbackSpeed,
+                currentChapterId = currentChapterId,
+                revision = 0L,
+                updatedAt = 0L,
+                createdAt = 0L,
+                deletedAt = null,
+            )
+        val result = upsert(payload, clientOpId = null, userId = userId)
+        if (result !is AppResult.Success) return result
+
+        // De-nested cascade (post-commit). Fire the finished flip when false → true; the caller is
+        // responsible for detecting the flip condition. Each hook runs in its own transaction.
+        if (finished && !priorFinished) {
+            userStatsUpdater?.onPositionFinishedFlip(userId)
+            activeSessionRepo?.deleteForUserBook(userId, bookId)
+            activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId, occurredAt = lastPlayedAt)
+            bookReadsRepository?.recordRead(
+                id = Uuid.random().toString(),
+                userId = userId,
+                bookId = bookId,
+                finishedAt = lastPlayedAt,
+                source = "playback",
+            )
+        } else if (!finished) {
+            activeSessionRepo?.startOrRefresh(userId, bookId)
+            if (existing == null) {
+                activityRecorder?.record(
+                    userId,
+                    ActivityType.STARTED_BOOK,
+                    bookId = bookId,
+                    occurredAt = lastPlayedAt,
+                )
+            } else if (priorFinished) {
+                activityRecorder?.record(
+                    userId,
+                    ActivityType.STARTED_BOOK,
+                    bookId = bookId,
+                    isReread = true,
+                    occurredAt = lastPlayedAt,
+                )
+            }
+        }
+        return result
+    }
 
     /**
      * Returns the current position for `(userId, bookId)`, or `null` if the user
@@ -214,28 +275,10 @@ class PlaybackPositionRepository(
         bookId: String,
     ): PlaybackPositionSyncPayload? =
         suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where {
-                    (PlaybackPositionTable.userId eq userId) and
-                        (PlaybackPositionTable.bookId eq bookId) and
-                        (PlaybackPositionTable.deletedAt eq null)
-                }.firstOrNull()
-                ?.let { row ->
-                    PlaybackPositionSyncPayload(
-                        id = row[PlaybackPositionTable.id],
-                        bookId = row[PlaybackPositionTable.bookId],
-                        positionMs = row[PlaybackPositionTable.positionMs],
-                        lastPlayedAt = row[PlaybackPositionTable.lastPlayedAt],
-                        finished = row[PlaybackPositionTable.finished],
-                        playbackSpeed = row[PlaybackPositionTable.playbackSpeed],
-                        currentChapterId = row[PlaybackPositionTable.currentChapterId],
-                        revision = row[PlaybackPositionTable.revision],
-                        updatedAt = row[PlaybackPositionTable.updatedAt],
-                        createdAt = row[PlaybackPositionTable.createdAt],
-                        deletedAt = row[PlaybackPositionTable.deletedAt],
-                    )
-                }
+            db.playbackPositionsQueries
+                .selectLiveForUserBook(userId, bookId)
+                .executeAsOneOrNull()
+                ?.toSyncPayload()
         }
 
     /** Test-only accessor for the protected [idAsString]. */
@@ -250,13 +293,10 @@ class PlaybackPositionRepository(
         limit: Int,
     ): List<PlaybackPositionSyncPayload> =
         suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where {
-                    (PlaybackPositionTable.userId eq userId.value) and
-                        PlaybackPositionTable.deletedAt.isNull()
-                }.limit(limit)
-                .map { row -> row.toSyncPayload() }
+            db.playbackPositionsQueries
+                .listForUser(userId.value, limit.toLong())
+                .executeAsList()
+                .map { it.toSyncPayload() }
         }
 
     /**
@@ -270,13 +310,11 @@ class PlaybackPositionRepository(
     ): List<PlaybackPositionSyncPayload> {
         if (bookIds.isEmpty()) return emptyList()
         return suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where {
-                    (PlaybackPositionTable.userId eq userId.value) and
-                        (PlaybackPositionTable.bookId inList bookIds.map { it.value }) and
-                        PlaybackPositionTable.deletedAt.isNull()
-                }.map { row -> row.toSyncPayload() }
+            bookIds
+                .map { it.value }
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.playbackPositionsQueries.findByBookIds(userId.value, chunk).executeAsList() }
+                .map { it.toSyncPayload() }
         }
     }
 
@@ -284,25 +322,16 @@ class PlaybackPositionRepository(
      * Continue-listening semantics — books the user has started but not finished
      * (`isFinished = false`, `positionMs > 0`), ordered by `lastPlayedAt DESC`.
      * Matches the client Continue Listening shelf's filter.
-     *
-     * Note: [PlaybackPositionTable.lastPlayedAt] is non-null (the column has no `.nullable()`
-     * modifier), so a plain `lastPlayedAt DESC` sort is sufficient — no COALESCE needed.
      */
     suspend fun recentlyListenedForUser(
         userId: UserId,
         limit: Int,
     ): List<PlaybackPositionSyncPayload> =
         suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where {
-                    (PlaybackPositionTable.userId eq userId.value) and
-                        PlaybackPositionTable.deletedAt.isNull() and
-                        (PlaybackPositionTable.finished eq false) and
-                        (PlaybackPositionTable.positionMs greater 0L)
-                }.orderBy(PlaybackPositionTable.lastPlayedAt, SortOrder.DESC)
-                .limit(limit)
-                .map { row -> row.toSyncPayload() }
+            db.playbackPositionsQueries
+                .recentlyListenedForUser(userId.value, limit.toLong())
+                .executeAsList()
+                .map { it.toSyncPayload() }
         }
 
     /**
@@ -314,41 +343,45 @@ class PlaybackPositionRepository(
         limit: Int,
     ): List<PlaybackPositionSyncPayload> =
         suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where {
-                    (PlaybackPositionTable.userId eq userId.value) and
-                        PlaybackPositionTable.deletedAt.isNull() and
-                        (PlaybackPositionTable.finished eq true)
-                }.orderBy(PlaybackPositionTable.lastPlayedAt, SortOrder.DESC)
-                .limit(limit)
-                .map { row -> row.toSyncPayload() }
+            db.playbackPositionsQueries
+                .completedForUser(userId.value, limit.toLong())
+                .executeAsList()
+                .map { it.toSyncPayload() }
         }
 
     /** (userId, positionMs) for every user with an in-progress (unfinished, positionMs>0) position on [bookId]. */
     suspend fun listInProgressForBook(bookId: String): List<Pair<String, Long>> =
         suspendTransaction(db) {
-            PlaybackPositionTable
-                .selectAll()
-                .where {
-                    (PlaybackPositionTable.bookId eq bookId) and
-                        (PlaybackPositionTable.finished eq false) and
-                        (PlaybackPositionTable.positionMs greater 0L)
-                }.map { it[PlaybackPositionTable.userId] to it[PlaybackPositionTable.positionMs] }
+            db.playbackPositionsQueries
+                .listInProgressForBook(bookId) { userId, positionMs -> userId to positionMs }
+                .executeAsList()
         }
 
-    private fun org.jetbrains.exposed.v1.core.ResultRow.toSyncPayload(): PlaybackPositionSyncPayload =
+    private fun Playback_positions.toSyncPayload(): PlaybackPositionSyncPayload =
         PlaybackPositionSyncPayload(
-            id = this[PlaybackPositionTable.id],
-            bookId = this[PlaybackPositionTable.bookId],
-            positionMs = this[PlaybackPositionTable.positionMs],
-            lastPlayedAt = this[PlaybackPositionTable.lastPlayedAt],
-            finished = this[PlaybackPositionTable.finished],
-            playbackSpeed = this[PlaybackPositionTable.playbackSpeed],
-            currentChapterId = this[PlaybackPositionTable.currentChapterId],
-            revision = this[PlaybackPositionTable.revision],
-            updatedAt = this[PlaybackPositionTable.updatedAt],
-            createdAt = this[PlaybackPositionTable.createdAt],
-            deletedAt = this[PlaybackPositionTable.deletedAt],
+            id = id,
+            bookId = book_id,
+            positionMs = position_ms,
+            lastPlayedAt = last_played_at,
+            // `finished` is INTEGER 0/1 in SQLite; `playback_speed` is REAL (Double). Convert at the
+            // boundary, the same place the Exposed bool/float adapters sat.
+            finished = finished == 1L,
+            playbackSpeed = playback_speed.toFloat(),
+            currentChapterId = current_chapter_id,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
         )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+
+        /** SQLite stores booleans as INTEGER 0/1; map at the write boundary. */
+        private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
+    }
 }

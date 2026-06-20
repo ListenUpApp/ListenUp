@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -18,16 +19,17 @@ class UserStatsUpdaterProjectionTest :
             withInMemoryDatabase {
                 seedTestUser("u1")
 
-                val ppRepo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val ppRepo = PublicProfileRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val statsRepo =
                     UserStatsRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                     )
-                val maintainer = PublicProfileMaintainer(db = this, publicProfileRepo = ppRepo)
+                val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), db = this, publicProfileRepo = ppRepo)
                 val updater =
                     UserStatsUpdater(
+                        sql = this.asSqlDatabase(),
                         db = this,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { maintainer },

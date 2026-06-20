@@ -129,7 +129,7 @@ class ShelfServiceTest :
                 seedTestLibraryAndFolder()
                 seedTestUser("u1")
                 runTest {
-                    val activities = ActivityRepository(db = db)
+                    val activities = ActivityRepository(db = db.asSqlDatabase())
                     val created =
                         makeServiceWithRecorder(db, activities)
                             .actAs("u1")
@@ -152,7 +152,7 @@ class ShelfServiceTest :
                 seedTestLibraryAndFolder()
                 seedTestUser("u1")
                 runTest {
-                    val activities = ActivityRepository(db = db)
+                    val activities = ActivityRepository(db = db.asSqlDatabase())
                     makeServiceWithRecorder(db, activities)
                         .actAs("u1")
                         .createShelf(name = "Secret", isPrivate = true)

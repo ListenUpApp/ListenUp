@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -21,7 +22,7 @@ class RecordPositionPresenceTest :
                 val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -52,7 +53,7 @@ class RecordPositionPresenceTest :
                 val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -87,7 +88,7 @@ class RecordPositionPresenceTest :
                 val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -130,7 +131,7 @@ class RecordPositionPresenceTest :
                 val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -170,7 +171,7 @@ class RecordPositionPresenceTest :
                 val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,

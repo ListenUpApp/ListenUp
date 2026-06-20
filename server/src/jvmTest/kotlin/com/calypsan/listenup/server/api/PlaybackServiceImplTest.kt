@@ -80,16 +80,23 @@ class PlaybackServiceImplTest :
                     seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
                     genreRepository = GenreRepository(db, bus, registry),
                 )
-            val positionRepo = PlaybackPositionRepository(db = db, bus = bus, registry = SyncRegistry())
+            val positionRepo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+            val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
             val updater =
                 UserStatsUpdater(
+                    sql = db.asSqlDatabase(),
                     db = db,
                     userStatsRepo = statsRepo,
                     publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
                 )
-            val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), userStatsUpdater = updater)
+            val eventRepo =
+                ListeningEventRepository(
+                    db = db.asSqlDatabase(),
+                    bus = ChangeBus(),
+                    registry = SyncRegistry(),
+                    userStatsUpdater = updater,
+                )
             return TestDeps(
                 bookRepo = bookRepo,
                 positionRepo = positionRepo,

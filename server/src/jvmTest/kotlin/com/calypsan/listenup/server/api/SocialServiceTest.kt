@@ -91,9 +91,9 @@ class SocialServiceTest :
             return SocialServiceImpl(
                 activeSessions = ActiveSessionRepository(db = db, bus = bus),
                 bookAccessPolicy = BookAccessPolicy(db),
-                publicProfiles = PublicProfileRepository(db = db, bus = bus, registry = registry),
-                playbackPositions = PlaybackPositionRepository(db = db, bus = bus, registry = registry),
-                bookReads = BookReadsRepository(db = db),
+                publicProfiles = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                playbackPositions = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                bookReads = BookReadsRepository(db = db.asSqlDatabase()),
                 books = books,
                 principal = principal,
             )

@@ -52,8 +52,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -83,8 +83,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -114,8 +114,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {
@@ -145,8 +145,8 @@ class AdminRoutesTest :
                 val db = this
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), db = db, userStatsRepo = statsRepo)
                 val reindexService = makeReindexService(db, bus, registry)
 
                 testApplication {

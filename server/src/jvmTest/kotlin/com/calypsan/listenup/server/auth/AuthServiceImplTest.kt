@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -70,7 +71,7 @@ class AuthServiceImplTest :
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = policy)
-            val activities = ActivityRepository(db = db)
+            val activities = ActivityRepository(db = db.asSqlDatabase())
             val svc =
                 AuthServiceImpl(
                     db = db,

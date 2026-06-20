@@ -8,6 +8,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -31,7 +32,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("listForUser returns only the requesting user's positions (cross-user isolation)") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // user-a: 3 positions
                     repo.recordPosition("user-a", "book-1", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
@@ -52,7 +53,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("listForUser excludes tombstoned positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-live", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
                     val tombstoneResult =
@@ -69,7 +70,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("listForUser honors limit") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repeat(5) { i ->
                         repo.recordPosition("user-a", "book-$i", i * 1_000L, 1_730_000_000_000L + i, false, 1.0f, null)
@@ -83,7 +84,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("listForUser returns empty list when user has no positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.listForUser(UserId("user-nobody"), limit = 100).shouldBeEmpty()
                 }
@@ -94,7 +95,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("findByBookIds returns sparse matches — only positions that exist") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // Seed positions for book-1 and book-3 only; book-2 has no position
                     repo.recordPosition("user-a", "book-1", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
@@ -113,7 +114,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("findByBookIds with empty input returns empty result") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-1", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
                     repo.findByBookIds(UserId("user-a"), emptyList()).shouldBeEmpty()
@@ -123,7 +124,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("findByBookIds excludes tombstoned positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-live", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
                     val tombstoneResult =
@@ -144,7 +145,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("findByBookIds is user-scoped — other user's position for the same book not visible") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // user-b has progress on book-1; user-a does not
                     repo.recordPosition("user-b", "book-1", 5_000L, 1_730_000_000_001L, false, 1.0f, null)
@@ -159,7 +160,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("recentlyListenedForUser excludes isFinished=true positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // 3 in-progress + 2 finished
                     repo.recordPosition("user-a", "book-1", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
@@ -177,7 +178,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("recentlyListenedForUser excludes positionMs=0 entries") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-started", 5_000L, 1_730_000_000_001L, false, 1.0f, null)
                     repo.recordPosition("user-a", "book-zero", 0L, 1_730_000_000_002L, false, 1.0f, null)
@@ -191,7 +192,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("recentlyListenedForUser orders by lastPlayedAt DESC") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // oldest first in insert order, expect newest first in result
                     repo.recordPosition("user-a", "book-old", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
@@ -209,7 +210,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("recentlyListenedForUser honors limit") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repeat(10) { i ->
                         repo.recordPosition("user-a", "book-$i", 1_000L, 1_730_000_000_000L + i, false, 1.0f, null)
@@ -223,7 +224,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("recentlyListenedForUser is user-scoped") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-1", 1_000L, 1_730_000_000_001L, false, 1.0f, null)
                     repo.recordPosition("user-b", "book-2", 2_000L, 1_730_000_000_002L, false, 1.0f, null)
@@ -240,7 +241,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("completedForUser returns only isFinished=true positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-done-1", 9_000L, 1_730_000_000_001L, true, 1.0f, null)
                     repo.recordPosition("user-a", "book-done-2", 9_000L, 1_730_000_000_002L, true, 1.0f, null)
@@ -255,7 +256,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("completedForUser orders by lastPlayedAt DESC") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-done-old", 9_000L, 1_730_000_000_001L, true, 1.0f, null)
                     repo.recordPosition("user-a", "book-done-mid", 9_000L, 1_730_000_000_050L, true, 1.0f, null)
@@ -272,7 +273,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("completedForUser excludes tombstoned positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-done-live", 9_000L, 1_730_000_000_001L, true, 1.0f, null)
                     val tombstoneResult =
@@ -289,7 +290,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("completedForUser is user-scoped") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-done", 9_000L, 1_730_000_000_001L, true, 1.0f, null)
                     repo.recordPosition("user-b", "book-done-b", 9_000L, 1_730_000_000_002L, true, 1.0f, null)
@@ -303,7 +304,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("completedForUser honors limit") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repeat(8) { i ->
                         repo.recordPosition("user-a", "book-done-$i", 9_000L, 1_730_000_000_000L + i, true, 1.0f, null)
@@ -317,7 +318,7 @@ class PlaybackPositionRepositoryQueryTest :
 
         test("completedForUser returns empty when user has no finished positions") {
             withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition("user-a", "book-in-progress", 5_000L, 1_730_000_000_001L, false, 1.0f, null)
                     repo.completedForUser(UserId("user-a"), limit = 100).shouldBeEmpty()

@@ -4,44 +4,54 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.core.ListeningEventId
-import com.calypsan.listenup.server.db.ListeningEventTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.Listening_events
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable-domain repository for per-user listening events (Playback P2).
+ * SQLDelight syncable repository for per-user listening events (Playback P2).
  *
- * One row per closed playback span — an uninterrupted period of audio playback
- * with a single `playbackSpeed`. The domain is append-only: [writePayload]
- * inserts on first write and advances only `revision`/`updatedAt`/`clientOpId`
- * on a re-upsert of the same id (idempotent pending-op replay).
+ * One row per closed playback span — an uninterrupted period of audio playback with a single
+ * `playbackSpeed`. The domain is append-only: [writePayload] inserts on first write and advances
+ * only `revision`/`updatedAt`/`clientOpId` on a re-upsert of the same id (idempotent pending-op
+ * replay).
  *
- * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest`
- * call routes through the per-user dimension of the substrate.
+ * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest` call routes through
+ * the per-user dimension of the [SqlSyncableRepository] base (the [ShelfRepository] pattern).
  *
- * `idAsString(ListeningEventId) = id.value` is load-bearing — Kotlin's default
- * `toString()` on a value class returns `"ListeningEventId(value=foo)"`, which
- * would corrupt every column the id is written to.
+ * `idAsString(ListeningEventId) = id.value` is load-bearing — Kotlin's default `toString()` on a
+ * value class returns `"ListeningEventId(value=foo)"`, which would corrupt every column the id is
+ * written to.
+ *
+ * **Hooks.** [upsert] fires [UserStatsUpdater.onListeningEvent] and [ActivityRecorder.record] on
+ * first insert. They are **de-nested**: the event row commits in [SqlSyncableRepository.upsert]'s own
+ * transaction first, then the hooks run sequentially in their own transactions afterwards (the
+ * `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not merely convenient, because
+ * the project's SQLDelight `suspendTransaction` body is a plain (non-suspend) `transactionWithResult`
+ * lambda — suspend hook calls (each opening its own transaction, and [UserStatsUpdater] additionally
+ * reading the Exposed `users` table for the timezone) cannot nest inside it, so they would never
+ * compile, let alone run as savepoints. Running them after the event commits in separate transactions
+ * (each on the single SQLite connection, one at a time) is `SQLITE_BUSY`-free. Atomicity-on-crash is
+ * preserved by design: the stats hook fires only on first insert (`!alreadyExisted`), and stats accrual
+ * self-heals via `UserStatsBackfillService` — so a crash between the event commit and the stats write
+ * is recoverable, exactly as the at-least-once pending-op queue already assumes.
  */
 class ListeningEventRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
     private val userStatsUpdater: UserStatsUpdater? = null,
     private val activityRecorder: ActivityRecorder? = null,
-) : SyncableRepository<ListeningEventSyncPayload, ListeningEventId>(
+) : SqlSyncableRepository<ListeningEventSyncPayload, ListeningEventId>(
         db = db,
-        table = ListeningEventTable,
         bus = bus,
         registry = registry,
         domainName = "listening_events",
@@ -50,40 +60,36 @@ class ListeningEventRepository(
     override val userScoped: Boolean = true
 
     /**
-     * Overrides the base upsert to atomically fire [UserStatsUpdater.onListeningEvent] in the
-     * same database transaction as the event insert. The outer [suspendTransaction] here is the
-     * real transaction boundary; the base implementation's own [suspendTransaction] call detects
-     * an active transaction and joins it (Exposed's `useNestedTransactions = false` default),
-     * so all writes — event row + stats row — commit or roll back together.
+     * Overrides the base upsert to fire [UserStatsUpdater.onListeningEvent] and the activity hook
+     * after the event row commits. See the class KDoc for why these are de-nested (sequential,
+     * post-commit) rather than nested in one transaction.
      *
-     * The stats hook fires only when the event row did not already exist: the
-     * pending-op queue delivers at-least-once, and incremental stats accrual must
-     * stay idempotent under a re-fire of an already-committed event id.
+     * The stats hook fires only when the event row did not already exist: the pending-op queue
+     * delivers at-least-once, and incremental stats accrual must stay idempotent under a re-fire of
+     * an already-committed event id. Existence is sampled in its own transaction before the write;
+     * on the single serialized SQLite connection this is the same row-state the base then observes.
      */
     override suspend fun upsert(
         value: ListeningEventSyncPayload,
         clientOpId: String?,
         userId: String?,
-    ): AppResult<ListeningEventSyncPayload> =
-        suspendTransaction(db) {
-            // The pending-op queue delivers at-least-once, so this upsert may be a
-            // re-fire of an already-committed event. Stats accrual is incremental
-            // (totalSecondsAllTime/booksStarted), so it must run exactly once per
-            // event id — fire it only when the row did not already exist.
-            val alreadyExisted = readPayload(value.id) != null
-            val result = super.upsert(value, clientOpId, userId)
-            if (result is AppResult.Success && userId != null && !alreadyExisted) {
-                userStatsUpdater?.onListeningEvent(userId, value)
-                activityRecorder?.record(
-                    userId,
-                    ActivityType.LISTENING_SESSION,
-                    bookId = value.bookId,
-                    durationMs = value.endedAt - value.startedAt,
-                    occurredAt = value.endedAt,
-                )
-            }
-            result
+    ): AppResult<ListeningEventSyncPayload> {
+        // Sample existence before the write: incremental stats accrual must run exactly once per
+        // event id, so the hook fires only when the row did not already exist (idempotent replay).
+        val alreadyExisted = suspendTransaction(db) { readPayload(value.id) != null }
+        val result = super.upsert(value, clientOpId, userId)
+        if (result is AppResult.Success && userId != null && !alreadyExisted) {
+            userStatsUpdater?.onListeningEvent(userId, value)
+            activityRecorder?.record(
+                userId,
+                ActivityType.LISTENING_SESSION,
+                bookId = value.bookId,
+                durationMs = value.endedAt - value.startedAt,
+                occurredAt = value.endedAt,
+            )
         }
+        return result
+    }
 
     override val elementSerializer: KSerializer<ListeningEventSyncPayload> =
         ListeningEventSyncPayload.serializer()
@@ -95,30 +101,78 @@ class ListeningEventRepository(
 
     override fun ListeningEventSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): ListeningEventSyncPayload? =
-        ListeningEventTable
-            .selectAll()
-            .where { ListeningEventTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                ListeningEventSyncPayload(
-                    id = row[ListeningEventTable.id],
-                    bookId = row[ListeningEventTable.bookId],
-                    startPositionMs = row[ListeningEventTable.startPositionMs],
-                    endPositionMs = row[ListeningEventTable.endPositionMs],
-                    startedAt = row[ListeningEventTable.startedAt],
-                    endedAt = row[ListeningEventTable.endedAt],
-                    playbackSpeed = row[ListeningEventTable.playbackSpeed],
-                    tz = row[ListeningEventTable.tz],
-                    deviceLabel = row[ListeningEventTable.deviceLabel],
-                    revision = row[ListeningEventTable.revision],
-                    updatedAt = row[ListeningEventTable.updatedAt],
-                    createdAt = row[ListeningEventTable.createdAt],
-                    deletedAt = row[ListeningEventTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.listeningEventsQueries].
+     * Canonical user-scoped adapter shape (see [ShelfRepository]).
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.listeningEventsQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.listeningEventsQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.listeningEventsQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.listeningEventsQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdsAboveRevisionForUser(
+                userId: String,
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.listeningEventsQueries
+                    .selectIdsAboveRevisionForUser(userId, cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMostForUser(
+                userId: String,
+                cursor: Long,
+            ): List<IdRev> =
+                db.listeningEventsQueries
+                    .selectIdRevAtMostForUser(userId, cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): ListeningEventSyncPayload? =
+        db.listeningEventsQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toSyncPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<ListeningEventSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.listeningEventsQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
+    }
+
+    override fun writePayload(
         value: ListeningEventSyncPayload,
         rev: Long,
         now: Long,
@@ -128,35 +182,62 @@ class ListeningEventRepository(
     ) {
         requireNotNull(userId) { "ListeningEventRepository.writePayload requires a userId" }
         if (existed) {
-            // Append-only domain — a duplicate upsert of the same id advances
-            // revision/updatedAt/clientOpId so the pending-op queue's idempotent
-            // re-fire round-trips correctly, but domain fields are never mutated.
-            ListeningEventTable.update({ ListeningEventTable.id eq value.id }) { stmt ->
-                stmt[ListeningEventTable.revision] = rev
-                stmt[ListeningEventTable.updatedAt] = now
-                stmt[ListeningEventTable.clientOpId] = clientOpId
-            }
+            // Append-only domain — a duplicate upsert of the same id advances revision/updatedAt/
+            // clientOpId so the pending-op queue's idempotent re-fire round-trips correctly, but
+            // domain fields are never mutated.
+            db.listeningEventsQueries.updateSyncColumns(
+                revision = rev,
+                updated_at = now,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            ListeningEventTable.insert { stmt ->
-                stmt[ListeningEventTable.id] = value.id
-                stmt[ListeningEventTable.userId] = userId
-                stmt[ListeningEventTable.bookId] = value.bookId
-                stmt[ListeningEventTable.startPositionMs] = value.startPositionMs
-                stmt[ListeningEventTable.endPositionMs] = value.endPositionMs
-                stmt[ListeningEventTable.startedAt] = value.startedAt
-                stmt[ListeningEventTable.endedAt] = value.endedAt
-                stmt[ListeningEventTable.playbackSpeed] = value.playbackSpeed
-                stmt[ListeningEventTable.tz] = value.tz
-                stmt[ListeningEventTable.deviceLabel] = value.deviceLabel
-                stmt[ListeningEventTable.revision] = rev
-                stmt[ListeningEventTable.createdAt] = now
-                stmt[ListeningEventTable.updatedAt] = now
-                stmt[ListeningEventTable.deletedAt] = null
-                stmt[ListeningEventTable.clientOpId] = clientOpId
-            }
+            db.listeningEventsQueries.insert(
+                id = value.id,
+                user_id = userId,
+                book_id = value.bookId,
+                start_position_ms = value.startPositionMs,
+                end_position_ms = value.endPositionMs,
+                started_at = value.startedAt,
+                ended_at = value.endedAt,
+                // `playback_speed` is REAL (Double) in SQLite; the wire payload uses Float.
+                playback_speed = value.playbackSpeed.toDouble(),
+                tz = value.tz,
+                device_label = value.deviceLabel,
+                revision = rev,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: ListeningEventId): String = idAsString(id)
+
+    private fun Listening_events.toSyncPayload(): ListeningEventSyncPayload =
+        ListeningEventSyncPayload(
+            id = id,
+            bookId = book_id,
+            startPositionMs = start_position_ms,
+            endPositionMs = end_position_ms,
+            startedAt = started_at,
+            endedAt = ended_at,
+            playbackSpeed = playback_speed.toFloat(),
+            tz = tz,
+            deviceLabel = device_label,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }

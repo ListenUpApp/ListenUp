@@ -10,6 +10,7 @@ import com.calypsan.listenup.core.ListeningEventId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -29,7 +30,7 @@ class ListeningEventRepositoryTest :
         test("upsert inserts a new event and publishes a Created BusEvent for that userId") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = ListeningEventRepository(db = this, bus = bus, registry = SyncRegistry())
+                val repo = ListeningEventRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -48,7 +49,7 @@ class ListeningEventRepositoryTest :
 
         test("upsert of an existing id is idempotent — domain fields unchanged, revision advances") {
             withInMemoryDatabase {
-                val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     val original = listeningEventPayload("evt-2", "book-2", startPositionMs = 1_000L)
                     val first = (repo.upsert(original, clientOpId = null, userId = "u1") as AppResult.Success).data
@@ -67,7 +68,7 @@ class ListeningEventRepositoryTest :
 
         test("pullSince(userId = u1) returns only u1's events") {
             withInMemoryDatabase {
-                val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(listeningEventPayload("evt-u1", "book-1"), clientOpId = null, userId = "u1")
                     repo.upsert(listeningEventPayload("evt-u2", "book-1"), clientOpId = null, userId = "u2")
@@ -81,7 +82,7 @@ class ListeningEventRepositoryTest :
 
         test("pullSince with null userId fails fast for user-scoped domain") {
             withInMemoryDatabase {
-                val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     val threw = runCatching { repo.pullSince(userId = null, cursor = 0L, limit = 50) }
                     threw.isFailure shouldBe true
@@ -91,23 +92,24 @@ class ListeningEventRepositoryTest :
 
         test("idAsString unwraps the value class to its raw string") {
             withInMemoryDatabase {
-                val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 repo.idAsStringForTest(ListeningEventId("evt-1")) shouldBe "evt-1"
             }
         }
 
         test("upsert with userStatsUpdater wired fires onListeningEvent and materialises totalSecondsAllTime") {
             withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
+                        sql = this.asSqlDatabase(),
                         db = this,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
                     )
                 val repo =
                     ListeningEventRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         userStatsUpdater = updater,
@@ -125,11 +127,11 @@ class ListeningEventRepositoryTest :
         }
         test("a completed listening event records one listening_session with durationMs == endedAt - startedAt") {
             withInMemoryDatabase {
-                val activities = ActivityRepository(db = this)
+                val activities = ActivityRepository(db = this.asSqlDatabase())
                 val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
                 val repo =
                     ListeningEventRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activityRecorder = recorder,
@@ -149,11 +151,11 @@ class ListeningEventRepositoryTest :
 
         test("re-firing an already-committed listening event records NO duplicate listening_session") {
             withInMemoryDatabase {
-                val activities = ActivityRepository(db = this)
+                val activities = ActivityRepository(db = this.asSqlDatabase())
                 val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
                 val repo =
                     ListeningEventRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activityRecorder = recorder,
@@ -176,7 +178,7 @@ class ListeningEventRepositoryTest :
         // exceeds length (40 > 36)" on every session import — apply always returned ApplyFailed.
         test("upsert accepts a 40-char abs:<uuid> id produced by SessionConverter") {
             withInMemoryDatabase {
-                val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     // "abs:" (4) + 36-char UUID = 40 chars — the real id shape emitted by SessionConverter.
                     val absId = "abs:11111111-1111-1111-1111-111111111111"
@@ -201,11 +203,11 @@ class ListeningEventRepositoryTest :
                 val realEndedAt = 1_000_000L
                 val fixedNow = 9_999_999_999L
                 val fixedClock = FixedClock(Instant.fromEpochMilliseconds(fixedNow))
-                val activities = ActivityRepository(db = this, clock = fixedClock)
+                val activities = ActivityRepository(db = this.asSqlDatabase(), clock = fixedClock)
                 val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
                 val repo =
                     ListeningEventRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         clock = fixedClock,
