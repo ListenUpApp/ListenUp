@@ -217,8 +217,8 @@ private class EnrichmentCtx(
             imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
             coverImageStore = CoverImageStore(ImageStore(Path.of(tempDir).resolve("covers"), MAX_COVER_BYTES)),
             metadataProvider = AudibleMetadataProvider(metadataService),
-            genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
-            db = db,
+            genreHierarchy = GenreHierarchyFromLadder(db.asSqlDatabase(), genreRepo, GenreAutoCreator(genreRepo)),
+            sqlDb = db.asSqlDatabase(),
             ladderSource = { _, _ -> emptyList() },
             enrichmentDeps =
                 MetadataEnrichmentDeps(

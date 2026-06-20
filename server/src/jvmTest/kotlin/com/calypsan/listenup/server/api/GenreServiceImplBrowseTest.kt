@@ -68,7 +68,7 @@ class GenreServiceImplBrowseTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db, principal = rootPrincipal())
+            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), principal = rootPrincipal())
         }
 
         test("browseBooks returns NotFound when genreId is unknown") {

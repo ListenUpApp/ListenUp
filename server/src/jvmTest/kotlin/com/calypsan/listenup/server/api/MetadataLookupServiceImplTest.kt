@@ -307,8 +307,9 @@ class MetadataLookupServiceImplTest :
                             imageStorage = imageStorage,
                             coverImageStore = coverImageStore,
                             metadataProvider = AudibleMetadataProvider(metadataService),
-                            genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
-                            db = db,
+                            genreHierarchy =
+                                GenreHierarchyFromLadder(db.asSqlDatabase(), genreRepo, GenreAutoCreator(genreRepo)),
+                            sqlDb = db.asSqlDatabase(),
                             ladderSource = { _, _ -> emptyList() },
                             enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry),
                         )
@@ -498,7 +499,7 @@ private fun makeService(
             ),
         enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry, productTagSource = productTagSource),
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-        db = db,
+        sqlDb = db.asSqlDatabase(),
         genreRepository = genreRepo,
     )
 }

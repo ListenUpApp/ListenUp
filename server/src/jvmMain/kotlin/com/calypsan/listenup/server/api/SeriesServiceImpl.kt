@@ -18,8 +18,6 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -65,19 +63,12 @@ internal class SeriesServiceImpl(
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
-    db: Database,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : SeriesService {
-    /**
-     * The Exposed handle is retained only so the default [permissionPolicy] can be built from it;
-     * every merge/delete flow now runs over the SQLDelight [sqlDb] connection.
-     */
-    private val db: Database = db
-
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, db, permissionPolicy, principal)
+        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -101,17 +92,15 @@ internal class SeriesServiceImpl(
         patch: SeriesUpdate,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        val current =
+            seriesRepo.findById(id.value)
+                ?: return seriesNotFound(id)
+        val patched = current.applyPatch(patch)
+        val nameChanged = patched.name != current.name || patched.sortName != current.sortName
         val outcome: SeriesUpdateOutcome =
-            suspendTransaction(db) {
-                val current =
-                    seriesRepo.findById(id.value)
-                        ?: return@suspendTransaction SeriesUpdateOutcome(false, seriesNotFound(id))
-                val patched = current.applyPatch(patch)
-                val nameChanged = patched.name != current.name || patched.sortName != current.sortName
-                when (val upsertResult = seriesRepo.upsert(patched)) {
-                    is AppResult.Success -> SeriesUpdateOutcome(nameChanged, AppResult.Success(Unit))
-                    is AppResult.Failure -> SeriesUpdateOutcome(false, AppResult.Failure(upsertResult.error))
-                }
+            when (val upsertResult = seriesRepo.upsert(patched)) {
+                is AppResult.Success -> SeriesUpdateOutcome(nameChanged, AppResult.Success(Unit))
+                is AppResult.Failure -> SeriesUpdateOutcome(false, AppResult.Failure(upsertResult.error))
             }
         if (outcome.result is AppResult.Success && outcome.reindexNeeded) {
             runCatchingCancellable { reindexer.reindexAllBooksForSeries(id.value) }
@@ -128,93 +117,100 @@ internal class SeriesServiceImpl(
         if (source.value == target.value) {
             return AppResult.Failure(SeriesError.MergeSelfTarget())
         }
-
-        val result: AppResult<Unit> =
-            suspendTransaction(db) {
-                val sourcePayload =
-                    seriesRepo.findById(source.value)
-                        ?: return@suspendTransaction AppResult.Failure(
-                            SeriesError.NotFound(debugInfo = "source=${source.value}"),
-                        )
-                seriesRepo.findById(target.value)
-                    ?: return@suspendTransaction AppResult.Failure(
-                        SeriesError.NotFound(debugInfo = "target=${target.value}"),
-                    )
-                if (sourcePayload.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(
-                        SeriesError.NotFound(debugInfo = "source=${source.value} already tombstoned"),
-                    )
-                }
-
-                // Snapshot affected book IDs, then re-link all membership rows source → target —
-                // both over the single SQLDelight connection in one mini-transaction. Keeping the
-                // junction writes off the Exposed connection closes the SQLITE_BUSY window.
-                val affectedBookIds =
-                    sqlTransaction(sqlDb) {
-                        val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(source.value).executeAsList()
-                        sqlDb.bookSeriesMembershipsQueries.relinkSeries(to_id = target.value, from_id = source.value)
-                        ids
-                    }
-
-                // Re-upsert each affected book — bumps revision + emits book.Updated per book.
-                // One batched read replaces the per-book N+1 lookup.
-                for (book in bookRepo.findAllByIds(affectedBookIds)) {
-                    when (val upsertResult = bookRepo.upsert(book)) {
-                        is AppResult.Success -> Unit
-                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                    }
-                }
-
-                // Soft-delete source — emits series.Deleted(source).
-                when (val softDeleteResult = seriesRepo.softDelete(source)) {
-                    is AppResult.Success -> AppResult.Success(Unit)
-                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
-                }
-            }
-
+        val result = mergeCore(source, target)
         if (result is AppResult.Success) {
             runCatchingCancellable { reindexer.reindexAllBooksForSeries(target.value) }
                 .onFailure {
-                    logger.warn(
-                        it,
-                    ) { "FTS reindex failed after series merge ${source.value} -> ${target.value}" }
+                    logger.warn(it) { "FTS reindex failed after series merge ${source.value} -> ${target.value}" }
                 }
         }
-
         return result
+    }
+
+    /**
+     * The merge write sequence (no FTS reindex). The snapshot + membership relink are the one
+     * pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the source
+     * soft-delete are sequential aggregate writes over the single SQLDelight connection —
+     * matching the established cutover shape.
+     */
+    private suspend fun mergeCore(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit> {
+        val sourcePayload =
+            seriesRepo.findById(source.value)
+                ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "source=${source.value}"))
+        seriesRepo.findById(target.value)
+            ?: return AppResult.Failure(SeriesError.NotFound(debugInfo = "target=${target.value}"))
+        if (sourcePayload.deletedAt != null) {
+            return AppResult.Failure(
+                SeriesError.NotFound(debugInfo = "source=${source.value} already tombstoned"),
+            )
+        }
+
+        // Snapshot affected book IDs, then re-link all membership rows source → target — both
+        // over the single SQLDelight connection in one mini-transaction.
+        val affectedBookIds =
+            sqlTransaction(sqlDb) {
+                val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(source.value).executeAsList()
+                sqlDb.bookSeriesMembershipsQueries.relinkSeries(to_id = target.value, from_id = source.value)
+                ids
+            }
+
+        // Re-upsert each affected book — bumps revision + emits book.Updated per book.
+        // One batched read replaces the per-book N+1 lookup.
+        for (book in bookRepo.findAllByIds(affectedBookIds)) {
+            when (val upsertResult = bookRepo.upsert(book)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+
+        // Soft-delete source — emits series.Deleted(source).
+        return when (val softDeleteResult = seriesRepo.softDelete(source)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+        }
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val result: AppResult<Unit> =
-            suspendTransaction(db) {
-                seriesRepo.findById(id.value)
-                    ?: return@suspendTransaction seriesNotFound(id)
-                // Snapshot affected book IDs, then hard-delete every membership row for the
-                // series — both over the single SQLDelight connection in one mini-transaction.
-                val affectedBookIds =
-                    sqlTransaction(sqlDb) {
-                        val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(id.value).executeAsList()
-                        sqlDb.bookSeriesMembershipsQueries.deleteAllForSeries(id.value)
-                        ids
-                    }
-                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
-                    val stripped = payload.copy(series = payload.series.filter { it.id != id.value })
-                    when (val upsertResult = bookRepo.upsert(stripped)) {
-                        is AppResult.Success -> Unit
-                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                    }
-                }
-                when (val softDeleteResult = seriesRepo.softDelete(id)) {
-                    is AppResult.Success -> AppResult.Success(Unit)
-                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
-                }
-            }
+        val result = deleteCore(id)
         if (result is AppResult.Success) {
             runCatchingCancellable { reindexer.reindexAllBooksForSeries(id.value) }
                 .onFailure { logger.warn(it) { "FTS reindex failed during delete of series ${id.value}" } }
         }
         return result
+    }
+
+    /**
+     * The delete write sequence (no FTS reindex). The snapshot + membership hard-delete are the
+     * one pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the
+     * series soft-delete are sequential aggregate writes over the single SQLDelight connection —
+     * matching the established cutover shape.
+     */
+    private suspend fun deleteCore(id: SeriesId): AppResult<Unit> {
+        seriesRepo.findById(id.value)
+            ?: return seriesNotFound(id)
+        // Snapshot affected book IDs, then hard-delete every membership row for the series —
+        // both over the single SQLDelight connection in one mini-transaction.
+        val affectedBookIds =
+            sqlTransaction(sqlDb) {
+                val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(id.value).executeAsList()
+                sqlDb.bookSeriesMembershipsQueries.deleteAllForSeries(id.value)
+                ids
+            }
+        for (payload in bookRepo.findAllByIds(affectedBookIds)) {
+            val stripped = payload.copy(series = payload.series.filter { it.id != id.value })
+            when (val upsertResult = bookRepo.upsert(stripped)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+        return when (val softDeleteResult = seriesRepo.softDelete(id)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+        }
     }
 }
 
@@ -230,8 +226,7 @@ fun createSeriesService(
     bookRepo: BookRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
-    db: Database,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, db)
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb)
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.

@@ -181,8 +181,8 @@ class MatchApplySelectionTest :
                 imageStorage = ImageStorage(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
                 metadataProvider = provider,
-                genreHierarchy = GenreHierarchyFromLadder(db, genreRepo, GenreAutoCreator(genreRepo)),
-                db = db,
+                genreHierarchy = GenreHierarchyFromLadder(db.asSqlDatabase(), genreRepo, GenreAutoCreator(genreRepo)),
+                sqlDb = db.asSqlDatabase(),
                 ladderSource = { _, _ -> ladders },
                 // Fresh bus/registry for the (independent, unasserted) mood/tag writer domains;
                 // empty product-tag source keeps enrichment a no-op for this selection-focused suite.

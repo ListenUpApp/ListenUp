@@ -107,7 +107,6 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
         bookRepository = bookRepo,
         reindexer = reindexer,
         sqlDb = db.asSqlDatabase(),
-        db = db,
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
     )
 }

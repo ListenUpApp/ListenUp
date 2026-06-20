@@ -15,7 +15,7 @@ class GenreHierarchyFromLadderTest :
         test("nests each rung under the previous one, leaf is most specific") {
             withInMemoryDatabase {
                 val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val hierarchy = GenreHierarchyFromLadder(this, repo, GenreAutoCreator(repo))
+                val hierarchy = GenreHierarchyFromLadder(this.asSqlDatabase(), repo, GenreAutoCreator(repo))
                 runTest {
                     val ids = hierarchy.ensureLadder(listOf("Fiction", "Fantasy", "LitRPG"))
 
@@ -37,7 +37,7 @@ class GenreHierarchyFromLadderTest :
             withInMemoryDatabase {
                 val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val autoCreator = GenreAutoCreator(repo)
-                val hierarchy = GenreHierarchyFromLadder(this, repo, autoCreator)
+                val hierarchy = GenreHierarchyFromLadder(this.asSqlDatabase(), repo, autoCreator)
                 runTest {
                     // The user has arranged "Fantasy" under "Reference" (a deliberate, non-flat placement).
                     val referenceId = autoCreator.findOrCreateFlatGenreId("Reference")
@@ -73,7 +73,7 @@ class GenreHierarchyFromLadderTest :
             withInMemoryDatabase {
                 val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
                 val autoCreator = GenreAutoCreator(repo)
-                val hierarchy = GenreHierarchyFromLadder(this, repo, autoCreator)
+                val hierarchy = GenreHierarchyFromLadder(this.asSqlDatabase(), repo, autoCreator)
                 runTest {
                     // "Fantasy" was created flat by an earlier scan (no parent).
                     val fantasyId = autoCreator.findOrCreateFlatGenreId("Fantasy")

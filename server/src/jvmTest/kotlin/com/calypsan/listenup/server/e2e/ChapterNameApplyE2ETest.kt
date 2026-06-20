@@ -180,7 +180,7 @@ private fun wire(
                 ),
             enrichmentDeps = testEnrichmentDeps(db, bus, registry),
             permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-            db = db,
+            sqlDb = db.asSqlDatabase(),
             genreRepository = genreRepo,
             principal = PrincipalProvider { UserPrincipal(UserId("root"), SessionId("s"), UserRole.ROOT) },
         )

@@ -144,7 +144,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
             ),
         enrichmentDeps = testEnrichmentDeps(db, bus, registry),
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-        db = db,
+        sqlDb = db.asSqlDatabase(),
         genreRepository = genreRepo,
     )
 }

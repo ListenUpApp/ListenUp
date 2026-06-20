@@ -357,7 +357,7 @@ private fun buildService(
             ),
         enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-        db = db,
+        sqlDb = db.asSqlDatabase(),
         genreRepository = genreRepo,
         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
     )

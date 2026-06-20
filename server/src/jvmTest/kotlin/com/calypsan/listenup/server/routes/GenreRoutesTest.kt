@@ -83,7 +83,7 @@ class GenreRoutesTest :
                         seriesRepository = seriesRepo,
                         genreRepository = genreRepo,
                     )
-                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
+                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase())
                 val collectionRepo =
                     CollectionRepository(
                         db = db.asSqlDatabase(),

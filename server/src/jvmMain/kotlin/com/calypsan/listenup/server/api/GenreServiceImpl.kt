@@ -24,7 +24,6 @@ import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
-import org.jetbrains.exposed.v1.jdbc.Database
 
 private val logger = KotlinLogging.logger {}
 
@@ -70,13 +69,12 @@ internal class GenreServiceImpl(
     private val bookRepository: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
-    private val db: Database,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : GenreService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
-        GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, db, permissionPolicy, principal)
+        GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -577,8 +575,7 @@ fun createGenreService(
     bookRepository: BookRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
-    db: Database,
-): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, db)
+): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb)
 
 /**
  * Scopes a [GenreService] built by [createGenreService] to [principal] for one request.

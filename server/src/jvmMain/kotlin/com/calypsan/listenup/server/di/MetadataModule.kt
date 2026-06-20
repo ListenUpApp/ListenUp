@@ -192,7 +192,7 @@ fun metadataModule(imageHome: Path): Module =
                     ),
                 enrichmentDeps = get<MetadataEnrichmentDeps>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
-                db = get(),
+                sqlDb = get<ListenUpDatabase>(),
                 genreRepository = get<GenreRepository>(),
                 principal =
                     PrincipalProvider {

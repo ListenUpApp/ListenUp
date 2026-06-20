@@ -276,7 +276,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 bookRepo = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
-                db = serverDb,
             )
         // Books-C2 Task 25 needs `SeriesService` for the mergeSeries e2e test.
         val seriesService: SeriesService =
@@ -285,7 +284,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 bookRepo = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
-                db = serverDb,
             )
         // Genres e2e tests need a `GenreService` against the same server scaffolding.
         val genreService: GenreService =
@@ -294,7 +292,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 bookRepository = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
-                db = serverDb,
             )
 
         application {

@@ -332,7 +332,6 @@ private fun makeSeriesServiceAndDeps(db: Database): SeriesServiceDeps {
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = db.asSqlDatabase(),
-            db = db,
             principal = rootPrincipal(),
         )
     return SeriesServiceDeps(service, seriesRepo, bookRepo, reindexer)

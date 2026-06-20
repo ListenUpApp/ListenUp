@@ -31,11 +31,11 @@ import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.GenreNormalizer
 import com.calypsan.listenup.server.services.GenreRepository
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.exposed.v1.jdbc.Database
 
 private val log = KotlinLogging.logger {}
 
@@ -69,7 +69,7 @@ internal class MetadataLookupServiceImpl(
     private val imageDeps: MetadataImageDeps,
     private val enrichmentDeps: MetadataEnrichmentDeps,
     private val permissionPolicy: UserPermissionPolicy,
-    private val db: Database,
+    private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
     private val principal: PrincipalProvider = PrincipalProvider.None,
@@ -92,7 +92,7 @@ internal class MetadataLookupServiceImpl(
             imageDeps = imageDeps,
             enrichmentDeps = enrichmentDeps,
             permissionPolicy = permissionPolicy,
-            db = db,
+            sqlDb = sqlDb,
             genreRepository = genreRepository,
             defaultRegion = defaultRegion,
             principal = principal,
@@ -234,8 +234,8 @@ internal class MetadataLookupServiceImpl(
             imageStorage = imageDeps.imageStorage,
             coverImageStore = imageDeps.coverImageStore,
             metadataProvider = audible,
-            genreHierarchy = GenreHierarchyFromLadder(db, genreRepository, genreAutoCreator),
-            db = db,
+            genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
+            sqlDb = sqlDb,
             ladderSource = { r, a ->
                 when (val book = metadataService.getBook(r, a)) {
                     is AppResult.Success -> book.data?.genreLadders.orEmpty()
