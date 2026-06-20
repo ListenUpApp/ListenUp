@@ -47,7 +47,15 @@ private const val MAX_BROWSE_LIMIT = 1000
  * admin, and unmapped-curation surfaces against [GenreRepository] +
  * [BookRepository] + [BookSearchReindexer].
  *
- * Every mutation method runs inside a single transaction; post-commit
+ * Genre-only mutations ([createGenre], [updateGenre], [moveGenre]) run inside a single
+ * Exposed transaction. The cross-aggregate flows ([deleteGenre], [mergeGenres],
+ * [mapUnmappedToGenre]) span two engines during the SQLDelight cutover: the Exposed genre
+ * writes (junction relink/delete, alias repoint, soft-delete) commit FIRST, then the affected
+ * books are re-upserted through the SQLDelight [BookRepository] in a SEQUENTIAL second step.
+ * Nesting the SQLDelight book write inside the held Exposed genre write transaction would
+ * deadlock on the lone SQLite write lock (`SQLITE_BUSY`); the sequencing — modelled on
+ * `BookServiceImpl.setBookGenres` — trades whole-flow atomicity (each individual write stays
+ * atomic) for a contention-free cutover. Post-commit
  * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree`
  * keeps `book_search.genres` consistent with the live junction state.
  *
@@ -250,7 +258,16 @@ internal class GenreServiceImpl(
 
     override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val result: AppResult<Unit> =
+        // The genre cascade (junction delete, alias removal, soft-delete) writes Exposed tables and
+        // takes the SQLite write lock; the affected-book re-upserts write the book rows via SQLDelight
+        // on a separate connection. During the cutover these two engines cannot share one transaction,
+        // so they run SEQUENTIALLY — the Exposed genre writes commit (releasing the write lock), THEN
+        // the SQLDelight book re-upserts run. Nesting the SQLDelight write inside the held Exposed write
+        // transaction deadlocks on the lone SQLite write lock (SQLITE_BUSY). This mirrors the established
+        // `BookServiceImpl.setBookGenres` shape; whole-flow atomicity across the two engines is not
+        // guaranteed, but each individual write is atomic and the book's `genres` re-derives from the
+        // live junction on the re-read regardless of the genre's `deleted_at`.
+        val plan =
             suspendTransaction(db) {
                 val current = genreRepository.findById(id.value)
                 if (current == null || current.deletedAt != null) {
@@ -268,23 +285,27 @@ internal class GenreServiceImpl(
                 BookGenreTable.deleteAllForGenre(id.value)
                 GenreAliasTable.removeAllForGenre(id.value)
 
-                // Re-upsert affected books — bumps revision, publishes book.Updated. The book's
-                // BookSyncPayload.genres re-derives from the live junction (now missing this id).
-                when (val reupsert = reupsertBooks(affectedBookIds)) {
-                    is AppResult.Success -> Unit
-                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(reupsert.error)
-                }
-
                 when (val softDeleteResult = genreRepository.softDelete(id)) {
-                    is AppResult.Success -> AppResult.Success(Unit)
+                    is AppResult.Success -> AppResult.Success(affectedBookIds)
                     is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
                 }
             }
-        if (result is AppResult.Success) {
-            runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
-                .onFailure { logger.warn(it) { "FTS reindex failed during delete of genre ${id.value}" } }
+        val affectedBookIds =
+            when (plan) {
+                is AppResult.Success -> plan.data
+                is AppResult.Failure -> return AppResult.Failure(plan.error)
+            }
+
+        // Re-upsert affected books — bumps revision, publishes book.Updated. The book's
+        // BookSyncPayload.genres re-derives from the live junction (now missing this id).
+        when (val reupsert = reupsertBooks(affectedBookIds)) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(reupsert.error)
         }
-        return result
+
+        runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
+            .onFailure { logger.warn(it) { "FTS reindex failed during delete of genre ${id.value}" } }
+        return AppResult.Success(Unit)
     }
 
     override suspend fun moveGenre(
@@ -326,7 +347,16 @@ internal class GenreServiceImpl(
         if (source.value == target.value) {
             return AppResult.Failure(GenreError.MergeSelfTarget(debugInfo = source.value))
         }
-        val result: AppResult<Unit> =
+        // The genre relink/alias-repoint/soft-delete writes Exposed tables (taking the SQLite write
+        // lock); the affected-book re-upserts write the book rows via SQLDelight on a separate
+        // connection. During the cutover the two engines cannot share one transaction, so they run
+        // SEQUENTIALLY — the Exposed genre writes commit (releasing the write lock), THEN the SQLDelight
+        // book re-upserts run. Nesting the SQLDelight write inside the held Exposed write transaction
+        // deadlocks on the lone SQLite write lock (SQLITE_BUSY). This mirrors the established
+        // `BookServiceImpl.setBookGenres` shape; whole-flow atomicity across the two engines is not
+        // guaranteed, but each individual write is atomic and the book's `genres` re-derives from the
+        // live junction on the re-read (now pointing at target).
+        val plan =
             suspendTransaction(db) {
                 val sourcePayload = genreRepository.findById(source.value)
                 if (sourcePayload == null || sourcePayload.deletedAt != null) {
@@ -351,25 +381,29 @@ internal class GenreServiceImpl(
                 BookGenreTable.relinkGenre(fromId = source.value, toId = target.value)
                 GenreAliasTable.repointAliases(fromGenreId = source.value, toGenreId = target.value)
 
-                when (val reupsert = reupsertBooks(affectedBookIds)) {
-                    is AppResult.Success -> Unit
-                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(reupsert.error)
-                }
-
                 when (val softDeleteResult = genreRepository.softDelete(source)) {
-                    is AppResult.Success -> AppResult.Success(Unit)
+                    is AppResult.Success -> AppResult.Success(affectedBookIds)
                     is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
                 }
             }
-        if (result is AppResult.Success) {
-            runCatchingCancellable { reindexer.reindexAllBooksForGenre(target.value) }
-                .onFailure {
-                    logger.warn(
-                        it,
-                    ) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
-                }
+        val affectedBookIds =
+            when (plan) {
+                is AppResult.Success -> plan.data
+                is AppResult.Failure -> return AppResult.Failure(plan.error)
+            }
+
+        when (val reupsert = reupsertBooks(affectedBookIds)) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(reupsert.error)
         }
-        return result
+
+        runCatchingCancellable { reindexer.reindexAllBooksForGenre(target.value) }
+            .onFailure {
+                logger.warn(
+                    it,
+                ) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
+            }
+        return AppResult.Success(Unit)
     }
 
     override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
@@ -391,7 +425,16 @@ internal class GenreServiceImpl(
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val trimmed = rawString.trim()
-        val result: AppResult<Unit> =
+        // The alias-add, pending→junction conversion, and pending-row delete write Exposed tables
+        // (taking the SQLite write lock); the affected-book re-upserts write the book rows via SQLDelight
+        // on a separate connection. During the cutover the two engines cannot share one transaction, so
+        // they run SEQUENTIALLY — the Exposed genre writes commit (releasing the write lock), THEN the
+        // SQLDelight book re-upserts run. Nesting the SQLDelight write inside the held Exposed write
+        // transaction deadlocks on the lone SQLite write lock (SQLITE_BUSY). This mirrors the established
+        // `BookServiceImpl.setBookGenres` shape; whole-flow atomicity across the two engines is not
+        // guaranteed, but each individual write is atomic and the book's `genres` re-derives from the
+        // live junction on the re-read (now including the mapped genre).
+        val plan =
             suspendTransaction(db) {
                 val genre = genreRepository.findById(genreId.value)
                 if (genre == null || genre.deletedAt != null) {
@@ -418,31 +461,47 @@ internal class GenreServiceImpl(
                 // 3. Drop the pending rows now that the mapping is canonical.
                 PendingBookGenreTable.deleteAllForRawString(trimmed)
 
-                // 4. Re-upsert each affected book — bumps revision, publishes `book.Updated`.
-                reupsertBooks(affectedBookIds)
+                AppResult.Success(affectedBookIds)
             }
-        if (result is AppResult.Success) {
-            runCatchingCancellable { reindexer.reindexAllBooksForGenre(genreId.value) }
-                .onFailure {
-                    logger.warn(
-                        it,
-                    ) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
-                }
+        val affectedBookIds =
+            when (plan) {
+                is AppResult.Success -> plan.data
+                is AppResult.Failure -> return AppResult.Failure(plan.error)
+            }
+
+        // 4. Re-upsert each affected book — bumps revision, publishes `book.Updated`.
+        when (val reupsert = reupsertBooks(affectedBookIds)) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(reupsert.error)
         }
-        return result
+
+        runCatchingCancellable { reindexer.reindexAllBooksForGenre(genreId.value) }
+            .onFailure {
+                logger.warn(
+                    it,
+                ) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
+            }
+        return AppResult.Success(Unit)
     }
 
     private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
 
     /**
      * Re-upserts every live book whose id appears in [bookIds]. Skips books that have
-     * vanished between snapshot and re-read. Used by [deleteGenre] and [mergeGenres]
-     * to bump revisions on books whose `BookSyncPayload.genres` must reflect the
-     * junction cascade. Must be called inside the caller's `suspendTransaction { }`.
+     * vanished between snapshot and re-read. Used by [deleteGenre], [mergeGenres], and
+     * [mapUnmappedToGenre] to bump revisions on books whose `BookSyncPayload.genres` must
+     * reflect the junction cascade.
+     *
+     * Runs against SQLDelight ([BookRepository]) and MUST be called AFTER the caller's Exposed
+     * genre write transaction has committed — never nested inside it. The Exposed genre write
+     * holds the SQLite write lock; a nested SQLDelight book write on the separate SQLDelight
+     * connection would block on that lock and fail with `SQLITE_BUSY`. The committed Exposed
+     * junction state is visible to the SQLDelight read here, so the re-derived `genres` is correct.
+     *
+     * One batched [BookRepository.findAllByIds] read replaces the prior per-book `findById` N+1.
      */
     private suspend fun reupsertBooks(bookIds: List<String>): AppResult<Unit> {
-        for (bookId in bookIds) {
-            val payload = bookRepository.findById(BookId(bookId)) ?: continue
+        for (payload in bookRepository.findAllByIds(bookIds)) {
             val upsertResult = bookRepository.upsert(payload)
             if (upsertResult is AppResult.Failure) return AppResult.Failure(upsertResult.error)
         }
