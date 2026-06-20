@@ -5,7 +5,7 @@ package com.calypsan.listenup.server.scheduler
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -19,8 +19,8 @@ class MetadataCacheCleanupTaskTest :
         val now = Instant.parse("2026-05-24T12:00:00Z")
 
         test("runOnce deletes expired rows only; fresh rows survive") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 // expired: expiresAt is 1 second in the past
                 val expiredAt = now.toEpochMilliseconds() - 1_000L
                 // fresh: expiresAt is 1 hour in the future
@@ -41,8 +41,8 @@ class MetadataCacheCleanupTaskTest :
         }
 
         test("runOnce on an empty table returns 0 without throwing") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 runTest {
                     val removed = MetadataCacheCleanupTask(repo, clock = FixedClock(now)).runOnce()
                     removed shouldBe 0
@@ -51,8 +51,8 @@ class MetadataCacheCleanupTaskTest :
         }
 
         test("runOnce with only fresh rows returns 0") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val freshAt = now.plus(24.hours).toEpochMilliseconds()
                 runTest {
                     repo.put("k1", AudibleRegion.US, "a", freshAt)
@@ -67,8 +67,8 @@ class MetadataCacheCleanupTaskTest :
         }
 
         test("runOnce deletes all rows when all are expired") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val expiredAt = now.toEpochMilliseconds() - 5_000L
                 runTest {
                     repo.put("a", AudibleRegion.US, "x", expiredAt)

@@ -255,7 +255,7 @@ private fun enrichmentCtx(db: Database): EnrichmentCtx {
         MetadataService(
             audible = EnrichStubAudibleApi(enrichBook()),
             itunes = NoOpEnrichITunesApi(),
-            cache = MetadataCacheRepository(db, clock = FixedClock(ENRICH_NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(ENRICH_NOW)),
         )
     return EnrichmentCtx(
         db = db,

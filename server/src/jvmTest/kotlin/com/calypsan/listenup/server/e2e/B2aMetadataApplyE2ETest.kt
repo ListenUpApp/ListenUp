@@ -139,7 +139,7 @@ class B2aMetadataApplyE2ETest :
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
                 // ── Wire MetadataService + MetadataLookupServiceImpl ────────────
-                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = audibleApi,
@@ -215,7 +215,7 @@ class B2aMetadataApplyE2ETest :
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
-                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = SingleBookFakeAudibleApi(canned_WayOfKings()),
@@ -273,7 +273,7 @@ class B2aMetadataApplyE2ETest :
                 val bookRepo =
                     BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
 
-                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = SingleBookFakeAudibleApi(null),

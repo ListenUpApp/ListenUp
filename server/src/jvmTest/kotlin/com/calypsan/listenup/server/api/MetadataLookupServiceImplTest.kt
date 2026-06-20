@@ -271,7 +271,7 @@ class MetadataLookupServiceImplTest :
                     MetadataService(
                         audible = BookStubAudibleApi(bookWithCover("https://example.test/cover.jpg")),
                         itunes = NoOpITunesApi(),
-                        cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
+                        cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
                     )
                 // MockEngine returns a minimal valid JPEG so CoverImageStore validation passes.
                 val jpegBytes =
@@ -458,7 +458,7 @@ private fun makeService(
         MetadataService(
             audible = audible,
             itunes = itunes,
-            cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
         )
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()

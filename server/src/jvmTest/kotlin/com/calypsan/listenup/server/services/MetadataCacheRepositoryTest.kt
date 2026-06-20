@@ -4,7 +4,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -19,8 +19,8 @@ class MetadataCacheRepositoryTest :
         val now = Instant.parse("2026-05-24T12:00:00Z")
 
         test("get returns null for an unknown key") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 runTest {
                     repo.get("missing", AudibleRegion.US).shouldBeNull()
                 }
@@ -28,8 +28,8 @@ class MetadataCacheRepositoryTest :
         }
 
         test("put then get round-trips the payload") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val expiresAt = now.plus(24.hours).toEpochMilliseconds()
                 runTest {
                     repo.put("search:us:harry potter", AudibleRegion.US, """{"results": []}""", expiresAt)
@@ -40,9 +40,9 @@ class MetadataCacheRepositoryTest :
         }
 
         test("get for an expired row returns null AND the row is cleaned up") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val clock = MutableClock(now)
-                val repo = MetadataCacheRepository(this, clock = clock)
+                val repo = MetadataCacheRepository(sql, clock = clock)
                 val expiresAt = now.toEpochMilliseconds() + 1_000L
                 runTest {
                     repo.put("key1", AudibleRegion.US, "{}", expiresAt)
@@ -58,8 +58,8 @@ class MetadataCacheRepositoryTest :
         }
 
         test("get is region-scoped — same logical key in different regions is independent") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val expiresAt = now.plus(1.hours).toEpochMilliseconds()
                 runTest {
                     repo.put("k", AudibleRegion.US, "us-data", expiresAt)
@@ -71,8 +71,8 @@ class MetadataCacheRepositoryTest :
         }
 
         test("put replaces an existing entry for the same key+region") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val expiresAt = now.plus(1.hours).toEpochMilliseconds()
                 runTest {
                     repo.put("k", AudibleRegion.US, "original", expiresAt)
@@ -83,8 +83,8 @@ class MetadataCacheRepositoryTest :
         }
 
         test("deleteExpired removes only expired rows and returns the count") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val expiredAt = now.toEpochMilliseconds() - 1_000L
                 val freshAt = now.plus(1.hours).toEpochMilliseconds()
                 runTest {
@@ -101,8 +101,8 @@ class MetadataCacheRepositoryTest :
         }
 
         test("deleteExpired returns 0 when no rows have expired") {
-            withInMemoryDatabase {
-                val repo = MetadataCacheRepository(this, clock = FixedClock(now))
+            withSqlDatabase {
+                val repo = MetadataCacheRepository(sql, clock = FixedClock(now))
                 val freshAt = now.plus(1.hours).toEpochMilliseconds()
                 runTest {
                     repo.put("a", AudibleRegion.US, "x", freshAt)

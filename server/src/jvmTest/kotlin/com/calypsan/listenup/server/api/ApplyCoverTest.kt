@@ -143,7 +143,7 @@ private fun withCoverFixture(
                 MetadataService(
                     audible = ApplyCoverNoOpAudible(),
                     itunes = ApplyCoverNoOpITunes(),
-                    cache = MetadataCacheRepository(db),
+                    cache = MetadataCacheRepository(db.asSqlDatabase()),
                 )
             val service =
                 MetadataLookupServiceImpl(

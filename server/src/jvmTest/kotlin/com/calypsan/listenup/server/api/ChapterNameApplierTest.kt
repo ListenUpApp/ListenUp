@@ -163,7 +163,7 @@ private fun deps(
         MetadataService(
             audible = ChapterFakeAudibleApi(audibleChapters),
             itunes = NoOpITunes(),
-            cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
         )
     return Deps(bookRepo, ChapterNameApplier(bookRepo, metadataService))
 }

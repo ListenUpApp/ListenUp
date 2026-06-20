@@ -121,7 +121,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
         MetadataService(
             audible = EmptyAudibleApi(),
             itunes = NoOpITunesApiForPerm(),
-            cache = MetadataCacheRepository(db),
+            cache = MetadataCacheRepository(db.asSqlDatabase()),
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,

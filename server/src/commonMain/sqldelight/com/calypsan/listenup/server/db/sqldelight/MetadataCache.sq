@@ -1,0 +1,44 @@
+-- metadata_cache: server-only TTL cache for external Audible/iTunes API responses.
+-- Plain (NON-syncable) key-value table — no revision/soft-delete substrate; it never
+-- crosses the wire. Column set and indexes match V18__b2a_substrate.sql exactly.
+--
+-- The repository prepends the region code to the logical key (`"${region.code}:$key"`)
+-- so the sole primary key `cache_key` keeps per-region entries distinct; the `region`
+-- column stores the plain code for diagnostics. `expires_at` is an epoch-millisecond
+-- deadline read at lookup time (lazy eviction) and swept by the cleanup task.
+CREATE TABLE metadata_cache (
+    cache_key    TEXT    NOT NULL PRIMARY KEY,
+    region       TEXT    NOT NULL,
+    payload_json TEXT    NOT NULL,
+    fetched_at   INTEGER NOT NULL,
+    expires_at   INTEGER NOT NULL
+);
+
+CREATE INDEX idx_metadata_cache_expires ON metadata_cache(expires_at);
+
+-- Single-row lookup by the region-prefixed stored key. The repo applies the TTL check
+-- (and lazy eviction) in Kotlin after reading expires_at.
+selectByKey:
+SELECT * FROM metadata_cache WHERE cache_key = :cache_key;
+
+-- Upsert. cache_key is the primary key, so INSERT OR REPLACE atomically replaces an
+-- existing entry for the same key+region — matching the Exposed update-or-insert path,
+-- which always rewrote payload_json/fetched_at/expires_at on the same stored key.
+upsert:
+INSERT OR REPLACE INTO metadata_cache (cache_key, region, payload_json, fetched_at, expires_at)
+VALUES (:cache_key, :region, :payload_json, :fetched_at, :expires_at);
+
+-- Lazy-eviction delete of a single expired row, keyed on the stored key.
+deleteByKey:
+DELETE FROM metadata_cache WHERE cache_key = :cache_key;
+
+-- Sweep-eviction delete. Strict `<` (not `<=`) so a row expiring at exactly :before_ms
+-- survives until the next sweep, consistent with the lazy `<= now` check in get().
+deleteExpired:
+DELETE FROM metadata_cache WHERE expires_at < :before_ms;
+
+-- Rows affected by the most recent statement on this connection — lets deleteExpired
+-- report how many rows it swept (SQLite's RETURNING is not available via the SQLDelight
+-- SQLite dialect, so the two-statement form is canonical; see Books.sq).
+changes:
+SELECT changes();

@@ -156,7 +156,7 @@ private fun wire(
         MetadataService(
             audible = ChapterFakeAudibleApi(chapters),
             itunes = NoOpITunes(),
-            cache = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW)),
+            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW)),
         )
     val service =
         MetadataLookupServiceImpl(
