@@ -9,15 +9,9 @@ import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.db.sqldelight.Collection_grants
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import java.security.MessageDigest
+import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.LongColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 /** Principal type for a user-share grant — the only principal kind today. */
 private const val PRINCIPAL_TYPE_USER = "USER"
@@ -38,9 +32,9 @@ private const val PRINCIPAL_TYPE_USER = "USER"
  * **Access-filtered sync.** A member's grant catch-up/digest must exclude grants they cannot
  * see (notably their own default ALL_BOOKS grant), so the firehose arrives with a non-null
  * [SqlFragment] `extraWhere` (the `visibleCollectionGrantIdsSql` rule). This class overrides the
- * filtered [pullSince] / [digest] path over the Exposed connection ([exposedDb]); the unfiltered
- * (admin / null) path delegates to the base — identical to
- * [com.calypsan.listenup.server.services.BookRepository] / [CollectionRepository].
+ * filtered [pullSince] / [digest] path engine-neutrally over the SQLDelight driver
+ * ([selectIdRevAccessFiltered]); the unfiltered (admin / null) path delegates to the base —
+ * identical to [com.calypsan.listenup.server.services.BookRepository] / [CollectionRepository].
  *
  * Service-layer helpers beyond the base substrate (all USER-principal scoped):
  *  - [findActiveGrant] — the live grant for a `(collectionId, userId)` pair
@@ -52,7 +46,7 @@ class CollectionGrantRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val exposedDb: Database,
+    private val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<CollectionShareSyncPayload, String>(
         db = db,
@@ -221,8 +215,12 @@ class CollectionGrantRepository(
     /**
      * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins) delegates
      * to the base; the filtered path (a member's `visibleCollectionGrantIdsSql` subquery) reads
-     * the `(id, revision)` page over the Exposed connection and hydrates via the SQLDelight
-     * [readPayloads].
+     * the `(id, revision)` page engine-neutrally over the SQLDelight driver and hydrates via the
+     * SQLDelight [readPayloads].
+     *
+     * Note the access fragment selects `g.id` from `collection_grants` and the splice runs against
+     * the same `collection_grants` table — the wire `domainName` is `collection_shares`, but the
+     * stored table is `collection_grants`.
      */
     override suspend fun pullSince(
         userId: String?,
@@ -231,26 +229,28 @@ class CollectionGrantRepository(
         extraWhere: SqlFragment?,
     ): Page<CollectionShareSyncPayload> {
         if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        val idsWithRev =
-            selectIdsWithRevRaw(
-                revisionPredicate = "revision > ?",
-                revisionArg = cursor,
-                extraWhere = extraWhere,
-                orderAndLimit = "ORDER BY revision ASC LIMIT ?",
-                trailingArgs = listOf(IntegerColumnType() to limit),
+        return suspendTransaction(db) {
+            val idsWithRev =
+                driver.selectIdRevAccessFiltered(
+                    table = "collection_grants",
+                    revisionPredicate = "revision > ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = true,
+                    limit = limit,
+                )
+            Page(
+                items = readPayloads(idsWithRev.map { it.id }),
+                nextCursor = idsWithRev.lastOrNull()?.revision,
+                hasMore = idsWithRev.size == limit,
             )
-        val items = suspendTransaction(db) { readPayloads(idsWithRev.map { it.first }) }
-        return Page(
-            items = items,
-            nextCursor = idsWithRev.lastOrNull()?.second,
-            hasMore = idsWithRev.size == limit,
-        )
+        }
     }
 
     /**
      * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered path
-     * reads the `(id, revision)` slice over the Exposed connection and computes the
-     * permanent-wire-contract SHA-256 digest identically to the base.
+     * reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and computes
+     * the permanent-wire-contract SHA-256 digest identically to the base.
      */
     override suspend fun digest(
         userId: String?,
@@ -259,56 +259,18 @@ class CollectionGrantRepository(
     ): DomainDigest {
         if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
         val rows =
-            selectIdsWithRevRaw(
-                revisionPredicate = "revision <= ?",
-                revisionArg = cursor,
-                extraWhere = extraWhere,
-                orderAndLimit = "",
-                trailingArgs = emptyList(),
-            ).sortedBy { it.first }
-        return if (rows.isEmpty()) {
-            DomainDigest(cursor = cursor, count = 0, hash = "")
-        } else {
-            val md = MessageDigest.getInstance("SHA-256")
-            val joined = rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
-            val hex = md.digest(joined.toByteArray(Charsets.UTF_8)).toHexStringLower()
-            DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
-        }
+            suspendTransaction(db) {
+                driver.selectIdRevAccessFiltered(
+                    table = "collection_grants",
+                    revisionPredicate = "revision <= ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = false,
+                    limit = null,
+                )
+            }.sortedBy { it.id }
+        return accessFilteredDigest(cursor, rows)
     }
-
-    /**
-     * Raw-SQL `(id, revision)` read for the access-filtered ([extraWhere] non-null) path.
-     *
-     * Splices the access subquery as `id IN (<extraWhere.sql>)` and runs it on the Exposed
-     * connection over the shared WAL file. **Argument order is load-bearing**: [revisionArg]
-     * first, then the [extraWhere] args, then any [trailingArgs] (the LIMIT `?`).
-     */
-    private suspend fun selectIdsWithRevRaw(
-        revisionPredicate: String,
-        revisionArg: Long,
-        extraWhere: SqlFragment,
-        orderAndLimit: String,
-        trailingArgs: List<Pair<IColumnType<*>, Any>>,
-    ): List<Pair<String, Long>> =
-        exposedSuspendTransaction(exposedDb) {
-            val sql =
-                buildString {
-                    append("SELECT id, revision FROM collection_grants ")
-                    append("WHERE $revisionPredicate AND id IN (${extraWhere.sql})")
-                    if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
-                }
-            val args =
-                buildList {
-                    add(LongColumnType() to revisionArg)
-                    addAll(extraWhere.args)
-                    addAll(trailingArgs)
-                }
-            val results = mutableListOf<Pair<String, Long>>()
-            TransactionManager.current().exec(stmt = sql, args = args) { rs ->
-                while (rs.next()) results += rs.getString(1) to rs.getLong(2)
-            }
-            results
-        }
 
     /**
      * Adapts a generated [Collection_grants] row to the unchanged wire [CollectionShareSyncPayload]:
@@ -338,6 +300,3 @@ class CollectionGrantRepository(
  */
 private fun String.toSharePermission(): SharePermission =
     if (this == "write") SharePermission.Write else SharePermission.Read
-
-/** Lowercase-hex of a digest byte array — the permanent-wire-contract digest formatting. */
-private fun ByteArray.toHexStringLower(): String = joinToString("") { "%02x".format(it) }

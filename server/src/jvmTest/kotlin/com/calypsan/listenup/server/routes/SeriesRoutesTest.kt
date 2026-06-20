@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -72,6 +73,7 @@ class SeriesRoutesTest :
                 val bookRepo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = registry,
@@ -83,9 +85,21 @@ class SeriesRoutesTest :
                 val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
                 val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
-                val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-                val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-                val accessPolicy = BookAccessPolicy(db)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
 
                 testApplication {
                     application {

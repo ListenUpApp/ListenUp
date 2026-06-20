@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverImageStore
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.cover.CoverResponder
@@ -126,6 +127,7 @@ fun booksModule(
                 db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
+                driver = get<SqlDriver>(),
                 exposedDb = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),
@@ -178,15 +180,7 @@ fun booksModule(
                 principal = unscopedPlaceholder("SeriesService"),
             )
         }
-        single<SearchService> {
-            SearchServiceImpl(
-                db = get(),
-                accessPolicy = get<BookAccessPolicy>(),
-                principal = unscopedPlaceholder("SearchService"),
-            )
-        }
-        single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<Database>()) }
-        single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
+        searchBindings()
         single<TagService> {
             TagServiceImpl(
                 tagRepository = get<TagRepository>(),
@@ -230,6 +224,24 @@ fun booksModule(
         genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
+
+/**
+ * Search-slice singletons — the [SearchService] (over SQLDelight via the shared [SqlDriver]),
+ * the FTS reindexer, and the manual reindex trigger. Split out of [booksModule] to keep that
+ * module body under the length budget.
+ */
+private fun Module.searchBindings() {
+    single<SearchService> {
+        SearchServiceImpl(
+            db = get<ListenUpDatabase>(),
+            driver = get<SqlDriver>(),
+            accessPolicy = get<BookAccessPolicy>(),
+            principal = unscopedPlaceholder("SearchService"),
+        )
+    }
+    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<Database>()) }
+    single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
+}
 
 /**
  * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):

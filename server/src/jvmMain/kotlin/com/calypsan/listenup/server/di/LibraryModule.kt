@@ -5,7 +5,7 @@ import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRepository
-import org.jetbrains.exposed.v1.jdbc.Database
+import app.cash.sqldelight.db.SqlDriver
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -39,7 +39,7 @@ fun libraryModule(): Module =
                 db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
-                exposedDb = get<Database>(),
+                driver = get<SqlDriver>(),
             )
         }
         single<LibraryAdminService> {

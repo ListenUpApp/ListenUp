@@ -135,7 +135,8 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
         // SQLDelight view over the SAME migrated file the Exposed [serverDb] is connected to.
         // Migrations have already run; the SQLDelight-converted server repos (Book, Contributor,
         // Series) take this, while the still-Exposed repos keep taking [serverDb].
-        val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+        val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
+        val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 
@@ -169,15 +170,16 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
                 db = serverSqlDb,
                 bus = bus,
                 registry = syncRegistry,
+                driver = serverDriver,
                 exposedDb = serverDb,
                 contributorRepository = contributorRepo,
                 seriesRepository = seriesRepo,
                 genreRepository = genreRepo,
             )
-        val collectionRepo = CollectionRepository(serverDb, bus, syncRegistry)
-        val collectionBookRepo = CollectionBookRepository(serverDb, bus, syncRegistry)
-        val grantRepo = CollectionGrantRepository(serverDb, bus, syncRegistry)
-        val bookAccessPolicy = BookAccessPolicy(serverDb)
+        val collectionRepo = CollectionRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
+        val collectionBookRepo = CollectionBookRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
+        val grantRepo = CollectionGrantRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
+        val bookAccessPolicy = BookAccessPolicy(serverSqlDb, serverDriver)
 
         val collectionService =
             createCollectionService(

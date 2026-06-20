@@ -62,6 +62,7 @@ import kotlinx.io.files.SystemFileSystem
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val NOW = Instant.parse("2026-05-24T12:00:00Z")
 
@@ -260,6 +261,7 @@ class MetadataLookupServiceImplTest :
                 val bookRepo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -468,6 +470,7 @@ private fun makeService(
     val bookRepository =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = bus,
             registry = syncRegistry,

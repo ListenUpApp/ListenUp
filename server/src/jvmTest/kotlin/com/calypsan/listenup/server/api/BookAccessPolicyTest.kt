@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -43,10 +44,28 @@ class BookAccessPolicyTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Fixture(
-                collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                collectionBookRepo = CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                policy = BookAccessPolicy(this),
+                collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                collectionBookRepo =
+                    CollectionBookRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                policy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
             )
         }
 

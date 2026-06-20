@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
@@ -37,7 +38,10 @@ class SearchReindexServiceTest :
                     // Simulate index drift: wipe the contentless book_search FTS index.
                     transaction(db) { TransactionManager.current().exec("DELETE FROM book_search") }
                     val before =
-                        SearchServiceImpl(db).search(SearchQuery(text = "Kings")) as AppResult.Success<SearchResults>
+                        SearchServiceImpl(
+                            db = db.asSqlDatabase(),
+                            driver = db.asSqlDriver(),
+                        ).search(SearchQuery(text = "Kings")) as AppResult.Success<SearchResults>
                     before.data.books shouldHaveSize 0
 
                     val bus = ChangeBus()
@@ -49,7 +53,10 @@ class SearchReindexServiceTest :
                     SearchReindexService(db, reindexer).reindexAll()
 
                     val after =
-                        SearchServiceImpl(db).search(SearchQuery(text = "Kings")) as AppResult.Success<SearchResults>
+                        SearchServiceImpl(
+                            db = db.asSqlDatabase(),
+                            driver = db.asSqlDriver(),
+                        ).search(SearchQuery(text = "Kings")) as AppResult.Success<SearchResults>
                     after.data.books shouldHaveSize 1
                 }
             }
@@ -63,7 +70,7 @@ class SearchReindexServiceTest :
                     // Simulate index drift: wipe the contentless contributor_search FTS index.
                     transaction(db) { TransactionManager.current().exec("DELETE FROM contributor_search") }
                     val before =
-                        SearchServiceImpl(db)
+                        SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                             .search(SearchQuery(text = "Sanderson")) as AppResult.Success<SearchResults>
                     before.data.contributors shouldHaveSize 0
 
@@ -76,7 +83,7 @@ class SearchReindexServiceTest :
                     SearchReindexService(db, reindexer).reindexAll()
 
                     val after =
-                        SearchServiceImpl(db)
+                        SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                             .search(SearchQuery(text = "Sanderson")) as AppResult.Success<SearchResults>
                     after.data.contributors shouldHaveSize 1
                 }

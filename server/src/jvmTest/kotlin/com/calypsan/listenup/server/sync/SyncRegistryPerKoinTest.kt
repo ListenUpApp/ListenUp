@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -38,6 +40,7 @@ class SyncRegistryPerKoinTest :
                                 module {
                                     single<Database> { dbA }
                                     single<ListenUpDatabase> { dbA.asSqlDatabase() }
+                                    single<SqlDriver> { dbA.asSqlDriver() }
                                 },
                                 syncModule(),
                             )
@@ -48,6 +51,7 @@ class SyncRegistryPerKoinTest :
                                 module {
                                     single<Database> { dbB }
                                     single<ListenUpDatabase> { dbB.asSqlDatabase() }
+                                    single<SqlDriver> { dbB.asSqlDriver() }
                                 },
                                 syncModule(),
                             )
@@ -76,6 +80,7 @@ class SyncRegistryPerKoinTest :
                             module {
                                 single<Database> { db }
                                 single<ListenUpDatabase> { db.asSqlDatabase() }
+                                single<SqlDriver> { db.asSqlDriver() }
                             },
                             syncModule(),
                         )

@@ -13,15 +13,11 @@ import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
-import java.security.MessageDigest
+import com.calypsan.listenup.server.sync.accessFilteredDigest
+import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
+import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.LongColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 /**
  * SQLDelight syncable repository for library folders — a **global (cross-user)** aggregate.
@@ -45,8 +41,8 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedS
  * so the firehose gates the whole domain admin-only: a non-admin catch-up/digest arrives
  * with a non-null [SqlFragment] `extraWhere` (the `WHERE 1 = 0` hidden subquery) that the
  * base [SqlSyncableRepository] cannot splice. This class [overrides][pullSince] the filtered
- * path the same way [BookRepository] does — splicing `id IN (<extraWhere.sql>)` over the
- * Exposed connection ([exposedDb], a read on the shared WAL file) and hydrating via the
+ * path the same way [BookRepository] does — splicing `id IN (<extraWhere.sql>)` engine-neutrally
+ * over the shared SQLDelight [SqlDriver] ([selectIdRevAccessFiltered]) and hydrating via the
  * SQLDelight [readPayloads]. The unfiltered (admin / null) path delegates to the base.
  *
  * Service-layer helpers beyond the base substrate (each runs in its own transaction):
@@ -57,7 +53,7 @@ class LibraryFolderRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val exposedDb: Database,
+    private val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<LibraryFolderSyncPayload, FolderId>(
         db = db,
@@ -195,8 +191,8 @@ class LibraryFolderRepository(
     /**
      * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins, who
      * see every folder) delegates to the base; the filtered path (a non-admin's
-     * `WHERE 1 = 0` hidden subquery) reads the `(id, revision)` page over the Exposed
-     * connection and hydrates via the SQLDelight [readPayloads]. Mirrors
+     * `WHERE 1 = 0` hidden subquery) reads the `(id, revision)` page engine-neutrally over the
+     * SQLDelight driver and hydrates via the SQLDelight [readPayloads]. Mirrors
      * [BookRepository.pullSince].
      */
     override suspend fun pullSince(
@@ -206,26 +202,28 @@ class LibraryFolderRepository(
         extraWhere: SqlFragment?,
     ): Page<LibraryFolderSyncPayload> {
         if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        val idsWithRev =
-            selectIdsWithRevRaw(
-                revisionPredicate = "revision > ?",
-                revisionArg = cursor,
-                extraWhere = extraWhere,
-                orderAndLimit = "ORDER BY revision ASC LIMIT ?",
-                trailingArgs = listOf(IntegerColumnType() to limit),
+        return suspendTransaction(db) {
+            val idsWithRev =
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision > ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = true,
+                    limit = limit,
+                )
+            Page(
+                items = readPayloads(idsWithRev.map { it.id }),
+                nextCursor = idsWithRev.lastOrNull()?.revision,
+                hasMore = idsWithRev.size == limit,
             )
-        val items = suspendTransaction(db) { readPayloads(idsWithRev.map { it.first }) }
-        return Page(
-            items = items,
-            nextCursor = idsWithRev.lastOrNull()?.second,
-            hasMore = idsWithRev.size == limit,
-        )
+        }
     }
 
     /**
      * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
-     * path reads the `(id, revision)` slice over the Exposed connection and computes the
-     * permanent-wire-contract SHA-256 digest identically to the base. Mirrors
+     * path reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and
+     * computes the permanent-wire-contract SHA-256 digest identically to the base. Mirrors
      * [BookRepository.digest].
      */
     override suspend fun digest(
@@ -235,57 +233,18 @@ class LibraryFolderRepository(
     ): DomainDigest {
         if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
         val rows =
-            selectIdsWithRevRaw(
-                revisionPredicate = "revision <= ?",
-                revisionArg = cursor,
-                extraWhere = extraWhere,
-                orderAndLimit = "",
-                trailingArgs = emptyList(),
-            ).sortedBy { it.first }
-        return if (rows.isEmpty()) {
-            DomainDigest(cursor = cursor, count = 0, hash = "")
-        } else {
-            val md = MessageDigest.getInstance("SHA-256")
-            val joined = rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
-            val hex = md.digest(joined.toByteArray(Charsets.UTF_8)).toHexString()
-            DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
-        }
+            suspendTransaction(db) {
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision <= ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = false,
+                    limit = null,
+                )
+            }.sortedBy { it.id }
+        return accessFilteredDigest(cursor, rows)
     }
-
-    /**
-     * Raw-SQL `(id, revision)` read for the access-filtered ([extraWhere] non-null) path.
-     *
-     * Splices the access subquery as `id IN (<extraWhere.sql>)` and runs it on the Exposed
-     * connection over the shared WAL file — a read, so it never contends with the SQLDelight
-     * writer. **Argument order is load-bearing** and matches the `?` order exactly: the
-     * [revisionArg] first, then the [extraWhere] args, then any [trailingArgs] (the LIMIT `?`).
-     */
-    private suspend fun selectIdsWithRevRaw(
-        revisionPredicate: String,
-        revisionArg: Long,
-        extraWhere: SqlFragment,
-        orderAndLimit: String,
-        trailingArgs: List<Pair<IColumnType<*>, Any>>,
-    ): List<Pair<String, Long>> =
-        exposedSuspendTransaction(exposedDb) {
-            val sql =
-                buildString {
-                    append("SELECT id, revision FROM library_folders ")
-                    append("WHERE $revisionPredicate AND id IN (${extraWhere.sql})")
-                    if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
-                }
-            val args =
-                buildList {
-                    add(LongColumnType() to revisionArg)
-                    addAll(extraWhere.args)
-                    addAll(trailingArgs)
-                }
-            val results = mutableListOf<Pair<String, Long>>()
-            TransactionManager.current().exec(stmt = sql, args = args) { rs ->
-                while (rs.next()) results += rs.getString(1) to rs.getLong(2)
-            }
-            results
-        }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: FolderId): String = idAsString(id)

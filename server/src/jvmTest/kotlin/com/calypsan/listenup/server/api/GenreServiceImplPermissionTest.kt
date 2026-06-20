@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -90,6 +91,7 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = bus,
             registry = registry,

@@ -92,11 +92,26 @@ fun withSqlDatabase(block: SqlTestDatabases.() -> Unit) {
 }
 
 /**
- * Cache of one [ListenUpDatabase] per Exposed [Database] file, so [asSqlDatabase] hands the
- * same SQLDelight view back on repeated calls within a test instead of leaking a fresh JDBC
- * file handle each time.
+ * The SQLDelight view + the driver behind it, cached together per Exposed [Database] file so
+ * [asSqlDatabase] and [asSqlDriver] hand back the SAME instances on repeated calls within a test
+ * — and crucially, the [ListenUpDatabase] is built over the cached [SqlDriver], so a raw query
+ * run through [asSqlDriver] inside a `suspendTransaction(asSqlDatabase())` shares the connection
+ * (matching production wiring, where one [SqlDriver] single backs the [ListenUpDatabase] single).
  */
-private val sqlDatabasesByUrl = java.util.concurrent.ConcurrentHashMap<String, ListenUpDatabase>()
+private data class SqlViewBundle(
+    val driver: app.cash.sqldelight.db.SqlDriver,
+    val db: ListenUpDatabase,
+)
+
+private val sqlViewsByUrl = java.util.concurrent.ConcurrentHashMap<String, SqlViewBundle>()
+
+private fun Database.sqlViewBundle(): SqlViewBundle {
+    val path = url.removePrefix("jdbc:sqlite:")
+    return sqlViewsByUrl.getOrPut(path) {
+        val driver = DriverFactory().createDriver(path)
+        SqlViewBundle(driver = driver, db = ListenUpDatabase(driver))
+    }
+}
 
 /**
  * Returns a SQLDelight [ListenUpDatabase] over the **same file** this Exposed [Database] is
@@ -112,10 +127,15 @@ private val sqlDatabasesByUrl = java.util.concurrent.ConcurrentHashMap<String, L
  * Prefer [withSqlDatabase] for new SQLDelight-aggregate tests; this exists only for the
  * Exposed-fixture call sites that wire a converted repo as a collaborator.
  */
-fun Database.asSqlDatabase(): ListenUpDatabase {
-    val path = url.removePrefix("jdbc:sqlite:")
-    return sqlDatabasesByUrl.getOrPut(path) { ListenUpDatabase(DriverFactory().createDriver(path)) }
-}
+fun Database.asSqlDatabase(): ListenUpDatabase = sqlViewBundle().db
+
+/**
+ * Returns the SQLDelight [app.cash.sqldelight.db.SqlDriver] backing [asSqlDatabase] for the same
+ * file — the same instance, so a raw `executeQuery` through it participates in a transaction
+ * opened on [asSqlDatabase]. Wired to the access-filtered repos / [BookAccessPolicy] /
+ * [com.calypsan.listenup.server.api.SearchServiceImpl] the way the production [SqlDriver] single is.
+ */
+fun Database.asSqlDriver(): app.cash.sqldelight.db.SqlDriver = sqlViewBundle().driver
 
 /**
  * Seeds a test library row with id `"test-library"` and a test folder row with

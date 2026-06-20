@@ -59,6 +59,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val TEST_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val TEST_ASIN = "B017V4IM1G"
@@ -121,7 +122,7 @@ class B2aMetadataApplyE2ETest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook = canned_WayOfKings()
@@ -209,7 +210,7 @@ class B2aMetadataApplyE2ETest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
@@ -271,7 +272,7 @@ class B2aMetadataApplyE2ETest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
 
                 val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
                 val metadataService =

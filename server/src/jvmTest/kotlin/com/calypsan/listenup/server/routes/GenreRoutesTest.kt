@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -74,6 +75,7 @@ class GenreRoutesTest :
                 val bookRepo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = registry,
@@ -82,9 +84,21 @@ class GenreRoutesTest :
                         genreRepository = genreRepo,
                     )
                 val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
-                val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-                val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-                val accessPolicy = BookAccessPolicy(db)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    )
+                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
 
                 testApplication {
                     application {

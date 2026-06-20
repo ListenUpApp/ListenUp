@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.error.GenreError
@@ -65,6 +66,7 @@ class GenreServiceImplUpdateDeleteTest :
             val bookRepo =
                 BookRepository(
                     db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
                     exposedDb = db,
                     bus = bus,
                     registry = registry,

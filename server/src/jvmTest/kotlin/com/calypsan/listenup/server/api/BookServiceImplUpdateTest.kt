@@ -38,6 +38,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookServiceImplUpdateTest :
     FunSpec({
@@ -59,6 +60,7 @@ class BookServiceImplUpdateTest :
             val repo =
                 BookRepository(
                     db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
                     exposedDb = db,
                     bus = bus,
                     registry = syncRegistry,
@@ -74,7 +76,7 @@ class BookServiceImplUpdateTest :
                     coverStorage = CoverStorage(),
                     db = db,
                     genreRepo = genreRepo,
-                    accessPolicy = BookAccessPolicy(db),
+                    accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                     permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                     principal = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) },
                 )
@@ -181,6 +183,7 @@ class BookServiceImplUpdateTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -196,7 +199,7 @@ class BookServiceImplUpdateTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db),
+                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
@@ -229,6 +232,7 @@ class BookServiceImplUpdateTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -244,7 +248,7 @@ class BookServiceImplUpdateTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db),
+                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
@@ -340,6 +344,7 @@ class BookServiceImplUpdateTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -355,7 +360,7 @@ class BookServiceImplUpdateTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db),
+                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )

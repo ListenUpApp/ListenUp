@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.ContributorError
@@ -330,6 +331,7 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = bus,
             registry = syncRegistry,

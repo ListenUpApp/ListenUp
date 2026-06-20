@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -69,9 +70,27 @@ class CollectionSyncCatchUpE2ETest :
         fun makeService(db: Database): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-            val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-            val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
@@ -137,15 +156,27 @@ class CollectionSyncCatchUpE2ETest :
                     // pullSince ignores the userId argument and returns every row.
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+                    val collectionRepo =
+                        CollectionRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            driver = db.asSqlDriver(),
+                        )
                     val collectionBookRepo =
                         CollectionBookRepository(
                             db = db.asSqlDatabase(),
                             bus = bus,
                             registry = registry,
-                            exposedDb = db,
+                            driver = db.asSqlDriver(),
                         )
-                    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+                    val grantRepo =
+                        CollectionGrantRepository(
+                            db = db.asSqlDatabase(),
+                            bus = bus,
+                            registry = registry,
+                            driver = db.asSqlDriver(),
+                        )
 
                     val collectionsPage = collectionRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)
                     collectionsPage.items.map { it.id } shouldContain collectionId.value

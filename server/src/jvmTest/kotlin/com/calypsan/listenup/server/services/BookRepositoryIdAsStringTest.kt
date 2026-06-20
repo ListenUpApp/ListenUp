@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryIdAsStringTest :
     FunSpec({
@@ -19,6 +20,7 @@ class BookRepositoryIdAsStringTest :
                 val repo =
                     BookRepository(
                         db = this.asSqlDatabase(),
+                        driver = this.asSqlDriver(),
                         exposedDb = this,
                         bus = bus,
                         registry = registry,
@@ -37,6 +39,7 @@ class BookRepositoryIdAsStringTest :
                 val repo =
                     BookRepository(
                         db = this.asSqlDatabase(),
+                        driver = this.asSqlDriver(),
                         exposedDb = this,
                         bus = bus,
                         registry = registry,

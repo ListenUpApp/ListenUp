@@ -51,6 +51,7 @@ import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Integration tests for Task 5: persist-at-scan and sticky-upload-merge.
@@ -89,6 +90,7 @@ class BookPersistCoverTest :
                         val repo =
                             BookRepository(
                                 db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
                                 exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
@@ -212,6 +214,7 @@ class BookPersistCoverTest :
                         val repo =
                             BookRepository(
                                 db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
                                 exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
@@ -282,6 +285,7 @@ class BookPersistCoverTest :
                         val repo =
                             BookRepository(
                                 db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
                                 exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
@@ -344,6 +348,7 @@ class BookPersistCoverTest :
                         val repo =
                             BookRepository(
                                 db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
                                 exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
@@ -415,6 +420,7 @@ class BookPersistCoverTest :
                         val repo =
                             BookRepository(
                                 db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
                                 exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,
@@ -505,6 +511,7 @@ class BookPersistCoverTest :
                         val repo =
                             BookRepository(
                                 db = db.asSqlDatabase(),
+                                driver = db.asSqlDriver(),
                                 exposedDb = db,
                                 bus = bus,
                                 registry = syncRegistry,

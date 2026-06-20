@@ -8,13 +8,10 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.SqlFragment
+import com.calypsan.listenup.server.sync.bindRaw
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -24,17 +21,17 @@ private val log = KotlinLogging.logger {}
  *
  * Each method opens its own short read transaction — they do NOT bump the global revision,
  * the change bus, or any write query. The caller ([BookRepository]) provides [db] (the
- * SQLDelight handle) and [exposedDb] (used only for the access-filtered FTS read, whose
- * spliced subquery arrives as a parameterised [SqlFragment] of Exposed-typed args — a
- * read, so it runs safely on the Exposed connection over the same WAL file).
+ * SQLDelight handle) and [driver] (the shared [SqlDriver] behind it, used only for the
+ * access-filtered FTS read whose spliced subquery is a runtime-built [SqlFragment] no static
+ * SQLDelight query can express). The raw query runs inside the [suspendTransaction] on the same
+ * connection, engine-neutral.
  *
  * @param db the SQLDelight database for the generated reads + aggregate hydration.
- * @param exposedDb the Exposed database used only by the dynamic access-filtered [searchFts]
- *   path, where the runtime-built subquery cannot be a static SQLDelight query.
+ * @param driver the SQLDelight driver used only by the dynamic access-filtered [searchFts] path.
  */
 internal class BookFinder(
     private val db: ListenUpDatabase,
-    private val exposedDb: Database,
+    private val driver: SqlDriver,
 ) {
     /**
      * Runs an FTS5 full-text search against `book_search` and returns matching
@@ -43,9 +40,11 @@ internal class BookFinder(
      * The unfiltered path uses the generated `searchBookIds` query (the static
      * MATCH+join+rank shape). When [accessFilter] is non-null its `SELECT b2.id …`
      * subquery must be spliced as `AND m.book_id IN (<sql>)` — a runtime-built fragment
-     * that no static query can express — so that path runs the same raw read the Exposed
-     * code did, on [exposedDb] (a read over the shared WAL file). Args are spliced in
-     * statement order: `MATCH ?` → the access subquery's args → `LIMIT ?`.
+     * that no static query can express — so that path runs the read engine-neutrally over the
+     * shared SQLDelight [driver] inside the [suspendTransaction]. **Args are bound in statement
+     * order and the order is security-relevant:** `MATCH ?` (the fts query) first, then the
+     * access subquery's args, then `LIMIT ?` — a wrong order could bind the query into the
+     * access subquery and leak inaccessible matches.
      *
      * The caller ([BookServiceImpl.searchBooks]) derives [accessFilter] from
      * [BookAccessPolicy.accessibleBookIdsSql][com.calypsan.listenup.server.api.BookAccessPolicy.accessibleBookIdsSql],
@@ -64,20 +63,33 @@ internal class BookFinder(
                     .map { BookId(it) }
             }
         } else {
-            exposedSuspendTransaction(exposedDb) {
-                val results = mutableListOf<BookId>()
-                val stmt =
+            suspendTransaction(db) {
+                val sql =
                     "SELECT m.book_id FROM book_search s " +
                         "JOIN book_search_map m ON s.rowid = m.rowid " +
                         "WHERE book_search MATCH ? AND m.book_id IN (${accessFilter.sql}) ORDER BY rank LIMIT ?"
-                val args =
-                    listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to query) +
-                        accessFilter.args +
-                        listOf(IntegerColumnType() to limit)
-                TransactionManager.current().exec(stmt = stmt, args = args) { rs ->
-                    while (rs.next()) results += BookId(rs.getString(1))
-                }
-                results
+                // Placeholder count: MATCH ? (1) + access-subquery args + LIMIT ? (1).
+                val parameterCount = 1 + accessFilter.args.size + 1
+                driver
+                    .executeQuery(
+                        identifier = null,
+                        sql = sql,
+                        mapper = { cursor ->
+                            val out = mutableListOf<BookId>()
+                            while (cursor.next().value) {
+                                out += BookId(cursor.getString(0)!!)
+                            }
+                            QueryResult.Value(out.toList())
+                        },
+                        parameters = parameterCount,
+                        binders = {
+                            // Statement order — load-bearing for visibility.
+                            var index = 0
+                            bindString(index++, query)
+                            accessFilter.args.forEach { arg -> bindRaw(index++, arg) }
+                            bindLong(index, limit.toLong())
+                        },
+                    ).value
             }
         }
 

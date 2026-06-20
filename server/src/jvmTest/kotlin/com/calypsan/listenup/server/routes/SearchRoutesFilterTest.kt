@@ -11,6 +11,8 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.testAuth
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -85,7 +87,7 @@ class SearchRoutesFilterTest :
                 seedGenre(db, id = "g-fan", slug = "fantasy", path = "/fiction/fantasy", name = "Fantasy")
                 linkBookGenre(db, bookId = "b1", genreId = "g-fan")
 
-                val service = SearchServiceImpl(db = db)
+                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }

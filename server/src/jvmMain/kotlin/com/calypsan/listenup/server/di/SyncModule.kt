@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.di
 
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BookMoodRepository
@@ -11,7 +12,6 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -35,12 +35,13 @@ import org.koin.dsl.module
  * library-gated) `booksModule` once left the policy unresolved on a library-less boot —
  * the catch-up route 500'd with `NoDefinitionFoundException` for the first non-admin
  * caller. `syncModule` is the always-loaded home that keeps it resolvable regardless of
- * library wiring. Its sole dependency is the [Database], always bound.
+ * library wiring. Its dependencies — the [ListenUpDatabase] and the shared [SqlDriver] — are
+ * always bound.
  */
 fun syncModule(): Module =
     module {
         single { SyncRegistry() }
-        single { BookAccessPolicy(get()) }
+        single { BookAccessPolicy(db = get<ListenUpDatabase>(), driver = get<SqlDriver>()) }
         single(createdAtStart = true) { ChangeBus() }
         // Tag + BookTag + Mood + BookMood are SQLDelight conversions (the cutover template):
         // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
@@ -48,17 +49,17 @@ fun syncModule(): Module =
         single(createdAtStart = true) { BookTagRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { MoodRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { BookMoodRepository(get<ListenUpDatabase>(), get(), get()) }
-        // Collection aggregate — SQLDelight conversions. They resolve [ListenUpDatabase] for the
-        // engine-native read/write path and keep the Exposed [Database] only for the access-filtered
-        // catch-up/digest raw reads (the firehose's runtime-built `extraWhere` subquery is
-        // Exposed-typed; see each repo's pullSince override).
+        // Collection aggregate — fully SQLDelight. The access-filtered catch-up/digest raw reads
+        // now run engine-neutral over the shared [SqlDriver] (the firehose's runtime-built
+        // `extraWhere` subquery carries plain raw args; see each repo's pullSince override), so
+        // these repos no longer hold an Exposed [Database].
         single(createdAtStart = true) {
-            CollectionRepository(get<ListenUpDatabase>(), get(), get(), exposedDb = get<Database>())
+            CollectionRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
         }
         single(createdAtStart = true) {
-            CollectionBookRepository(get<ListenUpDatabase>(), get(), get(), exposedDb = get<Database>())
+            CollectionBookRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
         }
         single(createdAtStart = true) {
-            CollectionGrantRepository(get<ListenUpDatabase>(), get(), get(), exposedDb = get<Database>())
+            CollectionGrantRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>())
         }
     }

@@ -243,10 +243,11 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         // reproduces `:server`'s own `Database.asSqlDatabase()` fixture, which isn't visible
         // from `:sharedLogic`. The SQLDelight-converted server repos (Book, Contributor,
         // Series) take this; the still-Exposed repos keep taking [serverDb].
-        val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+        val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
+        val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
-        val serverRepos = buildServerRepositories(serverDb, serverSqlDb, bus, syncRegistry)
+        val serverRepos = buildServerRepositories(serverDb, serverSqlDb, serverDriver, bus, syncRegistry)
         val bookService: BookService =
             createBookService(
                 repo = serverRepos.bookRepo,
@@ -254,6 +255,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 seriesRepo = serverRepos.seriesRepo,
                 coverStorage = CoverStorage(),
                 db = serverDb,
+                sql = serverSqlDb,
+                driver = serverDriver,
                 genreRepo = serverRepos.genreRepo,
             )
         // Books-C1 Task 30 needs `ContributorService` for the deleteContributor
@@ -624,6 +627,7 @@ private fun registerClientSyncHandlers(
 private fun buildServerRepositories(
     serverDb: ExposedDatabase,
     serverSqlDb: ServerSqlDatabase,
+    serverDriver: app.cash.sqldelight.db.SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
 ): ServerRepositories {
@@ -645,8 +649,8 @@ private fun buildServerRepositories(
     val tagRepo = TagRepository(serverSqlDb, bus, registry)
     // Library and folder repos use their own bus+registry so their SSE events are published
     // on the shared bus and routed by the SyncRegistry to the catch-up / SSE subscriber.
-    val libraryRepo = LibraryRepository(serverDb, bus, registry)
-    val libraryFolderRepo = LibraryFolderRepository(serverDb, bus, registry)
+    val libraryRepo = LibraryRepository(serverSqlDb, bus, registry)
+    val libraryFolderRepo = LibraryFolderRepository(serverSqlDb, bus, registry, driver = serverDriver)
     val contributorRepo = ContributorRepository(serverSqlDb, bus, registry)
     val seriesRepo = SeriesRepository(serverSqlDb, bus, registry)
     val genreRepo = ServerGenreRepository(serverSqlDb, bus, registry)
@@ -655,6 +659,7 @@ private fun buildServerRepositories(
             db = serverSqlDb,
             bus = bus,
             registry = registry,
+            driver = serverDriver,
             exposedDb = serverDb,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,

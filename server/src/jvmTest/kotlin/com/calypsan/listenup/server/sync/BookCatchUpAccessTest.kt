@@ -25,6 +25,7 @@ import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Tests the `accessFiltered` seam on [SyncableRepository.pullSince] / [digest]
@@ -49,6 +50,7 @@ class BookCatchUpAccessTest :
                 bookRepo =
                     BookRepository(
                         db = this.asSqlDatabase(),
+                        driver = this.asSqlDriver(),
                         exposedDb = this,
                         bus = bus,
                         registry = registry,
@@ -56,10 +58,28 @@ class BookCatchUpAccessTest :
                         seriesRepository = seriesRepo,
                         genreRepository = GenreRepository(db = this.asSqlDatabase(), bus = bus, registry = registry),
                     ),
-                collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                collectionBookRepo = CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                policy = BookAccessPolicy(this),
+                collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                collectionBookRepo =
+                    CollectionBookRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                policy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
             )
         }
 

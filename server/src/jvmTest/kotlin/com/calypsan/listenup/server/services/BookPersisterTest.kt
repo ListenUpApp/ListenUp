@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -549,11 +550,11 @@ private fun persister(
 private fun inertCollectionService(db: Database): CollectionServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver())
+    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver())
     return CollectionServiceImpl(
         collectionRepo = collectionRepo,
-        collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+        collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
         permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),

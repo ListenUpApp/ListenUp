@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -76,8 +77,8 @@ class DefaultGrantTest :
         ): Deps {
             val syncRegistry = SyncRegistry()
             val bus = ChangeBus()
-            val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, exposedDb = db)
-            val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, exposedDb = db)
+            val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
+            val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
             val libraryRegistry = LibraryRegistry(db)
 
             val sessions =

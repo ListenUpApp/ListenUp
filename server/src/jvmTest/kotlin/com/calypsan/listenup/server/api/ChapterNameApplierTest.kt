@@ -37,6 +37,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val NOW = Instant.parse("2026-06-05T12:00:00Z")
 private const val ASIN = "B0CHAPTERS"
@@ -163,6 +164,7 @@ private fun deps(
             db.asSqlDatabase(),
             bus,
             registry,
+            db.asSqlDriver(),
             db,
             contributorRepo,
             seriesRepo,

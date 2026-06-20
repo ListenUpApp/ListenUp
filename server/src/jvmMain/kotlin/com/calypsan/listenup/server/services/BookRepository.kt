@@ -27,6 +27,9 @@ import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import com.calypsan.listenup.server.sync.accessFilteredDigest
+import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
+import app.cash.sqldelight.db.SqlDriver
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -34,12 +37,7 @@ import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.IColumnType
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -55,15 +53,17 @@ private val log = KotlinLogging.logger {}
  * `toString()` on a value class returns `"BookId(value=foo)"`, which would
  * corrupt every column the id is written to.
  *
- * **Two database handles during the cutover.** [db] (the SQLDelight [ListenUpDatabase])
- * backs every book read/write, the genre junction writes, and the FTS index. [exposedDb]
- * (the Exposed [Database] over the same migrated file) backs the collaborators that are NOT
- * yet converted:
- *  - [ManagedCoverFiles] / [coverInfo] — read `library_folders` (out of this unit's `.sq` set),
- *  - the access-filtered [pullSince] / [digest] / [searchFts] id reads — runtime-built
- *    [SqlFragment] subqueries with Exposed-typed args, which no static SQLDelight query can
- *    splice. These are READS over the shared WAL file, so they coexist with the SQLDelight
- *    writer safely.
+ * **Database handles.** [db] (the SQLDelight [ListenUpDatabase]) backs every book read/write,
+ * the genre junction writes, and the FTS index. [driver] (the shared SQLDelight [SqlDriver]
+ * behind [db]) runs the access-filtered [pullSince] / [digest] id reads engine-neutrally — the
+ * runtime-built [SqlFragment] access subquery now carries plain raw args, so it splices over the
+ * driver inside the same `suspendTransaction(db)`. The access-filtered FTS read ([searchFts]) is
+ * likewise engine-neutral inside [BookFinder].
+ *
+ * [exposedDb] (the Exposed [Database] over the same migrated file) remains ONLY for the cover
+ * collaborator [ManagedCoverFiles] / [coverInfo], which reads `library_folders` (out of this
+ * unit's `.sq` set). That is a read over the shared WAL file, so it coexists with the SQLDelight
+ * writer safely.
  *
  * Genre writes ([bookGenreWriter]) now run over SQLDelight too, as a **separate, sequential**
  * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
@@ -97,6 +97,7 @@ class BookRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
+    private val driver: SqlDriver,
     private val exposedDb: Database,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
@@ -124,7 +125,7 @@ class BookRepository(
     private val bookAggregateWriter = BookAggregateWriter(db)
 
     /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
-    private val bookFinder = BookFinder(db, exposedDb)
+    private val bookFinder = BookFinder(db, driver)
 
     /** Genre junction write helpers (SQLDelight) — `book_genres` and auto-create (no revision/bus). */
     private val bookGenreWriter = BookGenreWriter(db, clock, GenreAutoCreator(genreRepository))
@@ -786,8 +787,8 @@ class BookRepository(
     /**
      * Access-filtered catch-up pull (spec §collections-propagation). The unfiltered path
      * ([extraWhere] null) delegates to the base; the filtered path reads the `(id, revision)`
-     * page over the Exposed connection (the runtime-built subquery's args are Exposed-typed)
-     * and hydrates via the SQLDelight [readPayloads].
+     * page engine-neutrally over the SQLDelight driver (the runtime-built access subquery now
+     * carries plain raw args) and hydrates via the SQLDelight [readPayloads].
      */
     override suspend fun pullSince(
         userId: String?,
@@ -796,26 +797,28 @@ class BookRepository(
         extraWhere: SqlFragment?,
     ): Page<BookSyncPayload> {
         if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        val idsWithRev =
-            selectIdsWithRevRaw(
-                revisionPredicate = "revision > ?",
-                revisionArg = cursor,
-                extraWhere = extraWhere,
-                orderAndLimit = "ORDER BY revision ASC LIMIT ?",
-                trailingArgs = listOf(IntegerColumnType() to limit),
+        return suspendTransaction(db) {
+            val idsWithRev =
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision > ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = true,
+                    limit = limit,
+                )
+            Page(
+                items = readPayloads(idsWithRev.map { it.id }),
+                nextCursor = idsWithRev.lastOrNull()?.revision,
+                hasMore = idsWithRev.size == limit,
             )
-        val items = suspendTransaction(db) { readPayloads(idsWithRev.map { it.first }) }
-        return Page(
-            items = items,
-            nextCursor = idsWithRev.lastOrNull()?.second,
-            hasMore = idsWithRev.size == limit,
-        )
+        }
     }
 
     /**
      * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
-     * path reads the `(id, revision)` slice over the Exposed connection and computes the
-     * permanent-wire-contract SHA-256 digest identically to the base.
+     * path reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and
+     * computes the permanent-wire-contract SHA-256 digest identically to the base.
      */
     override suspend fun digest(
         userId: String?,
@@ -824,57 +827,18 @@ class BookRepository(
     ): DomainDigest {
         if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
         val rows =
-            selectIdsWithRevRaw(
-                revisionPredicate = "revision <= ?",
-                revisionArg = cursor,
-                extraWhere = extraWhere,
-                orderAndLimit = "",
-                trailingArgs = emptyList(),
-            ).sortedBy { it.first }
-        return if (rows.isEmpty()) {
-            DomainDigest(cursor = cursor, count = 0, hash = "")
-        } else {
-            val md = MessageDigest.getInstance("SHA-256")
-            val joined = rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
-            val hex = md.digest(joined.toByteArray(Charsets.UTF_8)).toHexStringLower()
-            DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
-        }
+            suspendTransaction(db) {
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision <= ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = false,
+                    limit = null,
+                )
+            }.sortedBy { it.id }
+        return accessFilteredDigest(cursor, rows)
     }
-
-    /**
-     * Raw-SQL `(id, revision)` read for the access-filtered ([extraWhere] non-null) path.
-     *
-     * Splices the access subquery as `id IN (<extraWhere.sql>)` and runs it on the Exposed
-     * connection over the shared WAL file — a read, so it never contends with the SQLDelight
-     * writer. **Argument order is load-bearing** and matches the `?` order exactly: the
-     * [revisionArg] first, then the [extraWhere] args, then any [trailingArgs] (the LIMIT `?`).
-     */
-    private suspend fun selectIdsWithRevRaw(
-        revisionPredicate: String,
-        revisionArg: Long,
-        extraWhere: SqlFragment,
-        orderAndLimit: String,
-        trailingArgs: List<Pair<IColumnType<*>, Any>>,
-    ): List<Pair<String, Long>> =
-        exposedSuspendTransaction(exposedDb) {
-            val sql =
-                buildString {
-                    append("SELECT id, revision FROM books ")
-                    append("WHERE $revisionPredicate AND id IN (${extraWhere.sql})")
-                    if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
-                }
-            val args =
-                buildList {
-                    add(LongColumnType() to revisionArg)
-                    addAll(extraWhere.args)
-                    addAll(trailingArgs)
-                }
-            val results = mutableListOf<Pair<String, Long>>()
-            TransactionManager.current().exec(stmt = sql, args = args) { rs ->
-                while (rs.next()) results += rs.getString(1) to rs.getLong(2)
-            }
-            results
-        }
 
     // --- FTS write (inside the open SQLDelight transaction) -------------------
 
@@ -1061,9 +1025,6 @@ private fun ByteArray.sha256Hex(): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(this)
     return digest.joinToString("") { "%02x".format(it) }
 }
-
-/** Lowercase hex of [this] digest bytes — matches the base digest format. */
-private fun ByteArray.toHexStringLower(): String = joinToString("") { "%02x".format(it) }
 
 /** Maps a wire `Boolean` to the SQLite `0/1` INTEGER the books table stores. */
 private fun Boolean.toDbLong(): Long = if (this) 1L else 0L

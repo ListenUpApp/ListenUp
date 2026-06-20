@@ -30,6 +30,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Access-gate tests for [BookServiceImpl.searchBooks] — the FTS5 id seam that feeds
@@ -50,6 +51,7 @@ class BookServiceImplSearchAccessTest :
             val bookRepo =
                 BookRepository(
                     db = this.asSqlDatabase(),
+                    driver = this.asSqlDriver(),
                     exposedDb = this,
                     bus = bus,
                     registry = registry,
@@ -65,15 +67,27 @@ class BookServiceImplSearchAccessTest :
                     coverStorage = CoverStorage(),
                     db = this,
                     genreRepo = genreRepo,
-                    accessPolicy = BookAccessPolicy(this),
+                    accessPolicy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
                     permissionPolicy = UserPermissionPolicy(this.asSqlDatabase()),
                     principal = PrincipalProvider { error("Unscoped — call copyWith") },
                 )
             return SearchAccessFixture(
                 service = service,
                 bookRepo = bookRepo,
-                collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
-                collectionBookRepo = CollectionBookRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this),
+                collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
+                collectionBookRepo =
+                    CollectionBookRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    ),
             )
         }
 

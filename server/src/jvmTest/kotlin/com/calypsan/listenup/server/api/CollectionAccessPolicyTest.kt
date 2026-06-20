@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -33,8 +34,20 @@ class CollectionAccessPolicyTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
@@ -63,8 +76,20 @@ class CollectionAccessPolicyTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
@@ -94,8 +119,20 @@ class CollectionAccessPolicyTest :
                 seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
@@ -136,8 +173,20 @@ class CollectionAccessPolicyTest :
                 seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
@@ -178,8 +227,20 @@ class CollectionAccessPolicyTest :
                 seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
@@ -220,8 +281,20 @@ class CollectionAccessPolicyTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {
@@ -250,8 +323,20 @@ class CollectionAccessPolicyTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val collectionRepo = CollectionRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
-                val grantRepo = CollectionGrantRepository(db = this.asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+                val collectionRepo =
+                    CollectionRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
+                val grantRepo =
+                    CollectionGrantRepository(
+                        db = this.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = this.asSqlDriver(),
+                    )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
                 runTest {

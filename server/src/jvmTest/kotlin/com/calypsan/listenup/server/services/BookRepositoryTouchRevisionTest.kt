@@ -21,6 +21,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryTouchRevisionTest :
     FunSpec({
@@ -85,6 +86,7 @@ private fun buildBookRepository(db: Database): BookRepository {
     val syncRegistry = SyncRegistry()
     return BookRepository(
         db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
         exposedDb = db,
         bus = bus,
         registry = syncRegistry,

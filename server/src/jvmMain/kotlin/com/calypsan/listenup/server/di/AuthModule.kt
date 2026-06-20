@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveDatabaseUrl
 import com.calypsan.listenup.server.db.resolveListenupHome
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
@@ -62,16 +63,23 @@ fun authModule(config: ApplicationConfig): Module {
 
         single<Database> { get<DatabaseHandle>().database }
 
-        // SQLDelight twin of the Exposed [Database], over the SAME migrated db file.
-        // Resolving [DatabaseHandle] first forces [DatabaseFactory.init] (and therefore
-        // [MigrationRunner.migrate]) to run before the SQLDelight driver opens the file,
-        // so the schema is already present — the driver never calls Schema.create. Both
-        // singles coexist during the Exposed → SQLDelight cutover; aggregates migrate one
-        // at a time, switching their constructor from [Database] to [ListenUpDatabase].
-        single<ListenUpDatabase> {
+        // SQLDelight driver over the SAME migrated db file. Resolving [DatabaseHandle] first
+        // forces [DatabaseFactory.init] (and therefore [MigrationRunner.migrate]) to run before
+        // the driver opens the file, so the schema is already present — the driver never calls
+        // Schema.create. Bound as its own single so the access-filtered raw reads
+        // ([BookAccessPolicy], the access-scoped repos, [SearchServiceImpl]) can execute
+        // engine-neutral SQL through the SAME driver instance that backs [ListenUpDatabase] —
+        // sharing the connection, so a raw query inside a `suspendTransaction(db)` participates
+        // in the open transaction.
+        single<SqlDriver> {
             val dbPath = get<DatabaseHandle>().dbFilePath.toAbsolutePath().toString()
-            ListenUpDatabase(DriverFactory().createDriver(dbPath))
+            DriverFactory().createDriver(dbPath)
         }
+
+        // SQLDelight twin of the Exposed [Database], built over the shared [SqlDriver] single.
+        // Both singles coexist during the Exposed → SQLDelight cutover; aggregates migrate one
+        // at a time, switching their constructor from [Database] to [ListenUpDatabase].
+        single<ListenUpDatabase> { ListenUpDatabase(get<SqlDriver>()) }
 
         single { PasswordHasher() }
         single { RefreshTokenGenerator() }

@@ -42,6 +42,7 @@ import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
 import kotlinx.coroutines.test.runTest
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookServiceImplDeleteCoverTest :
     FunSpec({
@@ -235,6 +236,7 @@ private fun newService(
     val repo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = bus,
             registry = syncRegistry,
@@ -252,7 +254,7 @@ private fun newService(
             coverStorage = CoverStorage(),
             db = db,
             genreRepo = genreRepo,
-            accessPolicy = BookAccessPolicy(db),
+            accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
             permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
             principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
             coverImageStore = coverImageStore,

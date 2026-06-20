@@ -43,6 +43,7 @@ import java.nio.file.Path
 import kotlin.time.Clock
 import kotlin.time.Instant
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class LibraryAdminServiceImplTest :
     FunSpec({
@@ -418,7 +419,13 @@ private fun makeService(
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val folderRepo = LibraryFolderRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry(), exposedDb = db)
+    val folderRepo =
+        LibraryFolderRepository(
+            db = db.asSqlDatabase(),
+            bus = ChangeBus(),
+            registry = SyncRegistry(),
+            driver = db.asSqlDriver(),
+        )
     val contributorRepo =
         com.calypsan.listenup.server.services.ContributorRepository(
             db = db.asSqlDatabase(),
@@ -434,6 +441,7 @@ private fun makeService(
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),

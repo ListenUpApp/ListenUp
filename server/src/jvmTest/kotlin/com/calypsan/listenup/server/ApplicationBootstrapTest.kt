@@ -35,6 +35,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class ApplicationBootstrapTest :
     FunSpec({
@@ -174,12 +175,19 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val folderRepo = LibraryFolderRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry(), exposedDb = db)
+    val folderRepo =
+        LibraryFolderRepository(
+            db = db.asSqlDatabase(),
+            bus = ChangeBus(),
+            registry = SyncRegistry(),
+            driver = db.asSqlDriver(),
+        )
     val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
     val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),

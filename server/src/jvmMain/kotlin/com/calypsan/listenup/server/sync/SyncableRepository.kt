@@ -20,6 +20,7 @@ import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.IColumnType
 import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.LongColumnType
+import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -476,9 +477,13 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
             }
         val args =
-            buildList {
+            buildList<Pair<IColumnType<*>, Any>> {
                 add(LongColumnType() to revisionArg)
-                addAll(extraWhere.args)
+                // The fragment now carries engine-neutral raw values; re-derive the Exposed column
+                // type per value so this Exposed base can still bind them. (All access-filtered
+                // domains are SQLDelight, so this path is exercised only by any future Exposed-backed
+                // access-filtered repo — kept correct, not dead-stripped.)
+                extraWhere.args.forEach { add(it.toExposedArg()) }
                 addAll(trailingArgs)
             }
         val results = mutableListOf<Pair<String, Long>>()
@@ -487,4 +492,13 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         }
         return results
     }
+
+    /** Re-derives the Exposed [IColumnType] for an engine-neutral raw bind value. */
+    private fun Any?.toExposedArg(): Pair<IColumnType<*>, Any> =
+        when (this) {
+            is String -> TextColumnType() to this
+            is Long -> LongColumnType() to this
+            is Int -> IntegerColumnType() to this
+            else -> error("Unsupported SqlFragment arg type ${this?.let { it::class.simpleName }}")
+        }
 }

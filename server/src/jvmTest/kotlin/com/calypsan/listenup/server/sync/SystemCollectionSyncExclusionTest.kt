@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -43,9 +44,9 @@ class SystemCollectionSyncExclusionTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
-                CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
-                CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+                CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+                CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+                CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
             )
         }
 
@@ -118,7 +119,7 @@ class SystemCollectionSyncExclusionTest :
                 runTest {
                     val ids = seedFixture(db, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.accessibleCollectionIdsSql("member", UserRole.MEMBER)
 
                     val page = collections.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -141,7 +142,7 @@ class SystemCollectionSyncExclusionTest :
                 runTest {
                     val ids = seedFixture(db, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.accessibleCollectionBookIdsSql("member", UserRole.MEMBER)
 
                     val page = memberships.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -163,7 +164,7 @@ class SystemCollectionSyncExclusionTest :
                 runTest {
                     val ids = seedFixture(db, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val frag = policy.visibleCollectionGrantIdsSql("member", UserRole.MEMBER)
 
                     val page = grants.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -184,7 +185,7 @@ class SystemCollectionSyncExclusionTest :
                 runTest {
                     val ids = seedFixture(db, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db)
+                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
 
                     // The book in ALL_BOOKS is reachable via the grant branch even though
                     // ALL_BOOKS itself is excluded from the collection-domain sync fragments.

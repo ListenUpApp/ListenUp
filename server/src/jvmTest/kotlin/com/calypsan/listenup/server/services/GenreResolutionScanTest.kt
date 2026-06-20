@@ -30,6 +30,7 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * DB-backed coverage for the scanner's 3-step genre-resolution cascade in
@@ -168,6 +169,7 @@ private fun newRepo(db: Database): BookRepository {
     val syncRegistry = SyncRegistry()
     return BookRepository(
         db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
         exposedDb = db,
         bus = bus,
         registry = syncRegistry,

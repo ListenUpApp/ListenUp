@@ -55,6 +55,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class PlaybackServiceImplTest :
     FunSpec({
@@ -77,6 +78,7 @@ class PlaybackServiceImplTest :
             val bookRepo =
                 BookRepository(
                     db = db.asSqlDatabase(),
+                    driver = db.asSqlDriver(),
                     exposedDb = db,
                     bus = bus,
                     registry = registry,
@@ -106,10 +108,28 @@ class PlaybackServiceImplTest :
                 signer = signer,
                 eventRepo = eventRepo,
                 statsRepo = statsRepo,
-                accessPolicy = BookAccessPolicy(db),
-                collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
-                collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
-                grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db),
+                accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                collectionRepo =
+                    CollectionRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    ),
+                collectionBookRepo =
+                    CollectionBookRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    ),
+                grantRepo =
+                    CollectionGrantRepository(
+                        db = db.asSqlDatabase(),
+                        bus = bus,
+                        registry = registry,
+                        driver = db.asSqlDriver(),
+                    ),
             )
         }
 

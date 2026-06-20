@@ -49,6 +49,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * canEdit-gate tests for [MetadataLookupServiceImpl] (closes MA holistic-review finding I1).
@@ -116,7 +117,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
     val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
     val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db, contributorRepo, seriesRepo, genreRepo)
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = EmptyAudibleApi(),

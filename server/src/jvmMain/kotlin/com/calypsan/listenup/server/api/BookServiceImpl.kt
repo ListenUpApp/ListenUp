@@ -395,6 +395,7 @@ fun createBookService(
     coverStorage: CoverStorage,
     db: org.jetbrains.exposed.v1.jdbc.Database,
     sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
     genreRepo: com.calypsan.listenup.server.services.GenreRepository,
     principal: PrincipalProvider =
         PrincipalProvider { error("Unscoped BookService — call bookServiceScopedTo at the route") },
@@ -406,7 +407,7 @@ fun createBookService(
         coverStorage,
         db,
         genreRepo,
-        BookAccessPolicy(db),
+        BookAccessPolicy(db = sql, driver = driver),
         UserPermissionPolicy(sql),
         principal,
     )

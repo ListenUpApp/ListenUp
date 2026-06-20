@@ -23,6 +23,7 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.slf4j.event.Level
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryResolveTest :
     FunSpec({
@@ -171,6 +172,7 @@ private fun repository(db: Database): ResolveRepoFixture {
     val repo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = bus,
             registry = syncRegistry,

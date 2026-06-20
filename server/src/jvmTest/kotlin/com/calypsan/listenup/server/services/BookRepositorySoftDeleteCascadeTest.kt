@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
@@ -38,6 +39,7 @@ class BookRepositorySoftDeleteCascadeTest :
                     val bookRepo =
                         BookRepository(
                             db = db.asSqlDatabase(),
+                            driver = db.asSqlDriver(),
                             exposedDb = db,
                             bus = bus,
                             registry = syncRegistry,
@@ -79,6 +81,7 @@ class BookRepositorySoftDeleteCascadeTest :
                     val bookRepo =
                         BookRepository(
                             db = db.asSqlDatabase(),
+                            driver = db.asSqlDriver(),
                             exposedDb = db,
                             bus = bus,
                             registry = syncRegistry,

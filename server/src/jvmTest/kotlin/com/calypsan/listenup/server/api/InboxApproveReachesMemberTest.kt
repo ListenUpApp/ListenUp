@@ -39,6 +39,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * The member-facing end of the collections-propagation fix: when an admin approves a held
@@ -67,9 +68,27 @@ class InboxApproveReachesMemberTest :
         ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-            val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
-            val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, exposedDb = db)
+            val collectionRepo =
+                CollectionRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val collectionBookRepo =
+                CollectionBookRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
+            val grantRepo =
+                CollectionGrantRepository(
+                    db = db.asSqlDatabase(),
+                    bus = bus,
+                    registry = registry,
+                    driver = db.asSqlDriver(),
+                )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
                 collectionRepo = collectionRepo,
@@ -99,7 +118,7 @@ class InboxApproveReachesMemberTest :
                 seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val bookRepo = buildBookRepository(db) // real touch
-                    val accessPolicy = BookAccessPolicy(db)
+                    val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
                     val service = makeCollectionService(db, bookRevisionTouch = bookRepo)
                     val admin = service.actAs("admin", UserRole.ADMIN)
                     val grantRepo =
@@ -107,7 +126,7 @@ class InboxApproveReachesMemberTest :
                             db = db.asSqlDatabase(),
                             bus = ChangeBus(),
                             registry = SyncRegistry(),
-                            exposedDb = db,
+                            driver = db.asSqlDriver(),
                         )
 
                     // Every member holds a default ALL_BOOKS grant in production; mirror that here
@@ -174,6 +193,7 @@ private fun buildBookRepository(db: Database): BookRepository {
     val syncRegistry = SyncRegistry()
     return BookRepository(
         db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
         exposedDb = db,
         bus = bus,
         registry = syncRegistry,

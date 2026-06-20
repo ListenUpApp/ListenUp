@@ -58,6 +58,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val TEST_NOW = Instant.parse("2026-06-05T12:00:00Z")
 private const val ASIN = "B0CHAPTERS"
@@ -151,7 +152,7 @@ private fun wire(
     val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
     val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db, contributorRepo, seriesRepo, genreRepo)
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(chapters),

@@ -29,6 +29,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Covers the **inbox-gate-ON** branch of the mutually-exclusive system-collection
@@ -169,10 +170,17 @@ private class InboxFixture(
 private fun fixture(db: Database): InboxFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry, exposedDb = db)
+    val collectionBookRepo =
+        CollectionBookRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
     val bookRepo =
         BookRepository(
             db = db.asSqlDatabase(),
+            driver = db.asSqlDriver(),
             exposedDb = db,
             bus = bus,
             registry = syncRegistry,
@@ -181,8 +189,20 @@ private fun fixture(db: Database): InboxFixture {
             genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
-    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry, exposedDb = db)
-    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry, exposedDb = db)
+    val collectionRepo =
+        CollectionRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
+    val grantRepo =
+        CollectionGrantRepository(
+            db = db.asSqlDatabase(),
+            bus = bus,
+            registry = syncRegistry,
+            driver = db.asSqlDriver(),
+        )
     val collections =
         CollectionServiceImpl(
             collectionRepo = collectionRepo,

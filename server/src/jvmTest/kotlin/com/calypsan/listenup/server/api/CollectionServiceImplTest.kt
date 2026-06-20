@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -781,14 +782,14 @@ class CollectionServiceImplTest :
 private fun Database.newCollectionRepo(
     bus: ChangeBus,
     registry: SyncRegistry,
-): CollectionRepository = CollectionRepository(db = asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+): CollectionRepository = CollectionRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
 
 private fun Database.newCollectionBookRepo(
     bus: ChangeBus,
     registry: SyncRegistry,
-): CollectionBookRepository = CollectionBookRepository(db = asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+): CollectionBookRepository = CollectionBookRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
 
 private fun Database.newCollectionGrantRepo(
     bus: ChangeBus,
     registry: SyncRegistry,
-): CollectionGrantRepository = CollectionGrantRepository(db = asSqlDatabase(), bus = bus, registry = registry, exposedDb = this)
+): CollectionGrantRepository = CollectionGrantRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())

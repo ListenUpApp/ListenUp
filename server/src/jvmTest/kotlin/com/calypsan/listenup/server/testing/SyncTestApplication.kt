@@ -202,7 +202,7 @@ internal fun withTestApplication(
                     playbackPositionRepository = positionRepoForPlayback,
                     listeningEventRepository = eventRepo,
                     userStatsRepository = statsRepo,
-                    accessPolicy = BookAccessPolicy(db),
+                    accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
                     principal = PrincipalProvider { error("unscoped — copyWith required") },
                     db = db,
                 )
@@ -278,6 +278,7 @@ private fun buildPlaybackBookRepository(
     val sharedRegistry = SyncRegistry()
     return BookRepository(
         db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
         exposedDb = db,
         bus = bus,
         registry = sharedRegistry,

@@ -20,6 +20,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryManagedCoverTest :
     FunSpec({
@@ -33,6 +34,7 @@ class BookRepositoryManagedCoverTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -85,6 +87,7 @@ class BookRepositoryManagedCoverTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -136,6 +139,7 @@ class BookRepositoryManagedCoverTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
@@ -165,6 +169,7 @@ class BookRepositoryManagedCoverTest :
                 val repo =
                     BookRepository(
                         db = db.asSqlDatabase(),
+                        driver = db.asSqlDriver(),
                         exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
