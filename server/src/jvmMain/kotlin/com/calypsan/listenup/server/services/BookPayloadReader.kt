@@ -10,30 +10,24 @@ import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookAudioFileTable
-import com.calypsan.listenup.server.db.BookChapterTable
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
-import com.calypsan.listenup.server.db.BookSeriesTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.GenreTable
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.selectAll
+import com.calypsan.listenup.server.db.sqldelight.Books
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 
 /** Keeps `id IN (?, ?, …)` under SQLite's variable-parameter ceiling. */
 private const val IN_LIST_CHUNK = 900
 
 /**
- * Builds a [BookSyncPayload] from an already-fetched root [bookRow] and its child lists.
- * Shared by per-id and batched book reads so both produce byte-identical aggregates.
+ * Builds a [BookSyncPayload] from an already-fetched root [bookRow] (a generated
+ * SQLDelight [Books] row) and its child lists. Shared by per-id and batched book reads
+ * so both produce byte-identical aggregates.
+ *
+ * The `0/1 ↔ Boolean` and `Long ↔ Int` conversions live here at the SQLDelight boundary
+ * (the same place the Exposed `bool`/`integer` column adapters sat): SQLite stores
+ * `abridged`/`explicit`/`has_scan_warning` as INTEGER and `publish_year` as INTEGER, which
+ * SQLDelight surfaces as `Long`; the wire payload carries `Boolean`/`Int`.
  */
 internal fun assembleBookPayload(
-    bookRow: ResultRow,
+    bookRow: Books,
     contributors: List<BookContributorPayload>,
     series: List<BookSeriesPayload>,
     genres: List<BookGenrePayload>,
@@ -41,56 +35,60 @@ internal fun assembleBookPayload(
     chapters: List<BookChapterPayload>,
 ): BookSyncPayload {
     val cover =
-        bookRow[BookTable.coverHash]?.let { hash ->
+        bookRow.cover_hash?.let { hash ->
             val coverSrc =
-                bookRow[BookTable.coverSource]?.let { raw ->
+                bookRow.cover_source?.let { raw ->
                     CoverSource.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
                 }
             coverSrc?.let { CoverPayload(source = it, hash = hash) }
         }
 
     return BookSyncPayload(
-        id = bookRow[BookTable.id],
-        libraryId = LibraryId(bookRow[BookTable.libraryId]),
-        folderId = FolderId(bookRow[BookTable.folderId]),
-        title = bookRow[BookTable.title],
-        sortTitle = bookRow[BookTable.sortTitle],
-        subtitle = bookRow[BookTable.subtitle],
-        description = bookRow[BookTable.description],
-        publishYear = bookRow[BookTable.publishYear],
-        publisher = bookRow[BookTable.publisher],
-        language = bookRow[BookTable.language],
-        isbn = bookRow[BookTable.isbn],
-        asin = bookRow[BookTable.asin],
-        abridged = bookRow[BookTable.abridged],
-        explicit = bookRow[BookTable.explicit],
-        hasScanWarning = bookRow[BookTable.hasScanWarning],
-        totalDuration = bookRow[BookTable.totalDuration],
+        id = bookRow.id,
+        libraryId = LibraryId(bookRow.library_id),
+        folderId = FolderId(bookRow.folder_id),
+        title = bookRow.title,
+        sortTitle = bookRow.sort_title,
+        subtitle = bookRow.subtitle,
+        description = bookRow.description,
+        publishYear = bookRow.publish_year?.toInt(),
+        publisher = bookRow.publisher,
+        language = bookRow.language,
+        isbn = bookRow.isbn,
+        asin = bookRow.asin,
+        abridged = bookRow.abridged == 1L,
+        explicit = bookRow.explicit == 1L,
+        hasScanWarning = bookRow.has_scan_warning == 1L,
+        totalDuration = bookRow.total_duration,
         cover = cover,
-        rootRelPath = bookRow[BookTable.rootRelPath],
-        inode = bookRow[BookTable.inode],
-        scannedAt = bookRow[BookTable.scannedAt],
+        rootRelPath = bookRow.root_rel_path,
+        inode = bookRow.inode,
+        scannedAt = bookRow.scanned_at,
         contributors = contributors,
         series = series,
         genres = genres,
         audioFiles = audioFiles,
         chapters = chapters,
-        revision = bookRow[BookTable.revision],
-        updatedAt = bookRow[BookTable.updatedAt],
-        createdAt = bookRow[BookTable.createdAt],
-        deletedAt = bookRow[BookTable.deletedAt],
+        revision = bookRow.revision,
+        updatedAt = bookRow.updated_at,
+        createdAt = bookRow.created_at,
+        deletedAt = bookRow.deleted_at,
     )
 }
 
 /**
- * Batched hydration: fetches each child table once per id-chunk via `bookId inList`,
- * groups in memory (preserving the queried ordinal/path order), and assembles payloads
- * in input-id order, skipping ids with no root row. Must be called inside an open transaction.
+ * Batched hydration: fetches each child table once per id-chunk via the generated
+ * joined `selectByBookIds` queries, groups in memory (preserving the queried
+ * ordinal/path order), and assembles payloads in input-id order, skipping ids with no
+ * root row. Must be called inside an open SQLDelight transaction.
+ *
+ * One round-trip per child table per 900-id chunk — the N+1-safe path. Same shape as the
+ * prior Exposed reader, over the generated queries.
  */
-internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
+internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
     if (idStrs.isEmpty()) return emptyList()
 
-    val bookRows = HashMap<String, ResultRow>()
+    val bookRows = HashMap<String, Books>()
     val contributorsByBook = HashMap<String, MutableList<BookContributorPayload>>()
     val seriesByBook = HashMap<String, MutableList<BookSeriesPayload>>()
     val chaptersByBook = HashMap<String, MutableList<BookChapterPayload>>()
@@ -98,98 +96,75 @@ internal fun readBookPayloads(idStrs: List<String>): List<BookSyncPayload> {
     val audioByBook = HashMap<String, MutableList<BookAudioFilePayload>>()
 
     idStrs.chunked(IN_LIST_CHUNK).forEach { chunk ->
-        BookTable
-            .selectAll()
-            .where { BookTable.id inList chunk }
-            .forEach { row -> bookRows[row[BookTable.id]] = row }
+        booksQueries.selectByIds(chunk).executeAsList().forEach { row -> bookRows[row.id] = row }
 
-        (BookContributorTable innerJoin ContributorTable)
-            .selectAll()
-            .where { BookContributorTable.bookId inList chunk }
-            .orderBy(BookContributorTable.ordinal)
-            .forEach { row ->
-                contributorsByBook
-                    .getOrPut(row[BookContributorTable.bookId]) { mutableListOf() }
-                    .add(
-                        BookContributorPayload(
-                            id = row[ContributorTable.id],
-                            name = row[ContributorTable.name],
-                            sortName = row[ContributorTable.sortName],
-                            role = row[BookContributorTable.role],
-                            creditedAs = row[BookContributorTable.creditedAs],
-                        ),
-                    )
-            }
+        bookContributorsQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
+            contributorsByBook
+                .getOrPut(row.book_id) { mutableListOf() }
+                .add(
+                    BookContributorPayload(
+                        id = row.contributor_id,
+                        name = row.name,
+                        sortName = row.sort_name,
+                        role = row.role,
+                        creditedAs = row.credited_as,
+                    ),
+                )
+        }
 
-        (BookSeriesMembershipTable innerJoin BookSeriesTable)
-            .selectAll()
-            .where { BookSeriesMembershipTable.bookId inList chunk }
-            .orderBy(BookSeriesMembershipTable.ordinal)
-            .forEach { row ->
-                seriesByBook
-                    .getOrPut(row[BookSeriesMembershipTable.bookId]) { mutableListOf() }
-                    .add(
-                        BookSeriesPayload(
-                            id = row[BookSeriesTable.id],
-                            name = row[BookSeriesTable.name],
-                            sequence = row[BookSeriesMembershipTable.sequence],
-                        ),
-                    )
-            }
+        bookSeriesMembershipsQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
+            seriesByBook
+                .getOrPut(row.book_id) { mutableListOf() }
+                .add(
+                    BookSeriesPayload(
+                        id = row.series_id,
+                        name = row.name,
+                        sequence = row.sequence,
+                    ),
+                )
+        }
 
-        BookChapterTable
-            .selectAll()
-            .where { BookChapterTable.bookId inList chunk }
-            .orderBy(BookChapterTable.ordinal)
-            .forEach { row ->
-                chaptersByBook
-                    .getOrPut(row[BookChapterTable.bookId]) { mutableListOf() }
-                    .add(
-                        BookChapterPayload(
-                            id = row[BookChapterTable.id],
-                            title = row[BookChapterTable.title],
-                            duration = row[BookChapterTable.duration],
-                            startTime = row[BookChapterTable.startTime],
-                        ),
-                    )
-            }
+        bookChaptersQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
+            chaptersByBook
+                .getOrPut(row.book_id) { mutableListOf() }
+                .add(
+                    BookChapterPayload(
+                        id = row.id,
+                        title = row.title,
+                        duration = row.duration,
+                        startTime = row.start_time,
+                    ),
+                )
+        }
 
-        (BookGenreTable innerJoin GenreTable)
-            .selectAll()
-            .where { (BookGenreTable.bookId inList chunk) and GenreTable.deletedAt.isNull() }
-            .orderBy(GenreTable.path)
-            .forEach { row ->
-                genresByBook
-                    .getOrPut(row[BookGenreTable.bookId]) { mutableListOf() }
-                    .add(
-                        BookGenrePayload(
-                            id = row[GenreTable.id],
-                            name = row[GenreTable.name],
-                            slug = row[GenreTable.slug],
-                            path = row[GenreTable.path],
-                        ),
-                    )
-            }
+        bookGenresQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
+            genresByBook
+                .getOrPut(row.book_id) { mutableListOf() }
+                .add(
+                    BookGenrePayload(
+                        id = row.id,
+                        name = row.name,
+                        slug = row.slug,
+                        path = row.path,
+                    ),
+                )
+        }
 
-        BookAudioFileTable
-            .selectAll()
-            .where { BookAudioFileTable.bookId inList chunk }
-            .orderBy(BookAudioFileTable.ordinal)
-            .forEach { row ->
-                audioByBook
-                    .getOrPut(row[BookAudioFileTable.bookId]) { mutableListOf() }
-                    .add(
-                        BookAudioFilePayload(
-                            id = row[BookAudioFileTable.id],
-                            index = row[BookAudioFileTable.ordinal],
-                            filename = row[BookAudioFileTable.filename],
-                            format = row[BookAudioFileTable.format],
-                            codec = row[BookAudioFileTable.codec],
-                            duration = row[BookAudioFileTable.duration],
-                            size = row[BookAudioFileTable.size],
-                        ),
-                    )
-            }
+        bookAudioFilesQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
+            audioByBook
+                .getOrPut(row.book_id) { mutableListOf() }
+                .add(
+                    BookAudioFilePayload(
+                        id = row.id,
+                        index = row.ordinal.toInt(),
+                        filename = row.filename,
+                        format = row.format,
+                        codec = row.codec,
+                        duration = row.duration,
+                        size = row.size,
+                    ),
+                )
+        }
     }
 
     return idStrs.mapNotNull { id ->

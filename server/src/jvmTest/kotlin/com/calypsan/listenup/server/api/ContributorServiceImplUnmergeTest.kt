@@ -298,7 +298,8 @@ private fun makeUnmergeServiceAndDeps(db: Database): UnmergeServiceDeps {
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,

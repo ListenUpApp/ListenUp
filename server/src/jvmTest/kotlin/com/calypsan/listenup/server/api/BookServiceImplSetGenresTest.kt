@@ -60,7 +60,8 @@ class BookServiceImplSetGenresTest :
             val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    exposedDb = db,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,

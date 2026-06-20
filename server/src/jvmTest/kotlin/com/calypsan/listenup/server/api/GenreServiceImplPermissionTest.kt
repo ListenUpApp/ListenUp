@@ -89,7 +89,8 @@ private fun makeGenrePermService(db: Database): GenreServiceImpl {
     val genreRepo = GenreRepository(db = db, bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            exposedDb = db,
             bus = bus,
             registry = registry,
             contributorRepository = contributorRepo,

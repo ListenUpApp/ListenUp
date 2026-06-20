@@ -198,7 +198,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -232,7 +232,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -259,7 +259,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -285,7 +285,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     a
@@ -304,7 +304,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -331,7 +331,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -356,7 +356,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
@@ -383,7 +383,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -423,7 +423,7 @@ class MatchApplySelectionTest :
                 val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val genreRepo = GenreRepository(db, bus, registry)
-                val books = BookRepository(db, bus, registry, contributors, series, genreRepo)
+                val books = BookRepository(db.asSqlDatabase(), bus, registry, db, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()

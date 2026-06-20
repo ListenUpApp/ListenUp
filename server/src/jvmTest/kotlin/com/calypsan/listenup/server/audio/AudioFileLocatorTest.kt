@@ -58,7 +58,8 @@ class AudioFileLocatorTest :
 
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),

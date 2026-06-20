@@ -37,7 +37,8 @@ class BookRepositoryContributorDelegationTest :
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
@@ -73,7 +74,8 @@ class BookRepositoryContributorDelegationTest :
                 val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,

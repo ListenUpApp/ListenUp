@@ -189,16 +189,7 @@ internal fun withTestApplication(
                 )
             val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val sharedRegistry = SyncRegistry()
-            val bookRepo =
-                BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = sharedRegistry,
-                    contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),
-                    seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, sharedRegistry),
-                    genreRepository = GenreRepository(db, bus, sharedRegistry),
-                )
+            val bookRepo = buildPlaybackBookRepository(db, bus)
             bookRepoForScope = bookRepo
             // Seed the library + folder a test book FKs to, so playback-event tests
             // can upsert a real (accessible) book for the access gate to admit.
@@ -272,6 +263,28 @@ internal fun withTestApplication(
             bookRepoOrNull = bookRepoForScope,
         ).block()
     }
+}
+
+/**
+ * Builds the SQLDelight-backed [BookRepository] the playback-events fixture wires, over a fresh
+ * shared [SyncRegistry]. Extracted from [withTestApplication] to keep that function within the
+ * detekt size budget; mirrors the production wiring (SQLDelight handle for the book aggregate +
+ * contributors/series, the Exposed handle for the not-yet-converted collaborators).
+ */
+private fun buildPlaybackBookRepository(
+    db: Database,
+    bus: ChangeBus,
+): BookRepository {
+    val sharedRegistry = SyncRegistry()
+    return BookRepository(
+        db = db.asSqlDatabase(),
+        exposedDb = db,
+        bus = bus,
+        registry = sharedRegistry,
+        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),
+        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, sharedRegistry),
+        genreRepository = GenreRepository(db, bus, sharedRegistry),
+    )
 }
 
 /** Creates and schema-initialises a [UserScopedFixtureRepository] for the given test database. */

@@ -32,7 +32,8 @@ class BookRepositoryManagedCoverTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -83,7 +84,8 @@ class BookRepositoryManagedCoverTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -133,7 +135,8 @@ class BookRepositoryManagedCoverTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -161,7 +164,8 @@ class BookRepositoryManagedCoverTest :
                 val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),

@@ -259,7 +259,8 @@ class MetadataLookupServiceImplTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -466,7 +467,8 @@ private fun makeService(
     val genreRepo = GenreRepository(db, bus, syncRegistry)
     val bookRepository =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,

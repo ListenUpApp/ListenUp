@@ -58,7 +58,8 @@ class BookServiceImplUpdateTest :
             val genreRepo = GenreRepository(db, bus, syncRegistry)
             val repo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    exposedDb = db,
                     bus = bus,
                     registry = syncRegistry,
                     contributorRepository = contributorRepo,
@@ -179,7 +180,8 @@ class BookServiceImplUpdateTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -226,7 +228,8 @@ class BookServiceImplUpdateTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -336,7 +339,8 @@ class BookServiceImplUpdateTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,

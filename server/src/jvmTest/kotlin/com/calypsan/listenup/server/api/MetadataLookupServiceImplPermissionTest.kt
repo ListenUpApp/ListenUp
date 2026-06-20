@@ -116,7 +116,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
     val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
     val genreRepo = GenreRepository(db, bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, genreRepo)
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = EmptyAudibleApi(),

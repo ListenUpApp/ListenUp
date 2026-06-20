@@ -51,7 +51,8 @@ class BookServiceImplSetSeriesTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -109,7 +110,8 @@ class BookServiceImplSetSeriesTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -165,7 +167,8 @@ class BookServiceImplSetSeriesTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -218,7 +221,8 @@ class BookServiceImplSetSeriesTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -262,7 +266,8 @@ class BookServiceImplSetSeriesTest :
                 val genreRepo = GenreRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db,
+                        db = db.asSqlDatabase(),
+                        exposedDb = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,

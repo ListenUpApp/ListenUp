@@ -158,7 +158,7 @@ private fun deps(
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-    val bookRepo = BookRepository(db, bus, registry, contributorRepo, seriesRepo, GenreRepository(db, bus, registry))
+    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db, contributorRepo, seriesRepo, GenreRepository(db, bus, registry))
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(audibleChapters),

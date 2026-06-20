@@ -168,7 +168,8 @@ private fun newRepo(db: Database): BookRepository {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     return BookRepository(
-        db = db,
+        db = db.asSqlDatabase(),
+        exposedDb = db,
         bus = bus,
         registry = syncRegistry,
         contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),

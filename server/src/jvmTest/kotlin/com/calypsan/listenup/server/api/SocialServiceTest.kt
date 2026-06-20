@@ -80,7 +80,8 @@ class SocialServiceTest :
             val bookRegistry = SyncRegistry()
             val books =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    exposedDb = db,
                     bus = bus,
                     registry = bookRegistry,
                     contributorRepository = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),

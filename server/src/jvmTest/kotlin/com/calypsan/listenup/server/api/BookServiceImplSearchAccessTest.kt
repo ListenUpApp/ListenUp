@@ -49,7 +49,8 @@ class BookServiceImplSearchAccessTest :
             val genreRepo = GenreRepository(this, bus, registry)
             val bookRepo =
                 BookRepository(
-                    db = this,
+                    db = this.asSqlDatabase(),
+                    exposedDb = this,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,

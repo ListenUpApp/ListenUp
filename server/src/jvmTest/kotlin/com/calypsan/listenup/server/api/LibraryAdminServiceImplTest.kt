@@ -433,7 +433,8 @@ private fun makeService(
         )
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            exposedDb = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,

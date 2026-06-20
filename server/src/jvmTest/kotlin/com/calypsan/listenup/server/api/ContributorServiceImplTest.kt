@@ -329,7 +329,8 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
     val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db,
+            db = db.asSqlDatabase(),
+            exposedDb = db,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,

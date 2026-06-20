@@ -18,7 +18,8 @@ class BookRepositoryIdAsStringTest :
                 val registry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
+                        exposedDb = this,
                         bus = bus,
                         registry = registry,
                         contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
@@ -35,7 +36,8 @@ class BookRepositoryIdAsStringTest :
                 val registry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
+                        exposedDb = this,
                         bus = bus,
                         registry = registry,
                         contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),

@@ -122,13 +122,14 @@ fun booksModule(
         single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {
             BookRepository(
-                get(),
-                get(),
-                get(),
-                get(),
-                get(),
-                get<GenreRepository>(),
-                get(),
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                exposedDb = get(),
+                contributorRepository = get(),
+                seriesRepository = get(),
+                genreRepository = get<GenreRepository>(),
+                analyzedBookMapper = get(),
                 clock = get(),
                 collectionBookRepository = get(),
                 tagRepository = getOrNull<TagRepository>(),

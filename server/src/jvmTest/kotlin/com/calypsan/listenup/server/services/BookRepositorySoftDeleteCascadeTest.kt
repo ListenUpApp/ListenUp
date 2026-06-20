@@ -37,7 +37,8 @@ class BookRepositorySoftDeleteCascadeTest :
 
                     val bookRepo =
                         BookRepository(
-                            db = db,
+                            db = db.asSqlDatabase(),
+                            exposedDb = db,
                             bus = bus,
                             registry = syncRegistry,
                             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
@@ -77,7 +78,8 @@ class BookRepositorySoftDeleteCascadeTest :
 
                     val bookRepo =
                         BookRepository(
-                            db = db,
+                            db = db.asSqlDatabase(),
+                            exposedDb = db,
                             bus = bus,
                             registry = syncRegistry,
                             contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),

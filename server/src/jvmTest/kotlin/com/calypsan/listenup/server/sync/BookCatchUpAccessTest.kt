@@ -45,7 +45,8 @@ class BookCatchUpAccessTest :
             return Fixture(
                 bookRepo =
                     BookRepository(
-                        db = this,
+                        db = this.asSqlDatabase(),
+                        exposedDb = this,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,

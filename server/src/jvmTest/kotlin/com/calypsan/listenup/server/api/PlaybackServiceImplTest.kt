@@ -72,7 +72,8 @@ class PlaybackServiceImplTest :
             val registry = SyncRegistry()
             val bookRepo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    exposedDb = db,
                     bus = bus,
                     registry = registry,
                     contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),

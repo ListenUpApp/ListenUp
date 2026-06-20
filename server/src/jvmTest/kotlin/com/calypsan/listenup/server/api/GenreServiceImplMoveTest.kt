@@ -51,7 +51,8 @@ class GenreServiceImplMoveTest :
             val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
             val bookRepo =
                 BookRepository(
-                    db = db,
+                    db = db.asSqlDatabase(),
+                    exposedDb = db,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
