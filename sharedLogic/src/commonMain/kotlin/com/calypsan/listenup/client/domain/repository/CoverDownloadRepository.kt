@@ -9,7 +9,7 @@ import com.calypsan.listenup.core.BookId
  * from suspend contexts without launching unstructured child coroutines on the caller's scope
  * — the repository is the single structured-concurrency boundary for this work.
  */
-interface CoverDownloadRepository {
+internal interface CoverDownloadRepository {
     /**
      * Request that the cover for [bookId] be downloaded.
      *

@@ -23,7 +23,7 @@ private val logger = KotlinLogging.logger {}
  * Server's `AuthServiceAuthed.logout()` reads the session id from the
  * bearer JWT, so the client doesn't pass one explicitly.
  */
-open class LogoutUseCase(
+internal open class LogoutUseCase(
     private val authRepository: AuthRepository,
     private val authSession: AuthSession,
     private val userRepository: UserRepository,

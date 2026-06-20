@@ -10,7 +10,7 @@ package com.calypsan.listenup.client.domain.repository
  * Mirrors [CoverDownloadRepository] for avatars. No `touchUpdatedAt` analogue — avatars paint
  * from a stable file path; no Room-invalidation signal is needed.
  */
-interface AvatarDownloadRepository {
+internal interface AvatarDownloadRepository {
     /**
      * Request that the avatar for [userId] be downloaded.
      *

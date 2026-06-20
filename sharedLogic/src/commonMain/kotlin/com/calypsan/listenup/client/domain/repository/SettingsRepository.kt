@@ -175,7 +175,7 @@ interface ServerConfig {
  * (e.g., server reinstalled, database wiped) and trigger appropriate
  * resync flows.
  */
-interface LibrarySync {
+internal interface LibrarySync {
     /**
      * Get the library ID this client is currently synced with.
      * Returns null if this is the first sync (no library connected yet).
