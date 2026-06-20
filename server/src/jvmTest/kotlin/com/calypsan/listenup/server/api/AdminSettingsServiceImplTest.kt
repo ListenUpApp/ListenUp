@@ -239,7 +239,7 @@ private fun makeAdminSettingsService(
     bus: ChangeBus = ChangeBus(),
     principal: PrincipalProvider,
 ): AdminSettingsFixture {
-    val libraryRepo = LibraryRepository(db = db, bus = bus, registry = SyncRegistry())
+    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
     val libraryRegistry = LibraryRegistry(db = db)
     val svc =
         AdminSettingsServiceImpl(
@@ -261,8 +261,8 @@ private suspend fun seedLibrary(
     principal: PrincipalProvider,
 ) {
     val bus = ChangeBus()
-    val libraryRepo = LibraryRepository(db = db, bus = bus, registry = SyncRegistry())
-    val folderRepo = LibraryFolderRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
+    val folderRepo = LibraryFolderRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry(), exposedDb = db)
     val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
     val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
     val bookRepo =

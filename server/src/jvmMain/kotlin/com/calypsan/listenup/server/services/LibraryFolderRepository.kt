@@ -1,39 +1,66 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
+import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.sqldelight.Library_folders
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.IdRev
+import com.calypsan.listenup.server.sync.SqlFragment
+import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
+import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.IColumnType
+import org.jetbrains.exposed.v1.core.IntegerColumnType
+import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.update
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 /**
- * Syncable-domain repository for library folders (Libraries phase).
+ * SQLDelight syncable repository for library folders — a **global (cross-user)** aggregate.
+ * Each folder belongs to a parent library (`library_id`); the FK
+ * `library_id REFERENCES libraries(id) ON DELETE CASCADE` (in the migration DDL) is the
+ * hard-delete safety net beneath the app-layer soft-delete cascade in
+ * [com.calypsan.listenup.server.api.LibraryAdminServiceImpl].
  *
- * Library folders are a global (cross-user) domain backed by [LibraryFolderTable].
- * Each folder belongs to a parent library ([LibraryFolderTable.libraryId]).
- * The substrate ([SyncableRepository]) owns revision bumping, timestamping,
- * and change-bus publication; this class supplies the row read/write shape.
+ * The base [SqlSyncableRepository] owns revision-bump / timestamp / created-vs-updated /
+ * emit-after-commit orchestration; this class supplies only the folder-shaped pieces:
+ *  - [substrate] — the [SyncableSubstrateQueries] adapter over `libraryFoldersQueries`
+ *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
+ *  - [writePayload] — insert-or-update inside the open transaction
+ *  - [elementSerializer] / `LibraryFolderSyncPayload.id` / `LibraryFolderSyncPayload.revisionOf`
  *
- * `idAsString(FolderId) = id.value` is load-bearing — the substrate's default
- * `toString()` on a value class returns `"FolderId(value=foo)"`, which would
- * corrupt every column the id is written into.
+ * `idAsString(FolderId) = id.value` is load-bearing — Kotlin's default `toString()`
+ * on a value class returns `"FolderId(value=foo)"`, which would corrupt every column
+ * the id is written into.
+ *
+ * **Access-filtered sync.** `library_folders` rows carry absolute server filesystem paths,
+ * so the firehose gates the whole domain admin-only: a non-admin catch-up/digest arrives
+ * with a non-null [SqlFragment] `extraWhere` (the `WHERE 1 = 0` hidden subquery) that the
+ * base [SqlSyncableRepository] cannot splice. This class [overrides][pullSince] the filtered
+ * path the same way [BookRepository] does — splicing `id IN (<extraWhere.sql>)` over the
+ * Exposed connection ([exposedDb], a read on the shared WAL file) and hydrating via the
+ * SQLDelight [readPayloads]. The unfiltered (admin / null) path delegates to the base.
+ *
+ * Service-layer helpers beyond the base substrate (each runs in its own transaction):
+ *  - [listByLibrary] — all live folders belonging to a library (the library→folder enumeration)
+ *  - [findLiveByRootPath] — the live folder at a given path (the duplicate-path natural-key lookup)
  */
 class LibraryFolderRepository(
-    db: Database,
+    db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
+    private val exposedDb: Database,
     clock: Clock = Clock.System,
-) : SyncableRepository<LibraryFolderSyncPayload, FolderId>(
+) : SqlSyncableRepository<LibraryFolderSyncPayload, FolderId>(
         db = db,
-        table = LibraryFolderTable,
         bus = bus,
         registry = registry,
         domainName = "library_folders",
@@ -43,29 +70,71 @@ class LibraryFolderRepository(
 
     override fun idAsString(id: FolderId): String = id.value
 
-    override val LibraryFolderSyncPayload.id: FolderId
-        get() = FolderId(this.id)
+    override val LibraryFolderSyncPayload.id: FolderId get() = FolderId(this.id)
 
     override fun LibraryFolderSyncPayload.revisionOf(): Long = revision
 
-    override suspend fun readPayload(idStr: String): LibraryFolderSyncPayload? =
-        LibraryFolderTable
-            .selectAll()
-            .where { LibraryFolderTable.id eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                LibraryFolderSyncPayload(
-                    id = row[LibraryFolderTable.id],
-                    libraryId = row[LibraryFolderTable.libraryId],
-                    rootPath = row[LibraryFolderTable.rootPath],
-                    revision = row[LibraryFolderTable.revision],
-                    updatedAt = row[LibraryFolderTable.updatedAt],
-                    createdAt = row[LibraryFolderTable.createdAt],
-                    deletedAt = row[LibraryFolderTable.deletedAt],
-                )
-            }
+    /**
+     * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.libraryFoldersQueries].
+     *
+     * The canonical global adapter shape: the four substrate methods forward to the matching
+     * generated query, mapping revision-cursor rows into the engine-neutral [IdRev]. The
+     * `*ForUser` variants are intentionally left as the base's throwing defaults — folders are
+     * global and never route through them.
+     */
+    override val substrate: SyncableSubstrateQueries =
+        object : SyncableSubstrateQueries {
+            override fun existsById(id: String): Boolean = db.libraryFoldersQueries.existsById(id).executeAsOne()
 
-    override suspend fun writePayload(
+            override fun softDeleteById(
+                id: String,
+                revision: Long,
+                updatedAt: Long,
+                deletedAt: Long,
+                clientOpId: String?,
+            ): Long =
+                db.libraryFoldersQueries
+                    .softDeleteById(
+                        revision = revision,
+                        updated_at = updatedAt,
+                        deleted_at = deletedAt,
+                        client_op_id = clientOpId,
+                        id = id,
+                    ).value
+
+            override fun selectIdsAboveRevision(
+                cursor: Long,
+                limit: Long,
+            ): List<IdRev> =
+                db.libraryFoldersQueries
+                    .selectIdsAboveRevision(cursor, limit) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+
+            override fun selectIdRevAtMost(cursor: Long): List<IdRev> =
+                db.libraryFoldersQueries
+                    .selectIdRevAtMost(cursor) { id, revision -> IdRev(id, revision) }
+                    .executeAsList()
+        }
+
+    override fun readPayload(idStr: String): LibraryFolderSyncPayload? =
+        db.libraryFoldersQueries
+            .selectById(idStr)
+            .executeAsOneOrNull()
+            ?.toSyncPayload()
+
+    override fun readPayloads(idStrs: List<String>): List<LibraryFolderSyncPayload> {
+        if (idStrs.isEmpty()) return emptyList()
+        // SQLite's variable limit (SQLITE_MAX_VARIABLE_NUMBER, 999 by default) caps an
+        // `IN (?, ?, …)` list, so batch in chunks of 900 and preserve the requested order.
+        val byId =
+            idStrs
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.libraryFoldersQueries.selectByIds(chunk).executeAsList() }
+                .associateBy { it.id }
+        return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
+    }
+
+    override fun writePayload(
         value: LibraryFolderSyncPayload,
         rev: Long,
         now: Long,
@@ -74,28 +143,170 @@ class LibraryFolderRepository(
         existed: Boolean,
     ) {
         if (existed) {
-            LibraryFolderTable.update({ LibraryFolderTable.id eq value.id }) { stmt ->
-                stmt[LibraryFolderTable.libraryId] = value.libraryId
-                stmt[LibraryFolderTable.rootPath] = value.rootPath
-                stmt[LibraryFolderTable.revision] = rev
-                stmt[LibraryFolderTable.updatedAt] = now
-                stmt[LibraryFolderTable.deletedAt] = null
-                stmt[LibraryFolderTable.clientOpId] = clientOpId
-            }
+            db.libraryFoldersQueries.update(
+                library_id = value.libraryId,
+                root_path = value.rootPath,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+                id = value.id,
+            )
         } else {
-            LibraryFolderTable.insert { stmt ->
-                stmt[LibraryFolderTable.id] = value.id
-                stmt[LibraryFolderTable.libraryId] = value.libraryId
-                stmt[LibraryFolderTable.rootPath] = value.rootPath
-                stmt[LibraryFolderTable.revision] = rev
-                stmt[LibraryFolderTable.createdAt] = now
-                stmt[LibraryFolderTable.updatedAt] = now
-                stmt[LibraryFolderTable.deletedAt] = null
-                stmt[LibraryFolderTable.clientOpId] = clientOpId
-            }
+            db.libraryFoldersQueries.insert(
+                id = value.id,
+                library_id = value.libraryId,
+                root_path = value.rootPath,
+                created_at = now,
+                revision = rev,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = clientOpId,
+            )
         }
     }
 
+    /**
+     * Returns all live (non-tombstoned) folders belonging to [libraryId], in insertion
+     * order. The library→folder enumeration the admin/onboarding paths use to resolve a
+     * library's roots.
+     */
+    suspend fun listByLibrary(libraryId: String): List<LibraryFolderSyncPayload> =
+        suspendTransaction(db) {
+            db.libraryFoldersQueries
+                .listByLibrary(libraryId)
+                .executeAsList()
+                .map { it.toSyncPayload() }
+        }
+
+    /**
+     * Returns the live folder whose `root_path` equals [rootPath], or null when no live
+     * row registers that path. Backs the duplicate-path guard — a path may live under at
+     * most one non-deleted folder (enforced by the partial unique index).
+     */
+    suspend fun findLiveByRootPath(rootPath: String): LibraryFolderSyncPayload? =
+        suspendTransaction(db) {
+            db.libraryFoldersQueries
+                .selectLiveByRootPath(rootPath)
+                .executeAsOneOrNull()
+                ?.toSyncPayload()
+        }
+
+    /**
+     * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins, who
+     * see every folder) delegates to the base; the filtered path (a non-admin's
+     * `WHERE 1 = 0` hidden subquery) reads the `(id, revision)` page over the Exposed
+     * connection and hydrates via the SQLDelight [readPayloads]. Mirrors
+     * [BookRepository.pullSince].
+     */
+    override suspend fun pullSince(
+        userId: String?,
+        cursor: Long,
+        limit: Int,
+        extraWhere: SqlFragment?,
+    ): Page<LibraryFolderSyncPayload> {
+        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
+        val idsWithRev =
+            selectIdsWithRevRaw(
+                revisionPredicate = "revision > ?",
+                revisionArg = cursor,
+                extraWhere = extraWhere,
+                orderAndLimit = "ORDER BY revision ASC LIMIT ?",
+                trailingArgs = listOf(IntegerColumnType() to limit),
+            )
+        val items = suspendTransaction(db) { readPayloads(idsWithRev.map { it.first }) }
+        return Page(
+            items = items,
+            nextCursor = idsWithRev.lastOrNull()?.second,
+            hasMore = idsWithRev.size == limit,
+        )
+    }
+
+    /**
+     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
+     * path reads the `(id, revision)` slice over the Exposed connection and computes the
+     * permanent-wire-contract SHA-256 digest identically to the base. Mirrors
+     * [BookRepository.digest].
+     */
+    override suspend fun digest(
+        userId: String?,
+        cursor: Long,
+        extraWhere: SqlFragment?,
+    ): DomainDigest {
+        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
+        val rows =
+            selectIdsWithRevRaw(
+                revisionPredicate = "revision <= ?",
+                revisionArg = cursor,
+                extraWhere = extraWhere,
+                orderAndLimit = "",
+                trailingArgs = emptyList(),
+            ).sortedBy { it.first }
+        return if (rows.isEmpty()) {
+            DomainDigest(cursor = cursor, count = 0, hash = "")
+        } else {
+            val md = MessageDigest.getInstance("SHA-256")
+            val joined = rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
+            val hex = md.digest(joined.toByteArray(Charsets.UTF_8)).toHexString()
+            DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
+        }
+    }
+
+    /**
+     * Raw-SQL `(id, revision)` read for the access-filtered ([extraWhere] non-null) path.
+     *
+     * Splices the access subquery as `id IN (<extraWhere.sql>)` and runs it on the Exposed
+     * connection over the shared WAL file — a read, so it never contends with the SQLDelight
+     * writer. **Argument order is load-bearing** and matches the `?` order exactly: the
+     * [revisionArg] first, then the [extraWhere] args, then any [trailingArgs] (the LIMIT `?`).
+     */
+    private suspend fun selectIdsWithRevRaw(
+        revisionPredicate: String,
+        revisionArg: Long,
+        extraWhere: SqlFragment,
+        orderAndLimit: String,
+        trailingArgs: List<Pair<IColumnType<*>, Any>>,
+    ): List<Pair<String, Long>> =
+        exposedSuspendTransaction(exposedDb) {
+            val sql =
+                buildString {
+                    append("SELECT id, revision FROM library_folders ")
+                    append("WHERE $revisionPredicate AND id IN (${extraWhere.sql})")
+                    if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
+                }
+            val args =
+                buildList {
+                    add(LongColumnType() to revisionArg)
+                    addAll(extraWhere.args)
+                    addAll(trailingArgs)
+                }
+            val results = mutableListOf<Pair<String, Long>>()
+            TransactionManager.current().exec(stmt = sql, args = args) { rs ->
+                while (rs.next()) results += rs.getString(1) to rs.getLong(2)
+            }
+            results
+        }
+
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: FolderId): String = idAsString(id)
+
+    /** Maps a generated [Library_folders] row to the wire [LibraryFolderSyncPayload] DTO. */
+    private fun Library_folders.toSyncPayload(): LibraryFolderSyncPayload =
+        LibraryFolderSyncPayload(
+            id = id,
+            libraryId = library_id,
+            rootPath = root_path,
+            revision = revision,
+            updatedAt = updated_at,
+            createdAt = created_at,
+            deletedAt = deleted_at,
+        )
+
+    private companion object {
+        /**
+         * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
+         * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
+         */
+        const val SQLITE_IN_CHUNK = 900
+    }
 }

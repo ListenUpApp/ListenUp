@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
+import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -533,7 +534,7 @@ private fun persister(
     BookPersister(
         ingest = ingest,
         libraryRegistry = LibraryRegistry(db),
-        libraryRepository = LibraryRepository(db, ChangeBus(), SyncRegistry()),
+        libraryRepository = LibraryRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()),
         collectionService = inertCollectionService(db),
         db = db,
         scanResultBus = MutableSharedFlow(),

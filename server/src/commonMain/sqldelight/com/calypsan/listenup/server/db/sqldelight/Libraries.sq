@@ -1,0 +1,82 @@
+-- libraries: global (cross-user) syncable domain — a named, operator-configured
+-- collection of zero-or-more library_folders roots. Soft-deletable, revision-tracked.
+-- Column set matches V20__library_substrate.sql (base + multi-user forward-staging)
+-- plus V25__library_inbox_enabled.sql (the inbox_enabled gate).
+--
+-- `inbox_enabled` is a SERVER-side scanner gate — it is deliberately NOT part of
+-- LibrarySyncPayload (not member-synced), so its read/write lives in dedicated
+-- queries (selectInboxEnabled / setInboxEnabled) separate from the syncable
+-- read/write path.
+CREATE TABLE libraries (
+    id                  TEXT    NOT NULL PRIMARY KEY,
+    name                TEXT    NOT NULL,
+    metadata_precedence TEXT    NOT NULL DEFAULT 'embedded,abs,sidecar',
+    access_mode         TEXT    NOT NULL DEFAULT 'shared',
+    created_by_user_id  TEXT,
+    created_at          INTEGER NOT NULL,
+    revision            INTEGER NOT NULL DEFAULT 0,
+    updated_at          INTEGER NOT NULL DEFAULT 0,
+    deleted_at          INTEGER,
+    client_op_id        TEXT,
+    inbox_enabled       INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_libraries_revision ON libraries(revision);
+
+-- ── Global substrate queries (the SyncableSubstrateQueries contract) ──────────
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM libraries WHERE id = :id);
+
+softDeleteById:
+UPDATE libraries
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM libraries WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM libraries WHERE revision <= :cursor;
+
+-- ── Syncable read/write (carries the LibrarySyncPayload columns only) ─────────
+
+-- Tombstone-inclusive read by id — pullSince/readPayloads must hydrate soft-deleted
+-- rows so clients receive tombstones.
+selectById:
+SELECT * FROM libraries WHERE id = :id;
+
+selectByIds:
+SELECT * FROM libraries WHERE id IN :ids;
+
+insert:
+INSERT INTO libraries (id, name, metadata_precedence, access_mode, created_by_user_id, created_at, revision, updated_at, deleted_at, client_op_id)
+VALUES (:id, :name, :metadata_precedence, :access_mode, :created_by_user_id, :created_at, :revision, :updated_at, :deleted_at, :client_op_id);
+
+-- Updates only the LibrarySyncPayload-carried columns. `inbox_enabled` is
+-- intentionally left untouched — it is a server-side gate, not member-synced, so a
+-- syncable upsert must never clobber it.
+update:
+UPDATE libraries
+SET name = :name, metadata_precedence = :metadata_precedence, access_mode = :access_mode,
+    created_by_user_id = :created_by_user_id, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+-- ── inbox_enabled gate (off-payload, server-side scanner gate) ────────────────
+
+-- Reads the inbox_enabled flag for a live (non-tombstoned) library, or null when
+-- no live row exists. The repository folds null → false.
+selectInboxEnabled:
+SELECT inbox_enabled FROM libraries WHERE id = :id AND deleted_at IS NULL;
+
+-- Sets the inbox_enabled flag and bumps revision/updated_at (the gate change is
+-- still a syncable mutation so clients reconcile reactively). Returns the affected
+-- row count (0 = no live row). The off-payload flag column is written directly here,
+-- never through the syncable `update`.
+setInboxEnabled:
+UPDATE libraries
+SET inbox_enabled = :inbox_enabled, revision = :revision, updated_at = :updated_at,
+    client_op_id = :client_op_id
+WHERE id = :id AND deleted_at IS NULL;

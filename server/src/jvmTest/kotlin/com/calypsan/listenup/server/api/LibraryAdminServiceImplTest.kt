@@ -417,8 +417,8 @@ private fun makeService(
 ): ServiceFixture {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val libraryRepo = LibraryRepository(db = db, bus = bus, registry = registry)
-    val folderRepo = LibraryFolderRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val folderRepo = LibraryFolderRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry(), exposedDb = db)
     val contributorRepo =
         com.calypsan.listenup.server.services.ContributorRepository(
             db = db.asSqlDatabase(),
