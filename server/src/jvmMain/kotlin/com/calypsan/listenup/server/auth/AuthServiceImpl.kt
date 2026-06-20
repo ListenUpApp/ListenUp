@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -71,6 +72,12 @@ class AuthServiceImpl(
     internal val shelfRepository: ShelfRepository? = null,
     internal val publicProfileMaintainer: PublicProfileMaintainer? = null,
     internal val activityRecorder: ActivityRecorder? = null,
+    /**
+     * Nullable so the auth module assembles independently of the collections module
+     * (test environments, phased startup). A null value means MEMBER users are created
+     * without a default ALL_BOOKS grant — user creation still succeeds.
+     */
+    internal val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -168,9 +175,10 @@ class AuthServiceImpl(
                 )
             }
         createStarterShelfBestEffort(user.id.value)
-        // Only ACTIVE users get a projection row immediately; PENDING_APPROVAL users
-        // get their row when the admin approves them (via AdminUserServiceImpl).
+        // Only ACTIVE users get side-effects immediately; PENDING_APPROVAL users
+        // get theirs when the admin approves them (via AdminUserServiceImpl).
         if (user.status == UserStatusColumn.ACTIVE) {
+            defaultGrantIssuer?.grantDefaultAllBooks(user.id.value, UserRoleColumn.MEMBER)
             publicProfileMaintainer?.refreshBestEffort(user.id.value)
             activityRecorder?.record(user.id.value, ActivityType.USER_JOINED)
         }
@@ -278,6 +286,7 @@ class AuthServiceImpl(
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
+            defaultGrantIssuer = defaultGrantIssuer,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -295,6 +304,7 @@ class AuthServiceImpl(
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
+            defaultGrantIssuer = defaultGrantIssuer,
         )
 
     /**
