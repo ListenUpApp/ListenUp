@@ -345,6 +345,7 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             principal = rootPrincipal(),
         )

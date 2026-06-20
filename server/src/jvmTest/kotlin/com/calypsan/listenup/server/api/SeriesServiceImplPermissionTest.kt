@@ -118,6 +118,7 @@ private fun makeService(db: Database): PermServiceDeps {
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             permissionPolicy = UserPermissionPolicy(db),
         )

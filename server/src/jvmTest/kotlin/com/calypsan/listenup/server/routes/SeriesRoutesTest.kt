@@ -82,7 +82,7 @@ class SeriesRoutesTest :
                 val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
-                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db)
+                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
                 val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
                 val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
                 val accessPolicy = BookAccessPolicy(db)

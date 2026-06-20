@@ -356,6 +356,7 @@ private fun makeServiceAndDeps(db: Database): MergeServiceDeps {
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             principal = rootPrincipal(),
         )

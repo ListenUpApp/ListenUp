@@ -314,6 +314,7 @@ private fun makeUnmergeServiceAndDeps(db: Database): UnmergeServiceDeps {
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             principal = rootPrincipal(),
         )

@@ -262,6 +262,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 contributorRepo = serverRepos.contributorRepo,
                 bookRepo = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
+                sqlDb = serverDb,
                 db = serverDb,
             )
         // Books-C2 Task 25 needs `SeriesService` for the mergeSeries e2e test.
@@ -270,6 +271,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
+                sqlDb = serverDb,
                 db = serverDb,
             )
         // Genres e2e tests need a `GenreService` against the same server scaffolding.

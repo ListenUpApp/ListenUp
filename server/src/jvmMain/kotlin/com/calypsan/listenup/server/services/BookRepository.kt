@@ -648,6 +648,19 @@ class BookRepository(
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
 
     /**
+     * Batch-reads the full book aggregates for [bookIds] in input order, skipping ids whose
+     * root row is absent. One round-trip per child table per id-chunk (chunked at 900) — the
+     * batched alternative to a per-id [findById] loop.
+     *
+     * Used by the cross-aggregate Contributor/Series merge/delete/unmerge service flows to
+     * re-upsert every affected book after a junction relink without an N+1. Opens its own
+     * SQLDelight transaction; when called from inside an already-open transaction (the service
+     * flows do) it nests as a savepoint on the same connection.
+     */
+    suspend fun findAllByIds(bookIds: List<String>): List<BookSyncPayload> =
+        suspendTransaction(db) { readPayloads(bookIds) }
+
+    /**
      * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
      * row's revision so the change propagates to clients via the sync bus.
      *

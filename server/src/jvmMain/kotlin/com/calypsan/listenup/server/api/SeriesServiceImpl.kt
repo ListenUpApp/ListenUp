@@ -8,11 +8,11 @@ import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
@@ -42,9 +42,15 @@ private val logger = KotlinLogging.logger {}
  * re-upserts each affected book with the series stripped — which bumps each
  * book's revision and publishes the resulting `Updated` events so clients see
  * the series disappear from book detail views — and finally soft-deletes
- * the series itself. The whole cascade runs inside one [suspendTransaction]
- * so any failure rolls back the lot. Post-commit, every affected book has its
- * `book_search` FTS row reindexed (best-effort; logged on failure).
+ * the series itself. Post-commit, every affected book has its `book_search` FTS
+ * row reindexed (best-effort; logged on failure).
+ *
+ * **Transaction model (SQLDelight cutover).** Like [com.calypsan.listenup.server.api.ContributorServiceImpl],
+ * each flow runs its read-consistency checks under an outer Exposed read transaction, but every
+ * WRITE — the `book_series_memberships` relink/delete and the series/book upserts — goes through
+ * the single SQLDelight connection. The outer Exposed transaction never takes the SQLite write
+ * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
+ * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
  *
  * Series reads ([getSeries], [listBooksBySeries]) are open to any authenticated user.
  * Series-metadata mutations ([updateSeries], [deleteSeries], [mergeSeries]) are gated on
@@ -58,13 +64,20 @@ internal class SeriesServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
-    private val db: Database,
+    private val sqlDb: ListenUpDatabase,
+    db: Database,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : SeriesService {
+    /**
+     * The Exposed handle is retained only so the default [permissionPolicy] can be built from it;
+     * every merge/delete flow now runs over the SQLDelight [sqlDb] connection.
+     */
+    private val db: Database = db
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db, permissionPolicy, principal)
+        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, db, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -133,15 +146,19 @@ internal class SeriesServiceImpl(
                     )
                 }
 
-                // Snapshot affected book IDs BEFORE relink so re-upsert covers them.
-                val affectedBookIds = BookSeriesMembershipTable.bookIdsForSeries(source.value)
-
-                // Re-link all junction rows from source → target.
-                BookSeriesMembershipTable.relinkSeries(fromId = source.value, toId = target.value)
+                // Snapshot affected book IDs, then re-link all membership rows source → target —
+                // both over the single SQLDelight connection in one mini-transaction. Keeping the
+                // junction writes off the Exposed connection closes the SQLITE_BUSY window.
+                val affectedBookIds =
+                    sqlTransaction(sqlDb) {
+                        val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(source.value).executeAsList()
+                        sqlDb.bookSeriesMembershipsQueries.relinkSeries(to_id = target.value, from_id = source.value)
+                        ids
+                    }
 
                 // Re-upsert each affected book — bumps revision + emits book.Updated per book.
-                for (bookId in affectedBookIds) {
-                    val book = bookRepo.findById(BookId(bookId)) ?: continue
+                // One batched read replaces the per-book N+1 lookup.
+                for (book in bookRepo.findAllByIds(affectedBookIds)) {
                     when (val upsertResult = bookRepo.upsert(book)) {
                         is AppResult.Success -> Unit
                         is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
@@ -173,10 +190,15 @@ internal class SeriesServiceImpl(
             suspendTransaction(db) {
                 seriesRepo.findById(id.value)
                     ?: return@suspendTransaction seriesNotFound(id)
-                val affectedBookIds = BookSeriesMembershipTable.bookIdsForSeries(id.value)
-                BookSeriesMembershipTable.deleteAllForSeries(id.value)
-                for (bookId in affectedBookIds) {
-                    val payload = bookRepo.findById(BookId(bookId)) ?: continue
+                // Snapshot affected book IDs, then hard-delete every membership row for the
+                // series — both over the single SQLDelight connection in one mini-transaction.
+                val affectedBookIds =
+                    sqlTransaction(sqlDb) {
+                        val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(id.value).executeAsList()
+                        sqlDb.bookSeriesMembershipsQueries.deleteAllForSeries(id.value)
+                        ids
+                    }
+                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
                     val stripped = payload.copy(series = payload.series.filter { it.id != id.value })
                     when (val upsertResult = bookRepo.upsert(stripped)) {
                         is AppResult.Success -> Unit
@@ -207,8 +229,9 @@ fun createSeriesService(
     seriesRepo: SeriesRepository,
     bookRepo: BookRepository,
     reindexer: BookSearchReindexer,
+    sqlDb: ListenUpDatabase,
     db: Database,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db)
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, db)
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.

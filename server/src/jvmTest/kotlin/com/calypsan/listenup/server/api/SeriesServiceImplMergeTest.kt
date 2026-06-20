@@ -229,6 +229,7 @@ private fun makeMergeSeriesServiceAndDeps(db: Database): MergeSeriesServiceDeps 
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
+            sqlDb = db.asSqlDatabase(),
             db = db,
             principal = rootPrincipal(),
         )
