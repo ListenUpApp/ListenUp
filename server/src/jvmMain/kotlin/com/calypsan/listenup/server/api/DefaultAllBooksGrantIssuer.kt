@@ -35,8 +35,13 @@ class DefaultAllBooksGrantIssuer(
     /**
      * Issues an ALL_BOOKS read grant to [userId] if [role] is [UserRoleColumn.MEMBER].
      *
+     * **Idempotent / self-heal-safe:** before upserting, checks whether a live grant already
+     * exists. If one is found, returns immediately (no-op) — safe to call on every login as a
+     * self-heal pass. Only inserts when the grant is actually missing.
+     *
      * Never throws: [CancellationException] is re-raised (structured-concurrency contract);
-     * all other failures are logged at WARN and swallowed so user creation is never blocked.
+     * all other failures are logged at ERROR (because a missing grant leaves the member with an
+     * entirely empty library) and swallowed so user creation/login is never blocked.
      */
     suspend fun grantDefaultAllBooks(
         userId: String,
@@ -48,11 +53,15 @@ class DefaultAllBooksGrantIssuer(
             val allBooksId =
                 collectionRepository.findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS)?.id
             if (allBooksId == null) {
-                logger.warn {
-                    "ALL_BOOKS system collection not found for library $libraryId — skipping default grant for user $userId"
+                logger.error {
+                    "ALL_BOOKS missing for library $libraryId — MEMBER $userId has NO default grant " +
+                        "and will see an EMPTY library until reconciled"
                 }
                 return
             }
+            // Idempotency check: if a live grant already exists, skip the upsert.
+            val existing = collectionGrantRepository.findActiveGrant(allBooksId, userId)
+            if (existing != null) return
             val now = clock.now().toEpochMilliseconds()
             collectionGrantRepository.upsert(
                 CollectionShareSyncPayload(
@@ -69,7 +78,9 @@ class DefaultAllBooksGrantIssuer(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "default ALL_BOOKS grant failed for user $userId — user creation still succeeds" }
+            logger.error(e) {
+                "default ALL_BOOKS grant failed for MEMBER $userId — they will see an EMPTY library until reconciled (next login retries)"
+            }
         }
     }
 }

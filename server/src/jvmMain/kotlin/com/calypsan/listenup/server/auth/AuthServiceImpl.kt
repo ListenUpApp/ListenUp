@@ -104,6 +104,12 @@ class AuthServiceImpl(
         }
 
         markLastLogin(user.id.value, request.timezone)
+        // Best-effort self-heal: if this MEMBER's ALL_BOOKS grant was never issued (or was
+        // somehow lost), re-assert it on login. The issuer is idempotent — it checks for a
+        // live grant first and skips the upsert when one already exists — so this is a cheap
+        // no-op on the happy path. ROOT/ADMIN are a no-op inside the issuer (role gate).
+        // Placed after status checks and before session issuance so it can't block the caller.
+        defaultGrantIssuer?.grantDefaultAllBooks(user.id.value, user.role)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,
