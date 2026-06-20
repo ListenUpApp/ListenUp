@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
  * Uses Ktor to connect to the server's registration status SSE endpoint
  * and emits status updates as a Flow.
  */
-class RegistrationStatusStreamImpl(
+internal class RegistrationStatusStreamImpl(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : RegistrationStatusStream {

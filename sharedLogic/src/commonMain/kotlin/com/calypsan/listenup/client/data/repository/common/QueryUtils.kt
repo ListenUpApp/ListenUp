@@ -6,7 +6,7 @@ package com.calypsan.listenup.client.data.repository.common
  * Provides consistent query sanitization and FTS5 formatting
  * across all repositories that perform search operations.
  */
-object QueryUtils {
+internal object QueryUtils {
     /** Maximum allowed query length. */
     const val MAX_QUERY_LENGTH = 100
 
@@ -64,10 +64,10 @@ object QueryUtils {
 /**
  * Extension function for convenient query sanitization.
  */
-fun String.sanitizeForSearch(maxLength: Int = QueryUtils.MAX_QUERY_LENGTH): String =
+internal fun String.sanitizeForSearch(maxLength: Int = QueryUtils.MAX_QUERY_LENGTH): String =
     QueryUtils.sanitize(this, maxLength)
 
 /**
  * Extension function to convert to FTS query.
  */
-fun String.toFtsQuery(): String = QueryUtils.toFtsQuery(this)
+internal fun String.toFtsQuery(): String = QueryUtils.toFtsQuery(this)

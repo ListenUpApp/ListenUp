@@ -22,7 +22,7 @@ private val logger = KotlinLogging.logger {}
  * Wire [WireAppResult] values returned by the RPC service are converted to the
  * client-layer [AppResult] at this boundary.
  */
-class ContributorEditRepositoryImpl(
+internal class ContributorEditRepositoryImpl(
     private val contributorRpcFactory: ContributorRpcFactory,
 ) : ContributorEditRepository {
     override suspend fun updateContributor(

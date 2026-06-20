@@ -31,7 +31,7 @@ import kotlinx.coroutines.flow.map
  * Wire [WireAppResult] values returned by the RPC service are converted to the client-layer
  * [AppResult] at this boundary, following the same pattern as [TagRepositoryImpl].
  */
-class MoodRepositoryImpl(
+internal class MoodRepositoryImpl(
     private val moodRpcFactory: MoodRpcFactory,
     private val moodDao: MoodDao,
 ) : MoodRepository {

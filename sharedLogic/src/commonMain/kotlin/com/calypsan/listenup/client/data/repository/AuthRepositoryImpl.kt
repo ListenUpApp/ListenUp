@@ -29,7 +29,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Per kotlinx.coroutines convention, `CancellationException` is re-thrown.
  */
-class AuthRepositoryImpl(
+internal class AuthRepositoryImpl(
     private val rpc: AuthRpcFactory,
     private val authSession: ClientAuthSession,
 ) : AuthRepository {

@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
  * - ImageStorage for local file operations
  * - ImageApiContract for upload operations
  */
-class ImageRepositoryImpl(
+internal class ImageRepositoryImpl(
     private val imageDownloader: ImageDownloaderContract,
     private val imageStorage: ImageStorage,
     private val imageApi: ImageApiContract,

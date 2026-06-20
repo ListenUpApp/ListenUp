@@ -53,7 +53,7 @@ private const val DOWNLOAD_TIMEOUT_MS = 10L * 60 * 1_000 // large image-bearing 
  * plain [Flow]<[BackupEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
  */
-class BackupRepositoryImpl(
+internal class BackupRepositoryImpl(
     private val rpcFactory: BackupRpcFactory,
     private val clientFactory: ApiClientFactory,
 ) : BackupRepository {

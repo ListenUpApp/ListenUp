@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.map
  *
  * Dense ranking: ties share a rank; the next distinct value jumps to its 1-indexed position.
  */
-class LeaderboardRepositoryImpl(
+internal class LeaderboardRepositoryImpl(
     private val publicProfileDao: PublicProfileDao,
 ) : LeaderboardRepository {
     override fun observeSnapshot(

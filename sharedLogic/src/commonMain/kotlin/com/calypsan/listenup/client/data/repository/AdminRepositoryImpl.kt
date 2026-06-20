@@ -49,7 +49,7 @@ private val logger = KotlinLogging.logger {}
  * @property libraryAdminRpc RPC factory for library-admin operations (add/remove folder, scan)
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
-class AdminRepositoryImpl(
+internal class AdminRepositoryImpl(
     private val adminUserRpc: AdminUserRpcFactory,
     private val adminSettingsRpc: AdminSettingsRpcFactory,
     private val inviteRpc: InviteRpcFactory,

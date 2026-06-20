@@ -44,7 +44,7 @@ private val logger = KotlinLogging.logger {}
  * @property userDao Current-user lookup for owner fields on own shelves.
  * @property rpcFactory Supplies the [com.calypsan.listenup.api.ShelfService] RPC proxy.
  */
-class ShelfRepositoryImpl(
+internal class ShelfRepositoryImpl(
     private val dao: ShelfDao,
     private val userDao: UserDao,
     private val rpcFactory: ShelfRpcFactory,

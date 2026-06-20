@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.map
  * Single seam for download state + aggregation. All download writes go through this class
  * (Sync Engine Rule 5). Aggregation reducer lives here so platforms share the same state-machine.
  */
-class DownloadRepositoryImpl(
+internal class DownloadRepositoryImpl(
     private val downloadDao: DownloadDao,
     private val bookRepository: BookRepository,
     private val enqueuer: DownloadEnqueuer,

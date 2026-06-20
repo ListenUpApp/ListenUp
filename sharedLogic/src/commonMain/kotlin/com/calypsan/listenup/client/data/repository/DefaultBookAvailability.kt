@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.combine
  * metering, and the wifi-only preference. Pulled out of BookDetailViewModel so the
  * availability logic is independently testable and the VM stays lean.
  */
-class DefaultBookAvailability(
+internal class DefaultBookAvailability(
     private val downloadRepository: DownloadRepository,
     private val serverReachability: ServerReachability,
     private val networkMonitor: NetworkMonitor,

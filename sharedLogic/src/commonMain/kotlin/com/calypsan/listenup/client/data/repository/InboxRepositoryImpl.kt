@@ -11,7 +11,7 @@ import com.calypsan.listenup.api.result.AppResult
  * repository simply forwards to the REST client. Mutations on release propagate into
  * Room through the normal collection/book sync stream, not through this repository.
  */
-class InboxRepositoryImpl(
+internal class InboxRepositoryImpl(
     private val api: CollectionInboxApiContract,
 ) : InboxRepository {
     override suspend fun listInbox(libraryId: String): AppResult<List<String>> = api.listInbox(libraryId)

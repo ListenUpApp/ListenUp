@@ -21,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * non-null field via PATCH semantics. RPC calls are wrapped so a thrown transport error becomes a
  * typed [AppResult.Failure] — the data layer never throws (cancellation is always re-raised).
  */
-class UserPreferencesRepositoryImpl(
+internal class UserPreferencesRepositoryImpl(
     private val rpcFactory: UserPreferencesRpcFactory,
 ) : UserPreferencesRepository {
     override suspend fun getPreferences(): AppResult<UserPreferences> =

@@ -32,7 +32,7 @@ private val logger = KotlinLogging.logger {}
  * optimistic Room writes — the SSE echo from the server is the single write
  * path back into Room, mirroring the C2 contributor/series pattern.
  */
-class GenreRepositoryImpl(
+internal class GenreRepositoryImpl(
     private val dao: GenreDao,
     private val rpcFactory: GenreRpcFactory,
 ) : GenreRepository {

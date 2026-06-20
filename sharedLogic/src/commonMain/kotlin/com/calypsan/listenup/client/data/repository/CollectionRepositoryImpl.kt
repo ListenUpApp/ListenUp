@@ -38,7 +38,7 @@ private val logger = KotlinLogging.logger {}
  * Room writes — the SSE echo from the server is the single write path back into Room
  * (the Tags/Genres pattern).
  */
-class CollectionRepositoryImpl(
+internal class CollectionRepositoryImpl(
     private val collectionDao: CollectionDao,
     private val collectionBookDao: CollectionBookDao,
     private val collectionShareDao: CollectionShareDao,
