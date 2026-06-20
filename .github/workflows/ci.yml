@@ -173,6 +173,18 @@ jobs:
           path: ${{ runner.temp }}/ios-test.xcresult
           retention-days: 7
 
+      # Records the iOS framework's exported Objective-C surface so export-surface
+      # regressions are visible. Informational for now (continue-on-error) — once a
+      # real run confirms the mangled names, the regression list in the script
+      # becomes a hard gate. See CLAUDE.md "Export Surface".
+      - name: Export-surface inventory (informational)
+        if: always()
+        continue-on-error: true
+        run: |
+          ./gradlew :sharedLogic:linkReleaseFrameworkIosArm64 --no-daemon
+          bash scripts/export-surface-inventory.sh \
+            sharedLogic/build/bin/iosArm64/releaseFramework/Shared.framework/Headers/Shared.h
+
   # ── Build ────────────────────────────────────────────────────────────────────
   build-server-native:
     name: Build (server linuxX64)
