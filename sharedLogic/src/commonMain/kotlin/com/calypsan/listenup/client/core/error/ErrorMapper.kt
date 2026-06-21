@@ -21,7 +21,7 @@ import kotlinx.serialization.SerializationException
  * correlation ids arrive in deserialized [AppError] payloads from the RPC
  * exception interceptor, not via this mapper).
  */
-object ErrorMapper {
+internal object ErrorMapper {
     fun map(exception: Throwable): AppError =
         when (exception) {
             is ConnectTimeoutException,
