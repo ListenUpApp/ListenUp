@@ -71,7 +71,7 @@ class GenreRoutesTest :
                 val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
                 val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
                 val bookRepo =
                     BookRepository(
                         db = db.asSqlDatabase(),

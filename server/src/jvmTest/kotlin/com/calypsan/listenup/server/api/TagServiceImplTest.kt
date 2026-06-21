@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
@@ -41,7 +42,7 @@ class TagServiceImplTest :
             val registry = SyncRegistry()
             val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
             val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed)
+            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed.asSqlDriver())
             return TagServiceImpl(tagRepo, bookTagRepo, reindexer, dbs.sql, fixedClock, principal = rootPrincipal())
         }
 

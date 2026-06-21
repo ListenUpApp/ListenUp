@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -180,7 +181,11 @@ private fun makeReindexService(
 ): SearchReindexService {
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    return SearchReindexService(db, BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db))
+    return SearchReindexService(
+        db = db.asSqlDatabase(),
+        driver = db.asSqlDriver(),
+        reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver()),
+    )
 }
 
 /**

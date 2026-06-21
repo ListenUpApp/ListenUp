@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.db.ContributorTable
@@ -35,7 +36,7 @@ class BookSearchReindexerContributorTest :
             db: org.jetbrains.exposed.v1.jdbc.Database,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
 
         /** Seeds a minimal book_search_map + book_search FTS row for [bookId]. */
         suspend fun seedFtsRow(

@@ -351,7 +351,7 @@ private fun makeServiceAndDeps(db: Database): MergeServiceDeps {
         )
     val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,

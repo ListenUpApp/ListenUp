@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.asSqlDriver
 
 import com.calypsan.listenup.server.db.ContributorAliasTable
 import com.calypsan.listenup.server.db.ContributorTable
@@ -32,7 +33,7 @@ class BookSearchReindexerAliasTest :
             db: org.jetbrains.exposed.v1.jdbc.Database,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
 
         /** Seeds a contributor row. The V22 `contributors_ai` trigger inserts an FTS row with empty aliases. */
         fun seedContributor(

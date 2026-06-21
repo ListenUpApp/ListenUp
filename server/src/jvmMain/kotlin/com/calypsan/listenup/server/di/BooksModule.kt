@@ -32,7 +32,6 @@ import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverImageStore
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
@@ -234,8 +233,14 @@ private fun Module.searchBindings() {
             principal = unscopedPlaceholder("SearchService"),
         )
     }
-    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<Database>()) }
-    single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
+    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<SqlDriver>()) }
+    single {
+        SearchReindexService(
+            db = get<ListenUpDatabase>(),
+            driver = get<SqlDriver>(),
+            reindexer = get<BookSearchReindexer>(),
+        )
+    }
 }
 
 /**

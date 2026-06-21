@@ -84,7 +84,7 @@ class ContributorRoutesTest :
                     )
                 val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
                 val service = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db.asSqlDatabase())
                 val collectionRepo =
                     CollectionRepository(

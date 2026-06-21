@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -82,7 +83,7 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
     val registry = SyncRegistry()
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed.asSqlDriver())
     return TagServiceImpl(
         tagRepository = tagRepo,
         bookTagRepository = bookTagRepo,
