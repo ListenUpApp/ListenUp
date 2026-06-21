@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  * Mirrors [CollectionDao].
  */
 @Dao
-interface ShelfDao {
+internal interface ShelfDao {
     /** Insert or update a shelf. Replaces on conflict using the primary key. */
     @Upsert
     suspend fun upsert(shelf: ShelfEntity)

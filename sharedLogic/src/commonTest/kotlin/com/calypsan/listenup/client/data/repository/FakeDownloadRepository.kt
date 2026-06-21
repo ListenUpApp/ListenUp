@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.update
  * Optional [enqueueFailure] lambda lets tests inject failure for [enqueueForBook] (returns the
  * lambda's value when set; `AppResult.Success(DownloadOutcome.Started)` when null).
  */
-open class FakeDownloadRepository(
+internal open class FakeDownloadRepository(
     initial: List<DownloadEntity> = emptyList(),
     private val enqueueFailure: ((BookId) -> AppResult<DownloadOutcome>)? = null,
 ) : DownloadRepository {

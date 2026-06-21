@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  * [findAll].
  */
 @Dao
-interface LibraryDao {
+internal interface LibraryDao {
     /**
      * Observe all live libraries reactively, ordered by name.
      *

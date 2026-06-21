@@ -165,7 +165,7 @@ sealed interface ContributorEditNavAction {
  * @property contributorDao DAO for browsing all contributors as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
  */
-class ContributorEditViewModel(
+class ContributorEditViewModel internal constructor(
     private val contributorRepository: ContributorRepository,
     private val updateContributorUseCase: UpdateContributorUseCase,
     private val imageRepository: ImageRepository,

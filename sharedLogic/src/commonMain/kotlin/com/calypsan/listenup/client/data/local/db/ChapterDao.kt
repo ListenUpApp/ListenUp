@@ -6,7 +6,7 @@ import androidx.room.Upsert
 import com.calypsan.listenup.core.BookId
 
 @Dao
-interface ChapterDao {
+internal interface ChapterDao {
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY startTime ASC")
     suspend fun getChaptersForBook(bookId: BookId): List<ChapterEntity>
 

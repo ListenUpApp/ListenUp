@@ -4,7 +4,7 @@ import SwiftUI
 /// Series grid card for the iPad Series list: a centered cover stack over name + meta
 /// + progress, on its own rounded surface.
 struct SeriesGridCard: View {
-    let series: SeriesWithBooks_
+    let series: SeriesWithBooks
     let progress: SeriesProgressState
 
     private var seriesId: String { series.series.idString }

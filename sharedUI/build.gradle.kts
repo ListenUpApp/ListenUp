@@ -8,16 +8,18 @@ plugins {
     alias(libs.plugins.aboutlibraries)
 }
 
-// Mokkery is used in desktopTest only — see composeApp/src/desktopTest.
+// Mokkery is used in desktopTest and androidHostTest — see
+// sharedUI/src/desktopTest (DesktopPlaybackControllerTest) and
+// sharedUI/src/androidHostTest (BrowseTreeProviderTest).
 //
-// Scope note: this configuration currently exists for a single test file —
-// DesktopPlaybackControllerTest — which constructs a never-invoked
-// `mock<PlaybackManager>()` to satisfy the controller's constructor. Both flags
-// below are module-wide and therefore apply to every future mokkery mock in
-// composeApp/desktopTest; revisit them when a second test surfaces a different
-// mockability need (e.g. a real test that exercises PlaybackManager behaviour,
-// at which point a hand-rolled FakePlaybackManager + an interface seam is the
-// likely better answer).
+// Scope note: desktopTest's DesktopPlaybackControllerTest constructs a
+// never-invoked `mock<PlaybackManager>()` to satisfy the controller's
+// constructor; androidHostTest's BrowseTreeProviderTest is the second mokkery
+// consumer. Both flags below are module-wide and therefore apply to every
+// future mokkery mock in either source set; revisit them when a test surfaces a
+// different mockability need (e.g. a real test that exercises PlaybackManager
+// behaviour, at which point a hand-rolled FakePlaybackManager + an interface
+// seam is the likely better answer).
 //
 // - `ignoreFinalMembers` lets us mock PlaybackManager (open class) without
 //   having to mark each member as `open` individually.
@@ -196,6 +198,7 @@ kotlin {
         val androidHostTest by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.mokkery.runtime)
 
                 // Kotest — canonical FunSpec framework for new androidHostTest tests.
                 // The runner is the JUnit5 platform engine; junit-vintage-engine keeps

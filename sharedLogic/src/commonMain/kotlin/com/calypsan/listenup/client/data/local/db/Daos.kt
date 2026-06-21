@@ -12,7 +12,7 @@ import com.calypsan.listenup.core.SeriesId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface SeriesDao {
+internal interface SeriesDao {
     @Query("SELECT * FROM series WHERE deletedAt IS NULL ORDER BY name ASC")
     fun observeAll(): Flow<List<SeriesEntity>>
 
@@ -125,7 +125,7 @@ interface SeriesDao {
 }
 
 @Dao
-interface ContributorDao {
+internal interface ContributorDao {
     @Query("SELECT * FROM contributors WHERE deletedAt IS NULL")
     fun observeAll(): Flow<List<ContributorEntity>>
 
@@ -300,7 +300,7 @@ interface ContributorDao {
  * `TransactionRunner.atomically { }` block to keep the transaction layer single.
  */
 @Dao
-interface ContributorAliasDao {
+internal interface ContributorAliasDao {
     @Query(
         "SELECT alias FROM contributor_aliases " +
             "WHERE contributorId = :id " +

@@ -4,7 +4,7 @@ import SwiftUI
 /// One contributor in the Contributors list: avatar, name over a role chip + book count,
 /// and a chevron. Rendered inside a `FieldGroup`, so it carries padding but no surface.
 struct PersonRow: View {
-    let contributor: ContributorWithBookCount_
+    let contributor: ContributorWithBookCount
     let kind: RoleChip.Kind
 
     private var contributorId: String { contributor.contributor.idString }

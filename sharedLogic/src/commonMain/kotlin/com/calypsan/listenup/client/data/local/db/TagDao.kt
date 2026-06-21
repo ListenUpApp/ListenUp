@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  * sync engine can track deletions across devices.
  */
 @Dao
-interface TagDao {
+internal interface TagDao {
     /**
      * Insert or update a tag entity. Replaces on conflict using the primary key.
      */
@@ -99,7 +99,7 @@ interface TagDao {
  * tombstoned rows so the UI reactively reflects removals.
  */
 @Dao
-interface BookTagDao {
+internal interface BookTagDao {
     /**
      * Insert or update a junction row. Replaces on conflict using the composite primary key.
      */

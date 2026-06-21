@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 @Suppress("TooManyFunctions")
-interface BookDao {
+internal interface BookDao {
     /**
      * Insert or update a book entity.
      * If a book with the same ID exists, it will be updated.
@@ -479,7 +479,7 @@ interface BookDao {
  *   re-imaged cover invalidates the stale cached bitmap; null when no cover is stored.
  * @property authorName Primary author's display name, or null when no author is linked.
  */
-data class BookSummary(
+internal data class BookSummary(
     val id: String,
     val title: String,
     val coverBlurHash: String?,
@@ -491,7 +491,7 @@ data class BookSummary(
  * Lightweight book data for discovery sections.
  * Includes only the fields needed for display: ID, title, blurHash, createdAt, and author.
  */
-data class DiscoveryBookWithAuthor(
+internal data class DiscoveryBookWithAuthor(
     val id: BookId,
     val title: String,
     val coverBlurHash: String?,
@@ -507,7 +507,7 @@ data class DiscoveryBookWithAuthor(
  * A book in N series produces N rows. The repository groups by [id] and applies the
  * series-starter filter before limiting.
  */
-data class DiscoveryBookWithSeries(
+internal data class DiscoveryBookWithSeries(
     val id: BookId,
     val title: String,
     val coverBlurHash: String?,

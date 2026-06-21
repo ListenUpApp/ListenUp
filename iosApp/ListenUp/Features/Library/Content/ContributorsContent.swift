@@ -5,8 +5,8 @@ import UIKit
 /// The merged Contributors Library tab: a segmented Authors|Narrators control over a
 /// sorted, letter-grouped contributor list (with alphabet scrubber on name sort).
 struct ContributorsContent: View {
-    let authors: [ContributorWithBookCount_]
-    let narrators: [ContributorWithBookCount_]
+    let authors: [ContributorWithBookCount]
+    let narrators: [ContributorWithBookCount]
     let authorsSortState: SortState?
     let narratorsSortState: SortState?
     let onAuthorsCategorySelected: (SortCategory) -> Void
@@ -23,7 +23,7 @@ struct ContributorsContent: View {
     private let sortCategories: [SortCategory] = [.name, .bookCount]
 
     // Active-segment selectors
-    private var list: [ContributorWithBookCount_] { segment == .authors ? authors : narrators }
+    private var list: [ContributorWithBookCount] { segment == .authors ? authors : narrators }
     private var sortState: SortState? { segment == .authors ? authorsSortState : narratorsSortState }
     private var roleKind: RoleChip.Kind { segment == .authors ? .author : .narrator }
     private var isNameSort: Bool { sortState?.category == .name }
@@ -190,6 +190,6 @@ struct ContributorsContent: View {
     }
 }
 
-private extension ContributorWithBookCount_ {
+private extension ContributorWithBookCount {
     var contributorIdString: String { contributor.idString }
 }

@@ -45,7 +45,7 @@ data class PlaybackProgressResponse(
      * Using local clock would inflate updatedAt, causing stale local positions
      * to win over newer server positions on subsequent app launches.
      */
-    fun toEntity(): PlaybackPositionEntity {
+    internal fun toEntity(): PlaybackPositionEntity {
         val serverUpdatedAt = updatedAtMillis()
         return PlaybackPositionEntity(
             bookId = BookId(bookId),

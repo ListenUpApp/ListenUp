@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
  * Android implementation of [DownloadEnqueuer] backed by WorkManager.
  * Lifted from [DownloadManager]'s existing enqueue pattern (single-file variant).
  */
-class AndroidDownloadEnqueuer(
+internal class AndroidDownloadEnqueuer(
     private val workManager: WorkManager,
     private val localPreferences: LocalPreferences,
 ) : DownloadEnqueuer {

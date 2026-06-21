@@ -19,7 +19,7 @@ import com.calypsan.listenup.core.LibraryId
  * Timestamps are stored as Unix epoch milliseconds for cross-platform compatibility.
  */
 @Entity(tableName = "users")
-data class UserEntity(
+internal data class UserEntity(
     @PrimaryKey
     val id: UserId,
     val email: String,
@@ -73,7 +73,7 @@ data class UserEntity(
  * Enables fully offline display of user avatars and names.
  */
 @Entity(tableName = "user_profiles")
-data class UserProfileEntity(
+internal data class UserProfileEntity(
     @PrimaryKey
     val id: String,
     val displayName: String,
@@ -112,7 +112,7 @@ data class UserProfileEntity(
         Index(value = ["folderId"]),
     ],
 )
-data class BookEntity(
+internal data class BookEntity(
     @PrimaryKey val id: BookId,
     /** The library this book belongs to. */
     val libraryId: LibraryId,
@@ -154,7 +154,7 @@ data class BookEntity(
         Index(value = ["bookId"]),
     ],
 )
-data class ChapterEntity(
+internal data class ChapterEntity(
     @PrimaryKey val id: ChapterId,
     val bookId: BookId,
     val title: String,
@@ -170,7 +170,7 @@ data class ChapterEntity(
  * only, now persisted locally so sort-by-series works offline).
  */
 @Entity(tableName = "series")
-data class SeriesEntity(
+internal data class SeriesEntity(
     @PrimaryKey val id: SeriesId,
     val name: String,
     val sortName: String? = null,
@@ -201,7 +201,7 @@ data class SeriesEntity(
  * via the junction) is planned for a later phase.
  */
 @Entity(tableName = "contributors")
-data class ContributorEntity(
+internal data class ContributorEntity(
     @PrimaryKey val id: ContributorId,
     val name: String,
     val sortName: String? = null,
@@ -227,7 +227,7 @@ data class ContributorEntity(
  * Position is sacred: never lose the user's place.
  */
 @Entity(tableName = "playback_positions")
-data class PlaybackPositionEntity(
+internal data class PlaybackPositionEntity(
     @PrimaryKey val bookId: BookId,
     // Current position in book (book-relative)
     val positionMs: Long,
@@ -277,7 +277,7 @@ data class PlaybackPositionEntity(
     tableName = "tags",
     indices = [Index(value = ["slug"])],
 )
-data class TagEntity(
+internal data class TagEntity(
     @PrimaryKey val id: String,
     /** Human-readable display name, e.g. "Sci-Fi". Mutable via rename. */
     val name: String,
@@ -302,7 +302,7 @@ data class TagEntity(
     tableName = "moods",
     indices = [Index(value = ["slug"])],
 )
-data class MoodEntity(
+internal data class MoodEntity(
     @PrimaryKey val id: String,
     /** Human-readable display name, e.g. "Feel-Good". Mutable via rename. */
     val name: String,
@@ -330,7 +330,7 @@ data class MoodEntity(
         Index(value = ["path"]),
     ],
 )
-data class GenreEntity(
+internal data class GenreEntity(
     @PrimaryKey val id: String,
     /** Display name: "Epic Fantasy" */
     val name: String,
@@ -381,7 +381,7 @@ data class GenreEntity(
         Index(value = ["occurredAt"]),
     ],
 )
-data class ActivityEntity(
+internal data class ActivityEntity(
     @PrimaryKey
     val id: String,
     /** User who performed the activity */
@@ -421,7 +421,7 @@ data class ActivityEntity(
  * tombstones are not emitted in P2 but the substrate shape is required.
  */
 @Entity(tableName = "user_stats")
-data class UserStatsEntity(
+internal data class UserStatsEntity(
     /** Primary key — equals the user's ID. */
     @PrimaryKey val id: String,
     val totalSecondsAllTime: Long,
@@ -448,7 +448,7 @@ data class UserStatsEntity(
  * when an orphan span is detected.
  */
 @Entity(tableName = "tentative_span")
-data class TentativeSpanEntity(
+internal data class TentativeSpanEntity(
     @PrimaryKey val id: String,
     val userId: String,
     val bookId: String,

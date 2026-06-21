@@ -19,7 +19,7 @@ import kotlinx.serialization.builtins.serializer
  * primitive types for database storage. These converters enable type-safe
  * value classes with zero runtime overhead while maintaining Room compatibility.
  */
-class ValueClassConverters {
+internal class ValueClassConverters {
     /**
      * Convert BookId value class to String for database storage.
      */
@@ -128,7 +128,7 @@ class ValueClassConverters {
  * unknown value, which is what we want: the app refuses to interpret a state
  * it no longer understands rather than silently remap it.
  */
-class Converters {
+internal class Converters {
     @TypeConverter
     fun fromSyncState(value: SyncState): String = value.name
 
@@ -147,7 +147,7 @@ class Converters {
  *
  * Stored by name (not ordinal), so member order is not a wire concern.
  */
-enum class DownloadState {
+internal enum class DownloadState {
     QUEUED, // Waiting to start
     DOWNLOADING, // In progress
     PAUSED, // User paused or interrupted
@@ -161,7 +161,7 @@ enum class DownloadState {
  * Room type converter for [CoverDownloadStatus] enum.
  * Uses string names (not ordinals) for readable queries and forward compatibility.
  */
-class CoverDownloadStatusConverter {
+internal class CoverDownloadStatusConverter {
     @TypeConverter
     fun fromStatus(value: CoverDownloadStatus): String = value.name
 
@@ -181,7 +181,7 @@ class CoverDownloadStatusConverter {
  * columnar approach or junction table would be over-engineering. Do not use
  * for unbounded collections — those still belong in a separate table.
  */
-class StringListJsonConverter {
+internal class StringListJsonConverter {
     @TypeConverter
     fun fromList(value: List<String>): String = appJson.encodeToString(ListSerializer(String.serializer()), value)
 

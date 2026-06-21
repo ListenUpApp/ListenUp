@@ -14,7 +14,7 @@ private const val MAX_RETRYABLE_ATTEMPTS = 5
  * [PendingOperationV2Entity] for the row schema and ordering contract.
  */
 @Dao
-interface PendingOperationV2Dao {
+internal interface PendingOperationV2Dao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(op: PendingOperationV2Entity)
 

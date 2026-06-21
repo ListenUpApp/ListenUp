@@ -82,7 +82,7 @@ sealed interface UserProfileUiState {
  * The header never blocks on shelves: a shelf failure renders an empty shelf list, not an error.
  */
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalUuidApi::class)
-class UserProfileViewModel(
+class UserProfileViewModel internal constructor(
     private val publicProfileDao: PublicProfileDao,
     private val shelfRepository: ShelfRepository,
     private val userRepository: UserRepository,

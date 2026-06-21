@@ -51,7 +51,7 @@ import com.calypsan.listenup.core.SeriesId
         Index(value = ["contributorId"]),
     ],
 )
-data class BookContributorCrossRef(
+internal data class BookContributorCrossRef(
     val bookId: BookId,
     val contributorId: ContributorId,
     // "author", "narrator", etc.
@@ -92,7 +92,7 @@ data class BookContributorCrossRef(
         Index(value = ["seriesId"]),
     ],
 )
-data class BookSeriesCrossRef(
+internal data class BookSeriesCrossRef(
     val bookId: BookId,
     val seriesId: SeriesId,
     val sequence: String? = null,
@@ -109,7 +109,7 @@ data class BookSeriesCrossRef(
  *
  * Series are loaded with sequence info for display (e.g., "Mistborn #1").
  */
-data class BookWithContributors(
+internal data class BookWithContributors(
     @Embedded val book: BookEntity,
     @Relation(
         entity = ContributorEntity::class,
@@ -153,7 +153,7 @@ data class BookWithContributors(
  * Used by queries that join contributors with book_contributors
  * to count how many books a contributor is associated with.
  */
-data class ContributorWithBookCount(
+internal data class ContributorWithBookCount(
     @Embedded val contributor: ContributorEntity,
     val bookCount: Int,
 )
@@ -165,7 +165,7 @@ data class ContributorWithBookCount(
  * through the book_series table, avoiding N+1 query problems when displaying
  * series with cover stacks.
  */
-data class SeriesWithBooks(
+internal data class SeriesWithBooks(
     @Embedded val series: SeriesEntity,
     @Relation(
         entity = BookEntity::class,
@@ -192,7 +192,7 @@ data class SeriesWithBooks(
  * Uses Room's @Relation with Junction to handle the many-to-many relationship
  * through the book_series table.
  */
-data class BookWithSeries(
+internal data class BookWithSeries(
     @Embedded val book: BookEntity,
     @Relation(
         entity = SeriesEntity::class,
@@ -218,7 +218,7 @@ data class BookWithSeries(
  *
  * Used by queries that count books per role for a specific contributor.
  */
-data class RoleWithBookCount(
+internal data class RoleWithBookCount(
     val role: String,
     val bookCount: Int,
 )
@@ -248,7 +248,7 @@ data class RoleWithBookCount(
         Index(value = ["deletedAt"]),
     ],
 )
-data class BookTagEntity(
+internal data class BookTagEntity(
     val bookId: String,
     val tagId: String,
     val createdAt: Long,
@@ -284,7 +284,7 @@ data class BookTagEntity(
         Index(value = ["genreId"]),
     ],
 )
-data class BookGenreCrossRef(
+internal data class BookGenreCrossRef(
     val bookId: BookId,
     val genreId: String,
 )
@@ -296,7 +296,7 @@ data class BookGenreCrossRef(
  * through the book_tags table. Note: Room's Junction does not filter by [BookTagEntity.deletedAt];
  * consumers should call [TagDao.observeForBook] for tombstone-aware observation instead.
  */
-data class BookWithTags(
+internal data class BookWithTags(
     @Embedded val book: BookEntity,
     @Relation(
         entity = TagEntity::class,
@@ -338,7 +338,7 @@ data class BookWithTags(
         Index(value = ["deletedAt"]),
     ],
 )
-data class BookMoodEntity(
+internal data class BookMoodEntity(
     val bookId: String,
     val moodId: String,
     val createdAt: Long,
@@ -373,7 +373,7 @@ data class BookMoodEntity(
     ],
     indices = [Index(value = ["contributorId"])],
 )
-data class ContributorAliasCrossRef(
+internal data class ContributorAliasCrossRef(
     val contributorId: ContributorId,
     val alias: String,
 )
@@ -395,7 +395,7 @@ data class ContributorAliasCrossRef(
  *   support `ORDER BY` on the projected child collection, so the repository is
  *   the canonical ordering seam.
  */
-data class ContributorWithAliases(
+internal data class ContributorWithAliases(
     @Embedded val contributor: ContributorEntity,
     @Relation(
         parentColumn = "id",

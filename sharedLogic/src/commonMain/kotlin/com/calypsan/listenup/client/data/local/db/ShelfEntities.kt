@@ -27,7 +27,7 @@ import androidx.room.PrimaryKey
         Index(value = ["deletedAt"]),
     ],
 )
-data class ShelfEntity(
+internal data class ShelfEntity(
     @PrimaryKey val id: String,
     /** Display name of the shelf. */
     val name: String,
@@ -63,7 +63,7 @@ data class ShelfEntity(
         Index(value = ["deletedAt"]),
     ],
 )
-data class ShelfBookEntity(
+internal data class ShelfBookEntity(
     @PrimaryKey val id: String,
     /** The shelf this book belongs to. */
     val shelfId: String,
@@ -87,7 +87,7 @@ data class ShelfBookEntity(
  * aligned with [ShelfEntity] without a manual mapping (the
  * [CollectionWithBookCount] precedent).
  */
-data class ShelfWithBookCount(
+internal data class ShelfWithBookCount(
     @Embedded val shelf: ShelfEntity,
     val bookCount: Int,
 )
@@ -100,7 +100,7 @@ data class ShelfWithBookCount(
  * from Room. A non-null [coverHash] lets the UI version its image-cache key so a re-imaged
  * cover invalidates the stale cached bitmap.
  */
-data class ShelfBookCoverHash(
+internal data class ShelfBookCoverHash(
     val bookId: String,
     val coverHash: String?,
 )

@@ -30,7 +30,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
  * This mapper handles the book root row only. Chapter, contributor, and series rows are
  * the responsibility of `BookSyncDomainHandler` (Task 27).
  */
-class BookEntityMapper {
+internal class BookEntityMapper {
     /**
      * Produce a [BookEntity] by combining server-authoritative fields from [payload] with
      * the client-computed blur-hash field taken from [existing].
@@ -92,7 +92,7 @@ private const val ROLE_NARRATOR = "narrator"
  * @param contributorsById Lookup map of contributor ID to ContributorEntity
  * @return List of Contributors for the specified role
  */
-fun List<BookContributorCrossRef>.extractByRole(
+internal fun List<BookContributorCrossRef>.extractByRole(
     role: String,
     contributorsById: Map<ContributorId, ContributorEntity>,
 ): List<BookContributor> =
@@ -109,7 +109,7 @@ fun List<BookContributorCrossRef>.extractByRole(
  * Returns the list-shaped projection — no genres, tags, or allContributors. Use
  * [toDetail] when those fields are required.
  */
-fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
+internal fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
     val contributorsById = contributors.associateBy { it.id }
 
     val authors = contributorRoles.extractByRole(ROLE_AUTHOR, contributorsById)
@@ -161,7 +161,7 @@ fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
  * algorithm as the (deleted in Task 12) private mapper in BookRepositoryImpl.
  * Genres, tags, and moods are loaded externally and passed through.
  */
-fun BookWithContributors.toDetail(
+internal fun BookWithContributors.toDetail(
     imageStorage: ImageStorage,
     genres: List<Genre>,
     tags: List<Tag>,

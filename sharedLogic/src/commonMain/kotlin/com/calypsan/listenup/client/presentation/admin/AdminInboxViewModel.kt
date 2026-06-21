@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  *
  * Subscribes to admin SSE events for real-time inbox add/release updates.
  */
-class AdminInboxViewModel(
+class AdminInboxViewModel internal constructor(
     private val inboxRepository: InboxRepository,
     private val libraryRepository: LibraryRepository,
     private val eventStreamRepository: EventStreamRepository,

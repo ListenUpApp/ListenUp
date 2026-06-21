@@ -7,7 +7,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface DownloadDao {
+internal interface DownloadDao {
     // Observe
     @Query("SELECT * FROM downloads WHERE bookId = :bookId ORDER BY fileIndex")
     fun observeForBook(bookId: String): Flow<List<DownloadEntity>>

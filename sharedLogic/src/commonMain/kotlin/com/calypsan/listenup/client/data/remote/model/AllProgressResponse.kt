@@ -46,7 +46,7 @@ data class ProgressSyncItem(
      *
      * @param existing Optional existing entity to preserve local-only fields
      */
-    fun toEntity(existing: PlaybackPositionEntity? = null): PlaybackPositionEntity =
+    internal fun toEntity(existing: PlaybackPositionEntity? = null): PlaybackPositionEntity =
         PlaybackPositionEntity(
             bookId = BookId(bookId),
             positionMs = currentPositionMs,

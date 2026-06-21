@@ -140,7 +140,7 @@ sealed interface SeriesEditNavAction {
  * @property seriesDao DAO for browsing all series as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
  */
-class SeriesEditViewModel(
+class SeriesEditViewModel internal constructor(
     private val seriesRepository: SeriesRepository,
     private val updateSeriesUseCase: UpdateSeriesUseCase,
     private val imageRepository: ImageRepository,

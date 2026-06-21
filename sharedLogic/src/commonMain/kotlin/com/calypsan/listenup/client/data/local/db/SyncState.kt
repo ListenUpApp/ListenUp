@@ -9,7 +9,7 @@ package com.calypsan.listenup.client.data.local.db
  * - Sync operations transition NOT_SYNCED -> SYNCING -> SYNCED
  * - Conflicts transition to CONFLICT when server has newer version
  */
-enum class SyncState {
+internal enum class SyncState {
     /**
      * Entity is clean and matches server state.
      * No pending local changes or server updates.

@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  * [observeAllWithBookCount]. Mirrors [TagDao].
  */
 @Dao
-interface CollectionDao {
+internal interface CollectionDao {
     /** Insert or update a collection. Replaces on conflict using the primary key. */
     @Upsert
     suspend fun upsert(collection: CollectionEntity)
@@ -99,7 +99,7 @@ interface CollectionDao {
  * exclude tombstoned rows so the UI reactively reflects removals. Mirrors [BookTagDao].
  */
 @Dao
-interface CollectionBookDao {
+internal interface CollectionBookDao {
     /** Insert or update a junction row. Replaces on conflict using the composite primary key. */
     @Upsert
     suspend fun upsert(entity: CollectionBookEntity)
@@ -179,7 +179,7 @@ interface CollectionBookDao {
  * observation queries exclude tombstoned rows. Mirrors [TagDao].
  */
 @Dao
-interface CollectionShareDao {
+internal interface CollectionShareDao {
     /** Insert or update a share. Replaces on conflict using the primary key. */
     @Upsert
     suspend fun upsert(share: CollectionShareEntity)

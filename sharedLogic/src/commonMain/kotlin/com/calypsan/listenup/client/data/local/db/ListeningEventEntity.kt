@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.Flow
         Index(value = ["userId", "bookId"]),
     ],
 )
-data class ListeningEventEntity(
+internal data class ListeningEventEntity(
     @PrimaryKey val id: String,
     val userId: String,
     val bookId: String,
@@ -63,7 +63,7 @@ data class ListeningEventEntity(
  * - History browsing (per book, per user)
  */
 @Dao
-interface ListeningEventDao {
+internal interface ListeningEventDao {
     /**
      * Get all events in a date range for stats computation.
      * Returns Flow for automatic UI updates when events are added.
@@ -329,7 +329,7 @@ interface ListeningEventDao {
 /**
  * Result class for duration-by-book query.
  */
-data class BookDuration(
+internal data class BookDuration(
     val bookId: String,
     val totalMs: Long,
 )

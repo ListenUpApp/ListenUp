@@ -58,7 +58,7 @@ private val logger = KotlinLogging.logger {}
  * @property timeZone Injected for deterministic testing. Defaults to
  *   [TimeZone.currentSystemDefault].
  */
-class ListeningEventRecorder(
+class ListeningEventRecorder internal constructor(
     private val listeningEventDao: ListeningEventDao,
     private val tentativeSpanDao: TentativeSpanDao,
     private val enqueue: suspend (

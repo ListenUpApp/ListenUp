@@ -17,7 +17,7 @@ import androidx.room.Upsert
  * not own transactions itself.
  */
 @Dao
-interface AudioFileDao {
+internal interface AudioFileDao {
     @Query("SELECT * FROM audio_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getForBook(bookId: String): List<AudioFileEntity>
 

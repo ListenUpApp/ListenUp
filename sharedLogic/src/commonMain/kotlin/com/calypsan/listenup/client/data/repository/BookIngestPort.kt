@@ -5,8 +5,9 @@ import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 
 /**
- * Data-layer seam for atomically ingesting a book aggregate from the network. Intentionally `public`
- * (not `internal`): consumed from sibling `:sharedUI` DI modules that can't see `:sharedLogic` internals.
+ * Data-layer seam for atomically ingesting a book aggregate from the network. `internal` to
+ * `:sharedLogic`: its implementation ([BookRepositoryImpl]) and the only binding ([BookModule])
+ * both live in `:sharedLogic`, so it never needs to be seen from a sibling module.
  *
  * Lives in the data layer, not the domain layer, because it speaks Room entity types —
  * callers (playback fallback fetch, sync handlers) already hold entities built from
@@ -16,7 +17,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
  * data-layer ingest paths. Not part of the [com.calypsan.listenup.client.domain.repository.BookRepository]
  * contract so the domain interface stays free of Room types.
  */
-interface BookIngestPort {
+internal interface BookIngestPort {
     /**
      * Atomically upsert a book row and replace its audio-file rows.
      *

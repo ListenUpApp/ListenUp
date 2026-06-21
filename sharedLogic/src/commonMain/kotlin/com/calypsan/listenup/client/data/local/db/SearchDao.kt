@@ -8,7 +8,7 @@ import androidx.room.SkipQueryVerification
 /**
  * Result class for book search that includes denormalized author name.
  */
-data class BookSearchResult(
+internal data class BookSearchResult(
     @Embedded val book: BookEntity,
     val authorName: String?,
 )
@@ -30,7 +30,7 @@ data class BookSearchResult(
  * - series_fts: seriesId, name, description
  */
 @Dao
-interface SearchDao {
+internal interface SearchDao {
     // ==================== SEARCH QUERIES ====================
 
     /**
@@ -394,7 +394,7 @@ interface SearchDao {
  * @property authorName The aggregated name string for this dimension (author,
  *   narrator, series names, or genre names depending on the calling query).
  */
-data class BookIdNameRow(
+internal data class BookIdNameRow(
     val bookId: String,
     val authorName: String,
 )

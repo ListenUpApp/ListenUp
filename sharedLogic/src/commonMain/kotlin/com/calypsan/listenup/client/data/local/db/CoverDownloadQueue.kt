@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Status of a cover download task in the persistent queue.
  */
-enum class CoverDownloadStatus {
+internal enum class CoverDownloadStatus {
     /** Waiting to be processed. */
     PENDING,
 
@@ -35,7 +35,7 @@ enum class CoverDownloadStatus {
  * replaces the old fire-and-forget coroutine approach.
  */
 @Entity(tableName = "cover_download_queue")
-data class CoverDownloadTaskEntity(
+internal data class CoverDownloadTaskEntity(
     @PrimaryKey
     val bookId: BookId,
     val status: CoverDownloadStatus = CoverDownloadStatus.PENDING,
@@ -49,7 +49,7 @@ data class CoverDownloadTaskEntity(
  * DAO for the cover download queue.
  */
 @Dao
-interface CoverDownloadDao {
+internal interface CoverDownloadDao {
     /**
      * Enqueue cover downloads. Existing entries are ignored (IGNORE strategy)
      * so re-syncing doesn't reset in-progress or completed tasks.

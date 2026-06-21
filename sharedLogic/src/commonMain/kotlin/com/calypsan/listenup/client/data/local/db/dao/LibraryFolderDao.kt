@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  * `libraryId` makes library-scoped queries efficient.
  */
 @Dao
-interface LibraryFolderDao {
+internal interface LibraryFolderDao {
     /**
      * Observe all live folders reactively across all libraries.
      *

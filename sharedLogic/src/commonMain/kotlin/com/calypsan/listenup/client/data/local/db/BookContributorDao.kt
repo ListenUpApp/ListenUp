@@ -7,7 +7,7 @@ import androidx.room.Query
 import com.calypsan.listenup.core.BookId
 
 @Dao
-interface BookContributorDao {
+internal interface BookContributorDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(crossRef: BookContributorCrossRef)
 

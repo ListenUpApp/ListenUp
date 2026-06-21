@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
  * `"$shelfId:$bookId"` is the wire/sync-cursor identity. Mirrors [CollectionBookDao].
  */
 @Dao
-interface ShelfBookDao {
+internal interface ShelfBookDao {
     /** Insert or update a junction row. Replaces on conflict using the primary key. */
     @Upsert
     suspend fun upsert(entity: ShelfBookEntity)

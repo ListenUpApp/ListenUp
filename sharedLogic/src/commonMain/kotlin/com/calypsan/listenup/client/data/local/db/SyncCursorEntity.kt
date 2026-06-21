@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
  * resume via `Last-Event-Id` instead of falling back to REST every time.
  */
 @Entity(tableName = "sync_cursor")
-data class SyncCursorEntity(
+internal data class SyncCursorEntity(
     @PrimaryKey val domainName: String,
     val revision: Long,
 )

@@ -42,7 +42,7 @@ private const val BOOK_FINISHED_THRESHOLD = 0.90f
  * into platform code that also constructs this class.
  */
 @Suppress("LongParameterList")
-class PlaybackManagerImpl(
+internal class PlaybackManagerImpl(
     private val serverConfig: ServerConfig,
     private val playbackPreferences: PlaybackPreferences,
     private val bookDao: BookDao,
