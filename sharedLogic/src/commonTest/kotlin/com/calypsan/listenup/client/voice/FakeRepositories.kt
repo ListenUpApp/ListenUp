@@ -152,7 +152,6 @@ class FakeBookRepository : BookRepository {
     override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
-
 }
 
 // ========== Fake Series Repository ==========

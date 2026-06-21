@@ -139,7 +139,6 @@ interface BookRepository {
      * @return Flow emitting the ranked [BookListItem] matches a single time.
      */
     fun search(query: String): Flow<List<BookListItem>>
-
 }
 
 /**

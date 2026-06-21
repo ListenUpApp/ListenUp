@@ -109,7 +109,8 @@ internal class BookRepositoryImpl(
     private val networkMonitor: NetworkMonitor,
     private val bookRpcFactory: BookRpcFactory,
     private val bookSyncDomainHandler: BookSyncDomainHandler,
-) : com.calypsan.listenup.client.domain.repository.BookRepository, BookIngestPort {
+) : com.calypsan.listenup.client.domain.repository.BookRepository,
+    BookIngestPort {
     private val logger = KotlinLogging.logger {}
 
     /**
