@@ -12,6 +12,10 @@ struct LicenseDetailView: View {
         LicenseData.all.first { $0.name == packageName }
     }
 
+    /// Parse a project URL, returning `nil` for a malformed string so the link is
+    /// omitted rather than force-unwrapping into a crash when the row renders.
+    nonisolated static func projectURL(_ raw: String) -> URL? { URL(string: raw) }
+
     var body: some View {
         Group {
             if let lib = library {
@@ -49,18 +53,20 @@ struct LicenseDetailView: View {
                 .background(Color.luSurface2)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                // Project link
-                Link(destination: URL(string: lib.url)!) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.up.right.square")
-                        Text(String(localized: "licenses.view_project"))
-                        Spacer(minLength: 0)
+                // Project link — omitted when the URL is malformed (never force-unwrap).
+                if let url = Self.projectURL(lib.url) {
+                    Link(destination: url) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.up.right.square")
+                            Text(String(localized: "licenses.view_project"))
+                            Spacer(minLength: 0)
+                        }
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(Color.luTint)
+                        .padding(14)
+                        .background(Color.luSurface2)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(Color.luTint)
-                    .padding(14)
-                    .background(Color.luSurface2)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
                 // License text
