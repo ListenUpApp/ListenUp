@@ -10,22 +10,17 @@ import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -38,18 +33,18 @@ import kotlin.time.Instant
 class ShelfDomainSeederTest :
     FunSpec({
 
-        fun makeShelfRepo(db: Database): ShelfRepository = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+        fun makeShelfRepo(sql: ListenUpDatabase): ShelfRepository = ShelfRepository(sql, ChangeBus(), SyncRegistry())
 
-        fun newAuthService(db: Database): AuthServiceImpl {
+        fun newAuthService(sql: ListenUpDatabase): AuthServiceImpl {
             val pepper = "x".repeat(32).toByteArray()
             val clock = FixedClock(Instant.parse("2026-06-04T12:00:00Z"))
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
             return AuthServiceImpl(
-                db = db.asSqlDatabase(),
+                db = sql,
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
@@ -60,9 +55,9 @@ class ShelfDomainSeederTest :
         }
 
         test("isAlreadySeeded returns false when no demo user exists yet") {
-            withInMemoryDatabase {
-                val repo = makeShelfRepo(this)
-                val seeder = ShelfDomainSeeder(sql = this.asSqlDatabase(), shelfRepo = repo)
+            withSqlDatabase {
+                val repo = makeShelfRepo(sql)
+                val seeder = ShelfDomainSeeder(sql = sql, shelfRepo = repo)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -70,17 +65,16 @@ class ShelfDomainSeederTest :
         }
 
         test("seed() creates a public and a private shelf for the demo user") {
-            withInMemoryDatabase {
-                val db = this
-                val authService = newAuthService(db)
-                val repo = makeShelfRepo(db)
-                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
-                val shelfSeeder = ShelfDomainSeeder(sql = db.asSqlDatabase(), shelfRepo = repo)
+            withSqlDatabase {
+                val authService = newAuthService(sql)
+                val repo = makeShelfRepo(sql)
+                val userSeeder = UserDomainSeeder(sql, authService)
+                val shelfSeeder = ShelfDomainSeeder(sql = sql, shelfRepo = repo)
 
                 runTest {
                     // Seed the demo user first so the demo email row exists.
                     userSeeder.seed()
-                    val demoId = demoUserId(db)
+                    val demoId = demoUserId(sql)
 
                     shelfSeeder.isAlreadySeeded() shouldBe false
                     shelfSeeder.seed()
@@ -100,12 +94,11 @@ class ShelfDomainSeederTest :
         }
 
         test("isAlreadySeeded returns true after seed()") {
-            withInMemoryDatabase {
-                val db = this
-                val authService = newAuthService(db)
-                val repo = makeShelfRepo(db)
-                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
-                val shelfSeeder = ShelfDomainSeeder(sql = db.asSqlDatabase(), shelfRepo = repo)
+            withSqlDatabase {
+                val authService = newAuthService(sql)
+                val repo = makeShelfRepo(sql)
+                val userSeeder = UserDomainSeeder(sql, authService)
+                val shelfSeeder = ShelfDomainSeeder(sql = sql, shelfRepo = repo)
 
                 runTest {
                     userSeeder.seed()
@@ -116,12 +109,11 @@ class ShelfDomainSeederTest :
         }
 
         test("seed() can be called twice without throwing") {
-            withInMemoryDatabase {
-                val db = this
-                val authService = newAuthService(db)
-                val repo = makeShelfRepo(db)
-                val userSeeder = UserDomainSeeder(db.asSqlDatabase(), authService)
-                val shelfSeeder = ShelfDomainSeeder(sql = db.asSqlDatabase(), shelfRepo = repo)
+            withSqlDatabase {
+                val authService = newAuthService(sql)
+                val repo = makeShelfRepo(sql)
+                val userSeeder = UserDomainSeeder(sql, authService)
+                val shelfSeeder = ShelfDomainSeeder(sql = sql, shelfRepo = repo)
 
                 runTest {
                     userSeeder.seed()
@@ -134,29 +126,25 @@ class ShelfDomainSeederTest :
         }
 
         test("domainName is shelves and order is 32") {
-            withInMemoryDatabase {
-                val repo = makeShelfRepo(this)
-                val seeder = ShelfDomainSeeder(sql = this.asSqlDatabase(), shelfRepo = repo)
+            withSqlDatabase {
+                val repo = makeShelfRepo(sql)
+                val seeder = ShelfDomainSeeder(sql = sql, shelfRepo = repo)
                 seeder.domainName shouldBe "shelves"
                 seeder.order shouldBe 32
             }
         }
 
         test("order is greater than CollectionDomainSeeder order (32 > 31)") {
-            withInMemoryDatabase {
-                val repo = makeShelfRepo(this)
-                val seeder = ShelfDomainSeeder(sql = this.asSqlDatabase(), shelfRepo = repo)
+            withSqlDatabase {
+                val repo = makeShelfRepo(sql)
+                val seeder = ShelfDomainSeeder(sql = sql, shelfRepo = repo)
                 (seeder.order > 31) shouldBe true
             }
         }
     })
 
-private suspend fun demoUserId(db: Database): String =
-    suspendTransaction(db) {
-        UserTable
-            .selectAll()
-            .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-            .first()
-            .get(UserTable.id)
-            .value
-    }
+private fun demoUserId(sql: ListenUpDatabase): String =
+    sql.usersQueries
+        .selectByEmailNormalized(UserDomainSeeder.DEMO_EMAIL)
+        .executeAsOne()
+        .id

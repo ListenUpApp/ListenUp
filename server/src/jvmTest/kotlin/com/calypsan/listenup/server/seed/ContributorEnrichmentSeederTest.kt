@@ -1,31 +1,29 @@
 package com.calypsan.listenup.server.seed
 
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
 
 class ContributorEnrichmentSeederTest :
     FunSpec({
 
-        fun makeRepo(db: Database): ContributorRepository = ContributorRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+        fun makeRepo(sql: ListenUpDatabase): ContributorRepository = ContributorRepository(sql, ChangeBus(), SyncRegistry())
 
         test("seed enriches contributors that have no description") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = makeRepo(db)
+            withSqlDatabase {
+                val repo = makeRepo(sql)
                 runTest {
                     // Resolve "Wren Halloway" and "Marlowe Finch" — two of the demo contributors
                     repo.resolveOrCreate("Wren Halloway", sortName = null)
                     repo.resolveOrCreate("Marlowe Finch", sortName = null)
 
-                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
+                    val seeder = ContributorEnrichmentSeeder(sql, repo)
                     seeder.isAlreadySeeded() shouldBe false
                     seeder.seed()
 
@@ -44,16 +42,15 @@ class ContributorEnrichmentSeederTest :
         }
 
         test("seed skips contributors that already have a description") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = makeRepo(db)
+            withSqlDatabase {
+                val repo = makeRepo(sql)
                 runTest {
                     // Pre-populate with a description already set
                     val id = repo.resolveOrCreate("Wren Halloway", sortName = null)
                     val existing = repo.findById(id.value)!!
                     repo.upsert(existing.copy(description = "Pre-existing bio."), clientOpId = null)
 
-                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
+                    val seeder = ContributorEnrichmentSeeder(sql, repo)
                     // isAlreadySeeded should return true because at least one row has a description
                     seeder.isAlreadySeeded() shouldBe true
 
@@ -67,12 +64,11 @@ class ContributorEnrichmentSeederTest :
         }
 
         test("seed on a contributor not in DB logs a skip — no error") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = makeRepo(db)
+            withSqlDatabase {
+                val repo = makeRepo(sql)
                 runTest {
                     // No contributors at all — all ENRICHMENTS will be deferred
-                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
+                    val seeder = ContributorEnrichmentSeeder(sql, repo)
                     seeder.isAlreadySeeded() shouldBe false
                     // Must not throw
                     seeder.seed()
@@ -82,13 +78,12 @@ class ContributorEnrichmentSeederTest :
         }
 
         test("isAlreadySeeded returns false when all contributors have null description") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = makeRepo(db)
+            withSqlDatabase {
+                val repo = makeRepo(sql)
                 runTest {
                     repo.resolveOrCreate("Unknown Author", sortName = null)
                     // description is null by default from resolveOrCreate
-                    val seeder = ContributorEnrichmentSeeder(db.asSqlDatabase(), repo)
+                    val seeder = ContributorEnrichmentSeeder(sql, repo)
                     seeder.isAlreadySeeded() shouldBe false
                 }
             }

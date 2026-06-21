@@ -10,30 +10,24 @@ import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class UserDomainSeederTest :
     FunSpec({
         test("seeds the demo user, who can then authenticate") {
-            withInMemoryDatabase {
-                val db = this
-                val authService = newAuthService(db)
-                val seeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+            withSqlDatabase {
+                val authService = newAuthService(sql)
+                val seeder = UserDomainSeeder(sql, authService)
 
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
@@ -53,10 +47,9 @@ class UserDomainSeederTest :
         }
 
         test("seeds a normal member and a permission-restricted member") {
-            withInMemoryDatabase {
-                val db = this
-                val authService = newAuthService(db)
-                val seeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+            withSqlDatabase {
+                val authService = newAuthService(sql)
+                val seeder = UserDomainSeeder(sql, authService)
 
                 runTest {
                     seeder.seed()
@@ -71,23 +64,22 @@ class UserDomainSeederTest :
                         )
                     memberLogin.shouldBeInstanceOf<AppResult.Success<*>>()
 
-                    val member = findUser(db, UserDomainSeeder.MEMBER_EMAIL)
-                    member.canEdit shouldBe true
-                    member.canShare shouldBe true
+                    val member = findUser(sql, UserDomainSeeder.MEMBER_EMAIL)
+                    (member.can_edit == 1L) shouldBe true
+                    (member.can_share == 1L) shouldBe true
 
                     // The restricted member has canEdit/canShare revoked.
-                    val restricted = findUser(db, UserDomainSeeder.RESTRICTED_EMAIL)
-                    restricted.canEdit shouldBe false
-                    restricted.canShare shouldBe false
+                    val restricted = findUser(sql, UserDomainSeeder.RESTRICTED_EMAIL)
+                    (restricted.can_edit == 1L) shouldBe false
+                    (restricted.can_share == 1L) shouldBe false
                 }
             }
         }
 
         test("seed() is safe to call twice — the second call does not throw") {
-            withInMemoryDatabase {
-                val db = this
-                val authService = newAuthService(db)
-                val seeder = UserDomainSeeder(db.asSqlDatabase(), authService)
+            withSqlDatabase {
+                val authService = newAuthService(sql)
+                val seeder = UserDomainSeeder(sql, authService)
                 runTest {
                     seeder.seed()
                     seeder.seed() // setupRoot returns a Failure on the second call; seed() must swallow it
@@ -97,23 +89,23 @@ class UserDomainSeederTest :
         }
     })
 
-private suspend fun findUser(
-    db: Database,
+private fun findUser(
+    sql: ListenUpDatabase,
     emailNormalized: String,
-): UserEntity =
-    suspendTransaction(db) {
-        UserEntity.find { UserTable.emailNormalized eq emailNormalized }.firstOrNull()
-    }.shouldNotBeNull()
+) = sql.usersQueries
+    .selectByEmailNormalized(emailNormalized)
+    .executeAsOneOrNull()
+    .shouldNotBeNull()
 
-private fun newAuthService(db: Database): AuthServiceImpl {
+private fun newAuthService(sql: ListenUpDatabase): AuthServiceImpl {
     val pepper = "x".repeat(32).toByteArray()
     val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
     val hasher = PasswordHasher()
-    val sessions = SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+    val sessions = SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
     val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-    val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
+    val settings = ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
     return AuthServiceImpl(
-        db = db.asSqlDatabase(),
+        db = sql,
         sessions = sessions,
         hasher = hasher,
         jwt = jwt,

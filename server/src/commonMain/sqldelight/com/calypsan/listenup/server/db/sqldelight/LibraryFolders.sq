@@ -75,3 +75,9 @@ SELECT * FROM library_folders WHERE library_id = :library_id AND deleted_at IS N
 -- duplicate-path guard (a path may live under at most one non-deleted folder).
 selectLiveByRootPath:
 SELECT * FROM library_folders WHERE root_path = :root_path AND deleted_at IS NULL;
+
+-- Hard-delete every folder row at an exact root_path. Used by the test seed helper
+-- (seedTestLibraryAndFolder) to clear a bootstrap-inserted folder before inserting the
+-- canonical test-controlled row at the same path.
+deleteByRootPath:
+DELETE FROM library_folders WHERE root_path = :root_path;

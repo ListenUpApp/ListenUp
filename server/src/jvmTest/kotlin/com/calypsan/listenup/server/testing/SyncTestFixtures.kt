@@ -53,6 +53,9 @@ fun withInMemoryDatabase(block: Database.() -> Unit) {
  *
  * - [sql] is the [ListenUpDatabase] the converted repositories (TagRepository,
  *   BookTagRepository, …) take in their constructor.
+ * - [driver] is the [app.cash.sqldelight.db.SqlDriver] that backs [sql] — exposed so
+ *   tests can execute raw SQLDelight queries (e.g. access-filtered repo/[BookAccessPolicy]
+ *   tests that wire the driver directly).
  * - [exposed] is the Exposed [Database] over the **same file**, for the seed helpers
  *   ([seedTestLibraryAndFolder] / [seedTestBook] / [seedTestUser]) and for any
  *   not-yet-converted collaborator (e.g. `BookSearchReindexer`, the service-layer `db`)
@@ -63,6 +66,7 @@ fun withInMemoryDatabase(block: Database.() -> Unit) {
  */
 data class SqlTestDatabases(
     val sql: ListenUpDatabase,
+    val driver: app.cash.sqldelight.db.SqlDriver,
     val exposed: Database,
 )
 
@@ -85,7 +89,7 @@ fun withSqlDatabase(block: SqlTestDatabases.() -> Unit) {
     val exposed = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$path")).database
     val driver = DriverFactory().createDriver(path)
     try {
-        SqlTestDatabases(sql = ListenUpDatabase(driver), exposed = exposed).block()
+        SqlTestDatabases(sql = ListenUpDatabase(driver), driver = driver, exposed = exposed).block()
     } finally {
         driver.close()
     }
@@ -348,4 +352,175 @@ fun bookPayloadFixture(
         updatedAt = 0L,
         createdAt = 0L,
         deletedAt = null,
+    )
+
+// ── SQLDelight seed helpers ───────────────────────────────────────────────────
+//
+// These overloads are ADDITIVE alongside the Exposed `Database`-receiver versions
+// above. Kotlin resolves them by receiver type — callers on [ListenUpDatabase]
+// (i.e. inside `withSqlDatabase { }`) pick these; callers on the Exposed [Database]
+// (i.e. inside `withInMemoryDatabase { }`) keep the originals. The Exposed versions
+// are removed in a later step once all ~150 callers have migrated.
+
+/**
+ * SQLDelight version of [Database.seedTestLibraryAndFolder].
+ *
+ * Seeds a `libraries` row (id=[libraryId]) and a `library_folders` row
+ * (id=[folderId]) into [this] database. Matches the exact field values the
+ * Exposed version sets; DDL-defaulted columns are supplied explicitly:
+ * `metadata_precedence='embedded,abs,sidecar'`, `access_mode='shared'`,
+ * `created_by_user_id=null`, `client_op_id=null`, `inbox_enabled=0`.
+ *
+ * Any existing folder row at [folderPath] is hard-deleted first (mirroring the
+ * Exposed `LibraryFolderTable.deleteWhere { rootPath eq folderPath }` guard).
+ */
+fun ListenUpDatabase.seedTestLibraryAndFolder(
+    libraryId: String = "test-library",
+    folderId: String = "test-folder",
+    folderPath: String = "/tmp/test-library",
+) {
+    val now = System.currentTimeMillis()
+    transaction {
+        librariesQueries.insert(
+            id = libraryId,
+            name = "Test Library",
+            metadata_precedence = "embedded,abs,sidecar",
+            access_mode = "shared",
+            created_by_user_id = null,
+            created_at = now,
+            revision = 0L,
+            updated_at = now,
+            deleted_at = null,
+            client_op_id = null,
+        )
+        // Bootstrap (LibraryRegistry) may have already inserted a folder at this
+        // path. Remove it so we can insert the test-controlled row with the
+        // canonical id that book fixtures reference via folderId.
+        libraryFoldersQueries.deleteByRootPath(root_path = folderPath)
+        libraryFoldersQueries.insert(
+            id = folderId,
+            library_id = libraryId,
+            root_path = folderPath,
+            created_at = now,
+            revision = 0L,
+            updated_at = now,
+            deleted_at = null,
+            client_op_id = null,
+        )
+    }
+}
+
+/**
+ * SQLDelight version of [Database.seedTestBook].
+ *
+ * Seeds a minimal `books` row with [bookId] into [this] database. Matches the
+ * exact field values the Exposed version sets; DDL-defaulted columns are supplied
+ * explicitly: `abridged=0`, `explicit=0`, `has_scan_warning=0`, nullable columns as null.
+ */
+fun ListenUpDatabase.seedTestBook(
+    bookId: String,
+    libraryId: String = "test-library",
+    folderId: String = "test-folder",
+) {
+    val now = System.currentTimeMillis()
+    transaction {
+        booksQueries.insert(
+            id = bookId,
+            library_id = libraryId,
+            folder_id = folderId,
+            title = "Test Book $bookId",
+            sort_title = null,
+            subtitle = null,
+            description = null,
+            publish_year = null,
+            publisher = null,
+            language = null,
+            isbn = null,
+            asin = null,
+            abridged = 0L,
+            explicit = 0L,
+            has_scan_warning = 0L,
+            total_duration = 0L,
+            cover_source = null,
+            cover_path = null,
+            cover_hash = null,
+            root_rel_path = "$bookId/book.m4b",
+            inode = null,
+            scanned_at = now,
+            revision = 1L,
+            created_at = now,
+            updated_at = now,
+            deleted_at = null,
+            client_op_id = null,
+        )
+    }
+}
+
+/**
+ * SQLDelight version of [Database.seedTestUser].
+ *
+ * Seeds a minimal `users` row with [userId] into [this] database. Matches the
+ * exact field values the Exposed version sets; DDL-defaulted columns are supplied
+ * explicitly: `avatar_type='auto'`, `last_login_at=null`, `approved_by=null`,
+ * `approved_at=null`, `invited_by=null`, `tagline=null`. Booleans are stored as
+ * `1L`/`0L` (SQLite INTEGER 0/1 affinity). Enums are stored by their `.name`.
+ */
+fun ListenUpDatabase.seedTestUser(
+    userId: String,
+    userRole: UserRoleColumn = UserRoleColumn.MEMBER,
+    canEdit: Boolean = true,
+    canShare: Boolean = true,
+    deletedAt: Long? = null,
+    timezone: String = "UTC",
+) {
+    transaction {
+        usersQueries.insert(
+            id = userId,
+            email = "$userId@example.com",
+            email_normalized = "$userId@example.com",
+            password_hash = "phc",
+            role = userRole.name,
+            display_name = userId,
+            status = UserStatusColumn.ACTIVE.name,
+            created_at = 1L,
+            updated_at = 1L,
+            last_login_at = null,
+            can_edit = if (canEdit) 1L else 0L,
+            can_share = if (canShare) 1L else 0L,
+            approved_by = null,
+            approved_at = null,
+            deleted_at = deletedAt,
+            invited_by = null,
+            tagline = null,
+            avatar_type = "auto",
+            timezone = timezone,
+        )
+    }
+}
+
+/**
+ * SQLDelight version of [Database.roleOf].
+ *
+ * Resolves the [UserRole] of a seeded user synchronously. Unseeded ids resolve
+ * to [UserRole.ROOT] — the historic test-auth default — so route tests that send a
+ * bearer token without a matching user row keep their all-bypassing principal.
+ */
+fun ListenUpDatabase.roleOf(userId: String): UserRole =
+    usersQueries
+        .selectRoleById(userId)
+        .executeAsOneOrNull()
+        ?.let { UserRole.valueOf(it) }
+        ?: UserRole.ROOT
+
+/**
+ * SQLDelight version of [Database.noOpPublicProfileMaintainer].
+ *
+ * Returns a [PublicProfileMaintainer] backed by [this] database, for use in tests
+ * that exercise [com.calypsan.listenup.server.services.UserStatsUpdater] but don't
+ * assert on the public-profiles projection.
+ */
+fun ListenUpDatabase.noOpPublicProfileMaintainer(): PublicProfileMaintainer =
+    PublicProfileMaintainer(
+        sql = this,
+        publicProfileRepo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry()),
     )

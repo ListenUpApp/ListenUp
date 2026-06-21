@@ -2,11 +2,11 @@
 
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -19,12 +19,12 @@ class ActiveSessionCleanupTaskTest :
     FunSpec({
 
         fun makeRepo(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            sql: ListenUpDatabase,
             clock: kotlin.time.Clock = kotlin.time.Clock.System,
-        ): ActiveSessionRepository = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus(), clock = clock)
+        ): ActiveSessionRepository = ActiveSessionRepository(db = sql, bus = ChangeBus(), clock = clock)
 
         test("runOnce deletes only rows whose updated_at is older than staleAfter") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val nowMs = 1_730_000_000_000L
                 val nowInstant = Instant.fromEpochMilliseconds(nowMs)
 
@@ -34,10 +34,10 @@ class ActiveSessionCleanupTaskTest :
                 val stale35Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 35 * 60_000)) // 35m ago — stale
                 val stale60Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 60 * 60_000)) // 60m ago — stale
 
-                val freshRepo = makeRepo(this, freshClock)
-                val stale35Repo = makeRepo(this, stale35Clock)
-                val stale60Repo = makeRepo(this, stale60Clock)
-                val readRepo = makeRepo(this)
+                val freshRepo = makeRepo(sql, freshClock)
+                val stale35Repo = makeRepo(sql, stale35Clock)
+                val stale60Repo = makeRepo(sql, stale60Clock)
+                val readRepo = makeRepo(sql)
 
                 runTest {
                     freshRepo.startOrRefresh("u1", "b1")
@@ -46,7 +46,7 @@ class ActiveSessionCleanupTaskTest :
 
                     val task =
                         ActiveSessionCleanupTask(
-                            sql = this@withInMemoryDatabase.asSqlDatabase(),
+                            sql = sql,
                             bus = ChangeBus(),
                             clock = FixedClock(nowInstant),
                             staleAfter = 30.minutes,
@@ -63,11 +63,11 @@ class ActiveSessionCleanupTaskTest :
         }
 
         test("runOnce on an empty table returns 0 without throwing") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val clock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
                 val task =
                     ActiveSessionCleanupTask(
-                        sql = this.asSqlDatabase(),
+                        sql = sql,
                         bus = ChangeBus(),
                         clock = clock,
                         staleAfter = 30.minutes,
@@ -79,12 +79,12 @@ class ActiveSessionCleanupTaskTest :
         }
 
         test("runOnce with all-fresh rows returns 0") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val nowMs = 1_730_000_000_000L
                 // Fresh rows — written 1 second ago (well within 30m threshold)
                 val recentClock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 1_000L))
-                val repo = makeRepo(this, recentClock)
-                val readRepo = makeRepo(this)
+                val repo = makeRepo(sql, recentClock)
+                val readRepo = makeRepo(sql)
 
                 runTest {
                     repeat(3) { i ->
@@ -93,7 +93,7 @@ class ActiveSessionCleanupTaskTest :
 
                     val task =
                         ActiveSessionCleanupTask(
-                            sql = this@withInMemoryDatabase.asSqlDatabase(),
+                            sql = sql,
                             bus = ChangeBus(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                             staleAfter = 30.minutes,

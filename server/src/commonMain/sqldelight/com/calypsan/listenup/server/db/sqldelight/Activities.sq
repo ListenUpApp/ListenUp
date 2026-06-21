@@ -53,3 +53,7 @@ LIMIT :limit;
 -- True iff the user has at least one activity row — drives ActivitySeeder.isAlreadySeeded.
 hasAnyForUser:
 SELECT EXISTS(SELECT 1 FROM activities WHERE user_id = :user_id);
+
+-- Total row count — used by ActivitySeederTest to assert the exact number of seeded rows.
+countAll:
+SELECT COUNT(*) FROM activities;
