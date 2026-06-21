@@ -22,7 +22,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
+import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.device.DeviceContext
@@ -209,7 +209,7 @@ fun DesktopApp() {
 private fun DesktopAuthenticatedNavigation() {
     val scope = rememberCoroutineScope()
     val authSession: AuthSession = koinInject()
-    val libraryResetHelper: LibraryResetHelperContract = koinInject()
+    val libraryResetHelper: LibraryResetHelper = koinInject()
     val nowPlayingViewModel: NowPlayingViewModel = koinInject()
     val snackbarHostState = remember { SnackbarHostState() }
 

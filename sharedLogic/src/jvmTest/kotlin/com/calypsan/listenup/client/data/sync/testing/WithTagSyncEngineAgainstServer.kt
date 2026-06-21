@@ -68,7 +68,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * triggering writes that publish SSE events, and the client [ListenUpDatabase]
  * for asserting that events landed in Room.
  */
-data class TagSyncEngineScope(
+internal data class TagSyncEngineScope(
     val engine: SyncEngine,
     val tagRepo: TagRepository,
     val bookTagRepo: BookTagRepository,
@@ -89,7 +89,7 @@ data class TagSyncEngineScope(
  * Pre-seeds two book rows (`book-a`, `book-b`) and the required library/folder
  * rows so `book_tags` FK constraints are satisfied throughout the test session.
  */
-fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit) {
+internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit) {
     testApplication {
         // ---- Server side: temp-file SQLite + tag domains ----
         val tmp = Files.createTempFile("listenup-tags-e2e-", ".db").toFile().apply { deleteOnExit() }

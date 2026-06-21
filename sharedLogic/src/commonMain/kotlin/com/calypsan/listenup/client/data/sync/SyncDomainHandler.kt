@@ -15,7 +15,7 @@ import kotlinx.serialization.KSerializer
  * advance the engine's error metrics. Implementations must NOT throw — Konsist
  * pins this in [com.calypsan.listenup.konsist.SyncDomainHandlersUseAppResultRule].
  */
-interface SyncDomainHandler<T : Any> {
+internal interface SyncDomainHandler<T : Any> {
     /** Domain name as it appears on the wire (e.g. `"tags"`, `"books"`). */
     val domainName: String
 

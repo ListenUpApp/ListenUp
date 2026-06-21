@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
  * `?since=<rev>`, and on SSE reconnect to set `Last-Event-Id` to
  * [highestCursor].
  */
-class SyncCursorStore(
+internal class SyncCursorStore(
     private val dao: SyncCursorDao,
 ) {
     suspend fun getCursor(domainName: String): Long? = dao.getCursor(domainName)

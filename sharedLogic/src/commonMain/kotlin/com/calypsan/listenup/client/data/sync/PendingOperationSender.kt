@@ -8,6 +8,6 @@ import com.calypsan.listenup.api.result.AppResult
  * Renovation phase no domain has a write API yet so the registered sender
  * is a no-op stub. Tests inject a fake.
  */
-fun interface PendingOperationSender {
+internal fun interface PendingOperationSender {
     suspend fun send(op: PendingOperation): AppResult<Unit>
 }

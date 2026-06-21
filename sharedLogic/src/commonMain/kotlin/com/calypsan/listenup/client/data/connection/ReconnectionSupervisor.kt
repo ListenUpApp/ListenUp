@@ -42,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  * @param reevaluate re-points the active URL at a reachable address (wired to
  *   `ConnectionCoordinator.reevaluate`); a lambda so this stays unit-testable.
  */
-class ReconnectionSupervisor(
+internal class ReconnectionSupervisor(
     private val engineState: SyncEngineState,
     private val instanceRepository: InstanceRepository,
     private val serverConfig: ServerConfig,

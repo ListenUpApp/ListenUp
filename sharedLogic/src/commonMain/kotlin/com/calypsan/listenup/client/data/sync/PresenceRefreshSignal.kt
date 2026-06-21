@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asSharedFlow
  * `ActiveSessionsChanged` nudge or on firehose reconnect. The social repositories
  * (currently-listening, book-readers) re-fetch their ACL-filtered RPC on each ping.
  */
-class PresenceRefreshSignal {
+internal class PresenceRefreshSignal {
     private val flow = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
 
     /** Hot stream of presence-changed pings. */

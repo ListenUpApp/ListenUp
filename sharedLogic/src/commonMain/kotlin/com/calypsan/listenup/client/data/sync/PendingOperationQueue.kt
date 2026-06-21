@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 
-const val MAX_RETRYABLE_ATTEMPTS = 5
+internal const val MAX_RETRYABLE_ATTEMPTS = 5
 
 /**
  * What a single [PendingOperationQueue.drain] wave produced. The engine reads
@@ -29,7 +29,7 @@ const val MAX_RETRYABLE_ATTEMPTS = 5
  * @property terminalFailures count of ops that failed non-retryably (flagged
  *   past [MAX_RETRYABLE_ATTEMPTS] and will not be retried)
  */
-data class DrainOutcome(
+internal data class DrainOutcome(
     val sent: Int,
     val retryableFailures: Int,
     val terminalFailures: Int,
@@ -59,7 +59,7 @@ data class DrainOutcome(
  * via [DrainOutcome].
  */
 @OptIn(ExperimentalUuidApi::class)
-class PendingOperationQueue(
+internal class PendingOperationQueue(
     private val dao: PendingOperationV2Dao,
     private val sender: PendingOperationSender,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },

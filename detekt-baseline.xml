@@ -137,8 +137,8 @@
     <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storageFile: File</ID>
     <ID>LateinitUsage:WithClientSyncEngineAgainstServer.kt$lateinit var statsUpdater: UserStatsUpdater</ID>
     <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( cover: BookCoverModel, onClick: () -&gt; Unit, modifier: Modifier = Modifier, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, )</ID>
-    <ID>LongMethod:WithClientSyncEngineAgainstServer.kt$fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -&gt; Unit)</ID>
-    <ID>LongMethod:WithTagSyncEngineAgainstServer.kt$fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -&gt; Unit)</ID>
+    <ID>LongMethod:WithClientSyncEngineAgainstServer.kt$internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -&gt; Unit)</ID>
+    <ID>LongMethod:WithTagSyncEngineAgainstServer.kt$internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -&gt; Unit)</ID>
     <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$for</ID>
     <ID>MagicNumber:AudioUrlSigner.kt$AudioUrlSigner$64</ID>
     <ID>MagicNumber:AuroraBackground.kt$120f</ID>

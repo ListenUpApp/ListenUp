@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
  * Engine-facing seam for REST catch-up. Allows [SyncEngine] to be tested with
  * fakes without dragging the full HTTP client. Implemented by [SyncCatchUpClient].
  */
-interface CatchUp {
+internal interface CatchUp {
     suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit>
 
     /**

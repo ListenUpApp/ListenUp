@@ -50,7 +50,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
-import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
+import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -510,7 +510,7 @@ private suspend fun handleShortcutAction(
 @Composable
 private fun AuthenticatedNavigation(
     authSession: AuthSession,
-    libraryResetHelper: LibraryResetHelperContract = koinInject(),
+    libraryResetHelper: LibraryResetHelper = koinInject(),
     syncRepository: SyncRepository = koinInject(),
     shortcutActionManager: ShortcutActionManager = koinInject(),
     homeRepository: HomeRepository = koinInject(),
