@@ -6,7 +6,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
-import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -113,7 +113,7 @@ class PlaybackManagerPrepareTest :
                 playbackRpcFactory = testPlaybackRpcFactory("af-0", "af-1", "af-2"),
                 syncApi = null,
                 scope = CoroutineScope(Job()),
-                bookRepository = mock<BookRepository>(),
+                bookIngestPort = mock<BookIngestPort>(),
             )
         }
 

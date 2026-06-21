@@ -6,8 +6,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
-import com.calypsan.listenup.client.data.local.db.AudioFileEntity
-import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -155,10 +153,6 @@ class FakeBookRepository : BookRepository {
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
 
-    override suspend fun upsertWithAudioFiles(
-        book: BookEntity,
-        audioFiles: List<AudioFileEntity>,
-    ): AppResult<Unit> = AppResult.Success(Unit)
 }
 
 // ========== Fake Series Repository ==========

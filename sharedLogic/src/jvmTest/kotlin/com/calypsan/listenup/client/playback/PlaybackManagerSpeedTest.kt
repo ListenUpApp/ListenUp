@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
-import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
@@ -98,7 +98,7 @@ class PlaybackManagerSpeedTest :
                 playbackRpcFactory = testPlaybackRpcFactory("af-0"),
                 syncApi = null,
                 scope = scope,
-                bookRepository = mock<BookRepository>(),
+                bookIngestPort = mock<BookIngestPort>(),
             )
         }
 

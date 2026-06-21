@@ -236,7 +236,7 @@ val playbackModule =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 scope = get(),
-                bookRepository = get(),
+                bookIngestPort = get(),
             )
         }
 

@@ -163,7 +163,7 @@ val platformModule: Module =
                 syncApi = get(),
                 deviceContext = get(),
                 scope = get(qualifier = named("playbackScope")),
-                bookRepository = get(),
+                bookIngestPort = get(),
             )
         }
 

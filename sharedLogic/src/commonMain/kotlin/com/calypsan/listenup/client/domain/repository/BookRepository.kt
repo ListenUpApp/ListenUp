@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.local.db.AudioFileEntity
-import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -142,21 +140,6 @@ interface BookRepository {
      */
     fun search(query: String): Flow<List<BookListItem>>
 
-    /**
-     * Atomically upsert a book row and replace its audio-file rows.
-     *
-     * Deletes existing audio-file rows for the book and inserts the new
-     * set inside a single transaction, so the DB never holds a book with
-     * a partially-replaced audio-file list.
-     *
-     * @param book The book entity to upsert.
-     * @param audioFiles The complete set of audio-file entities to store.
-     *   Pass an empty list to clear all audio files without inserting new ones.
-     */
-    suspend fun upsertWithAudioFiles(
-        book: BookEntity,
-        audioFiles: List<AudioFileEntity>,
-    ): AppResult<Unit>
 }
 
 /**

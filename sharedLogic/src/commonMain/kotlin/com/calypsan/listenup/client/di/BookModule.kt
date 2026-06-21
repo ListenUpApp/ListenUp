@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -63,7 +64,9 @@ val bookModule: Module =
             MetadataRepositoryImpl(rpcFactory = get())
         }
 
-        // BookRepository for UI data access
+        // BookRepository for UI data access. Also binds BookIngestPort so
+        // playback-layer ingest paths can write book aggregates without the
+        // domain interface exposing Room entity types.
         single<BookRepository> {
             BookRepositoryImpl(
                 bookDao = get(),
@@ -82,7 +85,7 @@ val bookModule: Module =
                 bookRpcFactory = get(),
                 bookSyncDomainHandler = get(),
             )
-        }
+        } binds arrayOf(BookIngestPort::class)
 
         // BookEditRepository — pure RPC dispatcher; SSE echoes write back into Room.
         single<BookEditRepository> {

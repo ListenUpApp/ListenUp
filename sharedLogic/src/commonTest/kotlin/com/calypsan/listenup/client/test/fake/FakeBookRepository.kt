@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.AudioFileEntity
-import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -69,11 +67,6 @@ class FakeBookRepository(
     override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
-
-    override suspend fun upsertWithAudioFiles(
-        book: BookEntity,
-        audioFiles: List<AudioFileEntity>,
-    ): AppResult<Unit> = AppResult.Success(Unit)
 
     /** Test helper: replace the book list, emitting to all observers. */
     fun setBooks(list: List<BookListItem>) {

@@ -17,7 +17,7 @@ import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
-import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -157,7 +157,7 @@ class PlaybackPreparerTest :
                 playbackRpcFactory = playbackRpcFactory,
                 syncApi = null,
                 scope = CoroutineScope(Job()),
-                bookRepository = mock<BookRepository>(),
+                bookIngestPort = mock<BookIngestPort>(),
             )
         }
 
