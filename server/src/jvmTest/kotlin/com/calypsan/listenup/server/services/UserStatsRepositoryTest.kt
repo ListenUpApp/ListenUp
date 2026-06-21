@@ -7,8 +7,7 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.UserStatsId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -20,8 +19,8 @@ class UserStatsRepositoryTest :
     FunSpec({
 
         test("getForUser returns null before any row exists") {
-            withInMemoryDatabase {
-                val repo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.getForUser("u1").shouldBeNull()
                 }
@@ -29,8 +28,8 @@ class UserStatsRepositoryTest :
         }
 
         test("upsert inserts a row and getForUser returns the payload") {
-            withInMemoryDatabase {
-                val repo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     val payload = userStatsPayload(userId = "u1")
                     val result = repo.upsert(payload, clientOpId = null, userId = "u1")
@@ -46,8 +45,8 @@ class UserStatsRepositoryTest :
         }
 
         test("pullSince(userId = u1) returns only u1's stats row") {
-            withInMemoryDatabase {
-                val repo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(userStatsPayload(userId = "u1"), clientOpId = null, userId = "u1")
                     repo.upsert(userStatsPayload(userId = "u2"), clientOpId = null, userId = "u2")
@@ -60,8 +59,8 @@ class UserStatsRepositoryTest :
         }
 
         test("idAsString unwraps the value class to its raw string") {
-            withInMemoryDatabase {
-                val repo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 repo.idAsStringForTest(UserStatsId("u1")) shouldBe "u1"
             }
         }

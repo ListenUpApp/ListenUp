@@ -6,9 +6,8 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -16,20 +15,20 @@ import kotlinx.coroutines.test.runTest
 class UserStatsUpdaterProjectionTest :
     FunSpec({
         test("onListeningEvent refreshes the public_profiles projection") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
 
-                val ppRepo = PublicProfileRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val ppRepo = PublicProfileRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val statsRepo =
                     UserStatsRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                     )
-                val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), publicProfileRepo = ppRepo)
+                val maintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = ppRepo)
                 val updater =
                     UserStatsUpdater(
-                        sql = this.asSqlDatabase(),
+                        sql = sql,
                         userStatsRepo = statsRepo,
                         publicProfileMaintainerProvider = { maintainer },
                     )
