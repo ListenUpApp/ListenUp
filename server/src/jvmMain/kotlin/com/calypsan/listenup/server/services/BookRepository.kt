@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
@@ -229,6 +230,22 @@ class BookRepository(
         val extras = BookWriteExtras.current()
         val managedCover = extras?.managedCover
 
+        // Sticky-user-chapters merge: if the existing row carries a user-edited chapter set
+        // (chapter_source = 'user'), preserve the chapter rows so a re-scan does not clobber
+        // an intentional user edit. A subsequent USER edit (value.chapterSource == USER) is
+        // still allowed through. On INSERT (existed == false) this is always false.
+        val existingChapterSource =
+            if (existed) {
+                db.booksQueries
+                    .selectChapterSourceById(value.id)
+                    .executeAsOneOrNull()
+            } else {
+                null
+            }
+        val preserveChapters =
+            existingChapterSource == ChapterSource.USER.name.lowercase() &&
+                value.chapterSource != ChapterSource.USER
+
         if (existed) {
             // Sticky-upload merge: if the existing row carries a user-uploaded cover
             // (cover_source = 'uploaded'), preserve the cover columns so a re-scan does not
@@ -342,8 +359,10 @@ class BookRepository(
 
         bookAggregateWriter.replaceContributors(value.id, value.contributors)
         bookAggregateWriter.replaceSeries(value.id, value.series)
-        bookAggregateWriter.replaceChapters(value.id, value.chapters)
-        db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
+        if (!preserveChapters) {
+            bookAggregateWriter.replaceChapters(value.id, value.chapters)
+            db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
+        }
         bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         upsertFtsRow(value)
     }

@@ -90,6 +90,11 @@ SELECT id FROM books WHERE library_id = :library_id AND inode = :inode;
 selectCoverSourceById:
 SELECT cover_source FROM books WHERE id = :id;
 
+-- chapter_source only — the sticky-USER check in writePayload reads just this
+-- column before deciding whether to preserve the chapter rows on re-scan.
+selectChapterSourceById:
+SELECT chapter_source FROM books WHERE id = :id;
+
 -- Live (non-tombstoned) (id, root_rel_path) for a library — feeds the full-scan
 -- tombstone sweep (softDeleteAbsent / softDeleteAbsentByPaths), which filters
 -- against the seen set in memory.
