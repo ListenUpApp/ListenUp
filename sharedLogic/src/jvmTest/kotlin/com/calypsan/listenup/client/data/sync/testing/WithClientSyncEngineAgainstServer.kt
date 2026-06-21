@@ -70,9 +70,8 @@ import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.rpcguard.guard
-import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -193,7 +192,7 @@ internal data class ClientEngineScope(
     val engine: SyncEngine,
     val recording: RecordingTagSyncDomainHandler,
     val tagRepo: TagRepository,
-    val serverDb: ExposedDatabase,
+    val serverDriver: SqlDriver,
     val serverBookRepository: BookRepository,
     val serverContributorRepository: ContributorRepository,
     val serverSeriesRepository: SeriesRepository,
@@ -236,18 +235,15 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
     testApplication {
         // ---- Server side: in-memory SQLite + Tag and Book domains registered ----
         val tmp = Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-        // SQLDelight view over the SAME migrated file the Exposed [serverDb] is connected to.
-        // DatabaseFactory.init already ran the migrations, so the driver never calls
-        // Schema.create — it just opens a second connection (harmless in WAL mode). This
-        // reproduces `:server`'s own `Database.asSqlDatabase()` fixture, which isn't visible
-        // from `:sharedLogic`. The SQLDelight-converted server repos (Book, Contributor,
-        // Series) take this; the still-Exposed repos keep taking [serverDb].
+        // DatabaseFactory.init runs the migrations on the temp file. The repos then read/write
+        // through a SQLDelight driver opened over that same already-migrated file, so the driver
+        // never calls Schema.create — it just opens a connection (harmless in WAL mode).
+        DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
         val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
         val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
-        val serverRepos = buildServerRepositories(serverDb, serverSqlDb, serverDriver, bus, syncRegistry)
+        val serverRepos = buildServerRepositories(serverSqlDb, serverDriver, bus, syncRegistry)
         val bookService: BookService =
             createBookService(
                 repo = serverRepos.bookRepo,
@@ -267,7 +263,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 bookTagRepository = BookTagRepository(serverSqlDb, bus, syncRegistry),
                 tagRepository = serverRepos.tagRepo,
                 db = serverSqlDb,
-                exposedDb = serverDb,
+                driver = serverDriver,
             )
         val contributorService: ContributorService =
             createContributorService(
@@ -309,7 +305,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             install(Koin) {
                 modules(
                     module {
-                        single { serverDb }
                         single { bus }
                         single { syncRegistry }
                         single(createdAtStart = true) { serverRepos.tagRepo }
@@ -479,7 +474,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     engine = engine,
                     recording = recording,
                     tagRepo = serverRepos.tagRepo,
-                    serverDb = serverDb,
+                    serverDriver = serverDriver,
                     serverBookRepository = serverRepos.bookRepo,
                     serverContributorRepository = serverRepos.contributorRepo,
                     serverSeriesRepository = serverRepos.seriesRepo,
@@ -602,7 +597,7 @@ private fun registerClientSyncHandlers(
 }
 
 /**
- * Builds all server-side sync repositories from an already-initialised [serverDb].
+ * Builds all server-side sync repositories over an already-migrated [serverDriver].
  *
  * Wires [TagRepository], [ContributorRepository], [SeriesRepository], [BookRepository],
  * [PlaybackPositionRepository], [ListeningEventRepository], and [UserStatsRepository] in
@@ -621,9 +616,8 @@ private fun registerClientSyncHandlers(
  * lambda captures the `lateinit var` that is assigned immediately after construction.
  */
 private fun buildServerRepositories(
-    serverDb: ExposedDatabase,
     serverSqlDb: ServerSqlDatabase,
-    serverDriver: app.cash.sqldelight.db.SqlDriver,
+    serverDriver: SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
 ): ServerRepositories {
@@ -632,16 +626,18 @@ private fun buildServerRepositories(
     // Required to satisfy the library_id FK on the books table (FK enforcement is on).
     // LibraryTable and LibraryFolderTable are `internal` — use raw SQL to insert.
     val now = System.currentTimeMillis()
-    transaction(serverDb) {
-        exec(
-            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
-                "VALUES ('test-library', 'Test Library', $now, $now, 0)",
-        )
-        exec(
-            "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
-                "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
-        )
-    }
+    serverDriver.execute(
+        null,
+        "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+            "VALUES ('test-library', 'Test Library', $now, $now, 0)",
+        0,
+    )
+    serverDriver.execute(
+        null,
+        "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
+            "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
+        0,
+    )
     val tagRepo = TagRepository(serverSqlDb, bus, registry)
     // Library and folder repos use their own bus+registry so their SSE events are published
     // on the shared bus and routed by the SyncRegistry to the catch-up / SSE subscriber.
@@ -656,7 +652,6 @@ private fun buildServerRepositories(
             bus = bus,
             registry = registry,
             driver = serverDriver,
-            exposedDb = serverDb,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,

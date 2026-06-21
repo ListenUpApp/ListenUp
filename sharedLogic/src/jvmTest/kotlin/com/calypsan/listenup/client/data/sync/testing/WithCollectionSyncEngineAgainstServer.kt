@@ -68,7 +68,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.koin.core.context.GlobalContext
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -131,33 +130,36 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
     testApplication {
         // ---- Server side: temp-file SQLite + collection/book domains + access policy ----
         val tmp = Files.createTempFile("listenup-collections-e2e-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-        // SQLDelight view over the SAME migrated file the Exposed [serverDb] is connected to.
-        // Migrations have already run; the SQLDelight-converted server repos (Book, Contributor,
-        // Series) take this, while the still-Exposed repos keep taking [serverDb].
+        // DatabaseFactory.init runs the migrations; the repos read/write through a SQLDelight driver
+        // opened over that same already-migrated file.
+        DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
         val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
         val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 
         val now = System.currentTimeMillis()
-        transaction(serverDb) {
-            exec(
-                "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
-                    "VALUES ('test-library', 'Test Library', $now, $now, 0)",
+        serverDriver.execute(
+            null,
+            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                "VALUES ('test-library', 'Test Library', $now, $now, 0)",
+            0,
+        )
+        serverDriver.execute(
+            null,
+            "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
+                "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
+            0,
+        )
+        // The share path's userExists() check requires both principals to have rows.
+        for ((id, role) in listOf(COLLECTION_E2E_ADMIN_ID to "ROOT", COLLECTION_E2E_MEMBER_ID to "MEMBER")) {
+            serverDriver.execute(
+                null,
+                "INSERT INTO users(id, email, email_normalized, password_hash, role, display_name, status, " +
+                    "created_at, updated_at) VALUES " +
+                    "('$id', '$id@x', '$id@x', 'x', '$role', '$id', 'ACTIVE', $now, $now)",
+                0,
             )
-            exec(
-                "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
-                    "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
-            )
-            // The share path's userExists() check requires both principals to have rows.
-            for ((id, role) in listOf(COLLECTION_E2E_ADMIN_ID to "ROOT", COLLECTION_E2E_MEMBER_ID to "MEMBER")) {
-                exec(
-                    "INSERT INTO users(id, email, email_normalized, password_hash, role, display_name, status, " +
-                        "created_at, updated_at) VALUES " +
-                        "('$id', '$id@x', '$id@x', 'x', '$role', '$id', 'ACTIVE', $now, $now)",
-                )
-            }
         }
 
         // Repos self-register into the SyncRegistry on construction, so syncRoutes() can look
@@ -171,7 +173,6 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
                 bus = bus,
                 registry = syncRegistry,
                 driver = serverDriver,
-                exposedDb = serverDb,
                 contributorRepository = contributorRepo,
                 seriesRepository = seriesRepo,
                 genreRepository = genreRepo,
@@ -208,7 +209,6 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
             install(Koin) {
                 modules(
                     module {
-                        single { serverDb }
                         single { bus }
                         single { syncRegistry }
                         // syncRoutes() injects BookAccessPolicy to gate the access-filtered

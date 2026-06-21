@@ -17,7 +17,6 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -42,8 +41,7 @@ import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import app.cash.sqldelight.db.SqlDriver
 
 /**
  * Cross-module E2E: a real `:server` [ProfileService] boots in-process via
@@ -66,22 +64,17 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 class ProfileE2ETest :
     FunSpec({
 
-        fun setupServerDb(): Database {
+        fun setupServerDb(): SqlDriver {
             val tmp = Files.createTempFile("listenup-profile-e2e-", ".db").toFile().apply { deleteOnExit() }
-            return DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            return DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
         }
 
         /**
-         * Opens a SQLDelight [ServerSqlDatabase] over the same already-migrated SQLite file this
-         * Exposed [Database] is connected to. Mirrors `:server`'s `Database.asSqlDatabase()` test
-         * helper, which is not visible from `:sharedLogic:jvmTest`. Migrations have already run via
-         * [DatabaseFactory.init], so the driver never calls `Schema.create`; both views read/write
-         * the one file.
+         * Wraps the already-migrated [SqlDriver] in a SQLDelight [ServerSqlDatabase]. Migrations have
+         * already run via [DatabaseFactory.init], so the database never calls `Schema.create`; the
+         * driver is the single read/write view over the one file, exactly as production wires it.
          */
-        fun Database.asServerSqlDatabase(): ServerSqlDatabase {
-            val path = url.removePrefix("jdbc:sqlite:")
-            return ServerSqlDatabase(DriverFactory().createDriver(path))
-        }
+        fun SqlDriver.asServerSqlDatabase(): ServerSqlDatabase = ServerSqlDatabase(this)
 
         /**
          * Seeds a minimal user row via raw SQL.
@@ -90,27 +83,27 @@ class ProfileE2ETest :
          * and is not available from `:sharedLogic:jvmTest`. Raw SQL is the established pattern here —
          * see `WithCollectionSyncEngineAgainstServer` for precedent.
          */
-        fun Database.seedUser(
+        fun SqlDriver.seedUser(
             userId: String,
             passwordHash: String = "phc",
         ) {
             val now = System.currentTimeMillis()
-            transaction(this) {
-                exec(
-                    "INSERT INTO users(id, email, email_normalized, password_hash, role, display_name, status, " +
-                        "created_at, updated_at) VALUES " +
-                        "('$userId', '$userId@example.com', '$userId@example.com', '$passwordHash', " +
-                        "'MEMBER', '$userId', 'ACTIVE', $now, $now)",
-                )
-            }
+            execute(
+                null,
+                "INSERT INTO users(id, email, email_normalized, password_hash, role, display_name, status, " +
+                    "created_at, updated_at) VALUES " +
+                    "('$userId', '$userId@example.com', '$userId@example.com', '$passwordHash', " +
+                    "'MEMBER', '$userId', 'ACTIVE', $now, $now)",
+                0,
+            )
         }
 
         test("updateMyProfile then getMyProfile returns updated displayName and tagline") {
-            val serverDb = setupServerDb()
-            serverDb.seedUser("u1")
+            val serverDriver = setupServerDb()
+            serverDriver.seedUser("u1")
             // PublicProfileMaintainer/PublicProfileRepository are SQLDelight-converted: open a
-            // SQLDelight view over the same already-migrated file the Exposed [serverDb] uses.
-            val serverSqlDb = serverDb.asServerSqlDatabase()
+            // The same migrated SQLite file is read/written through the [serverDriver].
+            val serverSqlDb = serverDriver.asServerSqlDatabase()
             val profileService =
                 createProfileService(
                     sql = serverSqlDb,
@@ -159,14 +152,14 @@ class ProfileE2ETest :
         }
 
         test("updateMyProfile with wrong current password returns ProfileError.WrongPassword") {
-            val serverDb = setupServerDb()
+            val serverDriver = setupServerDb()
             val hasher = PasswordHasher()
             // Seed the user with a real Argon2 hash so passwordHasher.verify() can succeed or fail.
             val realHash = hasher.hash("correct-pass")
-            serverDb.seedUser("u2", passwordHash = realHash)
+            serverDriver.seedUser("u2", passwordHash = realHash)
             // PublicProfileMaintainer/PublicProfileRepository are SQLDelight-converted: open a
-            // SQLDelight view over the same already-migrated file the Exposed [serverDb] uses.
-            val serverSqlDb = serverDb.asServerSqlDatabase()
+            // The same migrated SQLite file is read/written through the [serverDriver].
+            val serverSqlDb = serverDriver.asServerSqlDatabase()
             val profileService =
                 createProfileService(
                     sql = serverSqlDb,
