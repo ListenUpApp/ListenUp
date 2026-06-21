@@ -23,7 +23,6 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
@@ -473,25 +472,6 @@ internal fun UserStatusColumn.toContract(): UserStatus =
         UserStatusColumn.PENDING_APPROVAL -> UserStatus.PENDING_APPROVAL
         UserStatusColumn.DENIED -> UserStatus.DENIED
     }
-
-/**
- * The wire-facing [User] contract for an Exposed [UserEntity]. Retained for the still-Exposed
- * admin / profile read paths ([com.calypsan.listenup.server.api.AdminUserServiceImpl]); the auth
- * domain itself now reads through [AuthUser.toContract]. Removed when the Exposed entities are
- * deleted in the final phase.
- */
-internal fun UserEntity.toContract(): User =
-    User(
-        id = UserId(id.value),
-        email = email,
-        displayName = displayName,
-        role = role.toContract(),
-        status = status.toContract(),
-        createdAt = createdAt,
-        permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
-        approvedBy = approvedBy,
-        approvedAt = approvedAt,
-    )
 
 /**
  * Strategy for handlers asking "who is the current caller?" without coupling
