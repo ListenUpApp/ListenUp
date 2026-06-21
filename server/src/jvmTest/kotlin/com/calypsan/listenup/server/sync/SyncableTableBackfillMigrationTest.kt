@@ -2,12 +2,11 @@
 
 package com.calypsan.listenup.server.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.calypsan.listenup.server.db.MigrationRunner
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
+import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.comparables.shouldBeGreaterThan
@@ -15,6 +14,7 @@ import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import java.sql.Connection
+import javax.sql.DataSource
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -31,23 +31,15 @@ import kotlinx.coroutines.test.runTest
 class SyncableTableBackfillMigrationTest :
     FunSpec({
 
-        /** A Hikari datasource over a temp-file SQLite database, deleted on JVM exit. */
-        fun freshDataSource(): HikariDataSource {
+        /** A non-pooled SQLite datasource over a temp-file database, deleted on JVM exit. */
+        fun freshDataSource(): DataSource {
             val tmp = Files.createTempFile("listenup-backfill-test-", ".db").toFile().apply { deleteOnExit() }
-            return HikariDataSource(
-                HikariConfig().apply {
-                    jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
-                    maximumPoolSize = 1
-                    isAutoCommit = false
-                    addDataSourceProperty("foreign_keys", "true")
-                    validate()
-                },
-            )
+            return fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
         }
 
         // Migrates [dataSource] up to [target] (inclusive); null migrates to latest.
         fun migrateTo(
-            dataSource: HikariDataSource,
+            dataSource: DataSource,
             target: Int?,
         ) = MigrationRunner(dataSource).migrate(upTo = target)
 
@@ -79,6 +71,7 @@ class SyncableTableBackfillMigrationTest :
             //    (e.g. from prior tag/book writes). The bug is invisible at counter 0.
             val counterBeforeBackfill: Long
             ds.connection.use { conn ->
+                conn.autoCommit = false // own the transaction; the non-pooled source hands out autoCommit=true
                 // Simulate prior cross-domain sync writes: counter sits at 5.
                 conn.exec("UPDATE sync_meta SET value = 5 WHERE key = 'revision_counter'")
                 (1..8).forEach { i ->
@@ -130,10 +123,13 @@ class SyncableTableBackfillMigrationTest :
         }
 
         test("the delivery invariant: a post-migration write lands above every backfilled revision") {
-            val ds = freshDataSource()
+            val tmp = Files.createTempFile("listenup-backfill-test-", ".db").toFile().apply { deleteOnExit() }
+            val jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
+            val ds = fileBackedTestDataSource(jdbcUrl)
             migrateTo(ds, target = 12)
 
             ds.connection.use { conn ->
+                conn.autoCommit = false // own the transaction; the non-pooled source hands out autoCommit=true
                 conn.exec("UPDATE sync_meta SET value = 5 WHERE key = 'revision_counter'")
                 (1..8).forEach { i ->
                     conn.exec(
@@ -155,9 +151,7 @@ class SyncableTableBackfillMigrationTest :
             // pull cursor. A new write must produce a revision ABOVE that cursor so
             // `pullSince` delivers it. Before the fix, the post-migration write got
             // `counter+1` — below the backfilled rows — and was silently dropped.
-            val driver = JdbcSqliteDriver(ds.jdbcUrl)
-            driver.execute(null, "PRAGMA foreign_keys=ON;", 0)
-            driver.execute(null, "PRAGMA busy_timeout=5000;", 0)
+            val driver = DriverFactory().createDriver(tmp.absolutePath)
             val sql = ListenUpDatabase(driver)
             val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
             runTest {

@@ -1,24 +1,15 @@
 package com.calypsan.listenup.server.db
 
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
+import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import javax.sql.DataSource
 
-private fun freshDataSource(): HikariDataSource {
+private fun freshDataSource(): DataSource {
     val tmp = Files.createTempFile("listenup-runner-test-", ".db").toFile().apply { deleteOnExit() }
-    return HikariDataSource(
-        HikariConfig().apply {
-            jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
-            maximumPoolSize = 1
-            isAutoCommit = false
-            addDataSourceProperty("foreign_keys", "true")
-            validate()
-        },
-    )
+    return fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
 }
 
 private fun DataSource.tableExists(name: String): Boolean =

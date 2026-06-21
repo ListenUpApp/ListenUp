@@ -46,7 +46,10 @@ class RestoreRoundTripTest :
             liveHandle.reopenPool()
 
             // The SAME repos instance (bound to handle.sqlDriver) must now see the swapped-in row.
-            repos.librariesQueries.selectById("from-replacement").executeAsOneOrNull()?.id shouldBe "from-replacement"
+            repos.librariesQueries
+                .selectById("from-replacement")
+                .executeAsOneOrNull()
+                ?.id shouldBe "from-replacement"
 
             liveHandle.close()
         }

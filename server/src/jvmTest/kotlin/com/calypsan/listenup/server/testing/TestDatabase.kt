@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import java.nio.file.Files
 import org.sqlite.SQLiteConfig
+import org.sqlite.SQLiteDataSource
 
 /**
  * A migrated test SQLite database exposed as a SQLDelight [ListenUpDatabase] together with its
@@ -46,3 +47,19 @@ fun migratedTestDatabase(): TestDatabase {
         )
     return TestDatabase(db = ListenUpDatabase(driver), driver = driver)
 }
+
+/**
+ * A non-pooled file-backed [SQLiteDataSource] over [jdbcUrl] for migration/schema tests that drive
+ * [com.calypsan.listenup.server.db.MigrationRunner] directly (the Hikari-free replacement for the
+ * pooled data source those tests used to build). FK enforcement + busy_timeout + WAL as connection
+ * properties. Non-pooled: each `connection.use {}` opens+closes its own connection, so there is
+ * nothing to close on the data source itself; the temp file is the caller's to delete.
+ */
+fun fileBackedTestDataSource(jdbcUrl: String): SQLiteDataSource =
+    SQLiteDataSource(
+        SQLiteConfig().apply {
+            enforceForeignKeys(true)
+            busyTimeout = 5000
+            setJournalMode(SQLiteConfig.JournalMode.WAL)
+        },
+    ).apply { url = jdbcUrl }

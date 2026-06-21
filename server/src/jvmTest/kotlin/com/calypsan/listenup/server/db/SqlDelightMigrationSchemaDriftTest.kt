@@ -2,8 +2,7 @@ package com.calypsan.listenup.server.db
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
+import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -233,17 +232,8 @@ private fun tablesIn(conn: Connection): Set<String> =
 /** Authoritative side: a fresh SQLite with every migration applied, exposed as a plain JDBC connection. */
 private fun migrationConnection(): Connection {
     val tmp = Files.createTempFile("listenup-drift-migration-", ".db").toFile().apply { deleteOnExit() }
-    val ds =
-        HikariDataSource(
-            HikariConfig().apply {
-                jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
-                maximumPoolSize = 1
-                isAutoCommit = false
-                addDataSourceProperty("foreign_keys", "true")
-                validate()
-            },
-        )
-    ds.use { MigrationRunner(it).migrate() }
+    val ds = fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
+    MigrationRunner(ds).migrate()
     return DriverManager.getConnection("jdbc:sqlite:${tmp.absolutePath}")
 }
 

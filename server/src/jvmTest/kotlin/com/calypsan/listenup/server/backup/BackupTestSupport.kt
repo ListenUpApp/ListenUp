@@ -87,17 +87,13 @@ fun DatabaseHandle.execSql(vararg statements: String) {
 /** Runs a scalar-int [sql] query (e.g. `SELECT count(*) …`) on the handle's data source; 0 if no row. */
 fun DatabaseHandle.queryScalarInt(sql: String): Int =
     dataSourceForTest().connection.use { conn ->
-        conn.createStatement().use { stmt ->
-            stmt.executeQuery(sql).use { rs -> if (rs.next()) rs.getInt(1) else 0 }
-        }
+        conn.createStatement().executeQuery(sql).use { rs -> if (rs.next()) rs.getInt(1) else 0 }
     }
 
 /** Runs a scalar-string [sql] query (first column of the first row) on the handle's data source; null if no row. */
 fun DatabaseHandle.queryScalarString(sql: String): String? =
     dataSourceForTest().connection.use { conn ->
-        conn.createStatement().use { stmt ->
-            stmt.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null }
-        }
+        conn.createStatement().executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null }
     }
 
 /**
