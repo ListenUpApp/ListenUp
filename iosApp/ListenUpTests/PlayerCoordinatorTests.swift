@@ -301,13 +301,64 @@ struct SeamValueTypeTests {
 @Suite("Stop deactivates session")
 @MainActor
 struct StopDeactivatesSessionTests {
-    @Test func stopDeactivatesAudioSession() async throws {
-        let engine = FakePlaybackEngine()
-        let coordinator = PlayerCoordinator(
+    private func makeCoordinator(_ engine: FakePlaybackEngine) -> PlayerCoordinator {
+        PlayerCoordinator(
             preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(),
             sleep: FakeSleepTiming(), engine: engine, coverProvider: FakeBookCoverProviding())
-        coordinator.stop()
-        await awaitUntil { await engine.didDeactivateSession }
+    }
+
+    @Test func stopDeactivatesAudioSession() async throws {
+        let engine = FakePlaybackEngine()
+        let coordinator = makeCoordinator(engine)
+        await coordinator.stop()
         #expect(await engine.didDeactivateSession)
+    }
+
+    /// The teardown invariant `stop()` exists to guarantee: the audio session is
+    /// deactivated *before* the engine is released, and both complete before `stop()`
+    /// returns (so the coordinator can't drop with the session still active).
+    @Test func stopDeactivatesSessionBeforeReleasingEngine() async throws {
+        let engine = FakePlaybackEngine()
+        let coordinator = makeCoordinator(engine)
+        await coordinator.stop()
+        #expect(await engine.teardownOrder == ["deactivate", "release"])
+        #expect(await engine.didRelease)
+    }
+}
+
+@Suite("Playback lifecycle")
+@MainActor
+struct PlaybackLifecycleTests {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine) {
+        let engine = FakePlaybackEngine()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        return (coordinator, engine)
+    }
+
+    /// A full play → pause → stop journey leaves the engine and `phase` consistent:
+    /// playing after play, paused after toggle, torn down (and hidden) after stop.
+    @Test func playPauseStopLeavesConsistentState() async throws {
+        let (coordinator, engine) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await awaitUntil { await engine.didPlay }
+        #expect(coordinator.isPlaying)
+        #expect(coordinator.isVisible)
+
+        coordinator.togglePlayback()
+        await awaitUntil { await engine.didPause }
+        #expect(coordinator.isPlaying == false)
+
+        await coordinator.stop()
+        #expect(await engine.didDeactivateSession)
+        #expect(await engine.didRelease)
     }
 }

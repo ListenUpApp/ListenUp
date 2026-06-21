@@ -12,7 +12,9 @@ final class LiveActivityManager {
     private let coverWriter = CoverThumbnailWriter()
 
     init() {
-        // End any activity left over from a previous app session.
+        // End any activity left over from a previous app session. Fire-and-forget by
+        // design: this is best-effort one-shot cleanup the system completes on its own
+        // schedule — nothing in this object's lifecycle depends on it finishing.
         for stale in Activity<AudiobookActivityAttributes>.activities {
             Task { await stale.end(nil, dismissalPolicy: .immediate) }
         }
@@ -49,6 +51,8 @@ final class LiveActivityManager {
     func sync(_ snapshot: LiveActivitySnapshot) {
         guard let activity else { return }
         let state = LiveActivityContentMapper.contentState(from: snapshot)
+        // Fire-and-forget by design: a transient, latest-wins UI push. A superseded
+        // update is harmless, so there is nothing to await or cancel.
         Task { await activity.update(.init(state: state, staleDate: nil)) }
     }
 
@@ -63,6 +67,9 @@ final class LiveActivityManager {
         let ending = activity
         self.activity = nil
         coverWriter?.remove(bookId: bookId)
+        // Fire-and-forget by design: `self.activity` is already cleared, so the manager's
+        // state is fully torn down synchronously. The actual dismissal is OS-managed and
+        // nothing waits on it; capturing `ending` locally keeps it alive until it ends.
         Task { await ending.end(nil, dismissalPolicy: .immediate) }
     }
 }
