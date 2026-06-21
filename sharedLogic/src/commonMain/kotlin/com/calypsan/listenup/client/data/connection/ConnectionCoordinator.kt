@@ -42,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  *   stale RPC proxy caches (see [start]). Defaults to an idle holder so existing call sites that
  *   don't drive reconnects (tests) need no change; production wires the live engine state.
  */
-class ConnectionCoordinator(
+class ConnectionCoordinator internal constructor(
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
     private val discoveryService: ServerDiscoveryService,
