@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.map
  *
  * @param discoveryService Platform-specific mDNS discovery
  */
-class ServerRepositoryImpl(
+internal class ServerRepositoryImpl(
     private val discoveryService: ServerDiscoveryService,
 ) : ServerRepository {
     override fun observeServers(): Flow<List<ServerWithStatus>> =

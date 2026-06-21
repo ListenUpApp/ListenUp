@@ -58,7 +58,7 @@ import kotlinx.coroutines.flow.onEach
  * @property moodRepository Upstream Flow source for a book's moods, composed
  *   into the detail views so mood edits propagate to detail-screen consumers.
  */
-data class BookDetailJoinSources(
+internal data class BookDetailJoinSources(
     val genreRepository: GenreRepository,
     val tagRepository: TagRepository,
     val moodRepository: MoodRepository,
@@ -98,7 +98,7 @@ data class BookDetailJoinSources(
  * @property bookSyncDomainHandler Owns the atomic aggregate write-through used
  *   to cache an on-demand-fetched book into Room.
  */
-class BookRepositoryImpl(
+internal class BookRepositoryImpl(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val audioFileDao: AudioFileDao,
@@ -109,7 +109,8 @@ class BookRepositoryImpl(
     private val networkMonitor: NetworkMonitor,
     private val bookRpcFactory: BookRpcFactory,
     private val bookSyncDomainHandler: BookSyncDomainHandler,
-) : com.calypsan.listenup.client.domain.repository.BookRepository {
+) : com.calypsan.listenup.client.domain.repository.BookRepository,
+    BookIngestPort {
     private val logger = KotlinLogging.logger {}
 
     /**

@@ -24,7 +24,7 @@ private const val BATCH_SIZE = 3
  * @property imageApi API client for downloading cover images
  * @property imageStorage Local storage for cover images
  */
-class ImageDownloader(
+internal class ImageDownloader(
     private val imageApi: ImageApiContract,
     private val imageStorage: ImageStorage,
 ) : ImageDownloaderContract {

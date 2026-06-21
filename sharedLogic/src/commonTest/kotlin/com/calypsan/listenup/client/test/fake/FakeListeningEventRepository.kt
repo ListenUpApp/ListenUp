@@ -2,8 +2,10 @@ package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.BookDuration
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
+import com.calypsan.listenup.client.data.repository.toDomain
+import com.calypsan.listenup.client.domain.model.BookListeningDuration
+import com.calypsan.listenup.client.domain.model.ListeningEvent
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +18,9 @@ import kotlinx.coroutines.flow.map
  * Backed by a [MutableStateFlow] of [ListeningEventEntity] so reactive
  * `observe*` methods emit on every [queueListeningEvent] call — matching the
  * read-after-write semantics of the Room-backed implementation.
+ *
+ * Mapping from entity to domain is delegated to the canonical `toDomain()` extension
+ * defined in [com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl].
  *
  * [queueCount] is exposed for tests that care about how many events were queued
  * without examining the emitted flows.
@@ -55,17 +60,17 @@ class FakeListeningEventRepository(
         return AppResult.Success(Unit)
     }
 
-    override fun observeEventsForBook(bookId: String): Flow<List<ListeningEventEntity>> =
-        events.asStateFlow().map { list -> list.filter { it.bookId == bookId } }
+    override fun observeEventsForBook(bookId: String): Flow<List<ListeningEvent>> =
+        events.asStateFlow().map { list -> list.filter { it.bookId == bookId }.map { it.toDomain() } }
 
     override fun observeEventsInRange(
         startMs: Long,
         endMs: Long,
-    ): Flow<List<ListeningEventEntity>> =
-        events.asStateFlow().map { list -> list.filter { it.endedAt in startMs..<endMs } }
+    ): Flow<List<ListeningEvent>> =
+        events.asStateFlow().map { list -> list.filter { it.endedAt in startMs..<endMs }.map { it.toDomain() } }
 
-    override fun observeEventsSince(startMs: Long): Flow<List<ListeningEventEntity>> =
-        events.asStateFlow().map { list -> list.filter { it.endedAt >= startMs } }
+    override fun observeEventsSince(startMs: Long): Flow<List<ListeningEvent>> =
+        events.asStateFlow().map { list -> list.filter { it.endedAt >= startMs }.map { it.toDomain() } }
 
     override suspend fun getTotalDurationSince(startMs: Long): Long =
         events.value
@@ -105,12 +110,12 @@ class FakeListeningEventRepository(
     override suspend fun getDurationByBook(
         startMs: Long,
         endMs: Long,
-    ): List<BookDuration> =
+    ): List<BookListeningDuration> =
         events.value
             .filter { it.endedAt in startMs..<endMs }
             .groupBy { it.bookId }
             .map { (bookId, es) ->
-                BookDuration(
+                BookListeningDuration(
                     bookId = bookId,
                     totalMs =
                         es.sumOf {

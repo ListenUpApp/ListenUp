@@ -15,10 +15,10 @@ import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.remote.model.BookResponse
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
-import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -128,7 +128,7 @@ class PlaybackManagerFallbackFetchTest :
             // fetchBookFromServer's call to upsertWithAudioFiles actually writes
             // to the DB and the junction assertion passes.
             val txRunner = RoomTransactionRunner(db)
-            val bookRepository: BookRepository =
+            val bookIngestPort: BookIngestPort =
                 BookRepositoryImpl(
                     bookDao = db.bookDao(),
                     chapterDao = db.chapterDao(),
@@ -164,7 +164,7 @@ class PlaybackManagerFallbackFetchTest :
                 playbackRpcFactory = testPlaybackRpcFactory("af-1", "af-2"),
                 syncApi = syncApi,
                 scope = CoroutineScope(Job()),
-                bookRepository = bookRepository,
+                bookIngestPort = bookIngestPort,
             )
         }
 

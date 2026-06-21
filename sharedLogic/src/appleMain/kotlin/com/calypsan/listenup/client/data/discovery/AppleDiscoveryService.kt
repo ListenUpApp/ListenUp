@@ -39,7 +39,7 @@ private val logger = KotlinLogging.logger {}
  * - api: API version (required)
  * - remote: Remote URL (optional)
  */
-class AppleDiscoveryService : ServerDiscoveryService {
+internal class AppleDiscoveryService : ServerDiscoveryService {
     private val serviceBrowser = NSNetServiceBrowser()
     private val serversState = MutableStateFlow<Map<String, DiscoveredServer>>(emptyMap())
     private val pendingServices = mutableMapOf<String, NSNetService>()

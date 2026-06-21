@@ -20,7 +20,7 @@ import kotlinx.rpc.withService
  *
  * Mirrors [TagRpcFactory] — the established precedent for RPC factory seams.
  */
-interface MoodRpcFactory {
+internal interface MoodRpcFactory {
     /** Returns the cached [MoodService] proxy, connecting on first use. */
     suspend fun get(): MoodService
 
@@ -39,7 +39,7 @@ interface MoodRpcFactory {
  *
  * Wire serialization uses the contract-layer [contractJson] — one wire format, two transports.
  */
-open class KtorMoodRpcFactory(
+internal open class KtorMoodRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : MoodRpcFactory,

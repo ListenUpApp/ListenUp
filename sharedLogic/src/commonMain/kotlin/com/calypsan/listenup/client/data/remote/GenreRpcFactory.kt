@@ -22,7 +22,7 @@ import kotlinx.rpc.withService
  * An interface so repositories depend on a seam that fakes/mocks in tests —
  * [KtorGenreRpcFactory] is the production implementation over WebSocket RPC.
  */
-interface GenreRpcFactory {
+internal interface GenreRpcFactory {
     /** Returns the cached [GenreService] proxy, connecting on first use. */
     suspend fun genreService(): GenreService
 
@@ -39,7 +39,7 @@ interface GenreRpcFactory {
  * Wire serialization is the contract-layer [contractJson] — one wire format,
  * two transports.
  */
-class KtorGenreRpcFactory(
+internal class KtorGenreRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : GenreRpcFactory,

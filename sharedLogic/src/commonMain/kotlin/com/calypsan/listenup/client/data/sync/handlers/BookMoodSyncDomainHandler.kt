@@ -35,7 +35,7 @@ private val logger = KotlinLogging.logger {}
  * Self-registers in [ClientSyncDomainRegistry] at construction. Mirrors
  * [BookTagSyncDomainHandler].
  */
-class BookMoodSyncDomainHandler(
+internal class BookMoodSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,

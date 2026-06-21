@@ -11,7 +11,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * invariant the hand-rolled `.catch` blocks across the presentation layer kept
  * getting wrong.
  */
-inline fun <T> Flow<T>.fallbackTo(crossinline recover: suspend (Throwable) -> T): Flow<T> =
+internal inline fun <T> Flow<T>.fallbackTo(crossinline recover: suspend (Throwable) -> T): Flow<T> =
     catch { e ->
         if (e is CancellationException) throw e
         emit(recover(e))

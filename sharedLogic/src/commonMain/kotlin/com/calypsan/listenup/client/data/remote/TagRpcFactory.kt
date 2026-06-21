@@ -20,7 +20,7 @@ import kotlinx.rpc.withService
  *
  * Mirrors [LibraryAdminRpcFactory] — the established precedent for RPC factory seams.
  */
-interface TagRpcFactory {
+internal interface TagRpcFactory {
     /** Returns the cached [TagService] proxy, connecting on first use. */
     suspend fun get(): TagService
 
@@ -41,7 +41,7 @@ interface TagRpcFactory {
  *
  * Token rotation is a known phase-1-auth deferral — same across every RPC factory.
  */
-open class KtorTagRpcFactory(
+internal open class KtorTagRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : TagRpcFactory,

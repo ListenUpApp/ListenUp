@@ -28,7 +28,7 @@ import kotlinx.rpc.withService
  * An interface so the repository depends on a seam that fakes in tests;
  * [KtorInstanceRpcFactory] is the production implementation over WebSocket RPC.
  */
-interface InstanceRpcFactory {
+internal interface InstanceRpcFactory {
     /**
      * Connect to [wsBaseUrl] (a `ws://`/`wss://` origin) and fetch its
      * [com.calypsan.listenup.api.dto.ServerInfo] over the public RPC surface.
@@ -61,7 +61,7 @@ interface InstanceRpcFactory {
  * Timeouts are constructor-injectable so the hang is regression-tested against a
  * black-hole socket.
  */
-class KtorInstanceRpcFactory(
+internal class KtorInstanceRpcFactory(
     private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
     private val requestTimeoutMillis: Long = DEFAULT_REQUEST_TIMEOUT_MS,
     private val socketTimeoutMillis: Long = DEFAULT_SOCKET_TIMEOUT_MS,

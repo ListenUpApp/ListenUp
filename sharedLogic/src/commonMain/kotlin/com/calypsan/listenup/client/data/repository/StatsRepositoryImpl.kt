@@ -59,7 +59,7 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
  *   Defaults to [midnightPulse]; injectable for testing so tests can pass
  *   `flowOf(Unit)` and avoid an infinite `delay` loop.
  */
-class StatsRepositoryImpl(
+internal class StatsRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
     private val genreDao: GenreDao,
     private val authSession: AuthSession,

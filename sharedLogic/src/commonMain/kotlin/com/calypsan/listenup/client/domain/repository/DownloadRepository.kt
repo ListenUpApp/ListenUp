@@ -3,10 +3,10 @@ package com.calypsan.listenup.client.domain.repository
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.DownloadEntity
-import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import kotlinx.coroutines.flow.Flow
 
@@ -18,11 +18,11 @@ import kotlinx.coroutines.flow.Flow
 interface DownloadRepository {
     // --- Reads ---
 
-    /** Observe the raw entities for a book (most callers should prefer [observeBookStatus]). */
-    fun observeForBook(bookId: BookId): Flow<List<DownloadEntity>>
+    /** Observe download domain objects for a book (most callers should prefer [observeBookStatus]). */
+    fun observeForBook(bookId: BookId): Flow<List<Download>>
 
-    /** Observe all download entities across all books. */
-    fun observeAll(): Flow<List<DownloadEntity>>
+    /** Observe all downloads across all books. */
+    fun observeAll(): Flow<List<Download>>
 
     /** Observe the aggregated [BookDownloadStatus] for a single book. */
     fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus>
@@ -36,8 +36,8 @@ interface DownloadRepository {
     /** Get local file path for an audio file if downloaded; null otherwise. */
     suspend fun getLocalPath(audioFileId: String): String?
 
-    /** Get the current [DownloadState] for an audio file, or null if no row exists. */
-    suspend fun getStateForAudioFile(audioFileId: String): DownloadState?
+    /** Get the current [DownloadStatus] for an audio file, or null if no row exists. */
+    suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus?
 
     // --- State-transition writes (Sync Engine Rule 5 enforcement point) ---
 
@@ -81,7 +81,7 @@ interface DownloadRepository {
 
     /**
      * Cancel all in-flight downloads for a book. All non-terminal rows transition to
-     * [DownloadState.CANCELLED].
+     * [DownloadStatus.CANCELLED].
      */
     suspend fun cancelForBook(bookId: BookId): AppResult<Unit>
 

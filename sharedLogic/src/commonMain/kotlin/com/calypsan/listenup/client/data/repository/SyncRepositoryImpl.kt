@@ -51,7 +51,7 @@ private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
  * (sync triggers, reconnects) skip recovery — the tentative_span table is a singleton and
  * will be empty after the first successful recovery.
  */
-class SyncRepositoryImpl(
+internal class SyncRepositoryImpl(
     private val syncEngine: SyncEngine,
     private val syncEngineState: SyncEngineState,
     private val authSession: AuthSession,

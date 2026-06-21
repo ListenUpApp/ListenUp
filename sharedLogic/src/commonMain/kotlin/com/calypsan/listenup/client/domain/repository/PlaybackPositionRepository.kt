@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import kotlinx.coroutines.flow.Flow
 
@@ -29,9 +28,6 @@ interface PlaybackPositionRepository {
      * Read the persisted playback position for [bookId] as a domain model. Returns
      * null inside [AppResult.Success] if the book has never been played; returns
      * [AppResult.Failure] if the DAO read fails.
-     *
-     * Companion to [getEntity] (which returns the full entity row); use this when
-     * you only need the domain projection (positionMs, speed, isFinished, etc.).
      */
     suspend fun get(bookId: BookId): AppResult<PlaybackPosition?>
 
@@ -98,23 +94,6 @@ interface PlaybackPositionRepository {
      *   [AppResult.Failure] only on local DB-write failure.
      */
     suspend fun restartBook(bookId: BookId): AppResult<Unit>
-
-    /**
-     * Read the persisted entity row for [bookId]. Returns null if the book has
-     * never been played. Read-only DAO delegation; no transaction needed.
-     *
-     * Use this when you need the persisted row including columns the domain model
-     * doesn't expose (e.g., raw timestamps, sync metadata). For domain-model reads,
-     * prefer [get] which returns the domain projection via [AppResult].
-     *
-     * Primary call site: read-back path for `savePlaybackState(... CrossDeviceSync(...))` in
-     * [com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl].
-     *
-     * @param bookId The book to read the entity row for.
-     * @return [AppResult.Success] wrapping the entity (or null if no row exists);
-     *   [AppResult.Failure] if the DAO threw.
-     */
-    suspend fun getEntity(bookId: BookId): AppResult<PlaybackPositionEntity?>
 
     /**
      * Single canonical entry point for every mutation of `playback_positions`.

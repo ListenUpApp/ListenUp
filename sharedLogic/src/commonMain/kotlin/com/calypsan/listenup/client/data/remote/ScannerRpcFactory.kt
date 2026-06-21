@@ -21,7 +21,7 @@ import kotlinx.rpc.withService
  * underlying [HttpClient] comes from [ApiClientFactory] (same one the rest of the
  * app uses), so [invalidate] drops the cached proxy when that client is recycled.
  */
-interface ScannerRpcFactory {
+internal interface ScannerRpcFactory {
     /** Returns the cached [ScannerService] proxy, connecting on first use. */
     suspend fun get(): ScannerService
 
@@ -33,7 +33,7 @@ interface ScannerRpcFactory {
  * Production [ScannerRpcFactory]: mounts [ScannerService] over `/api/rpc/public`.
  * Mirrors [KtorLibraryAdminRpcFactory], substituting the public mount.
  */
-open class KtorScannerRpcFactory(
+internal open class KtorScannerRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : ScannerRpcFactory,

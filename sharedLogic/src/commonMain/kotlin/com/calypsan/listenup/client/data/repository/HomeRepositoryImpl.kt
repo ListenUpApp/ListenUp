@@ -31,7 +31,7 @@ import kotlin.time.Instant
  * @property bookRepository Repository for fetching book details
  * @property playbackPositionDao DAO for playback positions
  */
-class HomeRepositoryImpl(
+internal class HomeRepositoryImpl(
     private val bookRepository: com.calypsan.listenup.client.domain.repository.BookRepository,
     private val playbackPositionDao: PlaybackPositionDao,
 ) : HomeRepository {

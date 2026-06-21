@@ -135,7 +135,7 @@ val iosPlaybackModule: Module =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookRepository = get(),
+                bookIngestPort = get(),
             )
         }
 

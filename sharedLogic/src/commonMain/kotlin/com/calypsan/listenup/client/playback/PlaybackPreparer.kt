@@ -16,9 +16,9 @@ import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
-import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -88,7 +88,7 @@ class PlaybackPreparer(
     private val playbackRpcFactory: PlaybackRpcFactory,
     private val syncApi: SyncApiContract?,
     private val scope: CoroutineScope,
-    private val bookRepository: BookRepository,
+    private val bookIngestPort: BookIngestPort,
 ) {
     /**
      * Prepare playback for [bookId].
@@ -331,7 +331,7 @@ class PlaybackPreparer(
     /**
      * Fetch book data from server and persist locally. Used as a fallback when
      * local book data is incomplete. Writes book entity + audio-file junction
-     * rows atomically via [BookRepository.upsertWithAudioFiles].
+     * rows atomically via [BookIngestPort.upsertWithAudioFiles].
      *
      * Internal visibility allows [PlaybackManagerFallbackFetchAtomicityTest] to
      * invoke the method directly.
@@ -365,7 +365,7 @@ class PlaybackPreparer(
                         )
                     }
 
-                when (val writeResult = bookRepository.upsertWithAudioFiles(entity, audioFileRows)) {
+                when (val writeResult = bookIngestPort.upsertWithAudioFiles(entity, audioFileRows)) {
                     is AppResult.Success -> {
                         logger.debug { "Saved fetched book + ${audioFileRows.size} audio files to local database" }
                         true

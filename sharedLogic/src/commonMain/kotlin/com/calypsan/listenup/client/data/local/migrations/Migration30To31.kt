@@ -8,7 +8,7 @@ import androidx.sqlite.execSQL
  * v30 → v31: rename the activities cache column `createdAt` → `occurredAt` (#548) so the feed
  * orders/displays by the real event time. Renames in place to preserve cached rows.
  */
-val MIGRATION_30_31: Migration =
+internal val MIGRATION_30_31: Migration =
     object : Migration(30, 31) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("DROP INDEX IF EXISTS `index_activities_createdAt`")

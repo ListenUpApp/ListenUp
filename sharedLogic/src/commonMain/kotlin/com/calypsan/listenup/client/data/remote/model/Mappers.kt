@@ -24,7 +24,7 @@ import kotlin.time.Instant
  * @receiver BookResponse from API
  * @return BookEntity ready for Room insertion
  */
-fun BookResponse.toEntity(): BookEntity =
+internal fun BookResponse.toEntity(): BookEntity =
     BookEntity(
         id = BookId(id),
         // The legacy REST BookResponse predates the Library domain — libraryId/folderId are not on the wire.
@@ -63,7 +63,7 @@ fun BookResponse.toEntity(): BookEntity =
  * @throws IllegalArgumentException if timestamp format is invalid, with details about the parsing failure
  */
 @OptIn(ExperimentalTime::class)
-fun String.toTimestamp(): Timestamp =
+internal fun String.toTimestamp(): Timestamp =
     try {
         Timestamp(Instant.parse(this).toEpochMilliseconds())
     } catch (e: IllegalArgumentException) {
@@ -92,4 +92,4 @@ fun String.toTimestamp(): Timestamp =
  * @return ISO 8601 timestamp string (e.g., "2025-11-22T14:30:45Z")
  */
 @OptIn(ExperimentalTime::class)
-fun Timestamp.toIso8601(): String = Instant.fromEpochMilliseconds(this.epochMillis).toString()
+internal fun Timestamp.toIso8601(): String = Instant.fromEpochMilliseconds(this.epochMillis).toString()

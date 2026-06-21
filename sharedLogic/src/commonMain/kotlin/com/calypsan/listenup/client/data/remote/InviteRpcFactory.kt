@@ -22,7 +22,7 @@ import kotlinx.rpc.withService
  * [KtorInviteRpcFactory] is the production implementation over WebSocket RPC.
  * Mirrors [TagRpcFactory] — the established RPC-factory-seam precedent.
  */
-interface InviteRpcFactory {
+internal interface InviteRpcFactory {
     /** Returns the cached [InviteServicePublic] proxy, connecting on first use. */
     suspend fun publicService(): InviteServicePublic
 
@@ -46,7 +46,7 @@ interface InviteRpcFactory {
  * Wire serialization uses the contract-layer [contractJson] — one wire format,
  * two transports.
  */
-open class KtorInviteRpcFactory(
+internal open class KtorInviteRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : InviteRpcFactory,

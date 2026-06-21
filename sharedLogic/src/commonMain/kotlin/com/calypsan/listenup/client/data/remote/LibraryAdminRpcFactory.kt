@@ -45,7 +45,7 @@ interface LibraryAdminRpcFactory {
  * Token rotation is a known phase-1-auth deferral — same across every RPC factory
  * in the codebase. Not solved here.
  */
-open class KtorLibraryAdminRpcFactory(
+internal open class KtorLibraryAdminRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : LibraryAdminRpcFactory,

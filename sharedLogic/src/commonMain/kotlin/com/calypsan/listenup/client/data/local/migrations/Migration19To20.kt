@@ -20,7 +20,7 @@ import androidx.sqlite.execSQL
  * Column name is `sortName` (camelCase) — Room generates this from the entity
  * field name verbatim; verified against the `20.json` Room schema export.
  */
-val MIGRATION_19_20: Migration =
+internal val MIGRATION_19_20: Migration =
     object : Migration(19, 20) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("ALTER TABLE `series` ADD COLUMN `sortName` TEXT")

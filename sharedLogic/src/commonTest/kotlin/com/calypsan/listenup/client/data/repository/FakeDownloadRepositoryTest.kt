@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadStatus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -41,10 +42,10 @@ class FakeDownloadRepositoryTest :
             runTest {
                 val fake = FakeDownloadRepository(initial = listOf(entity("file-1")))
                 fake.observeForBook(BookId("book-1")).test {
-                    awaitItem().single().state shouldBe DownloadState.QUEUED
+                    awaitItem().single().status shouldBe DownloadStatus.QUEUED
                     fake.markDownloading("file-1", startedAt = 100L)
                     val downloading = awaitItem().single()
-                    downloading.state shouldBe DownloadState.DOWNLOADING
+                    downloading.status shouldBe DownloadStatus.DOWNLOADING
                     downloading.startedAt shouldBe 100L
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -64,11 +65,14 @@ class FakeDownloadRepositoryTest :
             runTest {
                 val fake = FakeDownloadRepository(initial = listOf(entity("file-1")))
                 fake.markCompleted("file-1", localPath = "/tmp/file-1.mp3", completedAt = 500L)
-                val completed = fake.entities.single()
-                completed.state shouldBe DownloadState.COMPLETED
-                completed.localPath shouldBe "/tmp/file-1.mp3"
-                completed.completedAt shouldBe 500L
-                completed.downloadedBytes shouldBe completed.totalBytes
+                fake.observeForBook(BookId("book-1")).test {
+                    val completed = awaitItem().single()
+                    completed.status shouldBe DownloadStatus.COMPLETED
+                    completed.localPath shouldBe "/tmp/file-1.mp3"
+                    completed.completedAt shouldBe 500L
+                    completed.downloadedBytes shouldBe completed.totalBytes
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
 
@@ -76,7 +80,10 @@ class FakeDownloadRepositoryTest :
             runTest {
                 val fake = FakeDownloadRepository(initial = listOf(entity("file-1", state = DownloadState.DOWNLOADING)))
                 fake.markCancelled("file-1")
-                fake.entities.single().state shouldBe DownloadState.CANCELLED
+                fake.observeForBook(BookId("book-1")).test {
+                    awaitItem().single().status shouldBe DownloadStatus.CANCELLED
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
 
@@ -84,9 +91,12 @@ class FakeDownloadRepositoryTest :
             runTest {
                 val fake = FakeDownloadRepository(initial = listOf(entity("file-1")))
                 fake.markFailed("file-1", DownloadError.DownloadFailed(debugInfo = "test failure"))
-                val failed = fake.entities.single()
-                failed.state shouldBe DownloadState.FAILED
-                (failed.errorMessage?.contains("Download") == true) shouldBe true
+                fake.observeForBook(BookId("book-1")).test {
+                    val failed = awaitItem().single()
+                    failed.status shouldBe DownloadStatus.FAILED
+                    (failed.errorMessage?.contains("Download") == true) shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
 

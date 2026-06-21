@@ -10,7 +10,7 @@ package com.calypsan.listenup.client.data.discovery
  * trying the likely-good ones first keeps the happy path fast. The sort is stable, so the server's
  * announced order is preserved within a tier.
  */
-fun rankHostAddresses(addresses: List<String>): List<String> = addresses.distinct().sortedBy(::addressTier)
+internal fun rankHostAddresses(addresses: List<String>): List<String> = addresses.distinct().sortedBy(::addressTier)
 
 /** Lower = tried first. Routable IPv4 → routable IPv6 → CGNAT (VPN) → link-local/loopback. */
 private fun addressTier(address: String): Int {

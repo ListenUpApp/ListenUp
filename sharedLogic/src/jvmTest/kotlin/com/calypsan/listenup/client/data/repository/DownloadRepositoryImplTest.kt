@@ -7,8 +7,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.download.DownloadEnqueuer
-import com.calypsan.listenup.client.data.local.db.AudioFileEntity
-import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -344,9 +342,4 @@ private class FakeBookRepository : BookRepository {
     override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
-
-    override suspend fun upsertWithAudioFiles(
-        book: BookEntity,
-        audioFiles: List<AudioFileEntity>,
-    ): AppResult<Unit> = AppResult.Success(Unit)
 }

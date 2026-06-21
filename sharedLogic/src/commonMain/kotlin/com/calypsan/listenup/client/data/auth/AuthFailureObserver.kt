@@ -26,7 +26,7 @@ private val logger = KotlinLogging.logger {}
  * and login flows produce their own auth errors that must not be misread as a
  * logout.
  */
-class AuthFailureObserver(
+internal class AuthFailureObserver(
     errorBus: ErrorBus,
     private val authSession: AuthSession,
     scope: CoroutineScope,

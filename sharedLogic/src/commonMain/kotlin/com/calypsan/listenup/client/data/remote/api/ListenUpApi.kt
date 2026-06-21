@@ -65,7 +65,7 @@ private const val MAX_SEARCH_LIMIT = 50
  *
  * Uses Ktor 3 for modern, multiplatform HTTP client functionality.
  */
-class ListenUpApi(
+internal class ListenUpApi(
     private val baseUrl: String,
     private val apiClientFactory: ApiClientFactory? = null,
 ) : InstanceApiContract,

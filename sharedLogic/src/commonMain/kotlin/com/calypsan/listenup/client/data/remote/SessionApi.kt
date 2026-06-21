@@ -19,7 +19,7 @@ private val logger = KotlinLogging.logger {}
  *
  * @property clientFactory Factory for creating authenticated HttpClient.
  */
-class SessionApi(
+internal class SessionApi(
     private val clientFactory: ApiClientFactory,
 ) : SessionApiContract {
     /**

@@ -15,7 +15,7 @@ import androidx.sqlite.execSQL
  * A plain `ALTER TABLE ... ADD COLUMN` suffices — the column is appended with a
  * `NOT NULL DEFAULT 0`, so no table rebuild is needed.
  */
-val MIGRATION_15_16: Migration =
+internal val MIGRATION_15_16: Migration =
     object : Migration(15, 16) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL(

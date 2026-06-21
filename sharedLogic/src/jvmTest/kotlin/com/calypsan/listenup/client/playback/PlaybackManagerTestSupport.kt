@@ -63,7 +63,7 @@ fun buildFakeProgressTracker(
 fun defaultPositionRepository(): PlaybackPositionRepository {
     val repo: PlaybackPositionRepository = mock()
     everySuspend { repo.savePlaybackState(any(), any()) } returns AppResult.Success(Unit)
-    everySuspend { repo.getEntity(any<BookId>()) } returns AppResult.Success(null)
+    everySuspend { repo.get(any<BookId>()) } returns AppResult.Success(null)
     return repo
 }
 

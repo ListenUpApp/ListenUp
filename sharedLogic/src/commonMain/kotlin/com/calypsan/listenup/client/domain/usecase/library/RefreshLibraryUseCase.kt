@@ -14,7 +14,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Contains the sync state after the operation completes.
  */
-data class RefreshLibraryResult(
+internal data class RefreshLibraryResult(
     val state: SyncState,
     val message: String,
 )
@@ -34,7 +34,7 @@ data class RefreshLibraryResult(
  * }
  * ```
  */
-open class RefreshLibraryUseCase(
+internal open class RefreshLibraryUseCase(
     private val syncRepository: SyncRepository,
 ) {
     /**

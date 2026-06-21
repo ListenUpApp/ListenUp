@@ -22,7 +22,7 @@ import kotlinx.rpc.withService
  * `SeriesService` on its bearer-gated `/api/rpc/authed` surface (landed in
  * Books-B2), so the client proxy connects and calls succeed.
  */
-interface SeriesRpcFactory {
+internal interface SeriesRpcFactory {
     /** Returns the cached [SeriesService] proxy, connecting on first use. */
     suspend fun seriesService(): SeriesService
 
@@ -43,7 +43,7 @@ interface SeriesRpcFactory {
  * Wire serialization is the contract-layer [contractJson] — one wire format, two
  * transports.
  */
-class KtorSeriesRpcFactory(
+internal class KtorSeriesRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : SeriesRpcFactory,

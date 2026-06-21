@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  * [KtorUserPreferencesRpcFactory] is the production implementation over WebSocket RPC.
  * Mirrors [ProfileRpcFactory], the established authed-RPC factory precedent.
  */
-interface UserPreferencesRpcFactory {
+internal interface UserPreferencesRpcFactory {
     /** Returns the cached [UserPreferencesService] proxy, connecting on first use. */
     suspend fun get(): UserPreferencesService
 
@@ -37,7 +37,7 @@ interface UserPreferencesRpcFactory {
  *
  * Wire serialization uses the contract-layer [contractJson] — one wire format, two transports.
  */
-open class KtorUserPreferencesRpcFactory(
+internal open class KtorUserPreferencesRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : UserPreferencesRpcFactory,

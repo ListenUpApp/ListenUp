@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  * in tests — [KtorSocialRpcFactory] is the production implementation over
  * WebSocket RPC. Mirrors [ShelfRpcFactory] — the established RPC factory precedent.
  */
-interface SocialRpcFactory {
+internal interface SocialRpcFactory {
     /** Returns the cached [SocialService] proxy, connecting on first use. */
     suspend fun get(): SocialService
 
@@ -39,7 +39,7 @@ interface SocialRpcFactory {
  * Wire serialization uses the contract-layer [contractJson] — one wire format, two
  * transports. Token rotation is a known phase-1-auth deferral, shared across every RPC factory.
  */
-open class KtorSocialRpcFactory(
+internal open class KtorSocialRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : SocialRpcFactory,

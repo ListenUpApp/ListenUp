@@ -29,7 +29,7 @@ private val logger = KotlinLogging.logger {}
  * Extracted from `SettingsRepositoryImpl` so the latter can focus on user
  * preferences and server-URL plumbing.
  */
-class AuthSessionStore(
+internal class AuthSessionStore(
     private val secureStorage: SecureStorage,
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,

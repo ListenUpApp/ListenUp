@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
 /**
  * Time period for stats queries.
  */
-enum class StatsPeriod(
+internal enum class StatsPeriod(
     val value: String,
 ) {
     DAY("day"),
@@ -27,7 +27,7 @@ enum class StatsPeriod(
  *
  * Extracted to enable mocking in tests.
  */
-interface StatsApiContract {
+internal interface StatsApiContract {
     /**
      * Get detailed user listening statistics.
      *
@@ -48,7 +48,7 @@ interface StatsApiContract {
  *
  * @property clientFactory Factory for creating authenticated HttpClient
  */
-class StatsApi(
+internal class StatsApi(
     private val clientFactory: ApiClientFactory,
 ) : StatsApiContract {
     /**
@@ -79,7 +79,7 @@ class StatsApi(
  * Comprehensive user listening statistics response.
  */
 @Serializable
-data class UserStatsDetailedResponse(
+internal data class UserStatsDetailedResponse(
     /** Query period used */
     @SerialName("period")
     val period: String,
@@ -119,7 +119,7 @@ data class UserStatsDetailedResponse(
  * Listening activity for a single day.
  */
 @Serializable
-data class DailyListeningResponse(
+internal data class DailyListeningResponse(
     /** Date in YYYY-MM-DD format */
     @SerialName("date")
     val date: String,
@@ -135,7 +135,7 @@ data class DailyListeningResponse(
  * Genre listening breakdown.
  */
 @Serializable
-data class GenreListeningResponse(
+internal data class GenreListeningResponse(
     /** Genre slug for linking */
     @SerialName("genre_slug")
     val genreSlug: String,
@@ -154,7 +154,7 @@ data class GenreListeningResponse(
  * Single day in the streak calendar.
  */
 @Serializable
-data class StreakDayResponse(
+internal data class StreakDayResponse(
     /** Date in YYYY-MM-DD format */
     @SerialName("date")
     val date: String,

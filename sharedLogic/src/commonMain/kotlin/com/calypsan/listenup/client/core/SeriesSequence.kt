@@ -11,7 +11,7 @@ package com.calypsan.listenup.client.core
  *
  * @param sequence The book↔series sequence string (e.g. `"1"`, `"2.5"`, `"Book 3"`), or `null`.
  */
-fun isFirstInSeries(sequence: String?): Boolean {
+internal fun isFirstInSeries(sequence: String?): Boolean {
     val s = sequence?.trim().orEmpty()
     if (s.isEmpty()) return true
     if (s == "0" || s == "0.5") return true

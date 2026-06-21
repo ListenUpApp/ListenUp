@@ -37,7 +37,7 @@ private val logger = KotlinLogging.logger {}
  * @property presence Pings whenever presence may have changed, driving a re-fetch of the readership.
  * @property userRepository Source of the current user's identity, used to flag [Reader.isYou].
  */
-class BookReadersRepositoryImpl(
+internal class BookReadersRepositoryImpl(
     private val socialRpc: SocialRpcFactory,
     private val presence: PresenceRefreshSignal,
     private val userRepository: UserRepository,

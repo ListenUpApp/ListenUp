@@ -64,7 +64,7 @@ private val logger = KotlinLogging.logger {}
  * @property contributorSyncHandler Owns the atomic aggregate write-through
  *   used to cache an on-demand-fetched contributor into Room.
  */
-class ContributorRepositoryImpl(
+internal class ContributorRepositoryImpl(
     private val contributorDao: ContributorDao,
     private val bookDao: BookDao,
     private val searchDao: SearchDao,

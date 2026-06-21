@@ -142,7 +142,7 @@ val macosPlaybackModule: Module =
                 syncApi = get(),
                 deviceContext = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookRepository = get(),
+                bookIngestPort = get(),
             )
         }
 

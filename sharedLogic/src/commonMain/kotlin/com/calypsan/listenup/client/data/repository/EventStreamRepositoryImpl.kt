@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 /** Empty event stream until non-sync admin/book SSE domains migrate to the renovated firehose. */
-class EventStreamRepositoryImpl : EventStreamRepository {
+internal class EventStreamRepositoryImpl : EventStreamRepository {
     override val adminEvents: Flow<AdminEvent> = emptyFlow()
     override val bookEvents: Flow<BookEvent> = emptyFlow()
 }

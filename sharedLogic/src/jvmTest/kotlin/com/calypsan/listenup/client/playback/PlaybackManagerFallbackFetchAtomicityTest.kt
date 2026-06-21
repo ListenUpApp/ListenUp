@@ -8,9 +8,9 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.remote.model.BookResponse
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
-import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -27,7 +27,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Proves [PlaybackPreparer.fetchBookFromServer] delegates the write to
- * [BookRepository.upsertWithAudioFiles], which owns the atomicity guarantee.
+ * [BookIngestPort.upsertWithAudioFiles], which owns the atomicity guarantee.
  *
  * The actual rollback behaviour is exercised in [BookRepositoryImplTest].
  * This test confirms the delegation wiring so the two tests together give
@@ -71,9 +71,9 @@ class PlaybackManagerFallbackFetchAtomicityTest :
             try {
                 runTest {
                     val syncApi: SyncApiContract = mock()
-                    val bookRepository: BookRepository = mock()
+                    val bookIngestPort: BookIngestPort = mock()
 
-                    everySuspend { bookRepository.upsertWithAudioFiles(any(), any()) } returns AppResult.Success(Unit)
+                    everySuspend { bookIngestPort.upsertWithAudioFiles(any(), any()) } returns AppResult.Success(Unit)
 
                     everySuspend { syncApi.getBook(any()) } returns
                         AppResult.Success(
@@ -109,14 +109,14 @@ class PlaybackManagerFallbackFetchAtomicityTest :
                             playbackRpcFactory = testPlaybackRpcFactory("af-1"),
                             syncApi = syncApi,
                             scope = CoroutineScope(Job()),
-                            bookRepository = bookRepository,
+                            bookIngestPort = bookIngestPort,
                         )
 
                     val result = preparer.fetchBookFromServer(BookId("book-rollback"))
 
                     withClue("fetchBookFromServer should return true on success") { result shouldBe true }
                     verifySuspend(VerifyMode.exactly(1)) {
-                        bookRepository.upsertWithAudioFiles(any<BookEntity>(), any<List<AudioFileEntity>>())
+                        bookIngestPort.upsertWithAudioFiles(any<BookEntity>(), any<List<AudioFileEntity>>())
                     }
                 }
             } finally {
@@ -129,9 +129,9 @@ class PlaybackManagerFallbackFetchAtomicityTest :
             try {
                 runTest {
                     val syncApi: SyncApiContract = mock()
-                    val bookRepository: BookRepository = mock()
+                    val bookIngestPort: BookIngestPort = mock()
 
-                    everySuspend { bookRepository.upsertWithAudioFiles(any(), any()) } returns
+                    everySuspend { bookIngestPort.upsertWithAudioFiles(any(), any()) } returns
                         failureOf("persistence error")
 
                     everySuspend { syncApi.getBook(any()) } returns
@@ -168,14 +168,14 @@ class PlaybackManagerFallbackFetchAtomicityTest :
                             playbackRpcFactory = testPlaybackRpcFactory("af-1"),
                             syncApi = syncApi,
                             scope = CoroutineScope(Job()),
-                            bookRepository = bookRepository,
+                            bookIngestPort = bookIngestPort,
                         )
 
                     val result = preparer.fetchBookFromServer(BookId("book-fail"))
 
                     withClue("fetchBookFromServer should return false when persistence fails") { result shouldBe false }
                     verifySuspend(VerifyMode.exactly(1)) {
-                        bookRepository.upsertWithAudioFiles(any<BookEntity>(), any<List<AudioFileEntity>>())
+                        bookIngestPort.upsertWithAudioFiles(any<BookEntity>(), any<List<AudioFileEntity>>())
                     }
                 }
             } finally {

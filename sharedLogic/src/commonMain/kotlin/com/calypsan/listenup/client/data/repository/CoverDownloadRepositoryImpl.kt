@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
  * @property scope the repository's structured-concurrency scope. Child jobs launched
  *   here are bounded by the scope's lifecycle — typically the application scope.
  */
-class CoverDownloadRepositoryImpl(
+internal class CoverDownloadRepositoryImpl(
     private val imageDownloader: ImageDownloaderContract,
     private val bookDao: BookDao,
     private val scope: CoroutineScope,

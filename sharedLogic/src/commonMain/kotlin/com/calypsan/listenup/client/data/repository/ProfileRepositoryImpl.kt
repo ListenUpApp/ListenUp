@@ -35,7 +35,7 @@ private val logger = KotlinLogging.logger {}
  * @property userProfileDao DAO for the cached [UserProfileEntity] table.
  * @property avatarDownloadRepository Schedules / deletes local avatar files.
  */
-class ProfileRepositoryImpl(
+internal class ProfileRepositoryImpl(
     private val profileRpcFactory: ProfileRpcFactory,
     private val userDao: UserDao,
     private val userProfileDao: UserProfileDao,

@@ -20,7 +20,7 @@ import androidx.sqlite.execSQL
  * that reference it survive the rename since they resolve by table name and the
  * `id` values carry across unchanged.
  */
-val MIGRATION_32_33: Migration =
+internal val MIGRATION_32_33: Migration =
     object : Migration(32, 33) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL(

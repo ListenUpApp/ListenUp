@@ -7,9 +7,9 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
+import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -56,7 +56,7 @@ class PlaybackManagerImpl(
     private val playbackRpcFactory: PlaybackRpcFactory,
     private val syncApi: SyncApiContract?,
     private val scope: CoroutineScope,
-    private val bookRepository: BookRepository,
+    private val bookIngestPort: BookIngestPort,
 ) : PlaybackManager {
     private val preparer =
         PlaybackPreparer(
@@ -73,7 +73,7 @@ class PlaybackManagerImpl(
             playbackRpcFactory = playbackRpcFactory,
             syncApi = syncApi,
             scope = scope,
-            bookRepository = bookRepository,
+            bookIngestPort = bookIngestPort,
         )
 
     private val _currentBookId = MutableStateFlow<BookId?>(null)

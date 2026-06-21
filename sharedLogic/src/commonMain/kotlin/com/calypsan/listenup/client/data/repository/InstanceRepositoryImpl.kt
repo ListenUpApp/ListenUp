@@ -55,7 +55,7 @@ private const val PROBE_COALESCE_WINDOW_MS = 2_000L
  *
  * @param persistRemoteUrl Writes the server's advertised remote URL to ServerConfig storage on every successful getServerInfo (null clears it).
  */
-class InstanceRepositoryImpl(
+internal class InstanceRepositoryImpl(
     private val getServerUrl: suspend () -> ServerUrl?,
     private val instanceRpcFactory: InstanceRpcFactory,
     private val persistRemoteUrl: suspend (String?) -> Unit,

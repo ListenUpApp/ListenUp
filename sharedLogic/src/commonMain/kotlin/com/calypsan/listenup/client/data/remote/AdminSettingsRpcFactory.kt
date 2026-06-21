@@ -19,7 +19,7 @@ import kotlinx.rpc.withService
  *
  * Mirrors [AdminUserRpcFactory] — the established RPC-factory shape.
  */
-interface AdminSettingsRpcFactory {
+internal interface AdminSettingsRpcFactory {
     /** Returns the cached [AdminSettingsService] proxy, connecting on first use. */
     suspend fun get(): AdminSettingsService
 
@@ -38,7 +38,7 @@ interface AdminSettingsRpcFactory {
  *
  * Mirrors [KtorAdminUserRpcFactory] — the established RPC-factory shape.
  */
-open class KtorAdminSettingsRpcFactory(
+internal open class KtorAdminSettingsRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) : AdminSettingsRpcFactory,

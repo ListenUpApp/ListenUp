@@ -59,7 +59,7 @@ interface LibraryResetHelperContract {
  * the [ListenUpDatabase] directly instead of listing each DAO individually; the
  * semantic is "operate on the library as a whole".
  */
-class LibraryResetHelper(
+internal class LibraryResetHelper(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     private val librarySyncContract: LibrarySync,
