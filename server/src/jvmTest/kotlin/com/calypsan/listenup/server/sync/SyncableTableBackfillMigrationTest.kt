@@ -2,7 +2,9 @@
 
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.calypsan.listenup.server.db.MigrationRunner
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -14,8 +16,6 @@ import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import java.sql.Connection
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Exercises the V13/V14 backfill against **pre-existing rows** — the case no
@@ -155,8 +155,11 @@ class SyncableTableBackfillMigrationTest :
             // pull cursor. A new write must produce a revision ABOVE that cursor so
             // `pullSince` delivers it. Before the fix, the post-migration write got
             // `counter+1` — below the backfilled rows — and was silently dropped.
-            val db = Database.connect(ds)
-            val repo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            val driver = JdbcSqliteDriver(ds.jdbcUrl)
+            driver.execute(null, "PRAGMA foreign_keys=ON;", 0)
+            driver.execute(null, "PRAGMA busy_timeout=5000;", 0)
+            val sql = ListenUpDatabase(driver)
+            val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
             runTest {
                 val newId = repo.resolveOrCreate("Post Migration Author", sortName = null)
                 val page = repo.pullSince(userId = null, cursor = maxBackfilledRevision, limit = 100)
@@ -165,5 +168,6 @@ class SyncableTableBackfillMigrationTest :
                 page.items.size shouldBeGreaterThan 0
                 repo.findById(newId.value)!!.revision shouldBeGreaterThan maxBackfilledRevision
             }
+            driver.close()
         }
     })
