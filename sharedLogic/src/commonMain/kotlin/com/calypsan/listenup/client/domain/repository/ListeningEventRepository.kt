@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.BookDuration
-import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
+import com.calypsan.listenup.client.domain.model.BookListeningDuration
+import com.calypsan.listenup.client.domain.model.ListeningEvent
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,9 +14,8 @@ import kotlinx.coroutines.flow.Flow
  * currently access [com.calypsan.listenup.client.data.local.db.ListeningEventDao] directly
  * (Stats, Leaderboard) — so those callers can migrate through this interface later.
  *
- * Read methods return [ListeningEventEntity] rather than a domain type because no
- * `ListeningEvent` domain class exists; the entity fields are the canonical representation
- * in this codebase (confirmed: grep found no `class ListeningEvent` domain type).
+ * Read methods return domain types ([ListeningEvent], [BookListeningDuration]); mapping
+ * from the data layer happens once in the implementation.
  */
 interface ListeningEventRepository {
     /**
@@ -42,16 +41,16 @@ interface ListeningEventRepository {
     // ==================== Read methods (external callers today) ====================
 
     /** All events for [bookId], newest first. Used by future per-book stats. */
-    fun observeEventsForBook(bookId: String): Flow<List<ListeningEventEntity>>
+    fun observeEventsForBook(bookId: String): Flow<List<ListeningEvent>>
 
     /** Events in [startMs]..[endMs] window, newest first. */
     fun observeEventsInRange(
         startMs: Long,
         endMs: Long,
-    ): Flow<List<ListeningEventEntity>>
+    ): Flow<List<ListeningEvent>>
 
     /** Events since [startMs], no upper bound, newest first. */
-    fun observeEventsSince(startMs: Long): Flow<List<ListeningEventEntity>>
+    fun observeEventsSince(startMs: Long): Flow<List<ListeningEvent>>
 
     /** Total listening duration (ms) across events since [startMs]. */
     suspend fun getTotalDurationSince(startMs: Long): Long
@@ -72,5 +71,5 @@ interface ListeningEventRepository {
     suspend fun getDurationByBook(
         startMs: Long,
         endMs: Long,
-    ): List<BookDuration>
+    ): List<BookListeningDuration>
 }
