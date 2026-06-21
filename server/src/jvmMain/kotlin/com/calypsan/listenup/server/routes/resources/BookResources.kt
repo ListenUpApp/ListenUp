@@ -93,4 +93,18 @@ class BookResources(
         val parent: BookResources = BookResources(),
         val id: BookId,
     )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookChapters] —
+     * `PUT /api/v1/books/{id}/chapters` replaces the full chapter list for a book
+     * and marks provenance USER. Body is a JSON array of
+     * [com.calypsan.listenup.api.dto.ChapterInput]. Responds 204 on success,
+     * 404 when no book with the given id exists, 400 when the set fails
+     * server-side validation. Requires JWT authentication.
+     */
+    @Resource("{id}/chapters")
+    class Chapters(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+    )
 }

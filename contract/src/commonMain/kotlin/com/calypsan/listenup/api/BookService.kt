@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -114,6 +115,25 @@ interface BookService {
     suspend fun setBookGenres(
         id: BookId,
         genres: List<BookGenreInput>,
+    ): AppResult<Unit>
+
+    /**
+     * Replaces the full chapter list for the book identified by [id] with
+     * [chapters], and marks the book's chapter provenance as
+     * [com.calypsan.listenup.api.sync.ChapterSource.USER] so a later rescan
+     * will not overwrite the edit.
+     *
+     * Chapters are contiguous and absolute-time: [com.calypsan.listenup.api.dto.ChapterInput.startTime]
+     * is the offset from the start of the book. The server validates the set
+     * (strictly increasing starts, all within the book duration); violations
+     * surface as [com.calypsan.listenup.api.error.BookError.InvalidInput].
+     * Returns [com.calypsan.listenup.api.error.BookError.NotFound] when no book
+     * exists. On success the substrate emits an SSE `Updated<BookSyncPayload>`;
+     * clients update Room reactively.
+     */
+    suspend fun setBookChapters(
+        id: BookId,
+        chapters: List<ChapterInput>,
     ): AppResult<Unit>
 
     /**
