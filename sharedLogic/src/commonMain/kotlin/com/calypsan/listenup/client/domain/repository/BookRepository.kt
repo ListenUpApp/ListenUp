@@ -30,6 +30,9 @@ interface BookRepository {
      */
     suspend fun getChapters(bookId: String): List<Chapter>
 
+    /** Observe a book's chapters, ordered by start time. Emits on every local or synced change. */
+    fun observeChapters(bookId: String): Flow<List<Chapter>>
+
     /**
      * Observe random unstarted books for discovery.
      *

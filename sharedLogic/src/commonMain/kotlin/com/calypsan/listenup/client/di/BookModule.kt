@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
+import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
@@ -83,7 +84,7 @@ val bookModule: Module =
                     ),
                 networkMonitor = get(),
                 bookRpcFactory = get(),
-                bookSyncDomainHandler = get(),
+                bookSyncDomainHandler = get<BookSyncDomainHandler>(),
             )
         } binds arrayOf(BookIngestPort::class)
 
