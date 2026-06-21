@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.calypsan.listenup.client.di.desktopPlaybackModule
 import com.calypsan.listenup.client.di.platformModule
 import com.calypsan.listenup.client.di.playbackPresentationModule
 import com.calypsan.listenup.client.di.sharedModules
@@ -25,6 +26,7 @@ fun main() {
         modules(
             sharedModules + // From :shared module
                 platformModule + // From :composeApp desktopMain
+                desktopPlaybackModule + // PlaybackManager wiring from :sharedLogic
                 playbackPresentationModule + // Shared playback VM bindings
                 desktopAppModule, // Desktop app specific
         )

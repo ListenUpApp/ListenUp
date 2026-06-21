@@ -20,6 +20,7 @@ import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import com.calypsan.listenup.client.di.androidPlaybackModule
 import com.calypsan.listenup.client.di.playbackPresentationModule
 import com.calypsan.listenup.client.di.sharedModules
 import com.calypsan.listenup.client.download.AndroidDownloadEnqueuer
@@ -41,7 +42,6 @@ import com.calypsan.listenup.client.playback.asControllerHolder
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackErrorHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
-import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
@@ -204,26 +204,6 @@ val playbackModule =
             )
         }
 
-        // Playback manager - orchestrates playback startup
-        single<PlaybackManager> {
-            PlaybackManagerImpl(
-                serverConfig = get(),
-                playbackPreferences = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                chapterDao = get(),
-                imageStorage = get(),
-                progressTracker = get(),
-                tokenProvider = get(),
-                deviceContext = get(),
-                downloadService = get(),
-                playbackRpcFactory = get(),
-                syncApi = get(),
-                scope = get(),
-                bookIngestPort = get(),
-            )
-        }
-
         // Bind the PlaybackStateWriter write-seam to the same PlaybackManager
         // singleton. MediaControllerHolder depends on PlaybackStateWriter (not the
         // full PlaybackManager), and Koin resolves by the requested type — without
@@ -337,7 +317,10 @@ class ListenUp :
             androidContext(this@ListenUp)
 
             // Load all shared and Android-specific modules
-            modules(sharedModules + androidModule + playbackModule + playbackPresentationModule + downloadModule)
+            modules(
+                sharedModules + androidModule + playbackModule + androidPlaybackModule + playbackPresentationModule +
+                    downloadModule,
+            )
         }
 
         // Configure WorkManager with custom factory for dependency injection.

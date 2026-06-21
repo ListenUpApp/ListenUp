@@ -16,8 +16,6 @@ import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.DesktopPlaybackController
 import com.calypsan.listenup.client.playback.PlaybackController
-import com.calypsan.listenup.client.playback.PlaybackManager
-import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.FfmpegAudioPlayer
@@ -126,26 +124,6 @@ val platformModule: Module =
         single {
             SleepTimerManager(
                 scope = get(qualifier = named("playbackScope")),
-            )
-        }
-
-        // Playback manager
-        single<PlaybackManager> {
-            PlaybackManagerImpl(
-                serverConfig = get(),
-                playbackPreferences = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                chapterDao = get(),
-                imageStorage = get(),
-                progressTracker = get(),
-                tokenProvider = get(),
-                downloadService = get(),
-                playbackRpcFactory = get(),
-                syncApi = get(),
-                deviceContext = get(),
-                scope = get(qualifier = named("playbackScope")),
-                bookIngestPort = get(),
             )
         }
 
