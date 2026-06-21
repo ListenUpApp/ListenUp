@@ -84,7 +84,7 @@ private const val BYTES_PER_MEGABYTE = 1_000_000
  * pattern.** Closes Finding 08 D6 (principled asymmetry, not silent omission).
  */
 @OptIn(ExperimentalTime::class)
-class AppleDownloadService(
+class AppleDownloadService internal constructor(
     private val downloadDao: DownloadDao,
     private val bookDao: BookDao,
     private val audioFileDao: AudioFileDao,

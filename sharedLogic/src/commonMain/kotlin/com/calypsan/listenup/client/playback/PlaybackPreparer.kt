@@ -74,7 +74,7 @@ data class PreparedPlayback(
  * collaborators. A parameter object would only bag them and ripples into platform code.
  */
 @Suppress("LongParameterList")
-internal class PlaybackPreparer(
+class PlaybackPreparer internal constructor(
     private val serverConfig: ServerConfig,
     private val playbackPreferences: PlaybackPreferences,
     private val bookDao: BookDao,
