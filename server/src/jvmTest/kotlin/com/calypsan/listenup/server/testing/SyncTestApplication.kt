@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.testing
 
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -26,7 +28,6 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureRepository
-import com.calypsan.listenup.server.sync.UserScopedFixtureTable
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -39,11 +40,9 @@ import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.SchemaUtils
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
+import org.sqlite.SQLiteConfig
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 
 /**
@@ -67,8 +66,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
-    val db: Database,
-    /** SQLDelight view over the same file as [db] — the engine [tagRepo] and other converted repos run on. */
+    /** The SQLDelight database the wired repositories run on; also for direct seed helpers. */
     val sqlDb: ListenUpDatabase,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
@@ -116,11 +114,12 @@ internal data class SyncTestScope(
  * Minimal Ktor test harness for Sync Foundation route tests.
  *
  * Constructs an isolated SQLite database (same temp-file pattern as
- * [withInMemoryDatabase]), wires a small Koin module with `Database`,
- * `ChangeBus`, and a global [TagRepository], installs `ContentNegotiation`,
- * `SSE`, and a test [Authentication] provider, then mounts [syncRoutes] inside
- * `authenticate(JWT_PROVIDER)` — mirroring production, where the sync routes
- * are auth-gated.
+ * [withSqlDatabase]): [DatabaseFactory.init] migrates the schema, then a SQLDelight
+ * [SqlDriver] + [ListenUpDatabase] are opened over the same file. It wires a small
+ * Koin module with the SQLDelight database, `ChangeBus`, and a global [TagRepository],
+ * installs `ContentNegotiation`, `SSE`, and a test [Authentication] provider, then mounts
+ * [syncRoutes] inside `authenticate(JWT_PROVIDER)` — mirroring production, where the sync
+ * routes are auth-gated.
  *
  * The [testAuth] provider authenticates every request without a real JWT: it
  * derives the user id from an `Authorization: Bearer <token>` header when one
@@ -134,7 +133,7 @@ internal data class SyncTestScope(
  *   Off by default so domain-list and global-domain tests see only `tags`.
  * @param playbackPositions when true, also wires a [PlaybackPositionRepository]
  *   (domain `playback_positions`) and exposes it as [SyncTestScope.playbackPositionRepo].
- *   The table is created by Flyway migrations, so no manual `SchemaUtils.create` is needed.
+ *   The table is created by Flyway migrations, so no manual schema creation is needed.
  * @param playbackEvents when true, also wires [ListeningEventRepository], [UserStatsRepository],
  *   [UserStatsUpdater], and [PlaybackServiceImpl], mounts [playbackRoutes], and exposes
  *   [SyncTestScope.listeningEventRepo] and [SyncTestScope.userStatsRepo]. Enables end-to-end
@@ -150,14 +149,18 @@ internal fun withTestApplication(
     testApplication {
         val tmp =
             Files.createTempFile("listenup-sync-test-", ".db").toFile().apply { deleteOnExit() }
-        val db =
-            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+        val path = tmp.absolutePath
+        // DatabaseFactory.init runs the Flyway migrations against the file; the SQLDelight
+        // driver opened next reads that already-migrated schema (it never calls Schema.create).
+        DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$path"))
+        val driver = newTestSqlDriver(path)
+        val sqlDb = ListenUpDatabase(driver)
         val bus = ChangeBus()
         val registry = SyncRegistry()
-        val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
-        val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(db, bus, registry) else null
+        val tagRepo = TagRepository(sqlDb, bus, registry)
+        val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(sqlDb, driver, bus, registry) else null
         val playbackPositionRepo =
-            if (playbackPositions) PlaybackPositionRepository(db.asSqlDatabase(), bus, registry) else null
+            if (playbackPositions) PlaybackPositionRepository(sqlDb, bus, registry) else null
 
         // Playback P2: events + stats. The lazy provider breaks the UserStatsRepository ↔
         // UserStatsUpdater mutual reference — same pattern as the production Koin binding.
@@ -169,42 +172,42 @@ internal fun withTestApplication(
             lateinit var updater: UserStatsUpdater
             val statsRepo =
                 UserStatsRepository(
-                    db = db.asSqlDatabase(),
+                    db = sqlDb,
                     bus = bus,
                     registry = registry,
                     userStatsUpdaterProvider = { updater },
                 )
-            val publicProfileMaintainer = buildPublicProfileMaintainer(db = db, bus = bus, registry = registry)
+            val publicProfileMaintainer = buildPublicProfileMaintainer(sqlDb, bus, registry)
             val eventRepo =
                 ListeningEventRepository(
-                    db = db.asSqlDatabase(),
+                    db = sqlDb,
                     bus = bus,
                     registry = registry,
                     userStatsUpdater =
                         UserStatsUpdater(
-                            sql = db.asSqlDatabase(),
+                            sql = sqlDb,
                             userStatsRepo = statsRepo,
                             publicProfileMaintainerProvider = { publicProfileMaintainer },
                         ).also { updater = it },
                 )
-            val positionRepoForPlayback = PlaybackPositionRepository(db.asSqlDatabase(), bus, SyncRegistry())
+            val positionRepoForPlayback = PlaybackPositionRepository(sqlDb, bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val bookRepo = buildPlaybackBookRepository(db, bus)
+            val bookRepo = buildPlaybackBookRepository(sqlDb, driver, bus)
             bookRepoForScope = bookRepo
             // Seed the library + folder a test book FKs to, so playback-event tests
             // can upsert a real (accessible) book for the access gate to admit.
-            seedPlaybackTestLibrary(db)
+            sqlDb.seedTestLibraryAndFolder()
             playbackService =
                 PlaybackServiceImpl(
                     bookRepository = bookRepo,
-                    audioFileLocator = AudioFileLocator(db.asSqlDatabase()),
+                    audioFileLocator = AudioFileLocator(sqlDb),
                     audioUrlSigner = signer,
                     playbackPositionRepository = positionRepoForPlayback,
                     listeningEventRepository = eventRepo,
                     userStatsRepository = statsRepo,
-                    accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                    accessPolicy = BookAccessPolicy(sqlDb, driver),
                     principal = PrincipalProvider { error("unscoped — copyWith required") },
-                    sql = db.asSqlDatabase(),
+                    sql = sqlDb,
                 )
             listeningEventRepo = eventRepo
             userStatsRepo = statsRepo
@@ -222,7 +225,7 @@ internal fun withTestApplication(
             install(Koin) {
                 modules(
                     module {
-                        single { db }
+                        single { sqlDb }
                         single { bus }
                         single { registry }
                         single(createdAtStart = true) { tagRepo }
@@ -251,79 +254,79 @@ internal fun withTestApplication(
                 install(io.ktor.client.plugins.sse.SSE)
             }
 
-        SyncTestScope(
-            client = jsonClient,
-            tagRepo = tagRepo,
-            db = db,
-            sqlDb = db.asSqlDatabase(),
-            userScopedRepoOrNull = userScopedRepo,
-            playbackPositionRepoOrNull = playbackPositionRepo,
-            listeningEventRepoOrNull = listeningEventRepo,
-            userStatsRepoOrNull = userStatsRepo,
-            bookRepoOrNull = bookRepoForScope,
-        ).block()
+        try {
+            SyncTestScope(
+                client = jsonClient,
+                tagRepo = tagRepo,
+                sqlDb = sqlDb,
+                userScopedRepoOrNull = userScopedRepo,
+                playbackPositionRepoOrNull = playbackPositionRepo,
+                listeningEventRepoOrNull = listeningEventRepo,
+                userStatsRepoOrNull = userStatsRepo,
+                bookRepoOrNull = bookRepoForScope,
+            ).block()
+        } finally {
+            driver.close()
+        }
     }
 }
 
 /**
+ * Opens a SQLDelight [SqlDriver] over the already-migrated [path], enforcing foreign keys +
+ * busy timeout + WAL via JDBC connection properties — the same config [withSqlDatabase] uses
+ * (a one-time `PRAGMA` is lost because [JdbcSqliteDriver] opens a connection per operation).
+ */
+private fun newTestSqlDriver(path: String): SqlDriver =
+    JdbcSqliteDriver(
+        "jdbc:sqlite:$path",
+        SQLiteConfig()
+            .apply {
+                enforceForeignKeys(true)
+                busyTimeout = 5000
+                setJournalMode(SQLiteConfig.JournalMode.WAL)
+            }.toProperties(),
+    )
+
+/**
  * Builds the SQLDelight-backed [BookRepository] the playback-events fixture wires, over a fresh
  * shared [SyncRegistry]. Extracted from [withTestApplication] to keep that function within the
- * detekt size budget; mirrors the production wiring (SQLDelight handle for the book aggregate +
- * contributors/series, the Exposed handle for the not-yet-converted collaborators).
+ * detekt size budget; mirrors the production wiring (one SQLDelight handle for the book aggregate
+ * plus contributors/series/genres, and the access-filter [SqlDriver]).
  */
 private fun buildPlaybackBookRepository(
-    db: Database,
+    sqlDb: ListenUpDatabase,
+    driver: SqlDriver,
     bus: ChangeBus,
 ): BookRepository {
     val sharedRegistry = SyncRegistry()
     return BookRepository(
-        db = db.asSqlDatabase(),
-        driver = db.asSqlDriver(),
+        db = sqlDb,
+        driver = driver,
         bus = bus,
         registry = sharedRegistry,
-        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, sharedRegistry),
-        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, sharedRegistry),
-        genreRepository = GenreRepository(db.asSqlDatabase(), bus, sharedRegistry),
+        contributorRepository = ContributorRepository(sqlDb, bus, sharedRegistry),
+        seriesRepository = SeriesRepository(sqlDb, bus, sharedRegistry),
+        genreRepository = GenreRepository(sqlDb, bus, sharedRegistry),
     )
 }
 
-/** Creates and schema-initialises a [UserScopedFixtureRepository] for the given test database. */
-private suspend fun buildUserScopedFixtureRepo(
-    db: Database,
+/** Creates a [UserScopedFixtureRepository] and materialises its test-only table. */
+private fun buildUserScopedFixtureRepo(
+    sqlDb: ListenUpDatabase,
+    driver: SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
-): UserScopedFixtureRepository =
-    UserScopedFixtureRepository(db, bus, registry).also {
-        suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
-    }
+): UserScopedFixtureRepository = UserScopedFixtureRepository(sqlDb, driver, bus, registry).apply { createSchema() }
 
 /**
  * Constructs a [PublicProfileMaintainer] wired to the shared [bus]/[registry].
  * Extracted from [withTestApplication] to keep that function within the size budget.
  */
 private fun buildPublicProfileMaintainer(
-    db: Database,
+    sqlDb: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
 ): PublicProfileMaintainer {
-    val repo = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    return PublicProfileMaintainer(sql = db.asSqlDatabase(), publicProfileRepo = repo)
-}
-
-/**
- * Seeds the `test-library` / `test-folder` rows a playback-event test book FKs to.
- * Kept out of [withTestApplication] so that function stays within the size budget.
- */
-private suspend fun seedPlaybackTestLibrary(db: Database) {
-    val seedNow = System.currentTimeMillis()
-    suspendTransaction(db) {
-        exec(
-            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
-                "VALUES ('test-library', 'Test Library', $seedNow, $seedNow, 0)",
-        )
-        exec(
-            "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
-                "VALUES ('test-folder', 'test-library', '/tmp/test-library', $seedNow, $seedNow, 0)",
-        )
-    }
+    val repo = PublicProfileRepository(db = sqlDb, bus = bus, registry = registry)
+    return PublicProfileMaintainer(sql = sqlDb, publicProfileRepo = repo)
 }

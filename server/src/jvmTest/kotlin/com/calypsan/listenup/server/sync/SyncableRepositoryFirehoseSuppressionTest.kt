@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -10,11 +10,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.v1.jdbc.SchemaUtils
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
- * Pins the [FirehoseSuppressed] gate on the [SyncableRepository] write path —
+ * Pins the [FirehoseSuppressed] gate on the [SqlSyncableRepository] write path —
  * the keystone of Stage 2 (onboarding firehose suppression).
  *
  * Under the marker, `upsert`/`softDelete` MUST still bump the revision and commit
@@ -26,14 +24,12 @@ class SyncableRepositoryFirehoseSuppressionTest :
     FunSpec({
 
         test("upsert under FirehoseSuppressed bumps revision and commits the row but publishes no event") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = FixtureRepository(db, bus, SyncRegistry())
+                val repo = FixtureRepository(sql, driver, bus, SyncRegistry())
+                repo.createSchema()
 
                 runTest {
-                    suspendTransaction(db) { SchemaUtils.create(FixtureTestTable) }
-
                     withContext(FirehoseSuppressed) {
                         repo.upsert(
                             FixturePayload(FixtureId("sup"), "suppressed", revision = 0, updatedAt = 0),
@@ -53,14 +49,12 @@ class SyncableRepositoryFirehoseSuppressionTest :
         }
 
         test("upsert without the marker publishes to the live tail as before") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = FixtureRepository(db, bus, SyncRegistry())
+                val repo = FixtureRepository(sql, driver, bus, SyncRegistry())
+                repo.createSchema()
 
                 runTest {
-                    suspendTransaction(db) { SchemaUtils.create(FixtureTestTable) }
-
                     repo.upsert(
                         FixturePayload(FixtureId("norm"), "normal", revision = 0, updatedAt = 0),
                         clientOpId = "op-norm",
@@ -73,14 +67,12 @@ class SyncableRepositoryFirehoseSuppressionTest :
         }
 
         test("softDelete under FirehoseSuppressed tombstones the row but publishes no event") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = FixtureRepository(db, bus, SyncRegistry())
+                val repo = FixtureRepository(sql, driver, bus, SyncRegistry())
+                repo.createSchema()
 
                 runTest {
-                    suspendTransaction(db) { SchemaUtils.create(FixtureTestTable) }
-
                     // Seed a row with the firehose live so we have a clean tail to assert against.
                     repo.upsert(
                         FixturePayload(FixtureId("gone"), "doomed", revision = 0, updatedAt = 0),

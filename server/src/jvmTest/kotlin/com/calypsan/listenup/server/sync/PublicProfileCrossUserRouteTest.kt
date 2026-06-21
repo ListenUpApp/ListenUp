@@ -65,8 +65,8 @@ class PublicProfileCrossUserRouteTest :
             withTestApplication(playbackEvents = true) {
                 // Seed user rows so PublicProfileMaintainer.refresh can read displayName/avatarType.
                 // Without a users row the maintainer silently no-ops (guard against mid-deletion).
-                db.seedTestUser("u1")
-                db.seedTestUser("u2")
+                sqlDb.seedTestUser("u1")
+                sqlDb.seedTestUser("u2")
                 seedBook("book-a")
 
                 // Seed u1's listening event — triggers PublicProfileMaintainer for u1.
