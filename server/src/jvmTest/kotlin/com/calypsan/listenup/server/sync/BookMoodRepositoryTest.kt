@@ -40,8 +40,8 @@ class BookMoodRepositoryTest :
 
         test("upsert adds junction row and emits SyncEvent.Created") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -78,8 +78,8 @@ class BookMoodRepositoryTest :
 
         test("upsert of soft-deleted junction clears deletedAt and emits Updated") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -102,8 +102,8 @@ class BookMoodRepositoryTest :
 
         test("findAllForBook returns non-tombstoned rows for the book, ordered by createdAt") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -129,10 +129,10 @@ class BookMoodRepositoryTest :
 
         test("findAllForMood returns non-tombstoned rows for the mood") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
-                exposed.seedTestBook("book3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -193,8 +193,8 @@ class BookMoodRepositoryTest :
 
         test("softDelete marks tombstone, emits Deleted, and round-trips out of findAllForBook") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -240,9 +240,9 @@ class BookMoodRepositoryTest :
 
         test("softDeleteAllForBook tombstones all junction rows for the book") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -267,8 +267,8 @@ class BookMoodRepositoryTest :
 
         test("softDeleteAllForBook emits Deleted bus events for each row") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -298,9 +298,9 @@ class BookMoodRepositoryTest :
 
         test("softDeleteAllForMood tombstones all junction rows for the mood") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -323,10 +323,10 @@ class BookMoodRepositoryTest :
 
         test("findBookIdsForMood returns book IDs for non-tombstoned rows") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
-                exposed.seedTestBook("book3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -349,8 +349,8 @@ class BookMoodRepositoryTest :
 
         test("pullSince returns junction rows ordered by revision") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
@@ -373,8 +373,8 @@ class BookMoodRepositoryTest :
 
         test("pullSince includes tombstoned rows") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)

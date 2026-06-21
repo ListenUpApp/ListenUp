@@ -42,7 +42,6 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -239,14 +238,14 @@ private class EnrichmentCtx(
 }
 
 private fun enrichmentCtx(dbs: SqlTestDatabases): EnrichmentCtx {
-    dbs.exposed.seedTestLibraryAndFolder()
+    dbs.sql.seedTestLibraryAndFolder()
     val tempDir = Files.createTempDirectory("enrich-").also { it.toFile().deleteOnExit() }.toString()
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(dbs.sql, bus, registry)
     val seriesRepo = SeriesRepository(dbs.sql, bus, registry)
     val genreRepo = GenreRepository(dbs.sql, bus, registry)
-    val bookRepo = BookRepository(dbs.sql, bus, registry, dbs.exposed.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
+    val bookRepo = BookRepository(dbs.sql, bus, registry, dbs.driver, contributorRepo, seriesRepo, genreRepo)
     val moodRepo = MoodRepository(dbs.sql, bus, registry)
     val bookMoodRepo = BookMoodRepository(dbs.sql, bus, registry)
     val tagRepo = TagRepository(dbs.sql, bus, registry)

@@ -18,7 +18,6 @@ import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -37,9 +36,9 @@ class TagServiceImplPermissionTest :
 
         test("addTagToBook is denied for a MEMBER without canEdit") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
                 val service = makeTagPermService(this).copyWith(memberPrincipal("member"))
                 runTest {
                     val result = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -52,9 +51,9 @@ class TagServiceImplPermissionTest :
 
         test("addTagToBook succeeds for a granted MEMBER (canEdit=true)") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
                 val service = makeTagPermService(this).copyWith(memberPrincipal("editor"))
                 runTest {
                     val result = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -66,8 +65,8 @@ class TagServiceImplPermissionTest :
 
         test("addTagToBook succeeds for an ADMIN (implicitly passes)") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val service = makeTagPermService(this).copyWith(rootPrincipal())
                 runTest {
                     val result = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -83,7 +82,7 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
     val registry = SyncRegistry()
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.exposed.asSqlDriver())
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     return TagServiceImpl(
         tagRepository = tagRepo,
         bookTagRepository = bookTagRepo,

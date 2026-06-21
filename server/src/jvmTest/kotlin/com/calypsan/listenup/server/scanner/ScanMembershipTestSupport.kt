@@ -5,12 +5,7 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Shared test utilities for [ScannerInboxIngestTest] and [ScanAllBooksMembershipTest].
@@ -20,19 +15,9 @@ import org.jetbrains.exposed.v1.jdbc.update
  * across the two test files; keep them here rather than duplicating.
  */
 
-internal fun setInboxEnabled(
-    db: Database,
-    libraryId: String,
-    enabled: Boolean,
-) {
-    transaction(db) {
-        LibraryTable.update({ LibraryTable.id eq libraryId }) { it[inboxEnabled] = enabled }
-    }
-}
-
 /**
- * SQLDelight version of [setInboxEnabled]. Toggles the `inbox_enabled` gate on the
- * given [libraryId] row — used by tests that run inside [com.calypsan.listenup.server.testing.withSqlDatabase].
+ * Toggles the `inbox_enabled` gate on the given [libraryId] row — used by tests that run inside
+ * [com.calypsan.listenup.server.testing.withSqlDatabase].
  */
 internal fun ListenUpDatabase.setInboxEnabled(
     libraryId: String,
