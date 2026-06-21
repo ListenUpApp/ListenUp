@@ -361,4 +361,25 @@ struct PlaybackLifecycleTests {
         #expect(await engine.didDeactivateSession)
         #expect(await engine.didRelease)
     }
+
+    /// `stop()` tears down engine observation (`bridge.cancelAll()`), so an engine event
+    /// arriving after teardown must not mutate `phase`. A leaked subscription would flip
+    /// it to `.error`; we poll briefly so a real leak is caught fast while a healthy run
+    /// pays only a small bounded cost.
+    @Test func stopSeversEngineObservation() async throws {
+        let (coordinator, engine) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await awaitUntil { await engine.didPlay }
+
+        await coordinator.stop()
+        engine.emit(.failed(message: "late event after stop"))
+
+        await awaitUntil(timeout: .milliseconds(300)) {
+            if case .error = coordinator.phase { return true }
+            return false
+        }
+        if case .error = coordinator.phase {
+            Issue.record("stop() left engine observation live — a late event mutated phase")
+        }
+    }
 }
