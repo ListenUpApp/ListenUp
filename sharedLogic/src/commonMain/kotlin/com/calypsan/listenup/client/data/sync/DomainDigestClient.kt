@@ -17,7 +17,7 @@ import io.ktor.client.request.get
  * Constructor shape mirrors [SyncCatchUpClient]: two suspend lambdas so production
  * wiring passes method references and tests pass any [HttpClient] + base URL.
  */
-class DomainDigestClient(
+internal class DomainDigestClient(
     private val httpClientProvider: suspend () -> HttpClient,
     private val serverUrlProvider: suspend () -> String,
 ) {

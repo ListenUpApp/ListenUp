@@ -79,14 +79,14 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * id [UserRole.ROOT]; every other bearer token authenticates as a [UserRole.MEMBER]. Owner-only
  * collection operations (create/share/revoke) are driven as this admin.
  */
-const val COLLECTION_E2E_ADMIN_ID = "admin"
+internal const val COLLECTION_E2E_ADMIN_ID = "admin"
 
 /**
  * The fixed member id for [withCollectionSyncEngineAgainstServer]. The member's client engine
  * connects as this user (the harness's client [HttpClient] sends `Authorization: Bearer member`),
  * so the firehose targets per-user `AccessChanged` frames and the access-filtered catch-up at it.
  */
-const val COLLECTION_E2E_MEMBER_ID = "member"
+internal const val COLLECTION_E2E_MEMBER_ID = "member"
 
 /**
  * Test scope for
@@ -97,7 +97,7 @@ const val COLLECTION_E2E_MEMBER_ID = "member"
  * the member's client [ListenUpDatabase] for asserting that events (and the `AccessChanged`
  * prune) land in the member's Room.
  */
-data class CollectionSyncEngineScope(
+internal data class CollectionSyncEngineScope(
     val engine: SyncEngine,
     val adminCollections: CollectionService,
     val serverBookRepository: BookRepository,
@@ -127,7 +127,7 @@ data class CollectionSyncEngineScope(
  *
  * Stops Koin in `finally` so subsequent tests start with a fresh container.
  */
-fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineScope.() -> Unit) {
+internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineScope.() -> Unit) {
     testApplication {
         // ---- Server side: temp-file SQLite + collection/book domains + access policy ----
         val tmp = Files.createTempFile("listenup-collections-e2e-", ".db").toFile().apply { deleteOnExit() }

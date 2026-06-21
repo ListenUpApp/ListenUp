@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
  * before the `init` block — `ClientSyncDomainRegistry.register` reads
  * `handler.domainName` synchronously.
  */
-class RecordingTagSyncDomainHandler(
+internal class RecordingTagSyncDomainHandler(
     registry: ClientSyncDomainRegistry,
 ) : SyncDomainHandler<Tag> {
     override val domainName = "tags"

@@ -40,7 +40,7 @@ private val logger = KotlinLogging.logger {}
  * The engine owns the frame collector so every connection has exactly one path
  * from [SseClient.frames] into [SyncEventDispatcher].
  */
-class SyncEngine(
+internal class SyncEngine(
     private val registry: ClientSyncDomainRegistry,
     private val queue: PendingOperationQueue,
     private val state: SyncEngineState,
@@ -211,13 +211,14 @@ class SyncEngine(
         // start's writes overwrite them — net result is engine continues running
         // as if stop() never happened. This is acceptable because:
         //
-        //   1. The dominant caller is MainActivity.onPause() racing onResume() →
-        //      start(). Android's lifecycle FSM serializes pause/resume per
-        //      Activity, so the race is structurally impossible at the call site.
-        //   2. Any caller that needs hard-shutdown semantics uses [stopAndJoin],
-        //      which takes startMutex and join()s every collector.
+        //   1. The production disconnect path does NOT call stop() — it goes
+        //      through [SyncRepository.disconnect] → [stopAndJoin], which takes
+        //      startMutex and join()s every collector, so it can't race a start().
+        //      stop() is retained as the non-suspending soft variant for tests and
+        //      any caller that doesn't need hard-shutdown semantics.
+        //   2. Any caller that needs hard-shutdown semantics uses [stopAndJoin].
         //
-        // If a non-Android caller is added later that depends on stop()'s race
+        // If a caller is added later that calls stop() AND depends on its race
         // semantics, promote this to `suspend` + `startMutex.withLock { ... }`.
         //
         // Note: cancelling engineJob propagates CancellationException through
