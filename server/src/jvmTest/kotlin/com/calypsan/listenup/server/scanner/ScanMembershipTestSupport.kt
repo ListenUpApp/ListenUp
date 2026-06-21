@@ -7,11 +7,11 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 
-/**
- * Shared test utilities for [ScannerInboxIngestTest] and [ScanAllBooksMembershipTest].
+/*
+ * Shared test utilities for ScannerInboxIngestTest and ScanAllBooksMembershipTest.
  *
- * Provides [setInboxEnabled] (toggling the hold gate on a test library) and
- * [buildAnalyzedBook] (minimal [AnalyzedBook] factory). Both helpers are stable
+ * Provides setInboxEnabled (toggling the hold gate on a test library) and
+ * buildAnalyzedBook (minimal AnalyzedBook factory). Both helpers are stable
  * across the two test files; keep them here rather than duplicating.
  */
 

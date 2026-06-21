@@ -13,21 +13,16 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.DatabaseConfig
-import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.migratedTestDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 class AuthServiceDeviceTest :
     FunSpec({
@@ -35,15 +30,14 @@ class AuthServiceDeviceTest :
         val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
         fun newSvc(policy: RegistrationPolicy = RegistrationPolicy.OPEN): AuthServiceImpl {
-            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = policy)
+            val settings = ServerSettingsRepository(db, default = policy)
             return AuthServiceImpl(
-                db = db.asSqlDatabase(),
+                db = db,
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
@@ -99,15 +93,15 @@ class AuthServiceDeviceTest :
         }
 
         test("listSessions tolerates a legacy row whose device field exceeds the 128-char limit") {
-            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val td = migratedTestDatabase()
+            val db = td.db
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             val svc =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db,
                     sessions = sessions,
                     hasher = PasswordHasher(),
                     jwt = jwt,
@@ -121,8 +115,13 @@ class AuthServiceDeviceTest :
 
                 // Simulate a legacy row written before DeviceInfo validation existed:
                 // poke an over-long value straight into the column, bypassing the inbound guard.
-                suspendTransaction(db) {
-                    SessionEntity[login.sessionId.value].deviceModel = "x".repeat(200)
+                td.driver.execute(
+                    identifier = null,
+                    sql = "UPDATE sessions SET device_model = ? WHERE id = ?",
+                    parameters = 2,
+                ) {
+                    bindString(0, "x".repeat(200))
+                    bindString(1, login.sessionId.value)
                 }
 
                 val authed = svc.copyWith(callerOf(UserId(userId), login.sessionId))

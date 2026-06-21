@@ -15,14 +15,12 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.DatabaseConfig
-import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.migratedTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -30,7 +28,6 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -41,15 +38,14 @@ class AuthServiceImplTest :
         val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
         fun newSvc(policy: RegistrationPolicy = RegistrationPolicy.OPEN): AuthServiceImpl {
-            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = policy)
+            val settings = ServerSettingsRepository(db, default = policy)
             return AuthServiceImpl(
-                db = db.asSqlDatabase(),
+                db = db,
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
@@ -64,17 +60,16 @@ class AuthServiceImplTest :
         fun newSvcWithRecorder(
             policy: RegistrationPolicy = RegistrationPolicy.OPEN,
         ): Pair<AuthServiceImpl, ActivityRepository> {
-            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = policy)
-            val activities = ActivityRepository(db = db.asSqlDatabase())
+            val settings = ServerSettingsRepository(db, default = policy)
+            val activities = ActivityRepository(db = db)
             val svc =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db,
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
