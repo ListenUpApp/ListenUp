@@ -73,6 +73,12 @@ DELETE FROM book_contributors WHERE book_id = :book_id;
 deleteAllForContributor:
 DELETE FROM book_contributors WHERE contributor_id = :contributor_id;
 
+-- Reads the credited_as value for a specific (book, contributor) junction row.
+-- Returns a single-column row, or no rows if the pair does not exist.
+selectCreditedAs:
+SELECT credited_as FROM book_contributors
+WHERE book_id = :book_id AND contributor_id = :contributor_id;
+
 -- COALESCE credit-preserving relink (mergeContributors). Re-points every junction
 -- row from :from_id to :to_id, capturing the source contributor's display name
 -- into credited_as only where it was previously NULL — books already carrying an

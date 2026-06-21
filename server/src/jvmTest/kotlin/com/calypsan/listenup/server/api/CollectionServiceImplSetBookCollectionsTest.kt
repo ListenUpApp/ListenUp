@@ -21,14 +21,13 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
@@ -39,7 +38,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Integration tests for [CollectionServiceImpl.setBookCollections] — the access-aware,
@@ -68,29 +66,29 @@ class CollectionServiceImplSetBookCollectionsTest :
             val bus: ChangeBus,
         )
 
-        fun makeHarness(db: Database): Harness {
+        fun makeHarness(db: SqlTestDatabases): Harness {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             val service =
@@ -100,9 +98,9 @@ class CollectionServiceImplSetBookCollectionsTest :
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
                     bus = bus,
-                    sql = db.asSqlDatabase(),
+                    sql = db.sql,
                     clock = fixedClock,
-                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                    permissionPolicy = UserPermissionPolicy(db.sql),
                     bookRevisionTouch = FakeBookRevisionTouch(),
                     principal = principalFor("u1"),
                 )
@@ -115,11 +113,11 @@ class CollectionServiceImplSetBookCollectionsTest :
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
         test("setBookCollections replaces memberships (adds new, soft-deletes removed)") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
                 runTest {
                     val (service, _) = makeHarness(db)
                     val admin = service.actAs("admin", UserRole.ADMIN)
@@ -160,12 +158,12 @@ class CollectionServiceImplSetBookCollectionsTest :
         }
 
         test("setBookCollections is admin-only") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestUser("u1")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("u1")
+                sql.seedTestBook("book1")
                 runTest {
                     val (service, _) = makeHarness(db)
                     val c1 = service.actAs("admin", UserRole.ADMIN).createCollection("test-library", "C1")
@@ -180,11 +178,11 @@ class CollectionServiceImplSetBookCollectionsTest :
         }
 
         test("setBookCollections rejects unknown/soft-deleted target collection") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
                 runTest {
                     val (service, _) = makeHarness(db)
                     val admin = service.actAs("admin", UserRole.ADMIN)
@@ -206,10 +204,10 @@ class CollectionServiceImplSetBookCollectionsTest :
         }
 
         test("setBookCollections rejects unknown book") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val (service, _) = makeHarness(db)
                     val admin = service.actAs("admin", UserRole.ADMIN)
@@ -224,14 +222,14 @@ class CollectionServiceImplSetBookCollectionsTest :
         }
 
         test("setBookCollections emits AccessChanged to members of added AND removed collections") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestUser("u3")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestUser("u3")
+                sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
                     val (service, bus) = makeHarness(db)
                     val admin = service.actAs("admin", UserRole.ADMIN)

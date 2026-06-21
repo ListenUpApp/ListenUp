@@ -30,15 +30,13 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookServiceImplUpdateTest :
     FunSpec({
@@ -48,19 +46,19 @@ class BookServiceImplUpdateTest :
          * (so tests can seed a book through the same db) — used by the canEdit gate tests.
          */
         fun bookServiceFor(
-            db: Database,
+            db: SqlTestDatabases,
             userId: String,
             role: UserRole,
         ): Pair<BookServiceImpl, BookRepository> {
             val bus = ChangeBus()
             val syncRegistry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+            val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+            val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+            val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
             val repo =
                 BookRepository(
-                    db = db.asSqlDatabase(),
-                    driver = db.asSqlDriver(),
+                    db = db.sql,
+                    driver = db.driver,
                     bus = bus,
                     registry = syncRegistry,
                     contributorRepository = contributorRepo,
@@ -73,20 +71,20 @@ class BookServiceImplUpdateTest :
                     contributorRepo = contributorRepo,
                     seriesRepo = seriesRepo,
                     coverStorage = CoverStorage(),
-                    sql = db.asSqlDatabase(),
+                    sql = db.sql,
                     genreRepo = genreRepo,
-                    accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                    accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                    permissionPolicy = UserPermissionPolicy(db.sql),
                     principal = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) },
                 )
             return service to repo
         }
 
         test("updateBook by a MEMBER without canEdit is denied with PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = false)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = false)
                 val (service, _) = bookServiceFor(db, "m1", UserRole.MEMBER)
                 runTest {
                     service
@@ -99,10 +97,10 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook by an ADMIN succeeds even with canEdit=false") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a1", UserRoleColumn.ADMIN, canEdit = false)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN, canEdit = false)
                 val (service, repo) = bookServiceFor(db, "a1", UserRole.ADMIN)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -116,10 +114,10 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook by a MEMBER granted canEdit succeeds") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("m2", UserRoleColumn.MEMBER, canEdit = true)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("m2", UserRoleColumn.MEMBER, canEdit = true)
                 val (service, repo) = bookServiceFor(db, "m2", UserRole.MEMBER)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -133,10 +131,10 @@ class BookServiceImplUpdateTest :
         }
 
         test("deleteBookCover by a MEMBER without canEdit is denied with PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("m3", UserRoleColumn.MEMBER, canEdit = false)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("m3", UserRoleColumn.MEMBER, canEdit = false)
                 val (service, repo) = bookServiceFor(db, "m3", UserRole.MEMBER)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -151,10 +149,10 @@ class BookServiceImplUpdateTest :
         }
 
         test("deleteBookCover by an ADMIN passes the canEdit gate") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a2", UserRoleColumn.ADMIN, canEdit = false)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a2", UserRoleColumn.ADMIN, canEdit = false)
                 val (service, repo) = bookServiceFor(db, "a2", UserRole.ADMIN)
                 runTest {
                     repo.upsert(
@@ -171,18 +169,18 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook applies the title patch and bumps the revision") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -195,10 +193,10 @@ class BookServiceImplUpdateTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -219,18 +217,18 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook preserves unchanged fields when patch carries only one field") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -243,10 +241,10 @@ class BookServiceImplUpdateTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -273,9 +271,9 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook with addedAt re-stamps the book's createdAt") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val (service, repo) = bookServiceFor(db, "admin", UserRole.ROOT)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -291,9 +289,9 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook without addedAt leaves createdAt untouched") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val (service, repo) = bookServiceFor(db, "admin", UserRole.ROOT)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -311,9 +309,9 @@ class BookServiceImplUpdateTest :
         test("a rescan after an added-date edit preserves the edited createdAt") {
             // Regression guard: the scanner sends createdAt = 0L as a placeholder. writePayload must
             // only move createdAt when the edit-path override is present, never on a plain rescan.
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val (service, repo) = bookServiceFor(db, "admin", UserRole.ROOT)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -330,18 +328,18 @@ class BookServiceImplUpdateTest :
         }
 
         test("updateBook returns BookError.NotFound when the book does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -354,10 +352,10 @@ class BookServiceImplUpdateTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {

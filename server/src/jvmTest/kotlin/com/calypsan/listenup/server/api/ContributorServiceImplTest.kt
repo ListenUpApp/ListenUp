@@ -2,9 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
+import app.cash.sqldelight.db.QueryResult
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
@@ -16,7 +14,6 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -26,9 +23,10 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
-import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -36,20 +34,17 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import kotlinx.coroutines.withContext
 
 class ContributorServiceImplTest :
     FunSpec({
 
         test("getContributor returns Success with the payload for an existing contributor") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -67,9 +62,9 @@ class ContributorServiceImplTest :
         }
 
         test("getContributor returns AppResult.Success(null) for a non-existent contributor id") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val service = makeServiceAndDeps(db).service
                 runTest {
                     val result = service.getContributor(ContributorId("does-not-exist"))
@@ -81,9 +76,9 @@ class ContributorServiceImplTest :
         }
 
         test("listBooksByContributor returns all books linked to the contributor") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -102,9 +97,9 @@ class ContributorServiceImplTest :
         }
 
         test("listBooksByContributor returns empty list when contributor has no books") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -122,9 +117,9 @@ class ContributorServiceImplTest :
         // ── updateContributor ──────────────────────────────────────────────────
 
         test("updateContributor applies the name patch when the contributor exists") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -142,9 +137,9 @@ class ContributorServiceImplTest :
         }
 
         test("updateContributor triggers FTS reindex for all linked books when the name changes") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -171,9 +166,9 @@ class ContributorServiceImplTest :
         }
 
         test("updateContributor does NOT trigger FTS reindex when only non-name fields change") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -205,9 +200,9 @@ class ContributorServiceImplTest :
         }
 
         test("updateContributor returns ContributorError.NotFound when the contributor does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val service = makeServiceAndDeps(db).service
                 runTest {
                     val result =
@@ -222,9 +217,9 @@ class ContributorServiceImplTest :
         // ── deleteContributor ──────────────────────────────────────────────────
 
         test("deleteContributor cascades — drops junctions, re-upserts affected books, soft-deletes the contributor") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -282,9 +277,9 @@ class ContributorServiceImplTest :
         }
 
         test("deleteContributor succeeds when the contributor has no linked books") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -302,9 +297,9 @@ class ContributorServiceImplTest :
         }
 
         test("deleteContributor returns ContributorError.NotFound when the contributor does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val service = makeServiceAndDeps(db).service
                 runTest {
                     val result = service.deleteContributor(ContributorId("ghost"))
@@ -323,30 +318,30 @@ private data class ServiceDeps(
     val reindexer: BookSearchReindexer,
 )
 
-private fun makeServiceAndDeps(db: Database): ServiceDeps {
+private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = db.sql,
+            driver = db.driver,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+            genreRepository = GenreRepository(db.sql, bus, syncRegistry),
         )
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
+    val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.sql, db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
-            sqlDb = db.asSqlDatabase(),
+            sqlDb = db.sql,
             principal = rootPrincipal(),
         )
     return ServiceDeps(service, contributorRepo, bookRepo, reindexer)
@@ -358,20 +353,23 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
  * created automatically by the books pipeline.
  */
 private suspend fun lookupFtsRowid(
-    db: Database,
+    db: SqlTestDatabases,
     bookId: String,
 ): Int {
-    var rowid = -1
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt = "SELECT rowid FROM book_search_map WHERE book_id = ?",
-            args = listOf(TextColumnType() to bookId),
-        ) { rs ->
-            if (rs.next()) rowid = rs.getInt("rowid")
+    val rowid =
+        withContext(Dispatchers.IO) {
+            db.driver
+                .executeQuery(
+                    identifier = null,
+                    sql = "SELECT rowid FROM book_search_map WHERE book_id = ?",
+                    mapper = { cursor ->
+                        QueryResult.Value(if (cursor.next().value) cursor.getLong(0)?.toInt() else null)
+                    },
+                    parameters = 1,
+                    binders = { bindString(0, bookId) },
+                ).value
         }
-    }
-    check(rowid > 0) { "No book_search_map row found for bookId=$bookId" }
+    check(rowid != null && rowid > 0) { "No book_search_map row found for bookId=$bookId" }
     return rowid
 }
 
@@ -384,22 +382,22 @@ private suspend fun lookupFtsRowid(
  * DELETE + re-INSERT of the entire row.
  */
 private suspend fun overwriteFtsContributorNames(
-    db: Database,
+    db: SqlTestDatabases,
     rowid: Int,
     sentinel: String,
 ) {
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
-        tx.exec(
-            stmt =
+    withContext(Dispatchers.IO) {
+        db.driver.execute(null, "DELETE FROM book_search WHERE rowid = $rowid", 0)
+        db.driver.execute(
+            identifier = null,
+            sql =
                 "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags) " +
                     "VALUES ($rowid, ?, '', '', ?, '', '')",
-            args =
-                listOf(
-                    TextColumnType() to "Test Book b$rowid",
-                    TextColumnType() to sentinel,
-                ),
+            parameters = 2,
+            binders = {
+                bindString(0, "Test Book b$rowid")
+                bindString(1, sentinel)
+            },
         )
     }
 }
@@ -411,34 +409,37 @@ private suspend fun overwriteFtsContributorNames(
  * only — not a cross-column hit.
  */
 private suspend fun ftsContributorNamesMatch(
-    db: Database,
+    db: SqlTestDatabases,
     rowid: Int,
     searchTerm: String,
 ): Boolean {
     val dq = '"'
     val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    var found = false
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt = "SELECT rowid FROM book_search WHERE contributor_names MATCH ? AND rowid = ?",
-            args =
-                listOf(
-                    TextColumnType() to quotedTerm,
-                    IntegerColumnType() to rowid,
-                ),
-        ) { rs ->
-            found = rs.next()
-        }
+    return withContext(Dispatchers.IO) {
+        db.driver
+            .executeQuery(
+                identifier = null,
+                sql = "SELECT rowid FROM book_search WHERE contributor_names MATCH ? AND rowid = ?",
+                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                parameters = 2,
+                binders = {
+                    bindString(0, quotedTerm)
+                    bindLong(1, rowid.toLong())
+                },
+            ).value
     }
-    return found
 }
 
 /** Distinct book IDs currently linked to [contributorId] via any junction row. */
 private suspend fun readBookIdsForContributor(
-    db: Database,
+    db: SqlTestDatabases,
     contributorId: String,
-): List<String> = suspendTransaction(db) { BookContributorTable.bookIdsForContributor(contributorId) }
+): List<String> =
+    withContext(Dispatchers.IO) {
+        db.sql.bookContributorsQueries
+            .bookIdsForContributor(contributor_id = contributorId)
+            .executeAsList()
+    }
 
 private fun bookFixtureWithContributor(
     id: String,

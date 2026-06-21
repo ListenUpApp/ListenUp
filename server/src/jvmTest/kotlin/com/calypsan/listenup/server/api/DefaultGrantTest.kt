@@ -20,7 +20,6 @@ import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.CollectionGrantsTable
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -28,20 +27,13 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -72,21 +64,21 @@ class DefaultGrantTest :
         )
 
         fun buildDeps(
-            db: Database,
+            db: SqlTestDatabases,
             registrationPolicy: RegistrationPolicy = RegistrationPolicy.OPEN,
         ): Deps {
             val syncRegistry = SyncRegistry()
             val bus = ChangeBus()
-            val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
-            val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
-            val libraryRegistry = LibraryRegistry(db.asSqlDatabase())
+            val collectionRepository = CollectionRepository(db.sql, bus, syncRegistry, driver = db.driver)
+            val grantRepository = CollectionGrantRepository(db.sql, bus, syncRegistry, driver = db.driver)
+            val libraryRegistry = LibraryRegistry(db.sql)
 
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                SessionService(db.sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             val sessionIssuer = SessionIssuer(sessions, jwt, fixedClock)
             val hasher = PasswordHasher()
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = registrationPolicy)
+            val settings = ServerSettingsRepository(db.sql, default = registrationPolicy)
 
             val grantIssuer =
                 DefaultAllBooksGrantIssuer(
@@ -98,7 +90,7 @@ class DefaultGrantTest :
 
             val authSvc =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -110,7 +102,7 @@ class DefaultGrantTest :
 
             val inviteSvc =
                 InviteServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     codeGenerator = InviteCodeGenerator(),
                     hasher = hasher,
                     sessionIssuer = sessionIssuer,
@@ -121,7 +113,7 @@ class DefaultGrantTest :
 
             val adminSvc =
                 AdminUserServiceImpl(
-                    sql = db.asSqlDatabase(),
+                    sql = db.sql,
                     sessions = sessions,
                     settings = settings,
                     registrationBroadcaster = RegistrationBroadcaster(),
@@ -133,21 +125,15 @@ class DefaultGrantTest :
             return Deps(authSvc, inviteSvc, adminSvc, libraryRegistry, collectionRepository)
         }
 
-        suspend fun Database.grantRowsForUser(userId: String) =
-            suspendTransaction(this) {
-                CollectionGrantsTable
-                    .selectAll()
-                    .where {
-                        (CollectionGrantsTable.principalType eq "USER") and
-                            (CollectionGrantsTable.principalId eq userId) and
-                            CollectionGrantsTable.deletedAt.isNull()
-                    }.toList()
-            }
+        fun SqlTestDatabases.grantRowsForUser(userId: String) =
+            sql.collectionGrantsQueries
+                .listActiveUserGrantsForPrincipal(principal_id = userId)
+                .executeAsList()
 
         // ── register (MEMBER, OPEN policy) ────────────────────────────────────────
 
         test("register creates an ALL_BOOKS grant for the new MEMBER user") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db)
@@ -189,10 +175,10 @@ class DefaultGrantTest :
 
                     val grants = db.grantRowsForUser(userId)
                     grants.size shouldBe 1
-                    grants[0][CollectionGrantsTable.principalType] shouldBe "USER"
-                    grants[0][CollectionGrantsTable.principalId] shouldBe userId
-                    grants[0][CollectionGrantsTable.collectionId] shouldBe allBooksId
-                    grants[0][CollectionGrantsTable.deletedAt].shouldBeNull()
+                    grants[0].principal_type shouldBe "USER"
+                    grants[0].principal_id shouldBe userId
+                    grants[0].collection_id shouldBe allBooksId
+                    grants[0].deleted_at.shouldBeNull()
                 }
             }
         }
@@ -200,7 +186,7 @@ class DefaultGrantTest :
         // ── setupRoot (ROOT) ──────────────────────────────────────────────────────
 
         test("setupRoot creates NO grant for the ROOT user") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db)
@@ -225,7 +211,7 @@ class DefaultGrantTest :
         // ── claimInvite (ADMIN role invite) ──────────────────────────────────────
 
         test("claimInvite with ADMIN role invite creates NO grant") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db)
@@ -267,7 +253,7 @@ class DefaultGrantTest :
         // ── claimInvite (MEMBER role invite) ─────────────────────────────────────
 
         test("claimInvite with MEMBER role invite creates an ALL_BOOKS grant") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db)
@@ -306,10 +292,10 @@ class DefaultGrantTest :
 
                     val grants = db.grantRowsForUser(userId)
                     grants.size shouldBe 1
-                    grants[0][CollectionGrantsTable.principalType] shouldBe "USER"
-                    grants[0][CollectionGrantsTable.principalId] shouldBe userId
-                    grants[0][CollectionGrantsTable.collectionId] shouldBe allBooksId
-                    grants[0][CollectionGrantsTable.deletedAt].shouldBeNull()
+                    grants[0].principal_type shouldBe "USER"
+                    grants[0].principal_id shouldBe userId
+                    grants[0].collection_id shouldBe allBooksId
+                    grants[0].deleted_at.shouldBeNull()
                 }
             }
         }
@@ -317,7 +303,7 @@ class DefaultGrantTest :
         // ── APPROVAL_QUEUE: no grant at registration, grant on approval ───────────
 
         test("register under APPROVAL_QUEUE policy creates NO grant for the PENDING_APPROVAL user") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db, RegistrationPolicy.APPROVAL_QUEUE)
@@ -344,7 +330,7 @@ class DefaultGrantTest :
         }
 
         test("admin approval of a PENDING_APPROVAL MEMBER user issues the ALL_BOOKS grant") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db, RegistrationPolicy.APPROVAL_QUEUE)
@@ -387,16 +373,16 @@ class DefaultGrantTest :
 
                     val grants = db.grantRowsForUser(pendingUserId)
                     grants.size shouldBe 1
-                    grants[0][CollectionGrantsTable.principalType] shouldBe "USER"
-                    grants[0][CollectionGrantsTable.principalId] shouldBe pendingUserId
-                    grants[0][CollectionGrantsTable.collectionId] shouldBe allBooksId
-                    grants[0][CollectionGrantsTable.deletedAt].shouldBeNull()
+                    grants[0].principal_type shouldBe "USER"
+                    grants[0].principal_id shouldBe pendingUserId
+                    grants[0].collection_id shouldBe allBooksId
+                    grants[0].deleted_at.shouldBeNull()
                 }
             }
         }
 
         test("admin denial of a PENDING_APPROVAL user issues NO grant") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db, RegistrationPolicy.APPROVAL_QUEUE)

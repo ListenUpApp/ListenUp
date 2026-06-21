@@ -13,7 +13,6 @@ import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
-import com.calypsan.listenup.server.db.CollectionGrantsTable
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -21,19 +20,11 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -64,19 +55,19 @@ class DefaultGrantSelfHealTest :
             val grantIssuer: DefaultAllBooksGrantIssuer,
         )
 
-        fun buildDeps(db: Database): Deps {
+        fun buildDeps(db: SqlTestDatabases): Deps {
             val syncRegistry = SyncRegistry()
             val bus = ChangeBus()
-            val collectionRepository = CollectionRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
-            val grantRepository = CollectionGrantRepository(db.asSqlDatabase(), bus, syncRegistry, driver = db.asSqlDriver())
-            val libraryRegistry = LibraryRegistry(db.asSqlDatabase())
+            val collectionRepository = CollectionRepository(db.sql, bus, syncRegistry, driver = db.driver)
+            val grantRepository = CollectionGrantRepository(db.sql, bus, syncRegistry, driver = db.driver)
+            val libraryRegistry = LibraryRegistry(db.sql)
 
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                SessionService(db.sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             val sessionIssuer = SessionIssuer(sessions, jwt, fixedClock)
             val hasher = PasswordHasher()
-            val settings = ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
+            val settings = ServerSettingsRepository(db.sql, default = RegistrationPolicy.OPEN)
 
             val grantIssuer =
                 DefaultAllBooksGrantIssuer(
@@ -88,7 +79,7 @@ class DefaultGrantSelfHealTest :
 
             val authSvc =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -102,43 +93,35 @@ class DefaultGrantSelfHealTest :
         }
 
         /** Count active (non-tombstoned) USER grants for [userId]. */
-        suspend fun Database.liveGrantCountForUser(userId: String): Int =
-            suspendTransaction(this) {
-                CollectionGrantsTable
-                    .selectAll()
-                    .where {
-                        (CollectionGrantsTable.principalType eq "USER") and
-                            (CollectionGrantsTable.principalId eq userId) and
-                            CollectionGrantsTable.deletedAt.isNull()
-                    }.count()
-                    .toInt()
-            }
+        fun SqlTestDatabases.liveGrantCountForUser(userId: String): Int =
+            sql.collectionGrantsQueries
+                .listActiveUserGrantsForPrincipal(principal_id = userId)
+                .executeAsList()
+                .size
 
         /**
          * Simulate a "missing grant" by soft-deleting (tombstoning) the existing grant for [userId]
          * on the ALL_BOOKS collection. This mimics the scenario where [grantDefaultAllBooks] failed
          * at registration time.
          */
-        suspend fun Database.tombstoneAllBooksGrant(
+        fun SqlTestDatabases.tombstoneAllBooksGrant(
             userId: String,
             allBooksId: String,
             now: Long,
         ) {
-            suspendTransaction(this) {
-                CollectionGrantsTable.update({
-                    (CollectionGrantsTable.collectionId eq allBooksId) and
-                        (CollectionGrantsTable.principalType eq "USER") and
-                        (CollectionGrantsTable.principalId eq userId)
-                }) {
-                    it[CollectionGrantsTable.deletedAt] = now
-                }
+            sql.transaction {
+                sql.collectionGrantsQueries.tombstoneGrantForUser(
+                    deleted_at = now,
+                    collection_id = allBooksId,
+                    principal_id = userId,
+                )
             }
         }
 
         // ── Test 1: idempotency ────────────────────────────────────────────────────
 
         test("grantDefaultAllBooks is idempotent — calling twice yields exactly one live grant") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db)
@@ -183,7 +166,7 @@ class DefaultGrantSelfHealTest :
         // ── Test 2: self-heal on login ─────────────────────────────────────────────
 
         test("login self-heals a missing ALL_BOOKS grant for MEMBER") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val deps = buildDeps(db)

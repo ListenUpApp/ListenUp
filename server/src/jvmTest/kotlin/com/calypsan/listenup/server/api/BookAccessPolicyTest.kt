@@ -7,25 +7,19 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
-import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Tests for [BookAccessPolicy] — the single book-visibility predicate.
@@ -40,41 +34,41 @@ class BookAccessPolicyTest :
     FunSpec({
 
         /** Wires the three 1a repos plus the policy under test against the receiver database. */
-        fun Database.fixture(): Fixture {
+        fun SqlTestDatabases.fixture(): Fixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Fixture(
                 collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
                 collectionBookRepo =
                     CollectionBookRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
                 grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
-                policy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
+                policy = BookAccessPolicy(sql, driver),
             )
         }
 
         test("admin sees every book (incl. inbox + private)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("public-book")
-                seedTestBook("private-book")
-                seedTestBook("inbox-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
+                sql.seedTestBook("inbox-book")
                 val f = fixture()
                 runTest {
                     // private-book lives in a private collection owned by a stranger.
@@ -94,9 +88,9 @@ class BookAccessPolicyTest :
         }
 
         test("book in NO collection is INVISIBLE to a member (pure union — no uncollected→public)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("loose-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("loose-book")
                 val f = fixture()
                 runTest {
                     // Under pure union, a book in no reachable collection is invisible, period.
@@ -106,10 +100,10 @@ class BookAccessPolicyTest :
         }
 
         test("book in ALL_BOOKS is visible to a granted member") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestBook("public-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestBook("public-book")
                 val f = fixture()
                 runTest {
                     // ALL_BOOKS is the public substrate: a system collection every member holds a
@@ -124,10 +118,10 @@ class BookAccessPolicyTest :
         }
 
         test("book in a collection the member neither owns nor is granted is INVISIBLE") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestBook("walled-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestBook("walled-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("stranger-col", owner = "stranger"))
@@ -139,9 +133,9 @@ class BookAccessPolicyTest :
         }
 
         test("owner sees books in their collection") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("owned-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("owned-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
@@ -153,10 +147,10 @@ class BookAccessPolicyTest :
         }
 
         test("active read-share sees books in the shared collection") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("recipient")
-                seedTestBook("shared-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("recipient")
+                sql.seedTestBook("shared-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
@@ -169,10 +163,10 @@ class BookAccessPolicyTest :
         }
 
         test("active write-share sees books") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("recipient")
-                seedTestBook("shared-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("recipient")
+                sql.seedTestBook("shared-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
@@ -185,10 +179,10 @@ class BookAccessPolicyTest :
         }
 
         test("revoked (soft-deleted) share hides the book again") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("recipient")
-                seedTestBook("shared-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("recipient")
+                sql.seedTestBook("shared-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
@@ -202,9 +196,9 @@ class BookAccessPolicyTest :
         }
 
         test("book in a private collection (no relationship) is DENIED") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("private-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("private-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("col1", owner = "owner"))
@@ -216,9 +210,9 @@ class BookAccessPolicyTest :
         }
 
         test("book in BOTH a private and an accessible collection → ALLOW (≥1 accessible)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("both-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("both-book")
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("private-col", owner = "stranger"))
@@ -232,9 +226,9 @@ class BookAccessPolicyTest :
         }
 
         test("soft-deleted collection membership does not grant access") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book")
                 val f = fixture()
                 runTest {
                     // "me"'s membership in their own collection is tombstoned, so that branch no
@@ -253,10 +247,10 @@ class BookAccessPolicyTest :
         }
 
         test("soft-deleted collection drops its membership (book has no live collection → INVISIBLE)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("u2")
-                seedTestBook("book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book")
                 val f = fixture()
                 runTest {
                     // Book lives in exactly one collection — a private one owned by a stranger.
@@ -279,9 +273,9 @@ class BookAccessPolicyTest :
         }
 
         test("soft-deleted book is never accessible (even to a member)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestBook("gone-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("gone-book")
                 val f = fixture()
                 runTest {
                     // Owned collection → the book would be visible to "owner" if it were live.
@@ -295,9 +289,9 @@ class BookAccessPolicyTest :
         }
 
         test("canAccess(b) ⇔ b ∈ accessibleBookIds(query) for a random fixture") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u2")
                 // Seed books spanning the pure-union states for member u2: owned (visible),
                 // shared (visible), public-via-ALL_BOOKS (visible), private (invisible),
                 // uncollected (invisible), inbox (invisible).
@@ -307,7 +301,7 @@ class BookAccessPolicyTest :
                 val private = "private-book"
                 val uncollected = "uncollected-book"
                 val inbox = "inbox-book"
-                listOf(owned, shared, public, private, uncollected, inbox).forEach { seedTestBook(it) }
+                listOf(owned, shared, public, private, uncollected, inbox).forEach { sql.seedTestBook(it) }
                 val f = fixture()
                 runTest {
                     f.collectionRepo.upsert(collectionFixture("owned-col", owner = "u2"))
@@ -391,8 +385,15 @@ private fun share(
     )
 
 /** Soft-deletes [bookId] by stamping `deleted_at`, mirroring the syncable tombstone shape. */
-private fun Database.softDeleteBook(bookId: String) {
-    transaction(this) {
-        BookTable.update({ BookTable.id eq bookId }) { it[BookTable.deletedAt] = System.currentTimeMillis() }
+private fun SqlTestDatabases.softDeleteBook(bookId: String) {
+    val now = System.currentTimeMillis()
+    sql.transaction {
+        sql.booksQueries.softDeleteById(
+            revision = now,
+            updated_at = now,
+            deleted_at = now,
+            client_op_id = null,
+            id = bookId,
+        )
     }
 }

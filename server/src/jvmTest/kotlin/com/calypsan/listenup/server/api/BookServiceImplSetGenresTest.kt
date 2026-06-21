@@ -2,9 +2,6 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -17,8 +14,6 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -27,9 +22,10 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -37,9 +33,6 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Integration tests for [BookServiceImpl.setBookGenres]. Covers the spec Path 2
@@ -52,17 +45,17 @@ class BookServiceImplSetGenresTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
 
-        fun makeService(db: Database): BookServiceImpl {
+        fun makeService(db: SqlTestDatabases): BookServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry, fixedClock)
-            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+            val contributorRepo = ContributorRepository(db.sql, bus, registry)
+            val seriesRepo = SeriesRepository(db.sql, bus, registry)
+            val genreRepo = GenreRepository(db.sql, bus, registry, fixedClock)
+            val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(
-                    db = db.asSqlDatabase(),
-                    driver = db.asSqlDriver(),
+                    db = db.sql,
+                    driver = db.driver,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -76,18 +69,18 @@ class BookServiceImplSetGenresTest :
                 contributorRepo = contributorRepo,
                 seriesRepo = seriesRepo,
                 coverStorage = CoverStorage(),
-                sql = db.asSqlDatabase(),
+                sql = db.sql,
                 genreRepo = genreRepo,
-                accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                permissionPolicy = UserPermissionPolicy(db.sql),
                 principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
             )
         }
 
         test("setBookGenres returns NotFound when book is unknown") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.setBookGenres(BookId("missing"), emptyList())
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<BookError.NotFound>()
@@ -96,12 +89,11 @@ class BookServiceImplSetGenresTest :
         }
 
         test("setBookGenres returns InvalidInput when size exceeds 200") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(this@withSqlDatabase)
                     val tooMany = (1..201).map { BookGenreInput(GenreId("g$it")) }
                     val result = service.setBookGenres(BookId("book1"), tooMany)
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -111,15 +103,12 @@ class BookServiceImplSetGenresTest :
         }
 
         test("setBookGenres returns InvalidInput when any genreId is unknown") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(this@withSqlDatabase)
                     val result =
                         service.setBookGenres(
                             BookId("book1"),
@@ -132,21 +121,18 @@ class BookServiceImplSetGenresTest :
         }
 
         test("setBookGenres returns InvalidInput when any genreId is tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                transaction(db) {
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(this@withSqlDatabase)
                     val result =
                         service.setBookGenres(
                             BookId("book1"),
@@ -159,20 +145,17 @@ class BookServiceImplSetGenresTest :
         }
 
         test("setBookGenres replaces the full genre list atomically") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
-                    seedGenre("g-hist", name = "History", slug = "history", path = "/history")
-                    // Pre-existing junctions that the call should wipe.
-                    BookGenreTable.insertIfAbsent("book1", "g-fant")
-                    BookGenreTable.insertIfAbsent("book1", "g-scifi")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
+                seedGenre("g-hist", name = "History", slug = "history", path = "/history")
+                // Pre-existing junctions that the call should wipe.
+                sql.transaction { sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-fant") }
+                sql.transaction { sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-scifi") }
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(this@withSqlDatabase)
                     val result =
                         service.setBookGenres(
                             BookId("book1"),
@@ -180,45 +163,41 @@ class BookServiceImplSetGenresTest :
                         )
                     require(result is AppResult.Success)
 
-                    transaction(db) {
-                        BookGenreTable.genresForBook("book1") shouldContainExactly listOf("g-hist")
-                    }
+                    sql.bookGenresQueries
+                        .genresForBook(book_id = "book1")
+                        .executeAsList()
+                        .map { it.id } shouldContainExactly listOf("g-hist")
                 }
             }
         }
 
         test("setBookGenres with empty list clears all linked genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    BookGenreTable.insertIfAbsent("book1", "g-fant")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                sql.transaction { sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-fant") }
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(this@withSqlDatabase)
                     val result = service.setBookGenres(BookId("book1"), emptyList())
                     require(result is AppResult.Success)
 
-                    transaction(db) {
-                        BookGenreTable.genresForBook("book1").shouldBeEmpty()
-                    }
+                    sql.bookGenresQueries
+                        .genresForBook(book_id = "book1")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("setBookGenres writes multiple genres in one call") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(this@withSqlDatabase)
                     val result =
                         service.setBookGenres(
                             BookId("book1"),
@@ -229,17 +208,17 @@ class BookServiceImplSetGenresTest :
                         )
                     require(result is AppResult.Success)
 
-                    transaction(db) {
-                        BookGenreTable.genresForBook("book1") shouldContainExactlyInAnyOrder
-                            listOf("g-fant", "g-scifi")
-                    }
+                    sql.bookGenresQueries
+                        .genresForBook(book_id = "book1")
+                        .executeAsList()
+                        .map { it.id } shouldContainExactlyInAnyOrder listOf("g-fant", "g-scifi")
                 }
             }
         }
     })
 
 @Suppress("LongParameterList")
-private fun seedGenre(
+private fun SqlTestDatabases.seedGenre(
     id: String,
     name: String,
     slug: String,
@@ -249,20 +228,22 @@ private fun seedGenre(
     sortOrder: Int = 0,
     deletedAt: Long? = null,
 ) {
-    GenreTable.insert {
-        it[GenreTable.id] = id
-        it[GenreTable.name] = name
-        it[GenreTable.slug] = slug
-        it[GenreTable.path] = path
-        it[GenreTable.parentId] = parentId
-        it[GenreTable.depth] = depth
-        it[GenreTable.sortOrder] = sortOrder
-        it[GenreTable.color] = null
-        it[GenreTable.description] = null
-        it[GenreTable.revision] = 0L
-        it[GenreTable.createdAt] = 0L
-        it[GenreTable.updatedAt] = 0L
-        it[GenreTable.deletedAt] = deletedAt
-        it[GenreTable.clientOpId] = null
+    sql.transaction {
+        sql.genresQueries.insert(
+            id = id,
+            name = name,
+            slug = slug,
+            path = path,
+            parent_id = parentId,
+            depth = depth.toLong(),
+            sort_order = sortOrder.toLong(),
+            color = null,
+            description = null,
+            revision = 0L,
+            created_at = 0L,
+            updated_at = 0L,
+            deleted_at = deletedAt,
+            client_op_id = null,
+        )
     }
 }

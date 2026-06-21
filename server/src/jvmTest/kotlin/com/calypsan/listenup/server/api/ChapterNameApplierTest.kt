@@ -28,16 +28,15 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val NOW = Instant.parse("2026-06-05T12:00:00Z")
 private const val ASIN = "B0CHAPTERS"
@@ -46,8 +45,8 @@ class ChapterNameApplierTest :
     FunSpec({
 
         test("count match: selected ordinals renamed, timestamps preserved, others untouched") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val deps = deps(this, audibleChapters = audible("Prologue", "Chapter One", "Chapter Two"))
                 runTest {
                     deps.bookRepo.upsert(
@@ -74,8 +73,8 @@ class ChapterNameApplierTest :
         }
 
         test("count mismatch: returns ChapterCountMismatch and writes nothing") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val deps = deps(this, audibleChapters = audible("A", "B", "C", "D", "E"))
                 runTest {
                     deps.bookRepo.upsert(bookWithChapters("b1", local("Track 1", "Track 2")), clientOpId = null)
@@ -97,8 +96,8 @@ class ChapterNameApplierTest :
         }
 
         test("empty ordinals: success no-op, names unchanged") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val deps = deps(this, audibleChapters = audible("Prologue", "Chapter One"))
                 runTest {
                     deps.bookRepo.upsert(bookWithChapters("b1", local("Track 1", "Track 2")), clientOpId = null)
@@ -119,8 +118,8 @@ class ChapterNameApplierTest :
         }
 
         test("book absent: NotFound") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val deps = deps(this, audibleChapters = audible("A"))
                 runTest {
                     val result = deps.applier.apply(BookId("missing"), ASIN, AudibleRegion.US, ordinals = setOf(0))
@@ -131,8 +130,8 @@ class ChapterNameApplierTest :
         }
 
         test("Audible returns no chapters: NotFound") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val deps = deps(this, audibleChapters = emptyList())
                 runTest {
                     deps.bookRepo.upsert(bookWithChapters("b1", local("Track 1")), clientOpId = null)
@@ -152,28 +151,28 @@ private data class Deps(
 )
 
 private fun deps(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    db: SqlTestDatabases,
     audibleChapters: List<AudibleChapter>,
 ): Deps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
+    val contributorRepo = ContributorRepository(db.sql, bus, registry)
+    val seriesRepo = SeriesRepository(db.sql, bus, registry)
     val bookRepo =
         BookRepository(
-            db.asSqlDatabase(),
+            db.sql,
             bus,
             registry,
-            db.asSqlDriver(),
+            db.driver,
             contributorRepo,
             seriesRepo,
-            GenreRepository(db.asSqlDatabase(), bus, registry),
+            GenreRepository(db.sql, bus, registry),
         )
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(audibleChapters),
             itunes = NoOpITunes(),
-            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
+            cache = MetadataCacheRepository(db.sql, clock = FixedClock(NOW)),
         )
     return Deps(bookRepo, ChapterNameApplier(bookRepo, metadataService))
 }

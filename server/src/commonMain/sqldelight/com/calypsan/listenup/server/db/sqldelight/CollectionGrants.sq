@@ -80,6 +80,12 @@ INSERT INTO collection_grants (
     :created_at, :updated_at, :revision, :deleted_at, :client_op_id
 );
 
+-- Soft-delete the active USER grant for a (collection, principal) pair. Test helper.
+tombstoneGrantForUser:
+UPDATE collection_grants
+SET deleted_at = :deleted_at
+WHERE collection_id = :collection_id AND principal_type = 'USER' AND principal_id = :principal_id;
+
 update:
 UPDATE collection_grants
 SET collection_id = :collection_id, principal_type = :principal_type, principal_id = :principal_id,

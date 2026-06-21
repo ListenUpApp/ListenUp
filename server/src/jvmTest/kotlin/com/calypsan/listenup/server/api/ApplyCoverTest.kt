@@ -40,7 +40,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -56,8 +56,6 @@ import io.ktor.http.headersOf
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 // Minimal valid 1×1 PNG (passes ImageStore's magic-number sniff).
 private val ONE_PX_PNG: ByteArray =
@@ -112,17 +110,17 @@ private fun withCoverFixture(
     downloadBytes: ByteArray,
     block: suspend (service: MetadataLookupServiceImpl, books: BookRepository) -> Unit,
 ) {
-    withInMemoryDatabase {
+    withSqlDatabase {
         val db = this
         val tempDir = Files.createTempDirectory("applycover-").also { it.toFile().deleteOnExit() }
-        seedTestLibraryAndFolder()
+        sql.seedTestLibraryAndFolder()
 
         val bus = ChangeBus()
         val registry = SyncRegistry()
-        val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-        val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-        val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-        val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
+        val contributorRepo = ContributorRepository(db.sql, bus, registry)
+        val seriesRepo = SeriesRepository(db.sql, bus, registry)
+        val genreRepo = GenreRepository(db.sql, bus, registry)
+        val books = BookRepository(db.sql, bus, registry, db.driver, contributorRepo, seriesRepo, genreRepo)
 
         runTest {
             books
@@ -144,7 +142,7 @@ private fun withCoverFixture(
                 MetadataService(
                     audible = ApplyCoverNoOpAudible(),
                     itunes = ApplyCoverNoOpITunes(),
-                    cache = MetadataCacheRepository(db.asSqlDatabase()),
+                    cache = MetadataCacheRepository(db.sql),
                 )
             val service =
                 MetadataLookupServiceImpl(
@@ -165,9 +163,9 @@ private fun withCoverFixture(
                             coverImageStore = coverStore,
                             imageHome = Path(tempDir.toString()),
                         ),
-                    enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-                    sqlDb = db.asSqlDatabase(),
+                    enrichmentDeps = testEnrichmentDeps(db.exposed, bus, registry),
+                    permissionPolicy = UserPermissionPolicy(db.sql),
+                    sqlDb = db.sql,
                     genreRepository = genreRepo,
                     principal =
                         PrincipalProvider {

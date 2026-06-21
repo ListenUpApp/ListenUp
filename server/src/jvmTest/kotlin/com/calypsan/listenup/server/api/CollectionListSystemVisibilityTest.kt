@@ -19,16 +19,14 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Regression test for the system-collection visibility bug in
@@ -60,29 +58,29 @@ class CollectionListSystemVisibilityTest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun makeService(db: Database): CollectionServiceImpl {
+        fun makeService(db: SqlTestDatabases): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
@@ -90,9 +88,9 @@ class CollectionListSystemVisibilityTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
-                sql = db.asSqlDatabase(),
+                sql = db.sql,
                 clock = fixedClock,
                 bookRevisionTouch = FakeBookRevisionTouch(),
                 principal = principalFor("u1"),
@@ -105,11 +103,11 @@ class CollectionListSystemVisibilityTest :
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
         test("listCollections hides ALL_BOOKS and INBOX from members but admin god-view keeps them") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("u1")
                 runTest {
                     val service = makeService(db)
 
@@ -129,10 +127,10 @@ class CollectionListSystemVisibilityTest :
                     // production path that caused the leak.
                     val grantRepo =
                         CollectionGrantRepository(
-                            db = db.asSqlDatabase(),
+                            db = db.sql,
                             bus = ChangeBus(),
                             registry = SyncRegistry(),
-                            driver = db.asSqlDriver(),
+                            driver = db.driver,
                         )
                     grantRepo.upsert(
                         CollectionShareSyncPayload(

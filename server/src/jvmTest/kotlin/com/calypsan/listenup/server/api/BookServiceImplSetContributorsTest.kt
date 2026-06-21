@@ -27,7 +27,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -35,25 +35,23 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookServiceImplSetContributorsTest :
     FunSpec({
 
         test("setBookContributors replaces the contributor list with all-existing ids") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -66,10 +64,10 @@ class BookServiceImplSetContributorsTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -99,18 +97,18 @@ class BookServiceImplSetContributorsTest :
         }
 
         test("setBookContributors auto-creates an unknown contributor in the same transaction when id is null") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -123,10 +121,10 @@ class BookServiceImplSetContributorsTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -156,18 +154,18 @@ class BookServiceImplSetContributorsTest :
         }
 
         test("setBookContributors reduces the contributors to an empty list") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -180,10 +178,10 @@ class BookServiceImplSetContributorsTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -222,18 +220,18 @@ class BookServiceImplSetContributorsTest :
         }
 
         test("setBookContributors returns BookError.NotFound when the book does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -246,10 +244,10 @@ class BookServiceImplSetContributorsTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -267,18 +265,18 @@ class BookServiceImplSetContributorsTest :
         }
 
         test("setBookContributors returns BookError.InvalidInput when contributors size exceeds 200") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = db.sql,
+                        driver = db.driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -291,10 +289,10 @@ class BookServiceImplSetContributorsTest :
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
-                        sql = db.asSqlDatabase(),
+                        sql = db.sql,
                         genreRepo = genreRepo,
-                        accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {

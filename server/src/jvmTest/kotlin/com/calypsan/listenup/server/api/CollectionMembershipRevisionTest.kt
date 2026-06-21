@@ -17,21 +17,19 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import kotlin.time.Instant
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Pins the revision-bump side of collection-membership mutation: adding a book to a collection
@@ -54,31 +52,31 @@ class CollectionMembershipRevisionTest :
             }
 
         fun makeCollectionService(
-            db: Database,
+            db: SqlTestDatabases,
             bookRevisionTouch: BookRevisionTouch = FakeBookRevisionTouch(),
         ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
@@ -86,9 +84,9 @@ class CollectionMembershipRevisionTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
-                sql = db.asSqlDatabase(),
+                sql = db.sql,
                 clock = fixedClock,
                 bookRevisionTouch = bookRevisionTouch,
                 principal = principalFor("u1"),
@@ -101,11 +99,11 @@ class CollectionMembershipRevisionTest :
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
         test("addBookToCollection touches the added book's revision") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook(bookId = "b1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
@@ -123,11 +121,11 @@ class CollectionMembershipRevisionTest :
         }
 
         test("removeBookFromCollection touches the removed book's revision") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook(bookId = "b1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
@@ -149,11 +147,11 @@ class CollectionMembershipRevisionTest :
         }
 
         test("setBookCollections touches the book once when membership changes") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook(bookId = "b1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
@@ -177,11 +175,11 @@ class CollectionMembershipRevisionTest :
         }
 
         test("setBookCollections does not touch when the membership is unchanged") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook(bookId = "b1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
@@ -204,11 +202,11 @@ class CollectionMembershipRevisionTest :
         }
 
         test("releaseBooks touches each released book's revision") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1", userRole = UserRoleColumn.ADMIN)
-                seedTestBook(bookId = "b1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1", userRole = UserRoleColumn.ADMIN)
+                sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
                     val touch = FakeBookRevisionTouch()
                     val service = makeCollectionService(db, bookRevisionTouch = touch)
