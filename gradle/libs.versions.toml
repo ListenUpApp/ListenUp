@@ -69,9 +69,10 @@ kover = "0.9.8"
 atomicfu = "0.33.0"
 
 # Server persistence + password hashing
+# exposed: server is fully off Exposed; exposed-jdbc is retained ONLY for the sharedLogic jvmTest
+# in-process server-E2E harness (client tests that seed/assert against the real server's SQLite).
 exposed = "1.3.0"
 sqlite-jdbc = "3.53.2.0"
-hikari = "7.1.0"
 password4j = "1.8.4"
 konsist = "0.17.3"
 ksp-symbol-processing-api = "2.3.9" # matches project ksp version — bump in lockstep with `ksp`
@@ -151,12 +152,9 @@ ktor-server-rate-limit = { module = "io.ktor:ktor-server-rate-limit", version.re
 ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor" }
 ktor-server-swagger = { module = "io.ktor:ktor-server-swagger", version.ref = "ktor" }
 # Server persistence
-exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
-exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
+# exposed-jdbc: sharedLogic jvmTest server-E2E harness only (server production is Exposed-free).
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
-exposed-kotlin-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
-hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 # Password hashing
 password4j = { module = "com.password4j:password4j", version.ref = "password4j" }
 # kotlinx.rpc
