@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.db
 
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.jetbrains.exposed.v1.core.DatabaseConfig as ExposedDatabaseConfig
@@ -35,8 +36,10 @@ object DatabaseFactory {
 
         val swappable = SwappableDataSource(pool)
         val dbFile = Path.of(config.jdbcUrl.removePrefix("jdbc:sqlite:"))
+        val sqlDriver = SwappableSqlDriver(DriverFactory().createDriver(dbFile.toString()))
         return DatabaseHandle(
             database = Database.connect(swappable, databaseConfig = retryDatabaseConfig()),
+            sqlDriver = sqlDriver,
             dataSource = swappable,
             poolFactory = { buildPool(config) },
             dbFilePath = dbFile,

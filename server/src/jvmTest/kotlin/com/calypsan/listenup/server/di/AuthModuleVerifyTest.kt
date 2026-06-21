@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.db.SwappableDataSource
+import com.calypsan.listenup.server.db.SwappableSqlDriver
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -52,6 +53,7 @@ class AuthModuleVerifyTest :
                         ChangeBus::class,
                         HikariDataSource::class,
                         SwappableDataSource::class,
+                        SwappableSqlDriver::class,
                         Function0::class,
                         Path::class,
                         Database::class,

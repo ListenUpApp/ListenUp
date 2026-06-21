@@ -12,6 +12,7 @@ import java.nio.file.Path
  */
 class DatabaseHandle(
     val database: Database,
+    val sqlDriver: SwappableSqlDriver,
     private val dataSource: SwappableDataSource,
     private val poolFactory: () -> HikariDataSource,
     val dbFilePath: Path,

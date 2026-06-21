@@ -29,7 +29,6 @@ import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveDatabaseUrl
 import com.calypsan.listenup.server.db.resolveListenupHome
 import app.cash.sqldelight.db.SqlDriver
-import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -71,10 +70,10 @@ fun authModule(config: ApplicationConfig): Module {
         // engine-neutral SQL through the SAME driver instance that backs [ListenUpDatabase] —
         // sharing the connection, so a raw query inside a `suspendTransaction(db)` participates
         // in the open transaction.
-        single<SqlDriver> {
-            val dbPath = get<DatabaseHandle>().dbFilePath.toAbsolutePath().toString()
-            DriverFactory().createDriver(dbPath)
-        }
+        // The repos' driver IS the restore-swappable one held by DatabaseHandle, so a restore swap
+        // reaches every repository. Resolving DatabaseHandle first forces MigrationRunner.migrate()
+        // before the driver is first used.
+        single<SqlDriver> { get<DatabaseHandle>().sqlDriver }
 
         // SQLDelight twin of the Exposed [Database], built over the shared [SqlDriver] single.
         // Both singles coexist during the Exposed → SQLDelight cutover; aggregates migrate one
