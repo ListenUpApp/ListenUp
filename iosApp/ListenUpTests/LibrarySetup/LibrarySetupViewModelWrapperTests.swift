@@ -121,4 +121,20 @@ struct LibrarySetupWrapperSelectionTests {
         wrapper.onFinished?()
         #expect(finishedCalled == true)
     }
+
+    /// The no-arg (test) init leaves the backing VM nil. Action methods used to be an IUO
+    /// nil-unwrap crash on such a wrapper; now they `guard` and no-op safely.
+    @Test func actionsAreSafeNoOpsWithoutABackingViewModel() {
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.checkStatus()
+        wrapper.open("/media")
+        wrapper.up()
+        wrapper.toggle("/media/A")
+        wrapper.selectCurrent()
+        wrapper.clearSelection()
+        wrapper.completeSetup()
+        wrapper.dismissError()
+        // Reaching here without trapping is the assertion; pin a state read too.
+        #expect(wrapper.hasSelection == false)
+    }
 }

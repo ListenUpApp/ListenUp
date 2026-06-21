@@ -57,10 +57,11 @@ final class LibrarySetupViewModelWrapper {
     /// Navigation callbacks — set by the coordinator.
     var onFinished: (() -> Void)?
 
-    /// The shared VM. Implicitly-unwrapped because the bridge-free test initializer
-    /// (`init()`) leaves it nil — production always wires it. Action methods touch it;
-    /// the state-mapping path (`apply`) does not, which is what tests exercise.
-    private let viewModel: LibrarySetupViewModel!
+    /// The shared VM. Optional because the bridge-free test initializer (`init()`) leaves
+    /// it nil — production always wires it. Action methods `guard` on it so a stray call on
+    /// a test-initialized wrapper is a safe no-op, not a nil-unwrap crash. The state-mapping
+    /// path (`apply`) doesn't touch it, which is what tests exercise.
+    private let viewModel: LibrarySetupViewModel?
     private let bridge = FlowBridge()
 
     init(viewModel: LibrarySetupViewModel) {
@@ -82,36 +83,44 @@ final class LibrarySetupViewModelWrapper {
     // MARK: - Actions
 
     func checkStatus() {
+        guard let viewModel else { return }
         viewModel.checkLibraryStatus()
     }
 
     func open(_ path: String) {
+        guard let viewModel else { return }
         viewModel.loadDirectory(path: path)
     }
 
     func up() {
+        guard let viewModel else { return }
         viewModel.navigateUp()
     }
 
     func toggle(_ path: String) {
+        guard let viewModel else { return }
         viewModel.togglePath(path: path)
     }
 
     /// Add the current directory to the selection (mirrors the wizard's
     /// "use this folder" affordance). `selectPath` is additive in the shared VM.
     func selectCurrent() {
+        guard let viewModel else { return }
         viewModel.selectPath(path: currentPath)
     }
 
     func clearSelection() {
+        guard let viewModel else { return }
         viewModel.clearSelection()
     }
 
     func completeSetup() {
+        guard let viewModel else { return }
         viewModel.completeSetup()
     }
 
     func dismissError() {
+        guard let viewModel else { return }
         viewModel.clearError()
     }
 
