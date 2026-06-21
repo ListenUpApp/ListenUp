@@ -488,8 +488,6 @@ private class RecordingPositionRepository : PlaybackPositionRepository {
 
     override suspend fun restartBook(bookId: BookId) = TODO("not used")
 
-    override suspend fun getEntity(bookId: BookId) = TODO("not used")
-
     override suspend fun getLastPlayedBook() = TODO("not used")
 }
 

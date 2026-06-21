@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.DownloadState
+import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -141,8 +141,6 @@ private class RecordingPositionRepository2 : PlaybackPositionRepository {
 
     override suspend fun restartBook(bookId: BookId) = TODO("not used")
 
-    override suspend fun getEntity(bookId: BookId) = TODO("not used")
-
     override suspend fun getLastPlayedBook() = TODO("not used")
 }
 
@@ -159,7 +157,7 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
 
     override suspend fun getLocalPath(audioFileId: String): String? = TODO("not used")
 
-    override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? = TODO("not used")
+    override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? = TODO("not used")
 
     override suspend fun markDownloading(
         audioFileId: String,
