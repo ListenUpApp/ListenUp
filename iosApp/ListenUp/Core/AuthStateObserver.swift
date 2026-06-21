@@ -24,7 +24,16 @@ final class AuthStateObserver {
 
     init(authSession: any AuthSession_ = KoinHelper.shared.getAuthSession()) {
         self.authSession = authSession
-        Task { try? await authSession.initializeAuthState() }
+        Task {
+            do {
+                try await authSession.initializeAuthState()
+            } catch is CancellationError {
+            } catch {
+                // Don't silently swallow: a failed init leaves auth state stuck at
+                // `.initializing` (launch screen). Log it so the stall is diagnosable.
+                Log.error("Failed to initialize auth state", error: error)
+            }
+        }
         bridge.bind(authSession.authState) { [weak self] authState in
             self?.apply(authState)
         }

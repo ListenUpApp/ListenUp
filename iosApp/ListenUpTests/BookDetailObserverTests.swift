@@ -15,6 +15,25 @@ struct BookDetailObserverTests {
     }
 }
 
+/// The download path used to swallow thrown errors with `try?`, so a failure left the
+/// button looking idle. The fix surfaces non-cancellation throws and stays silent on
+/// cancellation; this pins that decision (the observer itself needs live KMP `Ready`
+/// state to construct, so the decision is verified at its pure seam).
+@Suite("Download throw handling")
+struct DownloadThrowMessageTests {
+    private struct Boom: Error {}
+
+    @Test func cancellationSurfacesNothing() {
+        #expect(BookDetailObserver.downloadThrowMessage(for: CancellationError()) == nil)
+    }
+
+    @Test func realErrorSurfacesAMessage() {
+        let message = BookDetailObserver.downloadThrowMessage(for: Boom())
+        #expect(message != nil)
+        #expect(message?.isEmpty == false)
+    }
+}
+
 @Suite("Cast helpers")
 struct CastHelpersTests {
     private func member(_ name: String, _ roles: [String]) -> CastMember {

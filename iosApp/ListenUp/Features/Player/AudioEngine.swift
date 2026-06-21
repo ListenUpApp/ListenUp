@@ -113,10 +113,16 @@ actor AudioEngine: PlaybackEngine {
     }
 
     /// Deactivate the shared audio session, notifying other apps they may resume.
+    /// Best-effort — a deactivation failure can't strand the user — but logged so it
+    /// isn't silently swallowed.
     func deactivateSession() {
-        try? AVAudioSession.sharedInstance().setActive(
-            false, options: .notifyOthersOnDeactivation
-        )
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            Log.error("Failed to deactivate audio session", error: error)
+        }
     }
 
     /// Tear down: stop playback, remove every observer, finish the event stream.
@@ -148,8 +154,16 @@ actor AudioEngine: PlaybackEngine {
 
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio)
-        try? session.setActive(true)
+        do {
+            try session.setCategory(.playback, mode: .spokenAudio)
+            try session.setActive(true)
+        } catch {
+            // If the session can't be configured, playback would start into dead silence.
+            // Surface it as a playback failure (the coordinator maps `.failed` → error state)
+            // rather than leaving the user staring at a player that makes no sound.
+            Log.error("Failed to configure audio session", error: error)
+            continuation.yield(.failed(message: "Couldn't start audio playback."))
+        }
     }
 
     /// Replace the queue with fresh `AVPlayerItem`s for segments `[startIndex...]`.
