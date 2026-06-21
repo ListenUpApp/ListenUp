@@ -125,6 +125,7 @@ value class FolderId(
 /**
  * Type-safe wrapper for Chapter IDs.
  */
+@Serializable
 @JvmInline
 value class ChapterId(
     val value: String,
