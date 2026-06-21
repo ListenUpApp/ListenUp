@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -62,7 +61,6 @@ class PlaybackModuleVerifyTest :
                         DeviceContext::class,
                         ApiClientFactory::class,
                         ImageStorage::class,
-                        PendingOperationQueue::class,
                         PlaybackManager::class,
                         BookDao::class,
                         AudioFileDao::class,
@@ -73,11 +71,6 @@ class PlaybackModuleVerifyTest :
                         ListeningEventDao::class,
                         TentativeSpanDao::class,
                         PlaybackPositionDao::class,
-                        // ListeningEventRecorder injects lambdas (enqueue/currentUserId/
-                        // deviceLabel); verify() sees their erased function types.
-                        Function0::class,
-                        Function1::class,
-                        Function6::class,
                     ),
             )
         }

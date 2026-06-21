@@ -29,7 +29,7 @@ import org.koin.test.verify.verify
  *  - [SyncEngine] — owned by `clientSyncRenovationModule`.
  *  - [SyncEngineState] — owned by `clientSyncRenovationModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
- *  - [ListeningEventRecorder] — owned by platform playback modules.
+ *  - [ListeningEventRecorder] — owned by `listeningModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [ListeningEventDao] — owned by `persistenceModule`.
  *  - [PlaybackPositionDao] — owned by `persistenceModule`.

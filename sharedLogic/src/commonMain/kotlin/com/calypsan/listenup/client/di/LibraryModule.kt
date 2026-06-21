@@ -39,7 +39,7 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.data.sync.SyncEngine] — `clientSyncRenovationModule`
  *  - [com.calypsan.listenup.client.data.sync.SyncEngineState] — `clientSyncRenovationModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
- *  - [com.calypsan.listenup.client.playback.ListeningEventRecorder] — platform playback modules
+ *  - [com.calypsan.listenup.client.playback.ListeningEventRecorder] — `listeningModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.PlaybackPositionDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.LibraryDao] — `persistenceModule`

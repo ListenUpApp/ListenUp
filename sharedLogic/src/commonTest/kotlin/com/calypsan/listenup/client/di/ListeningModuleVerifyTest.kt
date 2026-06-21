@@ -3,9 +3,11 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
+import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -24,6 +26,11 @@ import org.koin.test.verify.verify
  *  - [AuthSession] — owned by `clientAuthModule`.
  *  - [String] (named `"deviceId"`) — owned by the platform playback modules.
  *  - [PendingOperationQueue] — owned by `clientSyncRenovationModule`.
+ *  - [TentativeSpanDao] — owned by `persistenceModule` (pulled in by the recorder binding).
+ *  - [DeviceInfoProvider] — owned by the platform playback modules (recorder binding).
+ *
+ * The recorder binding also injects suspend lambdas (`enqueue` / `currentUserId`);
+ * `verify()` sees their erased function types, hence the [Function0]/[Function1]/[Function6] entries.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ListeningModuleVerifyTest :
@@ -34,13 +41,20 @@ class ListeningModuleVerifyTest :
                 extraTypes =
                     listOf(
                         ListeningEventDao::class,
+                        TentativeSpanDao::class,
                         GenreDao::class,
                         PlaybackPositionDao::class,
                         TransactionRunner::class,
                         AuthSession::class,
+                        DeviceInfoProvider::class,
                         String::class,
                         PendingOperationQueue::class,
                         ApiClientFactory::class,
+                        // Recorder injects suspend lambdas (enqueue/currentUserId);
+                        // verify() sees their erased function types.
+                        Function0::class,
+                        Function1::class,
+                        Function6::class,
                     ),
             )
         }

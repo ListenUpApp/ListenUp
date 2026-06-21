@@ -2,10 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.device.DeviceInfoProvider
-import com.calypsan.listenup.client.data.sync.PendingOperationQueue
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.AppleDownloadService
@@ -14,7 +11,6 @@ import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AvFoundationAudioPlayer
-import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
@@ -103,20 +99,6 @@ val macosPlaybackModule: Module =
                     deviceName = NSProcessInfo.processInfo.hostName,
                 )
             }
-        }
-
-        // Listening event recorder — span state machine for P2 listening history
-        single {
-            ListeningEventRecorder(
-                listeningEventDao = get<ListenUpDatabase>().listeningEventDao(),
-                tentativeSpanDao = get<ListenUpDatabase>().tentativeSpanDao(),
-                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
-                    get<PendingOperationQueue>().enqueue(domainName, entityId, opType, payload, ownerUserId)
-                    Unit
-                },
-                currentUserId = { get<AuthSession>().getUserId() },
-                deviceInfo = get(),
-            )
         }
 
         // Sleep timer manager

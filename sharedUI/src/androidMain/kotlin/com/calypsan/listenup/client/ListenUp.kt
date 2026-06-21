@@ -36,7 +36,6 @@ import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.AndroidPlaybackController
-import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.playback.MediaControllerHolder
 import com.calypsan.listenup.client.playback.asControllerHolder
 import com.calypsan.listenup.client.playback.PlaybackController
@@ -195,21 +194,6 @@ val playbackModule =
                     deviceModel = android.os.Build.MODEL,
                 )
             }
-        }
-
-        // Listening event recorder — span state machine for P2 listening history
-        single {
-            ListeningEventRecorder(
-                listeningEventDao = get(),
-                tentativeSpanDao = get(),
-                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
-                    get<com.calypsan.listenup.client.data.sync.PendingOperationQueue>()
-                        .enqueue(domainName, entityId, opType, payload, ownerUserId)
-                    Unit
-                },
-                currentUserId = { get<com.calypsan.listenup.client.domain.repository.AuthSession>().getUserId() },
-                deviceInfo = get(),
-            )
         }
 
         // Playback error handler (needs concrete Android type for onUnauthorized())
