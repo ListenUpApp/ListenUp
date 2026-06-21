@@ -497,8 +497,8 @@ class ListenUp :
                 "AuthSession" to {
                     get<com.calypsan.listenup.client.domain.repository.AuthSession>()
                 },
-                "SyncEngine" to {
-                    get<com.calypsan.listenup.client.data.sync.SyncEngine>()
+                "SyncRepository" to {
+                    get<com.calypsan.listenup.client.domain.repository.SyncRepository>()
                 },
                 "ProgressTracker" to {
                     get<ProgressTracker>()

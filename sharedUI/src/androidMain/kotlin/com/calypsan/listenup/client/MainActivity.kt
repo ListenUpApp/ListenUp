@@ -28,7 +28,6 @@ import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.SyncRepository
-import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.navigation.ListenUpNavigation
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import com.calypsan.listenup.client.foldable.PostureProvider
@@ -60,7 +59,6 @@ private val logger = KotlinLogging.logger {}
 class MainActivity : ComponentActivity() {
     private val authSession: AuthSession by inject()
     private val syncRepository: SyncRepository by inject()
-    private val syncEngine: SyncEngine by inject()
     private val localPreferences: LocalPreferences by inject()
     private val connectionCoordinator: ConnectionCoordinator by inject()
     private val deepLinkManager: DeepLinkManager by inject()
@@ -217,7 +215,7 @@ class MainActivity : ComponentActivity() {
 
         // Disconnect realtime sync when app goes to background to save battery
         logger.debug { "App paused, disconnecting realtime sync to save battery" }
-        syncEngine.stop()
+        lifecycleScope.launch { syncRepository.disconnect() }
     }
 }
 
