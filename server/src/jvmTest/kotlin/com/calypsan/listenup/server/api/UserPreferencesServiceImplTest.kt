@@ -9,30 +9,26 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 class UserPreferencesServiceImplTest :
     FunSpec({
-        fun Database.svc(userId: String) =
-            userPreferencesServiceScopedTo(
-                createUserPreferencesService(this.asSqlDatabase()),
-                PrincipalProvider {
-                    UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
-                },
-            )
-
         test("getMyPreferences with no row returns defaults") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest {
-                    val r = svc("u1").getMyPreferences()
+                    val r =
+                        userPreferencesServiceScopedTo(
+                            createUserPreferencesService(sql),
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s-u1"), UserRole.MEMBER)
+                            },
+                        ).getMyPreferences()
                     r as AppResult.Success
                     r.data shouldBe UserPreferencesDto(1.0f, 30, 10, null, false)
                 }
@@ -40,10 +36,16 @@ class UserPreferencesServiceImplTest :
         }
 
         test("updateMyPreferences merges only non-null fields") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest {
-                    val svc = svc("u1")
+                    val svc =
+                        userPreferencesServiceScopedTo(
+                            createUserPreferencesService(sql),
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s-u1"), UserRole.MEMBER)
+                            },
+                        )
                     svc.updateMyPreferences(UpdateUserPreferencesRequest(defaultPlaybackSpeed = 1.5f))
                     val afterSpeed = svc.getMyPreferences()
                     afterSpeed as AppResult.Success
@@ -58,10 +60,16 @@ class UserPreferencesServiceImplTest :
         }
 
         test("out-of-range values are clamped") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest {
-                    val svc = svc("u1")
+                    val svc =
+                        userPreferencesServiceScopedTo(
+                            createUserPreferencesService(sql),
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s-u1"), UserRole.MEMBER)
+                            },
+                        )
                     val r =
                         svc.updateMyPreferences(
                             UpdateUserPreferencesRequest(
@@ -77,10 +85,10 @@ class UserPreferencesServiceImplTest :
         }
 
         test("unauthenticated call is denied") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest {
-                    val r = createUserPreferencesService(this@withInMemoryDatabase.asSqlDatabase()).getMyPreferences()
+                    val r = createUserPreferencesService(sql).getMyPreferences()
                     val failure = r.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }

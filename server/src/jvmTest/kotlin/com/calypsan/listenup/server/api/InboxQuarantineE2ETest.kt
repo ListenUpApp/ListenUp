@@ -27,7 +27,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookRepository
@@ -58,10 +58,6 @@ import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 import org.koin.ktor.ext.inject
 
 /**
@@ -121,8 +117,8 @@ class InboxQuarantineE2ETest :
                         // Turn on the per-library inbox gate — the toggle Task 1 exposes via
                         // LibraryAdminService.setInboxEnabled; set directly here so this test
                         // isolates the scan-path wiring (the admin RPC is covered elsewhere).
-                        val db by application.inject<Database>()
-                        db.setInboxEnabled(libraryId, enabled = true)
+                        val sqlDb by application.inject<ListenUpDatabase>()
+                        sqlDb.setInboxEnabled(libraryId, enabled = true)
 
                         val persister by application.inject<BookPersister>()
                         val books by application.inject<BookRepository>()
@@ -326,13 +322,17 @@ private fun publicBook(
         deletedAt = null,
     )
 
-private fun Database.setInboxEnabled(
+private fun ListenUpDatabase.setInboxEnabled(
     libraryId: String,
     enabled: Boolean,
 ) {
-    transaction(this) {
-        LibraryTable.update({ LibraryTable.id eq libraryId }) { it[inboxEnabled] = enabled }
-    }
+    librariesQueries.setInboxEnabled(
+        inbox_enabled = if (enabled) 1L else 0L,
+        revision = 1L,
+        updated_at = System.currentTimeMillis(),
+        client_op_id = null,
+        id = libraryId,
+    )
 }
 
 // ── Multi-user token setup (mirrors SeamLeakE2ETest) ──

@@ -15,8 +15,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
-import com.calypsan.listenup.server.db.LibraryFolderTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -40,10 +38,11 @@ import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
@@ -59,10 +58,6 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val NOW = Instant.parse("2026-05-24T12:00:00Z")
 
@@ -72,14 +67,14 @@ class MetadataLookupServiceImplTest :
         // ── searchContributorMetadata ─────────────────────────────────────────
 
         test("searchContributorMetadata wires through to AudibleApi.searchContributors") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val canned =
                     listOf(
                         AudibleContributorProfile(asin = "B001H6L8VC", name = "Stephen King", biography = "", imageUrl = ""),
                         AudibleContributorProfile(asin = "B002ABCDEF", name = "Stephen King Jr.", biography = "", imageUrl = ""),
                     )
                 val audible = StubAudibleApi(contributorSearchResult = AppResult.Success(canned))
-                val service = makeService(audible = audible, db = this)
+                val service = makeService(audible = audible, dbs = this)
 
                 runTest {
                     val result = service.searchContributorMetadata("stephen king")
@@ -93,12 +88,12 @@ class MetadataLookupServiceImplTest :
         }
 
         test("searchContributorMetadata propagates Failure from AudibleApi") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible =
                     StubAudibleApi(
                         contributorSearchResult = AppResult.Failure(MetadataError.ExternalUnavailable()),
                     )
-                val service = makeService(audible = audible, db = this)
+                val service = makeService(audible = audible, dbs = this)
 
                 runTest {
                     val result = service.searchContributorMetadata("anyone")
@@ -109,9 +104,9 @@ class MetadataLookupServiceImplTest :
         }
 
         test("searchContributorMetadata returns empty list when AudibleApi finds nothing") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = StubAudibleApi(contributorSearchResult = AppResult.Success(emptyList()))
-                val service = makeService(audible = audible, db = this)
+                val service = makeService(audible = audible, dbs = this)
 
                 runTest {
                     val result = service.searchContributorMetadata("unknown author xyz")
@@ -125,7 +120,7 @@ class MetadataLookupServiceImplTest :
         // ── getBookMetadata iTunes cover enrichment ───────────────────────────
 
         test("getBookMetadata enriches coverUrlMaxSize from iTunes findCover") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
                 val itunes =
                     StubITunesApi(
@@ -137,7 +132,7 @@ class MetadataLookupServiceImplTest :
                             ),
                         ),
                     )
-                val service = makeService(audible = audible, db = this, itunes = itunes)
+                val service = makeService(audible = audible, dbs = this, itunes = itunes)
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -151,9 +146,9 @@ class MetadataLookupServiceImplTest :
         }
 
         test("getBookMetadata leaves coverUrlMaxSize null when iTunes finds nothing") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
-                val service = makeService(audible = audible, db = this, itunes = StubITunesApi(AppResult.Success(null)))
+                val service = makeService(audible = audible, dbs = this, itunes = StubITunesApi(AppResult.Success(null)))
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -165,10 +160,10 @@ class MetadataLookupServiceImplTest :
         }
 
         test("getBookMetadata still returns the Audible book when the iTunes lookup fails") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
                 val itunes = StubITunesApi(AppResult.Failure(MetadataError.ExternalUnavailable()))
-                val service = makeService(audible = audible, db = this, itunes = itunes)
+                val service = makeService(audible = audible, dbs = this, itunes = itunes)
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -183,7 +178,7 @@ class MetadataLookupServiceImplTest :
         // ── getBookMetadata mood/tag enrichment ───────────────────────────────
 
         test("getBookMetadata populates moods + tags from the classified product tags") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
                 val productTags =
                     listOf(
@@ -192,7 +187,7 @@ class MetadataLookupServiceImplTest :
                         ProductTag(type = "theme", name = "Found Family"),
                         ProductTag(type = "genre", name = "Fantasy"), // dropped by the classifier
                     )
-                val service = makeService(audible = audible, db = this, productTagSource = { _, _ -> productTags })
+                val service = makeService(audible = audible, dbs = this, productTagSource = { _, _ -> productTags })
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -205,7 +200,7 @@ class MetadataLookupServiceImplTest :
         }
 
         test("getBookMetadata excludes a theme whose canonical slug matches one of the book's genres") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 // The book carries genre "Science Fiction"; a "Sci-Fi" theme canonicalizes to the same slug.
                 val audible = BookStubAudibleApi(bookWithGenres(listOf("Science Fiction")))
                 val productTags =
@@ -214,7 +209,7 @@ class MetadataLookupServiceImplTest :
                         ProductTag(type = "theme", name = "Survival"), // no collision → survives
                         ProductTag(type = "mood", name = "Tense"),
                     )
-                val service = makeService(audible = audible, db = this, productTagSource = { _, _ -> productTags })
+                val service = makeService(audible = audible, dbs = this, productTagSource = { _, _ -> productTags })
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -227,10 +222,10 @@ class MetadataLookupServiceImplTest :
         }
 
         test("getBookMetadata leaves moods + tags empty when the product-tag scrape throws") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
                 val service =
-                    makeService(audible = audible, db = this, productTagSource = { _, _ -> error("scrape failed") })
+                    makeService(audible = audible, dbs = this, productTagSource = { _, _ -> error("scrape failed") })
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
@@ -245,23 +240,22 @@ class MetadataLookupServiceImplTest :
         // ── cover-image write location ────────────────────────────────────────
 
         test("applied book cover is stored in CoverImageStore and not written to the library path") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val imageHome = Files.createTempDirectory("metadata-imagehome-").toAbsolutePath()
                 imageHome.toFile().deleteOnExit()
                 val coversDir = imageHome.resolve("covers")
                 val libraryRoot = Files.createTempDirectory("metadata-library-").toString()
-                seedLibraryAndFolder(db, rootPath = libraryRoot)
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot)
 
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(sql, bus, syncRegistry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
@@ -272,7 +266,7 @@ class MetadataLookupServiceImplTest :
                     MetadataService(
                         audible = BookStubAudibleApi(bookWithCover("https://example.test/cover.jpg")),
                         itunes = NoOpITunesApi(),
-                        cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
+                        cache = MetadataCacheRepository(sql, clock = FixedClock(NOW)),
                     )
                 // MockEngine returns a minimal valid JPEG so CoverImageStore validation passes.
                 val jpegBytes =
@@ -307,10 +301,10 @@ class MetadataLookupServiceImplTest :
                             coverImageStore = coverImageStore,
                             metadataProvider = AudibleMetadataProvider(metadataService),
                             genreHierarchy =
-                                GenreHierarchyFromLadder(db.asSqlDatabase(), genreRepo, GenreAutoCreator(genreRepo)),
-                            sqlDb = db.asSqlDatabase(),
+                                GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
+                            sqlDb = sql,
                             ladderSource = { _, _ -> emptyList() },
-                            enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry),
+                            enrichmentDeps = testEnrichmentDeps(exposed, bus, syncRegistry),
                         )
                     val coverSelection =
                         MetadataApplySelection(
@@ -337,32 +331,6 @@ class MetadataLookupServiceImplTest :
             }
         }
     })
-
-private fun seedLibraryAndFolder(
-    db: Database,
-    rootPath: String,
-) {
-    val now = System.currentTimeMillis()
-    transaction(db) {
-        LibraryTable.insert {
-            it[LibraryTable.id] = "test-library"
-            it[LibraryTable.name] = "Test Library"
-            it[LibraryTable.createdAt] = now
-            it[LibraryTable.updatedAt] = now
-            it[LibraryTable.revision] = 0L
-            it[LibraryTable.deletedAt] = null
-        }
-        LibraryFolderTable.insert {
-            it[LibraryFolderTable.id] = "test-folder"
-            it[LibraryFolderTable.libraryId] = "test-library"
-            it[LibraryFolderTable.rootPath] = rootPath
-            it[LibraryFolderTable.createdAt] = now
-            it[LibraryFolderTable.updatedAt] = now
-            it[LibraryFolderTable.revision] = 0L
-            it[LibraryFolderTable.deletedAt] = null
-        }
-    }
-}
 
 private fun bookWithCover(coverUrl: String): AudibleBook =
     AudibleBook(
@@ -451,7 +419,7 @@ private fun bookFixture(bookId: String): BookSyncPayload =
 
 private fun makeService(
     audible: AudibleApi,
-    db: Database,
+    dbs: SqlTestDatabases,
     itunes: ITunesApi = NoOpITunesApi(),
     productTagSource: suspend (AudibleRegion, String) -> List<ProductTag> = { _, _ -> emptyList() },
 ): MetadataLookupServiceImpl {
@@ -460,17 +428,17 @@ private fun makeService(
         MetadataService(
             audible = audible,
             itunes = itunes,
-            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(NOW)),
+            cache = MetadataCacheRepository(dbs.sql, clock = FixedClock(NOW)),
         )
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val contributorRepo = ContributorRepository(dbs.sql, bus, syncRegistry)
+    val seriesRepo = SeriesRepository(dbs.sql, bus, syncRegistry)
+    val genreRepo = GenreRepository(dbs.sql, bus, syncRegistry)
     val bookRepository =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
@@ -495,9 +463,9 @@ private fun makeService(
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
-        enrichmentDeps = testEnrichmentDeps(db, bus, syncRegistry, productTagSource = productTagSource),
-        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-        sqlDb = db.asSqlDatabase(),
+        enrichmentDeps = testEnrichmentDeps(dbs.exposed, bus, syncRegistry, productTagSource = productTagSource),
+        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        sqlDb = dbs.sql,
         genreRepository = genreRepo,
     )
 }

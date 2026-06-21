@@ -194,6 +194,11 @@ WHERE id = :id;
 touchRevision:
 UPDATE books SET revision = :revision, updated_at = :updated_at WHERE id = :id;
 
+-- Sets total_duration only (test fixture: seedTestBook inserts 0L; some social/stats
+-- tests need a non-zero duration without re-running a full upsert).
+updateTotalDuration:
+UPDATE books SET total_duration = :total_duration WHERE id = :id;
+
 -- Rows affected by the most recent statement on this connection — lets the repo
 -- distinguish a 0-row update (NotFound) from a successful one.
 changes:

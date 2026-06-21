@@ -40,11 +40,12 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.db.UserEntity
+import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.longs.shouldBeGreaterThan
@@ -53,9 +54,6 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class PlaybackServiceImplTest :
     FunSpec({
@@ -72,31 +70,34 @@ class PlaybackServiceImplTest :
             val grantRepo: CollectionGrantRepository,
         )
 
-        fun buildDeps(db: org.jetbrains.exposed.v1.jdbc.Database): TestDeps {
+        fun buildDeps(
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
+        ): TestDeps {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val bookRepo =
                 BookRepository(
-                    db = db.asSqlDatabase(),
-                    driver = db.asSqlDriver(),
+                    db = sql,
+                    driver = driver,
                     bus = bus,
                     registry = registry,
-                    contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
-                    seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
-                    genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                    contributorRepository = ContributorRepository(sql, bus, registry),
+                    seriesRepository = SeriesRepository(sql, bus, registry),
+                    genreRepository = GenreRepository(sql, bus, registry),
                 )
-            val positionRepo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = SyncRegistry())
+            val positionRepo = PlaybackPositionRepository(db = sql, bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
             val updater =
                 UserStatsUpdater(
-                    sql = db.asSqlDatabase(),
+                    sql = sql,
                     userStatsRepo = statsRepo,
-                    publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
+                    publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                 )
             val eventRepo =
                 ListeningEventRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = ChangeBus(),
                     registry = SyncRegistry(),
                     userStatsUpdater = updater,
@@ -107,27 +108,27 @@ class PlaybackServiceImplTest :
                 signer = signer,
                 eventRepo = eventRepo,
                 statsRepo = statsRepo,
-                accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                accessPolicy = BookAccessPolicy(sql, driver),
                 collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     ),
                 collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     ),
                 grantRepo =
                     CollectionGrantRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     ),
             )
         }
@@ -145,20 +146,20 @@ class PlaybackServiceImplTest :
             }
 
         fun TestDeps.service(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            sql: ListenUpDatabase,
             userId: String = "u1",
             role: UserRole = UserRole.MEMBER,
         ): PlaybackServiceImpl =
             PlaybackServiceImpl(
                 bookRepository = bookRepo,
-                audioFileLocator = AudioFileLocator(db.asSqlDatabase()),
+                audioFileLocator = AudioFileLocator(sql),
                 audioUrlSigner = signer,
                 playbackPositionRepository = positionRepo,
                 listeningEventRepository = eventRepo,
                 userStatsRepository = statsRepo,
                 accessPolicy = accessPolicy,
                 principal = principal(userId, role),
-                sql = db.asSqlDatabase(),
+                sql = sql,
             )
 
         /**
@@ -179,16 +180,15 @@ class PlaybackServiceImplTest :
         }
 
         test("prepare returns PreparedPlayback with audio files ordered by index for an unplayed book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
 
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val result = service.prepare(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -211,11 +211,10 @@ class PlaybackServiceImplTest :
         }
 
         test("prepare returns the caller's resume position when one exists") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
@@ -229,7 +228,7 @@ class PlaybackServiceImplTest :
                         currentChapterId = "chap-1",
                     )
 
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val result = service.prepare(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -242,16 +241,15 @@ class PlaybackServiceImplTest :
         }
 
         test("prepare returns a signed URL for each audio file that the signer verifies") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
 
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val result = service.prepare(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -273,16 +271,15 @@ class PlaybackServiceImplTest :
         }
 
         test("getPosition returns null for a book the user has never played") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
 
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val result = service.getPosition(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PlaybackPositionSyncPayload?>>()
@@ -292,16 +289,15 @@ class PlaybackServiceImplTest :
         }
 
         test("getPosition returns the stored position after recordPosition") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
 
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     service.recordPosition(
                         RecordPositionRequest(
@@ -325,16 +321,15 @@ class PlaybackServiceImplTest :
         }
 
         test("recordPosition stores the position using the principal's userId, not any request field") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
 
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     service.recordPosition(
                         RecordPositionRequest(
@@ -358,19 +353,18 @@ class PlaybackServiceImplTest :
         }
 
         test("per-user isolation: two users' prepare calls return independent positions") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1", "u2")
                     deps.positionRepo.recordPosition("u1", "b1", 10_000L, 1_730_000_000_000L, false, 1.0f, null)
                     deps.positionRepo.recordPosition("u2", "b1", 20_000L, 1_730_000_000_000L, false, 1.5f, "chap-2")
 
-                    val svc1 = deps.service(db, "u1")
+                    val svc1 = deps.service(sql, "u1")
                     val svc2 = svc1.copyWith(principal("u2"))
 
                     val r1 = svc1.prepare(BookId("b1")).shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -383,12 +377,11 @@ class PlaybackServiceImplTest :
         }
 
         test("prepare returns SyncError.NotFound for an unknown bookId") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val result = service.prepare(BookId("nonexistent"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -399,16 +392,15 @@ class PlaybackServiceImplTest :
         // ─── prepare access gate ──────────────────────────────────────────────────
 
         test("prepare returns NotFound for a member on a book in a private collection they can't reach") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
                     deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
                     deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
 
-                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+                    val service = deps.service(sql, userId = "member", role = UserRole.MEMBER)
 
                     val result = service.prepare(BookId("private-book"))
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
@@ -418,11 +410,10 @@ class PlaybackServiceImplTest :
         }
 
         test("prepare returns the playback for a member granted via ALL_BOOKS (the public substrate)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("public-book"))
                     // ALL_BOOKS membership + the member's grant = visibility under pure union.
@@ -430,7 +421,7 @@ class PlaybackServiceImplTest :
                     deps.collectionBookRepo.upsert(playbackMembership("all-books", "public-book"))
                     deps.grantRepo.upsert(playbackShare("g1", "all-books", "member"))
 
-                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+                    val service = deps.service(sql, userId = "member", role = UserRole.MEMBER)
 
                     val result = service.prepare(BookId("public-book"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -440,16 +431,15 @@ class PlaybackServiceImplTest :
         }
 
         test("admin prepare sees a private/inbox book a member could not") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("inbox-book"))
                     deps.collectionRepo.upsert(playbackCollection("inbox-col", owner = "stranger", isInbox = true))
                     deps.collectionBookRepo.upsert(playbackMembership("inbox-col", "inbox-book"))
 
-                    val service = deps.service(db, userId = "admin", role = UserRole.ADMIN)
+                    val service = deps.service(sql, userId = "admin", role = UserRole.ADMIN)
 
                     val result = service.prepare(BookId("inbox-book"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -461,16 +451,15 @@ class PlaybackServiceImplTest :
         // ─── write/read access gate (recordPosition / recordListeningEvent / getPosition) ──
 
         test("recordPosition returns NotFound and writes nothing for a member on an unreachable book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
                     deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
                     deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
 
-                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+                    val service = deps.service(sql, userId = "member", role = UserRole.MEMBER)
 
                     val result =
                         service.recordPosition(
@@ -492,16 +481,15 @@ class PlaybackServiceImplTest :
         }
 
         test("recordListeningEvent returns NotFound and accrues no stats for a member on an unreachable book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
                     deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
                     deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
 
-                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+                    val service = deps.service(sql, userId = "member", role = UserRole.MEMBER)
 
                     val startedAt = 1_779_451_200_000L
                     val result =
@@ -527,16 +515,15 @@ class PlaybackServiceImplTest :
         }
 
         test("getPosition returns NotFound for a member on an unreachable book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
                     deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
                     deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
 
-                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+                    val service = deps.service(sql, userId = "member", role = UserRole.MEMBER)
 
                     val result = service.getPosition(BookId("private-book"))
                     result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<SyncError.NotFound>()
@@ -547,12 +534,11 @@ class PlaybackServiceImplTest :
         // ─── getStats / recordListeningEvent ──────────────────────────────────────
 
         test("getStats returns AppResult.Success(null) for a user with no listening history") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = buildDeps(sql, driver)
                 runTest {
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val result = service.getStats()
                     val success = result.shouldBeInstanceOf<AppResult.Success<UserStatsSyncPayload?>>()
@@ -562,15 +548,14 @@ class PlaybackServiceImplTest :
         }
 
         test("getStats returns non-null stats after recordListeningEvent with correct totalSecondsAllTime") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
                     deps.makeReachable("book-1", "u1")
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val startedAt = 1_779_451_200_000L
                     val endedAt = startedAt + 3_600_000L // 3600 seconds
@@ -597,15 +582,14 @@ class PlaybackServiceImplTest :
         }
 
         test("recordListeningEvent stores event under the authenticated principal's userId") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
                     deps.makeReachable("book-1", "u1")
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val startedAt = 1_779_451_200_000L
                     service.recordListeningEvent(
@@ -633,15 +617,14 @@ class PlaybackServiceImplTest :
         // ─── timezone refresh on live ingest ─────────────────────────────────────
 
         test("a live listening event refreshes the user's home timezone") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1") // starts with timezone = "UTC" (column default)
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1") // starts with timezone = "UTC" (column default)
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-tz"))
                     deps.makeReachable("book-tz", "u1")
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val startedAt = 1_779_451_200_000L
                     service
@@ -659,24 +642,23 @@ class PlaybackServiceImplTest :
                             ),
                         ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
 
-                    val tz = suspendTransaction(db) { UserEntity.findById("u1")?.timezone }
+                    val tz = sql.usersQueries.selectTimezoneById("u1").executeAsOneOrNull()
                     tz shouldBe "America/New_York"
                 }
             }
         }
 
         test("a failed access-gate check does not update the user's timezone") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
                     deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
                     deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
 
-                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+                    val service = deps.service(sql, userId = "member", role = UserRole.MEMBER)
 
                     val startedAt = 1_779_451_200_000L
                     service
@@ -695,22 +677,21 @@ class PlaybackServiceImplTest :
                         ).shouldBeInstanceOf<AppResult.Failure>()
 
                     // Access was denied — timezone must not have been updated.
-                    val tz = suspendTransaction(db) { UserEntity.findById("member")?.timezone }
+                    val tz = sql.usersQueries.selectTimezoneById("member").executeAsOneOrNull()
                     tz shouldBe "UTC"
                 }
             }
         }
 
         test("re-recording the same event id is idempotent: payload fields unchanged, revision advances") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                val deps = buildDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
                     deps.makeReachable("book-1", "u1")
-                    val service = deps.service(db, "u1")
+                    val service = deps.service(sql, "u1")
 
                     val startedAt = 1_779_451_200_000L
                     val request =

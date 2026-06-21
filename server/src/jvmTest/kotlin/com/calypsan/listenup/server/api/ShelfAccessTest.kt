@@ -16,18 +16,18 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -36,7 +36,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * The access-hiding proof for [ShelfServiceImpl.getShelf] and
@@ -68,15 +67,15 @@ class ShelfAccessTest :
             role: UserRole = UserRole.MEMBER,
         ): PrincipalProvider = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("session-$userId"), role) }
 
-        /** A service whose every collaborator is wired against [db]; bind a caller with [actAs]. */
-        fun service(db: Database): ShelfServiceImpl {
+        /** A service whose every collaborator is wired against [dbs]; bind a caller with [actAs]. */
+        fun service(dbs: SqlTestDatabases): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                readAssembler = ShelfReadAssembler(db.asSqlDatabase()),
+                shelfRepo = ShelfRepository(db = dbs.sql, bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = dbs.sql, bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.exposed.asSqlDriver()),
+                readAssembler = ShelfReadAssembler(dbs.sql),
                 clock = fixedClock,
                 principal = principalFor("a"),
             )
@@ -98,33 +97,33 @@ class ShelfAccessTest :
          * for seeding shelf membership directly (bypassing the owner-access gate that
          * would otherwise refuse to shelve a book the owner can't see).
          */
-        fun fixtures(db: Database): Fixtures {
+        fun fixtures(dbs: SqlTestDatabases): Fixtures {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Fixtures(
                 collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = dbs.sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = dbs.exposed.asSqlDriver(),
                     ),
                 collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = dbs.sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = dbs.exposed.asSqlDriver(),
                     ),
                 grantRepo =
                     CollectionGrantRepository(
-                        db = db.asSqlDatabase(),
+                        db = dbs.sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = dbs.exposed.asSqlDriver(),
                     ),
-                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
+                shelfBookRepo = ShelfBookRepository(db = dbs.sql, bus = bus, registry = registry),
+                policy = BookAccessPolicy(dbs.sql, dbs.exposed.asSqlDriver()),
             )
         }
 
@@ -134,7 +133,7 @@ class ShelfAccessTest :
          * the substrate repo — bypassing the owner-access gate so an inaccessible book can
          * still sit on a shelf for the viewer-side filtering to hide.
          */
-        suspend fun Database.seedShelf(
+        suspend fun SqlTestDatabases.seedShelf(
             f: Fixtures,
             ownerId: String,
             name: String,
@@ -150,7 +149,7 @@ class ShelfAccessTest :
          * Seeds the shared fixture: books pub/priv/glob with their collection relationships,
          * and A's public shelf S `[pub, priv, glob]` + private shelf P `[pub]`.
          */
-        suspend fun Database.seedBaseFixture(f: Fixtures): Pair<ShelfId, ShelfId> {
+        suspend fun SqlTestDatabases.seedBaseFixture(f: Fixtures): Pair<ShelfId, ShelfId> {
             f.collectionRepo.upsert(collectionFixture("priv-col", owner = "stranger"))
             f.collectionBookRepo.upsert(membership("priv-col", "priv"))
             // pub + glob are public the new way: members of ALL_BOOKS with B granted on it.
@@ -167,21 +166,20 @@ class ShelfAccessTest :
         // ── 1 + 2 + 3: getShelf access by caller role ──────────────────────────
 
         test("non-owner sees a public shelf access-filtered to only visible books") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    val (shelfS, _) = db.seedBaseFixture(f)
+                    val (shelfS, _) = seedBaseFixture(f)
                     // Sanity: priv really is invisible to B; pub & glob really are visible.
                     f.policy.canAccess("b", UserRole.MEMBER, "priv") shouldBe false
                     f.policy.canAccess("b", UserRole.MEMBER, "pub") shouldBe true
                     f.policy.canAccess("b", UserRole.MEMBER, "glob") shouldBe true
 
-                    val detail = service(db).actAs("b").getShelf(shelfS).value()
+                    val detail = service(this@withSqlDatabase).actAs("b").getShelf(shelfS).value()
                     detail.isOwner shouldBe false
                     detail.bookCount shouldBe 2
                     detail.books.map { it.bookId } shouldContainExactly listOf("pub", "glob")
@@ -190,20 +188,19 @@ class ShelfAccessTest :
         }
 
         test("owner sees every book on their public shelf, including ones they can't access via collections") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    val (shelfS, _) = db.seedBaseFixture(f)
+                    val (shelfS, _) = seedBaseFixture(f)
                     // Owner A is a MEMBER and cannot access priv via collections — owner bypass
                     // means they still see every book on their own shelf.
                     f.policy.canAccess("a", UserRole.MEMBER, "priv") shouldBe false
 
-                    val detail = service(db).actAs("a").getShelf(shelfS).value()
+                    val detail = service(this@withSqlDatabase).actAs("a").getShelf(shelfS).value()
                     detail.isOwner shouldBe true
                     detail.bookCount shouldBe 3
                     detail.books.map { it.bookId } shouldContainExactly listOf("pub", "priv", "glob")
@@ -212,17 +209,16 @@ class ShelfAccessTest :
         }
 
         test("admin sees every book on a non-owned public shelf") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    val (shelfS, _) = db.seedBaseFixture(f)
+                    val (shelfS, _) = seedBaseFixture(f)
 
-                    val detail = service(db).actAs("b", UserRole.ADMIN).getShelf(shelfS).value()
+                    val detail = service(this@withSqlDatabase).actAs("b", UserRole.ADMIN).getShelf(shelfS).value()
                     detail.isOwner shouldBe false
                     detail.bookCount shouldBe 3
                     detail.books.map { it.bookId } shouldContainExactly listOf("pub", "priv", "glob")
@@ -233,17 +229,16 @@ class ShelfAccessTest :
         // ── 4: private shelf invisible to a non-owner ──────────────────────────
 
         test("a non-owner gets NotFound (never Forbidden, never an empty shelf) on a private shelf") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    val (_, shelfP) = db.seedBaseFixture(f)
+                    val (_, shelfP) = seedBaseFixture(f)
 
-                    val result = service(db).actAs("b").getShelf(shelfP)
+                    val result = service(this@withSqlDatabase).actAs("b").getShelf(shelfP)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ShelfError.NotFound>()
                 }
@@ -253,19 +248,18 @@ class ShelfAccessTest :
         // ── 5: discovery filters books + excludes private + excludes own shelves ──
 
         test("discovery filters another user's public shelf and excludes private + own shelves") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    val (shelfS, _) = db.seedBaseFixture(f)
+                    val (shelfS, _) = seedBaseFixture(f)
                     // B owns a public shelf of their own — it must be excluded from B's discovery.
-                    db.seedShelf(f, "b", name = "My Own", isPrivate = false, bookIds = listOf("pub"))
+                    seedShelf(f, "b", name = "My Own", isPrivate = false, bookIds = listOf("pub"))
 
-                    val discovered = service(db).actAs("b").discoverShelves().value()
+                    val discovered = service(this@withSqlDatabase).actAs("b").discoverShelves().value()
 
                     discovered shouldHaveSize 1
                     val s = discovered.first()
@@ -275,7 +269,7 @@ class ShelfAccessTest :
                     s.shelf.bookCount shouldBe 2
                     // Discovery returns the summary (book ids live in getShelf); prove the
                     // filtered detail of the discovered shelf is exactly [pub, glob].
-                    service(db)
+                    service(this@withSqlDatabase)
                         .actAs("b")
                         .getShelf(s.shelf.id)
                         .value()
@@ -288,19 +282,18 @@ class ShelfAccessTest :
         // ── 6: discovery excludes a shelf with zero accessible books ───────────
 
         test("discovery excludes a public shelf whose only books are all inaccessible") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    db.seedBaseFixture(f)
+                    seedBaseFixture(f)
                     // A second public shelf X whose ONLY book is priv (invisible to B).
-                    db.seedShelf(f, "a", name = "All Hidden", isPrivate = false, bookIds = listOf("priv"))
+                    seedShelf(f, "a", name = "All Hidden", isPrivate = false, bookIds = listOf("priv"))
 
-                    val discovered = service(db).actAs("b").discoverShelves().value()
+                    val discovered = service(this@withSqlDatabase).actAs("b").discoverShelves().value()
 
                     // Only S survives; X (zero accessible books) is excluded — no empty teaser.
                     discovered shouldHaveSize 1
@@ -312,24 +305,23 @@ class ShelfAccessTest :
         // ── 7: limit counts visible shelves, applied after access exclusion ────
 
         test("discoverShelves(limit) returns exactly limit visible shelves") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    db.seedBaseFixture(f) // S is discoverable (has pub, glob)
+                    seedBaseFixture(f) // S is discoverable (has pub, glob)
                     // A second discoverable public shelf, plus one all-inaccessible shelf that
                     // must NOT consume a limit slot.
-                    db.seedShelf(f, "a", name = "More", isPrivate = false, bookIds = listOf("glob"))
-                    db.seedShelf(f, "a", name = "Hidden", isPrivate = false, bookIds = listOf("priv"))
+                    seedShelf(f, "a", name = "More", isPrivate = false, bookIds = listOf("glob"))
+                    seedShelf(f, "a", name = "Hidden", isPrivate = false, bookIds = listOf("priv"))
 
                     // Two shelves are discoverable; limit 1 → exactly 1 returned.
-                    service(db).actAs("b").discoverShelves(limit = 1).value() shouldHaveSize 1
+                    service(this@withSqlDatabase).actAs("b").discoverShelves(limit = 1).value() shouldHaveSize 1
                     // No limit pressure → both discoverable shelves, never the all-hidden one.
-                    service(db)
+                    service(this@withSqlDatabase)
                         .actAs("b")
                         .discoverShelves(limit = 50)
                         .value()
@@ -341,18 +333,17 @@ class ShelfAccessTest :
         // ── 8: access revocation reflected on the next read ────────────────────
 
         test("revoking a share hides the previously-visible book on the next getShelf") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("a")
-                seedTestUser("b")
-                listOf("pub", "priv", "glob").forEach { seedTestBook(it) }
-                val f = fixtures(db)
+            withSqlDatabase {
+                exposed.seedTestLibraryAndFolder()
+                exposed.seedTestUser("a")
+                exposed.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { exposed.seedTestBook(it) }
+                val f = fixtures(this)
                 runTest {
-                    val (shelfS, _) = db.seedBaseFixture(f)
+                    val (shelfS, _) = seedBaseFixture(f)
                     // Grant B a read-share into priv's collection: B can now see priv.
                     f.grantRepo.upsert(share("share-1", "priv-col", "b", SharePermission.Read))
-                    service(db)
+                    service(this@withSqlDatabase)
                         .actAs("b")
                         .getShelf(shelfS)
                         .value()
@@ -361,7 +352,7 @@ class ShelfAccessTest :
 
                     // Revoke the share; the next read must drop priv.
                     f.grantRepo.softDeleteGrant("priv-col", "b")
-                    val after = service(db).actAs("b").getShelf(shelfS).value()
+                    val after = service(this@withSqlDatabase).actAs("b").getShelf(shelfS).value()
                     after.bookCount shouldBe 2
                     after.books.map { it.bookId } shouldContainExactly listOf("pub", "glob")
                 }

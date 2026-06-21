@@ -2,11 +2,12 @@
 
 package com.calypsan.listenup.server.api
 
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.CollectionsTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
@@ -14,18 +15,12 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Integration tests for [CollectionServiceImpl.getOrCreateSystemCollection].
@@ -43,29 +38,32 @@ class SystemCollectionTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L))
 
-        fun makeService(db: Database): CollectionServiceImpl {
+        fun makeService(
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
+        ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
@@ -73,49 +71,40 @@ class SystemCollectionTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                permissionPolicy = UserPermissionPolicy(sql),
                 bus = bus,
-                sql = db.asSqlDatabase(),
+                sql = sql,
                 clock = fixedClock,
                 bookRevisionTouch = FakeBookRevisionTouch(),
                 principal = PrincipalProvider { null },
             )
         }
 
-        /** Reads the server-only `collections.type` column for [collectionId], or null if absent. */
-        suspend fun Database.typeColumnOf(collectionId: String): String? =
-            suspendTransaction(this) {
-                CollectionsTable
-                    .selectAll()
-                    .where { CollectionsTable.id eq collectionId }
-                    .firstOrNull()
-                    ?.get(CollectionsTable.type)
-            }
+        /** Reads the server-only `collections.type` column for [id], or null if absent. */
+        fun ListenUpDatabase.typeColumnOf(id: String): String? = collectionsQueries.selectById(id).executeAsOneOrNull()?.type
 
         test("getOrCreateSystemCollection creates ALL_BOOKS with type column, name, and system owner") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
 
                     val result = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(result is AppResult.Success)
                     result.data.name shouldBe "All Books"
                     result.data.ownerId shouldBe UserId(SYSTEM_OWNER_ID)
 
-                    db.typeColumnOf(result.data.id.value) shouldBe "ALL_BOOKS"
+                    sql.typeColumnOf(result.data.id.value) shouldBe "ALL_BOOKS"
                 }
             }
         }
 
         test("getOrCreateSystemCollection succeeds with no admin user present") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 // No seedTestUser call — the "system" sentinel must not require an admin.
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
 
                     val result = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(result is AppResult.Success) {
@@ -127,11 +116,10 @@ class SystemCollectionTest :
         }
 
         test("getOrCreateSystemCollection is idempotent — second call returns the same collection") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
 
                     val first = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(first is AppResult.Success)
@@ -144,11 +132,10 @@ class SystemCollectionTest :
         }
 
         test("getOrCreateSystemCollection INBOX is distinct from ALL_BOOKS and isInbox is derived from type") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
 
                     val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(allBooks is AppResult.Success)
@@ -161,7 +148,7 @@ class SystemCollectionTest :
 
                     (inbox.data.id == allBooks.data.id) shouldBe false
 
-                    db.typeColumnOf(inbox.data.id.value) shouldBe "INBOX"
+                    sql.typeColumnOf(inbox.data.id.value) shouldBe "INBOX"
                 }
             }
         }

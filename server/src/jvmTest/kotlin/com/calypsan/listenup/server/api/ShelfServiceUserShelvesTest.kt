@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
@@ -21,12 +22,11 @@ import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
+import app.cash.sqldelight.db.SqlDriver
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
@@ -34,7 +34,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Contract and ACL tests for [ShelfServiceImpl.getUserShelves].
@@ -63,17 +62,18 @@ class ShelfServiceUserShelvesTest :
         fun noPrincipal(): PrincipalProvider = PrincipalProvider { null }
 
         fun makeService(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             callerId: String = "viewer",
             role: UserRole = UserRole.MEMBER,
         ): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                readAssembler = ShelfReadAssembler(db.asSqlDatabase()),
+                shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(sql, driver),
+                readAssembler = ShelfReadAssembler(sql),
                 clock = fixedClock,
                 principal = principalFor(callerId, role),
             )
@@ -96,7 +96,8 @@ class ShelfServiceUserShelvesTest :
          * [bookId] is inaccessible to any user who isn't ROOT/ADMIN and has no explicit share.
          */
         fun makeBookInaccessible(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             bookId: String,
             collectionId: String,
             collectionOwner: String = "stranger",
@@ -105,17 +106,17 @@ class ShelfServiceUserShelvesTest :
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             kotlinx.coroutines.runBlocking {
                 collectionRepo.upsert(
@@ -147,7 +148,8 @@ class ShelfServiceUserShelvesTest :
          * `users(id)`.
          */
         fun makeBookAccessible(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             bookId: String,
             viewerId: String,
             collectionId: String = "all-books",
@@ -156,24 +158,24 @@ class ShelfServiceUserShelvesTest :
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             kotlinx.coroutines.runBlocking {
                 collectionRepo.upsert(
@@ -216,28 +218,27 @@ class ShelfServiceUserShelvesTest :
         // ── 1: Returns the owner's public shelves with access-filtered book count ─
 
         test("getUserShelves returns owner's public shelves with viewer-accessible book count") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("owner")
-                seedTestUser("viewer")
-                seedTestBook("accessible")
-                seedTestBook("hidden")
-                makeBookInaccessible(db, bookId = "hidden", collectionId = "priv-col")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("accessible")
+                sql.seedTestBook("hidden")
+                makeBookInaccessible(sql, driver, bookId = "hidden", collectionId = "priv-col")
                 // "accessible" is reachable to the viewer the pure-union way: ALL_BOOKS + grant.
-                makeBookAccessible(db, bookId = "accessible", viewerId = "viewer")
+                makeBookAccessible(sql, driver, bookId = "accessible", viewerId = "viewer")
                 runTest {
-                    val ownerService = makeService(db, callerId = "owner").actAs("owner")
+                    val ownerService = makeService(sql, driver, callerId = "owner").actAs("owner")
                     val shelf = ownerService.createShelf(name = "My Picks", isPrivate = false).value()
                     // Seed both books directly through the repo (bypasses owner-access gate)
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf.id.value, "accessible", userId = "owner")
                     shelfBookRepo.addBook(shelf.id.value, "hidden", userId = "owner")
 
                     val result =
-                        makeService(db, callerId = "viewer")
+                        makeService(sql, driver, callerId = "viewer")
                             .getUserShelves(UserId("owner"))
                             .value()
 
@@ -252,26 +253,25 @@ class ShelfServiceUserShelvesTest :
         // ── 2: Private shelves are excluded ────────────────────────────────────
 
         test("getUserShelves excludes private shelves") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("owner")
-                seedTestUser("viewer")
-                seedTestBook("b1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("b1")
                 // "b1" must be visible to the viewer so the public shelf survives access filtering.
-                makeBookAccessible(db, bookId = "b1", viewerId = "viewer")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "viewer")
                 runTest {
-                    val ownerService = makeService(db, callerId = "owner").actAs("owner")
+                    val ownerService = makeService(sql, driver, callerId = "owner").actAs("owner")
                     val publicShelf = ownerService.createShelf(name = "Public", isPrivate = false).value()
                     val privateShelf = ownerService.createShelf(name = "Secret", isPrivate = true).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry)
                     shelfBookRepo.addBook(publicShelf.id.value, "b1", userId = "owner")
                     shelfBookRepo.addBook(privateShelf.id.value, "b1", userId = "owner")
 
                     val result =
-                        makeService(db, callerId = "viewer")
+                        makeService(sql, driver, callerId = "viewer")
                             .getUserShelves(UserId("owner"))
                             .value()
 
@@ -284,25 +284,24 @@ class ShelfServiceUserShelvesTest :
         // ── 3 (CROWN JEWEL ACL): shelf with zero accessible books is excluded ──
 
         test("getUserShelves excludes a shelf whose only book the viewer cannot access") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("owner")
-                seedTestUser("viewer")
-                seedTestBook("hidden")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("hidden")
                 // "hidden" is gated in a private collection — viewer cannot access it.
-                makeBookInaccessible(db, bookId = "hidden", collectionId = "priv-col")
+                makeBookInaccessible(sql, driver, bookId = "hidden", collectionId = "priv-col")
                 runTest {
-                    val ownerService = makeService(db, callerId = "owner").actAs("owner")
+                    val ownerService = makeService(sql, driver, callerId = "owner").actAs("owner")
                     val shelf = ownerService.createShelf(name = "All Hidden", isPrivate = false).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf.id.value, "hidden", userId = "owner")
 
                     // Viewer cannot access the only book → shelf must be excluded entirely.
                     val result =
-                        makeService(db, callerId = "viewer")
+                        makeService(sql, driver, callerId = "viewer")
                             .getUserShelves(UserId("owner"))
                             .value()
 
@@ -314,27 +313,26 @@ class ShelfServiceUserShelvesTest :
         // ── 4 (ACL): mixed shelf counts only accessible books ─────────────────
 
         test("getUserShelves returns bookCount 1 for a shelf with one accessible and one inaccessible book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("owner")
-                seedTestUser("viewer")
-                seedTestBook("visible")
-                seedTestBook("hidden")
-                makeBookInaccessible(db, bookId = "hidden", collectionId = "priv-col")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("visible")
+                sql.seedTestBook("hidden")
+                makeBookInaccessible(sql, driver, bookId = "hidden", collectionId = "priv-col")
                 // Only "visible" is reachable to the viewer; "hidden" stays gated → count stays 1.
-                makeBookAccessible(db, bookId = "visible", viewerId = "viewer")
+                makeBookAccessible(sql, driver, bookId = "visible", viewerId = "viewer")
                 runTest {
-                    val ownerService = makeService(db, callerId = "owner").actAs("owner")
+                    val ownerService = makeService(sql, driver, callerId = "owner").actAs("owner")
                     val shelf = ownerService.createShelf(name = "Mixed", isPrivate = false).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf.id.value, "visible", userId = "owner")
                     shelfBookRepo.addBook(shelf.id.value, "hidden", userId = "owner")
 
                     val result =
-                        makeService(db, callerId = "viewer")
+                        makeService(sql, driver, callerId = "viewer")
                             .getUserShelves(UserId("owner"))
                             .value()
 
@@ -348,28 +346,27 @@ class ShelfServiceUserShelvesTest :
         // ── 5: Returns multiple public shelves ────────────────────────────────
 
         test("getUserShelves returns all public shelves with at least one accessible book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("owner")
-                seedTestUser("viewer")
-                seedTestBook("b1")
-                seedTestBook("b2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
                 // Both books reachable to the viewer the pure-union way: ALL_BOOKS + grant.
-                makeBookAccessible(db, bookId = "b1", viewerId = "viewer")
-                makeBookAccessible(db, bookId = "b2", viewerId = "viewer")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "viewer")
+                makeBookAccessible(sql, driver, bookId = "b2", viewerId = "viewer")
                 runTest {
-                    val ownerService = makeService(db, callerId = "owner").actAs("owner")
+                    val ownerService = makeService(sql, driver, callerId = "owner").actAs("owner")
                     val shelf1 = ownerService.createShelf(name = "Shelf One", isPrivate = false).value()
                     val shelf2 = ownerService.createShelf(name = "Shelf Two", isPrivate = false).value()
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                    val shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry)
                     shelfBookRepo.addBook(shelf1.id.value, "b1", userId = "owner")
                     shelfBookRepo.addBook(shelf2.id.value, "b2", userId = "owner")
 
                     val result =
-                        makeService(db, callerId = "viewer")
+                        makeService(sql, driver, callerId = "viewer")
                             .getUserShelves(UserId("owner"))
                             .value()
 
@@ -382,13 +379,12 @@ class ShelfServiceUserShelvesTest :
         // ── 6: Unauthenticated caller → NotFound ──────────────────────────────
 
         test("getUserShelves returns Failure(ShelfError.NotFound) when caller is unauthenticated") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("owner")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
                 runTest {
                     val result =
-                        makeService(db)
+                        makeService(sql, driver)
                             .actAsUnauthenticated()
                             .getUserShelves(UserId("owner"))
 

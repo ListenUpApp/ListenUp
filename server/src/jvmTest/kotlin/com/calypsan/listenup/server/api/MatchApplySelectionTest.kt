@@ -17,8 +17,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverImageStore
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
@@ -31,9 +30,10 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -50,10 +50,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 
@@ -156,7 +152,7 @@ class MatchApplySelectionTest :
         )
 
         fun applier(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             genreRepo: GenreRepository,
             books: BookRepository,
             contributors: ContributorRepository,
@@ -181,29 +177,28 @@ class MatchApplySelectionTest :
                 imageStorage = ImageStorage(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
                 metadataProvider = provider,
-                genreHierarchy = GenreHierarchyFromLadder(db.asSqlDatabase(), genreRepo, GenreAutoCreator(genreRepo)),
-                sqlDb = db.asSqlDatabase(),
+                genreHierarchy = GenreHierarchyFromLadder(dbs.sql, genreRepo, GenreAutoCreator(genreRepo)),
+                sqlDb = dbs.sql,
                 ladderSource = { _, _ -> ladders },
                 // Fresh bus/registry for the (independent, unasserted) mood/tag writer domains;
                 // empty product-tag source keeps enrichment a no-op for this selection-focused suite.
-                enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
+                enrichmentDeps = testEnrichmentDeps(dbs.exposed, ChangeBus(), SyncRegistry()),
             )
         }
 
         test("applies all selected scalar fields, contributors, series; parses release year") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
 
                     a
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover())
@@ -225,19 +220,18 @@ class MatchApplySelectionTest :
         }
 
         test("deselected scalar fields are left untouched") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     val sel = allButCover().copy(title = false, description = false, releaseDate = false)
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -252,19 +246,18 @@ class MatchApplySelectionTest :
         }
 
         test("empty author set leaves existing authors untouched") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     val sel = allButCover().copy(authorAsins = emptySet())
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -278,17 +271,16 @@ class MatchApplySelectionTest :
         }
 
         test("missing book is NotFound") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     a
                         .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allButCover())
                         .shouldBeInstanceOf<AppResult.Failure>()
@@ -297,22 +289,30 @@ class MatchApplySelectionTest :
         }
 
         test("cover=on with a chosen coverUrl stores that cover as UPLOADED, overriding an existing cover") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     // give the book a pre-existing non-ENRICHED cover to prove the gate is gone
                     books.setManagedCover(BookId("b1"), "covers/old.png", "oldhash", CoverSource.EMBEDDED)
 
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()), coverBytes = ONE_PX_PNG)
+                    val a =
+                        applier(
+                            this@withSqlDatabase,
+                            genreRepo,
+                            books,
+                            contributors,
+                            series,
+                            fakeProvider(matchBook()),
+                            coverBytes = ONE_PX_PNG,
+                        )
                     val sel = allButCover().copy(cover = true, coverUrl = "https://itunes/chosen.png")
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
@@ -324,20 +324,19 @@ class MatchApplySelectionTest :
         }
 
         test("applies selected genres to the book, resolved through the cascade") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
-                    suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
+                    sql.seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy")
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
 
                     val sel = allButCover().copy(genres = setOf("Fantasy"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -349,22 +348,21 @@ class MatchApplySelectionTest :
         }
 
         test("empty genres selection removes the book's existing genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
-                    suspendTransaction(db) { seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy") }
+                    sql.seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy")
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     // seed the existing genre link AFTER the book row exists (FK constraint)
-                    suspendTransaction(db) { BookGenreTable.insertIfAbsent("b1", "g-fant") }
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "b1", genre_id = "g-fant")
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
 
                     a
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
@@ -376,21 +374,20 @@ class MatchApplySelectionTest :
         }
 
         test("a matched book with a category ladder is linked to the nested leaf genre") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a =
                         applier(
-                            db,
+                            this@withSqlDatabase,
                             genreRepo,
                             books,
                             contributors,
@@ -416,19 +413,18 @@ class MatchApplySelectionTest :
         }
 
         test("non-empty but unresolvable authorAsins leaves existing authors untouched") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val books = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributors, series, genreRepo)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(db, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
                     // matchBook authors have asin "AUTH1"; select an asin that isn't in the match
                     val sel = allButCover().copy(authorAsins = setOf("NOT-IN-MATCH"), seriesAsins = setOf("NOT-IN-MATCH"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -444,7 +440,7 @@ class MatchApplySelectionTest :
     })
 
 @Suppress("LongParameterList")
-private fun seedGenre(
+private fun ListenUpDatabase.seedGenre(
     id: String,
     name: String,
     slug: String,
@@ -454,20 +450,20 @@ private fun seedGenre(
     sortOrder: Int = 0,
     deletedAt: Long? = null,
 ) {
-    GenreTable.insert {
-        it[GenreTable.id] = id
-        it[GenreTable.name] = name
-        it[GenreTable.slug] = slug
-        it[GenreTable.path] = path
-        it[GenreTable.parentId] = parentId
-        it[GenreTable.depth] = depth
-        it[GenreTable.sortOrder] = sortOrder
-        it[GenreTable.color] = null
-        it[GenreTable.description] = null
-        it[GenreTable.revision] = 0L
-        it[GenreTable.createdAt] = 0L
-        it[GenreTable.updatedAt] = 0L
-        it[GenreTable.deletedAt] = deletedAt
-        it[GenreTable.clientOpId] = null
-    }
+    genresQueries.insert(
+        id = id,
+        name = name,
+        slug = slug,
+        path = path,
+        parent_id = parentId,
+        depth = depth.toLong(),
+        sort_order = sortOrder.toLong(),
+        color = null,
+        description = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = deletedAt,
+        client_op_id = null,
+    )
 }

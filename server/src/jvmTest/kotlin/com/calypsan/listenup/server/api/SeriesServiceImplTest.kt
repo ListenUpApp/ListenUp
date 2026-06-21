@@ -2,8 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import app.cash.sqldelight.db.QueryResult
 
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.SeriesError
@@ -17,7 +16,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -27,8 +25,9 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -37,21 +36,17 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import kotlinx.coroutines.withContext
 
 class SeriesServiceImplTest :
     FunSpec({
 
         test("getSeries returns Success with the payload for an existing series") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 runTest {
@@ -68,10 +63,9 @@ class SeriesServiceImplTest :
         }
 
         test("getSeries returns AppResult.Success(null) for a non-existent series id") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val service = makeSeriesServiceAndDeps(db).service
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val service = makeSeriesServiceAndDeps(this).service
                 runTest {
                     val result = service.getSeries(SeriesId("does-not-exist"))
 
@@ -82,10 +76,9 @@ class SeriesServiceImplTest :
         }
 
         test("listBooksBySeries returns all books belonging to the series in position order") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 val bookRepo = deps.bookRepo
@@ -103,10 +96,9 @@ class SeriesServiceImplTest :
         }
 
         test("listBooksBySeries returns empty list when series has no books") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 runTest {
@@ -123,10 +115,9 @@ class SeriesServiceImplTest :
         // ── updateSeries ───────────────────────────────────────────────────────
 
         test("updateSeries applies the name patch when the series exists") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 runTest {
@@ -143,10 +134,10 @@ class SeriesServiceImplTest :
         }
 
         test("updateSeries triggers FTS reindex for all linked books when the name changes") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(dbs)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 val bookRepo = deps.bookRepo
@@ -154,38 +145,38 @@ class SeriesServiceImplTest :
                     val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
                     bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, "1"))
                     bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", seriesId, "2", rootRelPath = "WoR"))
-                    val rowidB1 = lookupFtsRowidForSeries(db, "b1")
-                    val rowidB2 = lookupFtsRowidForSeries(db, "b2")
+                    val rowidB1 = lookupFtsRowidForSeries(dbs, "b1")
+                    val rowidB2 = lookupFtsRowidForSeries(dbs, "b2")
                     // Plant a sentinel series_names so the test can prove a real reindex occurred.
-                    overwriteFtsSeriesNames(db, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
-                    overwriteFtsSeriesNames(db, rowid = rowidB2, sentinel = "SENTINELNOTOVERWRITTEN")
+                    overwriteFtsSeriesNames(dbs, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
+                    overwriteFtsSeriesNames(dbs, rowid = rowidB2, sentinel = "SENTINELNOTOVERWRITTEN")
 
                     val result = service.updateSeries(seriesId, SeriesUpdate(name = "Stormlight"))
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     // Both FTS rows should match the new series name (sentinel was overwritten by reindex).
-                    ftsSeriesNamesMatch(db, rowidB1, "Stormlight") shouldBe true
-                    ftsSeriesNamesMatch(db, rowidB2, "Stormlight") shouldBe true
-                    ftsSeriesNamesMatch(db, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe false
+                    ftsSeriesNamesMatch(dbs, rowidB1, "Stormlight") shouldBe true
+                    ftsSeriesNamesMatch(dbs, rowidB2, "Stormlight") shouldBe true
+                    ftsSeriesNamesMatch(dbs, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe false
                 }
             }
         }
 
         test("updateSeries does NOT trigger FTS reindex when only non-name fields change") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(dbs)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 val bookRepo = deps.bookRepo
                 runTest {
                     val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
                     bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, "1"))
-                    val rowidB1 = lookupFtsRowidForSeries(db, "b1")
+                    val rowidB1 = lookupFtsRowidForSeries(dbs, "b1")
                     // Tripwire: if the implementation reindexes when it shouldn't, the
                     // sentinel will be overwritten with the live series name.
-                    overwriteFtsSeriesNames(db, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
+                    overwriteFtsSeriesNames(dbs, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
 
                     val result =
                         service.updateSeries(
@@ -195,8 +186,8 @@ class SeriesServiceImplTest :
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     // Sentinel must still match — reindex was skipped.
-                    ftsSeriesNamesMatch(db, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe true
-                    ftsSeriesNamesMatch(db, rowidB1, "Stormlight") shouldBe false
+                    ftsSeriesNamesMatch(dbs, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe true
+                    ftsSeriesNamesMatch(dbs, rowidB1, "Stormlight") shouldBe false
                     // Description was applied.
                     val reread = seriesRepo.findById(seriesId.value)
                     reread.shouldNotBeNull()
@@ -206,10 +197,9 @@ class SeriesServiceImplTest :
         }
 
         test("updateSeries returns SeriesError.NotFound when the series does not exist") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val service = makeSeriesServiceAndDeps(db).service
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val service = makeSeriesServiceAndDeps(this).service
                 runTest {
                     val result =
                         service.updateSeries(SeriesId("ghost"), SeriesUpdate(name = "Anything"))
@@ -223,10 +213,10 @@ class SeriesServiceImplTest :
         // ── deleteSeries ───────────────────────────────────────────────────────
 
         test("deleteSeries cascades — drops junctions, re-upserts affected books, soft-deletes the series") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(dbs)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 val bookRepo = deps.bookRepo
@@ -244,7 +234,7 @@ class SeriesServiceImplTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // Junction rows for the deleted series are gone.
-                    val remainingBookIds = readBookIdsForSeries(db, targetSeriesId.value)
+                    val remainingBookIds = readBookIdsForSeries(dbs, targetSeriesId.value)
                     remainingBookIds.shouldBeEmpty()
 
                     // b1 was re-upserted: revision bumped, target series stripped, other series preserved.
@@ -266,10 +256,9 @@ class SeriesServiceImplTest :
         }
 
         test("deleteSeries succeeds when the series has no linked books") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
                 val service = deps.service
                 val seriesRepo = deps.seriesRepo
                 runTest {
@@ -286,10 +275,9 @@ class SeriesServiceImplTest :
         }
 
         test("deleteSeries returns SeriesError.NotFound when the series does not exist") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val service = makeSeriesServiceAndDeps(db).service
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val service = makeSeriesServiceAndDeps(this).service
                 runTest {
                     val result = service.deleteSeries(SeriesId("ghost"))
 
@@ -307,30 +295,30 @@ private data class SeriesServiceDeps(
     val reindexer: BookSearchReindexer,
 )
 
-private fun makeSeriesServiceAndDeps(db: Database): SeriesServiceDeps {
+private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val contributorRepo = ContributorRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry),
+            genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = syncRegistry),
         )
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
+    val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
-            sqlDb = db.asSqlDatabase(),
+            sqlDb = dbs.sql,
             principal = rootPrincipal(),
         )
     return SeriesServiceDeps(service, seriesRepo, bookRepo, reindexer)
@@ -342,22 +330,16 @@ private fun makeSeriesServiceAndDeps(db: Database): SeriesServiceDeps {
  * created automatically by the books pipeline.
  */
 private suspend fun lookupFtsRowidForSeries(
-    db: Database,
+    dbs: SqlTestDatabases,
     bookId: String,
-): Int {
-    var rowid = -1
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt = "SELECT rowid FROM book_search_map WHERE book_id = ?",
-            args = listOf(TextColumnType() to bookId),
-        ) { rs ->
-            if (rs.next()) rowid = rs.getInt("rowid")
-        }
+): Int =
+    withContext(Dispatchers.IO) {
+        dbs.sql.bookSearchQueries
+            .selectRowidForBook(bookId)
+            .executeAsOneOrNull()
+            ?.toInt()
+            ?: error("No book_search_map row found for bookId=$bookId")
     }
-    check(rowid > 0) { "No book_search_map row found for bookId=$bookId" }
-    return rowid
-}
 
 /**
  * Replaces the `series_names` cell of the FTS row at [rowid] with a sentinel
@@ -368,22 +350,22 @@ private suspend fun lookupFtsRowidForSeries(
  * DELETE + re-INSERT of the entire row.
  */
 private suspend fun overwriteFtsSeriesNames(
-    db: Database,
+    dbs: SqlTestDatabases,
     rowid: Int,
     sentinel: String,
 ) {
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
-        tx.exec(
-            stmt =
+    withContext(Dispatchers.IO) {
+        dbs.driver.execute(identifier = null, sql = "DELETE FROM book_search WHERE rowid = $rowid", parameters = 0)
+        dbs.driver.execute(
+            identifier = null,
+            sql =
                 "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags) " +
                     "VALUES ($rowid, ?, '', '', '', ?, '')",
-            args =
-                listOf(
-                    TextColumnType() to "Test Book b$rowid",
-                    TextColumnType() to sentinel,
-                ),
+            parameters = 2,
+            binders = {
+                bindString(0, "Test Book b$rowid")
+                bindString(1, sentinel)
+            },
         )
     }
 }
@@ -395,34 +377,37 @@ private suspend fun overwriteFtsSeriesNames(
  * only — not a cross-column hit.
  */
 private suspend fun ftsSeriesNamesMatch(
-    db: Database,
+    dbs: SqlTestDatabases,
     rowid: Int,
     searchTerm: String,
 ): Boolean {
     val dq = '"'
     val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    var found = false
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt = "SELECT rowid FROM book_search WHERE series_names MATCH ? AND rowid = ?",
-            args =
-                listOf(
-                    TextColumnType() to quotedTerm,
-                    IntegerColumnType() to rowid,
-                ),
-        ) { rs ->
-            found = rs.next()
-        }
+    return withContext(Dispatchers.IO) {
+        dbs.driver
+            .executeQuery(
+                identifier = null,
+                sql = "SELECT rowid FROM book_search WHERE series_names MATCH ? AND rowid = ?",
+                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                parameters = 2,
+                binders = {
+                    bindString(0, quotedTerm)
+                    bindLong(1, rowid.toLong())
+                },
+            ).value
     }
-    return found
 }
 
 /** Distinct book IDs currently linked to [seriesId] via any junction row. */
 private suspend fun readBookIdsForSeries(
-    db: Database,
+    dbs: SqlTestDatabases,
     seriesId: String,
-): List<String> = suspendTransaction(db) { BookSeriesMembershipTable.bookIdsForSeries(seriesId) }
+): List<String> =
+    withContext(Dispatchers.IO) {
+        dbs.sql.bookSeriesMembershipsQueries
+            .bookIdsForSeries(seriesId)
+            .executeAsList()
+    }
 
 private fun bookFixtureWithSeries(
     id: String,

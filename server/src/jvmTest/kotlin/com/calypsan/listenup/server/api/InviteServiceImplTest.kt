@@ -22,28 +22,21 @@ import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.InviteEntity
-import com.calypsan.listenup.server.db.SessionEntity
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.test.runTest
 
 /**
  * Integration tests for [InviteServiceImpl].
@@ -68,20 +61,20 @@ class InviteServiceImplTest :
 
         val serverName = "Test Library"
 
-        fun sessionIssuerFor(db: Database): SessionIssuer {
+        fun sessionIssuerFor(sql: ListenUpDatabase): SessionIssuer {
             val pepper = "x".repeat(32).toByteArray()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, fixedClock)
             return SessionIssuer(sessions, jwt, fixedClock)
         }
 
-        fun makeInviteService(db: Database): InviteServiceImpl =
+        fun makeInviteService(sql: ListenUpDatabase): InviteServiceImpl =
             InviteServiceImpl(
-                db = db.asSqlDatabase(),
+                db = sql,
                 codeGenerator = InviteCodeGenerator(),
                 hasher = PasswordHasher(),
-                sessionIssuer = sessionIssuerFor(db),
+                sessionIssuer = sessionIssuerFor(sql),
                 serverName = serverName,
                 clock = fixedClock,
             )
@@ -92,11 +85,10 @@ class InviteServiceImplTest :
         ): InviteServiceImpl = copyWith(principalFor(userId, role))
 
         test("createInvite by an admin generates a code, stamps created_by, defaults 7-day expiry") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite =
                         svc.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
                     invite.code.shouldNotBeBlank()
@@ -113,11 +105,10 @@ class InviteServiceImplTest :
         }
 
         test("createInvite by a member is denied") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+            withSqlDatabase {
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
-                    val svc = makeInviteService(db).actAs("m1", UserRole.MEMBER)
+                    val svc = makeInviteService(sql).actAs("m1", UserRole.MEMBER)
                     svc
                         .createInvite("a@b.c", "A", UserRole.MEMBER, null)
                         .shouldFail<AuthError.PermissionDenied>()
@@ -126,11 +117,10 @@ class InviteServiceImplTest :
         }
 
         test("createInvite rejects a malformed email") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     svc
                         .createInvite("notanemail", "A", UserRole.MEMBER, null)
                         .shouldFail<InviteError.InvalidInput>()
@@ -139,11 +129,10 @@ class InviteServiceImplTest :
         }
 
         test("createInvite rejects a blank displayName") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     svc
                         .createInvite("a@b.c", "   ", UserRole.MEMBER, null)
                         .shouldFail<InviteError.InvalidInput>()
@@ -152,11 +141,10 @@ class InviteServiceImplTest :
         }
 
         test("createInvite rejects a non-positive expiresInDays") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     svc.createInvite("a@b.c", "A", UserRole.MEMBER, 0).shouldFail<InviteError.InvalidInput>()
                     svc.createInvite("a@b.c", "A", UserRole.MEMBER, -1).shouldFail<InviteError.InvalidInput>()
                 }
@@ -164,11 +152,10 @@ class InviteServiceImplTest :
         }
 
         test("listInvites returns created invites with derived status PENDING") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     svc.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
                     val listed = svc.listInvites().shouldSucceed()
                     listed.size shouldBe 1
@@ -178,11 +165,10 @@ class InviteServiceImplTest :
         }
 
         test("revokeInvite deletes an unclaimed invite") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = svc.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
                     svc.revokeInvite(invite.id).shouldSucceed()
                     svc.listInvites().shouldSucceed().size shouldBe 0
@@ -191,18 +177,16 @@ class InviteServiceImplTest :
         }
 
         test("revokeInvite rejects a claimed invite") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = svc.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
-                    transaction(db) {
-                        InviteEntity.findById(invite.id.value)!!.apply {
-                            claimedAt = fixedClock.now().toEpochMilliseconds()
-                            claimedBy = "someuser"
-                        }
-                    }
+                    sql.invitesQueries.markClaimed(
+                        claimed_at = fixedClock.now().toEpochMilliseconds(),
+                        claimed_by = "someuser",
+                        id = invite.id.value,
+                    )
                     svc.revokeInvite(invite.id).shouldFail<InviteError.AlreadyClaimed>()
                 }
             }
@@ -211,31 +195,28 @@ class InviteServiceImplTest :
         // ── claimInvite / lookupInvite (public, no principal) ───────────────────
 
         test("claimInvite creates an ACTIVE user, sets invited_by, marks claimed, issues a session") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
 
-                    val claimer = makeInviteService(db)
+                    val claimer = makeInviteService(sql)
                     val session = claimer.claimInvite(invite.code, "password123").shouldSucceed()
                     session.shouldBeInstanceOf<AuthSession>()
                     session.accessToken.value.shouldNotBeBlank()
 
                     val newUser =
-                        transaction(db) {
-                            UserEntity.find { UserTable.emailNormalized eq "a@b.c" }.single().let {
-                                Triple(it.id.value, it.status to it.role, it.invitedBy)
-                            }
+                        sql.usersQueries.selectByEmailNormalized("a@b.c").executeAsOneOrNull()!!.let {
+                            Triple(it.id, it.status to it.role, it.invited_by)
                         }
                     val (newUserId, statusRole, invitedBy) = newUser
-                    statusRole shouldBe (UserStatusColumn.ACTIVE to UserRoleColumn.MEMBER)
+                    statusRole shouldBe ("ACTIVE" to "MEMBER")
                     invitedBy shouldBe "root1"
 
                     val claimed =
-                        transaction(db) {
-                            InviteEntity.findById(invite.id.value)!!.let { it.claimedAt to it.claimedBy }
+                        sql.invitesQueries.selectById(invite.id.value).executeAsOneOrNull()!!.let {
+                            it.claimed_at to it.claimed_by
                         }
                     claimed.first.shouldNotBeNull()
                     claimed.second shouldBe newUserId
@@ -244,15 +225,14 @@ class InviteServiceImplTest :
         }
 
         test("claim persists the DeviceInfo onto the issued session") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("new@x.co", "New", UserRole.MEMBER, null).shouldSucceed()
 
                     val session =
-                        makeInviteService(db)
+                        makeInviteService(sql)
                             .claimInvite(
                                 invite.code,
                                 "password123",
@@ -260,8 +240,8 @@ class InviteServiceImplTest :
                             ).shouldSucceed()
 
                     val persisted =
-                        transaction(db) {
-                            SessionEntity.findById(session.sessionId.value)!!.let { it.deviceModel to it.platform }
+                        sql.sessionsQueries.selectById(session.sessionId.value).executeAsOneOrNull()!!.let {
+                            it.device_model to it.platform
                         }
                     persisted.first shouldBe "iPad"
                     persisted.second shouldBe "iPadOS"
@@ -270,55 +250,51 @@ class InviteServiceImplTest :
         }
 
         test("claimInvite succeeds even when RegistrationPolicy is CLOSED") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    ServerSettingsRepository(db.asSqlDatabase(), default = RegistrationPolicy.OPEN)
+                    ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
                         .setRegistrationPolicy(RegistrationPolicy.CLOSED)
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
 
-                    makeInviteService(db).claimInvite(invite.code, "password123").shouldSucceed()
+                    makeInviteService(sql).claimInvite(invite.code, "password123").shouldSucceed()
                 }
             }
         }
 
         test("claimInvite on an unknown code returns NotFound") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    makeInviteService(db).claimInvite("no-such-code", "password123").shouldFail<InviteError.NotFound>()
+                    makeInviteService(sql).claimInvite("no-such-code", "password123").shouldFail<InviteError.NotFound>()
                 }
             }
         }
 
         test("claimInvite on an expired invite returns Expired") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
-                    transaction(db) {
-                        InviteEntity.findById(invite.id.value)!!.expiresAt =
-                            fixedClock.now().toEpochMilliseconds() - 1
-                    }
-                    makeInviteService(db).claimInvite(invite.code, "password123").shouldFail<InviteError.Expired>()
+                    sql.invitesQueries.updateExpiresAt(
+                        expires_at = fixedClock.now().toEpochMilliseconds() - 1,
+                        id = invite.id.value,
+                    )
+                    makeInviteService(sql).claimInvite(invite.code, "password123").shouldFail<InviteError.Expired>()
                 }
             }
         }
 
         test("claimInvite on an already-claimed invite returns AlreadyClaimed") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
-                    makeInviteService(db).claimInvite(invite.code, "password123").shouldSucceed()
+                    makeInviteService(sql).claimInvite(invite.code, "password123").shouldSucceed()
                     // Second claim of the same one-use code must be refused.
-                    makeInviteService(db)
+                    makeInviteService(sql)
                         .claimInvite(invite.code, "password123")
                         .shouldFail<InviteError.AlreadyClaimed>()
                 }
@@ -326,38 +302,45 @@ class InviteServiceImplTest :
         }
 
         test("claimInvite when the email already has an account returns EmailInUse") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("taken@b.c", "Taken", UserRole.MEMBER, null).shouldSucceed()
-                    transaction(db) {
-                        UserEntity.new("existing") {
-                            email = "taken@b.c"
-                            emailNormalized = "taken@b.c"
-                            passwordHash = "phc"
-                            role = UserRoleColumn.MEMBER
-                            displayName = "Taken"
-                            status = UserStatusColumn.ACTIVE
-                            createdAt = 1L
-                            updatedAt = 1L
-                        }
-                    }
-                    makeInviteService(db).claimInvite(invite.code, "password123").shouldFail<InviteError.EmailInUse>()
+                    sql.usersQueries.insert(
+                        id = "existing",
+                        email = "taken@b.c",
+                        email_normalized = "taken@b.c",
+                        password_hash = "phc",
+                        role = UserRoleColumn.MEMBER.name,
+                        display_name = "Taken",
+                        status = UserStatusColumn.ACTIVE.name,
+                        created_at = 1L,
+                        updated_at = 1L,
+                        last_login_at = null,
+                        can_edit = 1L,
+                        can_share = 1L,
+                        approved_by = null,
+                        approved_at = null,
+                        deleted_at = null,
+                        invited_by = null,
+                        tagline = null,
+                        avatar_type = "auto",
+                        timezone = "UTC",
+                    )
+                    makeInviteService(sql).claimInvite(invite.code, "password123").shouldFail<InviteError.EmailInUse>()
                 }
             }
         }
 
         test("lookupInvite returns a preview for a valid code; valid=false for expired/claimed") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
-                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
                     val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
 
-                    val preview = makeInviteService(db).lookupInvite(invite.code).shouldSucceed()
+                    val preview = makeInviteService(sql).lookupInvite(invite.code).shouldSucceed()
                     preview.displayName shouldBe "A"
                     preview.email shouldBe "a@b.c"
                     preview.invitedByName shouldBe "root1"
@@ -365,11 +348,11 @@ class InviteServiceImplTest :
                     preview.valid shouldBe true
                     preview.invalidReason shouldBe null
 
-                    transaction(db) {
-                        InviteEntity.findById(invite.id.value)!!.expiresAt =
-                            fixedClock.now().toEpochMilliseconds() - 1
-                    }
-                    val expired = makeInviteService(db).lookupInvite(invite.code).shouldSucceed()
+                    sql.invitesQueries.updateExpiresAt(
+                        expires_at = fixedClock.now().toEpochMilliseconds() - 1,
+                        id = invite.id.value,
+                    )
+                    val expired = makeInviteService(sql).lookupInvite(invite.code).shouldSucceed()
                     expired.valid shouldBe false
                     expired.invalidReason shouldBe "This invite has expired."
                 }

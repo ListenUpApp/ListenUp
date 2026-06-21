@@ -2,13 +2,12 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -22,11 +21,10 @@ import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * canEdit-gate tests for [GenreServiceImpl] (closes MA holistic-review finding I1).
@@ -40,11 +38,10 @@ class GenreServiceImplPermissionTest :
     FunSpec({
 
         test("createGenre is denied for a MEMBER without canEdit") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                db.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
-                val service = makeGenrePermService(db).copyWith(memberPrincipal("member"))
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
+                val service = makeGenrePermService(sql, driver).copyWith(memberPrincipal("member"))
                 runTest {
                     val result = service.createGenre(parentId = null, name = "Fiction")
 
@@ -55,11 +52,10 @@ class GenreServiceImplPermissionTest :
         }
 
         test("createGenre succeeds for a granted MEMBER (canEdit=true)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                db.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
-                val service = makeGenrePermService(db).copyWith(memberPrincipal("editor"))
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
+                val service = makeGenrePermService(sql, driver).copyWith(memberPrincipal("editor"))
                 runTest {
                     val result = service.createGenre(parentId = null, name = "Fiction")
 
@@ -69,10 +65,9 @@ class GenreServiceImplPermissionTest :
         }
 
         test("createGenre succeeds for an ADMIN (implicitly passes)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val service = makeGenrePermService(db).copyWith(rootPrincipal())
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val service = makeGenrePermService(sql, driver).copyWith(rootPrincipal())
                 runTest {
                     val result = service.createGenre(parentId = null, name = "Fiction")
 
@@ -82,30 +77,33 @@ class GenreServiceImplPermissionTest :
         }
     })
 
-private fun makeGenrePermService(db: Database): GenreServiceImpl {
+private fun makeGenrePermService(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+): GenreServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val genreRepo = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val contributorRepo = ContributorRepository(db = sql, bus = bus, registry = registry)
+    val seriesRepo = SeriesRepository(db = sql, bus = bus, registry = registry)
+    val genreRepo = GenreRepository(db = sql, bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = sql,
+            driver = driver,
             bus = bus,
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,
         )
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
+    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
     return GenreServiceImpl(
         genreRepository = genreRepo,
         bookRepository = bookRepo,
         reindexer = reindexer,
-        sqlDb = db.asSqlDatabase(),
-        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+        sqlDb = sql,
+        permissionPolicy = UserPermissionPolicy(sql),
     )
 }

@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -12,34 +13,28 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
-import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * The member-facing end of the collections-propagation fix: when an admin approves a held
@@ -63,31 +58,32 @@ class InboxApproveReachesMemberTest :
             }
 
         fun makeCollectionService(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             bookRevisionTouch: BookRepository,
         ): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
@@ -95,9 +91,9 @@ class InboxApproveReachesMemberTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                permissionPolicy = UserPermissionPolicy(sql),
                 bus = bus,
-                sql = db.asSqlDatabase(),
+                sql = sql,
                 clock = fixedClock,
                 bookRevisionTouch = bookRevisionTouch,
                 principal = principalFor("admin", UserRole.ADMIN),
@@ -110,23 +106,22 @@ class InboxApproveReachesMemberTest :
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
         test("a held book is invisible to a member, then visible with an advanced revision after approve") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", userRole = UserRoleColumn.ADMIN)
-                seedTestUser("member")
-                seedTestBook(bookId = "b1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", userRole = UserRoleColumn.ADMIN)
+                sql.seedTestUser("member")
+                sql.seedTestBook(bookId = "b1")
                 runTest(UnconfinedTestDispatcher()) {
-                    val bookRepo = buildBookRepository(db) // real touch
-                    val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
-                    val service = makeCollectionService(db, bookRevisionTouch = bookRepo)
+                    val bookRepo = buildBookRepository(sql, driver) // real touch
+                    val accessPolicy = BookAccessPolicy(sql, driver)
+                    val service = makeCollectionService(sql, driver, bookRevisionTouch = bookRepo)
                     val admin = service.actAs("admin", UserRole.ADMIN)
                     val grantRepo =
                         CollectionGrantRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             bus = ChangeBus(),
                             registry = SyncRegistry(),
-                            driver = db.asSqlDriver(),
+                            driver = driver,
                         )
 
                     // Every member holds a default ALL_BOOKS grant in production; mirror that here
@@ -154,7 +149,7 @@ class InboxApproveReachesMemberTest :
 
                     // Held → a member cannot see it.
                     accessPolicy.canAccess("member", UserRole.MEMBER, "b1") shouldBe false
-                    val revisionBeforeApprove = readBookRevision(db, "b1")
+                    val revisionBeforeApprove = readBookRevision(sql, "b1")
 
                     // Approve to library (empty target list → ALL_BOOKS → public substrate).
                     admin.releaseBooks("test-library", mapOf("b1" to emptyList<String>())).let {
@@ -165,39 +160,41 @@ class InboxApproveReachesMemberTest :
                     // AND its revision advanced, so the member's incremental
                     // `revision > cursor AND accessible` pull will deliver it.
                     accessPolicy.canAccess("member", UserRole.MEMBER, "b1") shouldBe true
-                    readBookRevision(db, "b1") shouldBeGreaterThan revisionBeforeApprove
+                    readBookRevision(sql, "b1") shouldBeGreaterThan revisionBeforeApprove
                 }
             }
         }
     })
 
-/** Reads the current [BookTable.revision] for [id] directly from [db]. */
+/** Reads the current `books.revision` for [id] directly from [sql]. */
 private fun readBookRevision(
-    db: Database,
+    sql: ListenUpDatabase,
     id: String,
 ): Long =
-    transaction(db) {
-        BookTable
-            .selectAll()
-            .where { BookTable.id eq id }
-            .single()[BookTable.revision]
-    }
+    sql.booksQueries
+        .selectById(id)
+        .executeAsOne()
+        .revision
 
 /**
- * Constructs a real [BookRepository] wired to [db] — used here as the [BookRevisionTouch]
- * so the approve path performs the genuine revision-column bump (not a recording fake).
- * Mirrors the builder in `BookRepositoryTouchRevisionTest`, which is `private` to that file.
+ * Constructs a real [BookRepository] wired to [sql] and [driver] — used here as the
+ * [BookRevisionTouch] so the approve path performs the genuine revision-column bump (not a
+ * recording fake). Mirrors the builder in `BookRepositoryTouchRevisionTest`, which is
+ * `private` to that file.
  */
-private fun buildBookRepository(db: Database): BookRepository {
+private fun buildBookRepository(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+): BookRepository {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     return BookRepository(
-        db = db.asSqlDatabase(),
-        driver = db.asSqlDriver(),
+        db = sql,
+        driver = driver,
         bus = bus,
         registry = syncRegistry,
-        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+        contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+        seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+        genreRepository = GenreRepository(sql, bus, syncRegistry),
     )
 }

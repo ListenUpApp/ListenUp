@@ -18,23 +18,20 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Instant
+import kotlinx.coroutines.test.runTest
 
 /**
  * Integration tests verifying that [PublicProfileMaintainer] is triggered across
@@ -55,9 +52,9 @@ class PublicProfileLifecycleTest :
          * Builds a [PublicProfileMaintainer] + [PublicProfileRepository] pair over the given
          * database. Returns both so the test can query the projection after each act.
          */
-        fun Database.buildMaintainerAndRepo(): Pair<PublicProfileMaintainer, PublicProfileRepository> {
-            val repo = PublicProfileRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-            val maintainer = PublicProfileMaintainer(sql = this.asSqlDatabase(), publicProfileRepo = repo)
+        fun ListenUpDatabase.buildMaintainerAndRepo(): Pair<PublicProfileMaintainer, PublicProfileRepository> {
+            val repo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+            val maintainer = PublicProfileMaintainer(sql = this, publicProfileRepo = repo)
             return maintainer to repo
         }
 
@@ -69,14 +66,14 @@ class PublicProfileLifecycleTest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun Database.makeAdminUserService(
+        fun ListenUpDatabase.makeAdminUserService(
             maintainer: PublicProfileMaintainer,
         ): AdminUserServiceImpl {
             val sessions =
-                SessionService(this.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
-            val settings = ServerSettingsRepository(this.asSqlDatabase(), default = RegistrationPolicy.OPEN)
+                SessionService(this, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val settings = ServerSettingsRepository(this, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
-                sql = this.asSqlDatabase(),
+                sql = this,
                 sessions = sessions,
                 settings = settings,
                 clock = fixedClock,
@@ -86,28 +83,37 @@ class PublicProfileLifecycleTest :
             )
         }
 
-        /** Seeds a PENDING_APPROVAL user directly. */
-        fun Database.seedPendingUser(userId: String) {
-            transaction(this) {
-                UserEntity.new(userId) {
-                    email = "$userId@example.com"
-                    emailNormalized = "$userId@example.com"
-                    passwordHash = "phc"
-                    role = UserRoleColumn.MEMBER
-                    displayName = userId
-                    status = UserStatusColumn.PENDING_APPROVAL
-                    createdAt = 1L
-                    updatedAt = 1L
-                }
-            }
+        /** Seeds a PENDING_APPROVAL user directly via SQLDelight. */
+        fun ListenUpDatabase.seedPendingUser(userId: String) {
+            usersQueries.insert(
+                id = userId,
+                email = "$userId@example.com",
+                email_normalized = "$userId@example.com",
+                password_hash = "phc",
+                role = UserRoleColumn.MEMBER.name,
+                display_name = userId,
+                status = UserStatusColumn.PENDING_APPROVAL.name,
+                created_at = 1L,
+                updated_at = 1L,
+                last_login_at = null,
+                can_edit = 1L,
+                can_share = 1L,
+                approved_by = null,
+                approved_at = null,
+                deleted_at = null,
+                invited_by = null,
+                tagline = null,
+                avatar_type = "auto",
+                timezone = "UTC",
+            )
         }
 
         // ── Case 1: updateMyProfile triggers a refresh ────────────────────────────
 
         test("updateMyProfile refreshes the public_profiles projection with the new displayName") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
-                val (maintainer, repo) = buildMaintainerAndRepo()
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                val (maintainer, repo) = sql.buildMaintainerAndRepo()
 
                 // Seed an initial projection row so we can verify it changes.
                 runTest {
@@ -115,7 +121,7 @@ class PublicProfileLifecycleTest :
 
                     val svc =
                         ProfileServiceImpl(
-                            sql = this@withInMemoryDatabase.asSqlDatabase(),
+                            sql = sql,
                             passwordHasher = PasswordHasher(),
                             publicProfileMaintainer = maintainer,
                         ).copyWith(principalFor("u1"))
@@ -133,14 +139,15 @@ class PublicProfileLifecycleTest :
         // ── Case 2: decidePendingRegistration(approve) triggers a refresh ─────────
 
         test("approving a pending registration creates a public_profiles row for the new user") {
-            withInMemoryDatabase {
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedPendingUser("p1")
-                val (maintainer, repo) = buildMaintainerAndRepo()
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedPendingUser("p1")
+                val (maintainer, repo) = sql.buildMaintainerAndRepo()
 
                 runTest {
                     val svc =
-                        makeAdminUserService(maintainer)
+                        sql
+                            .makeAdminUserService(maintainer)
                             .copyWith(principalFor("root1", UserRole.ROOT))
 
                     svc
@@ -158,17 +165,18 @@ class PublicProfileLifecycleTest :
         // ── Case 3: deleteUser triggers a tombstone ───────────────────────────────
 
         test("deleteUser soft-deletes the public_profiles projection row") {
-            withInMemoryDatabase {
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
-                val (maintainer, repo) = buildMaintainerAndRepo()
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                val (maintainer, repo) = sql.buildMaintainerAndRepo()
 
                 runTest {
                     // Seed the projection row before deletion.
                     maintainer.refresh("m1")
 
                     val svc =
-                        makeAdminUserService(maintainer)
+                        sql
+                            .makeAdminUserService(maintainer)
                             .copyWith(principalFor("root1", UserRole.ROOT))
 
                     svc

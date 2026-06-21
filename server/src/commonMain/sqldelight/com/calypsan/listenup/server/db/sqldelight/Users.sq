@@ -153,6 +153,11 @@ SET display_name = :display_name, tagline = :tagline, avatar_type = :avatar_type
     password_hash = :password_hash, updated_at = :updated_at
 WHERE id = :id;
 
+-- Replace only the password_hash (test fixture: swap the placeholder hash for a real Argon2
+-- PHC string so verify() can succeed). The service path writes the hash via updateProfileFields.
+updatePasswordHash:
+UPDATE users SET password_hash = :password_hash WHERE id = :id;
+
 -- ── admin user-lifecycle writes / reads (AdminUserServiceImpl) ────────────────
 
 -- Live (non-tombstoned) ACTIVE users, for the admin roster (listUsers / searchUsers).

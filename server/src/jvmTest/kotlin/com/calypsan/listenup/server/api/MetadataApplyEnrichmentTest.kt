@@ -2,9 +2,6 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
@@ -13,6 +10,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -43,8 +41,10 @@ import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
@@ -58,7 +58,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 private val ENRICH_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val ENRICH_ASIN = "B0ENRICH01"
@@ -120,7 +119,7 @@ class MetadataApplyEnrichmentTest :
     FunSpec({
 
         test("apply persists the user-selected moods + tags") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val ctx = enrichmentCtx(this)
                 // The apply path must NOT scrape — a throwing source proves moods/tags come from the selection.
                 val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
@@ -143,7 +142,7 @@ class MetadataApplyEnrichmentTest :
         }
 
         test("an empty mood/tag selection writes nothing but still succeeds") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val ctx = enrichmentCtx(this)
                 val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
 
@@ -164,7 +163,7 @@ class MetadataApplyEnrichmentTest :
         // #573: re-matching now RECONCILES moods/tropes to the new selection (replace, not add).
         // A deselected mood/tag from the first apply is dropped; only the second selection survives.
         test("re-matching reconciles moods/tropes to the new selection instead of accumulating (#573)") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val ctx = enrichmentCtx(this)
                 val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
 
@@ -197,7 +196,7 @@ class MetadataApplyEnrichmentTest :
     })
 
 private class EnrichmentCtx(
-    val db: Database,
+    val sql: ListenUpDatabase,
     val bookRepo: BookRepository,
     val genreRepo: GenreRepository,
     val contributorRepo: ContributorRepository,
@@ -217,8 +216,8 @@ private class EnrichmentCtx(
             imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
             coverImageStore = CoverImageStore(ImageStore(Path.of(tempDir).resolve("covers"), MAX_COVER_BYTES)),
             metadataProvider = AudibleMetadataProvider(metadataService),
-            genreHierarchy = GenreHierarchyFromLadder(db.asSqlDatabase(), genreRepo, GenreAutoCreator(genreRepo)),
-            sqlDb = db.asSqlDatabase(),
+            genreHierarchy = GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
+            sqlDb = sql,
             ladderSource = { _, _ -> emptyList() },
             enrichmentDeps =
                 MetadataEnrichmentDeps(
@@ -239,27 +238,27 @@ private class EnrichmentCtx(
             .mapNotNull { tagRepo.findById(it.tagId)?.name }
 }
 
-private fun enrichmentCtx(db: Database): EnrichmentCtx {
-    db.seedTestLibraryAndFolder()
+private fun enrichmentCtx(dbs: SqlTestDatabases): EnrichmentCtx {
+    dbs.exposed.seedTestLibraryAndFolder()
     val tempDir = Files.createTempDirectory("enrich-").also { it.toFile().deleteOnExit() }.toString()
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
-    val moodRepo = MoodRepository(db.asSqlDatabase(), bus, registry)
-    val bookMoodRepo = BookMoodRepository(db.asSqlDatabase(), bus, registry)
-    val tagRepo = TagRepository(db.asSqlDatabase(), bus, registry)
-    val bookTagRepo = BookTagRepository(db.asSqlDatabase(), bus, registry)
+    val contributorRepo = ContributorRepository(dbs.sql, bus, registry)
+    val seriesRepo = SeriesRepository(dbs.sql, bus, registry)
+    val genreRepo = GenreRepository(dbs.sql, bus, registry)
+    val bookRepo = BookRepository(dbs.sql, bus, registry, dbs.exposed.asSqlDriver(), contributorRepo, seriesRepo, genreRepo)
+    val moodRepo = MoodRepository(dbs.sql, bus, registry)
+    val bookMoodRepo = BookMoodRepository(dbs.sql, bus, registry)
+    val tagRepo = TagRepository(dbs.sql, bus, registry)
+    val bookTagRepo = BookTagRepository(dbs.sql, bus, registry)
     val metadataService =
         MetadataService(
             audible = EnrichStubAudibleApi(enrichBook()),
             itunes = NoOpEnrichITunesApi(),
-            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(ENRICH_NOW)),
+            cache = MetadataCacheRepository(dbs.sql, clock = FixedClock(ENRICH_NOW)),
         )
     return EnrichmentCtx(
-        db = db,
+        sql = dbs.sql,
         bookRepo = bookRepo,
         genreRepo = genreRepo,
         contributorRepo = contributorRepo,

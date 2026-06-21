@@ -28,7 +28,8 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
@@ -37,13 +38,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Clock
 import kotlin.time.Instant
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class LibraryAdminServiceImplTest :
     FunSpec({
@@ -51,7 +49,7 @@ class LibraryAdminServiceImplTest :
         // ── Observation methods ───────────────────────────────────────────────────
 
         test("getLibrary returns the singleton library with its folders") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
@@ -71,7 +69,7 @@ class LibraryAdminServiceImplTest :
             // fallthrough path where the library row has been deleted externally.
             // We test by directly checking the result after setup (registry ensures library exists).
             // In normal operation getLibrary always succeeds since the registry ensures the row.
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     // No folders yet — but the library exists (singleton bootstrap).
@@ -84,7 +82,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("getLibrary redacts folder rootPath for a member but exposes it to an admin") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (admin) = makeService(db = this, role = UserRole.ADMIN)
                 val (member) = makeService(db = this, role = UserRole.MEMBER)
                 runTest {
@@ -107,7 +105,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("getSetupStatus returns needsSetup=true when the singleton has no folders") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val result = service.getSetupStatus()
@@ -120,7 +118,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("getSetupStatus returns needsSetup=false when the singleton has folders") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
@@ -136,7 +134,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("browseFilesystem returns subdirectories for a valid path") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val parent = createTempDir()
@@ -157,7 +155,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("browseFilesystem reports itemCount = number of immediate entries per child") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val parent = createTempDir()
@@ -186,7 +184,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("browseFilesystem returns Failure(InvalidPath) for a non-existent path") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val result = service.browseFilesystem("/no/such/path/9999999")
@@ -199,7 +197,7 @@ class LibraryAdminServiceImplTest :
         // ── addFolder ───────────────────────────────────────────────────────────────
 
         test("addFolder creates new folder under the singleton") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
@@ -212,7 +210,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("addFolder stamps createdAt from the injected clock") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val fixed = 1_700_000_000_000L
                 val (service) = makeService(db = this, clock = FixedClock(Instant.fromEpochMilliseconds(fixed)))
                 runTest {
@@ -223,7 +221,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("addFolder returns Failure(DuplicateFolder) when path already registered") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
@@ -237,7 +235,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("addFolder returns Failure(InvalidPath) when path does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val result = service.addFolder("/no/such/path/xyz")
@@ -248,7 +246,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("addFolder can add multiple folders to the singleton") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir1 = createTempDir()
@@ -267,7 +265,7 @@ class LibraryAdminServiceImplTest :
         // ── removeFolder ──────────────────────────────────────────────────────────
 
         test("removeFolder cascade-soft-deletes folder") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service, _, folderRepo) = makeService(db = this)
                 runTest {
                     val dir1 = createTempDir()
@@ -288,7 +286,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("removeFolder returns Failure(FolderNotFound) for unknown folder") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val result = service.removeFolder(FolderId("no-such"))
@@ -301,8 +299,8 @@ class LibraryAdminServiceImplTest :
         // ── Scan triggers ─────────────────────────────────────────────────────────
 
         test("scanLibrary delegates to scanOrchestrator; returns Success") {
-            withInMemoryDatabase {
-                val orchestrator = noOpOrchestrator(this)
+            withSqlDatabase {
+                val orchestrator = noOpOrchestrator()
                 val (service) = makeService(db = this, orchestrator = orchestrator)
                 runTest {
                     // Add a folder so the orchestrator's onLibraryAdded path runs via
@@ -321,7 +319,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("scanFolder returns Success when folder exists") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
@@ -334,7 +332,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("scanFolder returns Failure(FolderNotFound) when folder not registered") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val result = service.scanFolder(FolderId("no-such"))
@@ -347,7 +345,7 @@ class LibraryAdminServiceImplTest :
         // ── Multi-user: admin-gated structural ops ────────────────────────────────
 
         test("addFolder by a MEMBER is denied with PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this, role = UserRole.MEMBER)
                 runTest {
                     val dir = createTempDir()
@@ -361,7 +359,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("browseFilesystem by a MEMBER is denied with PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this, role = UserRole.MEMBER)
                 runTest {
                     val dir = createTempDir()
@@ -375,7 +373,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("getLibrary by a MEMBER is allowed (member library browsing stays open)") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (memberService) = makeService(db = this, role = UserRole.MEMBER)
                 val (adminService) = makeService(db = this)
                 runTest {
@@ -390,7 +388,7 @@ class LibraryAdminServiceImplTest :
         }
 
         test("addFolder by an ADMIN succeeds") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val (service) = makeService(db = this)
                 runTest {
                     val dir = createTempDir()
@@ -411,49 +409,51 @@ private data class ServiceFixture(
 )
 
 private fun makeService(
-    db: Database,
-    orchestrator: ScanOrchestrator = noOpOrchestrator(db),
+    db: SqlTestDatabases,
+    orchestrator: ScanOrchestrator = noOpOrchestrator(),
     role: UserRole = UserRole.ADMIN,
     clock: Clock = Clock.System,
 ): ServiceFixture {
+    val sql = db.sql
+    val driver = db.driver
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val libraryRepo = LibraryRepository(db = sql, bus = bus, registry = registry)
     val folderRepo =
         LibraryFolderRepository(
-            db = db.asSqlDatabase(),
+            db = sql,
             bus = ChangeBus(),
             registry = SyncRegistry(),
-            driver = db.asSqlDriver(),
+            driver = driver,
         )
     val contributorRepo =
         com.calypsan.listenup.server.services.ContributorRepository(
-            db = db.asSqlDatabase(),
+            db = sql,
             bus = ChangeBus(),
             registry = SyncRegistry(),
         )
     val seriesRepo =
         com.calypsan.listenup.server.services.SeriesRepository(
-            db = db.asSqlDatabase(),
+            db = sql,
             bus = ChangeBus(),
             registry = SyncRegistry(),
         )
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = sql,
+            driver = driver,
             bus = ChangeBus(),
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository =
                 com.calypsan.listenup.server.services.GenreRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = ChangeBus(),
                     registry = SyncRegistry(),
                 ),
         )
-    val libraryRegistry = LibraryRegistry(sql = db.asSqlDatabase(), clock = clock)
+    val libraryRegistry = LibraryRegistry(sql = sql, clock = clock)
     val service =
         LibraryAdminServiceImpl(
             libraryRepository = libraryRepo,
@@ -514,9 +514,7 @@ private fun fakeBundle(
 }
 
 /** A no-op [ScanOrchestrator] for tests that don't care about orchestrator interactions. */
-private fun noOpOrchestrator(
-    @Suppress("UNUSED_PARAMETER") db: Database,
-): ScanOrchestrator =
+private fun noOpOrchestrator(): ScanOrchestrator =
     ScanOrchestrator(
         scannerFactory = { library -> fakeBundle(library, kotlinx.coroutines.GlobalScope) },
         watcherSupervisor = fakeWatcher(),

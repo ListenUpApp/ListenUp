@@ -11,27 +11,24 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Instant
 
 class ProfileServiceImplTest :
     FunSpec({
-        fun Database.svc(userId: String): ProfileServiceImpl =
+        fun SqlTestDatabases.svc(userId: String): ProfileServiceImpl =
             ProfileServiceImpl(
-                sql = this.asSqlDatabase(),
+                sql = sql,
                 passwordHasher = PasswordHasher(),
-                publicProfileMaintainer = noOpPublicProfileMaintainer(),
+                publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
             ).copyWith(
                 PrincipalProvider {
                     UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
@@ -39,22 +36,22 @@ class ProfileServiceImplTest :
             )
 
         test("getMyProfile returns the caller's profile") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest { svc("u1").getMyProfile().shouldBeInstanceOf<AppResult.Success<Profile>>() }
             }
         }
 
         test("updateMyProfile stamps updatedAt from the injected clock") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest {
                     val fixed = 1_700_000_000_000L
                     val svc =
                         ProfileServiceImpl(
-                            sql = this@withInMemoryDatabase.asSqlDatabase(),
+                            sql = sql,
                             passwordHasher = PasswordHasher(),
-                            publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(fixed)),
                         ).copyWith(
                             PrincipalProvider {
@@ -69,8 +66,8 @@ class ProfileServiceImplTest :
         }
 
         test("updateMyProfile updates displayName + tagline; leaves others") {
-            withInMemoryDatabase {
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestUser("u1")
                 runTest {
                     val r =
                         svc("u1")
@@ -83,20 +80,18 @@ class ProfileServiceImplTest :
         }
 
         test("updateMyProfile happy-path password change works with correct current password") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val hasher = PasswordHasher()
                 runTest {
                     val hash = hasher.hash("correct-pass")
-                    seedTestUser("u1")
+                    sql.seedTestUser("u1")
                     // Override the placeholder hash with a real Argon2 hash so verify() can succeed.
-                    transaction(this@withInMemoryDatabase) {
-                        UserEntity.findById("u1")!!.passwordHash = hash
-                    }
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
                     val svc =
                         ProfileServiceImpl(
-                            sql = this@withInMemoryDatabase.asSqlDatabase(),
+                            sql = sql,
                             passwordHasher = hasher,
-                            publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                         ).copyWith(
                             PrincipalProvider {
                                 UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
@@ -114,20 +109,18 @@ class ProfileServiceImplTest :
         }
 
         test("updateMyProfile with wrong current password returns WrongPassword") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val hasher = PasswordHasher()
                 runTest {
                     val hash = hasher.hash("correct-pass")
-                    seedTestUser("u1")
+                    sql.seedTestUser("u1")
                     // Override the placeholder hash with a real Argon2 hash so verify() can succeed.
-                    transaction(this@withInMemoryDatabase) {
-                        UserEntity.findById("u1")!!.passwordHash = hash
-                    }
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
                     val svc =
                         ProfileServiceImpl(
-                            sql = this@withInMemoryDatabase.asSqlDatabase(),
+                            sql = sql,
                             passwordHasher = hasher,
-                            publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                         ).copyWith(
                             PrincipalProvider {
                                 UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
