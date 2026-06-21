@@ -15,8 +15,7 @@ import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -32,9 +31,9 @@ class MetadataServiceTest :
         // ── search ─────────────────────────────────────────────────────────────
 
         test("search caches the response on first call and serves from cache on second") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(searchResult = AppResult.Success(listOf(searchResult("B001"))))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     val first = service.search(AudibleRegion.US, SearchParams(keywords = "sanderson"))
                     val second = service.search(AudibleRegion.US, SearchParams(keywords = "sanderson"))
@@ -45,9 +44,9 @@ class MetadataServiceTest :
         }
 
         test("search with refresh = true bypasses the cache") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(searchResult = AppResult.Success(listOf(searchResult("B001"))))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.search(AudibleRegion.US, SearchParams(keywords = "sanderson"))
                     service.search(AudibleRegion.US, SearchParams(keywords = "sanderson"), refresh = true)
@@ -57,9 +56,9 @@ class MetadataServiceTest :
         }
 
         test("search without keywords skips the cache") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(searchResult = AppResult.Success(emptyList()))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.search(AudibleRegion.US, SearchParams(title = "Dune", keywords = null))
                     service.search(AudibleRegion.US, SearchParams(title = "Dune", keywords = null))
@@ -69,12 +68,12 @@ class MetadataServiceTest :
         }
 
         test("search returns AppResult.Failure when AudibleApi returns failure") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible =
                     FakeAudibleApi(
                         searchResult = AppResult.Failure(MetadataError.ExternalUnavailable()),
                     )
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     val result = service.search(AudibleRegion.US, SearchParams(keywords = "sanderson"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -85,9 +84,9 @@ class MetadataServiceTest :
         // ── searchWithFallback ─────────────────────────────────────────────────
 
         test("searchWithFallback returns results from default region when non-empty") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(searchResult = AppResult.Success(listOf(searchResult("B001"))))
-                val service = makeService(audible = audible, db = this, defaultRegion = AudibleRegion.UK, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, defaultRegion = AudibleRegion.UK, clock = FixedClock(now))
                 runTest {
                     val result = service.searchWithFallback(SearchParams(keywords = "tolkien"))
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -97,7 +96,7 @@ class MetadataServiceTest :
         }
 
         test("searchWithFallback falls back to US when default region returns empty") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 var callCount = 0
                 val audible =
                     object : FakeAudibleApi(searchResult = AppResult.Success(emptyList())) {
@@ -114,7 +113,7 @@ class MetadataServiceTest :
                             }
                         }
                     }
-                val service = makeService(audible = audible, db = this, defaultRegion = AudibleRegion.UK, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, defaultRegion = AudibleRegion.UK, clock = FixedClock(now))
                 runTest {
                     val result = service.searchWithFallback(SearchParams(keywords = "tolkien"))
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -127,9 +126,9 @@ class MetadataServiceTest :
         // ── getBook ────────────────────────────────────────────────────────────
 
         test("getBook caches the result; second call does not hit AudibleApi") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(bookResult = AppResult.Success(book("B001")))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getBook(AudibleRegion.US, "B001")
                     service.getBook(AudibleRegion.US, "B001")
@@ -139,9 +138,9 @@ class MetadataServiceTest :
         }
 
         test("getBook with refresh = true bypasses cache") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(bookResult = AppResult.Success(book("B001")))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getBook(AudibleRegion.US, "B001")
                     service.getBook(AudibleRegion.US, "B001", refresh = true)
@@ -151,9 +150,9 @@ class MetadataServiceTest :
         }
 
         test("getBook caches null (404) to avoid repeated Audible hammering") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(bookResult = AppResult.Success(null))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getBook(AudibleRegion.US, "MISSING")
                     service.getBook(AudibleRegion.US, "MISSING")
@@ -165,9 +164,9 @@ class MetadataServiceTest :
         }
 
         test("getBook is region-scoped — UK and US are independent cache entries") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(bookResult = AppResult.Success(book("B001")))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getBook(AudibleRegion.US, "B001")
                     service.getBook(AudibleRegion.UK, "B001")
@@ -179,9 +178,9 @@ class MetadataServiceTest :
         // ── getBookChapters ────────────────────────────────────────────────────
 
         test("getBookChapters caches the result; second call does not hit AudibleApi") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(chaptersResult = AppResult.Success(listOf(chapter("Intro"))))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getBookChapters(AudibleRegion.US, "B001")
                     service.getBookChapters(AudibleRegion.US, "B001")
@@ -193,12 +192,12 @@ class MetadataServiceTest :
         // ── findCover ──────────────────────────────────────────────────────────
 
         test("findCover delegates directly to ITunesApi") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val itunes =
                     FakeITunesApi(
                         coverResult = AppResult.Success(ITunesCoverHit("http://small.jpg", "http://big.jpg")),
                     )
-                val service = makeService(itunes = itunes, db = this, clock = FixedClock(now))
+                val service = makeService(itunes = itunes, db = sql, clock = FixedClock(now))
                 runTest {
                     val result = service.findCover("Dune", "Frank Herbert")
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -209,9 +208,9 @@ class MetadataServiceTest :
         }
 
         test("findCover does not cache — repeated calls always hit ITunesApi") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val itunes = FakeITunesApi(coverResult = AppResult.Success(null))
-                val service = makeService(itunes = itunes, db = this, clock = FixedClock(now))
+                val service = makeService(itunes = itunes, db = sql, clock = FixedClock(now))
                 runTest {
                     service.findCover("Dune", "Frank Herbert")
                     service.findCover("Dune", "Frank Herbert")
@@ -223,9 +222,9 @@ class MetadataServiceTest :
         // ── getContributor ─────────────────────────────────────────────────────
 
         test("getContributor caches the result; second call does not hit AudibleApi") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(contributorResult = AppResult.Success(contributorProfile("B000APZOQA")))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getContributor(AudibleRegion.US, "B000APZOQA")
                     service.getContributor(AudibleRegion.US, "B000APZOQA")
@@ -235,9 +234,9 @@ class MetadataServiceTest :
         }
 
         test("getContributor with refresh = true bypasses cache") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(contributorResult = AppResult.Success(contributorProfile("B000APZOQA")))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getContributor(AudibleRegion.US, "B000APZOQA")
                     service.getContributor(AudibleRegion.US, "B000APZOQA", refresh = true)
@@ -247,9 +246,9 @@ class MetadataServiceTest :
         }
 
         test("getContributor caches null (unknown ASIN) to avoid repeated Audible hammering") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(contributorResult = AppResult.Success(null))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getContributor(AudibleRegion.US, "UNKNOWN")
                     service.getContributor(AudibleRegion.US, "UNKNOWN")
@@ -261,9 +260,9 @@ class MetadataServiceTest :
         }
 
         test("getContributor is region-scoped — UK and US are independent cache entries") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val audible = FakeAudibleApi(contributorResult = AppResult.Success(contributorProfile("B000APZOQA")))
-                val service = makeService(audible = audible, db = this, clock = FixedClock(now))
+                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
                 runTest {
                     service.getContributor(AudibleRegion.US, "B000APZOQA")
                     service.getContributor(AudibleRegion.UK, "B000APZOQA")
@@ -278,14 +277,14 @@ class MetadataServiceTest :
 private fun makeService(
     audible: AudibleApi = FakeAudibleApi(),
     itunes: ITunesApi = FakeITunesApi(),
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    db: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     defaultRegion: AudibleRegion = AudibleRegion.US,
     clock: kotlin.time.Clock = FixedClock(Instant.parse("2026-05-24T12:00:00Z")),
 ): MetadataService =
     MetadataService(
         audible = audible,
         itunes = itunes,
-        cache = MetadataCacheRepository(db.asSqlDatabase(), clock),
+        cache = MetadataCacheRepository(db, clock),
         defaultRegion = defaultRegion,
         clock = clock,
     )

@@ -13,25 +13,22 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.slf4j.event.Level
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryResolveTest :
     FunSpec({
 
         test("same path → existing UUID") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db)
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
@@ -43,9 +40,8 @@ class BookRepositoryResolveTest :
         }
 
         test("path miss, same inode → existing UUID + path update") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db)
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val original = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
@@ -64,9 +60,8 @@ class BookRepositoryResolveTest :
         }
 
         test("path miss, no inode match → new UUID") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db)
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = analyzedFor(rootRelPath = "a", inode = 1L)
@@ -79,9 +74,8 @@ class BookRepositoryResolveTest :
         }
 
         test("null inode falls through to new UUID") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db)
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = analyzedFor(rootRelPath = "a", inode = null)
@@ -94,9 +88,8 @@ class BookRepositoryResolveTest :
         }
 
         test("resolveOrInsert returns AppResult.Success when the write lands") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db)
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Mistborn", inode = 5005L)
@@ -107,9 +100,8 @@ class BookRepositoryResolveTest :
         }
 
         test("inode match logs the move at INFO") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db)
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val capture = ListenUpLoggerFactory.installTestCapture()
@@ -165,19 +157,22 @@ private data class ResolveRepoFixture(
     val registry: LibraryRegistry,
 )
 
-private fun repository(db: Database): ResolveRepoFixture {
-    val registry = LibraryRegistry(db.asSqlDatabase())
+private fun repository(
+    sql: ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
+): ResolveRepoFixture {
+    val registry = LibraryRegistry(sql)
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val repo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = sql,
+            driver = driver,
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+            contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+            seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+            genreRepository = GenreRepository(sql, bus, syncRegistry),
         )
     return ResolveRepoFixture(repo, registry)
 }

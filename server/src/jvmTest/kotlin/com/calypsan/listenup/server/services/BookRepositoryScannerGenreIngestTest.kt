@@ -12,14 +12,12 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreAliasTable
-import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.PendingBookGenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -27,28 +25,19 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryScannerGenreIngestTest :
     FunSpec({
 
         test("single aliased string writes to book_genres and leaves pending empty") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val genreId = "g-fantasy"
-                    transaction(db) {
-                        seedGenre(genreId, name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                        seedAlias("Fantasy", genreId)
+                    sql.transaction {
+                        sql.seedGenre(genreId, name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                        sql.seedAlias("Fantasy", genreId)
                     }
 
                     val result =
@@ -60,21 +49,24 @@ class BookRepositoryScannerGenreIngestTest :
                         )
 
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(genreId)
-                        PendingBookGenreTable.bookIdsByRawString("Fantasy").shouldBeEmpty()
-                    }
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds shouldContainExactly listOf(genreId)
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Fantasy")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("single unaliased string auto-creates a live genre and leaves pending empty") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val result =
                         repo.upsertFromAnalyzed(
@@ -85,26 +77,29 @@ class BookRepositoryScannerGenreIngestTest :
                         )
 
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    transaction(db) {
-                        genreNamesForBook("b1") shouldContainExactly listOf("Cyberpunk")
-                        PendingBookGenreTable.bookIdsByRawString("Cyberpunk").shouldBeEmpty()
-                    }
+                    val names =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.name }
+                    names shouldContainExactly listOf("Cyberpunk")
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Cyberpunk")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("mixed aliased + unaliased strings both land in book_genres (auto-create), pending empty") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val genreId = "g-fantasy"
-                    transaction(db) {
-                        seedGenre(genreId, name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                        seedAlias("Fantasy", genreId)
+                    sql.transaction {
+                        sql.seedGenre(genreId, name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                        sql.seedAlias("Fantasy", genreId)
                     }
 
                     val result =
@@ -119,30 +114,36 @@ class BookRepositoryScannerGenreIngestTest :
                         )
 
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    transaction(db) {
-                        genreNamesForBook("b1") shouldContainExactlyInAnyOrder listOf("Fantasy", "Cyberpunk")
-                        PendingBookGenreTable.bookIdsByRawString("Cyberpunk").shouldBeEmpty()
-                        PendingBookGenreTable.bookIdsByRawString("Fantasy").shouldBeEmpty()
-                    }
+                    val names =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.name }
+                    names shouldContainExactlyInAnyOrder listOf("Fantasy", "Cyberpunk")
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Cyberpunk")
+                        .executeAsList()
+                        .shouldBeEmpty()
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Fantasy")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("rescan with different strings wipes prior book_genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val genreA = "g-a"
                     val genreC = "g-c"
-                    transaction(db) {
-                        seedGenre(genreA, name = "A", slug = "a", path = "/a")
-                        seedGenre(genreC, name = "C", slug = "c", path = "/c")
-                        seedAlias("A", genreA)
-                        seedAlias("C", genreC)
+                    sql.transaction {
+                        sql.seedGenre(genreA, name = "A", slug = "a", path = "/a")
+                        sql.seedGenre(genreC, name = "C", slug = "c", path = "/c")
+                        sql.seedAlias("A", genreA)
+                        sql.seedAlias("C", genreC)
                     }
 
                     // Scan 1: ["A", "B"] — A aliased to genreA, B auto-created as a live genre.
@@ -152,9 +153,11 @@ class BookRepositoryScannerGenreIngestTest :
                         FolderId("test-folder"),
                         analyzedFixture(rootRelPath = "books/b1", genres = listOf("A", "B")),
                     )
-                    transaction(db) {
-                        genreNamesForBook("b1") shouldContainExactlyInAnyOrder listOf("A", "B")
-                    }
+                    sql.bookGenresQueries
+                        .genresForBook("b1")
+                        .executeAsList()
+                        .map { it.name } shouldContainExactlyInAnyOrder
+                        listOf("A", "B")
 
                     // Scan 2: ["C"] only — A and B should be wiped from the junction.
                     repo.upsertFromAnalyzed(
@@ -163,25 +166,24 @@ class BookRepositoryScannerGenreIngestTest :
                         FolderId("test-folder"),
                         analyzedFixture(rootRelPath = "books/b1", genres = listOf("C")),
                     )
-                    transaction(db) {
-                        genreNamesForBook("b1") shouldContainExactly listOf("C")
-                    }
+                    sql.bookGenresQueries
+                        .genresForBook("b1")
+                        .executeAsList()
+                        .map { it.name } shouldContainExactly
+                        listOf("C")
                 }
             }
         }
 
         test("alias resolution is case-insensitive via NOCASE collation on raw_string") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val genreId = "g-scifi"
-                    transaction(db) {
-                        seedGenre(genreId, name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
-                        seedAlias("Sci-Fi", genreId)
+                    sql.transaction {
+                        sql.seedGenre(genreId, name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
+                        sql.seedAlias("Sci-Fi", genreId)
                     }
 
                     repo.upsertFromAnalyzed(
@@ -191,26 +193,29 @@ class BookRepositoryScannerGenreIngestTest :
                         analyzedFixture(rootRelPath = "books/b1", genres = listOf("sci-fi")),
                     )
 
-                    transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(genreId)
-                        PendingBookGenreTable.bookIdsByRawString("sci-fi").shouldBeEmpty()
-                    }
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds shouldContainExactly listOf(genreId)
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("sci-fi")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("case-distinct duplicates de-dupe to a single book_genres row") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val genreId = "g-fantasy"
-                    transaction(db) {
-                        seedGenre(genreId, name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                        seedAlias("Fantasy", genreId)
+                    sql.transaction {
+                        sql.seedGenre(genreId, name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                        sql.seedAlias("Fantasy", genreId)
                     }
 
                     repo.upsertFromAnalyzed(
@@ -223,28 +228,28 @@ class BookRepositoryScannerGenreIngestTest :
                         ),
                     )
 
-                    transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(genreId)
-                    }
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds shouldContainExactly listOf(genreId)
                 }
             }
         }
 
         test("readPayload populates BookSyncPayload.genres via JOIN on linked genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val gFantasy = "g-fantasy"
                     val gEpic = "g-epic"
-                    transaction(db) {
-                        seedGenre(gFantasy, name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                        seedGenre(gEpic, name = "Epic Fantasy", slug = "epic-fantasy", path = "/fantasy/epic")
-                        seedAlias("Fantasy", gFantasy)
-                        seedAlias("Epic Fantasy", gEpic)
+                    sql.transaction {
+                        sql.seedGenre(gFantasy, name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                        sql.seedGenre(gEpic, name = "Epic Fantasy", slug = "epic-fantasy", path = "/fantasy/epic")
+                        sql.seedAlias("Fantasy", gFantasy)
+                        sql.seedAlias("Epic Fantasy", gEpic)
                     }
 
                     repo.upsertFromAnalyzed(
@@ -268,26 +273,23 @@ class BookRepositoryScannerGenreIngestTest :
         }
 
         test("readPayload skips tombstoned genres in the genres JOIN") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo = newRepo(db, bus, syncRegistry)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
                     val gLive = "g-live"
                     val gDead = "g-dead"
-                    transaction(db) {
-                        seedGenre(gLive, name = "Live", slug = "live", path = "/live")
-                        seedGenre(
+                    sql.transaction {
+                        sql.seedGenre(gLive, name = "Live", slug = "live", path = "/live")
+                        sql.seedGenre(
                             gDead,
                             name = "Dead",
                             slug = "dead",
                             path = "/dead",
                             deletedAt = 1_730_000_000_000L,
                         )
-                        seedAlias("Live", gLive)
-                        seedAlias("Dead", gDead)
+                        sql.seedAlias("Live", gLive)
+                        sql.seedAlias("Dead", gDead)
                     }
 
                     repo.upsertFromAnalyzed(
@@ -306,62 +308,51 @@ class BookRepositoryScannerGenreIngestTest :
 
 // --- Fixtures ---------------------------------------------------------------
 
-private fun newRepo(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
-    bus: ChangeBus,
-    syncRegistry: SyncRegistry,
-): BookRepository =
-    BookRepository(
-        db = db.asSqlDatabase(),
-        driver = db.asSqlDriver(),
+private fun SqlTestDatabases.newRepo(): BookRepository {
+    val bus = ChangeBus()
+    val syncRegistry = SyncRegistry()
+    return BookRepository(
+        db = sql,
+        driver = driver,
         bus = bus,
         registry = syncRegistry,
-        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+        contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+        seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+        genreRepository = GenreRepository(sql, bus, syncRegistry),
     )
+}
 
-private fun genreNamesForBook(bookId: String): List<String> =
-    BookGenreTable.genresForBook(bookId).map { genreId ->
-        GenreTable
-            .selectAll()
-            .where { GenreTable.id eq genreId }
-            .single()[GenreTable.name]
-    }
-
-private fun seedGenre(
+private fun ListenUpDatabase.seedGenre(
     id: String,
     name: String,
     slug: String,
     path: String,
     deletedAt: Long? = null,
 ) {
-    GenreTable.insert {
-        it[GenreTable.id] = id
-        it[GenreTable.name] = name
-        it[GenreTable.slug] = slug
-        it[GenreTable.path] = path
-        it[GenreTable.parentId] = null
-        it[GenreTable.depth] = 0
-        it[GenreTable.sortOrder] = 0
-        it[GenreTable.color] = null
-        it[GenreTable.description] = null
-        it[GenreTable.revision] = 0L
-        it[GenreTable.createdAt] = 0L
-        it[GenreTable.updatedAt] = 0L
-        it[GenreTable.deletedAt] = deletedAt
-        it[GenreTable.clientOpId] = null
-    }
+    genresQueries.insert(
+        id = id,
+        name = name,
+        slug = slug,
+        path = path,
+        parent_id = null,
+        depth = 0,
+        sort_order = 0,
+        color = null,
+        description = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = deletedAt,
+        client_op_id = null,
+    )
 }
 
-private fun seedAlias(
+private fun ListenUpDatabase.seedAlias(
     rawString: String,
     genreId: String,
 ) {
-    GenreAliasTable.insert {
-        it[GenreAliasTable.rawString] = rawString
-        it[GenreAliasTable.genreId] = genreId
-    }
+    genreAliasesQueries.deleteByRawString(rawString)
+    genreAliasesQueries.insert(raw_string = rawString, genre_id = genreId)
 }
 
 private fun analyzedFixture(

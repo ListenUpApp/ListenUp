@@ -81,3 +81,8 @@ SELECT * FROM library_folders WHERE root_path = :root_path AND deleted_at IS NUL
 -- canonical test-controlled row at the same path.
 deleteByRootPath:
 DELETE FROM library_folders WHERE root_path = :root_path;
+
+-- Count of ALL library_folder rows (live + tombstoned) — test-scoped: verifies no folder
+-- rows are created by LibraryRegistry.currentLibrary's path-less library bootstrap.
+countAll:
+SELECT COUNT(*) FROM library_folders;

@@ -84,3 +84,21 @@ WHERE id = :id AND deleted_at IS NULL;
 -- The id of the first live (non-deleted) library — drives CollectionDomainSeeder's demo-library lookup.
 selectFirstLiveId:
 SELECT id FROM libraries WHERE deleted_at IS NULL LIMIT 1;
+
+-- All live (non-tombstoned) library rows — test-scoped: verifies the bootstrap creates exactly one.
+selectAllLive:
+SELECT * FROM libraries WHERE deleted_at IS NULL;
+
+-- Count of ALL library rows (including tombstones) — test-scoped: verifies no duplicates.
+countAll:
+SELECT COUNT(*) FROM libraries;
+
+-- Hard-deletes every library row — test-scoped: the "cached after first call" invariant must
+-- prove the id survives an out-of-band truncate.
+deleteAll:
+DELETE FROM libraries;
+
+-- Hard-deletes one library row by id — test-scoped: proves the library→folder
+-- ON DELETE CASCADE safety net removes orphaned folder rows.
+deleteById:
+DELETE FROM libraries WHERE id = :id;

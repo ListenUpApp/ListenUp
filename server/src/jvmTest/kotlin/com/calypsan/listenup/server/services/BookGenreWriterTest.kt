@@ -1,61 +1,53 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 class BookGenreWriterTest :
     FunSpec({
         test("an unknown genre string auto-creates a live genre and links it, leaving pending empty") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
-                val genreRepository = GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
-                val writer = BookGenreWriter(db.asSqlDatabase(), Clock.System, GenreAutoCreator(genreRepository))
+                val genreRepository = GenreRepository(sql, ChangeBus(), SyncRegistry())
+                val writer = BookGenreWriter(sql, Clock.System, GenreAutoCreator(genreRepository))
 
                 runTest {
-                    suspendTransaction(db) {
-                        writer.processGenreStrings(
-                            bookId = BookId("book-1"),
-                            rawStrings = listOf("Quantum Gardening"),
-                            now = System.currentTimeMillis(),
-                        )
-                    }
+                    writer.processGenreStrings(
+                        bookId = BookId("book-1"),
+                        rawStrings = listOf("Quantum Gardening"),
+                        now = System.currentTimeMillis(),
+                    )
 
-                    suspendTransaction(db) {
-                        val genreIds = BookGenreTable.genresForBook("book-1")
-                        genreIds.size shouldBe 1
+                    val genreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("book-1")
+                            .executeAsList()
+                            .map { it.id }
+                    genreIds.size shouldBe 1
 
-                        val genreName =
-                            GenreTable
-                                .selectAll()
-                                .where { GenreTable.id eq genreIds.single() }
-                                .single()[GenreTable.name]
-                        genreName shouldBe "Quantum Gardening"
+                    val genreName =
+                        sql.genresQueries
+                            .selectById(genreIds.single())
+                            .executeAsOneOrNull()
+                            ?.name
+                    genreName shouldBe "Quantum Gardening"
 
-                        PendingBookGenreTable
-                            .selectAll()
-                            .where { PendingBookGenreTable.bookId eq "book-1" }
-                            .toList()
-                            .shouldContainExactly(emptyList())
-                    }
+                    sql.pendingBookGenresQueries
+                        .allRows()
+                        .executeAsList()
+                        .filter { it.book_id == "book-1" }
+                        .shouldContainExactly(emptyList())
                 }
             }
         }

@@ -1,19 +1,10 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.LibraryFolderTable
-import com.calypsan.listenup.server.db.LibraryTable
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.deleteAll
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Tests for [LibraryRegistry].
@@ -26,78 +17,76 @@ class LibraryRegistryTest :
     FunSpec({
 
         test("currentLibrary creates a single path-less library when none exists and no env path") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val registry = LibraryRegistry(db.asSqlDatabase())
+                    val registry = LibraryRegistry(sql)
 
                     val id = registry.currentLibrary()
 
-                    transaction(db) {
-                        // Exactly one non-deleted library row named "Library"
-                        val rows =
-                            LibraryTable
-                                .selectAll()
-                                .where { LibraryTable.deletedAt.isNull() }
-                                .toList()
-                        rows.size shouldBe 1
-                        rows[0][LibraryTable.name] shouldBe "Library"
-                        rows[0][LibraryTable.id] shouldBe id.value
+                    // Exactly one non-deleted library row named "Library"
+                    val rows = sql.librariesQueries.selectAllLive().executeAsList()
+                    rows.size shouldBe 1
+                    rows[0].name shouldBe "Library"
+                    rows[0].id shouldBe id.value
 
-                        // No folder rows created
-                        LibraryFolderTable.selectAll().count() shouldBe 0L
-                    }
+                    // No folder rows created
+                    sql.libraryFoldersQueries.countAll().executeAsOne() shouldBe 0L
 
                     // Cached: second call returns the same id without inserting another row
                     registry.currentLibrary() shouldBe id
-                    transaction(db) {
-                        LibraryTable.selectAll().where { LibraryTable.deletedAt.isNull() }.count() shouldBe 1L
-                    }
+                    sql.librariesQueries
+                        .selectAllLive()
+                        .executeAsList()
+                        .size shouldBe 1
                 }
             }
         }
 
         test("bootstraps a new library row when no library exists") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val registry = LibraryRegistry(db.asSqlDatabase())
+                    val registry = LibraryRegistry(sql)
                     val id = registry.currentLibrary()
-                    transaction(db) {
-                        LibraryTable.selectAll().where { LibraryTable.id eq id.value }.count() shouldBe 1L
-                    }
+                    val count =
+                        sql.librariesQueries
+                            .selectAllLive()
+                            .executeAsList()
+                            .count { it.id == id.value }
+                    count shouldBe 1
                 }
             }
         }
 
         test("returns existing library when one already exists") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val now = System.currentTimeMillis()
-                transaction(db) {
-                    LibraryTable.insert {
-                        it[LibraryTable.id] = "lib-existing"
-                        it[LibraryTable.name] = "Existing"
-                        it[LibraryTable.createdAt] = now
-                        it[LibraryTable.updatedAt] = now
-                        it[LibraryTable.revision] = 0L
-                        it[LibraryTable.deletedAt] = null
-                    }
+                sql.transaction {
+                    sql.librariesQueries.insert(
+                        id = "lib-existing",
+                        name = "Existing",
+                        metadata_precedence = "embedded,abs,sidecar",
+                        access_mode = "shared",
+                        created_by_user_id = null,
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
                 }
                 runTest {
-                    val registry = LibraryRegistry(db.asSqlDatabase())
+                    val registry = LibraryRegistry(sql)
                     registry.currentLibrary() shouldBe LibraryId("lib-existing")
                 }
             }
         }
 
         test("cached after first call — subsequent calls don't hit the DB") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val registry = LibraryRegistry(db.asSqlDatabase())
+                    val registry = LibraryRegistry(sql)
                     val first = registry.currentLibrary()
-                    transaction(db) { LibraryTable.deleteAll() }
+                    sql.transaction { sql.librariesQueries.deleteAll() }
                     registry.currentLibrary() shouldBe first
                 }
             }
