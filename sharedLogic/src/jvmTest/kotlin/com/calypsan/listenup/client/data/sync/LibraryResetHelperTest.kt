@@ -30,7 +30,7 @@ class LibraryResetHelperTest :
                 db.syncCursorDao().setCursor(SyncCursorEntity(domainName = "contributors", revision = 87))
 
                 val helper =
-                    LibraryResetHelper(
+                    LibraryResetHelperImpl(
                         database = db,
                         transactionRunner = RoomTransactionRunner(db),
                         librarySyncContract = mock<LibrarySync>(),

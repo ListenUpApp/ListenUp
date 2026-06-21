@@ -12,8 +12,8 @@ import com.calypsan.listenup.client.data.repository.PendingOperationRepositoryIm
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncStatusRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserPreferencesRepositoryImpl
-import com.calypsan.listenup.client.data.sync.LibraryResetHelper
-import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
+import com.calypsan.listenup.client.data.sync.LibraryResetHelperImpl
+import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.PendingOperationRepository
@@ -67,12 +67,12 @@ val libraryModule: Module =
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         single {
-            LibraryResetHelper(
+            LibraryResetHelperImpl(
                 database = get(),
                 transactionRunner = get(),
                 librarySyncContract = get(),
             )
-        } bind LibraryResetHelperContract::class
+        } bind LibraryResetHelper::class
 
         // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (public mount):
         // live scan-progress stream that drives the scan UI + post-scan reconcile.
