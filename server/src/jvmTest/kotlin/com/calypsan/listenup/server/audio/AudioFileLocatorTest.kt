@@ -5,67 +5,42 @@ import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.LibraryFolderTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class AudioFileLocatorTest :
     FunSpec({
 
         test("locate returns AudioFileLocation with correct path, format, and sizeBytes") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val folderPath = "/fake/library"
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val now = System.currentTimeMillis()
 
                 // Seed a library + folder row so AudioFileLocator can resolve the path.
-                transaction(db) {
-                    LibraryTable.insert {
-                        it[LibraryTable.id] = "test-library"
-                        it[LibraryTable.name] = "Test Library"
-                        it[LibraryTable.createdAt] = now
-                        it[LibraryTable.updatedAt] = now
-                        it[LibraryTable.revision] = 0L
-                        it[LibraryTable.deletedAt] = null
-                    }
-                    LibraryFolderTable.insert {
-                        it[LibraryFolderTable.id] = "test-folder"
-                        it[LibraryFolderTable.libraryId] = "test-library"
-                        it[LibraryFolderTable.rootPath] = folderPath
-                        it[LibraryFolderTable.createdAt] = now
-                        it[LibraryFolderTable.updatedAt] = now
-                        it[LibraryFolderTable.revision] = 0L
-                        it[LibraryFolderTable.deletedAt] = null
-                    }
-                }
+                sql.seedTestLibraryAndFolder(folderPath = folderPath)
 
                 val repo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, registry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, registry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        contributorRepository = ContributorRepository(sql, bus, registry),
+                        seriesRepository = SeriesRepository(sql, bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
 
                 runTest {
@@ -80,7 +55,7 @@ class AudioFileLocatorTest :
                         ),
                     )
 
-                    val locator = AudioFileLocator(db.asSqlDatabase())
+                    val locator = AudioFileLocator(sql)
                     val result = locator.locate("b1", "af1")
 
                     result.shouldNotBeNull()
@@ -92,10 +67,9 @@ class AudioFileLocatorTest :
         }
 
         test("locate returns null for an unknown bookId") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val locator = AudioFileLocator(db.asSqlDatabase())
+                    val locator = AudioFileLocator(sql)
                     val result = locator.locate("unknown", "anything")
                     result.shouldBeNull()
                 }

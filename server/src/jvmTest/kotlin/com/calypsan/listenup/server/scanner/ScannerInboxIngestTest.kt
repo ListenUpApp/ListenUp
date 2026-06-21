@@ -20,16 +20,14 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Covers the **inbox-gate-ON** branch of the mutually-exclusive system-collection
@@ -62,13 +60,12 @@ class ScannerInboxIngestTest :
     FunSpec({
 
         test("inbox_enabled + inbox id: a NEW book is committed into the inbox") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                setInboxEnabled(db, "test-library", enabled = true)
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.setInboxEnabled("test-library", enabled = true)
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = fixture(db)
+                    val fx = fixture(this@withSqlDatabase)
                     val inboxId = fx.resolveInboxId()
 
                     val outcome =
@@ -87,13 +84,12 @@ class ScannerInboxIngestTest :
         }
 
         test("re-resolving the SAME book (update) does not add a second membership") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                setInboxEnabled(db, "test-library", enabled = true)
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.setInboxEnabled("test-library", enabled = true)
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = fixture(db)
+                    val fx = fixture(this@withSqlDatabase)
                     val inboxId = fx.resolveInboxId()
                     val analyzed = buildAnalyzedBook("Sanderson/Way of Kings", inode = 1L)
 
@@ -124,12 +120,11 @@ class ScannerInboxIngestTest :
         }
 
         test("no system collection id supplied: a NEW book joins no system collection (not the inbox)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = fixture(db)
+                    val fx = fixture(this@withSqlDatabase)
                     val inboxId = fx.resolveInboxId()
 
                     // A null systemCollectionId is the "no membership at all" branch: resolveOrInsert
@@ -167,40 +162,40 @@ private class InboxFixture(
     }
 }
 
-private fun fixture(db: Database): InboxFixture {
+private fun fixture(dbs: SqlTestDatabases): InboxFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val collectionBookRepo =
         CollectionBookRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = bus,
             registry = syncRegistry,
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+            contributorRepository = ContributorRepository(dbs.sql, bus, syncRegistry),
+            seriesRepository = SeriesRepository(dbs.sql, bus, syncRegistry),
+            genreRepository = GenreRepository(dbs.sql, bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
     val collectionRepo =
         CollectionRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = bus,
             registry = syncRegistry,
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
     val grantRepo =
         CollectionGrantRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = bus,
             registry = syncRegistry,
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
     val collections =
         CollectionServiceImpl(
@@ -208,9 +203,9 @@ private fun fixture(db: Database): InboxFixture {
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+            permissionPolicy = UserPermissionPolicy(dbs.sql),
             bus = bus,
-            sql = db.asSqlDatabase(),
+            sql = dbs.sql,
             bookRevisionTouch = FakeBookRevisionTouch(),
             principal = PrincipalProvider { null },
         )

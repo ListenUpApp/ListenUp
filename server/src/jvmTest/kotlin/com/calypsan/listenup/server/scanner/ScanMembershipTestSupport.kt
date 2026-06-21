@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -27,6 +28,23 @@ internal fun setInboxEnabled(
     transaction(db) {
         LibraryTable.update({ LibraryTable.id eq libraryId }) { it[inboxEnabled] = enabled }
     }
+}
+
+/**
+ * SQLDelight version of [setInboxEnabled]. Toggles the `inbox_enabled` gate on the
+ * given [libraryId] row — used by tests that run inside [com.calypsan.listenup.server.testing.withSqlDatabase].
+ */
+internal fun ListenUpDatabase.setInboxEnabled(
+    libraryId: String,
+    enabled: Boolean,
+) {
+    librariesQueries.setInboxEnabled(
+        inbox_enabled = if (enabled) 1L else 0L,
+        revision = 1L,
+        updated_at = System.currentTimeMillis(),
+        client_op_id = null,
+        id = libraryId,
+    )
 }
 
 internal fun buildAnalyzedBook(
