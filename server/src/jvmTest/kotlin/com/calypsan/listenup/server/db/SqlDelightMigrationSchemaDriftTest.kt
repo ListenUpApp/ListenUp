@@ -95,6 +95,7 @@ private val SQ_TABLES =
         "book_series_memberships",
         "book_chapters",
         "book_audio_files",
+        "book_documents",
         "book_genres",
         "book_search",
         "book_search_map",
