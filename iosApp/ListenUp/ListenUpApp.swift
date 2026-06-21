@@ -61,8 +61,24 @@ private struct RootView: View {
     private func activateSyncIfAuthenticated() {
         guard auth.state == .authenticated else { return }
         let controller = syncSession ?? SyncSessionController(
-            connectRealtime: { try? await dependencies.syncRepository.connectRealtime() },
-            resumeDownloads: { _ = try? await dependencies.downloadService.resumeIncompleteDownloads() }
+            connectRealtime: {
+                do {
+                    try await dependencies.syncRepository.connectRealtime()
+                } catch is CancellationError {
+                } catch {
+                    // Realtime sync is best-effort: pull-to-refresh is the manual fallback
+                    // (Never Stranded), but the failure must not vanish — log it.
+                    Log.error("Realtime sync connect failed", error: error)
+                }
+            },
+            resumeDownloads: {
+                do {
+                    try await dependencies.downloadService.resumeIncompleteDownloads()
+                } catch is CancellationError {
+                } catch {
+                    Log.error("Resume incomplete downloads failed", error: error)
+                }
+            }
         )
         syncSession = controller
         controller.activate()

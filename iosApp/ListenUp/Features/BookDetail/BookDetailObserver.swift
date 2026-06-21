@@ -130,24 +130,54 @@ final class BookDetailObserver {
         guard let book else { return }
         downloadError = nil
         Task {
-            guard let result = try? await downloadService.downloadBook(bookId: book.id) else { return }
-            switch onEnum(of: result) {
-            case .success:
-                break
-            case .failure(let failure):
-                downloadError = failure.error.message
+            do {
+                let result = try await downloadService.downloadBook(bookId: book.id)
+                switch onEnum(of: result) {
+                case .success:
+                    break
+                case .failure(let failure):
+                    downloadError = failure.error.message
+                }
+            } catch {
+                // A *thrown* error (vs. the typed `.failure` above) is unexpected — surface
+                // it instead of the old `try?` that silently dropped it and left the button
+                // looking idle. Cancellation (the view went away) is intentionally silent.
+                if let message = Self.downloadThrowMessage(for: error) {
+                    Log.error("Download failed for \(book.idString)", error: error)
+                    downloadError = message
+                }
             }
         }
     }
 
+    /// Maps a *thrown* download error to a user-facing message, or `nil` when the throw
+    /// is mere cancellation (the user navigated away) and nothing should surface.
+    nonisolated static func downloadThrowMessage(for error: Error) -> String? {
+        error is CancellationError ? nil : String(localized: "common.something_went_wrong")
+    }
+
     func cancelDownload() {
         guard let book else { return }
-        Task { try? await downloadService.cancelDownload(bookId: book.id) }
+        Task {
+            do {
+                try await downloadService.cancelDownload(bookId: book.id)
+            } catch is CancellationError {
+            } catch {
+                Log.error("Cancel download failed for \(book.idString)", error: error)
+            }
+        }
     }
 
     func deleteDownload() {
         guard let book else { return }
-        Task { try? await downloadService.deleteDownload(bookId: book.id) }
+        Task {
+            do {
+                try await downloadService.deleteDownload(bookId: book.id)
+            } catch is CancellationError {
+            } catch {
+                Log.error("Delete download failed for \(book.idString)", error: error)
+            }
+        }
     }
 
     // MARK: - Shelf picker
