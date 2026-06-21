@@ -5,15 +5,15 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.ContributorDao
-import com.calypsan.listenup.client.data.local.db.DownloadDao
-import com.calypsan.listenup.client.data.local.db.DownloadState
-import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.first
 
 private val logger = KotlinLogging.logger {}
 
@@ -33,10 +33,10 @@ private const val MAX_ITEMS_PER_LEVEL = 8
  */
 class BrowseTreeProvider(
     private val homeRepository: HomeRepository,
-    private val bookDao: BookDao,
-    private val seriesDao: SeriesDao,
-    private val contributorDao: ContributorDao,
-    private val downloadDao: DownloadDao,
+    private val bookRepository: BookRepository,
+    private val seriesRepository: SeriesRepository,
+    private val contributorRepository: ContributorRepository,
+    private val downloadRepository: DownloadRepository,
     private val imageStorage: ImageStorage,
 ) {
     /**
@@ -178,35 +178,17 @@ class BrowseTreeProvider(
         return result.data.map { book -> createPlayableBookItem(book) }
     }
 
-    private suspend fun getDownloadedBooks(): List<MediaItem> {
-        // Get all downloads and find fully downloaded books
-        // For now, use a simpler approach - get books that have completed downloads
-        val books = bookDao.getAllLive()
-        val downloadedBookIds = mutableSetOf<String>()
-
-        // Check each book's download status
-        for (book in books) {
-            val bookDownloads = downloadDao.getForBook(book.id.value)
-            if (bookDownloads.isNotEmpty() && bookDownloads.all { it.state == DownloadState.COMPLETED }) {
-                downloadedBookIds.add(book.id.value)
-            }
-        }
-
-        return books
-            .filter { it.id.value in downloadedBookIds }
+    private suspend fun getDownloadedBooks(): List<MediaItem> =
+        downloadRepository
+            .observeDownloadedBooks()
+            .first()
             .take(MAX_ITEMS_PER_LEVEL)
-            .map { book ->
-                createPlayableBookItemFromEntity(
-                    bookId = book.id.value,
-                    title = book.title,
-                    subtitle = null,
-                )
-            }
-    }
+            .map { book -> createBookMediaItem(bookId = book.bookId, title = book.title, subtitle = null) }
 
-    private suspend fun getSeriesList(): List<MediaItem> {
-        val seriesWithCount = seriesDao.getAll()
-        return seriesWithCount
+    private suspend fun getSeriesList(): List<MediaItem> =
+        seriesRepository
+            .observeAll()
+            .first()
             .take(MAX_ITEMS_PER_LEVEL)
             .map { series ->
                 createBrowsableItem(
@@ -215,11 +197,11 @@ class BrowseTreeProvider(
                     mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
                 )
             }
-    }
 
-    private suspend fun getAuthorsList(): List<MediaItem> {
-        val authors = contributorDao.getAll()
-        return authors
+    private suspend fun getAuthorsList(): List<MediaItem> =
+        contributorRepository
+            .observeAll()
+            .first()
             .take(MAX_ITEMS_PER_LEVEL)
             .map { author ->
                 createBrowsableItem(
@@ -228,7 +210,6 @@ class BrowseTreeProvider(
                     mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
                 )
             }
-    }
 
     // ========== Dynamic Nodes ==========
 
@@ -247,32 +228,23 @@ class BrowseTreeProvider(
     }
 
     private suspend fun getBooksInSeries(seriesId: String): List<MediaItem> {
-        val series = seriesDao.getByIdWithBooks(seriesId) ?: return emptyList()
+        val series = seriesRepository.observeSeriesWithBooks(seriesId).first() ?: return emptyList()
         return series.books
             .take(MAX_ITEMS_PER_LEVEL)
             .map { book ->
-                createPlayableBookItemFromEntity(
-                    bookId = book.id.value,
-                    title = book.title,
-                    subtitle = series.series.name,
-                )
+                createBookMediaItem(bookId = book.id.value, title = book.title, subtitle = series.series.name)
             }
     }
 
     private suspend fun getBooksByAuthor(authorId: String): List<MediaItem> {
-        val bookIds = contributorDao.getBookIdsForContributor(authorId)
-        val author = contributorDao.getById(authorId)
-        val authorName = author?.name
+        val bookIds = contributorRepository.getBookIdsForContributor(authorId)
+        val authorName = contributorRepository.getById(authorId)?.name
 
         return bookIds
             .take(MAX_ITEMS_PER_LEVEL)
             .mapNotNull { bookId ->
-                val book = bookDao.getById(BookId(bookId)) ?: return@mapNotNull null
-                createPlayableBookItemFromEntity(
-                    bookId = book.id.value,
-                    title = book.title,
-                    subtitle = authorName,
-                )
+                val book = bookRepository.getBookListItem(bookId) ?: return@mapNotNull null
+                createBookMediaItem(bookId = book.id.value, title = book.title, subtitle = authorName)
             }
     }
 
@@ -282,12 +254,8 @@ class BrowseTreeProvider(
      * Used by voice search to return search results.
      */
     suspend fun getBookItem(bookId: String): MediaItem? {
-        val book = bookDao.getById(BookId(bookId)) ?: return null
-        return createPlayableBookItemFromEntity(
-            bookId = book.id.value,
-            title = book.title,
-            subtitle = null,
-        )
+        val book = bookRepository.getBookListItem(bookId) ?: return null
+        return createBookMediaItem(bookId = book.id.value, title = book.title, subtitle = null)
     }
 
     // ========== Item Builders ==========
@@ -330,7 +298,7 @@ class BrowseTreeProvider(
             ).build()
     }
 
-    private fun createPlayableBookItemFromEntity(
+    private fun createBookMediaItem(
         bookId: String,
         title: String,
         subtitle: String?,

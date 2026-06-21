@@ -239,10 +239,10 @@ val playbackModule =
         single {
             BrowseTreeProvider(
                 homeRepository = get(),
-                bookDao = get(),
-                seriesDao = get(),
-                contributorDao = get(),
-                downloadDao = get(),
+                bookRepository = get(),
+                seriesRepository = get(),
+                contributorRepository = get(),
+                downloadRepository = get(),
                 imageStorage = get(),
             )
         }

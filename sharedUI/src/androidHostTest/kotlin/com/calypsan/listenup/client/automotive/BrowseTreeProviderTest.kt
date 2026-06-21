@@ -4,35 +4,32 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.BookEntity
-import com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef
-import com.calypsan.listenup.client.data.local.db.BookWithContributors
-import com.calypsan.listenup.client.data.local.db.ContributorDao
-import com.calypsan.listenup.client.data.local.db.ContributorEntity
-import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
-import com.calypsan.listenup.client.data.local.db.BookSummary
-import com.calypsan.listenup.client.data.local.db.DiscoveryBookWithAuthor
-import com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries
-import com.calypsan.listenup.client.data.local.db.DownloadDao
-import com.calypsan.listenup.client.data.local.db.DownloadEntity
-import com.calypsan.listenup.client.data.local.db.DownloadState
-import com.calypsan.listenup.client.data.local.db.SeriesDao
-import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.SeriesWithBooks
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.domain.model.Contributor
+import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -50,9 +47,9 @@ import org.robolectric.annotation.Config
  * The `junit-vintage-engine` on the classpath keeps these discoverable alongside
  * Kotest specs in `androidHostTest`.
  *
- * The DAO and repository interfaces are satisfied by in-memory fakes that hold data
- * in simple lists. This avoids the complexity of a real Room database while exercising
- * all routing branches of [BrowseTreeProvider.getChildren] without modifying `:shared`.
+ * The provider consumes the public `domain/repository` interfaces, which are satisfied
+ * here by mokkery mocks seeded with domain models. This exercises all routing branches
+ * of [BrowseTreeProvider.getChildren] without naming any `:shared` DAO or `@Entity` type.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -148,46 +145,21 @@ class BrowseTreeProviderTest {
     @Test
     fun `getChildren LIBRARY_DOWNLOADED returns empty list when no books`(): Unit =
         runBlocking {
-            val provider = makeProvider(allBooks = emptyList())
+            val provider = makeProvider(downloadedBooks = emptyList())
             provider.getChildren(BrowseTree.LIBRARY_DOWNLOADED).shouldBeEmpty()
         }
 
     @Test
-    fun `getChildren LIBRARY_DOWNLOADED includes only books whose downloads are all COMPLETED`(): Unit =
+    fun `getChildren LIBRARY_DOWNLOADED maps each downloaded book to a playable media item`(): Unit =
         runBlocking {
-            val bookDownloaded = makeBookEntity("book-dl", "Downloaded Book")
-            val bookPending = makeBookEntity("book-pending", "Pending Book")
-            val bookNoDownloads = makeBookEntity("book-none", "No Downloads")
-            val downloads =
-                mapOf(
-                    "book-dl" to listOf(makeDownloadEntity("book-dl", "file-1", DownloadState.COMPLETED)),
-                    "book-pending" to listOf(makeDownloadEntity("book-pending", "file-2", DownloadState.DOWNLOADING)),
-                    "book-none" to emptyList(),
-                )
             val provider =
                 makeProvider(
-                    allBooks = listOf(bookDownloaded, bookPending, bookNoDownloads),
-                    downloadsByBookId = downloads,
+                    downloadedBooks = listOf(makeDownloadedBookSummary("book-dl", "Downloaded Book")),
                 )
             val children = provider.getChildren(BrowseTree.LIBRARY_DOWNLOADED)
             children shouldHaveSize 1
             children[0].mediaId shouldBe BrowseTree.bookId("book-dl")
-        }
-
-    @Test
-    fun `getChildren LIBRARY_DOWNLOADED excludes books with mixed download states`(): Unit =
-        runBlocking {
-            val book = makeBookEntity("book-mixed", "Mixed Download Book")
-            val downloads =
-                mapOf(
-                    "book-mixed" to
-                        listOf(
-                            makeDownloadEntity("book-mixed", "file-1", DownloadState.COMPLETED),
-                            makeDownloadEntity("book-mixed", "file-2", DownloadState.FAILED),
-                        ),
-                )
-            val provider = makeProvider(allBooks = listOf(book), downloadsByBookId = downloads)
-            provider.getChildren(BrowseTree.LIBRARY_DOWNLOADED).shouldBeEmpty()
+            children[0].mediaMetadata.isPlayable shouldBe true
         }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -206,8 +178,8 @@ class BrowseTreeProviderTest {
         runBlocking {
             val series =
                 listOf(
-                    makeSeriesEntity("series-1", "The Stormlight Archive"),
-                    makeSeriesEntity("series-2", "Mistborn"),
+                    makeSeries("series-1", "The Stormlight Archive"),
+                    makeSeries("series-2", "Mistborn"),
                 )
             val provider = makeProvider(allSeries = series)
             val children = provider.getChildren(BrowseTree.LIBRARY_SERIES)
@@ -234,8 +206,8 @@ class BrowseTreeProviderTest {
         runBlocking {
             val contributors =
                 listOf(
-                    makeContributorEntity("author-1", "Brandon Sanderson"),
-                    makeContributorEntity("author-2", "Patrick Rothfuss"),
+                    makeContributor("author-1", "Brandon Sanderson"),
+                    makeContributor("author-2", "Patrick Rothfuss"),
                 )
             val provider = makeProvider(allContributors = contributors)
             val children = provider.getChildren(BrowseTree.LIBRARY_AUTHORS)
@@ -253,14 +225,13 @@ class BrowseTreeProviderTest {
     @Test
     fun `getChildren series prefix returns books in that series`(): Unit =
         runBlocking {
-            val book1 = makeBookEntity("book-sw1", "The Way of Kings")
-            val book2 = makeBookEntity("book-sw2", "Words of Radiance")
-            val series = makeSeriesEntity("series-sa", "The Stormlight Archive")
+            val book1 = makeBookListItem("book-sw1", "The Way of Kings")
+            val book2 = makeBookListItem("book-sw2", "Words of Radiance")
             val seriesWithBooks =
                 SeriesWithBooks(
-                    series = series,
+                    series = makeSeries("series-sa", "The Stormlight Archive"),
                     books = listOf(book1, book2),
-                    bookSequences = emptyList(),
+                    bookSequences = emptyMap(),
                 )
             val provider = makeProvider(seriesWithBooksById = mapOf("series-sa" to seriesWithBooks))
             val children = provider.getChildren(BrowseTree.seriesId("series-sa"))
@@ -283,13 +254,11 @@ class BrowseTreeProviderTest {
     @Test
     fun `getChildren author prefix returns books by that author`(): Unit =
         runBlocking {
-            val book = makeBookEntity("book-1", "The Name of the Wind")
-            val author = makeContributorEntity("author-pr", "Patrick Rothfuss")
             val provider =
                 makeProvider(
                     bookIdsForContributor = mapOf("author-pr" to listOf("book-1")),
-                    contributorsById = mapOf("author-pr" to author),
-                    booksById = mapOf("book-1" to book),
+                    contributorsById = mapOf("author-pr" to makeContributor("author-pr", "Patrick Rothfuss")),
+                    booksById = mapOf("book-1" to makeBookListItem("book-1", "The Name of the Wind")),
                 )
             val children = provider.getChildren(BrowseTree.authorId("author-pr"))
             children shouldHaveSize 1
@@ -303,7 +272,7 @@ class BrowseTreeProviderTest {
             val provider =
                 makeProvider(
                     bookIdsForContributor = mapOf("author-empty" to emptyList()),
-                    contributorsById = mapOf("author-empty" to makeContributorEntity("author-empty", "No Books Author")),
+                    contributorsById = mapOf("author-empty" to makeContributor("author-empty", "No Books Author")),
                 )
             provider.getChildren(BrowseTree.authorId("author-empty")).shouldBeEmpty()
         }
@@ -327,7 +296,7 @@ class BrowseTreeProviderTest {
     @Test
     fun `getChildren LIBRARY_SERIES caps result at 8 items even with more series`(): Unit =
         runBlocking {
-            val manySeries = (1..12).map { makeSeriesEntity("s-$it", "Series $it") }
+            val manySeries = (1..12).map { makeSeries("s-$it", "Series $it") }
             val provider = makeProvider(allSeries = manySeries)
             provider.getChildren(BrowseTree.LIBRARY_SERIES) shouldHaveSize 8
         }
@@ -335,7 +304,7 @@ class BrowseTreeProviderTest {
     @Test
     fun `getChildren LIBRARY_AUTHORS caps result at 8 items`(): Unit =
         runBlocking {
-            val manyAuthors = (1..15).map { makeContributorEntity("a-$it", "Author $it") }
+            val manyAuthors = (1..15).map { makeContributor("a-$it", "Author $it") }
             val provider = makeProvider(allContributors = manyAuthors)
             provider.getChildren(BrowseTree.LIBRARY_AUTHORS) shouldHaveSize 8
         }
@@ -358,8 +327,7 @@ class BrowseTreeProviderTest {
     @Test
     fun `getChildren LIBRARY_SERIES items are browsable and not playable`(): Unit =
         runBlocking {
-            val series = makeSeriesEntity("s-1", "A Series")
-            val provider = makeProvider(allSeries = listOf(series))
+            val provider = makeProvider(allSeries = listOf(makeSeries("s-1", "A Series")))
             val item = provider.getChildren(BrowseTree.LIBRARY_SERIES).first()
             item.mediaMetadata.isBrowsable shouldBe true
             item.mediaMetadata.isPlayable shouldBe false
@@ -371,37 +339,50 @@ class BrowseTreeProviderTest {
 
     private fun makeProvider(
         continueListeningBooks: List<ContinueListeningBook> = emptyList(),
-        allBooks: List<BookEntity> = emptyList(),
-        downloadsByBookId: Map<String, List<DownloadEntity>> = emptyMap(),
-        allSeries: List<SeriesEntity> = emptyList(),
+        downloadedBooks: List<DownloadedBookSummary> = emptyList(),
+        allSeries: List<Series> = emptyList(),
         seriesWithBooksById: Map<String, SeriesWithBooks> = emptyMap(),
-        allContributors: List<ContributorEntity> = emptyList(),
+        allContributors: List<Contributor> = emptyList(),
         bookIdsForContributor: Map<String, List<String>> = emptyMap(),
-        contributorsById: Map<String, ContributorEntity> = emptyMap(),
-        booksById: Map<String, BookEntity> = emptyMap(),
-    ): BrowseTreeProvider =
-        BrowseTreeProvider(
-            homeRepository =
-                FakeHomeRepository(continueListeningBooks),
-            bookDao =
-                FakeBookDao(
-                    allBooks = allBooks,
-                    booksById = booksById,
-                ),
-            seriesDao =
-                FakeSeriesDao(
-                    allSeries = allSeries,
-                    seriesWithBooksById = seriesWithBooksById,
-                ),
-            contributorDao =
-                FakeContributorDao(
-                    allContributors = allContributors,
-                    bookIdsForContributor = bookIdsForContributor,
-                    contributorsById = contributorsById,
-                ),
-            downloadDao = FakeDownloadDao(downloadsByBookId),
+        contributorsById: Map<String, Contributor> = emptyMap(),
+        booksById: Map<String, BookListItem> = emptyMap(),
+    ): BrowseTreeProvider {
+        val bookRepository = mock<BookRepository>()
+        everySuspend { bookRepository.getBookListItem(any()) } returns null
+        booksById.forEach { (id, book) ->
+            everySuspend { bookRepository.getBookListItem(id) } returns book
+        }
+
+        val seriesRepository = mock<SeriesRepository>()
+        every { seriesRepository.observeAll() } returns flowOf(allSeries)
+        every { seriesRepository.observeSeriesWithBooks(any()) } returns flowOf(null)
+        seriesWithBooksById.forEach { (id, value) ->
+            every { seriesRepository.observeSeriesWithBooks(id) } returns flowOf(value)
+        }
+
+        val contributorRepository = mock<ContributorRepository>()
+        every { contributorRepository.observeAll() } returns flowOf(allContributors)
+        everySuspend { contributorRepository.getById(any()) } returns null
+        everySuspend { contributorRepository.getBookIdsForContributor(any()) } returns emptyList()
+        contributorsById.forEach { (id, value) ->
+            everySuspend { contributorRepository.getById(id) } returns value
+        }
+        bookIdsForContributor.forEach { (id, ids) ->
+            everySuspend { contributorRepository.getBookIdsForContributor(id) } returns ids
+        }
+
+        val downloadRepository = mock<DownloadRepository>()
+        every { downloadRepository.observeDownloadedBooks() } returns flowOf(downloadedBooks)
+
+        return BrowseTreeProvider(
+            homeRepository = FakeHomeRepository(continueListeningBooks),
+            bookRepository = bookRepository,
+            seriesRepository = seriesRepository,
+            contributorRepository = contributorRepository,
+            downloadRepository = downloadRepository,
             imageStorage = FakeImageStorage(),
         )
+    }
 
     private fun makeContinueListeningBook(
         bookId: String,
@@ -419,65 +400,48 @@ class BrowseTreeProviderTest {
         lastPlayedAt = "2024-01-01T12:00:00Z",
     )
 
-    private fun makeBookEntity(
+    private fun makeBookListItem(
         id: String,
         title: String,
-    ) = BookEntity(
+    ) = BookListItem(
         id = BookId(id),
         libraryId = TEST_LIBRARY_ID,
         folderId = TEST_FOLDER_ID,
         title = title,
-        sortTitle = null,
-        subtitle = null,
-        coverHash = null,
-        coverBlurHash = null,
-        totalDuration = 7_200_000L,
-        createdAt = EPOCH,
+        authors = emptyList(),
+        narrators = emptyList(),
+        duration = 7_200_000L,
+        coverPath = null,
+        addedAt = EPOCH,
         updatedAt = EPOCH,
     )
 
-    private fun makeSeriesEntity(
+    private fun makeSeries(
         id: String,
         name: String,
-    ) = SeriesEntity(
+    ) = Series(
         id = SeriesId(id),
         name = name,
-        description = null,
-        createdAt = EPOCH,
-        updatedAt = EPOCH,
     )
 
-    private fun makeContributorEntity(
+    private fun makeContributor(
         id: String,
         name: String,
-    ) = ContributorEntity(
+    ) = Contributor(
         id = ContributorId(id),
         name = name,
-        sortName = null,
-        asin = null,
-        description = null,
-        imagePath = null,
-        createdAt = EPOCH,
-        updatedAt = EPOCH,
     )
 
-    private fun makeDownloadEntity(
+    private fun makeDownloadedBookSummary(
         bookId: String,
-        audioFileId: String,
-        state: DownloadState,
-    ) = DownloadEntity(
-        audioFileId = audioFileId,
+        title: String,
+    ) = DownloadedBookSummary(
         bookId = bookId,
-        filename = "audio.mp3",
-        fileIndex = 0,
-        state = state,
-        localPath = if (state == DownloadState.COMPLETED) "/data/$bookId/audio.mp3" else null,
-        totalBytes = 10_000_000L,
-        downloadedBytes = if (state == DownloadState.COMPLETED) 10_000_000L else 0L,
-        queuedAt = 1_700_000_000_000L,
-        startedAt = null,
-        completedAt = if (state == DownloadState.COMPLETED) 1_700_000_001_000L else null,
-        errorMessage = null,
+        title = title,
+        authorNames = "An Author",
+        coverBlurHash = null,
+        sizeBytes = 10_000_000L,
+        fileCount = 1,
     )
 
     companion object {
@@ -488,7 +452,7 @@ class BrowseTreeProviderTest {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// In-memory fakes for :shared DAO and repository interfaces
+// In-memory fake for the HomeRepository interface (mokkery-free, list-backed)
 // ──────────────────────────────────────────────────────────────────────────────
 
 private class FakeHomeRepository(
@@ -497,236 +461,6 @@ private class FakeHomeRepository(
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(books.take(limit))
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
-}
-
-private class FakeBookDao(
-    private val allBooks: List<BookEntity> = emptyList(),
-    private val booksById: Map<String, BookEntity> = emptyMap(),
-) : BookDao {
-    override suspend fun getAllLive(): List<BookEntity> = allBooks
-
-    override suspend fun getById(id: BookId): BookEntity? = booksById[id.value]
-
-    override suspend fun upsert(book: BookEntity) = Unit
-
-    override suspend fun upsertAll(books: List<BookEntity>) = Unit
-
-    override suspend fun count(): Int = allBooks.size
-
-    override fun observeAllWithContributors(): Flow<List<BookWithContributors>> = flowOf(emptyList())
-
-    override suspend fun getByIdWithContributors(id: BookId): BookWithContributors? = null
-
-    override fun observeByIdWithContributors(id: BookId): Flow<BookWithContributors?> = flowOf(null)
-
-    override suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors> = emptyList()
-
-    override fun observeByIdsWithContributors(ids: List<BookId>): Flow<List<BookWithContributors>> = flowOf(emptyList())
-
-    override suspend fun deleteById(id: BookId) = Unit
-
-    override suspend fun deleteByIds(ids: List<BookId>) = Unit
-
-    override suspend fun deleteAll() = Unit
-
-    override suspend fun updateRevisionAndTimestamp(
-        id: BookId,
-        revision: Long,
-        updatedAt: Timestamp,
-    ) = Unit
-
-    override suspend fun softDelete(
-        id: BookId,
-        deletedAt: Long,
-        revision: Long,
-    ) = Unit
-
-    override suspend fun touchUpdatedAt(
-        id: BookId,
-        timestamp: Timestamp,
-    ) = Unit
-
-    override fun observeBySeriesId(seriesId: String): Flow<List<BookEntity>> = flowOf(emptyList())
-
-    override fun observeBySeriesIdWithContributors(seriesId: String): Flow<List<BookWithContributors>> = flowOf(emptyList())
-
-    override fun observeByContributorAndRole(
-        contributorId: String,
-        role: String,
-    ): Flow<List<BookWithContributors>> = flowOf(emptyList())
-
-    override fun observeRecentlyAdded(limit: Int): Flow<List<BookEntity>> = flowOf(emptyList())
-
-    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<BookEntity>> = flowOf(emptyList())
-
-    override fun observeRecentlyAddedWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
-
-    override fun observeRandomUnstartedBooksWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
-
-    override fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>> = flowOf(emptyList())
-
-    override suspend fun getBookSummary(id: String): BookSummary? = null
-
-    override suspend fun liveIds(): List<String> = allBooks.map { it.id.value }
-
-    override suspend fun tombstoneNotIn(
-        accessibleIds: Collection<String>,
-        now: Long,
-    ) = Unit
-
-    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
-}
-
-private class FakeSeriesDao(
-    private val allSeries: List<SeriesEntity> = emptyList(),
-    private val seriesWithBooksById: Map<String, SeriesWithBooks> = emptyMap(),
-) : SeriesDao {
-    override suspend fun getAll(): List<SeriesEntity> = allSeries
-
-    override suspend fun getByIdWithBooks(id: String): SeriesWithBooks? = seriesWithBooksById[id]
-
-    override suspend fun getById(id: String): SeriesEntity? = allSeries.firstOrNull { it.id.value == id }
-
-    override fun observeAll(): Flow<List<SeriesEntity>> = flowOf(allSeries)
-
-    override fun observeById(id: String): Flow<SeriesEntity?> = flowOf(allSeries.firstOrNull { it.id.value == id })
-
-    override fun observeByBookId(bookId: String): Flow<SeriesEntity?> = flowOf(null)
-
-    override suspend fun getBookIdsForSeries(seriesId: String): List<String> = emptyList()
-
-    override fun observeBookIdsForSeries(seriesId: String): Flow<List<String>> = flowOf(emptyList())
-
-    override suspend fun upsert(series: SeriesEntity) = Unit
-
-    override suspend fun upsertAll(series: List<SeriesEntity>) = Unit
-
-    override suspend fun deleteById(id: String) = Unit
-
-    override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> = flowOf(emptyList())
-
-    override fun observeByIdWithBooks(id: String): Flow<SeriesWithBooks?> = flowOf(null)
-
-    override suspend fun count(): Int = allSeries.size
-
-    override suspend fun deleteAll() = Unit
-
-    override suspend fun softDelete(
-        id: SeriesId,
-        deletedAt: Long,
-        revision: Long,
-    ) = Unit
-
-    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
-}
-
-private class FakeContributorDao(
-    private val allContributors: List<ContributorEntity> = emptyList(),
-    private val bookIdsForContributor: Map<String, List<String>> = emptyMap(),
-    private val contributorsById: Map<String, ContributorEntity> = emptyMap(),
-) : ContributorDao {
-    override suspend fun getAll(): List<ContributorEntity> = allContributors
-
-    override suspend fun getById(id: String): ContributorEntity? = contributorsById[id] ?: allContributors.firstOrNull { it.id.value == id }
-
-    override suspend fun getBookIdsForContributor(contributorId: String): List<String> = bookIdsForContributor[contributorId] ?: emptyList()
-
-    override fun observeAll(): Flow<List<ContributorEntity>> = flowOf(allContributors)
-
-    override fun observeAllWithAliases(): Flow<List<ContributorWithAliases>> = flowOf(emptyList())
-
-    override fun observeByIdWithAliases(id: String): Flow<ContributorWithAliases?> = flowOf(null)
-
-    override suspend fun getByIdWithAliases(id: String): ContributorWithAliases? = null
-
-    override suspend fun upsert(contributor: ContributorEntity) = Unit
-
-    override suspend fun upsertAll(contributors: List<ContributorEntity>) = Unit
-
-    override suspend fun deleteById(id: String) = Unit
-
-    override fun observeByRoleWithCount(role: String): Flow<List<com.calypsan.listenup.client.data.local.db.ContributorWithBookCount>> = flowOf(emptyList())
-
-    override fun observeById(id: String): Flow<ContributorEntity?> = flowOf(null)
-
-    override fun observeRolesWithCountForContributor(contributorId: String): Flow<List<com.calypsan.listenup.client.data.local.db.RoleWithBookCount>> = flowOf(emptyList())
-
-    override suspend fun count(): Int = allContributors.size
-
-    override suspend fun deleteAll() = Unit
-
-    override suspend fun softDelete(
-        id: ContributorId,
-        deletedAt: Long,
-        revision: Long,
-    ) = Unit
-
-    override fun observeByBookId(bookId: String): Flow<List<ContributorEntity>> = flowOf(emptyList())
-
-    override suspend fun getByBookId(bookId: String): List<ContributorEntity> = emptyList()
-
-    override fun observeBookIdsForContributor(contributorId: String): Flow<List<String>> = flowOf(bookIdsForContributor[contributorId] ?: emptyList())
-
-    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
-}
-
-private class FakeDownloadDao(
-    private val downloadsByBookId: Map<String, List<DownloadEntity>> = emptyMap(),
-) : DownloadDao {
-    override suspend fun getForBook(bookId: String): List<DownloadEntity> = downloadsByBookId[bookId] ?: emptyList()
-
-    override fun observeForBook(bookId: String): Flow<List<DownloadEntity>> = flowOf(emptyList())
-
-    override fun observeAll(): Flow<List<DownloadEntity>> = flowOf(emptyList())
-
-    override suspend fun getByAudioFileId(audioFileId: String): DownloadEntity? = null
-
-    override suspend fun getIncomplete(): List<DownloadEntity> = emptyList()
-
-    override suspend fun getLocalPath(audioFileId: String): String? = null
-
-    override suspend fun insert(download: DownloadEntity) = Unit
-
-    override suspend fun insertAll(downloads: List<DownloadEntity>) = Unit
-
-    override suspend fun updateState(
-        audioFileId: String,
-        state: DownloadState,
-        startedAt: Long?,
-    ) = Unit
-
-    override suspend fun updateStateForBookExcluding(
-        bookId: String,
-        newState: DownloadState,
-        excludeState: DownloadState,
-    ) = Unit
-
-    override suspend fun updateProgress(
-        audioFileId: String,
-        downloaded: Long,
-        total: Long,
-    ) = Unit
-
-    override suspend fun markCompletedWithState(
-        audioFileId: String,
-        localPath: String,
-        completedAt: Long,
-        state: DownloadState,
-    ) = Unit
-
-    override suspend fun updateErrorWithState(
-        audioFileId: String,
-        error: String,
-        state: DownloadState,
-    ) = Unit
-
-    override suspend fun markDeletedForBook(bookId: String) = Unit
-
-    override suspend fun hasDeletedRecords(bookId: String): Boolean = false
-
-    override suspend fun deleteForBook(bookId: String) = Unit
-
-    override suspend fun deleteAll() = Unit
 }
 
 /** [ImageStorage] fake that reports no cover exists for any book. */
