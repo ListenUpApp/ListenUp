@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
@@ -137,6 +138,15 @@ internal fun Route.bookRoutes(
     put<BookResources.Contributors> { res ->
         val contributors = call.receive<List<BookContributorInput>>()
         when (val result = bookService.setBookContributors(res.id, contributors)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<BookResources.Chapters> { res ->
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        val chapters = call.receive<List<ChapterInput>>()
+        when (val result = (bookService as BookServiceImpl).copyWith(PrincipalProvider { p }).setBookChapters(res.id, chapters)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
