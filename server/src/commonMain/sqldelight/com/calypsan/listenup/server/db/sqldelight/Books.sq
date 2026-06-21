@@ -200,6 +200,12 @@ UPDATE books SET revision = :revision, updated_at = :updated_at WHERE id = :id;
 updateTotalDuration:
 UPDATE books SET total_duration = :total_duration WHERE id = :id;
 
+-- Sets chapter_source only — written by writePayload after replaceChapters so the
+-- provenance enum persists with every aggregate upsert (insert and update paths both
+-- land here via BookRepository.writePayload).
+updateChapterSource:
+UPDATE books SET chapter_source = :chapter_source WHERE id = :id;
+
 -- Rows affected by the most recent statement on this connection — lets the repo
 -- distinguish a 0-row update (NotFound) from a successful one.
 changes:

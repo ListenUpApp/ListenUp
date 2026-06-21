@@ -343,6 +343,7 @@ class BookRepository(
         bookAggregateWriter.replaceContributors(value.id, value.contributors)
         bookAggregateWriter.replaceSeries(value.id, value.series)
         bookAggregateWriter.replaceChapters(value.id, value.chapters)
+        db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
         bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         upsertFtsRow(value)
     }
