@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * Activities are stored locally for offline-first display.
  */
 @Dao
-interface ActivityDao {
+internal interface ActivityDao {
     /**
      * Observe all activities ordered by occurrence time (newest first).
      * Used for the Activity Feed section on Discover screen.
@@ -162,7 +162,7 @@ interface ActivityDao {
  * Projection for leaderboard user stats aggregation.
  * Maps to Room query result columns.
  */
-data class UserLeaderboardStats(
+internal data class UserLeaderboardStats(
     val userId: String,
     val displayName: String,
     val avatarColor: String,
@@ -176,7 +176,7 @@ data class UserLeaderboardStats(
  * Projection for community aggregate stats.
  * Maps to Room query result columns.
  */
-data class CommunityStatsProjection(
+internal data class CommunityStatsProjection(
     val totalTimeMs: Long,
     val totalBooks: Int,
     val activeUsers: Int,

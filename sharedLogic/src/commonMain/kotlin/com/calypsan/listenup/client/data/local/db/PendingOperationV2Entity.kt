@@ -20,7 +20,7 @@ import androidx.room.PrimaryKey
         Index(value = ["ownerUserId"]),
     ],
 )
-data class PendingOperationV2Entity(
+internal data class PendingOperationV2Entity(
     @PrimaryKey val clientOpId: String,
     val domainName: String,
     val entityId: String,

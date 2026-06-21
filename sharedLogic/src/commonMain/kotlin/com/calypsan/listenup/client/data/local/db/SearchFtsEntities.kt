@@ -28,7 +28,7 @@ package com.calypsan.listenup.client.data.local.db
  * Denormalizes author/narrator names from the cross-reference table
  * into the FTS index for efficient search.
  */
-data class BookFtsEntry(
+internal data class BookFtsEntry(
     val bookId: String,
     val title: String,
     val subtitle: String?,
@@ -42,7 +42,7 @@ data class BookFtsEntry(
 /**
  * FTS5 entry for contributor full-text search.
  */
-data class ContributorFtsEntry(
+internal data class ContributorFtsEntry(
     val contributorId: String,
     val name: String,
     val description: String?,
@@ -51,7 +51,7 @@ data class ContributorFtsEntry(
 /**
  * FTS5 entry for series full-text search.
  */
-data class SeriesFtsEntry(
+internal data class SeriesFtsEntry(
     val seriesId: String,
     val name: String,
     val description: String?,

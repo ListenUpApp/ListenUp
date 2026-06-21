@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * Uses Upsert for convenience (insert or update if exists).
  */
 @Dao
-interface UserDao {
+internal interface UserDao {
     /**
      * Insert or update a user.
      * If a user with the same ID exists, it will be updated.

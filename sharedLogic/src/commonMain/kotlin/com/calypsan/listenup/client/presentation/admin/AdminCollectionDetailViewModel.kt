@@ -38,7 +38,7 @@ private val logger = KotlinLogging.logger {}
  * "Available users to share with" is fetched on demand from [AdminRepository] and
  * filtered against the already-shared recipients and the current user.
  */
-class AdminCollectionDetailViewModel(
+class AdminCollectionDetailViewModel internal constructor(
     private val collectionId: String,
     private val collectionRepository: CollectionRepository,
     private val adminRepository: AdminRepository,

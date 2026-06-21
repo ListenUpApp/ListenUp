@@ -69,7 +69,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
 )
 @ConstructedBy(ListenUpDatabaseConstructor::class)
 @Suppress("TooManyFunctions")
-abstract class ListenUpDatabase : RoomDatabase() {
+internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
 
     abstract fun userProfileDao(): UserProfileDao

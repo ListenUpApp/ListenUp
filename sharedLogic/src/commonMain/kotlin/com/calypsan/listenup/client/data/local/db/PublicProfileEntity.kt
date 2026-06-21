@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
  * public-profile sync handler for catch-up and SSE event application.
  */
 @Entity(tableName = "public_profiles")
-data class PublicProfileEntity(
+internal data class PublicProfileEntity(
     /** Primary key — equals the user's ID. */
     @PrimaryKey val id: String,
     /** User-visible display name. */
@@ -53,7 +53,7 @@ data class PublicProfileEntity(
  * This DAO is write-only from the sync layer — the client never originates changes.
  */
 @Dao
-interface PublicProfileDao {
+internal interface PublicProfileDao {
     /**
      * Observe all live public profiles (tombstoned rows excluded).
      *

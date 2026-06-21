@@ -28,7 +28,7 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("libraryId")],
 )
-data class LibraryFolderEntity(
+internal data class LibraryFolderEntity(
     @PrimaryKey val id: String,
     /** Parent library identifier. Foreign key to [LibraryEntity.id]. */
     val libraryId: String,

@@ -15,7 +15,7 @@ import dev.mokkery.mock
  * Pair with `verifySuspend(VerifyMode.exactly(1)) { runner.atomically(any<suspend () -> Any>()) }`
  * in the test body to assert the transaction wrapper was used.
  */
-fun passThroughTransactionRunner(): TransactionRunner =
+internal fun passThroughTransactionRunner(): TransactionRunner =
     mock<TransactionRunner> {
         everySuspend { atomically(any<suspend () -> Any>()) } calls { args ->
             @Suppress("UNCHECKED_CAST")

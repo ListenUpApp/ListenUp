@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
  * Genres are system-defined hierarchical categories.
  */
 @Dao
-interface GenreDao {
+internal interface GenreDao {
     // ========== Genre Entity Operations ==========
 
     /**
@@ -304,7 +304,7 @@ interface GenreDao {
  * Projection used by [GenreDao.getGenresForBooks] to join the `book_genres`
  * junction against `genres` and return one flat row per (book, genre) pair.
  */
-data class BookGenreNamePair(
+internal data class BookGenreNamePair(
     val bookId: String,
     val genreName: String,
 )
@@ -316,7 +316,7 @@ data class BookGenreNamePair(
  * maintains genre IDs via [GenreEntity]. This projection is the minimal shape
  * Sync domain handlers need to build [BookGenreCrossRef] rows.
  */
-data class GenreIdName(
+internal data class GenreIdName(
     val id: String,
     val name: String,
 )
@@ -326,7 +326,7 @@ data class GenreIdName(
  * row plus its current live-junction count. Embedding keeps the SQL column
  * names aligned with [GenreEntity] without a manual mapping.
  */
-data class GenreWithBookCount(
+internal data class GenreWithBookCount(
     @androidx.room.Embedded val genre: GenreEntity,
     val bookCount: Int,
 )

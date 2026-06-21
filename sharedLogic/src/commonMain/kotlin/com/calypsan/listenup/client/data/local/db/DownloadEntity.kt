@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
     tableName = "downloads",
     indices = [Index(value = ["bookId"])],
 )
-data class DownloadEntity(
+internal data class DownloadEntity(
     @PrimaryKey
     val audioFileId: String,
     val bookId: String,

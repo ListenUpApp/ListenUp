@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
  * Mirrors [TagDao] — moods share the tag stack's shape and sync discipline.
  */
 @Dao
-interface MoodDao {
+internal interface MoodDao {
     /**
      * Insert or update a mood entity. Replaces on conflict using the primary key.
      */
@@ -103,7 +103,7 @@ interface MoodDao {
  * Mirrors [BookTagDao].
  */
 @Dao
-interface BookMoodDao {
+internal interface BookMoodDao {
     /**
      * Insert or update a junction row. Replaces on conflict using the composite primary key.
      */

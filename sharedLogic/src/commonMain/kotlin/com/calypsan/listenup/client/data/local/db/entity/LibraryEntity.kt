@@ -18,7 +18,7 @@ import androidx.room.PrimaryKey
  * they are present today but not enforced client-side.
  */
 @Entity(tableName = "libraries")
-data class LibraryEntity(
+internal data class LibraryEntity(
     @PrimaryKey val id: String,
     val name: String,
     /** Comma-separated source list governing metadata precedence (e.g. `"embedded,abs,sidecar"`). */

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
  * Position is sacred: saves immediately, syncs eventually.
  */
 @Dao
-interface PlaybackPositionDao {
+internal interface PlaybackPositionDao {
     /**
      * Get the saved position for a book.
      *

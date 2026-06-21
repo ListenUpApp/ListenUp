@@ -38,7 +38,7 @@ import com.calypsan.listenup.core.BookId
     ],
     indices = [Index(value = ["bookId"])],
 )
-data class AudioFileEntity(
+internal data class AudioFileEntity(
     val bookId: BookId,
     val index: Int,
     val id: String,

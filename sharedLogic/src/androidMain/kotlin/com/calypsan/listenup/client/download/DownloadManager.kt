@@ -43,7 +43,7 @@ private val logger = KotlinLogging.logger {}
  * - Respects network constraints (WiFi-only when enabled)
  * - Allows cancellation via unique work names
  */
-class DownloadManager(
+class DownloadManager internal constructor(
     private val downloadDao: DownloadDao,
     private val bookDao: BookDao,
     private val audioFileDao: AudioFileDao,

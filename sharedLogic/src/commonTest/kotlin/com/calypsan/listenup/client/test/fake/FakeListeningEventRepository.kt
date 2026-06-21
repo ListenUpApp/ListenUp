@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.map
  * [queueCount] is exposed for tests that care about how many events were queued
  * without examining the emitted flows.
  */
-class FakeListeningEventRepository(
+internal class FakeListeningEventRepository(
     initialEvents: List<ListeningEventEntity> = emptyList(),
 ) : ListeningEventRepository {
     private val events = MutableStateFlow(initialEvents)

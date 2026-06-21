@@ -15,7 +15,7 @@ import androidx.room.useWriterConnection
  * is SQLite's single serialisation point; holding it longer than necessary stalls every
  * other pending write in the app.
  */
-interface TransactionRunner {
+internal interface TransactionRunner {
     suspend fun <R> atomically(block: suspend () -> R): R
 }
 
@@ -26,7 +26,7 @@ interface TransactionRunner {
  * block detect the held transaction and become savepoint-scoped nested transactions, so
  * Room's invalidation tracker fires correctly when the outer block commits.
  */
-class RoomTransactionRunner(
+internal class RoomTransactionRunner(
     private val database: ListenUpDatabase,
 ) : TransactionRunner {
     override suspend fun <R> atomically(block: suspend () -> R): R =

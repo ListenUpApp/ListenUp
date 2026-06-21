@@ -4,10 +4,8 @@ import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.DesktopBookDetailPlatformActions
-import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
-import com.calypsan.listenup.client.download.JvmDownloadEnqueuer
 import com.calypsan.listenup.client.platform.DesktopAudioTokenProvider
 import com.calypsan.listenup.client.platform.StubBackgroundSyncScheduler
 import com.calypsan.listenup.client.platform.StubDownloadService
@@ -95,8 +93,8 @@ val platformModule: Module =
         // Download service (stub)
         single<DownloadService> { StubDownloadService() }
 
-        // DownloadEnqueuer seam — Desktop no-op (downloads not supported)
-        single<DownloadEnqueuer> { JvmDownloadEnqueuer() }
+        // DownloadEnqueuer seam (Desktop no-op) is bound in `:sharedLogic`'s
+        // `desktopDownloadModule` so the now-`internal` `DownloadEntity` need not be public.
 
         // Progress tracker
         single {

@@ -28,7 +28,7 @@ import kotlinx.coroutines.Dispatchers
  *
  * Source: Room KMP testing guide — https://developer.android.com/kotlin/multiplatform/room.
  */
-fun createInMemoryTestDatabase(queryContext: CoroutineContext = Dispatchers.IO): ListenUpDatabase =
+internal fun createInMemoryTestDatabase(queryContext: CoroutineContext = Dispatchers.IO): ListenUpDatabase =
     Room
         .inMemoryDatabaseBuilder<ListenUpDatabase>()
         .setDriver(BundledSQLiteDriver())

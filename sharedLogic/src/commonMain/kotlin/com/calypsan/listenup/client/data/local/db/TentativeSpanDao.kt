@@ -16,7 +16,7 @@ import androidx.room.Upsert
  * This table is **not synced** to the server.
  */
 @Dao
-interface TentativeSpanDao {
+internal interface TentativeSpanDao {
     /**
      * Get the current open span, or null if no span is in progress.
      */

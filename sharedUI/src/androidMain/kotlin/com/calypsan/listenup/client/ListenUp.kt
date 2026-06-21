@@ -20,16 +20,12 @@ import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import com.calypsan.listenup.client.di.androidDownloadModule
 import com.calypsan.listenup.client.di.androidPlaybackModule
 import com.calypsan.listenup.client.di.playbackPresentationModule
 import com.calypsan.listenup.client.di.sharedModules
-import com.calypsan.listenup.client.download.AndroidDownloadEnqueuer
-import com.calypsan.listenup.client.download.DownloadEnqueuer
-import com.calypsan.listenup.client.download.DownloadFileManager
-import com.calypsan.listenup.client.download.DownloadManager
 import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
-import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
@@ -246,41 +242,13 @@ val playbackModule =
     }
 
 /**
- * Download module for offline audiobook downloads.
- * Contains download management and file storage components.
+ * UI-facing download wiring. The DB-touching bindings (`DownloadFileManager`,
+ * `DownloadManager`, `AndroidDownloadEnqueuer`) live in `:sharedLogic`'s
+ * [androidDownloadModule] so they can construct against the `internal` Room DAOs;
+ * this module keeps only the `:sharedUI`-coupled platform-actions binding.
  */
 val downloadModule =
     module {
-        // Download file manager - handles local file operations
-        single { DownloadFileManager(androidContext()) }
-
-        // Download manager - coordinates download queue and state
-        // Bound to DownloadService interface for shared code (PlaybackManager)
-        // Uses localPreferences for WiFi-only download constraint
-        single<DownloadService> {
-            DownloadManager(
-                downloadDao = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                workManager = WorkManager.getInstance(androidContext()),
-                fileManager = get(),
-                localPreferences = get<com.calypsan.listenup.client.domain.repository.LocalPreferences>(),
-                downloadRepository = get(),
-                transactionRunner = get(),
-            )
-        }
-
-        // Also expose the concrete type for Android-specific features
-        single { get<DownloadService>() as DownloadManager }
-
-        // DownloadEnqueuer seam — Android backend for DownloadRepository.resumeIncompleteDownloads
-        single<DownloadEnqueuer> {
-            AndroidDownloadEnqueuer(
-                workManager = WorkManager.getInstance(androidContext()),
-                localPreferences = get(),
-            )
-        }
-
         // Platform actions for BookDetailScreen (download + playback integration)
         single<BookDetailPlatformActions> {
             AndroidBookDetailPlatformActions(
@@ -319,7 +287,7 @@ class ListenUp :
             // Load all shared and Android-specific modules
             modules(
                 sharedModules + androidModule + playbackModule + androidPlaybackModule + playbackPresentationModule +
-                    downloadModule,
+                    androidDownloadModule + downloadModule,
             )
         }
 

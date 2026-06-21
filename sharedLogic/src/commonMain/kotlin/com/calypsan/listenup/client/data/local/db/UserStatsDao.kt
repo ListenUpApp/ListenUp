@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * sync domain. The primary key is the user ID (`id`).
  */
 @Dao
-interface UserStatsDao {
+internal interface UserStatsDao {
     /**
      * Observe all cached user stats (live rows only), ordered by all-time seconds descending.
      *

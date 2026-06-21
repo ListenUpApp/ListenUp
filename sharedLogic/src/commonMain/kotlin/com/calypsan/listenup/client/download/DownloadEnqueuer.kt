@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
  * Used by [com.calypsan.listenup.client.domain.repository.DownloadRepository.resumeIncompleteDownloads]
  * to re-enqueue workers for downloads interrupted before completion.
  */
-interface DownloadEnqueuer {
+internal interface DownloadEnqueuer {
     /**
      * Enqueue a single audio-file download with `ExistingWorkPolicy.REPLACE` semantics.
      * Returns [AppResult.Success] on success; [AppResult.Failure] if the platform doesn't support

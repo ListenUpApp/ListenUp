@@ -9,7 +9,7 @@ import androidx.room.Upsert
  * [SyncCursorEntity] for the cursor's role in resuming via `Last-Event-Id`.
  */
 @Dao
-interface SyncCursorDao {
+internal interface SyncCursorDao {
     @Query("SELECT revision FROM sync_cursor WHERE domainName = :domainName")
     suspend fun getCursor(domainName: String): Long?
 

@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
  * - SSE profile.updated events
  */
 @Dao
-interface UserProfileDao {
+internal interface UserProfileDao {
     /**
      * Insert or update a user profile.
      */

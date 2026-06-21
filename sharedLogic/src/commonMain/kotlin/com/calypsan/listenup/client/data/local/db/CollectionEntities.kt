@@ -24,7 +24,7 @@ import androidx.room.PrimaryKey
         Index(value = ["deletedAt"]),
     ],
 )
-data class CollectionEntity(
+internal data class CollectionEntity(
     @PrimaryKey val id: String,
     /** The library this collection belongs to. */
     val libraryId: String,
@@ -58,7 +58,7 @@ data class CollectionEntity(
         Index(value = ["deletedAt"]),
     ],
 )
-data class CollectionBookEntity(
+internal data class CollectionBookEntity(
     val collectionId: String,
     val bookId: String,
     /** Epoch millis when this junction row was first created. */
@@ -84,7 +84,7 @@ data class CollectionBookEntity(
         Index(value = ["deletedAt"]),
     ],
 )
-data class CollectionShareEntity(
+internal data class CollectionShareEntity(
     @PrimaryKey val id: String,
     /** The collection that was shared. */
     val collectionId: String,
@@ -108,7 +108,7 @@ data class CollectionShareEntity(
  * names aligned with [CollectionEntity] without a manual mapping (the
  * [GenreWithBookCount] precedent).
  */
-data class CollectionWithBookCount(
+internal data class CollectionWithBookCount(
     @Embedded val collection: CollectionEntity,
     val bookCount: Int,
 )
