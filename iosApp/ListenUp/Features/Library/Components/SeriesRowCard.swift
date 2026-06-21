@@ -4,7 +4,7 @@ import SwiftUI
 /// Standalone series row card for the iPhone Series list: an overlapping cover stack,
 /// name + meta, a progress affordance, and a chevron — its own rounded surface.
 struct SeriesRowCard: View {
-    let series: SeriesWithBooks_
+    let series: SeriesWithBooks
     let progress: SeriesProgressState
 
     private var seriesId: String { series.series.idString }

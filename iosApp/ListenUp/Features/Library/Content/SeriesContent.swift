@@ -11,7 +11,7 @@ import UIKit
 /// - Alphabet scrubber when sorted by name
 /// - Empty state when no series
 struct SeriesContent: View {
-    let seriesList: [SeriesWithBooks_]
+    let seriesList: [SeriesWithBooks]
     let seriesProgress: [String: SeriesProgressState]
     let sortState: SortState?
     let onCategorySelected: (SortCategory) -> Void
@@ -158,7 +158,7 @@ struct SeriesContent: View {
 
     // MARK: - Helpers
 
-    private func progressFor(seriesId: String, series: SeriesWithBooks_) -> SeriesProgressState {
+    private func progressFor(seriesId: String, series: SeriesWithBooks) -> SeriesProgressState {
         seriesProgress[seriesId] ?? SeriesProgressState(finishedCount: 0, totalCount: Int(series.books.count))
     }
 

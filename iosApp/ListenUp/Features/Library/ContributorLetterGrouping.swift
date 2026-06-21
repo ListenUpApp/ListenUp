@@ -14,7 +14,7 @@ enum ContributorLetterGrouping {
     /// One rendered group: the header letter and its contributors, input order preserved.
     struct Group: Equatable {
         let letter: String
-        let items: [ContributorWithBookCount_]
+        let items: [ContributorWithBookCount]
     }
 
     /// Buckets keys by their uppercased first letter (A–Z); anything else → "#".
@@ -31,7 +31,7 @@ enum ContributorLetterGrouping {
     }
 
     /// Groups `items` by `key(item)` into letter sections.
-    static func group(_ items: [ContributorWithBookCount_], key: (ContributorWithBookCount_) -> String) -> [Group] {
+    static func group(_ items: [ContributorWithBookCount], key: (ContributorWithBookCount) -> String) -> [Group] {
         let buckets = letterBuckets(items.map(key))
         return buckets.map { bucket in
             Group(letter: bucket.letter, items: bucket.indices.map { items[$0] })

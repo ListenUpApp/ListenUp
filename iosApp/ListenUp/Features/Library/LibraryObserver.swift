@@ -11,12 +11,12 @@ final class LibraryObserver {
     private(set) var books: [BookListItem] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var booksSortState: SortState?
-    private(set) var series: [SeriesWithBooks_] = []
+    private(set) var series: [SeriesWithBooks] = []
     private(set) var seriesProgress: [String: SeriesProgressState] = [:]
     private(set) var seriesSortState: SortState?
-    private(set) var authors: [ContributorWithBookCount_] = []
+    private(set) var authors: [ContributorWithBookCount] = []
     private(set) var authorsSortState: SortState?
-    private(set) var narrators: [ContributorWithBookCount_] = []
+    private(set) var narrators: [ContributorWithBookCount] = []
     private(set) var narratorsSortState: SortState?
     private(set) var isLoading: Bool = true
     private(set) var isEmpty: Bool = false

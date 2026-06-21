@@ -4,7 +4,7 @@ import SwiftUI
 /// Compact series card for the contributor "Series" grid: an overlapping cover stack,
 /// the series name, and a book count, on a rounded surface. Navigates to the series.
 struct SeriesMiniCard: View {
-    let series: SeriesWithBooks_
+    let series: SeriesWithBooks
 
     private var seriesId: String { series.series.idString }
     private var books: [BookListItem] { Array(series.books) }

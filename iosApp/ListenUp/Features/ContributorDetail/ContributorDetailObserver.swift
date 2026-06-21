@@ -15,7 +15,7 @@ final class ContributorDetailObserver {
     private(set) var roleSections: [RoleSection] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
-    private(set) var series: [SeriesWithBooks_] = []
+    private(set) var series: [SeriesWithBooks] = []
     private(set) var totalDuration: String = ""
     private(set) var bookCount: Int = 0
     private(set) var roles: [RoleChip.Kind] = []
