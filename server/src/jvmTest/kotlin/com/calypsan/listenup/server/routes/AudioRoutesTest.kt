@@ -25,7 +25,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
-import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -86,8 +86,8 @@ class AudioRoutesTest :
                     // b1 lives in ALL_BOOKS — the public substrate. The seeded member holds a grant
                     // on it, so under pure union it is reachable. (A directly-seeded user does not
                     // go through the auth flow, so we issue the ALL_BOOKS grant explicitly.)
-                    val db by application.inject<Database>()
-                    db.seedTestUser("user1")
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("user1")
                     val collectionService by application.inject<CollectionServiceImpl>()
                     val allBooks =
                         (
@@ -133,8 +133,8 @@ class AudioRoutesTest :
 
                     // b1 is reachable the simplest pure-union way: a collection user1 owns
                     // (the owner branch needs no ALL_BOOKS grant).
-                    val db by application.inject<Database>()
-                    db.seedTestUser("user1")
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("user1")
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
                     collectionRepo.upsert(privateCollection("owned-col", owner = "user1"))
@@ -243,8 +243,8 @@ class AudioRoutesTest :
 
                     // Lock b1 into a private collection owned by a stranger, then seed an
                     // unrelated member who therefore can't reach it.
-                    val db by application.inject<Database>()
-                    db.seedTestUser("member")
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("member")
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
                     collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
@@ -281,8 +281,8 @@ class AudioRoutesTest :
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
                     // The member owns the collection b1 lives in, so it is reachable.
-                    val db by application.inject<Database>()
-                    db.seedTestUser("member")
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("member")
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
                     collectionRepo.upsert(privateCollection("owned-col", owner = "member"))
@@ -321,8 +321,8 @@ class AudioRoutesTest :
 
                     // b1 is private to a stranger; the admin has no relationship to it
                     // but ADMIN bypasses the filter entirely.
-                    val db by application.inject<Database>()
-                    db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
                     collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
@@ -360,8 +360,8 @@ class AudioRoutesTest :
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
                     // b1 is reachable via a collection user1 owns (owner branch, no grant).
-                    val db by application.inject<Database>()
-                    db.seedTestUser("user1")
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("user1")
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
                     collectionRepo.upsert(privateCollection("owned-col", owner = "user1"))

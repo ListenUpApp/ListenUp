@@ -19,7 +19,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Exercises the V13/V14 backfill against **pre-existing rows** — the case no
- * other migration test covers, because [withInMemoryDatabase] always runs the
+ * other migration test covers, because [withSqlDatabase] always runs the
  * full migration chain on an empty database.
  *
  * The setup partially migrates a fresh database to V12 (the schema state before
