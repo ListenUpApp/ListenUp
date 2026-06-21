@@ -10,7 +10,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -47,19 +46,19 @@ class RestoreOrchestratorTest :
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     // Seed row A before backup
-                    transaction(fixture.handle.database) {
-                        exec("CREATE TABLE IF NOT EXISTS restore_test(v TEXT)")
-                        exec("INSERT INTO restore_test(v) VALUES ('row-A')")
-                    }
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS restore_test(v TEXT)",
+                        "INSERT INTO restore_test(v) VALUES ('row-A')",
+                    )
 
                     val archivePath = fixture.archive.create("rt1", includeImages = false, onEvent = {})
                     val backupId = BackupId("rt1")
 
                     // Mutate to row B after backup
-                    transaction(fixture.handle.database) {
-                        exec("DELETE FROM restore_test")
-                        exec("INSERT INTO restore_test(v) VALUES ('row-B')")
-                    }
+                    fixture.handle.execSql(
+                        "DELETE FROM restore_test",
+                        "INSERT INTO restore_test(v) VALUES ('row-B')",
+                    )
 
                     val orchestrator = buildOrchestrator(fixture)
                     val result = orchestrator.restore(backupId)
@@ -69,13 +68,7 @@ class RestoreOrchestratorTest :
                     result.data.includedImages shouldBe false
 
                     // row A is back, row B is gone
-                    transaction(fixture.handle.database) {
-                        val v =
-                            exec("SELECT v FROM restore_test") { rs ->
-                                if (rs.next()) rs.getString(1) else null
-                            }
-                        v shouldBe "row-A"
-                    }
+                    fixture.handle.queryScalarString("SELECT v FROM restore_test") shouldBe "row-A"
                 }
             }
         }
@@ -84,10 +77,10 @@ class RestoreOrchestratorTest :
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     // Seed row B in the live db — this must survive the failed restore
-                    transaction(fixture.handle.database) {
-                        exec("CREATE TABLE IF NOT EXISTS rollback_test(v TEXT)")
-                        exec("INSERT INTO rollback_test(v) VALUES ('row-B')")
-                    }
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS rollback_test(v TEXT)",
+                        "INSERT INTO rollback_test(v) VALUES ('row-B')",
+                    )
 
                     // Build a MALICIOUS archive by hand:
                     // - listenup.db entry = garbage bytes (not a real SQLite file)
@@ -133,15 +126,9 @@ class RestoreOrchestratorTest :
                     // Gate must be dropped
                     maintenance.isActive shouldBe false
 
-                    // Pool must be resumed: a normal DB query must work
-                    transaction(fixture.handle.database) {
-                        val v =
-                            exec("SELECT v FROM rollback_test") { rs ->
-                                if (rs.next()) rs.getString(1) else null
-                            }
-                        // row B is still there (rollback restored original db)
-                        v shouldBe "row-B"
-                    }
+                    // Connections must be resumed: a normal DB query must work, and row B is still there
+                    // (rollback restored the original db).
+                    fixture.handle.queryScalarString("SELECT v FROM rollback_test") shouldBe "row-B"
                 }
             }
         }
@@ -171,9 +158,7 @@ class RestoreOrchestratorTest :
                     maintenance.isActive shouldBe false
 
                     // A normal db query works fine
-                    transaction(fixture.handle.database) {
-                        exec("SELECT 1") { rs -> rs.next() }
-                    }
+                    fixture.handle.execSql("SELECT 1")
                 }
             }
         }
@@ -238,25 +223,21 @@ class RestoreOrchestratorTest :
         test("repeated restores are deterministic: pre-backup row present every time") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
-                    transaction(fixture.handle.database) {
-                        exec("CREATE TABLE IF NOT EXISTS loop_test(v TEXT)")
-                        exec("INSERT INTO loop_test(v) VALUES ('row-A')")
-                    }
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS loop_test(v TEXT)",
+                        "INSERT INTO loop_test(v) VALUES ('row-A')",
+                    )
                     fixture.archive.create("loop1", includeImages = false, onEvent = {})
                     val orchestrator = buildOrchestrator(fixture)
 
                     repeat(10) { i ->
-                        transaction(fixture.handle.database) {
-                            exec("DELETE FROM loop_test")
-                            exec("INSERT INTO loop_test(v) VALUES ('row-B-$i')")
-                        }
+                        fixture.handle.execSql(
+                            "DELETE FROM loop_test",
+                            "INSERT INTO loop_test(v) VALUES ('row-B-$i')",
+                        )
                         val result = orchestrator.restore(BackupId("loop1"))
                         result.shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
-                        val v =
-                            transaction(fixture.handle.database) {
-                                exec("SELECT v FROM loop_test") { rs -> if (rs.next()) rs.getString(1) else null }
-                            }
-                        v shouldBe "row-A"
+                        fixture.handle.queryScalarString("SELECT v FROM loop_test") shouldBe "row-A"
                     }
                 }
             }
@@ -265,27 +246,23 @@ class RestoreOrchestratorTest :
         test("a connection used before restore does not leak stale data afterward") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
-                    transaction(fixture.handle.database) {
-                        exec("CREATE TABLE IF NOT EXISTS stale_test(v TEXT)")
-                        exec("INSERT INTO stale_test(v) VALUES ('row-A')")
-                    }
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS stale_test(v TEXT)",
+                        "INSERT INTO stale_test(v) VALUES ('row-A')",
+                    )
                     fixture.archive.create("stale1", includeImages = false, onEvent = {})
-                    transaction(fixture.handle.database) {
-                        exec("DELETE FROM stale_test")
-                        exec("INSERT INTO stale_test(v) VALUES ('row-B')")
-                    }
-                    // Touch the pool right before restore so a physical connection exists in it.
-                    transaction(fixture.handle.database) { exec("SELECT 1") }
+                    fixture.handle.execSql(
+                        "DELETE FROM stale_test",
+                        "INSERT INTO stale_test(v) VALUES ('row-B')",
+                    )
+                    // Touch the db right before restore so a physical connection has been opened.
+                    fixture.handle.execSql("SELECT 1")
 
                     buildOrchestrator(fixture)
                         .restore(BackupId("stale1"))
                         .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
 
-                    val v =
-                        transaction(fixture.handle.database) {
-                            exec("SELECT v FROM stale_test") { rs -> if (rs.next()) rs.getString(1) else null }
-                        }
-                    v shouldBe "row-A"
+                    fixture.handle.queryScalarString("SELECT v FROM stale_test") shouldBe "row-A"
                 }
             }
         }

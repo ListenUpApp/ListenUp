@@ -8,10 +8,8 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.FunSpec
 import io.ktor.server.config.MapApplicationConfig
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.test.verify.verify
 import java.nio.file.Files
 import java.nio.file.Path
@@ -40,9 +38,9 @@ class AuthModuleVerifyTest :
             // same way. ChangeBus whitelisted: AdminUserServiceImpl resolves it from
             // syncModule, a separate module not loaded here. Verify can't introspect
             // closure bodies, so it sees the constructor param's type and asks for a binding.
-            // HikariDataSource, SwappableDataSource, Path, Database, Function0: DatabaseHandle's
-            // constructor takes these directly; they are all constructed inside the factory
-            // closure, not injected from the Koin graph.
+            // SwappableSqlDriver, SwappableDataSource, Path, Function0: DatabaseHandle's constructor
+            // takes these directly; they are all constructed inside the factory closure, not injected
+            // from the Koin graph.
             // LibraryRegistry, LibraryRepository: AdminSettingsServiceImpl deps resolved from
             // booksModule/libraryModule, both loaded at application startup but absent here.
             authModule(config).verify(
@@ -51,12 +49,10 @@ class AuthModuleVerifyTest :
                         ByteArray::class,
                         RegistrationPolicy::class,
                         ChangeBus::class,
-                        HikariDataSource::class,
                         SwappableDataSource::class,
                         SwappableSqlDriver::class,
                         Function0::class,
                         Path::class,
-                        Database::class,
                         LibraryRegistry::class,
                         LibraryRepository::class,
                         // DefaultAllBooksGrantIssuer deps resolved from syncModule/booksModule

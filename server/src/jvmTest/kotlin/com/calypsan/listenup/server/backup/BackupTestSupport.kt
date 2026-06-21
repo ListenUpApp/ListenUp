@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.backup
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.DatabaseHandle
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -43,13 +42,15 @@ fun backupTestFixture(
 
     val handle =
         DatabaseFactory.init(
-            DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile", maxPoolSize = 4),
+            DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile"),
         )
 
-    // Seed a dummy row so the db isn't empty
-    transaction(handle.database) {
-        exec("CREATE TABLE IF NOT EXISTS dummy_seed(id INTEGER PRIMARY KEY, v TEXT)")
-        exec("INSERT INTO dummy_seed(v) VALUES ('seed')")
+    // Seed a dummy row so the db isn't empty (raw JDBC; autoCommit connection from the non-pooled source).
+    handle.dataSourceForTest().connection.use { conn ->
+        conn.createStatement().use { stmt ->
+            stmt.execute("CREATE TABLE IF NOT EXISTS dummy_seed(id INTEGER PRIMARY KEY, v TEXT)")
+            stmt.execute("INSERT INTO dummy_seed(v) VALUES ('seed')")
+        }
     }
 
     val paths = BackupPaths(resolvedHomeDir)
@@ -72,6 +73,32 @@ fun backupTestFixture(
 
     return BackupTestFixture(resolvedHomeDir, handle, paths, archive)
 }
+
+/**
+ * Runs raw DDL/DML [statements] on the handle's data source over a single auto-commit JDBC connection.
+ * Test seeding/mutation helper — the SQLDelight-free replacement for `transaction(handle.database) { exec … }`.
+ */
+fun DatabaseHandle.execSql(vararg statements: String) {
+    dataSourceForTest().connection.use { conn ->
+        conn.createStatement().use { stmt -> statements.forEach { stmt.execute(it) } }
+    }
+}
+
+/** Runs a scalar-int [sql] query (e.g. `SELECT count(*) …`) on the handle's data source; 0 if no row. */
+fun DatabaseHandle.queryScalarInt(sql: String): Int =
+    dataSourceForTest().connection.use { conn ->
+        conn.createStatement().use { stmt ->
+            stmt.executeQuery(sql).use { rs -> if (rs.next()) rs.getInt(1) else 0 }
+        }
+    }
+
+/** Runs a scalar-string [sql] query (first column of the first row) on the handle's data source; null if no row. */
+fun DatabaseHandle.queryScalarString(sql: String): String? =
+    dataSourceForTest().connection.use { conn ->
+        conn.createStatement().use { stmt ->
+            stmt.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null }
+        }
+    }
 
 /**
  * Rewrites [archive] so the `listenup.db` entry's bytes are mutated (one byte

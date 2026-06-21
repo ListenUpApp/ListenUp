@@ -34,7 +34,6 @@ import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.ktor.server.config.ApplicationConfig
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import kotlin.time.Clock
@@ -60,24 +59,16 @@ fun authModule(config: ApplicationConfig): Module {
             )
         }
 
-        single<Database> { get<DatabaseHandle>().database }
-
-        // SQLDelight driver over the SAME migrated db file. Resolving [DatabaseHandle] first
-        // forces [DatabaseFactory.init] (and therefore [MigrationRunner.migrate]) to run before
-        // the driver opens the file, so the schema is already present — the driver never calls
-        // Schema.create. Bound as its own single so the access-filtered raw reads
-        // ([BookAccessPolicy], the access-scoped repos, [SearchServiceImpl]) can execute
-        // engine-neutral SQL through the SAME driver instance that backs [ListenUpDatabase] —
-        // sharing the connection, so a raw query inside a `suspendTransaction(db)` participates
-        // in the open transaction.
-        // The repos' driver IS the restore-swappable one held by DatabaseHandle, so a restore swap
-        // reaches every repository. Resolving DatabaseHandle first forces MigrationRunner.migrate()
-        // before the driver is first used.
+        // The repos' SQLDelight driver IS the restore-swappable one held by DatabaseHandle, so a
+        // restore swap reaches every repository. Resolving DatabaseHandle first forces
+        // MigrationRunner.migrate() before the driver opens the file (the driver never calls
+        // Schema.create). Bound as its own single so the access-filtered raw reads ([BookAccessPolicy],
+        // the access-scoped repos, [SearchServiceImpl]) execute engine-neutral SQL through the SAME
+        // driver instance that backs [ListenUpDatabase] — sharing the connection so a raw query inside
+        // a `suspendTransaction(db)` participates in the open transaction.
         single<SqlDriver> { get<DatabaseHandle>().sqlDriver }
 
-        // SQLDelight twin of the Exposed [Database], built over the shared [SqlDriver] single.
-        // Both singles coexist during the Exposed → SQLDelight cutover; aggregates migrate one
-        // at a time, switching their constructor from [Database] to [ListenUpDatabase].
+        // The SQLDelight database every repository runs on, built over the shared [SqlDriver] single.
         single<ListenUpDatabase> { ListenUpDatabase(get<SqlDriver>()) }
 
         single { PasswordHasher() }

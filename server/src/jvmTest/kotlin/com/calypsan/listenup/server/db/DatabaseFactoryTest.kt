@@ -2,38 +2,31 @@ package com.calypsan.listenup.server.db
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import io.kotest.matchers.shouldNotBe
 import java.nio.file.Files
 
 class DatabaseFactoryTest :
     FunSpec({
-
-        test("pool fails fast on exhaustion and detects connection leaks, not Hikari's 30s default") {
+        test("init runs migrations and yields a working database handle") {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val pool = DatabaseFactory.buildPool(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+            val handle = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
             try {
-                pool.connectionTimeout shouldBe 10_000L
-                pool.leakDetectionThreshold shouldBe 20_000L
-            } finally {
-                pool.close()
-            }
-        }
+                // Migrations ran — the runner tracks a non-null applied schema version.
+                handle.currentSchemaVersion() shouldNotBe null
 
-        test("init runs Flyway migrations and yields a usable Exposed Database") {
-            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val cfg = DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}", username = "", password = "")
-
-            val db = DatabaseFactory.init(cfg).database
-
-            // Migration produced the users and sessions tables.
-            transaction(db) {
+                // The migrated schema includes the users + sessions tables, readable through the data source.
                 val tables =
-                    exec(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')",
-                    ) { rs ->
-                        generateSequence { if (rs.next()) rs.getString(1) else null }.toSet()
-                    } ?: emptySet()
+                    handle.dataSourceForTest().connection.use { conn ->
+                        conn.createStatement().use { stmt ->
+                            stmt
+                                .executeQuery(
+                                    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')",
+                                ).use { rs -> generateSequence { if (rs.next()) rs.getString(1) else null }.toSet() }
+                        }
+                    }
                 tables shouldBe setOf("users", "sessions")
+            } finally {
+                handle.close()
             }
         }
     })
