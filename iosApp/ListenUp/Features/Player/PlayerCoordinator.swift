@@ -357,14 +357,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
     }
 
-    /// Tear down all observation and release the engine.
-    func stop() {
+    /// Tear down all observation and release the engine. `async` so teardown is
+    /// deterministic: the audio session is deactivated and the engine released
+    /// *before* the call returns. The prior fire-and-forget `Task` let `liveActivity.end()`
+    /// run — and the coordinator drop — before teardown completed, so the session could
+    /// outlive the coordinator and the engine leak its observers.
+    func stop() async {
         bridge.cancelAll()
         positionTracker.reset()
-        Task {
-            await engine.deactivateSession()
-            await engine.release()
-        }
+        await engine.deactivateSession()
+        await engine.release()
         liveActivity.end()
     }
 

@@ -14,6 +14,9 @@ actor FakePlaybackEngine: PlaybackEngine {
     private(set) var lastVolume: Float?
     private(set) var didRelease = false
     private(set) var didDeactivateSession = false
+    /// Records teardown calls in the order they arrive, so a test can assert the
+    /// session is deactivated before the engine is released.
+    private(set) var teardownOrder: [String] = []
 
     init() {
         var c: AsyncStream<AudioEngineEvent>.Continuation!
@@ -30,8 +33,8 @@ actor FakePlaybackEngine: PlaybackEngine {
     func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs }
     func setRate(_ newRate: Float) async { lastRate = newRate }
     func setVolume(_ volume: Float) async { lastVolume = volume }
-    func deactivateSession() async { didDeactivateSession = true }
-    func release() async { didRelease = true }
+    func deactivateSession() async { didDeactivateSession = true; teardownOrder.append("deactivate") }
+    func release() async { didRelease = true; teardownOrder.append("release") }
 }
 
 // MARK: - Task 2 seam fakes
