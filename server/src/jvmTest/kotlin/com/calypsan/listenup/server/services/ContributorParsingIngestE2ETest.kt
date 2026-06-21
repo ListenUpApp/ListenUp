@@ -18,14 +18,12 @@ import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * End-to-end proof that a multi-contributor author string survives the full ingest
@@ -42,22 +40,21 @@ class ContributorParsingIngestE2ETest :
     FunSpec({
 
         test("contributor split persists through ingest into two distinct rows") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     val analyzed = analyzedWith(authors = listOf("Stephen King; Joe Hill - Introduction"))
@@ -86,22 +83,21 @@ class ContributorParsingIngestE2ETest :
         // ContributorParser.normalizeLastFirst, then SortKeys.sortName derives "Sanderson, Brandon"
         // for both books. normalizeForDedup produces "sanderson, brandon" in each case → one row.
         test("two books with cross-order author names share one contributor") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     // Book A: display-order name, sortName derived as "Sanderson, Brandon".
@@ -142,22 +138,21 @@ class ContributorParsingIngestE2ETest :
         // them to one junction row rather than attempting two inserts with identical (book_id,
         // contributor_id, role) — which would trigger SQLITE_CONSTRAINT_PRIMARYKEY.
         test("two author names resolving to one contributor collapse to one membership (no PK crash)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     // Two display names that both map to sortName "Sanderson, Brandon" via the
@@ -195,22 +190,21 @@ class ContributorParsingIngestE2ETest :
         // so derivation alone would create two rows. The embedded authorsSort = "Sanderson, Brandon"
         // overrides derivation and bridges it to the same dedup key as Book A.
         test("embedded authorsSort converges a divergent display name to one contributor") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     // Book A: canonical name, derives sortName "Sanderson, Brandon".

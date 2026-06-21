@@ -15,14 +15,12 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * End-to-end proof that a book tagged with multiple series survives the full
@@ -35,22 +33,21 @@ class SeriesParsingIngestE2ETest :
     FunSpec({
 
         test("a book tagged with the same series twice collapses to one membership (no PK crash)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     val analyzed =
@@ -81,22 +78,21 @@ class SeriesParsingIngestE2ETest :
         }
 
         test("a book tagged with two series resolves to two series memberships") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     val analyzed =
