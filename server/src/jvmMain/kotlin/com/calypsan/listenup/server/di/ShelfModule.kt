@@ -23,7 +23,7 @@ import org.koin.dsl.module
  *
  * [ShelfServiceImpl] carries the [unscopedPlaceholder] [PrincipalProvider]; the RPC
  * route binds the authenticated caller per-request via `copyWith`. [BookAccessPolicy]
- * and the [org.jetbrains.exposed.v1.jdbc.Database] are resolved from [syncModule].
+ * and the database are resolved from [syncModule].
  *
  * Exposed as a **function** for the same reason as [syncModule] — each Koin container
  * gets a fresh [Module] so singletons never leak across containers.

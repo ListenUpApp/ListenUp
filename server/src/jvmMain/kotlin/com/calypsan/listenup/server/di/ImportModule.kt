@@ -33,7 +33,7 @@ import java.nio.file.Path
  *  - [MutableSharedFlow]<[ImportEvent]> — process-wide progress event bus.
  *  - [ImportService] / [ImportServiceImpl] — admin-only RPC surface.
  *
- * [org.jetbrains.exposed.v1.jdbc.Database], [com.calypsan.listenup.server.services.LibraryRegistry],
+ * [com.calypsan.listenup.server.db.DatabaseHandle], [com.calypsan.listenup.server.services.LibraryRegistry],
  * [com.calypsan.listenup.server.services.PlaybackPositionRepository],
  * [com.calypsan.listenup.server.services.ListeningEventRepository], and
  * [com.calypsan.listenup.server.services.UserStatsBackfillService] are resolved from the auth, books,

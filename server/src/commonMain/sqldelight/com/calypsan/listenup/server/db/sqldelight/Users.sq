@@ -189,3 +189,8 @@ UPDATE users SET can_edit = :can_edit, can_share = :can_share WHERE id = :id;
 -- Flip avatar_type to 'image' and stamp updated_at after a successful avatar upload (ProfileRoutes).
 updateAvatarType:
 UPDATE users SET avatar_type = :avatar_type, updated_at = :updated_at WHERE id = :id;
+
+-- Count of LIVE (non-tombstoned) users — used by BackupArchive to embed a snapshot
+-- count in the backup manifest (replaces the Exposed `UserTable.selectAll().where { deletedAt.isNull() }.count()`).
+countLive:
+SELECT COUNT(*) FROM users WHERE deleted_at IS NULL;

@@ -9,14 +9,11 @@ import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupPaths
 import com.calypsan.listenup.server.backup.MaintenanceState
 import com.calypsan.listenup.server.backup.RestoreOrchestrator
-import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseHandle
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import kotlinx.coroutines.flow.MutableSharedFlow
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.nio.file.Path
@@ -63,19 +60,17 @@ fun backupModule(
                     get<DatabaseHandle>().currentSchemaVersion() ?: "0"
                 },
                 counts = {
-                    val db = get<DatabaseHandle>().database
-                    suspendTransaction(db) {
+                    val sql = get<ListenUpDatabase>()
+                    suspendTransaction(sql) {
                         val bookCount =
-                            BookTable
-                                .selectAll()
-                                .where { BookTable.deletedAt.isNull() }
-                                .count()
+                            sql.booksQueries
+                                .countLive()
+                                .executeAsOne()
                                 .toInt()
                         val userCount =
-                            UserTable
-                                .selectAll()
-                                .where { UserTable.deletedAt.isNull() }
-                                .count()
+                            sql.usersQueries
+                                .countLive()
+                                .executeAsOne()
                                 .toInt()
                         bookCount to userCount
                     }

@@ -237,3 +237,8 @@ SELECT id, revision FROM books WHERE revision <= :cursor;
 -- positions, listening events, active sessions) to pick the first N demo books.
 selectLiveIdsBySortTitle:
 SELECT id FROM books WHERE deleted_at IS NULL ORDER BY sort_title LIMIT :limit;
+
+-- Count of LIVE (non-tombstoned) books — used by BackupArchive to embed a snapshot
+-- count in the backup manifest (replaces the Exposed `BookTable.selectAll().where { deletedAt.isNull() }.count()`).
+countLive:
+SELECT COUNT(*) FROM books WHERE deleted_at IS NULL;

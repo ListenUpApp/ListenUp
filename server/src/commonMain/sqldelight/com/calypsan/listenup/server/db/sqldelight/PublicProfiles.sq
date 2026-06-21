@@ -83,3 +83,10 @@ SET display_name = :display_name, avatar_type = :avatar_type, tagline = :tagline
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
+
+-- True iff the public_profiles table has no rows. Drives the one-time startup
+-- backfill guard: a non-empty table means the projection was already populated
+-- (subsequent boots skip the full backfill, replacing the Exposed
+-- `PublicProfilesTable.selectAll().limit(1).empty()` check).
+isEmpty:
+SELECT NOT EXISTS(SELECT 1 FROM public_profiles);

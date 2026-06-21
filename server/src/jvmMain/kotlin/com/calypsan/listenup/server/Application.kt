@@ -103,10 +103,11 @@ import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.syncRoutes
-import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
@@ -114,36 +115,30 @@ import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.db.PublicProfilesTable
-import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
-import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.auth.authenticate
+import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.plugins.autohead.AutoHeadResponse
-import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
+import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlin.time.Duration
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserStatusColumn
 import kotlinx.rpc.krpc.ktor.server.Krpc
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
@@ -171,13 +166,13 @@ private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
  * used by the genre-taxonomy seeder in [launchSeeders].
  */
 private fun Application.backfillPublicProfiles() {
-    val db by inject<Database>()
+    val sql by inject<ListenUpDatabase>()
     val maintainer by inject<PublicProfileMaintainer>()
     runBlocking {
         runCatching {
             val isEmpty =
-                suspendTransaction(db) {
-                    PublicProfilesTable.selectAll().limit(1).empty()
+                suspendTransaction(sql) {
+                    sql.publicProfilesQueries.isEmpty().executeAsOne()
                 }
             if (isEmpty) maintainer.backfillAll()
         }.onFailure { e ->
@@ -428,7 +423,6 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
     val avatarImageStore by inject<ImageStore>()
-    val db by inject<Database>()
     val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
 
@@ -441,10 +435,15 @@ private fun Application.installAppRoutes(homeDir: Path) {
         registrationStatusRoutes(registrationBroadcaster) { userId ->
             // Persisted status is the source of truth: a registrant reconnecting after the
             // admin's decision must learn it even though the live broadcast was a no-op drop.
-            suspendTransaction(db) {
-                when (UserEntity.findById(userId)?.status) {
-                    UserStatusColumn.ACTIVE -> RegistrationStatusEvent(status = "approved")
-                    UserStatusColumn.DENIED -> RegistrationStatusEvent(status = "denied")
+            suspendTransaction(sql) {
+                when (
+                    sql.usersQueries
+                        .selectById(userId)
+                        .executeAsOneOrNull()
+                        ?.status
+                ) {
+                    "ACTIVE" -> RegistrationStatusEvent(status = "approved")
+                    "DENIED" -> RegistrationStatusEvent(status = "denied")
                     else -> RegistrationStatusEvent(status = "pending")
                 }
             }
