@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -34,13 +33,6 @@ class FakePlaybackPositionRepository(
 
     override suspend fun get(bookId: BookId): AppResult<PlaybackPosition?> =
         AppResult.Success(state.value[bookId.value])
-
-    /** This fake does not back entity-level reads. Calling getEntity throws — inject a purpose-built fake or use the real impl. */
-    override suspend fun getEntity(bookId: BookId): AppResult<PlaybackPositionEntity?> =
-        error(
-            "FakePlaybackPositionRepository does not implement getEntity (no entity store backs the fake). " +
-                "Inject a purpose-built fake or use the real PlaybackPositionRepositoryImpl with an in-memory DAO.",
-        )
 
     override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> {
         val most = state.value.values.maxByOrNull { it.effectiveLastPlayedAtMs } ?: return AppResult.Success(null)

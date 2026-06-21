@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -39,7 +39,7 @@ class FakeProgressTracker(
     val onPlaybackPausedCalls: List<Triple<BookId, Long, Float>> get() = _onPlaybackPausedCalls.toList()
 
     /** Returned from [getResumePosition]. Default `null` mirrors a never-played book. */
-    var stubbedResumePosition: PlaybackPositionEntity? = null
+    var stubbedResumePosition: PlaybackPosition? = null
 
     override fun onPlaybackStarted(
         bookId: BookId,
@@ -57,5 +57,5 @@ class FakeProgressTracker(
         _onPlaybackPausedCalls += Triple(bookId, positionMs, speed)
     }
 
-    override suspend fun getResumePosition(bookId: BookId): PlaybackPositionEntity? = stubbedResumePosition
+    override suspend fun getResumePosition(bookId: BookId): PlaybackPosition? = stubbedResumePosition
 }

@@ -4,7 +4,7 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -337,8 +337,8 @@ open class ProgressTracker(
      * @param bookId Book to get resume position for
      * @return Position to resume from, or null if never played
      */
-    open suspend fun getResumePosition(bookId: BookId): PlaybackPositionEntity? {
-        val result = positionRepository.getEntity(bookId)
+    open suspend fun getResumePosition(bookId: BookId): PlaybackPosition? {
+        val result = positionRepository.get(bookId)
         return if (result is AppResult.Success) result.data else null
     }
 

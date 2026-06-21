@@ -74,11 +74,6 @@ internal class PlaybackPositionRepositoryImpl(
             dao.get(bookId)?.toDomain()
         }
 
-    override suspend fun getEntity(bookId: BookId): AppResult<PlaybackPositionEntity?> =
-        suspendRunCatching {
-            dao.get(bookId)
-        }
-
     override fun observeAll(): Flow<Map<BookId, PlaybackPosition>> =
         dao.observeAll().map { positions ->
             positions.associate { it.bookId to it.toDomain() }
