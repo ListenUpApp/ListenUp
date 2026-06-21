@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.e2e
 
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.KtorApiClientFactory
+import com.calypsan.listenup.client.data.remote.createApiClientFactory
 import com.calypsan.listenup.client.di.clientAuthModule
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -121,7 +121,7 @@ internal class AuthEndToEndFixture private constructor(
                 single<ServerConfig> { TestServerConfig(baseUrl) }
                 single<InstanceRepository> { StubInstanceRepository() }
                 single<ApiClientFactory> {
-                    KtorApiClientFactory(
+                    createApiClientFactory(
                         serverConfig = get(),
                         authSession = get(),
                         refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
