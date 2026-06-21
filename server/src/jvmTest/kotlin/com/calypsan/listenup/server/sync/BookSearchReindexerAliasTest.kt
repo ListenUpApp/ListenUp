@@ -1,19 +1,13 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
-import com.calypsan.listenup.server.db.ContributorAliasTable
-import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import app.cash.sqldelight.db.QueryResult
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlinx.coroutines.withContext
 
 /**
  * Integration tests for [BookSearchReindexer.reindexContributorAliases].
@@ -24,48 +18,60 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
  * the gap.
  *
  * Modelled on [BookSearchReindexerContributorTest]: real in-memory Flyway-migrated
- * SQLite, contributors and alias rows seeded directly via Exposed DSL.
+ * SQLite, contributors and alias rows seeded directly via SQLDelight queries.
  */
 class BookSearchReindexerAliasTest :
     FunSpec({
 
         fun makeReindexer(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
 
         /** Seeds a contributor row. The V22 `contributors_ai` trigger inserts an FTS row with empty aliases. */
         fun seedContributor(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             contributorId: String,
             name: String,
             sortName: String? = null,
             description: String? = null,
         ) {
             val now = System.currentTimeMillis()
-            transaction(db) {
-                ContributorTable.insert {
-                    it[ContributorTable.id] = contributorId
-                    it[ContributorTable.normalizedName] = name.lowercase()
-                    it[ContributorTable.name] = name
-                    it[ContributorTable.sortName] = sortName
-                    it[ContributorTable.description] = description
-                    it[ContributorTable.revision] = 1L
-                    it[ContributorTable.createdAt] = now
-                    it[ContributorTable.updatedAt] = now
-                }
-            }
+            dbs.sql.contributorsQueries.insert(
+                id = contributorId,
+                normalized_name = name.lowercase(),
+                name = name,
+                sort_name = sortName,
+                revision = 1L,
+                created_at = now,
+                updated_at = now,
+                deleted_at = null,
+                client_op_id = null,
+                asin = null,
+                description = description,
+                image_path = null,
+                image_blur_hash = null,
+                birth_date = null,
+                death_date = null,
+                website = null,
+            )
         }
 
-        /** Inserts alias rows for [contributorId] via [ContributorAliasTable]. */
-        suspend fun seedAliases(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+        /** Replaces the alias set for [contributorId] via delete-then-insert. */
+        fun seedAliases(
+            dbs: SqlTestDatabases,
             contributorId: String,
             aliases: List<String>,
         ) {
-            suspendTransaction(db) {
-                ContributorAliasTable.replaceForContributor(contributorId, aliases)
+            dbs.sql.transaction {
+                dbs.sql.contributorsQueries.deleteAliasesFor(contributor_id = contributorId)
+                aliases.forEach { alias ->
+                    dbs.sql.contributorsQueries.insertAlias(
+                        contributor_id = contributorId,
+                        alias = alias,
+                    )
+                }
             }
         }
 
@@ -77,89 +83,84 @@ class BookSearchReindexerAliasTest :
          * only — not a cross-column hit on name/sort_name/description.
          */
         suspend fun ftsAliasesMatch(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             contributorId: String,
             searchTerm: String,
         ): Boolean {
             val dq = '"'
             val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-            var found = false
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                tx.exec(
-                    stmt =
-                        "SELECT c.id FROM contributor_search cs " +
-                            "JOIN contributors c ON c.rowid = cs.rowid " +
-                            "WHERE cs.aliases MATCH ? AND c.id = ?",
-                    args =
-                        listOf(
-                            TextColumnType() to quotedTerm,
-                            TextColumnType() to contributorId,
-                        ),
-                ) { rs ->
-                    found = rs.next()
-                }
+            return withContext(Dispatchers.IO) {
+                dbs.driver
+                    .executeQuery(
+                        identifier = null,
+                        sql =
+                            "SELECT c.id FROM contributor_search cs " +
+                                "JOIN contributors c ON c.rowid = cs.rowid " +
+                                "WHERE cs.aliases MATCH ? AND c.id = ?",
+                        mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                        parameters = 2,
+                        binders = {
+                            bindString(0, quotedTerm)
+                            bindString(1, contributorId)
+                        },
+                    ).value
             }
-            return found
         }
 
         test("should populate contributor_search.aliases after reindexContributorAliases") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    seedContributor(db, "c-bachman-merge", "Stephen King", sortName = "King, Stephen")
-                    seedAliases(db, "c-bachman-merge", listOf("Richard Bachman", "John Swithen"))
+                    seedContributor(this@withSqlDatabase, "c-bachman-merge", "Stephen King", sortName = "King, Stephen")
+                    seedAliases(this@withSqlDatabase, "c-bachman-merge", listOf("Richard Bachman", "John Swithen"))
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     // Pre-condition: triggers seeded aliases as '' on insert; alias rows
                     // exist in contributor_aliases but the FTS row hasn't been reindexed.
-                    ftsAliasesMatch(db, "c-bachman-merge", "Bachman") shouldBe false
+                    ftsAliasesMatch(this@withSqlDatabase, "c-bachman-merge", "Bachman") shouldBe false
 
                     reindexer.reindexContributorAliases("c-bachman-merge")
 
                     // Post-condition: both aliases are now FTS-matchable on the aliases column.
-                    ftsAliasesMatch(db, "c-bachman-merge", "Bachman") shouldBe true
-                    ftsAliasesMatch(db, "c-bachman-merge", "Swithen") shouldBe true
+                    ftsAliasesMatch(this@withSqlDatabase, "c-bachman-merge", "Bachman") shouldBe true
+                    ftsAliasesMatch(this@withSqlDatabase, "c-bachman-merge", "Swithen") shouldBe true
                 }
             }
         }
 
         test("should handle contributor with no aliases gracefully") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    seedContributor(db, "c-no-aliases", "No Aliases")
+                    seedContributor(this@withSqlDatabase, "c-no-aliases", "No Aliases")
                     // No alias rows seeded.
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     // Should complete without error.
                     reindexer.reindexContributorAliases("c-no-aliases")
 
                     // No aliases → no MATCH on any term.
-                    ftsAliasesMatch(db, "c-no-aliases", "anything") shouldBe false
+                    ftsAliasesMatch(this@withSqlDatabase, "c-no-aliases", "anything") shouldBe false
                 }
             }
         }
 
         test("should be a no-op when contributor does not exist") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     // No contributor seeded — rowid lookup returns null and the reindex
                     // should silently no-op rather than throw.
@@ -169,28 +170,27 @@ class BookSearchReindexerAliasTest :
         }
 
         test("should refresh aliases column when alias set changes between reindexes") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    seedContributor(db, "c-rotate", "Stephen King")
-                    seedAliases(db, "c-rotate", listOf("Richard Bachman"))
+                    seedContributor(this@withSqlDatabase, "c-rotate", "Stephen King")
+                    seedAliases(this@withSqlDatabase, "c-rotate", listOf("Richard Bachman"))
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexContributorAliases("c-rotate")
-                    ftsAliasesMatch(db, "c-rotate", "Bachman") shouldBe true
+                    ftsAliasesMatch(this@withSqlDatabase, "c-rotate", "Bachman") shouldBe true
 
                     // Replace the alias set, then reindex.
-                    seedAliases(db, "c-rotate", listOf("John Swithen"))
+                    seedAliases(this@withSqlDatabase, "c-rotate", listOf("John Swithen"))
                     reindexer.reindexContributorAliases("c-rotate")
 
                     // Old alias is gone; new alias is matchable.
-                    ftsAliasesMatch(db, "c-rotate", "Bachman") shouldBe false
-                    ftsAliasesMatch(db, "c-rotate", "Swithen") shouldBe true
+                    ftsAliasesMatch(this@withSqlDatabase, "c-rotate", "Bachman") shouldBe false
+                    ftsAliasesMatch(this@withSqlDatabase, "c-rotate", "Swithen") shouldBe true
                 }
             }
         }
