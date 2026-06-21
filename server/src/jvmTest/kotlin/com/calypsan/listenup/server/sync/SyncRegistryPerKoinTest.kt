@@ -3,14 +3,11 @@ package com.calypsan.listenup.server.sync
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.di.syncModule
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 
@@ -29,18 +26,19 @@ class SyncRegistryPerKoinTest :
     FunSpec({
 
         test("two Koin containers each have their own SyncRegistry") {
-            withInMemoryDatabase {
-                val dbA: Database = this
-                withInMemoryDatabase {
-                    val dbB: Database = this
+            withSqlDatabase {
+                val sqlA = sql
+                val driverA = driver
+                withSqlDatabase {
+                    val sqlB = sql
+                    val driverB = driver
 
                     val koinA =
                         koinApplication {
                             modules(
                                 module {
-                                    single<Database> { dbA }
-                                    single<ListenUpDatabase> { dbA.asSqlDatabase() }
-                                    single<SqlDriver> { dbA.asSqlDriver() }
+                                    single<ListenUpDatabase> { sqlA }
+                                    single<SqlDriver> { driverA }
                                 },
                                 syncModule(),
                             )
@@ -49,9 +47,8 @@ class SyncRegistryPerKoinTest :
                         koinApplication {
                             modules(
                                 module {
-                                    single<Database> { dbB }
-                                    single<ListenUpDatabase> { dbB.asSqlDatabase() }
-                                    single<SqlDriver> { dbB.asSqlDriver() }
+                                    single<ListenUpDatabase> { sqlB }
+                                    single<SqlDriver> { driverB }
                                 },
                                 syncModule(),
                             )
@@ -72,15 +69,13 @@ class SyncRegistryPerKoinTest :
         }
 
         test("single Koin container has one SyncRegistry with all registered repositories") {
-            withInMemoryDatabase {
-                val db: Database = this
+            withSqlDatabase {
                 val koin =
                     koinApplication {
                         modules(
                             module {
-                                single<Database> { db }
-                                single<ListenUpDatabase> { db.asSqlDatabase() }
-                                single<SqlDriver> { db.asSqlDriver() }
+                                single<ListenUpDatabase> { sql }
+                                single<SqlDriver> { driver }
                             },
                             syncModule(),
                         )
@@ -110,12 +105,11 @@ class SyncRegistryPerKoinTest :
         }
 
         test("registering two repositories with the same domainName throws IllegalStateException") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val registry = SyncRegistry()
-                TagRepository(db.asSqlDatabase(), ChangeBus(), registry) // first registration succeeds
+                TagRepository(sql, ChangeBus(), registry) // first registration succeeds
                 shouldThrow<IllegalStateException> {
-                    TagRepository(db.asSqlDatabase(), ChangeBus(), registry) // duplicate domainName → throws
+                    TagRepository(sql, ChangeBus(), registry) // duplicate domainName → throws
                 }
             }
         }
