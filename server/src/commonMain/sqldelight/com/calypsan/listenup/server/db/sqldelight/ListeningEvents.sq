@@ -65,6 +65,10 @@ SELECT * FROM listening_events WHERE id = :id;
 selectByIds:
 SELECT * FROM listening_events WHERE id IN :ids;
 
+-- Test helper: all event ids for a user (tombstone-inclusive, insertion order not guaranteed).
+selectIdsByUserId:
+SELECT id FROM listening_events WHERE user_id = :user_id;
+
 insert:
 INSERT INTO listening_events (
     id, user_id, book_id, start_position_ms, end_position_ms, started_at, ended_at,

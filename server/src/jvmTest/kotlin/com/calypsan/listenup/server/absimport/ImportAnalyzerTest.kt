@@ -7,15 +7,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.LibraryRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -24,25 +20,23 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 
 class ImportAnalyzerTest :
     FunSpec({
 
         test("analyze matches progress-bearing items, persists matches.json, and emits events") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
+                val dbs = this
                 val (paths, importId) = stageImport()
-                val analyzer = analyzerFor(db, paths)
+                val analyzer = analyzerFor(dbs, paths)
 
                 runTest {
-                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
-                    transaction(db) {
-                        seedAnalyzerBooks(libId.value)
-                        seedAnalyzerUser()
+                    dbs.sql.seedTestLibraryAndFolder()
+                    val libId = LibraryRegistry(dbs.sql).currentLibrary()
+                    dbs.sql.transaction {
+                        seedAnalyzerBooks(dbs.sql, libId.value)
+                        seedAnalyzerUser(dbs.sql)
                     }
                     val events = mutableListOf<ImportEvent>()
                     val result = analyzer.analyze(importId) { events += it }
@@ -85,16 +79,17 @@ class ImportAnalyzerTest :
         }
 
         test("Matching events carry currentItem title and running booksMatched tally") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
+                val dbs = this
                 val (paths, importId) = stageImport()
-                val analyzer = analyzerFor(db, paths)
+                val analyzer = analyzerFor(dbs, paths)
 
                 runTest {
-                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
-                    transaction(db) {
-                        seedAnalyzerBooks(libId.value)
-                        seedAnalyzerUser()
+                    dbs.sql.seedTestLibraryAndFolder()
+                    val libId = LibraryRegistry(dbs.sql).currentLibrary()
+                    dbs.sql.transaction {
+                        seedAnalyzerBooks(dbs.sql, libId.value)
+                        seedAnalyzerUser(dbs.sql)
                     }
                     val events = mutableListOf<ImportEvent>()
                     analyzer.analyze(importId) { events += it }
@@ -122,11 +117,11 @@ class ImportAnalyzerTest :
         }
 
         test("analyze of a missing import directory returns ImportNotFound") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
+                val dbs = this
                 val home = Files.createTempDirectory("abs-missing-")
                 val paths = ImportPaths(home).apply { ensureDirs() }
-                val analyzer = analyzerFor(db, paths)
+                val analyzer = analyzerFor(dbs, paths)
 
                 runTest {
                     val result = analyzer.analyze(ImportId("does-not-exist")) {}
@@ -136,14 +131,14 @@ class ImportAnalyzerTest :
         }
 
         test("analyze of a corrupt ABS database returns AnalysisFailed") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
+                val dbs = this
                 val home = Files.createTempDirectory("abs-corrupt-")
                 val paths = ImportPaths(home).apply { ensureDirs() }
                 val importId = ImportId("abs-corrupt")
                 Files.createDirectories(paths.dirFor(importId.value))
                 Files.write(paths.absDbFor(importId.value), "not a database".toByteArray())
-                val analyzer = analyzerFor(db, paths)
+                val analyzer = analyzerFor(dbs, paths)
 
                 runTest {
                     val events = mutableListOf<ImportEvent>()
@@ -167,70 +162,133 @@ private fun stageImport(): Pair<ImportPaths, ImportId> {
 }
 
 private fun analyzerFor(
-    db: Database,
+    dbs: SqlTestDatabases,
     paths: ImportPaths,
 ): ImportAnalyzer =
     ImportAnalyzer(
         reader = AbsBackupReader(),
         store = ImportStore(paths),
         paths = paths,
-        bookMatcher = BookMatcher(db.asSqlDatabase()),
+        bookMatcher = BookMatcher(dbs.sql),
         userMatcher = UserMatcher(),
-        libraryRegistry = LibraryRegistry(db.asSqlDatabase()),
-        sql = db.asSqlDatabase(),
+        libraryRegistry = LibraryRegistry(dbs.sql),
+        sql = dbs.sql,
     )
 
 /** Seeds ListenUp books that match the synthetic ABS fixture by ASIN (kings) and title+author (mist). */
-private fun seedAnalyzerBooks(libraryId: String) {
+private fun seedAnalyzerBooks(
+    sql: ListenUpDatabase,
+    libraryId: String,
+) {
     val now = 1_730_000_000_000L
-    BookTable.insert {
-        it[id] = "lu-kings"
-        it[BookTable.libraryId] = libraryId
-        it[title] = "The Way of Kings"
-        it[asin] = "B00ASIN001"
-        it[rootRelPath] = "Sanderson/Way of Kings"
-        it[totalDuration] = 1L
-        it[scannedAt] = now
-        it[revision] = 1L
-        it[createdAt] = now
-        it[updatedAt] = now
-    }
-    BookTable.insert {
-        it[id] = "lu-mist"
-        it[BookTable.libraryId] = libraryId
-        it[title] = "Mistborn"
-        it[rootRelPath] = "Sanderson/Mistborn-listenup"
-        it[totalDuration] = 1L
-        it[scannedAt] = now
-        it[revision] = 1L
-        it[createdAt] = now
-        it[updatedAt] = now
-    }
-    ContributorTable.insert {
-        it[id] = "lu-c-sanderson"
-        it[normalizedName] = "brandon sanderson"
-        it[name] = "Brandon Sanderson"
-    }
+    sql.booksQueries.insert(
+        id = "lu-kings",
+        library_id = libraryId,
+        folder_id = "test-folder",
+        title = "The Way of Kings",
+        sort_title = null,
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = "B00ASIN001",
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = 1L,
+        cover_source = null,
+        cover_path = null,
+        cover_hash = null,
+        root_rel_path = "Sanderson/Way of Kings",
+        inode = null,
+        scanned_at = now,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
+    sql.booksQueries.insert(
+        id = "lu-mist",
+        library_id = libraryId,
+        folder_id = "test-folder",
+        title = "Mistborn",
+        sort_title = null,
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = 1L,
+        cover_source = null,
+        cover_path = null,
+        cover_hash = null,
+        root_rel_path = "Sanderson/Mistborn-listenup",
+        inode = null,
+        scanned_at = now,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
+    sql.contributorsQueries.insert(
+        id = "lu-c-sanderson",
+        normalized_name = "brandon sanderson",
+        name = "Brandon Sanderson",
+        sort_name = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = null,
+        client_op_id = null,
+        asin = null,
+        description = null,
+        image_path = null,
+        image_blur_hash = null,
+        birth_date = null,
+        death_date = null,
+        website = null,
+    )
     // ABS book-2 ("Mistborn") carries no author in the fixture, so title alone resolves lu-mist.
     // We still credit lu-kings' author for completeness of the ASIN-matched book.
-    BookContributorTable.insert {
-        it[bookId] = "lu-kings"
-        it[contributorId] = "lu-c-sanderson"
-        it[role] = "author"
-        it[ordinal] = 0
-    }
+    sql.bookContributorsQueries.insert(
+        book_id = "lu-kings",
+        contributor_id = "lu-c-sanderson",
+        role = "author",
+        credited_as = null,
+        ordinal = 0L,
+    )
 }
 
 /** Seeds a ListenUp user whose email matches the ABS fixture user "simon" (simon@x.test). */
-private fun seedAnalyzerUser() {
-    UserEntity.new("lu-simon") {
-        email = "simon@x.test"
-        emailNormalized = "simon@x.test"
-        passwordHash = "phc"
-        role = UserRoleColumn.MEMBER
-        displayName = "Simon"
-        status = UserStatusColumn.ACTIVE
-        createdAt = 1L
-        updatedAt = 1L
-    }
+private fun seedAnalyzerUser(sql: ListenUpDatabase) {
+    sql.usersQueries.insert(
+        id = "lu-simon",
+        email = "simon@x.test",
+        email_normalized = "simon@x.test",
+        password_hash = "phc",
+        role = "MEMBER",
+        display_name = "Simon",
+        status = "ACTIVE",
+        created_at = 1L,
+        updated_at = 1L,
+        last_login_at = null,
+        can_edit = 1L,
+        can_share = 1L,
+        approved_by = null,
+        approved_at = null,
+        deleted_at = null,
+        invited_by = null,
+        tagline = null,
+        avatar_type = "auto",
+        timezone = "UTC",
+    )
 }

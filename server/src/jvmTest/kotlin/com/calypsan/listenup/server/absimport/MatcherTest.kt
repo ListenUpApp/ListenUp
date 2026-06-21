@@ -4,18 +4,14 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.LibraryRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class MatcherTest :
     FunSpec({
@@ -169,18 +165,25 @@ class MatcherTest :
 
 /** Runs [block] inside `runTest` against a migrated in-memory DB seeded with the matcher fixtures. */
 private fun withSeededLibrary(block: suspend (matcher: BookMatcher, libId: LibraryId) -> Unit) {
-    withInMemoryDatabase {
-        val db = this
+    withSqlDatabase {
+        val dbs = this
         runTest {
-            val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary()
-            transaction(db) { seedBooks(libId.value) }
-            block(BookMatcher(db.asSqlDatabase()), libId)
+            // Seed the canonical library+folder first so currentLibrary() returns the fixed
+            // "test-library" id and book inserts can satisfy the folder_id FK.
+            dbs.sql.seedTestLibraryAndFolder()
+            val libId = LibraryRegistry(dbs.sql).currentLibrary()
+            dbs.sql.transaction { seedBooks(dbs.sql, libId.value) }
+            block(BookMatcher(dbs.sql), libId)
         }
     }
 }
 
-private fun seedBooks(libraryId: String) {
+private fun seedBooks(
+    sql: ListenUpDatabase,
+    libraryId: String,
+) {
     insertBook(
+        sql,
         libraryId,
         "b-kings",
         "The Way of Kings",
@@ -188,12 +191,13 @@ private fun seedBooks(libraryId: String) {
         isbn = "9780000000001",
         relPath = "Sanderson/The Way of Kings",
     )
-    insertBook(libraryId, "b-mist", "Mistborn", asin = null, isbn = "9780000000002", relPath = "Sanderson/Mistborn")
+    insertBook(sql, libraryId, "b-mist", "Mistborn", asin = null, isbn = "9780000000002", relPath = "Sanderson/Mistborn")
     // Two books sharing an ASIN to prove the AMBIGUOUS guard.
-    insertBook(libraryId, "b-dup1", "Dup One", asin = "B00DUP", isbn = null, relPath = "Dup/One")
-    insertBook(libraryId, "b-dup2", "Dup Two", asin = "B00DUP", isbn = null, relPath = "Dup/Two")
+    insertBook(sql, libraryId, "b-dup1", "Dup One", asin = "B00DUP", isbn = null, relPath = "Dup/One")
+    insertBook(sql, libraryId, "b-dup2", "Dup Two", asin = "B00DUP", isbn = null, relPath = "Dup/Two")
     // A soft-deleted book to prove tombstones are excluded from every tier.
     insertBook(
+        sql,
         libraryId,
         "b-deleted",
         "Deleted Book",
@@ -203,20 +207,35 @@ private fun seedBooks(libraryId: String) {
         deletedAt = 1_730_000_000_001L,
     )
 
-    ContributorTable.insert {
-        it[id] = "c-sanderson"
-        it[normalizedName] = "brandon sanderson"
-        it[name] = "Brandon Sanderson"
-    }
-    BookContributorTable.insert {
-        it[bookId] = "b-kings"
-        it[contributorId] = "c-sanderson"
-        it[role] = "author"
-        it[ordinal] = 0
-    }
+    sql.contributorsQueries.insert(
+        id = "c-sanderson",
+        normalized_name = "brandon sanderson",
+        name = "Brandon Sanderson",
+        sort_name = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = null,
+        client_op_id = null,
+        asin = null,
+        description = null,
+        image_path = null,
+        image_blur_hash = null,
+        birth_date = null,
+        death_date = null,
+        website = null,
+    )
+    sql.bookContributorsQueries.insert(
+        book_id = "b-kings",
+        contributor_id = "c-sanderson",
+        role = "author",
+        credited_as = null,
+        ordinal = 0L,
+    )
 }
 
 private fun insertBook(
+    sql: ListenUpDatabase,
     libraryId: String,
     bookId: String,
     title: String,
@@ -226,20 +245,35 @@ private fun insertBook(
     deletedAt: Long? = null,
 ) {
     val now = 1_730_000_000_000L
-    BookTable.insert {
-        it[id] = bookId
-        it[BookTable.libraryId] = libraryId
-        it[BookTable.title] = title
-        it[BookTable.asin] = asin
-        it[BookTable.isbn] = isbn
-        it[rootRelPath] = relPath
-        it[totalDuration] = 1L
-        it[scannedAt] = now
-        it[revision] = 1L
-        it[createdAt] = now
-        it[updatedAt] = now
-        it[BookTable.deletedAt] = deletedAt
-    }
+    sql.booksQueries.insert(
+        id = bookId,
+        library_id = libraryId,
+        folder_id = "test-folder",
+        title = title,
+        sort_title = null,
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        publisher = null,
+        language = null,
+        isbn = isbn,
+        asin = asin,
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = 1L,
+        cover_source = null,
+        cover_path = null,
+        cover_hash = null,
+        root_rel_path = relPath,
+        inode = null,
+        scanned_at = now,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = deletedAt,
+        client_op_id = null,
+    )
 }
 
 private fun absItem(
