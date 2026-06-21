@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
+import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
