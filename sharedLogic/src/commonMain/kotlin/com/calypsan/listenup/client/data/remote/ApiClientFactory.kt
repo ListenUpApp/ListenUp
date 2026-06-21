@@ -102,6 +102,20 @@ interface ApiClientFactory : RemoteCache {
 }
 
 /**
+ * Creates the production [ApiClientFactory] from its dependencies.
+ *
+ * The concrete implementation ([KtorApiClientFactory]) is `internal`; this is the public seam for
+ * constructing a real client outside `:sharedLogic` — used by full-stack end-to-end tests (e.g. the
+ * `:server` auth E2E fixture) that wire a client against an in-process test server with test-specific
+ * [ServerConfig] / [AuthSession]. Production code uses the Koin `networkModule` binding instead.
+ */
+fun createApiClientFactory(
+    serverConfig: ServerConfig,
+    authSession: AuthSession,
+    refreshAccessToken: RefreshAccessToken,
+): ApiClientFactory = KtorApiClientFactory(serverConfig, authSession, refreshAccessToken)
+
+/**
  * Ktor-backed production [ApiClientFactory].
  *
  * Provides a single cached client instance that:
