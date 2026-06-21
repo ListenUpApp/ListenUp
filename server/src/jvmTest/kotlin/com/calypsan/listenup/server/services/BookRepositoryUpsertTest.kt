@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.services
 
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
@@ -19,15 +21,13 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookSearchMapTable
-import com.calypsan.listenup.server.testing.bookPayloadFixture
-import com.calypsan.listenup.server.db.BookSeriesTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
@@ -37,41 +37,24 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryUpsertTest :
     FunSpec({
 
         test("upsert of fresh book inserts row + all children atomically; emits SyncEvent.Created") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+                val repo = makeRepo(bus)
                 runTest {
                     // Seed the contributor/series catalogue rows the junction-row FKs
                     // require. Direct inserts (not resolveOrCreate) so the global
                     // revision counter and the bus stay untouched — the test asserts
                     // the book's own revision is 1 and its Created event is first.
-                    transaction(db) {
-                        seedContributor("c1", "Brandon Sanderson")
-                        seedContributor("c2", "Michael Kramer")
-                        seedSeries("s1", "Stormlight Archive")
+                    sql.transaction {
+                        sql.seedContributor("c1", "Brandon Sanderson")
+                        sql.seedContributor("c2", "Michael Kramer")
+                        sql.seedSeries("s1", "Stormlight Archive")
                     }
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -119,26 +102,14 @@ class BookRepositoryUpsertTest :
         }
 
         test("upsert replaces child rows wholesale on second call") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
-                    transaction(db) {
-                        seedContributor("c1", "Brandon Sanderson")
-                        seedContributor("c2", "Michael Kramer")
-                        seedSeries("s1", "Stormlight Archive")
+                    sql.transaction {
+                        sql.seedContributor("c1", "Brandon Sanderson")
+                        sql.seedContributor("c2", "Michael Kramer")
+                        sql.seedSeries("s1", "Stormlight Archive")
                     }
                     val v1 =
                         bookPayloadFixture(
@@ -189,25 +160,13 @@ class BookRepositoryUpsertTest :
         }
 
         test("FTS row is upserted in book_search and mapped via book_search_map") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
-                    transaction(db) {
-                        seedContributor("c1", "Brandon Sanderson")
-                        seedSeries("s1", "Stormlight Archive")
+                    sql.transaction {
+                        sql.seedContributor("c1", "Brandon Sanderson")
+                        sql.seedSeries("s1", "Stormlight Archive")
                     }
                     repo.upsert(
                         bookPayloadFixture(
@@ -218,50 +177,23 @@ class BookRepositoryUpsertTest :
                         ),
                     )
 
-                    transaction(db) {
-                        val mappedRowid =
-                            BookSearchMapTable
-                                .selectAll()
-                                .where { BookSearchMapTable.bookId eq "b1" }
-                                .first()[BookSearchMapTable.rowid]
+                    val mappedRowid = sql.bookSearchQueries.selectRowidForBook("b1").executeAsOne()
 
-                        val hits = mutableListOf<Int>()
-                        exec(
-                            "SELECT rowid FROM book_search WHERE book_search MATCH 'Kings' ORDER BY rank",
-                        ) { rs ->
-                            while (rs.next()) hits += rs.getInt(1)
-                        }
-                        hits shouldBe listOf(mappedRowid)
+                    driver.ftsRowids("SELECT rowid FROM book_search WHERE book_search MATCH 'Kings' ORDER BY rank") shouldBe
+                        listOf(mappedRowid)
 
-                        // Also search by contributor name — confirms FTS contributor_names column populated.
-                        val byAuthor = mutableListOf<Int>()
-                        exec(
-                            "SELECT rowid FROM book_search WHERE book_search MATCH 'Sanderson' ORDER BY rank",
-                        ) { rs ->
-                            while (rs.next()) byAuthor += rs.getInt(1)
-                        }
-                        byAuthor shouldBe listOf(mappedRowid)
-                    }
+                    // Also search by contributor name — confirms FTS contributor_names column populated.
+                    driver.ftsRowids(
+                        "SELECT rowid FROM book_search WHERE book_search MATCH 'Sanderson' ORDER BY rank",
+                    ) shouldBe listOf(mappedRowid)
                 }
             }
         }
 
         test("upsertFromAnalyzed persists and round-trips hasScanWarning") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
                     val warned =
                         repo.upsertFromAnalyzed(
@@ -289,54 +221,43 @@ class BookRepositoryUpsertTest :
         }
 
         test("findById returns book with null cover when cover_source column holds an unrecognised value") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
                     // Insert a book row directly with a bogus cover_source value that
                     // is not a valid CoverSource enum constant.  This simulates a
                     // partially-migrated or corrupt row.
-                    transaction(db) {
-                        BookTable.insert { stmt ->
-                            stmt[BookTable.id] = "corrupt-cover"
-                            stmt[BookTable.libraryId] = "test-library"
-                            stmt[BookTable.folderId] = "test-folder"
-                            stmt[BookTable.title] = "Corrupt Cover Book"
-                            stmt[BookTable.sortTitle] = null
-                            stmt[BookTable.subtitle] = null
-                            stmt[BookTable.description] = null
-                            stmt[BookTable.publishYear] = null
-                            stmt[BookTable.publisher] = null
-                            stmt[BookTable.language] = null
-                            stmt[BookTable.isbn] = null
-                            stmt[BookTable.asin] = null
-                            stmt[BookTable.abridged] = false
-                            stmt[BookTable.explicit] = false
-                            stmt[BookTable.hasScanWarning] = false
-                            stmt[BookTable.totalDuration] = 0L
-                            stmt[BookTable.coverSource] = "TOTALLY_INVALID_VALUE"
-                            stmt[BookTable.coverHash] = "somehash"
-                            stmt[BookTable.rootRelPath] = "books/corrupt-cover"
-                            stmt[BookTable.inode] = null
-                            stmt[BookTable.scannedAt] = 1_730_000_000_000L
-                            stmt[BookTable.revision] = 1L
-                            stmt[BookTable.createdAt] = 0L
-                            stmt[BookTable.updatedAt] = 0L
-                            stmt[BookTable.deletedAt] = null
-                            stmt[BookTable.clientOpId] = null
-                        }
+                    sql.transaction {
+                        sql.booksQueries.insert(
+                            id = "corrupt-cover",
+                            library_id = "test-library",
+                            folder_id = "test-folder",
+                            title = "Corrupt Cover Book",
+                            sort_title = null,
+                            subtitle = null,
+                            description = null,
+                            publish_year = null,
+                            publisher = null,
+                            language = null,
+                            isbn = null,
+                            asin = null,
+                            abridged = 0L,
+                            explicit = 0L,
+                            has_scan_warning = 0L,
+                            total_duration = 0L,
+                            cover_source = "TOTALLY_INVALID_VALUE",
+                            cover_path = null,
+                            cover_hash = "somehash",
+                            root_rel_path = "books/corrupt-cover",
+                            inode = null,
+                            scanned_at = 1_730_000_000_000L,
+                            revision = 1L,
+                            created_at = 0L,
+                            updated_at = 0L,
+                            deleted_at = null,
+                            client_op_id = null,
+                        )
                     }
 
                     val payload = repo.findById(BookId("corrupt-cover"))
@@ -351,25 +272,13 @@ class BookRepositoryUpsertTest :
         }
 
         test("batch child writes preserve ordinal order and collapse duplicate contributors/series") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
-                    transaction(db) {
-                        seedContributor("c1", "Brandon Sanderson")
-                        seedSeries("s1", "Stormlight Archive")
+                    sql.transaction {
+                        sql.seedContributor("c1", "Brandon Sanderson")
+                        sql.seedSeries("s1", "Stormlight Archive")
                     }
                     val payload =
                         bookPayloadFixture(
@@ -418,21 +327,9 @@ class BookRepositoryUpsertTest :
         }
 
         test("re-scanning an unchanged book does not bump its revision") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
                     val analyzed = analyzedFixture(rootRelPath = "books/b-idempotent", hasScanWarning = false)
 
@@ -466,21 +363,9 @@ class BookRepositoryUpsertTest :
         }
 
         test("a changed book bumps its revision on re-scan") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
                     val original = analyzedFixture(rootRelPath = "books/b-changed", hasScanWarning = false)
 
@@ -512,52 +397,25 @@ class BookRepositoryUpsertTest :
         }
 
         test("update re-uses existing rowid; book_search has exactly one row per book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val repo =
-                    BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-                    )
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = makeRepo()
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))
-                    val firstRowid =
-                        transaction(db) {
-                            BookSearchMapTable
-                                .selectAll()
-                                .where { BookSearchMapTable.bookId eq "b1" }
-                                .first()[BookSearchMapTable.rowid]
-                        }
+                    val firstRowid = sql.bookSearchQueries.selectRowidForBook("b1").executeAsOne()
 
                     repo.upsert(bookPayloadFixture(id = "b1", title = "New Title"))
-                    transaction(db) {
-                        // Mapping unchanged.
-                        BookSearchMapTable
-                            .selectAll()
-                            .where { BookSearchMapTable.bookId eq "b1" }
-                            .first()[BookSearchMapTable.rowid] shouldBe firstRowid
 
-                        // Old title no longer matches; new title does.
-                        val oldHits = mutableListOf<Int>()
-                        exec("SELECT rowid FROM book_search WHERE book_search MATCH 'Old' ORDER BY rank") { rs ->
-                            while (rs.next()) oldHits += rs.getInt(1)
-                        }
-                        oldHits shouldBe emptyList()
+                    // Mapping unchanged.
+                    sql.bookSearchQueries.selectRowidForBook("b1").executeAsOne() shouldBe firstRowid
 
-                        val newHits = mutableListOf<Int>()
-                        exec("SELECT rowid FROM book_search WHERE book_search MATCH 'New' ORDER BY rank") { rs ->
-                            while (rs.next()) newHits += rs.getInt(1)
-                        }
-                        newHits shouldBe listOf(firstRowid)
-                    }
+                    // Old title no longer matches; new title does.
+                    driver.ftsRowids(
+                        "SELECT rowid FROM book_search WHERE book_search MATCH 'Old' ORDER BY rank",
+                    ) shouldBe emptyList()
+                    driver.ftsRowids(
+                        "SELECT rowid FROM book_search WHERE book_search MATCH 'New' ORDER BY rank",
+                    ) shouldBe listOf(firstRowid)
                 }
             }
         }
@@ -565,47 +423,88 @@ class BookRepositoryUpsertTest :
 
 // --- Fixtures ---------------------------------------------------------------
 
+private fun SqlTestDatabases.makeRepo(bus: ChangeBus = ChangeBus()): BookRepository {
+    val syncRegistry = SyncRegistry()
+    return BookRepository(
+        db = sql,
+        driver = driver,
+        bus = bus,
+        registry = syncRegistry,
+        contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+        seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+        genreRepository = GenreRepository(sql, bus, syncRegistry),
+    )
+}
+
+/** Runs a raw FTS5 MATCH query and collects the matched rowids in rank order. */
+private fun SqlDriver.ftsRowids(query: String): List<Long> {
+    val result = mutableListOf<Long>()
+    executeQuery(
+        identifier = null,
+        sql = query,
+        parameters = 0,
+        mapper = { cursor ->
+            while (cursor.next().value) {
+                cursor.getLong(0)?.let { result += it }
+            }
+            QueryResult.Value(Unit)
+        },
+    )
+    return result
+}
+
 /**
- * Seeds one [ContributorTable] row directly. `replaceContributors` requires the
+ * Seeds one `contributors` row directly. `replaceContributors` requires the
  * contributor id to pre-exist (its junction-row FK); these inserts satisfy that
  * without touching the global revision counter or the change bus — so tests can
  * still assert on the book's own revision and Created event.
  *
  * Must be called inside a `transaction { }` block.
  */
-private fun seedContributor(
+private fun ListenUpDatabase.seedContributor(
     id: String,
     name: String,
 ) {
-    ContributorTable.insert {
-        it[ContributorTable.id] = id
-        it[ContributorTable.normalizedName] = name.lowercase().trim()
-        it[ContributorTable.name] = name
-        it[ContributorTable.sortName] = null
-        it[ContributorTable.revision] = 0L
-        it[ContributorTable.createdAt] = 0L
-        it[ContributorTable.updatedAt] = 0L
-        it[ContributorTable.deletedAt] = null
-        it[ContributorTable.clientOpId] = null
-    }
+    contributorsQueries.insert(
+        id = id,
+        normalized_name = name.lowercase().trim(),
+        name = name,
+        sort_name = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = null,
+        client_op_id = null,
+        asin = null,
+        description = null,
+        image_path = null,
+        image_blur_hash = null,
+        birth_date = null,
+        death_date = null,
+        website = null,
+    )
 }
 
-/** Seeds one [BookSeriesTable] row directly — see [seedContributor]. */
-private fun seedSeries(
+/** Seeds one `book_series` row directly — see [seedContributor]. */
+private fun ListenUpDatabase.seedSeries(
     id: String,
     name: String,
 ) {
-    BookSeriesTable.insert {
-        it[BookSeriesTable.id] = id
-        it[BookSeriesTable.normalizedName] = name.lowercase().trim()
-        it[BookSeriesTable.name] = name
-        it[BookSeriesTable.sortName] = null
-        it[BookSeriesTable.revision] = 0L
-        it[BookSeriesTable.createdAt] = 0L
-        it[BookSeriesTable.updatedAt] = 0L
-        it[BookSeriesTable.deletedAt] = null
-        it[BookSeriesTable.clientOpId] = null
-    }
+    seriesQueries.insert(
+        id = id,
+        normalized_name = name.lowercase().trim(),
+        name = name,
+        sort_name = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = null,
+        client_op_id = null,
+        asin = null,
+        description = null,
+        cover_path = null,
+        cover_blur_hash = null,
+    )
 }
 
 /**

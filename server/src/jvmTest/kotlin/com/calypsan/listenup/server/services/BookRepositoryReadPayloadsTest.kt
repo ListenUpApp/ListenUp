@@ -2,274 +2,271 @@
 
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.db.BookAudioFileTable
-import com.calypsan.listenup.server.db.BookChapterTable
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
-import com.calypsan.listenup.server.db.BookSeriesTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.GenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryReadPayloadsTest :
     FunSpec({
 
-        fun newRepo(db: Database): BookRepository {
-            val bus = ChangeBus()
-            val syncRegistry = SyncRegistry()
-            return BookRepository(
-                db = db.asSqlDatabase(),
-                driver = db.asSqlDriver(),
-                bus = bus,
-                registry = syncRegistry,
-                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
-            )
-        }
-
         test("readPayloads equals per-id readPayload, child ordering included") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = newRepo(db)
+            withSqlDatabase {
+                val repo = newRepo()
                 runTest {
-                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
-                    transaction(db) {
+                    sql.seedTestLibraryAndFolder()
+                    sql.transaction {
                         listOf("b1", "b2").forEachIndexed { bi, bookId ->
-                            BookTable.insert {
-                                it[id] = bookId
-                                it[libraryId] = libId
-                                it[title] = "Book $bookId"
-                                it[sortTitle] = "Book $bookId"
-                                it[totalDuration] = 1000L
-                                it[rootRelPath] = "path/$bookId"
-                                it[scannedAt] = 1L
-                                it[revision] = (bi + 1).toLong()
-                                it[createdAt] = 1L
-                                it[updatedAt] = 1L
-                                it[coverSource] = "filesystem"
-                                it[coverHash] = "hash-$bookId"
-                            }
-                            ContributorTable.insert {
-                                it[id] = "c-$bookId-0"
-                                it[normalizedName] = "a $bookId"
-                                it[name] = "Author $bookId"
-                                it[sortName] = "Author, $bookId"
-                            }
-                            ContributorTable.insert {
-                                it[id] = "c-$bookId-1"
-                                it[normalizedName] = "n $bookId"
-                                it[name] = "Narrator $bookId"
-                                it[sortName] = null
-                            }
-                            BookContributorTable.insert {
-                                it[BookContributorTable.bookId] = bookId
-                                it[contributorId] = "c-$bookId-0"
-                                it[role] = "author"
-                                it[creditedAs] = null
-                                it[ordinal] = 0
-                            }
-                            BookContributorTable.insert {
-                                it[BookContributorTable.bookId] = bookId
-                                it[contributorId] = "c-$bookId-1"
-                                it[role] = "narrator"
-                                it[creditedAs] = null
-                                it[ordinal] = 1
-                            }
-                            BookSeriesTable.insert {
-                                it[id] = "s-$bookId"
-                                it[normalizedName] = "series $bookId"
-                                it[name] = "Series $bookId"
-                                it[sortName] = null
-                            }
-                            BookSeriesMembershipTable.insert {
-                                it[BookSeriesMembershipTable.bookId] = bookId
-                                it[seriesId] = "s-$bookId"
-                                it[sequence] = "1"
-                                it[ordinal] = 0
-                            }
+                            sql.seedBook(bookId, revision = (bi + 1).toLong(), coverHash = "hash-$bookId")
+                            sql.contributorsQueries.insert(
+                                id = "c-$bookId-0",
+                                normalized_name = "a $bookId",
+                                name = "Author $bookId",
+                                sort_name = "Author, $bookId",
+                                revision = 0L,
+                                created_at = 0L,
+                                updated_at = 0L,
+                                deleted_at = null,
+                                client_op_id = null,
+                                asin = null,
+                                description = null,
+                                image_path = null,
+                                image_blur_hash = null,
+                                birth_date = null,
+                                death_date = null,
+                                website = null,
+                            )
+                            sql.contributorsQueries.insert(
+                                id = "c-$bookId-1",
+                                normalized_name = "n $bookId",
+                                name = "Narrator $bookId",
+                                sort_name = null,
+                                revision = 0L,
+                                created_at = 0L,
+                                updated_at = 0L,
+                                deleted_at = null,
+                                client_op_id = null,
+                                asin = null,
+                                description = null,
+                                image_path = null,
+                                image_blur_hash = null,
+                                birth_date = null,
+                                death_date = null,
+                                website = null,
+                            )
+                            sql.bookContributorsQueries.insert(
+                                book_id = bookId,
+                                contributor_id = "c-$bookId-0",
+                                role = "author",
+                                credited_as = null,
+                                ordinal = 0L,
+                            )
+                            sql.bookContributorsQueries.insert(
+                                book_id = bookId,
+                                contributor_id = "c-$bookId-1",
+                                role = "narrator",
+                                credited_as = null,
+                                ordinal = 1L,
+                            )
+                            sql.seriesQueries.insert(
+                                id = "s-$bookId",
+                                normalized_name = "series $bookId",
+                                name = "Series $bookId",
+                                sort_name = null,
+                                revision = 0L,
+                                created_at = 0L,
+                                updated_at = 0L,
+                                deleted_at = null,
+                                client_op_id = null,
+                                asin = null,
+                                description = null,
+                                cover_path = null,
+                                cover_blur_hash = null,
+                            )
+                            sql.bookSeriesMembershipsQueries.insert(
+                                book_id = bookId,
+                                series_id = "s-$bookId",
+                                sequence = "1",
+                                ordinal = 0L,
+                            )
                             (0..2).forEach { ci ->
-                                BookChapterTable.insert {
-                                    it[BookChapterTable.bookId] = bookId
-                                    it[ordinal] = ci
-                                    it[id] = "ch-$bookId-$ci"
-                                    it[title] = "Chapter $ci"
-                                    it[duration] = 100L
-                                    it[startTime] = (ci * 100).toLong()
-                                }
-                                BookAudioFileTable.insert {
-                                    it[BookAudioFileTable.bookId] = bookId
-                                    it[ordinal] = ci
-                                    it[id] = "af-$bookId-$ci"
-                                    it[filename] = "$ci.m4b"
-                                    it[format] = "m4b"
-                                    it[codec] = "aac"
-                                    it[duration] = 100L
-                                    it[size] = 100L
-                                }
+                                sql.bookChaptersQueries.insert(
+                                    book_id = bookId,
+                                    ordinal = ci.toLong(),
+                                    id = "ch-$bookId-$ci",
+                                    title = "Chapter $ci",
+                                    duration = 100L,
+                                    start_time = (ci * 100).toLong(),
+                                )
+                                sql.bookAudioFilesQueries.insert(
+                                    book_id = bookId,
+                                    ordinal = ci.toLong(),
+                                    id = "af-$bookId-$ci",
+                                    filename = "$ci.m4b",
+                                    format = "m4b",
+                                    codec = "aac",
+                                    duration = 100L,
+                                    size = 100L,
+                                )
                             }
                             // Two live genres (distinct paths) + one soft-deleted genre — exercises the
                             // genre grouping query's orderBy(path) and its deletedAt.isNull() filter.
-                            GenreTable.insert {
-                                it[id] = "g-$bookId-fic"
-                                it[name] = "Fiction"
-                                it[slug] = "fiction-$bookId"
-                                it[path] = "fiction"
-                                it[parentId] = null
-                                it[revision] = 0L
-                            }
-                            GenreTable.insert {
-                                it[id] = "g-$bookId-sf"
-                                it[name] = "Science Fiction"
-                                it[slug] = "scifi-$bookId"
-                                it[path] = "fiction/science-fiction"
-                                it[parentId] = null
-                                it[revision] = 0L
-                            }
-                            GenreTable.insert {
-                                it[id] = "g-$bookId-dead"
-                                it[name] = "Deleted Genre"
-                                it[slug] = "dead-$bookId"
-                                it[path] = "deleted"
-                                it[parentId] = null
-                                it[revision] = 0L
-                                it[deletedAt] = 123L
-                            }
-                            BookGenreTable.insert {
-                                it[BookGenreTable.bookId] = bookId
-                                it[genreId] = "g-$bookId-fic"
-                            }
-                            BookGenreTable.insert {
-                                it[BookGenreTable.bookId] = bookId
-                                it[genreId] = "g-$bookId-sf"
-                            }
-                            BookGenreTable.insert {
-                                it[BookGenreTable.bookId] = bookId
-                                it[genreId] = "g-$bookId-dead"
-                            }
+                            sql.seedGenre("g-$bookId-fic", name = "Fiction", slug = "fiction-$bookId", path = "fiction")
+                            sql.seedGenre(
+                                "g-$bookId-sf",
+                                name = "Science Fiction",
+                                slug = "scifi-$bookId",
+                                path = "fiction/science-fiction",
+                            )
+                            sql.seedGenre(
+                                "g-$bookId-dead",
+                                name = "Deleted Genre",
+                                slug = "dead-$bookId",
+                                path = "deleted",
+                                deletedAt = 123L,
+                            )
+                            sql.bookGenresQueries.insertIfAbsent(book_id = bookId, genre_id = "g-$bookId-fic")
+                            sql.bookGenresQueries.insertIfAbsent(book_id = bookId, genre_id = "g-$bookId-sf")
+                            sql.bookGenresQueries.insertIfAbsent(book_id = bookId, genre_id = "g-$bookId-dead")
                         }
                     }
-                    suspendTransaction(db = db) {
-                        val ids = listOf("b1", "b2")
-                        val batched = repo.readPayloadsForTest(ids)
-                        val perId = ids.mapNotNull { repo.readPayloadForTest(it) }
-                        batched shouldBe perId
-                    }
+                    val ids = listOf("b1", "b2")
+                    val batched = repo.readPayloadsForTest(ids)
+                    val perId = ids.mapNotNull { repo.readPayloadForTest(it) }
+                    batched shouldBe perId
                 }
             }
         }
 
         test("readPayloads returns payloads in input-id order") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = newRepo(db)
+            withSqlDatabase {
+                val repo = newRepo()
                 runTest {
-                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
-                    transaction(db) {
-                        listOf("a", "b", "c").forEach { bookId ->
-                            BookTable.insert {
-                                it[id] = bookId
-                                it[libraryId] = libId
-                                it[title] = bookId
-                                it[sortTitle] = bookId
-                                it[totalDuration] = 0L
-                                it[rootRelPath] = bookId
-                                it[scannedAt] = 0L
-                                it[revision] = 1L
-                                it[createdAt] = 0L
-                                it[updatedAt] = 0L
-                            }
-                        }
+                    sql.seedTestLibraryAndFolder()
+                    sql.transaction {
+                        listOf("a", "b", "c").forEach { bookId -> sql.seedBook(bookId) }
                     }
-                    suspendTransaction(db = db) {
-                        repo.readPayloadsForTest(listOf("c", "a", "b")).map { it.id } shouldBe listOf("c", "a", "b")
-                    }
+                    repo.readPayloadsForTest(listOf("c", "a", "b")).map { it.id } shouldBe listOf("c", "a", "b")
                 }
             }
         }
 
         test("readPayloads skips absent ids, keeps surrounding ones") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = newRepo(db)
+            withSqlDatabase {
+                val repo = newRepo()
                 runTest {
-                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
-                    transaction(db) {
-                        listOf("x", "z").forEach { bookId ->
-                            BookTable.insert {
-                                it[id] = bookId
-                                it[libraryId] = libId
-                                it[title] = bookId
-                                it[sortTitle] = bookId
-                                it[totalDuration] = 0L
-                                it[rootRelPath] = bookId
-                                it[scannedAt] = 0L
-                                it[revision] = 1L
-                                it[createdAt] = 0L
-                                it[updatedAt] = 0L
-                            }
-                        }
+                    sql.seedTestLibraryAndFolder()
+                    sql.transaction {
+                        listOf("x", "z").forEach { bookId -> sql.seedBook(bookId) }
                     }
-                    suspendTransaction(db = db) {
-                        repo.readPayloadsForTest(listOf("x", "missing", "z")).map { it.id } shouldBe listOf("x", "z")
-                    }
+                    repo.readPayloadsForTest(listOf("x", "missing", "z")).map { it.id } shouldBe listOf("x", "z")
                 }
             }
         }
 
         test("readPayloads on empty input returns empty list") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = newRepo(db)
+            withSqlDatabase {
+                val repo = newRepo()
                 runTest {
-                    suspendTransaction(db = db) {
-                        repo.readPayloadsForTest(emptyList()).shouldBeEmpty()
-                    }
+                    repo.readPayloadsForTest(emptyList()).shouldBeEmpty()
                 }
             }
         }
 
         test("readPayloads returns all ids across the inList chunk boundary") {
-            withInMemoryDatabase {
-                val db = this
-                val repo = newRepo(db)
+            withSqlDatabase {
+                val repo = newRepo()
                 runTest {
-                    val libId = LibraryRegistry(db.asSqlDatabase()).currentLibrary().value
+                    sql.seedTestLibraryAndFolder()
                     val ids = (0 until 1000).map { "book-%04d".format(it) }
-                    transaction(db) {
-                        ids.forEach { bookId ->
-                            BookTable.insert {
-                                it[id] = bookId
-                                it[libraryId] = libId
-                                it[title] = bookId
-                                it[sortTitle] = bookId
-                                it[totalDuration] = 0L
-                                it[rootRelPath] = bookId
-                                it[scannedAt] = 0L
-                                it[revision] = 1L
-                                it[createdAt] = 0L
-                                it[updatedAt] = 0L
-                            }
-                        }
+                    sql.transaction {
+                        ids.forEach { bookId -> sql.seedBook(bookId) }
                     }
-                    suspendTransaction(db = db) {
-                        repo.readPayloadsForTest(ids).map { it.id } shouldBe ids
-                    }
+                    repo.readPayloadsForTest(ids).map { it.id } shouldBe ids
                 }
             }
         }
     })
+
+private fun SqlTestDatabases.newRepo(): BookRepository {
+    val bus = ChangeBus()
+    val syncRegistry = SyncRegistry()
+    return BookRepository(
+        db = sql,
+        driver = driver,
+        bus = bus,
+        registry = syncRegistry,
+        contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+        seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+        genreRepository = GenreRepository(sql, bus, syncRegistry),
+    )
+}
+
+/** Minimal `books` row anchored to the seeded `test-library` / `test-folder`. */
+private fun ListenUpDatabase.seedBook(
+    bookId: String,
+    revision: Long = 1L,
+    coverHash: String? = null,
+) {
+    booksQueries.insert(
+        id = bookId,
+        library_id = "test-library",
+        folder_id = "test-folder",
+        title = "Book $bookId",
+        sort_title = "Book $bookId",
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = if (coverHash == null) 0L else 1000L,
+        cover_source = if (coverHash == null) null else "filesystem",
+        cover_path = null,
+        cover_hash = coverHash,
+        root_rel_path = "path/$bookId",
+        inode = null,
+        scanned_at = if (coverHash == null) 0L else 1L,
+        revision = revision,
+        created_at = if (coverHash == null) 0L else 1L,
+        updated_at = if (coverHash == null) 0L else 1L,
+        deleted_at = null,
+        client_op_id = null,
+    )
+}
+
+/** One `genres` row; mirrors the GenreTable seed used by these payload fixtures. */
+private fun ListenUpDatabase.seedGenre(
+    id: String,
+    name: String,
+    slug: String,
+    path: String,
+    deletedAt: Long? = null,
+) {
+    genresQueries.insert(
+        id = id,
+        name = name,
+        slug = slug,
+        path = path,
+        parent_id = null,
+        depth = 0,
+        sort_order = 0,
+        color = null,
+        description = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = deletedAt,
+        client_op_id = null,
+    )
+}
